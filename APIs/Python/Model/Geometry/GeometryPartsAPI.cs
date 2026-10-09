@@ -119,7 +119,7 @@ namespace APIs.Python.Model
         [PythonAPI("Renames a sub-part of a compound part made by split_solid, the way renaming it in the " +
                    "tree does. The sub-part is the solid the cells were cut from, which the part lists in " +
                    "split_sub_part_names; its cells are renamed after it, and so is the mesh part it was " +
-                   "meshed into.",
+                   "meshed into. old_name is matched regardless of case.",
                    Arguments = "part_name: str, old_name: str, new_name: str", Returns = "None",
                    Example = "pmx.model.geometry.parts.rename_split_sub_part('Compound_part-1', 'Solid_part-1', 'Web')")]
         public void rename_split_sub_part(string part_name, string old_name, string new_name)
@@ -135,7 +135,8 @@ namespace APIs.Python.Model
                    "else a new sub-part named after the one the first cell belongs to. A sub-part left " +
                    "without cells is gone. Grouping cells that " +
                    "already belong to that sub-part, or all the cells of one sub-part under a new name, is " +
-                   "refused - rename_split_sub_part renames. Returns the name of the sub-part.",
+                   "refused - rename_split_sub_part renames, and so is a cell named twice in any spelling. " +
+                   "Returns the name of the sub-part.",
                    Arguments = "part_name: str, cell_names: list[str] or str, sub_part_name: str = None",
                    Returns = "str",
                    Example = "cells = compound.get_split_cell_names('Solid_part-1')\n" +

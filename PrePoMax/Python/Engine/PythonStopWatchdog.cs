@@ -24,11 +24,13 @@ namespace PrePoMax.Python
     {
         // Variables                                                                                                                
         private const int ShowDelayMilliseconds = 1000;
+        private const int DeliveryWaitMilliseconds = 300;
         private readonly object _lock;
         private readonly int _managedThreadId;
         private readonly Rectangle _ownerBounds;
         private readonly System.Threading.Timer _timer;
         private FrmPythonStop _form;
+        private PythonExecution _execution;
         private bool _isDisposed;
 
 
@@ -39,6 +41,7 @@ namespace PrePoMax.Python
             _managedThreadId = Thread.CurrentThread.ManagedThreadId;
             _ownerBounds = ownerBounds;
             _form = null;
+            _execution = null;
             _isDisposed = false;
             _timer = new System.Threading.Timer(delegate (object state) { StartStopWindow(); }, null,
                                                 ShowDelayMilliseconds, Timeout.Infinite);
@@ -62,7 +65,7 @@ namespace PrePoMax.Python
         {
             try
             {
-                FrmPythonStop form = new FrmPythonStop(_managedThreadId, _ownerBounds);
+                FrmPythonStop form = new FrmPythonStop(this, _ownerBounds);
                 // The handle is created here, on the thread that owns the window, before anyone can be told
                 // to close it
                 IntPtr handle = form.Handle;
@@ -81,6 +84,32 @@ namespace PrePoMax.Python
             {
                 // The stop window is an offer, not part of the run: a window that could not be shown leaves
                 // the Python running as it would have without one
+            }
+        }
+        // Interrupts the run this watchdog stands for and no other. The run is the one its thread is in when the
+        // first stop is asked for; the thread can start no other run before this watchdog is disposed, and the
+        // lock keeps a stop from looking after that. Called from the stop window's thread. Returns false when the
+        // run is not going; tells whether the interrupt was delivered within a moment
+        public bool RequestStop(out bool isDelivered)
+        {
+            isDelivered = false;
+            PythonExecution execution;
+            lock (_lock)
+            {
+                if (_isDisposed) return false;
+                if (_execution == null) _execution = PythonEngineManager.GetExecution(_managedThreadId);
+                execution = _execution;
+            }
+            return PythonEngineManager.RequestInterrupt(execution, DeliveryWaitMilliseconds, out isDelivered);
+        }
+        // Whether the run can still be stopped, so the stop button is worth offering again: the watchdog stands
+        // until the work it watches is done, and that work may not have reached its Python yet
+        public bool IsRunning()
+        {
+            lock (_lock)
+            {
+                if (_isDisposed) return false;
+                return _execution == null || !_execution.IsEnded;
             }
         }
         public void Dispose()

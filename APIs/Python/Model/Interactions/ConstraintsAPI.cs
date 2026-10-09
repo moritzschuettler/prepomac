@@ -35,7 +35,7 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a tie constraint using command history. The selection target is surfaces for " +
-                   "both sides.",
+                   "both sides. A position_tolerance must be zero or larger.",
                    Arguments = "name: str, master_region: Selection or Region, slave_region: Selection or " +
                                "Region, position_tolerance: float = None, adjust: bool = None",
                    Returns = "Constraint",
@@ -73,7 +73,8 @@ namespace APIs.Python.Model
                    "region are the two sector faces and their selection target is surfaces. The region is " +
                    "the result expansion region, its selection target is elements, and it is required " +
                    "when number_of_graph_sectors is larger than 1 and refused otherwise. The axis is given " +
-                   "by a point and a direction.",
+                   "by a point and a direction. number_of_sectors is at least 2 and number_of_graph_sectors " +
+                   "between 1 and number_of_sectors. Cyclic symmetry is refused in a 2D model.",
                    Arguments = "name: str, master_region: Selection or Region, slave_region: Selection or " +
                                "Region, region: Selection or Region = None, axis_point: list[float] = None, " +
                                "axis_direction: list[float] = None, number_of_sectors: int = None, " +
@@ -88,6 +89,7 @@ namespace APIs.Python.Model
                                                  object position_tolerance = null, object adjust = null)
         {
             _service.ValidateName(name, null);
+            EnsureThreeDimensional("Cyclic symmetry");
             CyclicSymmetry constraint =
                 new CyclicSymmetry(name, null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection,
                                    _service.GetIsTwoDimensional());
@@ -105,7 +107,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces an existing cyclic symmetry constraint using command history. A replace that " +
                    "lowers number_of_graph_sectors to 1 must also drop the result expansion region, which " +
-                   "clear_expansion_region=True does; it cannot be combined with region.",
+                   "clear_expansion_region=True does; it cannot be combined with region. A number_of_sectors " +
+                   "below the kept number_of_graph_sectors is refused rather than lowering it; give both.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_cyclic_symmetry, all optional, clear_expansion_region: bool = None",
                    Returns = "Constraint")]
@@ -144,7 +147,9 @@ namespace APIs.Python.Model
                    "axis_direction switches that value to user defined. The formulation is RigidBody, two rigid " +
                    "bodies coupled by equations, or Springs, axial springs from every surface node to nodes on the " +
                    "joint axis tied by equations, which needs no rigid body and solves on shell elements; its " +
-                   "stiffness comes from the model unless a stiffness is given.",
+                   "stiffness comes from the model unless a stiffness is given. stiffness and " +
+                   "stiffness_defined_by are refused with the RigidBody formulation, axis_direction with a Ball " +
+                   "or Weld joint, which has no axis, and a joint is refused in a 2D model.",
                    Arguments = "name: str, master_region: Selection or Region, slave_region: Selection or " +
                                "Region, joint_type: str = None, center_defined_by: str = None, " +
                                "center: list[float] = None, axis_defined_by: str = None, " +
@@ -159,6 +164,7 @@ namespace APIs.Python.Model
                                        object stiffness = null)
         {
             _service.ValidateName(name, null);
+            EnsureThreeDimensional("A joint");
             Joint constraint = new Joint(name, null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection,
                                          _service.GetIsTwoDimensional());
             _service.ApplyMaster(constraint, master_region, SurfaceTarget);
@@ -219,7 +225,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a kinematic coupling constraint using command history. The selection target is " +
-                   "surfaces.",
+                   "surfaces. In a 2D model u3=True is refused.",
                    Arguments = "name: str, reference_point_name: str, region: Selection or Region, " +
                                "u1: bool = None, u2: bool = None, u3: bool = None", Returns = "Constraint")]
         public ConstraintAPI add_kinematic_coupling(string name, object reference_point_name, object region,
@@ -230,9 +236,7 @@ namespace APIs.Python.Model
                 new KinematicCoupling(name, _service.ResolveReferencePointName(reference_point_name), null,
                                       RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
             _service.ApplyRegion(constraint, region, SurfaceTarget);
-            if (u1 != null) constraint.U1 = PythonValueConverter.ToBool(u1, "u1");
-            if (u2 != null) constraint.U2 = PythonValueConverter.ToBool(u2, "u2");
-            if (u3 != null) constraint.U3 = PythonValueConverter.ToBool(u3, "u3");
+            ApplyKinematicValues(constraint, u1, u2, u3);
             _service.Add(constraint);
             //
             return this[name];
@@ -251,15 +255,13 @@ namespace APIs.Python.Model
             if (reference_point_name != null)
                 constraint.ReferencePointName = _service.ResolveReferencePointName(reference_point_name);
             if (region != null) _service.ApplyRegion(constraint, region, SurfaceTarget);
-            if (u1 != null) constraint.U1 = PythonValueConverter.ToBool(u1, "u1");
-            if (u2 != null) constraint.U2 = PythonValueConverter.ToBool(u2, "u2");
-            if (u3 != null) constraint.U3 = PythonValueConverter.ToBool(u3, "u3");
+            ApplyKinematicValues(constraint, u1, u2, u3);
             //
             return Replace(old_name, name, constraint);
         }
 
         [PythonAPI("Adds a distributing coupling constraint using command history. The selection target is " +
-                   "surfaces.",
+                   "surfaces. In a 2D model u3, ur1 and ur2 set to True are refused.",
                    Arguments = "name: str, reference_point_name: str, region: Selection or Region, " +
                                "u1: bool = None, u2: bool = None, u3: bool = None, ur1: bool = None, " +
                                "ur2: bool = None, ur3: bool = None", Returns = "Constraint")]
@@ -337,7 +339,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, constraint);
         }
 
-        [PythonAPI("Adds a point spring constraint using command history. The selection target is nodes.",
+        [PythonAPI("Adds a point spring constraint using command history. The selection target is nodes. " +
+                   "A stiffness must be zero or larger, and k3 must be zero in a 2D model.",
                    Arguments = "name: str, region: Selection or Region, k1: float = None, " +
                                "k2: float = None, k3: float = None", Returns = "Constraint")]
         public ConstraintAPI add_point_spring(string name, object region, object k1 = null, object k2 = null,
@@ -367,7 +370,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a surface spring constraint using command history. The selection target is " +
-                   "surfaces.",
+                   "surfaces. A stiffness must be zero or larger, and k3 must be zero in a 2D model.",
                    Arguments = "name: str, region: Selection or Region, k1: float = None, " +
                                "k2: float = None, k3: float = None, stiffness_per_area: bool = None",
                    Returns = "Constraint")]
@@ -469,8 +472,14 @@ namespace APIs.Python.Model
         private static void ApplyTieValues(Tie constraint, object positionTolerance, object adjust)
         {
             if (positionTolerance != null)
-                constraint.PositionTolerance.Equation =
-                    PythonValueConverter.ToEquationString(positionTolerance, "position_tolerance");
+            {
+                EquationString equation = PythonValueConverter.ToEquationString(positionTolerance, "position_tolerance");
+                double value = PythonModelArgumentCheck.Evaluate(constraint.PositionTolerance, equation,
+                                                                 "position_tolerance");
+                if (value < 0)
+                    throw new PythonAPIException("The argument 'position_tolerance' must be zero or larger.");
+                constraint.PositionTolerance.Equation = equation;
+            }
             if (adjust != null) constraint.Adjust = PythonValueConverter.ToBool(adjust, "adjust");
         }
         private static void ApplyJointValues(Joint constraint, object jointType, object centerDefinedBy, object center,
@@ -480,6 +489,17 @@ namespace APIs.Python.Model
             if (formulation != null)
                 constraint.Formulation =
                     PythonValueConverter.ToEnum<JointFormulationEnum>(AsString(formulation, "formulation"), "formulation");
+            // The rigid body formulation has no springs, so a stiffness given for it would never be written
+            if (!constraint.HasSprings && (stiffness != null || stiffnessDefinedBy != null))
+                throw new PythonAPIException("The argument '" + (stiffness != null ? "stiffness" : "stiffness_defined_by") +
+                                             "' applies only to the Springs formulation, and the joint uses " +
+                                             constraint.Formulation + ". Give formulation='Springs' together with it.");
+            if (jointType != null)
+                constraint.JointType =
+                    PythonValueConverter.ToEnum<JointTypeEnum>(AsString(jointType, "joint_type"), "joint_type");
+            if (axisDirection != null && !constraint.HasAxis)
+                throw new PythonAPIException("The argument 'axis_direction' does not apply to a " + constraint.JointType +
+                                             " joint, which has no axis.");
             // A given stiffness is the user defined one unless the definition says otherwise
             if (stiffness != null)
             {
@@ -496,10 +516,6 @@ namespace APIs.Python.Model
                 if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
                     throw new PythonAPIException("The argument 'stiffness' must be positive.");
             }
-            //
-            if (jointType != null)
-                constraint.JointType =
-                    PythonValueConverter.ToEnum<JointTypeEnum>(AsString(jointType, "joint_type"), "joint_type");
             // A given value is the user defined one unless the definition says otherwise
             if (center != null)
             {
@@ -569,17 +585,25 @@ namespace APIs.Python.Model
                 constraint.N2.Equation = values[1];
                 constraint.N3.Equation = values[2];
             }
+            int sectors = constraint.NumberOfSectors;
             if (numberOfSectors != null)
-                constraint.NumberOfSectors = PythonValueConverter.ToInt(numberOfSectors, "number_of_sectors");
-            if (numberOfGraphSectors != null)
             {
-                int graphSectors = PythonValueConverter.ToInt(numberOfGraphSectors, "number_of_graph_sectors");
-                if (graphSectors < 1 || graphSectors > constraint.NumberOfSectors)
-                    throw new PythonAPIException("The argument 'number_of_graph_sectors' must be between 1 and " +
-                                                 "number_of_sectors, which is " + constraint.NumberOfSectors +
-                                                 ", but it is " + graphSectors + ".");
-                constraint.NumberOfGraphSectors = graphSectors;
+                sectors = PythonValueConverter.ToInt(numberOfSectors, "number_of_sectors");
+                if (sectors < 2)
+                    throw new PythonAPIException("The argument 'number_of_sectors' must be at least 2, but it is " +
+                                                 sectors + ".");
             }
+            // The model lowers the graph sectors to fewer sectors on its own, so the merged pair is checked
+            int graphSectors = constraint.NumberOfGraphSectors;
+            if (numberOfGraphSectors != null)
+                graphSectors = PythonValueConverter.ToInt(numberOfGraphSectors, "number_of_graph_sectors");
+            if (graphSectors < 1 || graphSectors > sectors)
+                throw new PythonAPIException("The argument 'number_of_graph_sectors' must be between 1 and " +
+                                             "number_of_sectors, which is " + sectors + ", but it is " +
+                                             graphSectors + (numberOfGraphSectors == null ? ", the value kept" : "") +
+                                             ".");
+            constraint.NumberOfSectors = sectors;
+            constraint.NumberOfGraphSectors = graphSectors;
             if (checkSectorAngle != null)
                 constraint.CheckSectorAngle =
                     PythonValueConverter.ToBool(checkSectorAngle, "check_sector_angle");
@@ -622,10 +646,31 @@ namespace APIs.Python.Model
         {
             if (u1 != null) constraint.U1 = PythonValueConverter.ToBool(u1, "u1");
             if (u2 != null) constraint.U2 = PythonValueConverter.ToBool(u2, "u2");
-            if (u3 != null) constraint.U3 = PythonValueConverter.ToBool(u3, "u3");
-            if (ur1 != null) constraint.UR1 = PythonValueConverter.ToBool(ur1, "ur1");
-            if (ur2 != null) constraint.UR2 = PythonValueConverter.ToBool(ur2, "ur2");
+            if (u3 != null) constraint.U3 = ToInPlaneBool(constraint, u3, "u3");
+            if (ur1 != null) constraint.UR1 = ToInPlaneBool(constraint, ur1, "ur1");
+            if (ur2 != null) constraint.UR2 = ToInPlaneBool(constraint, ur2, "ur2");
             if (ur3 != null) constraint.UR3 = PythonValueConverter.ToBool(ur3, "ur3");
+        }
+        private static void ApplyKinematicValues(KinematicCoupling constraint, object u1, object u2, object u3)
+        {
+            if (u1 != null) constraint.U1 = PythonValueConverter.ToBool(u1, "u1");
+            if (u2 != null) constraint.U2 = PythonValueConverter.ToBool(u2, "u2");
+            if (u3 != null) constraint.U3 = ToInPlaneBool(constraint, u3, "u3");
+        }
+        // The model clears an out of plane degree of freedom of a 2D constraint, so a given one is refused instead
+        private static bool ToInPlaneBool(Constraint constraint, object value, string argumentName)
+        {
+            bool result = PythonValueConverter.ToBool(value, argumentName);
+            if (result && constraint.TwoD)
+                throw new PythonAPIException("The argument '" + argumentName + "' cannot be True in a 2D model, " +
+                                             "which has no such degree of freedom.");
+            //
+            return result;
+        }
+        private void EnsureThreeDimensional(string itemDescription)
+        {
+            if (_service.GetIsTwoDimensional())
+                throw new PythonAPIException(itemDescription + " is supported only in a 3D model.");
         }
         private static void ApplyCompressionOnlyValues(CompressionOnly constraint, object clearance,
                                                        object springStiffness,
@@ -649,9 +694,23 @@ namespace APIs.Python.Model
         }
         private static void ApplySpringValues(SpringConstraint constraint, object k1, object k2, object k3)
         {
-            if (k1 != null) constraint.K1.Equation = PythonValueConverter.ToEquationString(k1, "k1");
-            if (k2 != null) constraint.K2.Equation = PythonValueConverter.ToEquationString(k2, "k2");
-            if (k3 != null) constraint.K3.Equation = PythonValueConverter.ToEquationString(k3, "k3");
+            if (k1 != null) constraint.K1.Equation = ToSpringStiffness(constraint, constraint.K1, k1, "k1");
+            if (k2 != null) constraint.K2.Equation = ToSpringStiffness(constraint, constraint.K2, k2, "k2");
+            if (k3 != null) constraint.K3.Equation = ToSpringStiffness(constraint, constraint.K3, k3, "k3");
+        }
+        // The model sets a negative stiffness, and an out of plane one in 2D, to zero, so they are refused instead
+        private static EquationString ToSpringStiffness(SpringConstraint constraint, EquationContainer container,
+                                                        object value, string argumentName)
+        {
+            EquationString equation = PythonValueConverter.ToEquationString(value, argumentName);
+            double stiffness = PythonModelArgumentCheck.Evaluate(container, equation, argumentName);
+            if (stiffness < 0)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be zero or larger.");
+            if (stiffness != 0 && argumentName == "k3" && constraint.TwoD)
+                throw new PythonAPIException("The argument 'k3' must be zero in a 2D model, which has no out of " +
+                                             "plane direction.");
+            //
+            return equation;
         }
         private ConstraintAPI Replace(string oldName, string name, Constraint constraint)
         {

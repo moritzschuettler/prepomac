@@ -43,7 +43,7 @@ namespace APIs.Python
         }
         public bool ContainsResult(string resultName)
         {
-            return _results != null && _results.ContainsResult(resultName);
+            return _results != null && resultName != null && _results.ContainsResult(resultName);
         }
         public CaeMesh.FeMesh GetCurrentResultMeshOrNull()
         {
@@ -55,6 +55,7 @@ namespace APIs.Python
         }
         public FeResults ResolveResult(string resultName)
         {
+            if (resultName == null) throw new PythonAPIException("The result name must not be None.");
             if (_results == null || !_results.ContainsResult(resultName))
                 throw new PythonAPIException("The result '" + resultName + "' is no longer loaded.");
             FeResults result = _results.GetResult(resultName);

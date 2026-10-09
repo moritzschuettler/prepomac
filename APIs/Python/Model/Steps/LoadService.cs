@@ -27,6 +27,8 @@ namespace APIs.Python.Model
         {
             return LoadAPI.GetItemType(load);
         }
+        // The step makes an item complex only in a steady state dynamics step, and the solver writes the phase of a
+        // complex item only, so a phase anywhere else would be kept without effect
         public void ApplyCommonValues(Load load, object amplitudeName, object coordinateSystemName,
                                       object phaseDeg, object color)
         {
@@ -34,7 +36,12 @@ namespace APIs.Python.Model
             if (coordinateSystemName != null)
                 load.CoordinateSystemName = ResolveCoordinateSystemName(coordinateSystemName);
             if (phaseDeg != null)
+            {
+                if (!load.Complex)
+                    throw new PythonAPIException("The argument 'phase_deg' applies only to a load of a " +
+                                                 "steady_state_dynamics step, which is complex. Leave it out here.");
                 load.PhaseDeg.Equation = PythonValueConverter.ToEquationString(phaseDeg, "phase_deg");
+            }
             if (color != null) load.Color = PythonColorConverter.ToColor(color, "color");
         }
         public void Add(string stepName, Load load)
@@ -66,8 +73,9 @@ namespace APIs.Python.Model
         }
         public void Propagate(string stepName, string name)
         {
-            ResolveItem(stepName, name);
+            Load load = ResolveItem(stepName, name);
             EnsureFollowingStepExists(stepName, name);
+            EnsureFollowingStepsSupport(stepName, load, step => step.IsLoadSupported(load));
             //
             EnsureCommandsAvailable();
             ModelGateway.PropagateLoad(stepName, name);

@@ -10,6 +10,7 @@
 using CaeGlobals;
 using CaeModel;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace APIs.Python.Model
@@ -74,6 +75,7 @@ namespace APIs.Python.Model
             if (temperatureDependent != null)
                 material.TemperatureDependent =
                     PythonValueConverter.ToBool(temperatureDependent, "temperature_dependent");
+            if (properties != null || temperatureDependent != null) CheckRowsAreUsed(material);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceMaterial(oldName, material);
@@ -112,6 +114,7 @@ namespace APIs.Python.Model
             if (temperatureDependent != null)
                 material.TemperatureDependent =
                     PythonValueConverter.ToBool(temperatureDependent, "temperature_dependent");
+            CheckRowsAreUsed(material);
             //
             return material;
         }
@@ -124,10 +127,49 @@ namespace APIs.Python.Model
             if (materialProperties.Count == 0)
                 throw new PythonAPIException("The argument 'properties' must contain at least one material property.");
             //
-            // AddProperty rejects a second elastic property, so the model does the domain check
+            // AddProperty rejects a second elastic property with a message that names no argument
             material.Properties.Clear();
             foreach (MaterialPropertyAPI property in materialProperties)
-                material.AddProperty(property.GetPropertyCopy());
+                PythonModelArgumentCheck.Apply(() => material.AddProperty(property.GetPropertyCopy()), "properties");
+        }
+        // A material that is not temperature dependent writes no temperature column, and of every property but
+        // plastic only the first row, so a table the analysis would cut short is refused
+        private static void CheckRowsAreUsed(Material material)
+        {
+            if (material.TemperatureDependent) return;
+            //
+            foreach (MaterialProperty property in material.Properties)
+            {
+                EquationContainer[][] table = GetSingleValuedTable(property);
+                if (table == null) continue;
+                //
+                string propertyType = MaterialPropertyAPI.GetPropertyType(property);
+                if (table.Length > 1)
+                    throw new PythonAPIException("The " + propertyType + " property has " + table.Length + " rows, " +
+                                                 "but a material that is not temperature dependent uses only the " +
+                                                 "first one. Give temperature_dependent=True, or a single row.");
+                EquationContainer[] row = table[0];
+                double temperature = row.Length == 0 ? 0 : row[row.Length - 1].Value;
+                if (temperature != 0)
+                    throw new PythonAPIException("The " + propertyType + " property has the temperature " +
+                                                 temperature.ToString(CultureInfo.InvariantCulture) + ", but a " +
+                                                 "material that is not temperature dependent writes no " +
+                                                 "temperature. Give temperature_dependent=True, or a temperature " +
+                                                 "of 0.");
+            }
+        }
+        private static EquationContainer[][] GetSingleValuedTable(MaterialProperty property)
+        {
+            if (property is Density density) return density.DensityTemp;
+            if (property is Elastic elastic) return elastic.YoungsPoissonsTemp;
+            if (property is ElasticEngineeringConstants engineeringConstants)
+                return engineeringConstants.EngineeringConstantsTemp;
+            if (property is ElasticLamina lamina) return lamina.LaminaConstantsTemp;
+            if (property is SpecificHeat specificHeat) return specificHeat.SpecificHeatTemp;
+            if (property is ThermalConductivity thermalConductivity) return thermalConductivity.ThermalConductivityTemp;
+            if (property is ThermalExpansion thermalExpansion) return thermalExpansion.ThermalExpansionTemp;
+            //
+            return null;
         }
         private void ValidateName(string name, string allowedExistingName)
         {

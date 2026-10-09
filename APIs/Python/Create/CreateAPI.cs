@@ -104,7 +104,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates an elastic material property. Give the two values for a constant property, " +
-                   "or a list of [youngs_modulus, poissons_ratio, temperature] rows.",
+                   "or a list of [youngs_modulus, poissons_ratio, temperature] rows; poissons_ratio is " +
+                   "required with a single youngs_modulus. The values are checked as the dialog checks " +
+                   "them, and a value the model refuses is refused naming the argument.",
                    Arguments = "youngs_modulus: float or list[list[float]], poissons_ratio: float = None",
                    Returns = "MaterialProperty", Example = "pmx.create.elastic(210000, 0.3)")]
         public MaterialPropertyAPI elastic(object youngs_modulus, object poissons_ratio = null)
@@ -130,14 +132,16 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates an orthotropic elastic property. Every row is [E1, E2, E3, v12, v13, v23, " +
-                   "G12, G13, G23, temperature].", Arguments = "constants: list[list[float]]",
+                   "G12, G13, G23, temperature]. Every row must be physically stable and the temperatures " +
+                   "strictly increasing.", Arguments = "constants: list[list[float]]",
                    Returns = "MaterialProperty")]
         public MaterialPropertyAPI elastic_engineering_constants(object constants)
         {
             return new MaterialPropertyAPI(MaterialPropertyFactory.CreateElasticEngineeringConstants(constants));
         }
 
-        [PythonAPI("Creates a lamina elastic property. Every row is [E1, E2, v12, G12, G13, G23, temperature].",
+        [PythonAPI("Creates a lamina elastic property. Every row is [E1, E2, v12, G12, G13, G23, temperature]. " +
+                   "Every row must be physically stable and the temperatures strictly increasing.",
                    Arguments = "constants: list[list[float]]", Returns = "MaterialProperty")]
         public MaterialPropertyAPI elastic_lamina(object constants)
         {
@@ -190,7 +194,8 @@ namespace APIs.Python
             return new MaterialPropertyAPI(MaterialPropertyFactory.CreateThermalExpansion(thermal_expansion,
                                                                                           zero_temperature));
         }
-        [PythonAPI("Creates a friction surface interaction property.",
+        [PythonAPI("Creates a friction surface interaction property. The coefficient and the stick_slope " +
+                   "must be larger than 0.",
                    Arguments = "coefficient: float, stick_slope: float = None",
                    Returns = "SurfaceInteractionProperty", Example = "pmx.create.friction(0.1)")]
         public SurfaceInteractionPropertyAPI friction(object coefficient, object stick_slope = null)
@@ -212,7 +217,10 @@ namespace APIs.Python
 
         [PythonAPI("Creates a surface behavior surface interaction property. Possible " +
                    "pressure_overclosure_type values are Hard, Linear, Exponential, Tabular and Tied. The " +
-                   "type sets the defaults it implies, so a value given with it overrides that default.",
+                   "type sets the defaults it implies, so a value given with it overrides that default. Each " +
+                   "type takes only the values it uses - Hard none, Linear k, s_inf and c0, Exponential c0 " +
+                   "and p0, Tabular pressure_overclosure and Tied k - and refuses the others; c0, p0, k and " +
+                   "s_inf must be larger than 0.",
                    Arguments = "pressure_overclosure_type: str = None, c0: float = None, p0: float = None, " +
                                "k: float = None, s_inf: float = None, " +
                                "pressure_overclosure: list[list[float]] = None",

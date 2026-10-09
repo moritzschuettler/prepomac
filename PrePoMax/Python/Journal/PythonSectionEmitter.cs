@@ -41,7 +41,9 @@ namespace PrePoMax.Python.Journal
                 method = verb + "_solid";
                 arguments.Add(PythonValueFormatter.Text(section.MaterialName));
                 arguments.Add(region);
-                arguments.Add("thickness=" + PythonValueFormatter.Equation(solidSection.Thickness));
+                // Only a 2D solid section writes its thickness, and add_solid refuses one in a 3D model
+                if (solidSection.TwoD)
+                    arguments.Add("thickness=" + PythonValueFormatter.Equation(solidSection.Thickness));
             }
             else if (section is ShellSection shellSection)
             {

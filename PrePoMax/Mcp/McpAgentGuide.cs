@@ -153,8 +153,11 @@ it has run, and it goes on to the end and records its commands as usual.
   with `cancel_call` and its `callId`. It is answered at once, even while that call holds the
   session, and also in read only mode. The call stops at its next Python statement with a
   `KeyboardInterrupt` error; an operation of PrePoMax it is inside - meshing, an import, a
-  regeneration - cannot be interrupted and finishes first. What it recorded before it stopped stays
-  in the history: collect its answer with `get_call` and check `recordedCommands`.
+  regeneration - cannot be interrupted and finishes first, and a blocking wait - `time.sleep`, a
+  socket, `input()` - is not interrupted until it returns. Code that catches the interrupt - a bare
+  `except:` - keeps running; cancel again, as every cancel delivers a new interrupt. What it recorded
+  before it stopped stays in the history: collect its answer with `get_call` and check
+  `recordedCommands`.
 - Printed output is capped: an answer keeps the first 1,000,000 and the last 100,000 characters and
   says `[output truncated: N characters omitted]` between them. Print what you need, not everything.
 
@@ -163,8 +166,8 @@ it has run, and it goes on to the end and records its commands as usual.
 - **Busy.** The user has a dialog open or a mesher is running, and nothing was done. Wait and send
   the same call again. Do not work around it. If the reason names an automation call, it is one of
   yours that is still running: collect it with `get_call` first.
-- **Read only.** The user has protected the model. Reading still works; ask them before asking for
-  more.
+- **Read only.** The user has protected the model - in the settings, or by starting the session with
+  `--rpc ReadOnly`; the refusal says which. Reading still works; ask them before asking for more.
 - **An API error.** The traceback ends in `PythonAPIException:` and a message that names the
   reason and usually the accepted values. Read it and fix the call rather than trying variations.
   An error that carries a .NET stack trace (`   at ...` lines) is a fault of PrePoMax, not of your
@@ -174,7 +177,9 @@ it has run, and it goes on to the end and records its commands as usual.
 
 ## What not to do
 
-- Do not save over the user's file and do not close their application.
+- Do not save over the user's file and do not close their application. `exit_session` closes only a
+  session without a window - one started with `-g No` for you to work in - and is refused for one the
+  user has open; save with `pmx.save(file_name)` first, or pass `discard_changes` to drop the changes.
 - Do not invent a member name. `describe_api` is cheap and the API refuses what it does not know.
 - Do not use `eval_expression` to change the model. It reports a command it recorded as a warning,
   which means you asked the wrong tool.

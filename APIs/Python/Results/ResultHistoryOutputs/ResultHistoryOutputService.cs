@@ -295,7 +295,7 @@ namespace APIs.Python
         }
         private static void Validate(FeResults result, ResultHistoryOutput output, string replacedName)
         {
-            ValidateNameSyntax(output.Name);
+            ValidateNameSyntax(output.Name, replacedName);
             string[] existingNames = result.GetHistory().Sets.Keys.ToArray();
             if (existingNames.Any(name => string.Equals(name, output.Name, StringComparison.OrdinalIgnoreCase) &&
                                           (replacedName == null ||
@@ -631,10 +631,12 @@ namespace APIs.Python
         }
         private static void ValidateNameSyntax(string name)
         {
-            ValidateRequiredString(name, "name");
-            if (!NamedClass.CheckName(name, null))
-                throw new PythonAPIException("The history output name contains spaces or unsupported special " +
-                                             "characters.");
+            ValidateNameSyntax(name, null);
+        }
+        // The model trims a name it is given, so a padded name is refused rather than stored under another spelling
+        private static void ValidateNameSyntax(string name, string allowedExistingName)
+        {
+            PythonNameComparer.ValidateFormat(name, "name", allowedExistingName);
         }
         private static void ValidateRequiredString(string value, string argumentName)
         {

@@ -82,7 +82,8 @@ namespace APIs.Python
         // Methods
         [PythonAPI("Returns the values of the property under the names of the pmx.create arguments that set " +
                    "them, in the form those arguments take them; a value left at its default reads back as " +
-                   "None. Passing the result back as keyword arguments to the pmx.create method named by " +
+                   "None. A surface behavior reports only the values its pressure_overclosure_type uses. " +
+                   "Passing the result back as keyword arguments to the pmx.create method named by " +
                    "property_type makes the same property.",
                    Returns = "dict[str, float, str, NumericArray or None]",
                    Example = "pmx.create.friction(**interaction.get_properties()[0].get_values())")]
@@ -102,13 +103,16 @@ namespace APIs.Python
             }
             else if (_property is SurfaceBehavior surfaceBehavior)
             {
-                values["pressure_overclosure_type"] = surfaceBehavior.PressureOverclosureType.ToString();
-                values["c0"] = ToValue(surfaceBehavior.C0);
-                values["p0"] = surfaceBehavior.P0;
-                values["k"] = surfaceBehavior.K;
-                values["s_inf"] = surfaceBehavior.Sinf;
-                values["pressure_overclosure"] = surfaceBehavior.PressureOverclosure == null ? null :
-                                                 ToTable(surfaceBehavior.PressureOverclosure);
+                // Only the values the type uses are reported, because pmx.create refuses the others
+                PressureOverclosureEnum type = surfaceBehavior.PressureOverclosureType;
+                values["pressure_overclosure_type"] = type.ToString();
+                if (SurfaceInteractionPropertyFactory.UsesValue(type, "c0")) values["c0"] = ToValue(surfaceBehavior.C0);
+                if (SurfaceInteractionPropertyFactory.UsesValue(type, "p0")) values["p0"] = surfaceBehavior.P0;
+                if (SurfaceInteractionPropertyFactory.UsesValue(type, "k")) values["k"] = surfaceBehavior.K;
+                if (SurfaceInteractionPropertyFactory.UsesValue(type, "s_inf")) values["s_inf"] = surfaceBehavior.Sinf;
+                if (SurfaceInteractionPropertyFactory.UsesValue(type, "pressure_overclosure"))
+                    values["pressure_overclosure"] = surfaceBehavior.PressureOverclosure == null ? null :
+                                                     ToTable(surfaceBehavior.PressureOverclosure);
             }
             else GetPropertyType(_property);
             //

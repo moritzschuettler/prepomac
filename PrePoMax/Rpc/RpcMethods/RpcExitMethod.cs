@@ -23,7 +23,7 @@ namespace PrePoMax.Rpc
         {
             if (server.Form == null || !server.Form.IsWindowHidden)
             {
-                throw new RpcException(RpcErrorCode.ReadOnly, "PrePoMax is open on the user's desktop, so exit is " +
+                throw new RpcException(RpcErrorCode.NotAllowed, "PrePoMax is open on the user's desktop, so exit is " +
                                        "refused: the user closes their own session. Use shutdown to stop the " +
                                        "automation server instead.");
             }

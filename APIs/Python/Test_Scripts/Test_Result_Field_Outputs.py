@@ -33,6 +33,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def check_refused(function, words, message):
+    try:
+        function()
+    except Exception as ex:
+        check(words in str(ex), message + ": " + str(ex))
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
 def get_component_name(increment, field_name, preferred_names):
     check(increment.fields.contains(field_name),
           "The field '%s' is not available in the last increment." % field_name)
@@ -140,6 +149,21 @@ try:
                                                                  "all_elements", {"All elements": 1.0}),
                  "the old based_on spelling was accepted")
     print("PASS: field output options")
+
+    # NAMES: a draft name is checked as a model item name is, so a padded one is refused rather than
+    # trimmed, and a None name is refused by the API rather than by a .NET dictionary
+    for create in [lambda: field_outputs.create_field_output_envelope(" " + ENVELOPE_NAME, "TOSTRAIN",
+                                                                      strain_component),
+                   lambda: field_outputs.create_field_output_equation(EQUATION_NAME + " ", "=1", "/"),
+                   lambda: field_outputs.create_field_output_limit("PyTest#Limit", "STRESS", stress_component,
+                                                                   "AllElements", {"All elements": 1.0}),
+                   lambda: field_outputs.create_field_output_coordinate_system_transform(" PyTest_T", "DISP",
+                                                                                         "Any")]:
+        check_refused(create, "'name'", "a draft name that is not a valid name was accepted")
+    check_refused(lambda: field_outputs[None], "None", "a None field output name was not refused by the API")
+    check_refused(lambda: result.mesh.parts[None], "None", "a None part name was not refused by the API")
+    check(not pmx.results.contains(None), "contains(None) must be False")
+    print("PASS: field output names")
 
     # MAP: the item limits read back as a map with the methods of a dict, and without the .NET members
     limits = limit_output.item_limits

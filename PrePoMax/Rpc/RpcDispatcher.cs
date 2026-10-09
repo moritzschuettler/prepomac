@@ -35,12 +35,18 @@ namespace PrePoMax.Rpc
         private readonly SemaphoreSlim _turn;
         private readonly object _callLock;
         private readonly Dictionary<int, RpcRunningCall> _calls;
+        private readonly object _blockLock;
         private RpcRunningCall _runningCall;
         private int _lastCallId;
+        private int _blockCount;
+        [ThreadStatic] private static string _echoNote;
 
 
         // Properties                                                                                                               
         public RpcServer Server { get { return _server; } }
+        // What the Python panel shows in place of the source of the call this thread runs, or null. Only
+        // an in process caller can set it, for a script of its own, so nothing an agent sends is hidden
+        public static string CurrentEchoNote { get { return _echoNote; } }
 
 
         // Constructor                                                                                                              
@@ -50,8 +56,10 @@ namespace PrePoMax.Rpc
             _turn = new SemaphoreSlim(1, 1);
             _callLock = new object();
             _calls = new Dictionary<int, RpcRunningCall>();
+            _blockLock = new object();
             _runningCall = null;
             _lastCallId = 0;
+            _blockCount = 0;
         }
 
 
@@ -173,7 +181,15 @@ namespace PrePoMax.Rpc
         private string ExecuteOnCallThread(RpcRequest request)
         {
             MessageBoxes.IsNonInteractiveThread = true;
-            return Execute(request);
+            _echoNote = request.EchoNote;
+            try
+            {
+                return Execute(request);
+            }
+            finally
+            {
+                _echoNote = null;
+            }
         }
         private void FinishCall(RpcRunningCall call)
         {
@@ -290,33 +306,52 @@ namespace PrePoMax.Rpc
         }
         // Read only mode does not refuse a method, it blocks the command history: every state change
         // of the application passes through it, so nothing an agent runs can get around the refusal,
-        // and reading - which is what an agent mostly does - keeps working. The block is held for the
-        // duration of one call, and calls are serialized, so the user interface is never left
-        // refusing the user
+        // and reading - which is what an agent mostly does - keeps working. The block is taken only by
+        // a call that waits its turn: a method that only reports takes none, so a client polling status
+        // does not refuse the user's own edits in between. Calls that report still run beside one that
+        // holds the block, and the block is counted, so no call can lift the block another one holds
         private string WithReadOnlyBlock(RpcRequest request, Func<string> handler)
         {
-            bool isReadOnly = _server.IsReadOnly;
-            if (isReadOnly) BlockCommands(request.Method);
+            bool isBlocked = _server.IsReadOnly && IsSerialized(request.Method);
+            if (isBlocked) BlockCommands();
             try
             {
                 return handler();
             }
             finally
             {
-                if (isReadOnly) UnblockCommands();
+                if (isBlocked) UnblockCommands();
             }
         }
-        private void BlockCommands(string method)
+        private void BlockCommands()
         {
             Controller controller = _server.Controller;
             if (controller == null) return;
-            controller.BlockCommands("The automation server is in read only mode, so " + method + " may not " +
-                                     "change the model. The user can change that in Tools - Settings - Automation.");
+            //
+            lock (_blockLock)
+            {
+                _blockCount++;
+                if (_blockCount == 1) controller.BlockCommands(GetReadOnlyReason());
+            }
         }
         private void UnblockCommands()
         {
             Controller controller = _server.Controller;
-            if (controller != null) controller.UnblockCommands();
+            if (controller == null) return;
+            //
+            lock (_blockLock)
+            {
+                if (_blockCount > 0) _blockCount--;
+                if (_blockCount == 0) controller.UnblockCommands();
+            }
+        }
+        // Names where read only mode comes from, because only that source can switch it off
+        private string GetReadOnlyReason()
+        {
+            string reason = "The automation server is in read only mode, so an automation call may not change the model. ";
+            if (_server.IsReadOnlyRequested)
+                return reason + "This session was started with --rpc ReadOnly, which holds for the whole run.";
+            return reason + "Read only is set in Tools - Settings - Automation, where the user can change it.";
         }
         private string Execute(RpcRequest request)
         {

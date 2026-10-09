@@ -63,7 +63,9 @@ namespace APIs.Python.Model
                    "freedom that is not given is left unconstrained, and a value of 0 fixes it. A scalar " +
                    "distribution scales every prescribed degree of freedom, a vector one scales u1, u2 and u3 by " +
                    "its three components; either needs a nonzero prescribed value and a region that is not a " +
-                   "reference point. The selection target is nodes.",
+                   "reference point. A two dimensional model has no u3, ur1 and ur2, so it refuses a value for " +
+                   "them. The phase_deg applies only in a steady_state_dynamics step, where a boundary " +
+                   "condition is complex, and is refused elsewhere. The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, u1: float = None, u2: float = None, " +
                                "u3: float = None, ur1: float = None, ur2: float = None, ur3: float = None, " +
                                "distribution_name: str = None, " +
@@ -130,8 +132,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a submodel boundary condition using command history. The degrees of freedom are " +
-                   "read from the global model results of the given step number. The selection target is " +
-                   "nodes.",
+                   "read from the global model results of the given step number, which is at least 1. The " +
+                   "selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, step_id: int = None, " +
                                "u1: bool = None, u2: bool = None, u3: bool = None, ur1: bool = None, " +
                                "ur2: bool = None, ur3: bool = None, color: list[int] or str = None",
@@ -220,7 +222,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, boundaryCondition);
         }
 
-        [PythonAPI("Copies the boundary condition to every following step using command history.",
+        [PythonAPI("Copies the boundary condition to every following step using command history. It is " +
+                   "refused when a following step does not support the boundary condition type.",
                    Arguments = "name: str", Returns = "None")]
         public void propagate(string name)
         {
@@ -281,10 +284,24 @@ namespace APIs.Python.Model
         {
             if (u1 != null) boundaryCondition.U1.Equation = PythonValueConverter.ToEquationString(u1, "u1");
             if (u2 != null) boundaryCondition.U2.Equation = PythonValueConverter.ToEquationString(u2, "u2");
-            if (u3 != null) boundaryCondition.U3.Equation = PythonValueConverter.ToEquationString(u3, "u3");
-            if (ur1 != null) boundaryCondition.UR1.Equation = PythonValueConverter.ToEquationString(ur1, "ur1");
-            if (ur2 != null) boundaryCondition.UR2.Equation = PythonValueConverter.ToEquationString(ur2, "ur2");
+            SetOutOfPlaneDegreeOfFreedom(boundaryCondition, boundaryCondition.U3, u3, "u3");
+            SetOutOfPlaneDegreeOfFreedom(boundaryCondition, boundaryCondition.UR1, ur1, "ur1");
+            SetOutOfPlaneDegreeOfFreedom(boundaryCondition, boundaryCondition.UR2, ur2, "ur2");
             if (ur3 != null) boundaryCondition.UR3.Equation = PythonValueConverter.ToEquationString(ur3, "ur3");
+        }
+        // A two dimensional model leaves these degrees of freedom free whatever they are given, a fixing 0 included
+        private static void SetOutOfPlaneDegreeOfFreedom(DisplacementRotation boundaryCondition,
+                                                         EquationContainer container, object value,
+                                                         string argumentName)
+        {
+            if (value == null) return;
+            //
+            EquationString equation = PythonValueConverter.ToEquationString(value, argumentName);
+            if (boundaryCondition.TwoD &&
+                !double.IsNaN(GivenEquationValue.Evaluate(container, equation, argumentName)))
+                throw new PythonAPIException("The argument '" + argumentName + "' is a degree of freedom a two " +
+                                             "dimensional model does not have. Leave it out.");
+            container.Equation = equation;
         }
         private static void FreeDegreesOfFreedom(DisplacementRotation boundaryCondition, object freeDofs,
                                                  object u1, object u2, object u3, object ur1, object ur2,
@@ -340,8 +357,13 @@ namespace APIs.Python.Model
                                                 object u2, object u3, object ur1, object ur2, object ur3)
         {
             if (stepNumber != null)
-                boundaryCondition.StepNumber.Equation =
-                    PythonValueConverter.ToEquationString(stepNumber, "step_id");
+            {
+                // The boundary condition reads a step below 1 as step 1
+                EquationString equation = PythonValueConverter.ToEquationString(stepNumber, "step_id");
+                if (GivenEquationValue.Evaluate(boundaryCondition.StepNumber, equation, "step_id") < 1)
+                    throw new PythonAPIException("The argument 'step_id' must be at least 1.");
+                boundaryCondition.StepNumber.Equation = equation;
+            }
             if (u1 != null) boundaryCondition.U1 = PythonValueConverter.ToBool(u1, "u1");
             if (u2 != null) boundaryCondition.U2 = PythonValueConverter.ToBool(u2, "u2");
             if (u3 != null) boundaryCondition.U3 = PythonValueConverter.ToBool(u3, "u3");

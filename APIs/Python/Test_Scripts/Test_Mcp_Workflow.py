@@ -266,9 +266,12 @@ def solve(endpoint):
     """The analysis, started without waiting and polled the way an agent has to poll it."""
     endpoint.python("pmx.jobs.add('" + JOB + "')")
     started = time.time()
-    result = endpoint.json_tool("run_job", {"name": JOB})
+    answer = endpoint.json_tool("run_job", {"name": JOB})
+    result = answer["run"]
     check(not result["failed"], "the analysis could not be started: " + result["error"])
-    print("run_job: returned in %.1f s, recorded %s" % (time.time() - started, result["recordedCommands"]))
+    check(answer["name"] == JOB and answer["status"] != "", "run_job did not report the status: " + str(answer))
+    print("run_job: %s, returned in %.1f s, recorded %s" % (answer["status"], time.time() - started,
+                                                           result["recordedCommands"]))
     #
     deadline = time.time() + 300
     status = None
@@ -315,7 +318,7 @@ def journal_the_session(endpoint):
     result = endpoint.json_tool("screenshot")
     check(os.path.exists(result["fileName"]), "the screenshot is missing: " + result["fileName"])
     os.remove(result["fileName"])
-    print("screenshot: " + result["length"] + " bytes of the solved model")
+    print("screenshot: " + str(result["length"]) + " bytes of the solved model")
     # The picture an agent takes for a report: no background, and rendered larger than the viewport
     result = endpoint.json_tool("screenshot", {"view": "results", "orientation": "Isometric",
                                                "zoom_to_fit": True, "transparent_background": True,
@@ -323,7 +326,7 @@ def journal_the_session(endpoint):
     check(os.path.exists(result["fileName"]), "the report screenshot is missing: " + result["fileName"])
     check(not result["isEmpty"], "the report screenshot must not be empty: " + result["fileName"])
     os.remove(result["fileName"])
-    print("screenshot: " + result["length"] + " bytes, transparent and magnified")
+    print("screenshot: " + str(result["length"]) + " bytes, transparent and magnified")
 
 
 def check_a_fast_call_does_not_mark_the_session_busy(endpoint):

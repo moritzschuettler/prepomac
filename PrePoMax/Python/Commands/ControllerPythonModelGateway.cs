@@ -535,6 +535,32 @@ namespace PrePoMax.Python
         {
             return _controller.Settings.Solver.CalculixDefaultSolverType;
         }
+        // The same check FrmStep runs on OK, returned as a message so that the API can name its arguments
+        public string GetCyclicSymmetryModesError(FrequencyStep step)
+        {
+            CyclicSymmetry cyclicSymmetry = null;
+            bool containsAxisNodes = false;
+            foreach (var entry in _controller.Model.Constraints)
+            {
+                if (entry.Value is CyclicSymmetry candidate && candidate.Active)
+                {
+                    if (cyclicSymmetry == null) cyclicSymmetry = candidate;
+                    containsAxisNodes |= _controller.CyclicSymmetryContainsAxisNodes(candidate);
+                }
+            }
+            if (cyclicSymmetry == null) return null;
+            //
+            try
+            {
+                _controller.Model.CheckCyclicSymmetryCompatibility(cyclicSymmetry, cyclicSymmetry.Name);
+                step.CheckCyclicSymmetryModes(cyclicSymmetry.NumberOfSectors, containsAxisNodes);
+            }
+            catch (CaeException ex)
+            {
+                return ex.Message;
+            }
+            return null;
+        }
         public void AddStep(Step step, bool copyBoundaryConditionsAndLoads)
         {
             _controller.AddStepCommand(step, copyBoundaryConditionsAndLoads);

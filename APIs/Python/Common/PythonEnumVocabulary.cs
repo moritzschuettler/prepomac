@@ -128,7 +128,7 @@ namespace APIs.Python
             types.Add("optimize_high_order", typeof(GmshOptimizeHighOrderEnum));
             types.Add("optimize_first_order_shell", typeof(GmshOptimizeFirstOrderShellEnum));
             types.Add("optimize_first_order_solid", typeof(GmshOptimizeFirstOrderSolidEnum));
-            types.Add("triangulation_mesher", typeof(MesherTypeEnum));
+            types.Add("triangulation_mesher", typeof(QuadWildTriangulationMesherEnum));
             types.Add("flow_profile", typeof(QuadWildFlowProfileEnum));
             types.Add("boundary_layer", typeof(QuadWildBoundaryLayerEnum));
             types.Add("add_sweep_mesh.algorithm_2d", typeof(SweepAlgorithmMesh2DEnum));
@@ -137,6 +137,7 @@ namespace APIs.Python
             types.Add("symmetry", typeof(SweepSymmetryEnum));
             types.Add("transfinite_three_sided", typeof(TransfiniteThreeSidedEnum));
             types.Add("nodes_to_keep", typeof(NodesToKeepEnum));
+            types.Add("metric", typeof(GmshElementQualityMetricEnum));
             // Analyses and results
             types.Add("fem_solver", typeof(FEMSolverEnum));
             types.Add("interpolator_type", typeof(InterpolatorEnum));

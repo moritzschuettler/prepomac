@@ -27,10 +27,17 @@ namespace APIs.Python.Model
         {
             return BoundaryConditionAPI.GetItemType(boundaryCondition);
         }
+        // The step makes an item complex only in a steady state dynamics step, and the solver writes the phase of a
+        // complex item only, so a phase anywhere else would be kept without effect
         public void ApplyCommonValues(BoundaryCondition boundaryCondition, object phaseDeg, object color)
         {
             if (phaseDeg != null)
+            {
+                if (!boundaryCondition.Complex)
+                    throw new PythonAPIException("The argument 'phase_deg' applies only to a boundary condition of a " +
+                                                 "steady_state_dynamics step, which is complex. Leave it out here.");
                 boundaryCondition.PhaseDeg.Equation = PythonValueConverter.ToEquationString(phaseDeg, "phase_deg");
+            }
             if (color != null) boundaryCondition.Color = PythonColorConverter.ToColor(color, "color");
         }
         public void ApplyAmplitudeName(BoundaryCondition boundaryCondition, object amplitudeName)
@@ -50,7 +57,7 @@ namespace APIs.Python.Model
         public void EnsureDistributionApplicable(DisplacementRotation boundaryCondition)
         {
             string name = boundaryCondition.DistributionName;
-            if (name == Distribution.DefaultDistributionName) return;
+            if (PythonNameComparer.AreSame(name, Distribution.DefaultDistributionName)) return;
             //
             if (boundaryCondition.RegionType == RegionTypeEnum.ReferencePointName)
                 throw new PythonAPIException("The argument 'distribution_name' cannot be used with a reference " +
@@ -109,8 +116,10 @@ namespace APIs.Python.Model
         }
         public void Propagate(string stepName, string name)
         {
-            ResolveItem(stepName, name);
+            BoundaryCondition boundaryCondition = ResolveItem(stepName, name);
             EnsureFollowingStepExists(stepName, name);
+            EnsureFollowingStepsSupport(stepName, boundaryCondition,
+                                        step => step.IsBoundaryConditionSupported(boundaryCondition));
             //
             EnsureCommandsAvailable();
             ModelGateway.PropagateBoundaryCondition(stepName, name);

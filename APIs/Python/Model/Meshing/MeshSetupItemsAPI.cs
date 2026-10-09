@@ -83,7 +83,10 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds meshing parameters for the selected geometry. Every parameter that is not given " +
-                   "keeps the application default.",
+                   "keeps the application default. max_size and min_size are at least 0, factor_max, factor_min, " +
+                   "fineness and grading larger than 0 and at most 1, elements_per_edge and elements_per_curve " +
+                   "larger than 0; a minimum larger than the maximum the item ends up with is refused naming both, " +
+                   "and split_compound_mesh and merge_compound_parts cannot both be True.",
                    Arguments = "name: str, selection: Selection, " + MeshingParameterArguments,
                    Returns = "MeshSetupItem",
                    Example = "pmx.model.mesh.setup_items.add_meshing_parameters('MP-1', selection, max_size=5.0)")]
@@ -139,8 +142,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, item, selection, GetPartDefaultsRebuild(valuesGiven));
         }
 
-        [PythonAPI("Adds a local mesh size for the selected geometry. Use either element_size or " +
-                   "number_of_elements.",
+        [PythonAPI("Adds a local mesh size for the selected geometry. Use either element_size, larger than 0, " +
+                   "or number_of_elements, at least 1.",
                    Arguments = "name: str, selection: Selection, element_size: float = None, " +
                                "number_of_elements: int = None", Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_local_mesh_size(string name, SelectionAPI selection, object element_size = null,
@@ -169,7 +172,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, item, selection);
         }
 
-        [PythonAPI("Adds a shell MMG mesh setup item, which selects MMG for the selected STL shell parts.",
+        [PythonAPI("Adds a shell MMG mesh setup item, which selects MMG for the selected STL shell parts. " +
+                   "hausdorff and relative_hausdorff are larger than 0.",
                    Arguments = "name: str, selection: Selection, " + ShellMmgArguments,
                    Returns = "MeshSetupItem",
                    Example = "pmx.model.mesh.setup_items.add_shell_mmg('Shell_Mmg-1', selection)")]
@@ -201,7 +205,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, item, selection, GetPartDefaultsRebuild(valuesGiven));
         }
 
-        [PythonAPI("Adds a thicken shell mesh item for the selected geometry.",
+        [PythonAPI("Adds a thicken shell mesh item for the selected geometry. thickness is larger than 0 and " +
+                   "number_of_layers at least 1.",
                    Arguments = "name: str, selection: Selection, thickness: float, number_of_layers: int = 1, " +
                                "offset: float = 0, keep_model_edges: bool = False", Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_thicken_shell_mesh(string name, SelectionAPI selection, object thickness,
@@ -210,8 +215,8 @@ namespace APIs.Python.Model
         {
             _service.ValidateNewName(name);
             ThickenShellMesh item = new ThickenShellMesh(name);
-            item.Thickness = PythonValueConverter.ToFiniteDouble(thickness, "thickness");
-            item.NumberOfLayers = number_of_layers;
+            item.Thickness = ToThickness(thickness);
+            item.NumberOfLayers = ToNumberOfLayers(number_of_layers);
             if (offset != null) item.Offset = PythonValueConverter.ToFiniteDouble(offset, "offset");
             item.KeepModelEdges = keep_model_edges;
             _service.Add(item, name, selection);
@@ -228,9 +233,8 @@ namespace APIs.Python.Model
                                                            object keep_model_edges = null)
         {
             ThickenShellMesh item = _service.CloneItem<ThickenShellMesh>(old_name);
-            if (thickness != null) item.Thickness = PythonValueConverter.ToFiniteDouble(thickness, "thickness");
-            if (number_of_layers != null)
-                item.NumberOfLayers = PythonValueConverter.ToInt(number_of_layers, "number_of_layers");
+            if (thickness != null) item.Thickness = ToThickness(thickness);
+            if (number_of_layers != null) item.NumberOfLayers = ToNumberOfLayers(number_of_layers);
             if (offset != null) item.Offset = PythonValueConverter.ToFiniteDouble(offset, "offset");
             if (keep_model_edges != null)
                 item.KeepModelEdges = PythonValueConverter.ToBool(keep_model_edges, "keep_model_edges");
@@ -238,7 +242,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a Netgen mesh item for the selected solid or shell parts. The mesh size comes " +
-                   "from the meshing parameters; the item carries the settings that apply to Netgen alone.",
+                   "from the meshing parameters; the item carries the settings that apply to Netgen alone. " +
+                   "optimize_steps_2d and optimize_steps_3d are at least 0, and transfinite_angle_deg lies " +
+                   "between 0 and 180, both excluded.",
                    Arguments = "name: str, selection: Selection, " + NetgenMeshArguments,
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_netgen_mesh(string name, SelectionAPI selection, object optimize_steps_2d = null,
@@ -410,7 +416,7 @@ namespace APIs.Python.Model
                    "symmetry Automatic, the default, a compound whose cells are mirror images across the planes " +
                    "it is split on is swept one symmetric piece at a time and the mesh mirrored onto the other " +
                    "cells, a cell of the piece the sweep cannot reach meshed by tetrahedra and mirrored alike; Off sweeps " +
-                   "every cell.",
+                   "every cell. quad_wild_alpha lies from 0 to 1.",
                    Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, " +
                                "recombine_min_quality: float = None, " + GmshRecombineArguments +
@@ -476,7 +482,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a QuadWild shell mesh item for the selected geometry. Every parameter that is not " +
-                   "given keeps the application default.",
+                   "given keeps the application default. triangulation_mesher is Gmsh, Netgen or Mmg, " +
+                   "singularity_position and count_search are at least 0, and transfinite_angle_deg lies from 90 " +
+                   "to 180.",
                    Arguments = "name: str, selection: Selection, preview: bool = None, smooth: bool = None, " +
                                "alpha: float = None, triangulation_mesher: str = None, " +
                                "flow_profile: str = None, " +
@@ -608,13 +616,22 @@ namespace APIs.Python.Model
             //
             if (elementSize != null)
             {
+                double size = PythonValueConverter.ToFiniteDouble(elementSize, "element_size");
+                // The model raises a smaller size to this floor
+                if (size < 1E-10)
+                    throw new PythonAPIException("The argument 'element_size' must be larger than 0 (at least 1e-10), " +
+                                                 "but " + size + " was given.");
                 item.Type = LocalMeshSizeTypeEnum.ElementSize;
-                item.MeshSize = PythonValueConverter.ToFiniteDouble(elementSize, "element_size");
+                item.MeshSize = size;
             }
             else if (numberOfElements != null)
             {
+                int count = PythonValueConverter.ToInt(numberOfElements, "number_of_elements");
+                if (count < 1)
+                    throw new PythonAPIException("The argument 'number_of_elements' must be at least 1, but " + count +
+                                                 " was given.");
                 item.Type = LocalMeshSizeTypeEnum.NumberOfElements;
-                item.NumOfElements = PythonValueConverter.ToInt(numberOfElements, "number_of_elements");
+                item.NumOfElements = count;
             }
         }
         private static void ApplyMeshingParameters(MeshingParameters item, object maxSize, object minSize,
@@ -624,36 +641,172 @@ namespace APIs.Python.Model
                                                    object factorMax, object factorMin, object splitCompoundMesh,
                                                    object mergeCompoundParts, object mergeCells)
         {
-            if (relativeSize != null) item.RelativeSize = PythonValueConverter.ToBool(relativeSize, "relative_size");
-            if (factorMax != null) item.FactorMax = PythonValueConverter.ToFiniteDouble(factorMax, "factor_max");
-            if (factorMin != null) item.FactorMin = PythonValueConverter.ToFiniteDouble(factorMin, "factor_min");
-            if (maxSize != null) item.MaxH = PythonValueConverter.ToFiniteDouble(maxSize, "max_size");
-            if (minSize != null) item.MinH = PythonValueConverter.ToFiniteDouble(minSize, "min_size");
-            if (fineness != null) item.Fineness = PythonValueConverter.ToFiniteDouble(fineness, "fineness");
-            if (grading != null) item.Grading = PythonValueConverter.ToFiniteDouble(grading, "grading");
-            if (elementsPerEdge != null)
-                item.ElementsPerEdge = PythonValueConverter.ToFiniteDouble(elementsPerEdge, "elements_per_edge");
-            if (elementsPerCurve != null)
-                item.ElementsPerCurve = PythonValueConverter.ToFiniteDouble(elementsPerCurve, "elements_per_curve");
-            if (secondOrder != null)
-                item.SecondOrder = PythonValueConverter.ToBool(secondOrder, "second_order");
+            // Every value is converted and checked before the first one is assigned, because the setters of a range
+            // move one limit along with the other
+            bool? relative = null;
+            if (relativeSize != null) relative = PythonValueConverter.ToBool(relativeSize, "relative_size");
+            double[] factors = ResolveRange(factorMax, factorMin, item.FactorMax, item.FactorMin, "factor_max",
+                                            "factor_min", false);
+            double[] sizes = ResolveRange(maxSize, minSize, item.MaxH, item.MinH, "max_size", "min_size", true);
+            double? finenessValue = ToFraction(fineness, "fineness");
+            double? gradingValue = ToFraction(grading, "grading");
+            double? edgeCount = ToPositive(elementsPerEdge, "elements_per_edge");
+            double? curveCount = ToPositive(elementsPerCurve, "elements_per_curve");
+            bool? second = null;
+            if (secondOrder != null) second = PythonValueConverter.ToBool(secondOrder, "second_order");
+            bool? midside = null;
             if (midsideNodesOnGeometry != null)
-                item.MidsideNodesOnGeometry = PythonValueConverter.ToBool(midsideNodesOnGeometry,
-                                                                          "midside_nodes_on_geometry");
-            if (splitCompoundMesh != null)
-                item.SplitCompoundMesh = PythonValueConverter.ToBool(splitCompoundMesh, "split_compound_mesh");
-            if (mergeCompoundParts != null)
-                item.MergeCompoundParts = PythonValueConverter.ToBool(mergeCompoundParts, "merge_compound_parts");
-            if (mergeCells != null) item.MergeCells = PythonValueConverter.ToBool(mergeCells, "merge_cells");
+                midside = PythonValueConverter.ToBool(midsideNodesOnGeometry, "midside_nodes_on_geometry");
+            bool split = splitCompoundMesh != null
+                         ? PythonValueConverter.ToBool(splitCompoundMesh, "split_compound_mesh") : item.SplitCompoundMesh;
+            bool merge = mergeCompoundParts != null
+                         ? PythonValueConverter.ToBool(mergeCompoundParts, "merge_compound_parts")
+                         : item.MergeCompoundParts;
+            bool? cells = null;
+            if (mergeCells != null) cells = PythonValueConverter.ToBool(mergeCells, "merge_cells");
+            // The model turns one of the two off when the other is turned on
+            if (split && merge)
+                throw new PythonAPIException("The arguments 'split_compound_mesh' and 'merge_compound_parts' cannot " +
+                                             "both be True" + (splitCompoundMesh != null && mergeCompoundParts != null
+                                                               ? "." : ", and the item keeps the other one True; " +
+                                                               "pass it as False."));
+            //
+            if (relative.HasValue) item.RelativeSize = relative.Value;
+            if (factors != null)
+                SetOrderedRange(factors[0], factors[1], item.FactorMin, value => item.FactorMax = value,
+                                value => item.FactorMin = value);
+            if (sizes != null)
+                SetOrderedRange(sizes[0], sizes[1], item.MinH, value => item.MaxH = value, value => item.MinH = value);
+            if (finenessValue.HasValue) item.Fineness = finenessValue.Value;
+            if (gradingValue.HasValue) item.Grading = gradingValue.Value;
+            if (edgeCount.HasValue) item.ElementsPerEdge = edgeCount.Value;
+            if (curveCount.HasValue) item.ElementsPerCurve = curveCount.Value;
+            if (second.HasValue) item.SecondOrder = second.Value;
+            if (midside.HasValue) item.MidsideNodesOnGeometry = midside.Value;
+            if (splitCompoundMesh != null || mergeCompoundParts != null)
+            {
+                item.SplitCompoundMesh = split;
+                item.MergeCompoundParts = merge;
+            }
+            if (cells.HasValue) item.MergeCells = cells.Value;
+        }
+        // The maximum and the minimum the call leaves the item with, the given ones checked against the kept
+        // ones, or null when neither is given. The setters of a maximum and a minimum move the other one along
+        // when it is passed, so the pair is refused here rather than silently changed
+        internal static double[] ResolveRange(object maxValue, object minValue, double currentMax, double currentMin,
+                                              string maxName, string minName, bool isLength)
+        {
+            if (maxValue == null && minValue == null) return null;
+            //
+            double max = currentMax;
+            double min = currentMin;
+            if (maxValue != null) max = isLength ? ToNonNegative(maxValue, maxName) : ToFactor(maxValue, maxName);
+            if (minValue != null) min = isLength ? ToNonNegative(minValue, minName) : ToFactor(minValue, minName);
+            if (min > max)
+            {
+                string kept = maxValue == null ? " The item keeps '" + maxName + "' at " + max + "; pass it as well."
+                                               : minValue == null ? " The item keeps '" + minName + "' at " + min +
+                                                                    "; pass it as well." : "";
+                throw new PythonAPIException("The argument '" + minName + "' (" + min + ") must not be larger than '" +
+                                             maxName + "' (" + max + ")." + kept);
+            }
+            return new double[] { max, min };
+        }
+        // Sets a checked pair in the order in which neither setter moves the other value
+        internal static void SetOrderedRange(double max, double min, double currentMin, Action<double> setMax,
+                                             Action<double> setMin)
+        {
+            if (max >= currentMin)
+            {
+                setMax(max);
+                setMin(min);
+            }
+            else
+            {
+                setMin(min);
+                setMax(max);
+            }
+        }
+        private static double ToNonNegative(object value, string argumentName)
+        {
+            double number = PythonValueConverter.ToFiniteDouble(value, argumentName);
+            if (number < 0)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be larger or equal to 0, but " +
+                                             number + " was given.");
+            return number;
+        }
+        private static double ToFactor(object value, string argumentName)
+        {
+            double number = PythonValueConverter.ToFiniteDouble(value, argumentName);
+            if (number <= 0 || number > 1)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be larger than 0 and at most 1, " +
+                                             "but " + number + " was given.");
+            return number;
+        }
+        private static double? ToFraction(object value, string argumentName)
+        {
+            if (value == null) return null;
+            //
+            return ToFactor(value, argumentName);
+        }
+        private static double? ToPositive(object value, string argumentName)
+        {
+            if (value == null) return null;
+            //
+            double number = PythonValueConverter.ToFiniteDouble(value, argumentName);
+            if (number <= 0)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be larger than 0, but " + number +
+                                             " was given.");
+            return number;
+        }
+        private static int? ToNonNegativeInt(object value, string argumentName)
+        {
+            if (value == null) return null;
+            //
+            int number = PythonValueConverter.ToInt(value, argumentName);
+            if (number < 0)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be larger or equal to 0, but " +
+                                             number + " was given.");
+            return number;
+        }
+        private static double? ToAngle(object value, string argumentName, double min, double max, bool inclusive)
+        {
+            if (value == null) return null;
+            //
+            double number = PythonValueConverter.ToFiniteDouble(value, argumentName);
+            bool outside = inclusive ? number < min || number > max : number <= min || number >= max;
+            if (outside)
+                throw new PythonAPIException("The argument '" + argumentName + "' must lie " +
+                                             (inclusive ? "from " + min + " to " + max : "between " + min + " and " +
+                                                          max + ", both excluded") + ", but " + number + " was given.");
+            return number;
+        }
+        internal static double ToThickness(object value)
+        {
+            double number = PythonValueConverter.ToFiniteDouble(value, "thickness");
+            if (number <= 0)
+                throw new PythonAPIException("The argument 'thickness' must be larger than 0, but " + number +
+                                             " was given.");
+            return number;
+        }
+        internal static int ToNumberOfLayers(object value)
+        {
+            int number = PythonValueConverter.ToInt(value, "number_of_layers");
+            if (number < 1)
+                throw new PythonAPIException("The argument 'number_of_layers' must be at least 1, but " + number +
+                                             " was given.");
+            return number;
         }
         private static void ApplyNetgenMesh(NetgenMesh item, object optimizeSteps2D, object optimizeSteps3D,
                                             object quadDominated, string transfiniteThreeSided,
                                             object transfiniteFourSided, object transfiniteAngle)
         {
-            if (optimizeSteps2D != null)
-                item.OptimizeSteps2D = PythonValueConverter.ToInt(optimizeSteps2D, "optimize_steps_2d");
-            if (optimizeSteps3D != null)
-                item.OptimizeSteps3D = PythonValueConverter.ToInt(optimizeSteps3D, "optimize_steps_3d");
+            int? steps2D = ToNonNegativeInt(optimizeSteps2D, "optimize_steps_2d");
+            int? steps3D = ToNonNegativeInt(optimizeSteps3D, "optimize_steps_3d");
+            double? angle = ToAngle(transfiniteAngle, "transfinite_angle_deg", 0, 180, false);
+            //
+            if (steps2D.HasValue) item.OptimizeSteps2D = steps2D.Value;
+            if (steps3D.HasValue) item.OptimizeSteps3D = steps3D.Value;
             if (quadDominated != null)
                 item.QuadDominated = PythonValueConverter.ToBool(quadDominated, "quad_dominated");
             if (transfiniteThreeSided != null)
@@ -662,16 +815,17 @@ namespace APIs.Python.Model
                                                                            "transfinite_three_sided");
             if (transfiniteFourSided != null)
                 item.TransfiniteFourSided = PythonValueConverter.ToBool(transfiniteFourSided, "transfinite_four_sided");
-            if (transfiniteAngle != null)
-                item.TransfiniteAngleDeg = PythonValueConverter.ToFiniteDouble(transfiniteAngle, "transfinite_angle_deg");
+            if (angle.HasValue) item.TransfiniteAngleDeg = angle.Value;
         }
         private static void ApplyShellMmg(ShellMmg item, object relativeSize, object relativeHausdorff,
                                           object hausdorff, object keepModelEdges)
         {
+            double? relativeValue = ToPositive(relativeHausdorff, "relative_hausdorff");
+            double? hausdorffValue = ToPositive(hausdorff, "hausdorff");
+            //
             if (relativeSize != null) item.RelativeSize = PythonValueConverter.ToBool(relativeSize, "relative_size");
-            if (relativeHausdorff != null)
-                item.RelativeHausdorff = PythonValueConverter.ToFiniteDouble(relativeHausdorff, "relative_hausdorff");
-            if (hausdorff != null) item.Hausdorff = PythonValueConverter.ToFiniteDouble(hausdorff, "hausdorff");
+            if (relativeValue.HasValue) item.RelativeHausdorff = relativeValue.Value;
+            if (hausdorffValue.HasValue) item.Hausdorff = hausdorffValue.Value;
             if (keepModelEdges != null)
                 item.KeepModelEdges = PythonValueConverter.ToBool(keepModelEdges, "keep_model_edges");
         }
@@ -743,7 +897,14 @@ namespace APIs.Python.Model
             if (flowProfile != null)
                 item.QuadWildFlowProfile = PythonValueConverter.ToEnum<QuadWildFlowProfileEnum>(flowProfile,
                                                                                                  "quad_wild_flow_profile");
-            if (alpha != null) item.QuadWildAlpha = PythonValueConverter.ToFiniteDouble(alpha, "quad_wild_alpha");
+            if (alpha != null)
+            {
+                double value = PythonValueConverter.ToFiniteDouble(alpha, "quad_wild_alpha");
+                if (value < 0 || value > 1)
+                    throw new PythonAPIException("The argument 'quad_wild_alpha' must lie from 0 to 1, but " + value +
+                                                 " was given.");
+                item.QuadWildAlpha = value;
+            }
             if (smooth != null) item.QuadWildSmooth = PythonValueConverter.ToBool(smooth, "quad_wild_smooth");
         }
         private static void ApplyShellQuadWild(ShellQuadWild item, object preview, object smooth,
@@ -759,8 +920,9 @@ namespace APIs.Python.Model
             if (smooth != null) item.Smooth = PythonValueConverter.ToBool(smooth, "smooth");
             if (alpha != null) item.Alpha = PythonValueConverter.ToFiniteDouble(alpha, "alpha");
             if (triangulationMesher != null)
-                item.TriangulationMesher = PythonValueConverter.ToEnum<MesherTypeEnum>(triangulationMesher,
-                                                                                        "triangulation_mesher");
+                item.TriangulationMesher =
+                    (MesherTypeEnum)PythonValueConverter.ToEnum<QuadWildTriangulationMesherEnum>(triangulationMesher,
+                                                                                                 "triangulation_mesher");
             if (flowProfile != null)
                 item.FlowProfile = PythonValueConverter.ToEnum<QuadWildFlowProfileEnum>(flowProfile,
                                                                                          "flow_profile");
@@ -776,9 +938,15 @@ namespace APIs.Python.Model
             if (edgeRotations != null)
                 item.EdgeRotations = PythonValueConverter.ToBool(edgeRotations, "edge_rotations");
             if (singularityPosition != null)
-                item.SingularityPosition = PythonValueConverter.ToFiniteDouble(singularityPosition, "singularity_position");
-            if (countSearch != null)
-                item.CountSearch = PythonValueConverter.ToInt(countSearch, "count_search");
+            {
+                double position = PythonValueConverter.ToFiniteDouble(singularityPosition, "singularity_position");
+                if (position < 0)
+                    throw new PythonAPIException("The argument 'singularity_position' must be larger or equal to 0, " +
+                                                 "but " + position + " was given.");
+                item.SingularityPosition = position;
+            }
+            int? rounds = ToNonNegativeInt(countSearch, "count_search");
+            if (rounds.HasValue) item.CountSearch = rounds.Value;
             if (boundaryLayer != null)
                 item.BoundaryLayer = PythonValueConverter.ToEnum<QuadWildBoundaryLayerEnum>(boundaryLayer, "boundary_layer");
             if (transfiniteThreeSided != null)
@@ -787,8 +955,9 @@ namespace APIs.Python.Model
                                                                            "transfinite_three_sided");
             if (transfiniteFourSided != null)
                 item.TransfiniteFourSided = PythonValueConverter.ToBool(transfiniteFourSided, "transfinite_four_sided");
-            if (transfiniteAngle != null)
-                item.TransfiniteAngleDeg = PythonValueConverter.ToFiniteDouble(transfiniteAngle, "transfinite_angle_deg");
+            // The model holds the angle within 90 to 180 degrees
+            double? angle = ToAngle(transfiniteAngle, "transfinite_angle_deg", 90, 180, true);
+            if (angle.HasValue) item.TransfiniteAngleDeg = angle.Value;
         }
         private static void ApplyAlgorithms(GmshSetupItem item, string algorithm2D, string algorithm3D)
         {

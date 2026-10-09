@@ -67,24 +67,24 @@ namespace APIs.Python
             object it, object df, object dc, object db, object da, object ds, object dh, object dd, object wg)
         {
             TimeIncrementationStepControlParameter parameter = new TimeIncrementationStepControlParameter();
-            if (i0 != null) parameter.I0 = PythonValueConverter.ToInt(i0, "i0");
-            if (ir != null) parameter.IR = PythonValueConverter.ToInt(ir, "ir");
-            if (ip != null) parameter.IP = PythonValueConverter.ToInt(ip, "ip");
-            if (ic != null) parameter.IC = PythonValueConverter.ToInt(ic, "ic");
-            if (il != null) parameter.IL = PythonValueConverter.ToInt(il, "il");
-            if (ig != null) parameter.IG = PythonValueConverter.ToInt(ig, "ig");
-            if (iS != null) parameter.IS = PythonValueConverter.ToInt(iS, "is_value");
-            if (ia != null) parameter.IA = PythonValueConverter.ToInt(ia, "ia");
-            if (ij != null) parameter.IJ = PythonValueConverter.ToInt(ij, "ij");
-            if (it != null) parameter.IT = PythonValueConverter.ToInt(it, "it");
-            if (df != null) parameter.Df = PythonValueConverter.ToDouble(df, "df");
-            if (dc != null) parameter.DC = PythonValueConverter.ToDouble(dc, "dc");
-            if (db != null) parameter.DB = PythonValueConverter.ToDouble(db, "db");
-            if (da != null) parameter.DA = PythonValueConverter.ToDouble(da, "da");
-            if (ds != null) parameter.DS = PythonValueConverter.ToDouble(ds, "ds");
-            if (dh != null) parameter.DH = PythonValueConverter.ToDouble(dh, "dh");
-            if (dd != null) parameter.DD = PythonValueConverter.ToDouble(dd, "dd");
-            if (wg != null) parameter.WG = PythonValueConverter.ToDouble(wg, "wg");
+            if (i0 != null) parameter.I0 = ToIntAtLeast(1, i0, "i0");
+            if (ir != null) parameter.IR = ToIntAtLeast(1, ir, "ir");
+            if (ip != null) parameter.IP = ToIntAtLeast(1, ip, "ip");
+            if (ic != null) parameter.IC = ToIntAtLeast(1, ic, "ic");
+            if (il != null) parameter.IL = ToIntAtLeast(1, il, "il");
+            if (ig != null) parameter.IG = ToIntAtLeast(1, ig, "ig");
+            if (iS != null) parameter.IS = ToIntAtLeast(1, iS, "is_value");
+            if (ia != null) parameter.IA = ToIntAtLeast(1, ia, "ia");
+            if (ij != null) parameter.IJ = ToIntAtLeast(1, ij, "ij");
+            if (it != null) parameter.IT = ToIntAtLeast(1, it, "it");
+            if (df != null) parameter.Df = ToDoubleAtLeast(0, df, "df");
+            if (dc != null) parameter.DC = ToDoubleAtLeast(0, dc, "dc");
+            if (db != null) parameter.DB = ToDoubleAtLeast(0, db, "db");
+            if (da != null) parameter.DA = ToDoubleAtLeast(0, da, "da");
+            if (ds != null) parameter.DS = ToDoubleAtLeast(0, ds, "ds");
+            if (dh != null) parameter.DH = ToDoubleAtLeast(0, dh, "dh");
+            if (dd != null) parameter.DD = ToDoubleAtLeast(0, dd, "dd");
+            if (wg != null) parameter.WG = ToDoubleAtLeast(0, wg, "wg");
             //
             return parameter;
         }
@@ -92,14 +92,14 @@ namespace APIs.Python
                                                                    object rpa, object ea, object cea, object rla)
         {
             FieldStepControlParameter parameter = new FieldStepControlParameter();
-            if (rna != null) parameter.Rna = PythonValueConverter.ToDouble(rna, "rna");
-            if (cna != null) parameter.Cna = PythonValueConverter.ToDouble(cna, "cna");
-            if (q0a != null) parameter.Q0a = PythonValueConverter.ToDouble(q0a, "q0a");
-            if (qua != null) parameter.Qua = PythonValueConverter.ToDouble(qua, "qua");
-            if (rpa != null) parameter.Rpa = PythonValueConverter.ToDouble(rpa, "rpa");
-            if (ea != null) parameter.Ea = PythonValueConverter.ToDouble(ea, "ea");
-            if (cea != null) parameter.Cea = PythonValueConverter.ToDouble(cea, "cea");
-            if (rla != null) parameter.Rla = PythonValueConverter.ToDouble(rla, "rla");
+            if (rna != null) parameter.Rna = ToDoubleAtLeast(0, rna, "rna");
+            if (cna != null) parameter.Cna = ToDoubleAtLeast(0, cna, "cna");
+            if (q0a != null) parameter.Q0a = ToDoubleAtLeast(0, q0a, "q0a");
+            if (qua != null) parameter.Qua = ToDoubleAtLeast(0, qua, "qua");
+            if (rpa != null) parameter.Rpa = ToDoubleAtLeast(0, rpa, "rpa");
+            if (ea != null) parameter.Ea = ToDoubleAtLeast(0, ea, "ea");
+            if (cea != null) parameter.Cea = ToDoubleAtLeast(0, cea, "cea");
+            if (rla != null) parameter.Rla = ToDoubleAtLeast(0, rla, "rla");
             //
             return parameter;
         }
@@ -107,16 +107,43 @@ namespace APIs.Python
                                                                        object kscalemax, object itf2f)
         {
             ContactStepControlParameter parameter = new ContactStepControlParameter();
-            if (delcon != null) parameter.Delcon = PythonValueConverter.ToDouble(delcon, "delcon");
-            if (alea != null) parameter.Alea = PythonValueConverter.ToDouble(alea, "alea");
-            if (kscalemax != null) parameter.Kscalemax = PythonValueConverter.ToInt(kscalemax, "kscalemax");
-            if (itf2f != null) parameter.Itf2f = PythonValueConverter.ToInt(itf2f, "itf2f");
+            if (delcon != null) parameter.Delcon = ToDoubleAtLeast(0, delcon, "delcon");
+            if (alea != null) parameter.Alea = ToDoubleBetween(0, 1, alea, "alea");
+            if (kscalemax != null) parameter.Kscalemax = ToIntAtLeast(1, kscalemax, "kscalemax");
+            if (itf2f != null) parameter.Itf2f = ToIntAtLeast(1, itf2f, "itf2f");
             //
             return parameter;
         }
         public static ResetStepControlParameter CreateResetControl()
         {
             return new ResetStepControlParameter();
+        }
+        //
+        // The parameter setters clamp a value outside their range, so a value the caller gave is refused instead
+        private static int ToIntAtLeast(int minimum, object value, string argumentName)
+        {
+            int converted = PythonValueConverter.ToInt(value, argumentName);
+            if (converted < minimum)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be at least " + minimum + ".");
+            //
+            return converted;
+        }
+        private static double ToDoubleAtLeast(double minimum, object value, string argumentName)
+        {
+            double converted = PythonValueConverter.ToDouble(value, argumentName);
+            if (!(converted >= minimum))
+                throw new PythonAPIException("The argument '" + argumentName + "' must be at least " + minimum + ".");
+            //
+            return converted;
+        }
+        private static double ToDoubleBetween(double minimum, double maximum, object value, string argumentName)
+        {
+            double converted = PythonValueConverter.ToDouble(value, argumentName);
+            if (!(converted >= minimum && converted <= maximum))
+                throw new PythonAPIException("The argument '" + argumentName + "' must be between " + minimum +
+                                             " and " + maximum + ".");
+            //
+            return converted;
         }
     }
 }

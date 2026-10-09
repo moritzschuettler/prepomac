@@ -10,10 +10,15 @@
 #to outlive it: with the session closed the address is simply unreachable, which the last check
 #asserts because it is the one thing this transport gives up.
 #
+#It also checks what the protocol promises beyond the tools: a body is read as UTF-8 whatever its
+#Content-Type says, a batch and an argument a tool does not take are refused, the protocol version is
+#negotiated, and the tools that run a script of their own leave the console scope as they found it.
+#
 #  PrePoMax.com --script Test_Mcp_Http.py -g No -x Yes -w <work directory>
 #
 #Expected process exit code 0.
 
+import base64
 import io
 import json
 import os
@@ -33,7 +38,7 @@ SESSIONS = os.path.join(os.environ["LOCALAPPDATA"], "PrePoMax", "sessions")
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 EXPECTED_TOOLS = ["get_guide", "list_sessions", "get_status", "describe_api", "read_model",
                   "read_topology", "eval_expression", "run_python", "get_call", "cancel_call",
-                  "get_history", "run_job", "get_job", "screenshot"]
+                  "get_history", "run_job", "get_job", "screenshot", "exit_session"]
 
 
 def check(condition, message):
@@ -250,6 +255,15 @@ def check_handshake(endpoint):
     check("busy" in result["instructions"], "the instructions must explain the busy answer")
     endpoint.notify("notifications/initialized")
     endpoint.result("ping")
+    # A version the server supports is answered as it was offered, and any other one with the latest
+    # the server supports, which the client may then refuse
+    result = endpoint.result("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+                                            "clientInfo": {"name": "Test_Mcp_Http", "version": "1.0"}})
+    check(result["protocolVersion"] == "2025-06-18", "a supported version must be kept: " + result["protocolVersion"])
+    result = endpoint.result("initialize", {"protocolVersion": "1999-01-01", "capabilities": {},
+                                            "clientInfo": {"name": "Test_Mcp_Http", "version": "1.0"}})
+    check(result["protocolVersion"] == "2025-06-18",
+          "an unsupported version must be answered with the latest supported one: " + result["protocolVersion"])
     print("handshake: " + result["serverInfo"]["name"] + " " + result["serverInfo"]["version"] +
           ", protocol " + result["protocolVersion"])
 
@@ -268,6 +282,9 @@ def check_tool_list(endpoint):
     check(tools["run_python"]["annotations"]["readOnlyHint"] is False, "run_python changes the model")
     check(tools["read_model"]["annotations"]["readOnlyHint"] is True, "read_model changes nothing")
     check("source" in tools["run_python"]["inputSchema"]["required"], "run_python must require its source")
+    for name, tool in tools.items():
+        check(tool["inputSchema"].get("additionalProperties") is False,
+              name + " must refuse an argument it does not declare: " + str(tool["inputSchema"]))
     print("tools: " + str(len(tools)) + " tools, every one with a schema")
 
 
@@ -283,6 +300,9 @@ def check_reading_tools(endpoint, session):
     check("properties" in model, "the snapshot must carry the model properties: " + str(model)[:200])
     check("parts" in model, "the snapshot must carry the collections: " + str(sorted(model)))
     check("jobs" in model, "the snapshot must carry the analyses: " + str(sorted(model)))
+    meshed = [part for part in model["parts_mesh_state"] if part["meshed"]]
+    check(len(meshed) >= 1 and meshed[0]["element_count"] > 0 and meshed[0]["node_count"] > 0,
+          "the snapshot must carry the mesh state of the parts: " + str(model["parts_mesh_state"]))
     print("read_model: " + str(len(model)) + " entries, unit system " + str(model["properties"]["unit_system"]))
     #
     described = json.loads(endpoint.tool("describe_api", {"path": "pmx.model"}))
@@ -306,6 +326,16 @@ def check_reading_tools(endpoint, session):
     check(top[0]["id"] in range(1, 7), "the face ID must be a 1-based face ID: " + str(top[0]))
     print("read_topology: the cube has " + str(part["face_count"]) + " faces and face " +
           str(top[0]["id"]) + " points up")
+    # A part name is compared regardless of case, and a name that matched nothing is reported
+    name = part["name"]
+    topology = json.loads(endpoint.tool("read_topology", {"part_names": [name.upper(), "no_such_part"],
+                                                          "limit": 100000}))
+    check(len(topology["model"]) == 1 and topology["model"][0]["name"] == name,
+          "a part name must match regardless of case: " + str(topology["model"]))
+    check(topology.get("unmatched_part_names") == ["no_such_part"],
+          "a name that matched no part must be reported: " + str(topology.get("unmatched_part_names")))
+    check(len(topology["model"][0]["faces"]) <= 240, "the limit must be clamped to the row budget")
+    print("read_topology: a name in other case matched, an unknown name reported")
 
 
 def check_the_guide(endpoint):
@@ -345,6 +375,41 @@ def check_describing_a_type(endpoint):
     described = json.loads(endpoint.tool("describe_api", {"path": "Model.Nodes"}))
     check(described["resolvedAs"] == "type", "the qualified name must resolve: " + str(described))
     print("describe_api: an ambiguous type name is refused with its candidates")
+
+
+def check_private_scripts(endpoint):
+    """read_model and read_topology run Python of their own, and must leave the agent's variables alone."""
+    result = json.loads(endpoint.tool("run_python", {"source": "names = 'agent names'" + os.linesep + "LIMIT = 7"}))
+    check(not result["failed"], "the agent variables must be set: " + result["error"])
+    endpoint.tool("read_model")
+    endpoint.tool("read_topology")
+    value = json.loads(endpoint.tool("eval_expression", {"expression": "[names, LIMIT]"}))
+    check(value["value"] == ["agent names", 7], "a tool script must not overwrite the agent's variables: " +
+          str(value["value"]))
+    value = json.loads(endpoint.tool("eval_expression",
+                                     {"expression": "[name for name in dir() if name.startswith('_prepomax_tool_')]"}))
+    check(value["value"] == [], "a tool script must leave nothing in the scope: " + str(value["value"]))
+    print("read_model and read_topology: the agent's variables survived, nothing was left behind")
+
+
+def check_utf8_body(endpoint):
+    """A body is UTF-8 whatever its Content-Type says, and the answer says it is UTF-8."""
+    text = "\u00b0\u00b5\u0161\u010d"
+    message = {"jsonrpc": "2.0", "id": 9001, "method": "tools/call",
+               "params": {"name": "eval_expression",
+                          "arguments": {"expression": json.dumps(text, ensure_ascii=False)}}}
+    body = json.dumps(message, ensure_ascii=False).encode("utf-8")
+    check(any(byte > 127 for byte in body), "the body must carry raw UTF-8, not escapes")
+    # The Content-Type names no charset, which is where the ANSI code page used to be assumed
+    status, answer, headers = request(endpoint.url, body, endpoint.token, content_type="application/json")
+    check(status == 200, "the UTF-8 body must be served, not HTTP " + str(status) + ": " + answer)
+    check("charset=utf-8" in headers.get("Content-Type", "").lower(),
+          "the answer must say it is UTF-8: " + str(headers.get("Content-Type")))
+    result = json.loads(answer)["result"]
+    check(not result.get("isError"), "the expression must evaluate: " + result["content"][0]["text"])
+    value = json.loads(result["content"][0]["text"])
+    check(value["value"] == text, "the text must round trip: " + repr(value["value"]) + " is not " + repr(text))
+    print("utf-8: " + repr(text) + " sent as raw UTF-8 came back unchanged")
 
 
 def check_writing_tools(endpoint):
@@ -415,9 +480,21 @@ def check_cancel_call(endpoint):
 
 
 def check_screenshot(endpoint):
-    result = json.loads(endpoint.tool("screenshot"))
+    answer = endpoint.result("tools/call", {"name": "screenshot", "arguments": {}})
+    check(not answer.get("isError"), "the screenshot must be taken: " + answer["content"][0]["text"])
+    result = json.loads(answer["content"][0]["text"])
     check(os.path.exists(result["fileName"]), "the screenshot must exist: " + result["fileName"])
-    print("screenshot: " + result["length"] + " bytes")
+    images = [block for block in answer["content"] if block["type"] == "image"]
+    check(len(images) == 1 and images[0]["mimeType"] == "image/png",
+          "the picture must be attached as a PNG image block: " + str([block["type"] for block in answer["content"]]))
+    check(base64.b64decode(images[0]["data"])[:8] == b"\x89PNG\r\n\x1a\n", "the image block must be the PNG")
+    print("screenshot: " + str(result["length"]) + " bytes, attached as an image")
+    os.remove(result["fileName"])
+    # A relative file name is taken in the temporary folder, not in the working directory of the process
+    result = json.loads(endpoint.tool("screenshot", {"file_name": "mcp_relative.png"}))
+    expected = os.path.normcase(os.path.realpath(os.path.join(tempfile.gettempdir(), "PrePoMax")))
+    check(os.path.normcase(os.path.realpath(os.path.dirname(result["fileName"]))) == expected,
+          "a relative name must land in the PrePoMax temporary folder: " + result["fileName"])
     os.remove(result["fileName"])
     # The optional arguments set the shot up through pmx.view before it is taken
     result = json.loads(endpoint.tool("screenshot", {"view": "femodel", "orientation": "Isometric",
@@ -438,6 +515,21 @@ def check_refusals(endpoint):
     # never offered
     answer = endpoint.call("tools/call", {"name": "no_such_tool", "arguments": {}})
     check("error" in answer, "an unknown tool must be a protocol error: " + str(answer))
+    check("run_python" in answer["error"]["message"], "the refusal must list the tools: " + str(answer))
+    # An argument a tool does not take is refused by name, rather than dropped
+    text = endpoint.failing_tool("get_status", {"no_such_argument": 1})
+    check("no_such_argument" in text, "the refusal must name the argument: " + text)
+    text = endpoint.failing_tool("get_guide", {"process_id": 1})
+    check("process_id" in text, "get_guide takes no process_id: " + text)
+    # A batch is not served, and is answered rather than dropped
+    status, text, _ = request(endpoint.url, b'[{"jsonrpc":"2.0","id":1,"method":"ping"}]', endpoint.token)
+    check(status == 200 and json.loads(text)["error"]["code"] == -32600,
+          "a batch must be answered with a JSON-RPC error, not HTTP " + str(status) + ": " + text)
+    # exit_session is refused for a session with a window only, so here it is only checked to guard
+    # unsaved changes rather than to close the session the remaining checks need
+    endpoint.tool("run_python", {"source": "pmx.model.parameters.add('mcp_exit_guard', 1.0)"})
+    text = endpoint.failing_tool("exit_session")
+    check("unsaved changes" in text, "exit_session must guard unsaved changes: " + text)
     # A tool that cannot be served is a result the agent reads, so it can decide what to do next
     text = endpoint.failing_tool("run_python", {})
     check("source" in text, "the refusal must name the missing argument: " + text)
@@ -509,6 +601,8 @@ def main():
         check_the_guide(endpoint)
         wait_until_idle(endpoint)
         check_reading_tools(endpoint, session)
+        check_private_scripts(endpoint)
+        check_utf8_body(endpoint)
         check_describing_a_type(endpoint)
         check_writing_tools(endpoint)
         check_a_long_call(endpoint)

@@ -33,6 +33,16 @@ def raised_message(function):
     return None
 
 
+def check_refused(function, fragment, message):
+    # The refusal must be the API's own, which names the argument that is wrong
+    try:
+        function()
+    except Exception as ex:
+        check(fragment in str(ex), message + ": " + str(ex)[0:200])
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
 def clean():
     names = [n for n in pmx.model.steps.get_names() if n.startswith(PREFIX)]
     if names:
@@ -134,6 +144,94 @@ def test_collection_verbs():
     check(steps[name.upper()].name == name.upper(), "a rename to the same name in other case must be allowed")
     steps.rename(name.upper(), name)
     steps.remove([PREFIX + "S2"])
+
+
+def test_case_insensitive_names():
+    steps = pmx.model.steps
+    name = PREFIX + "S1"
+    other_case = name.lower()
+    # The model keys every other collection without regard to case, so the step is found the same way and
+    # carries its own name on to the controller, which matches a step name exactly
+    check(steps[other_case].name == name, "a step looked up in other case must carry its own name")
+    check(steps[other_case].loads.step_name == name, "a step collection must carry the step name the model uses")
+    period = steps[name].get_value("time_period")
+    step = steps.replace_static(other_case, time_period=period + 1.0)
+    check(step.name == name, "a replace by a name in other case renamed the step to " + step.name)
+    check(steps[name].get_value("time_period") == period + 1.0, "a replace by a name in other case was not applied")
+    steps.replace_static(name, time_period=period)
+    count_before = len(steps)
+    steps.duplicate([other_case])
+    check(len(steps) == count_before + 1, "a duplicate by a name in other case was not applied")
+    duplicated = [n for n in steps.get_names() if n.startswith(PREFIX) and n not in (name, )]
+    steps.remove([n.upper() for n in duplicated])
+    check(len(steps) == count_before, "a remove by names in other case was not applied")
+    steps.deactivate([other_case])
+    check(not steps[name].active, "a deactivate by a name in other case was not applied")
+    steps.activate([other_case])
+    check(steps[name].active, "an activate by a name in other case was not applied")
+    steps[other_case].set_controls(pmx.create.reset_control())
+    check(list(steps[name].get_control_types()) == ["reset_control"],
+          "step controls set through a name in other case were not applied")
+    steps[name].clear_controls()
+
+
+def test_refused_values():
+    steps = pmx.model.steps
+    bad = PREFIX + "Bad"
+    count_before = len(steps)
+    # A value the model would clamp, or refuse without naming the argument, is refused naming it
+    refusals = [(lambda: steps.add_static(bad, max_increments=0), "'max_increments'"),
+                (lambda: steps.add_static(bad, output_frequency=-1), "'output_frequency'"),
+                (lambda: steps.add_static(bad, time_period=0), "'time_period'"),
+                (lambda: steps.add_static(bad, initial_time_increment=-1.0), "'initial_time_increment'"),
+                (lambda: steps.add_static(bad, time_period=1.0, initial_time_increment=2.0),
+                 "'initial_time_increment'"),
+                (lambda: steps.add_static(bad, time_period=1.0, min_time_increment=2.0), "'min_time_increment'"),
+                (lambda: steps.add_static(bad, initial_time_increment=0.5, max_time_increment=0.1),
+                 "'max_time_increment'"),
+                (lambda: steps.add_dynamic(bad, alpha=0.1), "'alpha'"),
+                (lambda: steps.add_dynamic(bad, alpha=-0.5), "'alpha'"),
+                (lambda: steps.add_modal_dynamics(bad, relative_error=-0.1), "'relative_error'"),
+                (lambda: steps.add_modal_dynamics(bad, relative_error=2.0), "'relative_error'"),
+                (lambda: steps.add_steady_state_dynamics(bad, number_of_data_points=1), "'number_of_data_points'"),
+                (lambda: steps.add_steady_state_dynamics(bad, bias=0.5), "'bias'"),
+                (lambda: steps.add_steady_state_dynamics(bad, number_of_fourier_terms=0),
+                 "'number_of_fourier_terms'"),
+                (lambda: steps.add_steady_state_dynamics(bad, lower_frequency=50.0, upper_frequency=10.0),
+                 "'lower_frequency'"),
+                (lambda: steps.add_frequency(bad, number_of_frequencies=0), "'number_of_frequencies'"),
+                (lambda: steps.add_frequency(bad, lower_frequency=-1.0), "'lower_frequency'"),
+                (lambda: steps.add_frequency(bad, lower_frequency=100.0, upper_frequency=10.0), "'upper_frequency'"),
+                (lambda: steps.add_frequency(bad, cyclic_symmetry_mode_min=-1), "'cyclic_symmetry_mode_min'"),
+                (lambda: steps.add_frequency(bad, cyclic_symmetry_mode_min=3, cyclic_symmetry_mode_max=1),
+                 "'cyclic_symmetry_mode_max'"),
+                (lambda: steps.add_complex_frequency(bad, number_of_frequencies=0), "'number_of_frequencies'"),
+                (lambda: steps.add_buckle(bad, number_of_buckling_factors=0), "'number_of_buckling_factors'")]
+    for function, fragment in refusals:
+        check_refused(function, fragment, "a value of " + fragment + " the model would change must be refused")
+    check(len(steps) == count_before and not steps.contains(bad), "a refused step was recorded")
+    # A replace checks the values it is given against the ones the step keeps
+    name = PREFIX + "S1"
+    stored = steps[name].get_value("time_period")
+    check_refused(lambda: steps.replace_static(name, time_period=steps[name].get_value("initial_time_increment") / 10),
+                  "'time_period'", "a time period below the stored initial increment must be refused")
+    check(steps[name].get_value("time_period") == stored, "the refused replace changed the time period")
+    check_refused(lambda: steps.replace_frequency(PREFIX + "F2", upper_frequency=1.0), "'upper_frequency'",
+                  "an upper frequency below the stored lower one must be refused")
+    step = steps.replace_frequency(PREFIX + "F2", cyclic_symmetry_mode_min=2, cyclic_symmetry_mode_max=4)
+    check(step.get_value("cyclic_symmetry_mode_max") == 4, "the cyclic symmetry modes were not set")
+    check_refused(lambda: steps.replace_frequency(PREFIX + "F2", cyclic_symmetry_mode_max=1),
+                  "'cyclic_symmetry_mode_max'", "a mode maximum below the stored minimum must be refused")
+    check(steps[PREFIX + "F2"].get_value("cyclic_symmetry_mode_min") == 2,
+          "the refused replace moved the stored minimum mode")
+    # The step control parameters clamp a value outside their range
+    control_refusals = [(lambda: pmx.create.time_incrementation_control(i0=0), "'i0'"),
+                        (lambda: pmx.create.time_incrementation_control(dd=-1.0), "'dd'"),
+                        (lambda: pmx.create.field_control(rna=-0.1), "'rna'"),
+                        (lambda: pmx.create.contact_control(alea=1.5), "'alea'"),
+                        (lambda: pmx.create.contact_control(kscalemax=0), "'kscalemax'")]
+    for function, fragment in control_refusals:
+        check_refused(function, fragment, "a step control value of " + fragment + " out of range must be refused")
 
 
 def test_frequency_types():
@@ -285,6 +383,13 @@ def test_move():
     steps.move([last], 0)
     check(list(steps.get_names())[0] == last, "the step was not moved to the front")
     check_raises(lambda: steps.move([last], len(steps) + 5), "an out of range target index must be rejected")
+    # The model refuses a step named twice only after the command is recorded
+    order = list(steps.get_names())
+    check_refused(lambda: steps.move([names[0], names[0].lower()], 0), "'names'",
+                  "a step named twice in a move must be refused")
+    check(list(steps.get_names()) == order, "the refused move changed the step order")
+    steps.move([last.lower()], len(steps) - 1)
+    check(list(steps.get_names())[-1] == last, "a move by a name in other case was not applied")
 
 
 def main():
@@ -293,8 +398,10 @@ def main():
     test_static_and_shared_values()
     test_replace()
     test_collection_verbs()
+    test_case_insensitive_names()
     test_frequency_types()
     test_dynamic_types()
+    test_refused_values()
     test_thermal_and_wear_types()
     test_controls()
     test_move()

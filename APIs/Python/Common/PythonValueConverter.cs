@@ -71,6 +71,10 @@ namespace APIs.Python
                                                  "' must be a whole 32-bit number.");
                 return (int)number;
             }
+            catch (PythonAPIException)
+            {
+                throw;
+            }
             catch (Exception)
             {
                 throw new PythonAPIException("The argument '" + argumentName + "' must be a whole number.");
@@ -100,12 +104,22 @@ namespace APIs.Python
                             using (PyObject type = item.GetPythonType())
                             using (PyObject typeName = type.GetAttr("__name__"))
                             {
+                                string itemName = argumentName + "[" + i + "]";
                                 if (item.IsNone() || typeName.As<string>() == "bool")
-                                    throw new PythonAPIException("The items of '" + argumentName +
-                                                                 "' must be numbers or equation strings.");
-                                object component = PyString.IsStringType(item)
-                                                   ? (object)item.As<string>() : item.As<double>();
-                                equations.Add(ToEquationString(component, argumentName + "[" + i + "]"));
+                                    throw new PythonAPIException("The item '" + itemName +
+                                                                 "' must be a number or an equation string.");
+                                object component;
+                                try
+                                {
+                                    component = PyString.IsStringType(item) ? (object)item.As<string>()
+                                                                            : item.As<double>();
+                                }
+                                catch (Exception)
+                                {
+                                    throw new PythonAPIException("The item '" + itemName +
+                                                                 "' must be a number or an equation string.");
+                                }
+                                equations.Add(ToEquationString(component, itemName));
                             }
                         }
                     }
@@ -116,7 +130,12 @@ namespace APIs.Python
                 IEnumerable items = value as IEnumerable;
                 if (items == null)
                     throw new PythonAPIException("The argument '" + argumentName + "' must be a list.");
-                foreach (object item in items) equations.Add(ToEquationString(item, argumentName));
+                int index = 0;
+                foreach (object item in items)
+                {
+                    equations.Add(ToEquationString(item, argumentName + "[" + index + "]"));
+                    index++;
+                }
             }
             if (equations.Count != length)
                 throw new PythonAPIException("The argument '" + argumentName + "' must contain " + length +

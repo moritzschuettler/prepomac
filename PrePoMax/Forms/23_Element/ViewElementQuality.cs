@@ -21,23 +21,6 @@ using System.Drawing.Printing;
 namespace PrePoMax.Forms
 {
     [Serializable]
-    public enum GmshElementQualityMetricEnum
-    {
-        minDetJac,
-        maxDetJac,
-        minSJ,
-        minSICN,
-        minSIGE,
-        gamma,
-        innerRadius,
-        outerRadius,
-        minIsotropy,
-        angleShape,
-        minEdge,
-        maxEdge,
-        volume
-    }
-    [Serializable]
     public enum GmshElementQualityHighlightCriteriaEnum
     {
         Smaller,

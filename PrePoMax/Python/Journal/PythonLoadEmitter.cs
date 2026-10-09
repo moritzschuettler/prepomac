@@ -101,12 +101,19 @@ namespace PrePoMax.Python.Journal
             }
             if (load is STLoad surfaceTraction)
             {
-                AddComponent(arguments, "f1", surfaceTraction.F1);
-                AddComponent(arguments, "f2", surfaceTraction.F2);
-                AddComponent(arguments, "f3", surfaceTraction.F3);
-                AddComponent(arguments, "p1", surfaceTraction.P1);
-                AddComponent(arguments, "p2", surfaceTraction.P2);
-                AddComponent(arguments, "p3", surfaceTraction.P3);
+                // The API refuses the group of components the distribution leaves without effect
+                if (surfaceTraction.DistributionName == Distribution.DefaultDistributionName)
+                {
+                    AddComponent(arguments, "f1", surfaceTraction.F1);
+                    AddComponent(arguments, "f2", surfaceTraction.F2);
+                    AddComponent(arguments, "f3", surfaceTraction.F3);
+                }
+                else
+                {
+                    AddComponent(arguments, "p1", surfaceTraction.P1);
+                    AddComponent(arguments, "p2", surfaceTraction.P2);
+                    AddComponent(arguments, "p3", surfaceTraction.P3);
+                }
                 AddName(arguments, "distribution_name", surfaceTraction.DistributionName);
                 return "surface_traction";
             }

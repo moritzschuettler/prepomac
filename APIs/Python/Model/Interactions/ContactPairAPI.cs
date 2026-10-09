@@ -23,10 +23,18 @@ namespace APIs.Python.Model
         public string name { get { return Resolve().Name; } }
         [PythonAPI("The name of the surface interaction the contact pair uses.", Returns = "str")]
         public string surface_interaction_name { get { return Resolve().SurfaceInteractionName; } }
-        [PythonAPI("The contact method: NodeToSurface, SurfaceToSurface or Mortar.", Returns = "str")]
+        [PythonAPI("The contact method: NodeToSurface, SurfaceToSurface, Mortar or Massless.", Returns = "str")]
         public string method { get { return Resolve().Method.ToString(); } }
-        [PythonAPI("True when the small sliding formulation is used.", Returns = "bool")]
-        public bool small_sliding { get { return Resolve().SmallSliding; } }
+        [PythonAPI("True when the small sliding formulation is used. Only the NodeToSurface method writes " +
+                   "it, so it reads back False for any other method.", Returns = "bool")]
+        public bool small_sliding
+        {
+            get
+            {
+                ContactPair contactPair = Resolve();
+                return contactPair.Method == ContactPairMethod.NodeToSurface && contactPair.SmallSliding;
+            }
+        }
         [PythonAPI("True when the slave nodes are adjusted onto the master surface.", Returns = "bool")]
         public bool adjust { get { return Resolve().Adjust; } }
         [PythonAPI("The adjustment size. It reads back as None when no size is given.", Returns = "float")]

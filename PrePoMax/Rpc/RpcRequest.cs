@@ -25,12 +25,17 @@ namespace PrePoMax.Rpc
         private readonly object _id;
         private readonly bool _hasId;
         private readonly Dictionary<string, object> _parameters;
+        private string _echoNote;
 
 
         // Properties                                                                                                               
         public string Method { get { return _method; } }
         public object Id { get { return _id; } }
         public bool IsNotification { get { return !_hasId; } }
+        // A one line note the Python panel shows instead of the source an exec runs. It is never read from
+        // a request line, only set in process by a tool that runs a fixed script of its own, so the source
+        // an agent writes is always echoed in full
+        public string EchoNote { get { return _echoNote; } set { _echoNote = value; } }
 
 
         // Constructor                                                                                                              
@@ -40,6 +45,7 @@ namespace PrePoMax.Rpc
             _id = id;
             _hasId = hasId;
             _parameters = parameters == null ? new Dictionary<string, object>() : parameters;
+            _echoNote = null;
         }
 
 

@@ -133,9 +133,42 @@ def test_materials():
     zero_text = expansion_block.split("Zero=", 1)[1].split("\n", 1)[0].strip().rstrip(",")
     check(abs(float(zero_text) - 123.0) < 1e-6,
           "the given zero temperature was not stored, it is " + zero_text)
-    # The model rejects a second elastic property
-    check_raises(lambda: materials.add(PREFIX + "Bad", [pmx.create.elastic(1, 0.3), pmx.create.elastic(2, 0.3)]),
-                 "a second elastic property must be rejected")
+    # The model rejects a second elastic property, and the API names the argument
+    message = raised_message(lambda: materials.add(PREFIX + "Bad", [pmx.create.elastic(1, 0.3),
+                                                                    pmx.create.elastic(2, 0.3)]))
+    check(message is not None and "'properties'" in message,
+          "a second elastic property must be refused naming the argument: " + str(message))
+    # A material that is not temperature dependent writes only the first row without its temperature, so a
+    # property the analysis would cut short is refused rather than recorded
+    count_before_rows = len(materials)
+    for properties in [pmx.create.elastic([[210000, 0.3, 0], [180000, 0.32, 400]]),
+                       pmx.create.elastic([[210000, 0.3, 20]]),
+                       [pmx.create.elastic(210000, 0.3), pmx.create.density([[7.85e-9, 0], [7.8e-9, 400]])]]:
+        message = raised_message(lambda: materials.add(PREFIX + "Bad", properties))
+        check(message is not None and "temperature_dependent" in message,
+              "rows a material that is not temperature dependent drops must be refused: " + str(message))
+    check(len(materials) == count_before_rows, "a refused material was recorded")
+    message = raised_message(lambda: materials.replace(PREFIX + "Temp", temperature_dependent=False))
+    check(message is not None and "temperature_dependent" in message,
+          "turning off the temperature dependence of a tabular material must be refused: " + str(message))
+    check(materials[PREFIX + "Temp"].temperature_dependent, "a refused replace changed the material")
+    # A value the model refuses is refused by the maker, naming the argument
+    for maker, argument in [(lambda: pmx.create.elastic(210000), "'poissons_ratio'"),
+                            (lambda: pmx.create.elastic(-1, 0.3), "'youngs_modulus'"),
+                            (lambda: pmx.create.density(-1), "'density'"),
+                            (lambda: pmx.create.specific_heat(0), "'specific_heat'"),
+                            (lambda: pmx.create.thermal_conductivity([[50, 0], [-45, 400]]), "'thermal_conductivity'"),
+                            (lambda: pmx.create.thermal_expansion(0), "'thermal_expansion'"),
+                            (lambda: pmx.create.elastic_with_density(70000, 0.33, -1), "'density'"),
+                            (lambda: pmx.create.slip_wear(0, 1e-4), "'hardness'"),
+                            (lambda: pmx.create.elastic_engineering_constants(
+                                [[1000, 1000, 1000, 0.9, 0.9, 0.9, 400, 400, 400, 0]]), "'constants'"),
+                            (lambda: pmx.create.elastic_lamina(
+                                [[135000, 9500, 0.28, 5000, 4500, 3500, 20],
+                                 [125001, 9000, 0.27, 4500, 4000, 3000, 10]]), "'constants'")]:
+        message = raised_message(maker)
+        check(message is not None and argument in message,
+              "a value the model refuses must be refused naming " + argument + ": " + str(message))
     # A row of the wrong width is rejected
     check_raises(lambda: pmx.create.elastic([[210000, 0.3]]), "a 2 value elastic row must be rejected")
     check_raises(lambda: pmx.create.elastic_engineering_constants([[1, 2, 3, 0.1, 0.1, 0.1, 4, 5, 6]]),
@@ -210,7 +243,7 @@ def test_material_properties():
     materials = pmx.model.materials
     materials.add(PREFIX + "Thermal", [pmx.create.specific_heat(500),
                                        pmx.create.thermal_conductivity([[50, 0], [45, 400]]),
-                                       pmx.create.slip_wear(200, 1e-4)])
+                                       pmx.create.slip_wear(200, 1e-4)], temperature_dependent=True)
     # Every value reads back under the pmx.create argument that set it, a table as its rows
     steel = [plain_values(p) for p in materials[PREFIX + "Steel"].get_properties()]
     check(close(steel, [{"youngs_modulus": 210000, "poissons_ratio": 0.3}, {"density": 7.85e-9}]),
@@ -337,6 +370,23 @@ def test_sections(material_name):
     check(shell.offset == -0.5, "the replacement did not change the shell offset")
     check(shell.get_equations()["offset"].replace(" ", "") == "=-0.25*2",
           "the offset expression did not read back: " + str(shell.get_equations()))
+    # A thickness that is not positive and a negative mass are refused naming the argument, and a 3D solid
+    # section writes no thickness, so one given there is refused
+    count_before_refusals = len(sections)
+    for function in [lambda: sections.add_solid(PREFIX + "Bad", material_name, element_selection, thickness=2),
+                     lambda: sections.add_shell(PREFIX + "Bad", material_name, element_selection, thickness=0),
+                     lambda: sections.add_point_mass(PREFIX + "Bad", node_selection, -0.5)]:
+        message = raised_message(function)
+        check(message is not None and ("'thickness'" in message or "'mass'" in message),
+              "the value must be refused naming the argument: " + str(message))
+    check(len(sections) == count_before_refusals, "a refused section was recorded")
+    for function, argument in [(lambda: sections.replace_solid(PREFIX + "Solid", thickness=1), "'thickness'"),
+                               (lambda: sections.replace_shell(PREFIX + "Shell", thickness=-1), "'thickness'"),
+                               (lambda: sections.replace_point_mass(PREFIX + "Mass", mass=-1), "'mass'")]:
+        message = raised_message(function)
+        check(message is not None and argument in message,
+              "a replace with a refused value must name " + argument + ": " + str(message))
+    check(sections[PREFIX + "Shell"].thickness == 3, "a refused replace changed the shell")
     # A default offset stays zero rather than becoming undefined
     plain = sections.add_shell(PREFIX + "Shell_D", material_name, element_selection)
     check(plain.offset == 0, "an omitted offset must stay zero")

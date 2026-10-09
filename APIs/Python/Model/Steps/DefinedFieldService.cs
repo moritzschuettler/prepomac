@@ -60,8 +60,9 @@ namespace APIs.Python.Model
         }
         public void Propagate(string stepName, string name)
         {
-            ResolveItem(stepName, name);
+            DefinedField definedField = ResolveItem(stepName, name);
             EnsureFollowingStepExists(stepName, name);
+            EnsureFollowingStepsSupport(stepName, definedField, step => step.IsDefinedFieldSupported(definedField));
             //
             EnsureCommandsAvailable();
             ModelGateway.PropagateDefinedField(stepName, name);

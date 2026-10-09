@@ -19,10 +19,13 @@ namespace PrePoMax.Mcp
     // A collection it cannot read is named in "unreadable" rather than left as a null nobody notices.
     // The first version of this script asked for boundary_conditions, which the step API calls bcs,
     // and the snapshot reported the step as having none instead of saying it had asked wrongly.
+    //
+    // It runs as one private function, through McpPrivateScript, so it leaves none of its names in
+    // the console scope the agent's own variables live in.
     public static class McpModelScript
     {
         // Variables                                                                                                                
-        public const string Source =
+        private const string Source =
             "import json\n" +
             "\n" +
             "unreadable = []\n" +
@@ -83,6 +86,31 @@ namespace PrePoMax.Mcp
             "    return steps\n" +
             "\n" +
             "\n" +
+            "def mesh_state(name):\n" +
+            "    if name is None:\n" +
+            "        return {'meshed': False, 'node_count': 0, 'element_count': 0}\n" +
+            "    part = pmx.model.parts[name]\n" +
+            "    return {'meshed': True, 'part_type': value(part, 'part_type', name + '.part_type'),\n" +
+            "            'node_count': value(part, 'node_count', name + '.node_count'),\n" +
+            "            'element_count': value(part, 'element_count', name + '.element_count')}\n" +
+            "\n" +
+            "\n" +
+            "# A geometry part is meshed into the model part of the same name; a model part without a\n" +
+            "# geometry part is an imported mesh. Names are compared the way the model keys them\n" +
+            "def read_mesh_state(model_names, geometry_names):\n" +
+            "    meshes = {name.strip().lower(): name for name in model_names}\n" +
+            "    parts = []\n" +
+            "    for name in geometry_names:\n" +
+            "        entry = {'name': name, 'has_geometry': True}\n" +
+            "        entry.update(mesh_state(meshes.pop(name.strip().lower(), None)))\n" +
+            "        parts.append(entry)\n" +
+            "    for name in meshes.values():\n" +
+            "        entry = {'name': name, 'has_geometry': False}\n" +
+            "        entry.update(mesh_state(name))\n" +
+            "        parts.append(entry)\n" +
+            "    return parts\n" +
+            "\n" +
+            "\n" +
             "def read_jobs():\n" +
             "    jobs = []\n" +
             "    for job_name in names(pmx, 'jobs', 'jobs') or []:\n" +
@@ -100,6 +128,7 @@ namespace PrePoMax.Mcp
             "        model[collection] = names(pmx.model, collection, 'model.' + collection)\n" +
             "    # The geometry parts are the unmeshed ones; model parts are what meshing produced\n" +
             "    model['geometry_parts'] = names(pmx.model.geometry, 'parts', 'model.geometry.parts')\n" +
+            "    model['parts_mesh_state'] = read_mesh_state(model['parts'] or [], model['geometry_parts'] or [])\n" +
             "    # A parameter is read whole: a name alone says nothing about what it drives\n" +
             "    model['parameters_detail'] = read_parameters()\n" +
             "    model['steps_detail'] = read_steps()\n" +
@@ -110,5 +139,12 @@ namespace PrePoMax.Mcp
             "\n" +
             "\n" +
             "print(json.dumps(read_model(), indent=2, default=str))\n";
+
+
+        // Static methods                                                                                                           
+        public static string GetSource()
+        {
+            return McpPrivateScript.Wrap(Source);
+        }
     }
 }

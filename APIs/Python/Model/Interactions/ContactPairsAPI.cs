@@ -30,10 +30,11 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a contact pair using command history. Possible method values are NodeToSurface, " +
-                   "SurfaceToSurface and Mortar; pairs may mix methods, which the analysis warns about. " +
-                   "Small sliding is supported by NodeToSurface and Mortar only, so it is rejected " +
-                   "together with SurfaceToSurface rather than silently dropped. The selection target is " +
-                   "surfaces for both sides.",
+                   "SurfaceToSurface, Mortar and Massless; pairs may mix methods, which the analysis warns " +
+                   "about. Small sliding is written for NodeToSurface only, so small_sliding=True is " +
+                   "rejected together with any other method rather than silently dropped. An " +
+                   "adjustment_size turns the adjustment on; it must be zero or larger and is refused " +
+                   "together with adjust=False. The selection target is surfaces for both sides.",
                    Arguments = "name: str, surface_interaction_name: str, master_region: Selection or " +
                                "Region, slave_region: Selection or Region, method: str = None, " +
                                "small_sliding: bool = None, adjust: bool = None, " +
@@ -56,7 +57,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Replaces an existing contact pair using command history. A value that is not given " +
-                   "keeps the value the contact pair already carries.",
+                   "keeps the value the contact pair already carries. A method other than NodeToSurface " +
+                   "on a pair with small sliding is refused unless small_sliding=False is given too.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add, all optional",
                    Returns = "ContactPair")]
         public ContactPairAPI replace(string old_name, string name = null,

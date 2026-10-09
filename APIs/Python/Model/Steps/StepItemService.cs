@@ -10,6 +10,8 @@
 using CaeGlobals;
 using CaeMesh;
 using CaeModel;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace APIs.Python.Model
@@ -98,38 +100,47 @@ namespace APIs.Python.Model
         {
             RegionApplier.Apply(item, region, "region", target, _selectionService, _modelResolver);
         }
+        // A name is compared without regard to case, and the name the model keys the item by is stored, because
+        // the default names are matched exactly wherever the model reads them
         public string ResolveAmplitudeName(object amplitudeName, string argumentName)
         {
             string name = AsString(amplitudeName, argumentName);
-            if (name != Amplitude.DefaultAmplitudeName && !_modelResolver.GetModel().Amplitudes.ContainsKey(name))
-                throw new PythonAPIException("The amplitude '" + name + "' does not exist.");
+            if (PythonNameComparer.AreSame(name, Amplitude.DefaultAmplitudeName)) return Amplitude.DefaultAmplitudeName;
             //
-            return name;
+            string modelName = FindKey(_modelResolver.GetModel().Amplitudes.Keys, name);
+            if (modelName == null) throw new PythonAPIException("The amplitude '" + name + "' does not exist.");
+            //
+            return modelName;
         }
         public string ResolveCoordinateSystemName(object coordinateSystemName)
         {
             string name = AsString(coordinateSystemName, "coordinate_system_name");
-            if (name != CoordinateSystem.DefaultCoordinateSystemName &&
-                !_modelResolver.GetModel().Mesh.CoordinateSystems.ContainsKey(name))
+            if (PythonNameComparer.AreSame(name, CoordinateSystem.DefaultCoordinateSystemName))
+                return CoordinateSystem.DefaultCoordinateSystemName;
+            //
+            string modelName = FindKey(_modelResolver.GetModel().Mesh.CoordinateSystems.Keys, name);
+            if (modelName == null)
                 throw new PythonAPIException("The coordinate system '" + name + "' does not exist.");
             //
-            return name;
+            return modelName;
         }
         public string ResolveDistributionName(object distributionName)
         {
             string name = AsString(distributionName, "distribution_name");
-            if (name != Distribution.DefaultDistributionName &&
-                !_modelResolver.GetModel().Distributions.ContainsKey(name))
-                throw new PythonAPIException("The distribution '" + name + "' does not exist.");
+            if (PythonNameComparer.AreSame(name, Distribution.DefaultDistributionName))
+                return Distribution.DefaultDistributionName;
             //
-            return name;
+            string modelName = FindKey(_modelResolver.GetModel().Distributions.Keys, name);
+            if (modelName == null) throw new PythonAPIException("The distribution '" + name + "' does not exist.");
+            //
+            return modelName;
         }
         // A temperature and a pressure are scalars, and the model refuses a vector distribution for them only
         // when the deck is written, so the combination is rejected here instead
         public string ResolveScalarDistributionName(object distributionName, string quantityName)
         {
             string name = ResolveDistributionName(distributionName);
-            if (name == Distribution.DefaultDistributionName) return name;
+            if (PythonNameComparer.AreSame(name, Distribution.DefaultDistributionName)) return name;
             //
             Distribution distribution = _modelResolver.GetModel().Distributions[name];
             if (distribution.DistributionType != DistributionTypeEnum.Scalar)
@@ -196,10 +207,32 @@ namespace APIs.Python.Model
                                              "because the step '" + step.Name + "' is the last step and has no " +
                                              "following step.");
         }
+        // The controller copies the item into every following step that takes its type and silently skips the others
+        protected void EnsureFollowingStepsSupport(string stepName, TItem item, Func<Step, bool> isSupported)
+        {
+            Step step = _stepService.ResolveStep(stepName);
+            foreach (string nextStepName in _modelResolver.GetModel().StepCollection.GetNextStepNames(step.Name))
+            {
+                Step nextStep = _stepService.ResolveStep(nextStepName);
+                if (!isSupported(nextStep))
+                    throw new PythonAPIException("The " + _itemTypeName + " '" + item.Name + "' cannot be propagated, " +
+                                                 "because the following step '" + nextStep.Name + "' is a " +
+                                                 StepAPI.GetItemType(nextStep) + " step, which does not support a " +
+                                                 GetItemType(item) + " " + _itemTypeName + ".");
+            }
+        }
         protected void EnsureCommandsAvailable()
         {
             if (_modelGateway == null)
                 throw new PythonAPIException("Model changes are not available in this Python API context.");
+        }
+        private static string FindKey(IEnumerable<string> keys, string name)
+        {
+            foreach (string key in keys)
+            {
+                if (PythonNameComparer.AreSame(key, name)) return key;
+            }
+            return null;
         }
         protected static string AsString(object value, string argumentName)
         {

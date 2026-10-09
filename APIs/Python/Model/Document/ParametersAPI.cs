@@ -26,7 +26,8 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Adds a model parameter using command history. The value is a number or an equation string.",
+        [PythonAPI("Adds a model parameter using command history. The value is a number or an equation string; " +
+                   "one that cannot be evaluated, or uses its own parameter, is refused.",
                    Arguments = "name: str, value: float or str, description: str = None", Returns = "Parameter",
                    Example = "pmx.model.parameters.add('t', 2.5, description='Plate thickness')")]
         public ParameterAPI add(string name, object value, string description = null)

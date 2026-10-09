@@ -28,7 +28,8 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a solid section using command history. The region is a selection or a named " +
-                   "region; the selection target is elements.",
+                   "region; the selection target is elements. The thickness is used only in a 2D model, so " +
+                   "it is refused in a 3D one; it must be larger than 0.",
                    Arguments = "name: str, material_name: str, region: Selection or Region, thickness: float = 1",
                    Returns = "Section",
                    Example = "pmx.model.sections.add_solid('Sec-1', 'Steel', selection)")]
@@ -37,14 +38,14 @@ namespace APIs.Python.Model
             _service.ValidateNewName(name, null);
             SolidSection section = new SolidSection(name, material_name, null, RegionTypeEnum.Selection, 1,
                                                     _service.GetIsTwoDimensional());
-            ApplyThickness(section, thickness);
+            ApplySolidThickness(section, thickness);
             AddSection(name, material_name, section, region, "elements");
             return this[name];
         }
 
         [PythonAPI("Adds a shell section using command history. The region is a selection or a named " +
                    "region; the selection target is elements. The offset of the shell mid surface from " +
-                   "the selected geometry is given in shell thicknesses.",
+                   "the selected geometry is given in shell thicknesses. The thickness must be larger than 0.",
                    Arguments = "name: str, material_name: str, region: Selection or Region, " +
                                "thickness: float = 1, offset: float = 0",
                    Returns = "Section")]
@@ -62,7 +63,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a membrane section using command history. The region is a selection or a named " +
                    "region; the selection target is elements. The offset of the membrane mid surface from " +
-                   "the selected geometry is given in membrane thicknesses.",
+                   "the selected geometry is given in membrane thicknesses. The thickness must be larger " +
+                   "than 0.",
                    Arguments = "name: str, material_name: str, region: Selection or Region, " +
                                "thickness: float = 1, offset: float = 0",
                    Returns = "Section")]
@@ -79,27 +81,27 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a point mass section using command history. The region is a selection or a named " +
-                   "region; the selection target is nodes.",
+                   "region; the selection target is nodes. The mass must be zero or larger.",
                    Arguments = "name: str, region: Selection or Region, mass: float", Returns = "Section")]
         public SectionAPI add_point_mass(string name, object region, object mass)
         {
             _service.ValidateNewName(name, null);
             PointMassSection section = new PointMassSection(name, null, RegionTypeEnum.Selection, 0,
                                                             _service.GetIsTwoDimensional());
-            section.Mass.Equation = PythonValueConverter.ToEquationString(mass, "mass");
+            section.Mass.Equation = ToMass(mass, section.Mass);
             AddSection(name, null, section, region, "nodes");
             return this[name];
         }
 
         [PythonAPI("Adds a distributed mass section using command history. The region is a selection or a " +
-                   "named region; the selection target is surfaces.",
+                   "named region; the selection target is surfaces. The mass must be zero or larger.",
                    Arguments = "name: str, region: Selection or Region, mass: float", Returns = "Section")]
         public SectionAPI add_distributed_mass(string name, object region, object mass)
         {
             _service.ValidateNewName(name, null);
             DistributedMassSection section = new DistributedMassSection(name, null, RegionTypeEnum.Selection, 0,
                                                                         _service.GetIsTwoDimensional());
-            section.Mass.Equation = PythonValueConverter.ToEquationString(mass, "mass");
+            section.Mass.Equation = ToMass(mass, section.Mass);
             AddSection(name, null, section, region, "surfaces");
             return this[name];
         }
@@ -112,7 +114,7 @@ namespace APIs.Python.Model
                                         object region = null, object thickness = null)
         {
             SolidSection section = Clone<SolidSection>(old_name, "solid");
-            section.Thickness.Equation = ToEquationOrKeep(thickness, section.Thickness, "thickness");
+            ApplySolidThickness(section, thickness);
             //
             return Replace(old_name, name, material_name, region, section, "elements");
         }
@@ -126,7 +128,7 @@ namespace APIs.Python.Model
                                         object region = null, object thickness = null, object offset = null)
         {
             ShellSection section = Clone<ShellSection>(old_name, "shell");
-            section.Thickness.Equation = ToEquationOrKeep(thickness, section.Thickness, "thickness");
+            ApplyThickness(section, thickness);
             section.Offset.Equation = ToEquationOrKeep(offset, section.Offset, "offset");
             //
             return Replace(old_name, name, material_name, region, section, "elements");
@@ -141,7 +143,7 @@ namespace APIs.Python.Model
                                            object region = null, object thickness = null, object offset = null)
         {
             MembraneSection section = Clone<MembraneSection>(old_name, "membrane");
-            section.Thickness.Equation = ToEquationOrKeep(thickness, section.Thickness, "thickness");
+            ApplyThickness(section, thickness);
             section.Offset.Equation = ToEquationOrKeep(offset, section.Offset, "offset");
             //
             return Replace(old_name, name, material_name, region, section, "elements");
@@ -154,7 +156,7 @@ namespace APIs.Python.Model
                                              object mass = null)
         {
             PointMassSection section = Clone<PointMassSection>(old_name, "point mass");
-            section.Mass.Equation = ToEquationOrKeep(mass, section.Mass, "mass");
+            if (mass != null) section.Mass.Equation = ToMass(mass, section.Mass);
             //
             return Replace(old_name, name, null, region, section, "nodes");
         }
@@ -166,7 +168,7 @@ namespace APIs.Python.Model
                                                    object mass = null)
         {
             DistributedMassSection section = Clone<DistributedMassSection>(old_name, "distributed mass");
-            section.Mass.Equation = ToEquationOrKeep(mass, section.Mass, "mass");
+            if (mass != null) section.Mass.Equation = ToMass(mass, section.Mass);
             //
             return Replace(old_name, name, null, region, section, "surfaces");
         }
@@ -241,7 +243,27 @@ namespace APIs.Python.Model
         {
             if (thickness == null) return;
             //
-            section.Thickness.Equation = PythonValueConverter.ToEquationString(thickness, "thickness");
+            EquationString equation = PythonValueConverter.ToEquationString(thickness, "thickness");
+            // The model refuses a thickness that is not positive with a message that names no argument
+            if (!(PythonModelArgumentCheck.Evaluate(section.Thickness, equation, "thickness") > 0))
+                throw new PythonAPIException("The argument 'thickness' must be larger than 0.");
+            section.Thickness.Equation = equation;
+        }
+        // The solver input carries the thickness of a solid section only in a 2D model
+        private static void ApplySolidThickness(SolidSection section, object thickness)
+        {
+            if (thickness != null && !section.TwoD)
+                throw new PythonAPIException("The argument 'thickness' applies to a solid section only in a 2D " +
+                                             "model; a 3D solid section has no thickness.");
+            ApplyThickness(section, thickness);
+        }
+        private static EquationString ToMass(object mass, EquationContainer current)
+        {
+            EquationString equation = PythonValueConverter.ToEquationString(mass, "mass");
+            if (PythonModelArgumentCheck.Evaluate(current, equation, "mass") < 0)
+                throw new PythonAPIException("The argument 'mass' must be zero or larger.");
+            //
+            return equation;
         }
         // The offset only exists on the section types that have a mid surface, so it is applied through
         // the container rather than through the section

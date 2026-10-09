@@ -13,7 +13,7 @@ namespace PrePoMax.Rpc
 {
     // The JSON-RPC 2.0 codes the automation server answers with. The standard range is defined by the
     // specification; the application range says why a call the protocol accepted could not be served,
-    // and the bridge turns each one into something an agent can act on.
+    // and the MCP endpoint names each one in the text of a failed tool, so an agent can act on it.
     public static class RpcErrorCode
     {
         // Variables                                                                                                                
@@ -27,6 +27,7 @@ namespace PrePoMax.Rpc
         public const int ReadOnly = -32002;
         public const int PromptRefused = -32003;
         public const int ApiError = -32004;
+        public const int NotAllowed = -32005;
 
 
         // Static methods                                                                                                           
@@ -41,6 +42,7 @@ namespace PrePoMax.Rpc
             else if (code == ReadOnly) return "ReadOnly";
             else if (code == PromptRefused) return "PromptRefused";
             else if (code == ApiError) return "ApiError";
+            else if (code == NotAllowed) return "NotAllowed";
             return "Error";
         }
     }

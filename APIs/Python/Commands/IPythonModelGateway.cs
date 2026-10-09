@@ -131,6 +131,7 @@ namespace APIs.Python
         //
         // Steps
         SolverTypeEnum GetDefaultSolverType();
+        string GetCyclicSymmetryModesError(FrequencyStep step);
         void AddStep(Step step, bool copyBoundaryConditionsAndLoads);
         void ReplaceStep(string oldStepName, Step step);
         void DuplicateSteps(string[] stepNames);

@@ -138,7 +138,7 @@ The process exit code is part of the command line contract:
 | Code | Meaning |
 | --- | --- |
 | 0 | Completed, no errors |
-| 1 | Command line or option error |
+| 1 | Command line or option error, also a `-g No` session started with `--rpc` whose automation server could not start |
 | 2 | Model or regeneration error |
 | 3 | Script error - an unhandled Python exception |
 | 4 | Timed out |
@@ -172,8 +172,10 @@ The server is off until the user turns it on. Unpacking PrePoMax opens nothing.
 
 There is deliberately **no switch for the token**. An unattended run reads the one in the folder's
 settings, so a folder has to be opened once with its window and given a token before `-g No` can
-serve; a session with no window refuses with that instruction rather than prompting a user who is
-not there.
+serve. A session with no window does not prompt a user who is not there: when the server it was
+started for cannot start - there is no token, or every port it may take is in use - it exits with
+code 1 and writes the reason to the console, rather than staying open where nothing can reach it or
+close it. With its window, switching the server on without a token offers to generate one.
 
 **A session with no window starts empty unless it is given a file.** It does not open the last file
 of the interactive user, for the same reason it is not asked whether to recover a crashed session:
@@ -219,7 +221,8 @@ readable by anyone. Two things prevent that: the settings page has a *Clear the 
 to use before preparing a release, and the first run in any folder clears the token found in its
 settings before anything can serve with it - PrePoMax detects that from the absence of its own
 `trace.info` marker. So after an update you generate a new token in the new folder and give it to
-your assistant, or copy `settings.bin` forward as you would to keep any other setting.
+your assistant, or keep the old one: start the new version once and close it, then copy
+`settings.bin` over from the old folder. One copied in before that first start loses its token.
 
 **A client that cannot connect is telling you that PrePoMax is closed, or that its automation server
 is off.** Nothing answers on the address unless the session is open - that is the point of serving it
@@ -236,25 +239,31 @@ PrePoMax and switch on Tools - Automation Server; do not work around it.
 | Tool | What it does |
 | --- | --- |
 | `get_guide` | How to drive a session, served by the application so it matches the version. The first thing to read. |
-| `list_sessions` | The running instances whose server is on, each with the address it answers on, marking the one that answered. |
-| `get_status` | Idle or busy and why, the open model, the view, the unit system, the command count, read only. |
+| `list_sessions` | The running instances whose server is on, each with the address it answers on and the model file it has open, marking the one that answered. |
+| `get_status` | Idle or busy and why, the open model, the view, the unit system, the command count, read only. A window that does not answer is reported as busy. |
 | `describe_api` | The `[PythonAPI]` schema of `pmx`, of any path under it, or of an API type by name, read off the API itself. |
-| `read_model` | A JSON snapshot of the model: properties, collections, steps with their content, analyses with their status. |
-| `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal. |
+| `read_model` | A JSON snapshot of the model: properties, the parts with their mesh state (meshed or not, node and element count), collections, steps with their content, analyses with their status. |
+| `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal. Part names match regardless of case; a name that matches no part is reported. |
 | `eval_expression` | One expression, with its value as JSON when it has one. |
 | `run_python` | Python against the live model, recorded as commands or as one script. A call that outlasts its wait is answered with a `callId`. |
 | `get_call` | The answer of a `run_python` or `eval_expression` call that outlasted its wait, collected by its `callId`. |
 | `cancel_call` | Stops a `run_python` or `eval_expression` call that is still running, by its `callId`, at its next Python statement. |
-| `get_history` | The command history, and the journal of it as a Python script. |
-| `run_job` | Starts an analysis without waiting, so the user keeps the interface. |
-| `get_job` | The status of an analysis, and its solver output on request. |
-| `screenshot` | A PNG of the viewport, optionally after setting the view, the camera and the plotted result. |
+| `get_history` | The command history, and the journal of it as a Python script. A journal over 200,000 characters is written to a temporary file and returned as its path. |
+| `run_job` | Starts an analysis without waiting, so the user keeps the interface, and returns the status it started with. |
+| `get_job` | The status of an analysis and whether it is up to date, and its solver output on request. |
+| `screenshot` | A PNG of the viewport, optionally after setting the view, the camera and the plotted result. Returns the path and the picture as an image, up to 4 MB. |
+| `exit_session` | Closes a session without a window (`-g No`); refused for one the user has open. `discard_changes` closes it with unsaved changes. |
 
 The surface is deliberately small. The model surface is the Python API, which the agent writes
 through `run_python` and learns through `describe_api`, so there is no tool per API member - far too
 many to list, and a second front door would be free to drift from the first. A tool that
 is not a protocol primitive is a piece of Python the catalog holds: `read_model` and `read_topology`
-are both one, so adding another costs nothing on the application side.
+are both one, so adding another costs nothing on the application side. Such a script runs as one
+private function that is deleted afterwards, so it leaves nothing in the console scope the agent's
+own variables live in, and the Python panel shows a one line note for it rather than its source.
+
+A tool refuses an argument it does not take, naming it, instead of running without it, and every
+schema says `additionalProperties: false`.
 
 ### What the agent gets that it cannot guess
 
@@ -291,13 +300,15 @@ steel modulus in `MM_TON_S_C` and wrong by a factor of a million in `M_KG_S_C`.
 
 ### A skill for a client project
 
-`.claude/skills/prepomax/SKILL.md` is a Claude Code skill that tells an agent to read `get_guide`
+`AgentSkill\prepomax\SKILL.md`, which the build puts next to `PrePoMax.exe` (in the repository it
+is `AgentSkill/prepomax/SKILL.md`), is a Claude Code skill that tells an agent to read `get_guide`
 first and names the handful of habits that are specific to this application. It is short on purpose:
 the guide and the schema are served by the application and cannot drift, and a skill that repeated
 them would. Copy the `prepomax` folder to `<project>/.claude/skills/prepomax/` to have it in one
 project, or to `~/.claude/skills/prepomax/` to have it in all of them.
 
-Every tool also takes an optional `process_id`. **It is checked, not routed.** One address serves one
+Every tool except `get_guide` and `list_sessions`, which are not about one session, also takes an
+optional `process_id`. **It is checked, not routed.** One address serves one
 session, so a call that names another instance is refused with the address that would have served it,
 rather than served against the wrong model. `list_sessions` is the directory of what is open - use it
 to tell the user which address to configure, not to switch.
@@ -328,13 +339,19 @@ to tell the user which address to configure, not to switch.
   `callId` raises `KeyboardInterrupt` in the Python of that call. It is never serialized behind the
   call it stops, and read only mode does not refuse it, because it changes nothing in the model. The
   interrupt lands at the next Python statement: an operation of the application the call is inside -
-  meshing, an import, a regeneration - cannot be interrupted and finishes first, and a `time.sleep`
-  ends before it lands. The answer says whether the call was interrupted and whether it has stopped;
-  the call's own answer, collected with `wait`, carries the error, `cancelled: true`, and the
-  commands it recorded before it stopped, which stay in the history. A call cancelled before its
-  Python started does not start it. The Python panel offers the same for the user: a console line or
-  a script that runs longer than a second shows a small *Python is running* window with a **Stop**
-  button, served by a thread of its own because the window that runs the script is not answering.
+  meshing, an import, a regeneration - cannot be interrupted and finishes first, and a blocking
+  wait - `time.sleep`, a socket, `input()` - is not interrupted until it returns. Every cancel delivers a
+  new interrupt, so a call whose code caught the last one - a bare `except:` - is stopped by
+  cancelling it again. The answer says what actually happened: `isInterrupted` when the interrupt was
+  delivered, `isInterruptPending` while it waits for an operation of the application to return, and
+  `isFinished` whether the call has stopped; a call that had finished first is not reported as
+  interrupted. The call's own answer, collected with `wait`, carries the error, `cancelled: true`,
+  and the commands it recorded before it stopped, which stay in the history. A call cancelled before
+  its Python started does not start it, and one cancelled while it was about to start is interrupted
+  at its first statement. The Python panel offers the same for the user: a console line or a script
+  that runs longer than a second shows a small *Python is running* window with a **Stop** button,
+  served by a thread of its own because the window that runs the script is not answering. It does
+  not take the focus, and **Stop** can be pressed again after two seconds while the Python still runs.
 - **Printed output is capped.** What one call, console line or script prints to `stdout` or
   `stderr` keeps its first 1,000,000 and its last 100,000 characters, with
   `[output truncated: N characters omitted]` between them, in the answer and in the Python panel.
@@ -349,10 +366,13 @@ to tell the user which address to configure, not to switch.
   says so in the console rather than failing later.
 - **Read only means the model cannot change.** It does not refuse a method; it blocks the command
   history, which every state change of the application passes through, so no Python an agent sends
-  can get around it. Reading keeps working.
-- **The session belongs to the user.** `exit` is refused for a session that has a window - only a
-  hidden `-g No` session can be closed through the server - and `shutdown` closes the door an agent
-  came through without touching the application.
+  can get around it. Reading keeps working. The block is held only while a call that waits its turn
+  runs - `status` takes none, so polling it does not refuse the user's own edits - and it is
+  counted, so a call that ends never lifts the block another call still holds. The refusal names
+  where read only comes from: the setting, or `--rpc ReadOnly` for the whole run.
+- **The session belongs to the user.** `exit` - `exit_session` over MCP - is refused for a session
+  that has a window - only a hidden `-g No` session can be closed through the server - and
+  `shutdown` closes the door an agent came through without touching the application.
 - **Everything is visible.** What the agent runs is echoed into the Python panel when it is open, and
   named in the output window in any case.
 
@@ -366,16 +386,20 @@ can be removed or reordered there, and **Edit - Regenerate History** rebuilds th
 The MCP endpoint is Streamable HTTP, and only its JSON half: a client `POST`s one JSON-RPC 2.0
 object to `http://127.0.0.1:<port>/mcp` with `Content-Type: application/json` and
 `Authorization: Bearer <token>`, and gets one JSON-RPC response back. `GET` is answered `405` - the
-endpoint serves no event stream, because nothing in its surface pushes - and no session id is issued,
-so a client written against either revision of the specification works. A request that reaches the
-protocol and fails there is a `200` carrying a JSON-RPC error; a request refused by a gate is an HTTP
-status, because it never reached the protocol.
+endpoint serves no event stream, because nothing in its surface pushes - and no session id is issued.
+`initialize` answers with the client's protocol version when it is one the endpoint supports
+(`2024-11-05`, `2025-03-26`, `2025-06-18`) and with the latest of those otherwise. A batch - a JSON
+array - is answered with a JSON-RPC error. The body is read as UTF-8 whatever its `Content-Type`
+says, and every answer is `application/json; charset=utf-8`. A request that reaches the protocol and
+fails there is a `200` carrying a JSON-RPC error; a request refused by a gate is an HTTP status,
+because it never reached the protocol.
 
 **The gates.** Three, and each stops something the other two do not. Only the two loopback prefixes
 are claimed, so nothing off this computer can reach it. The bearer token is required on every
 request and compared in constant time. Any request carrying an `Origin` header is refused, `OPTIONS`
 is refused, and no `Access-Control-Allow-*` header is ever answered with, so no page in a browser can
-reach the endpoint even if it is told that its own name resolves to `127.0.0.1`. A body over 4 MB, a
+reach the endpoint even if it is told that its own name resolves to `127.0.0.1`. That also keeps
+out an MCP client that runs in a browser; give it a bridge such as `mcp-remote`. A body over 4 MB, a
 body that is not JSON, and any other path are refused as well.
 
 What the token bounds is worth being exact about: it is stored in a file the user can read, so
@@ -388,8 +412,9 @@ over loopback can be. While the server runs the token is also in the session fil
 that user and with inheritance switched off; the file is removed when the server stops.
 
 **The port.** 8756 by default, set in *Tools - Settings - Automation* or with `--rpcPort`. When it is
-taken - by another PrePoMax, or by another program - the endpoint takes the first free port in the
-sixteen above it and says which in the output window and the status bar. One port per instance, so
+taken - by another PrePoMax, or by another program - the endpoint takes the first free port of the
+fifteen above it and says which in the output window and the status bar. A port changed in the
+settings takes effect the next time the server is started. One port per instance, so
 the address is the address of one session.
 
 **Replacing and clearing it.** The context menu of the *Access token* entry offers *Generate the
@@ -412,19 +437,22 @@ it. The folder is restricted to the current user, because the token is in it.
 | Method | What it does |
 | --- | --- |
 | `ping` | Liveness and versions. Answered without touching the model, so it answers while the application is busy. |
-| `status` | The state, and the methods this server serves. |
-| `describe` | The API schema of a path. |
-| `eval` | Evaluates an expression. |
-| `exec` | Runs source; `record` is `commands` or `script`. |
-| `wait` | Collects the answer of an `exec` or `eval` that outlasted its wait, by its `call_id`; `get_call` over MCP. |
+| `status` | The state, and the methods this server serves. `connectionCount` counts the pipe connections and an MCP client that sent a request in the last minute. |
+| `describe` | The API schema of a `path` - a name followed by `.attribute` and `['name']` or `[index]` steps, read without being evaluated - or of an API type name. |
+| `eval` | Evaluates an `expression`; `timeout` is the wait in seconds. |
+| `exec` | Runs `source`; `record` is `commands` or `script`, and `timeout` is the wait in seconds. |
+| `wait` | Collects the answer of an `exec` or `eval` that outlasted its wait, by its `call_id`, waiting up to `timeout` seconds; `get_call` over MCP. |
 | `cancel` | Interrupts a running `exec` or `eval`, by its `call_id`; `cancel_call` over MCP. Never waits for the turn, and is served in read only mode. |
-| `history` | The commands, and the journal with `include_journal`. |
-| `screenshot` | Writes a PNG and returns the path. |
+| `history` | The commands - the last `limit` of them, 200 by default, 0 for all - and the journal with `include_journal`, written to `journal_file` when it is given. |
+| `screenshot` | Writes a PNG to `file_name`, or to the temporary folder, and returns the path; `transparent_background` and `magnification` (1 to 4) as in the capture dialog. |
 | `shutdown` | Stops the server; never closes the application. |
-| `exit` | Closes a hidden session; refused for one with a window. |
+| `exit` | Closes a hidden session; refused for one with a window. `discard_changes` closes it with unsaved changes. |
 
-The error codes are the standard JSON-RPC ones plus an application range: `-32001` busy, `-32002`
-read only, `-32003` a refused prompt, `-32004` an API error.
+The error codes are the standard JSON-RPC ones plus an application range: `-32001` busy, `-32003` a
+refused prompt, `-32004` an API error and `-32005` not allowed - `exit` for a session with a window.
+`-32002` is reserved for read only and not sent: read only blocks the command history, not a method,
+so an `exec` or `eval` that tries a change in read only mode is answered as a failed call, with the
+refusal in its `error`.
 
 `Test_Rpc_Server.py`, `Test_Rpc_Live_Session.py`, `Test_Mcp_Http.py` and `Test_Mcp_Workflow.py` in
 `APIs/Python/Test_Scripts` check the layers of this: the protocol on the pipe, what a driven session
@@ -566,7 +594,7 @@ model item.
 
 | Member | Description |
 | --- | --- |
-| `pmx.new_model(model_space, unit_system)` | Creates a new empty model. **Console only.** |
+| `pmx.new_model(model_space, unit_system)` | Creates a new empty model. `Undefined` is refused for either argument. **Console only.** |
 | `pmx.open(file_name)` | Opens a .pmx, .pmh or .frd file. **Console only.** |
 | `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. |
 | `pmx.save(file_name)` | Saves the model to a .pmx file. |
@@ -650,8 +678,8 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | Member | Description |
 | --- | --- |
 | `name` | The model name. Writable. |
-| `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable. |
-| `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable. |
+| `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable; `Undefined` is refused. |
+| `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable; `Undefined` is refused. |
 | `model_type` | `GeneralModel`, `Submodel` or `SlipWearModel`. Writable. |
 | `global_results_file_name` | The results file a submodel reads its boundary values from. Writable. |
 | `slip_wear_results` | Which results a slip wear model keeps. Writable. |
@@ -695,6 +723,9 @@ renamed parameter is **not** rewritten inside the equations that reference it.
 already exists. `set_all` resolves the whole table at once, so a parameter may use a parameter that
 is given after it - which is what the parameters editor of the application records when its rows are
 reordered. The order of the lists is the order of the table, and they must be the same length.
+An equation that cannot be evaluated - one that uses its own parameter, directly or through others,
+or a parameter that does not exist - is refused naming `value` (or the name in `names`), and nothing
+is recorded. A name with leading or trailing spaces is refused by `set_all` as by `add`, never trimmed.
 
 A description is free text shown beside the parameter in the editor. It is kept by a `replace`
 that is not given one, cleared by an empty string, and written as the fourth field of a `.pmp`
@@ -748,10 +779,10 @@ Reached as `pmx.model.mesh`.
 | --- | --- |
 | `setup_items` | The mesh setup items of the model. |
 | `generate(part_names)` | Meshes the named geometry parts. The call returns when the meshing has finished, and reports every named part with the reason it was not meshed and an empty reason for one that was. A call that meshes nothing at all raises instead, and records no command. |
-| `generate_boundary_layer(selection, thickness)` | Generates a prismatic boundary layer on the selected faces. |
-| `remesh_elements(region, ...)` | Remeshes the elements of a region. The region is a selection or an `ElementSetName` region. |
-| `thicken_shell_mesh(part_names, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens the shell mesh of the named parts. |
-| `split_part_mesh_using_surface(base_part_region, splitter_surface_region, ...)` | Splits a part mesh with a surface. The base part region is a selection or a `PartName` region, the splitter surface region a selection or a `SurfaceName` region. |
+| `generate_boundary_layer(selection, thickness)` | Generates a prismatic boundary layer on the selected faces. `thickness` must be a finite value larger than 0. |
+| `remesh_elements(region, ...)` | Remeshes the elements of a region. The region is a selection or an `ElementSetName` region. `max_size` and `min_size` are at least 0, and a `min_size` larger than the `max_size` it ends up with - the one given or the default - is refused naming both; `hausdorff` is larger than 0. |
+| `thicken_shell_mesh(part_names, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens the shell mesh of the named parts. `thickness` must be larger than 0 and `number_of_layers` at least 1. |
+| `split_part_mesh_using_surface(base_part_region, splitter_surface_region, ...)` | Splits a part mesh with a surface. The base part region is a selection or a `PartName` region, the splitter surface region a selection or a `SurfaceName` region. `max_size` and `min_size` are checked as by `remesh_elements`. |
 | `update_nodal_coordinates_from_file(file_name)` | Reads new nodal coordinates from a file. |
 
 The five tools are **one-shot operations**: they run once and are replayed only during a regenerate.
@@ -810,6 +841,18 @@ an earlier call set are kept, the way the dialog keeps the stored values of an i
 Every `add_*` and `replace_*` of a mesh setup item asks the model whether it can define the item, the way every apply of
 the dialog does, so a value the model refuses - a QuadWild `alpha` outside 0 to 1, for one - is refused by a replace that
 changes only that value, and nothing is recorded.
+
+Before that, every value is checked against the range the model holds it to, and a value outside it is refused naming
+the argument rather than clamped, moved or passed on: `max_size` and `min_size` at least 0; `factor_max`, `factor_min`,
+`fineness` and `grading` larger than 0 and at most 1; `elements_per_edge` and `elements_per_curve` larger than 0;
+`element_size` larger than 0 and `number_of_elements` at least 1; `optimize_steps_2d` and `optimize_steps_3d` at least
+0; the Netgen `transfinite_angle_deg` between 0 and 180, both excluded, and the QuadWild one from 90 to 180;
+`hausdorff` and `relative_hausdorff` larger than 0; `thickness` larger than 0 and `number_of_layers` at least 1;
+`quad_wild_alpha` of a sweep from 0 to 1; `singularity_position` and `count_search` at least 0. A minimum is checked
+against the maximum the item ends up with - the one given, or the one it keeps or takes from the selected parts - so a
+`min_size` larger than `max_size`, or a `factor_min` larger than `factor_max`, is refused naming both instead of
+dragging the other value along, and `split_compound_mesh` and `merge_compound_parts` cannot both end up `True`.
+`triangulation_mesher` of a QuadWild item is `Gmsh`, `Netgen` or `Mmg`.
 
 `add_shell_mmg` accepts `relative_size`, `relative_hausdorff`, `hausdorff` and `keep_model_edges`.
 Adding this item to an STL shell selects MMG; without an explicit mesher setup item, Netgen is used.
@@ -959,7 +1002,9 @@ A compound part made by a solid split gathers its cells under the solids they we
 those are the sub-parts the tree shows. `part.split_sub_part_names` lists them as a `StringList`, empty for any other
 part, and `rename_split_sub_part(part_name, old_name, new_name)` renames one the way renaming it in
 the tree does: its cells are renamed after it, and so is the mesh part it was meshed into. A name
-another part already uses is refused, compared regardless of case as the tree compares it.
+another part already uses is refused, compared regardless of case as the tree compares it. The sub-part
+and cell names `rename_split_sub_part`, `group_split_cells` and `fuse_bodies` take are matched regardless
+of case, a body named twice in any spelling is refused, and a new name is checked as every name is.
 
 ```python
 compound = [part for part in pmx.model.geometry.parts if part.split_sub_part_names][0]
@@ -1228,7 +1273,7 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | `add_from_equation(name, equation)` | One equation string for the magnitude, or three, one per direction. |
 | `add_from_file(name, file_name, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Reads the distribution from a point cloud file. |
 | `replace_from_equation(old_name, name=None, equation=None)` | Replaces an equation distribution. A value that is not given is kept, so the equation may be left out only when the distribution is already equation based. An equation that changes a scalar distribution into a vector one, or back, is refused while an initial condition, a boundary condition, a load or a defined field uses it. |
-| `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Replaces a file distribution. A value that is not given is kept. |
+| `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Replaces a file distribution. A value that is not given is kept. A new `file_name` is read again, and a file that changes a scalar distribution into a vector one, or back, is refused while an item uses the distribution, as for `replace_from_equation`. A file that cannot be read is refused naming `file_name`. |
 
 `Distribution` exposes `name`, `item_type` (`'from_equation'` or `'from_file'`), `equation`, `file_name`,
 `interpolator_type`, `interpolator_radius`, `scale`, `translate`, `coordinate_system_name` and `get_equations()`.
@@ -1248,12 +1293,12 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 
 | Member | Description |
 | --- | --- |
-| `add_temperature(name, region, temperature, distribution_name=None)` | Initial temperature. The selection target is `nodes`. A distribution scales the temperature over the region. |
-| `add_translational_velocity(name, region, v1, v2, v3)` | Initial translational velocity. |
-| `add_angular_velocity(name, region, axis_point, axis_direction, rotational_speed)` | Initial angular velocity. The `rotational_speed` is in rad/s. |
+| `add_temperature(name, region, temperature, distribution_name=None)` | Initial temperature. The selection target is `nodes`. A distribution scales the temperature over the region; `'Constant'`, in any case, names none. |
+| `add_translational_velocity(name, region, v1, v2, v3)` | Initial translational velocity. In a 2D model `v3` must be zero. |
+| `add_angular_velocity(name, region, axis_point, axis_direction, rotational_speed)` | Initial angular velocity. The `rotational_speed` is in rad/s and must be zero or larger. In a 2D model the third value of `axis_point` and the first two of `axis_direction` must be zero. |
 | `replace_temperature(old_name, name=None, region=None, temperature=None, distribution_name=None)` | Replaces an initial temperature. A value that is not given is kept. |
-| `replace_translational_velocity(old_name, name=None, region=None, v1=None, v2=None, v3=None)` | Replaces an initial translational velocity. |
-| `replace_angular_velocity(old_name, name=None, region=None, axis_point=None, axis_direction=None, rotational_speed=None)` | Replaces an initial angular velocity. The `rotational_speed` is in rad/s. |
+| `replace_translational_velocity(old_name, name=None, region=None, v1=None, v2=None, v3=None)` | Replaces an initial translational velocity. A given value is checked as on the add. |
+| `replace_angular_velocity(old_name, name=None, region=None, axis_point=None, axis_direction=None, rotational_speed=None)` | Replaces an initial angular velocity. The `rotational_speed` is in rad/s. A given value is checked as on the add. |
 | `hide(names)`, `show(names)` | Initial condition visibility. |
 
 `InitialCondition` exposes `name`, `item_type` (`'temperature'`, `'translational_velocity'` or
@@ -1308,13 +1353,19 @@ pmx.model.materials.add('Steel-T',
                         temperature_dependent=True)
 ```
 
-A material may hold only one elastic property; the model rejects a second one.
+A material may hold only one elastic property; a second one is refused naming `properties`.
+
+A material that is **not** temperature dependent writes no temperature and, of every property but `plastic`, only
+the first row. Such a property with more than one row, or with a non-zero temperature, is therefore refused with a
+message that names `temperature_dependent`, rather than written short. A replace checks the merged material when it
+is given `properties` or `temperature_dependent`. A session journal writes a material that is not temperature
+dependent with the rows the analysis uses.
 
 ### `Sections`
 
 | Member | Description |
 | --- | --- |
-| `add_solid(name, material_name, region, thickness=1)` | Solid section. The selection target is `elements`. |
+| `add_solid(name, material_name, region, thickness=1)` | Solid section. The selection target is `elements`. The thickness is written only in a 2D model, so it is refused in a 3D one. |
 | `add_shell(name, material_name, region, thickness=1, offset=0)` | Shell section. The offset of the mid surface from the selected geometry is given in shell thicknesses. |
 | `add_membrane(name, material_name, region, thickness=1, offset=0)` | Membrane section. The offset is given in membrane thicknesses. |
 | `add_point_mass(name, region, mass)` | Point mass section. The selection target is `nodes`. |
@@ -1324,6 +1375,8 @@ A material may hold only one elastic property; the model rejects a second one.
 | `replace_membrane(old_name, name=None, material_name=None, region=None, thickness=None, offset=None)` | Replaces a membrane section. |
 | `replace_point_mass(old_name, name=None, region=None, mass=None)` | Replaces a point mass section. |
 | `replace_distributed_mass(old_name, name=None, region=None, mass=None)` | Replaces a distributed mass section. The region is a surface region, as on `add_distributed_mass`. |
+
+A `thickness` must be larger than 0 and a `mass` zero or larger, on an add and on a replace.
 
 A replacement is typed: replacing a solid section as a shell section is refused rather than silently
 turning it into one, with `The section 'X' is made by add_solid, so replace_shell cannot replace it.`
@@ -1372,7 +1425,7 @@ print(node_set.count, node_set.get_node_ids())
 | --- | --- |
 | `add(name, selection)` | Creates an element set from a selection. The selection target is `elements`. |
 | `replace(old_name, name=None, selection=None)` | Replaces an existing element set. A value that is not given is kept. |
-| `add_from_quality(name, metric, part_names, larger_than, limit)` | Adds an element set of the elements of the named model parts whose quality metric is larger, or with `larger_than=False` not larger, than the limit, and returns the `ElementSet`. It has no `replace_*`; replace the set with `replace`. |
+| `add_from_quality(name, metric, part_names, larger_than, limit)` | Adds an element set of the elements of the named model parts whose quality metric is larger, or with `larger_than=False` not larger, than the limit, and returns the `ElementSet`. `metric` is one of the gmsh quality measures `minDetJac`, `maxDetJac`, `minSJ`, `minSICN`, `minSIGE`, `gamma`, `innerRadius`, `outerRadius`, `minIsotropy`, `angleShape`, `minEdge`, `maxEdge` or `volume`, in any case; a name another mesh entity uses is refused. It has no `replace_*`; replace the set with `replace`. |
 | `convert_to_mesh_parts(names)` | Converts the named element sets into mesh parts. |
 
 `ElementSet` exposes `name`, `count`, `valid`, `is_internal` and `get_element_ids()` (an `IntList`).
@@ -1528,15 +1581,15 @@ arguments of its `add_*`, all optional.
 
 | Member | Selection target | Description |
 | --- | --- | --- |
-| `add_tie(name, master_region, slave_region, position_tolerance=None, adjust=None)` | surfaces, surfaces | A tie. |
-| `add_cyclic_symmetry(name, master_region, slave_region, region=None, axis_point=None, axis_direction=None, number_of_sectors=None, number_of_graph_sectors=None, check_sector_angle=None, position_tolerance=None, adjust=None)` | surfaces, surfaces, elements | A cyclic symmetry. |
-| `add_joint(name, master_region, slave_region, joint_type=None, center_defined_by=None, center=None, axis_defined_by=None, axis_direction=None, formulation=None, stiffness_defined_by=None, stiffness=None)` | surfaces, surfaces | A joint between two surfaces: Hinge, Cylindrical, Slider, Ball or Weld, written as rigid bodies or as springs. |
+| `add_tie(name, master_region, slave_region, position_tolerance=None, adjust=None)` | surfaces, surfaces | A tie. `position_tolerance` must be zero or larger. |
+| `add_cyclic_symmetry(name, master_region, slave_region, region=None, axis_point=None, axis_direction=None, number_of_sectors=None, number_of_graph_sectors=None, check_sector_angle=None, position_tolerance=None, adjust=None)` | surfaces, surfaces, elements | A cyclic symmetry, refused in a 2D model. `number_of_sectors` is at least 2. |
+| `add_joint(name, master_region, slave_region, joint_type=None, center_defined_by=None, center=None, axis_defined_by=None, axis_direction=None, formulation=None, stiffness_defined_by=None, stiffness=None)` | surfaces, surfaces | A joint between two surfaces: Hinge, Cylindrical, Slider, Ball or Weld, written as rigid bodies or as springs. Refused in a 2D model. |
 | `add_rigid_body(name, reference_point_name, region)` | nodes | A rigid body. |
-| `add_kinematic_coupling(name, reference_point_name, region, u1=None, u2=None, u3=None)` | surfaces | A kinematic coupling. |
-| `add_distributing_coupling(name, reference_point_name, region, u1=None, ..., ur3=None)` | surfaces | A distributing coupling. |
+| `add_kinematic_coupling(name, reference_point_name, region, u1=None, u2=None, u3=None)` | surfaces | A kinematic coupling. In a 2D model `u3=True` is refused. |
+| `add_distributing_coupling(name, reference_point_name, region, u1=None, ..., ur3=None)` | surfaces | A distributing coupling. In a 2D model `u3`, `ur1` and `ur2` set to `True` are refused. |
 | `add_compression_only(name, region, clearance=None, spring_stiffness=None, tensile_force_at_negative_infinity=None, offset=None, non_linear=None)` | surfaces | A compression only constraint. |
-| `add_point_spring(name, region, k1=None, k2=None, k3=None)` | nodes | A point spring. |
-| `add_surface_spring(name, region, k1=None, k2=None, k3=None, stiffness_per_area=None)` | surfaces | A surface spring. |
+| `add_point_spring(name, region, k1=None, k2=None, k3=None)` | nodes | A point spring. A stiffness must be zero or larger, and `k3` zero in a 2D model. |
+| `add_surface_spring(name, region, k1=None, k2=None, k3=None, stiffness_per_area=None)` | surfaces | A surface spring. A stiffness must be zero or larger, and `k3` zero in a 2D model. |
 | `swap_master_slave(names)` | | Swaps the two sides. |
 | `merge_by_master_slave(names)` | | Merges the constraints that share a master and a slave region. |
 | `hide(names)`, `show(names)` | | Symbol visibility. |
@@ -1568,7 +1621,9 @@ application would discard it. The rule is checked on the final state, so a repla
 `replace_cyclic_symmetry` takes `clear_expansion_region=None`; `True` drops the region, which a replace that lowers
 `number_of_graph_sectors` to 1 needs, and it cannot be combined with `region`. `sector_angle_deg` is derived as
 `360 / number_of_sectors` and is read through `get_value`, as are `axis_point` and `axis_direction`, which read back as
-lists of three.
+lists of three. `number_of_graph_sectors` lies between 1 and `number_of_sectors`, checked on the merged values: a
+replace that lowers `number_of_sectors` below the kept `number_of_graph_sectors` is refused rather than letting the
+model lower the graph sectors on its own.
 
 A **joint** connects two surfaces of a 3D model and locks their relative motion about the joint centre
 according to `joint_type`: `Hinge`, `Cylindrical`, `Slider`, `Ball` or `Weld`. `center_defined_by` is
@@ -1589,7 +1644,9 @@ frame of nodes on the joint axis and ties the master and slave frames by linear 
 no rigid body, solves on shell elements, and is as stiff as its springs. `stiffness_defined_by` is
 `FromModel`, where each spring gets 100 times the Young's modulus of the surfaces times the square
 root of the surface area divided by the number of surface nodes, or `UserDefined`; a given `stiffness`
-switches it to `UserDefined` and must be positive. The values read back through `get_value` carry the names of the arguments: `joint_type`,
+switches it to `UserDefined` and must be positive. `stiffness` and `stiffness_defined_by` are refused with the
+`RigidBody` formulation, which has no springs, and `axis_direction` with a `Ball` or `Weld` joint, which has no
+axis. The values read back through `get_value` carry the names of the arguments: `joint_type`,
 `center_defined_by`, `center` (a list of three), `axis_defined_by`, `axis_direction` (a list of three),
 `formulation`, `stiffness_defined_by` and `stiffness`.
 
@@ -1613,16 +1670,16 @@ The three properties are made by `pmx.create`:
 
 | Member | Description |
 | --- | --- |
-| `friction(coefficient, stick_slope=None)` | Friction. |
+| `friction(coefficient, stick_slope=None)` | Friction. Both values must be larger than 0. |
 | `gap_conductance(conductance=None, conductance_table=None)` | Gap conductance. Give one or the other: a value for a constant one, or rows of `[conductance, pressure, temperature]` for a tabular one. |
-| `surface_behavior(pressure_overclosure_type=None, c0=None, p0=None, k=None, s_inf=None, pressure_overclosure=None)` | Surface behavior. The type is `Hard`, `Linear`, `Exponential`, `Tabular` or `Tied`. |
+| `surface_behavior(pressure_overclosure_type=None, c0=None, p0=None, k=None, s_inf=None, pressure_overclosure=None)` | Surface behavior. The type is `Hard`, `Linear`, `Exponential`, `Tabular` or `Tied`. Each type takes only the values it writes - `Hard` none, `Linear` `k`, `s_inf` and `c0`, `Exponential` `c0` and `p0`, `Tabular` `pressure_overclosure`, `Tied` `k` - and refuses the others; `c0`, `p0`, `k` and `s_inf` must be larger than 0. |
 
 Each maker returns a `SurfaceInteractionProperty`:
 
 | Member | Description |
 | --- | --- |
 | `property_type` | The name of the `pmx.create` maker that makes the property: `'friction'`, `'gap_conductance'` or `'surface_behavior'`. |
-| `get_values()` | The values under the `pmx.create` argument names, so that `pmx.create.<property_type>(**p.get_values())` rebuilds the property. A value left at its default (NaN) reads as `None`. A constant gap conductance reads as `conductance`, a tabular one as `conductance_table`. |
+| `get_values()` | The values under the `pmx.create` argument names, so that `pmx.create.<property_type>(**p.get_values())` rebuilds the property. A value left at its default (NaN) reads as `None`. A constant gap conductance reads as `conductance`, a tabular one as `conductance_table`. A surface behavior reports only the values its type uses. |
 | `get_value(name)` | One value, by the `pmx.create` argument name. |
 | `get_value_names()` | The names `get_values()` reports, as a `StringList`. |
 
@@ -1641,8 +1698,8 @@ slave one; both are a `Selection` or a `Region`, and both name surfaces.
 
 | Member | Description |
 | --- | --- |
-| `add(name, surface_interaction_name, master_region, slave_region, method=None, small_sliding=None, adjust=None, adjustment_size=None)` | Adds a contact pair. `method` is `NodeToSurface`, `SurfaceToSurface` or `Mortar`. |
-| `replace(old_name, name=None, ...)` | Replaces a contact pair. A value that is not given keeps what the contact pair carries. A `method` of `SurfaceToSurface` on a pair with small sliding is refused unless `small_sliding=False` is given too, because that method does not support it. |
+| `add(name, surface_interaction_name, master_region, slave_region, method=None, small_sliding=None, adjust=None, adjustment_size=None)` | Adds a contact pair. `method` is `NodeToSurface`, `SurfaceToSurface`, `Mortar` or `Massless`. |
+| `replace(old_name, name=None, ...)` | Replaces a contact pair. A value that is not given keeps what the contact pair carries. A `method` other than `NodeToSurface` on a pair with small sliding is refused unless `small_sliding=False` is given too, because no other method supports it. |
 | `swap_master_slave(names)` | Swaps the two sides. |
 | `merge_by_master_slave(names)` | Merges the contact pairs that share a master and a slave surface. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
@@ -1655,11 +1712,12 @@ slave one; both are a `Selection` or a `Region`, and both name surfaces.
 pmx.model.contact_pairs.add('CP-1', 'SI-1', master_selection, slave_selection)
 ```
 
-Contact pairs may mix methods; the analysis warns before a run. **Small sliding is supported by
-`NodeToSurface` and `Mortar` only** - the model clears it for `SurfaceToSurface` rather than refusing
-it, so the API rejects that combination instead of letting the request be dropped. An
-`adjustment_size` turns the adjustment on, the way the dialog presents the two together, and
-`adjustment_size` reads back as `None` when no size is given.
+Contact pairs may mix methods; the analysis warns before a run. **Small sliding is written for
+`NodeToSurface` only** - the model clears it for `SurfaceToSurface` and leaves it unwritten for `Mortar`
+and `Massless`, so the API refuses `small_sliding=True` with any other method instead of letting the
+request be dropped, and `small_sliding` reads back `False` for them. An `adjustment_size` turns the
+adjustment on, the way the dialog presents the two together; it must be zero or larger, is refused
+together with `adjust=False`, and reads back as `None` when no size is given.
 
 ## Steps and step content
 
@@ -1677,6 +1735,14 @@ Two rules hold everywhere in this section:
   dynamic, modal dynamic, slip wear or temperature displacement step, `replace_heat_transfer` refuses a coupled or
   uncoupled temperature displacement step, and `replace_tie` refuses a cyclic symmetry. This holds for steps,
   constraints and step items.
+- **A value the model would change is refused instead.** A value outside the range a setter clamps to, an
+  out of plane value of a two dimensional model, a `phase_deg` outside a steady state dynamics step, or a
+  combination the item would correct is refused before a command is recorded, naming the argument. A replace
+  checks the values it is given together with the ones the item keeps.
+
+A step name, and the default names `Default` (amplitude), `Global` (coordinate system) and `Constant`
+(distribution), are matched without regard to case, and the name the model uses is what is stored and read
+back: `pmx.model.steps['step-1']` reaches `Step-1`.
 
 Every `add_*` listed below has a matching `replace_*` - `add_static` and `replace_static`,
 `add_pressure` and `replace_pressure`, and so on. A `replace_*` takes `old_name` first, then an
@@ -1689,19 +1755,19 @@ Reached as `pmx.model.steps`. It shares the collection verbs, including `activat
 
 | Member | Description |
 | --- | --- |
-| `add_static(name, time_period=None, initial_time_increment=None, min_time_increment=None, max_time_increment=None, direct=None, ...)` | A static step. |
+| `add_static(name, time_period=None, initial_time_increment=None, min_time_increment=None, max_time_increment=None, direct=None, ...)` | A static step. The time period and the increments are positive; neither the initial nor the minimum increment may exceed the time period, nor the initial increment the maximum one. |
 | `add_slip_wear(name, ...)` | A slip wear step. It takes the arguments of `add_static`. |
 | `add_boundary_displacement(name, ...)` | A boundary displacement step, which follows a slip wear step. |
-| `add_frequency(name, number_of_frequencies=None, lower_frequency=None, upper_frequency=None, storage=None, cyclic_symmetry_mode_min=None, cyclic_symmetry_mode_max=None, ...)` | A frequency step. |
-| `add_complex_frequency(name, number_of_frequencies=None, ...)` | A complex frequency step. |
-| `add_buckle(name, number_of_buckling_factors=None, accuracy=None, ...)` | A buckle step. |
-| `add_modal_dynamics(name, steady_state=None, relative_error=None, modal_damping=None, ...)` | A modal dynamics step. It also takes the arguments of `add_static`. |
-| `add_steady_state_dynamics(name, harmonic=None, lower_frequency=None, upper_frequency=None, number_of_data_points=None, bias=None, number_of_fourier_terms=None, time_lower=None, time_upper=None, modal_damping=None, ...)` | A steady state dynamics step. |
-| `add_dynamic(name, alpha=None, solution_procedure=None, relative_to_absolute=None, damping=None, ...)` | A dynamic step. It also takes the arguments of `add_static`. |
+| `add_frequency(name, number_of_frequencies=None, lower_frequency=None, upper_frequency=None, storage=None, cyclic_symmetry_mode_min=None, cyclic_symmetry_mode_max=None, ...)` | A frequency step. `number_of_frequencies` is at least 1, the limits are not negative and the lower one is below the upper one, and the modes are not negative with the minimum not above the maximum. With an active cyclic symmetry the modes are checked against its number of sectors, as the dialog does. |
+| `add_complex_frequency(name, number_of_frequencies=None, ...)` | A complex frequency step. `number_of_frequencies` is at least 1. |
+| `add_buckle(name, number_of_buckling_factors=None, accuracy=None, ...)` | A buckle step. `number_of_buckling_factors` is at least 1. |
+| `add_modal_dynamics(name, steady_state=None, relative_error=None, modal_damping=None, ...)` | A modal dynamics step. `relative_error` is between 0 and 1. It also takes the arguments of `add_static`. |
+| `add_steady_state_dynamics(name, harmonic=None, lower_frequency=None, upper_frequency=None, number_of_data_points=None, bias=None, number_of_fourier_terms=None, time_lower=None, time_upper=None, modal_damping=None, ...)` | A steady state dynamics step. The lower frequency does not exceed the upper one, `number_of_data_points` is at least 2, `bias` at least 1 and `number_of_fourier_terms` at least 1. |
+| `add_dynamic(name, alpha=None, solution_procedure=None, relative_to_absolute=None, damping=None, ...)` | A dynamic step. `alpha` is between -1/3 and 0. It also takes the arguments of `add_static`. |
 | `add_heat_transfer(name, steady_state=None, deltmx=None, ...)` | A heat transfer step. `deltmx` limits the temperature change in an increment and must be positive; `float('inf')`, the default, does not limit it. It also takes the arguments of `add_static`. |
 | `add_uncoupled_temp_disp(name, ...)` | An uncoupled temperature displacement step. It takes the arguments of `add_heat_transfer`. |
 | `add_coupled_temp_disp(name, ...)` | A coupled temperature displacement step. It takes the arguments of `add_heat_transfer`. |
-| `move(names, target_index)` | Moves the named steps. The index is **zero based** and is evaluated after the moved steps have been removed. |
+| `move(names, target_index)` | Moves the named steps. The index is **zero based** and is evaluated after the moved steps have been removed. A step named twice is refused. |
 
 Every `add_*` has a matching `replace_*` that takes `old_name` first and `name` second, and every
 `add_*` ends with the arguments shared by all step types:
@@ -1709,16 +1775,17 @@ Every `add_*` has a matching `replace_*` that takes `old_name` first and `name` 
 | Shared argument | Description |
 | --- | --- |
 | `nlgeom` | Accounts for the geometric nonlinearity. |
-| `max_increments` | The maximum number of increments. |
+| `max_increments` | The maximum number of increments, at least 1. |
 | `incrementation_type` | `Default`, `Automatic` or `Direct`. |
 | `solver_type` | `Default`, `PaStiX`, `Pardiso`, `Spooles`, `IterativeScaling` or `IterativeCholesky`. A new step starts from the solver type in the application settings. |
-| `output_frequency` | The results output frequency. |
+| `output_frequency` | The results output frequency, at least 0. |
 | `perturbation` | Makes the step a perturbation step. The model rejects it for a step type that does not support one. |
 | `run_analysis` | False solves nothing and only checks the model. |
-| `copy_bcs_and_loads` | `add_*` only. Copies the boundary conditions, loads and defined fields of the last step into the new one. |
+| `copy_bcs_and_loads` | `add_*` only. Copies the boundary conditions, loads and defined fields of the last step into the new one. An item of a type the new step does not support is left out, as the dialog does. |
 
 `replace_frequency` and `replace_steady_state_dynamics` accept `lower_frequency` and `upper_frequency` together, so both limits
-can move past each other in one call.
+can move past each other in one call. A single limit is checked against the other limit the step keeps, a time
+period against the increments a static step keeps, and a cyclic symmetry mode against the other mode.
 
 ```python
 step = pmx.model.steps.add_static('Step-1', time_period=1.0, nlgeom=True)
@@ -1768,10 +1835,10 @@ Reached as `step.bcs`. It shares the collection verbs. Every `region` argument i
 | Member | Description |
 | --- | --- |
 | `add_fixed(name, region, color=None)` | A fixed boundary condition. |
-| `add_displacement_rotation(name, region, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, distribution_name=None, amplitude_name=None, coordinate_system_name=None, phase_deg=None, color=None)` | A displacement and rotation boundary condition. A distribution scales its prescribed values over the region. |
-| `add_submodel(name, region, step_id=None, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, color=None)` | A submodel boundary condition. Its degrees of freedom are booleans. |
+| `add_displacement_rotation(name, region, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, distribution_name=None, amplitude_name=None, coordinate_system_name=None, phase_deg=None, color=None)` | A displacement and rotation boundary condition. A distribution scales its prescribed values over the region. A two dimensional model refuses a value for `u3`, `ur1` or `ur2`, and `phase_deg` is refused outside a steady state dynamics step. |
+| `add_submodel(name, region, step_id=None, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, color=None)` | A submodel boundary condition. Its degrees of freedom are booleans, and `step_id` is at least 1. |
 | `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A temperature boundary condition. |
-| `propagate(name)` | Copies the boundary condition to every following step. Refused from the last step. |
+| `propagate(name)` | Copies the boundary condition to every following step. Refused from the last step, and when a following step does not support the type. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
 
 ```python
@@ -1839,7 +1906,7 @@ a `Region`; the selection target follows the load type.
 | `add_body_flux(name, region, magnitude, ...)` | elements | A body flux. |
 | `add_film_heat_transfer(name, region, sink_temperature, film_coefficient, coefficient_amplitude_name=None, ...)` | surfaces | A film heat transfer load. |
 | `add_radiation_heat_transfer(name, region, sink_temperature, emissivity, cavity_radiation=None, cavity_name=None, emissivity_amplitude_name=None, ...)` | surfaces | A radiation heat transfer load. |
-| `propagate(name)` | | Copies the load to every following step. Refused from the last step. |
+| `propagate(name)` | | Copies the load to every following step. Refused from the last step, and when a following step does not support the load type. |
 | `hide(names)`, `show(names)` | | Symbol visibility. |
 
 Every `add_*` ends with `amplitude_name`, `coordinate_system_name`, `phase_deg` and `color`, and has
@@ -1851,16 +1918,23 @@ step.loads.add_pressure('Pressure-1', pmx.create.region('SurfaceName', 'Top'), 2
 step.loads.add_gravity('Gravity-1', part_selection, f3=-9810)
 ```
 
-Three details the model imposes:
+The details the model imposes:
 
 - **A surface traction has two independent component groups.** `f1`-`f3` are the total force and
   `p1`-`p3` the force per area. The solver is given the group that matches the distribution: the
-  force components without a distribution, the force per area components with one.
+  force components without a distribution, the force per area components with one. The other group is
+  refused, checked against the distribution the load carries after the call.
+- **A phase belongs to a complex load.** Only a steady state dynamics step makes its loads complex, so
+  `phase_deg` is refused in any other step and by a thermal or pre-tension load.
+- **A two dimensional model** refuses a nonzero `f3` of a concentrated force, gravity or surface traction,
+  `p3`, `m1` and `m2` of a moment, and the third component of a hydrostatic point or direction. An
+  axisymmetric model turns a centrifugal load about its y axis, so there `axis_point` must be `[0, 0, 0]`
+  and `axis_direction` `[0, 1, 0]` when given. A negative `rotational_speed` is refused.
 - A **pre-tension** load needs a three dimensional model, and computes its direction from the surface
   normal unless a `direction` is given. `replace_pre_tension` keeps every value that is not given, takes
   `auto_direction=True` to return to the surface normal (it cannot be combined with `direction`), and refuses a
   `tension_type` that changes the type unless the `magnitude` is given as well.
-- A **cavity name** is truncated to three characters, a solver limit.
+- A **cavity name** has at most three characters, a solver limit, and the emissivity is between 0 and 1.
 
 An **imported pressure** is read from its results file on every model check, so `pressure_time` and
 `pressure_variable_name` must name a field the file actually contains.
@@ -1947,14 +2021,15 @@ method, so the type follows from the method that is used.
 | Member | Description |
 | --- | --- |
 | `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A defined temperature given by value. The selection target is `nodes`. |
-| `add_temperature_from_file(name, file_name, step_id=None, amplitude_name=None, color=None)` | A defined temperature read from a results file. It covers the whole model, so it takes no region. |
-| `propagate(name)` | Copies the defined field to every following step. Refused from the last step. |
+| `add_temperature_from_file(name, file_name, step_id=None, color=None)` | A defined temperature read from a results file. It covers the whole model, so it takes no region, and it is written without an amplitude, so it takes none. `step_id` is at least 1. |
+| `propagate(name)` | Copies the defined field to every following step. Refused from the last step, and when a following step does not support the type. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
 
 `replace_temperature` and `replace_temperature_from_file` switch the defined temperature type: `replace_temperature` on
 a defined field read from a file needs both a `region` and a `temperature` and makes it one given by value, and
-`replace_temperature_from_file` on one given by value needs a `file_name` and makes it one read from a file. Values not
-given are kept.
+`replace_temperature_from_file` on one given by value needs a `file_name` and makes it one read from a file; it is refused
+while the field carries an amplitude other than `Default`, which `replace_temperature(..., amplitude_name='Default')`
+clears. Values not given are kept.
 
 A `distribution_name` must name a `Scalar` distribution for `bcs.add_temperature` and `bcs.replace_temperature`,
 `defined_fields.add_temperature` and `defined_fields.replace_temperature`, and `loads.add_pressure` and
@@ -1984,10 +2059,10 @@ only makes the detached **parts** that those methods take as arguments, and reco
 | Member | Description |
 | --- | --- |
 | `selection_by_ids(view, target, source, ids)` | Creates an ID-based selection. |
-| `elastic(youngs_modulus, poissons_ratio=None)` | Elastic property. Two values, or a list of `[E, v, temperature]` rows. |
+| `elastic(youngs_modulus, poissons_ratio=None)` | Elastic property. Two values, or a list of `[E, v, temperature]` rows; `poissons_ratio` is required with a single `youngs_modulus`. |
 | `elastic_with_density(youngs_modulus, poissons_ratio, density)` | Combined elastic and density property. |
-| `elastic_engineering_constants(constants)` | Orthotropic elastic. Rows of `[E1, E2, E3, v12, v13, v23, G12, G13, G23, temperature]`. |
-| `elastic_lamina(constants)` | Lamina elastic. Rows of `[E1, E2, v12, G12, G13, G23, temperature]`. |
+| `elastic_engineering_constants(constants)` | Orthotropic elastic. Rows of `[E1, E2, E3, v12, v13, v23, G12, G13, G23, temperature]`, each physically stable, with strictly increasing temperatures. |
+| `elastic_lamina(constants)` | Lamina elastic. Rows of `[E1, E2, v12, G12, G13, G23, temperature]`, each physically stable, with strictly increasing temperatures. |
 | `density(density)` | Density. One value, or rows of `[density, temperature]`. |
 | `plastic(stress_strain, hardening=None)` | Plastic. Rows of `[stress, strain, temperature]`. `hardening` is `Isotropic`, `Kinematic` or `Combined` and defaults to `Isotropic`. |
 | `specific_heat(specific_heat)` | Specific heat. One value, or rows of `[value, temperature]`. |
@@ -2016,7 +2091,8 @@ The three step control makers take one optional argument per CalculiX parameter,
 that are given override the solver defaults - `time_incrementation_control` takes `i0`, `ir`, `ip`,
 `ic`, `il`, `ig`, `is_value`, `ia`, `ij`, `it`, `df`, `dc`, `db`, `da`, `ds`, `dh`, `dd` and `wg`;
 `field_control` takes `rna`, `cna`, `q0a`, `qua`, `rpa`, `ea`, `cea` and `rla`; `contact_control`
-takes `delcon`, `alea`, `kscalemax` and `itf2f`.
+takes `delcon`, `alea`, `kscalemax` and `itf2f`. A value the parameter would clamp is refused: the integer
+values are at least 1, the real values at least 0, and `alea` is between 0 and 1.
 
 ### `SplitTool`
 
@@ -2212,7 +2288,7 @@ command history, the same as a label placed by a query in the application. The n
 | Member | Description |
 | --- | --- |
 | `get_names()` | The names of the annotations of the displayed view. |
-| `add_text(name, text, anchor_point)` | Adds a text label with an arrow pointing at a point in model coordinates. The name must be free. Returns the name it was given. |
+| `add_text(name, text, anchor_point)` | Adds a text label with an arrow pointing at a point in model coordinates. The name must be free, and a name with leading or trailing spaces is refused. Returns the name it was given. |
 | `add_node(node_id)` | Adds the annotation a node query places: ID, coordinates and, in the results view, the plotted value. Returns the generated name. |
 | `add_element(element_id)` | Adds the annotation an element query places. Returns the generated name. |
 | `remove(names)` | Removes the named annotations. A single name or a list of names; a reserved or unknown name is refused. |
@@ -2489,6 +2565,8 @@ Collection of user-defined result field outputs. These are postprocessing defini
 | `remove(names)` | Removes field outputs using command history. The argument is a non-empty list of names. |
 | `remove_components(field_output_name, component_names)` | Removes components from a field output using command history. |
 | `export_to_csv(file_name, field_output_name, step_id, increment_id)` | Exports all field components at one result increment using command history. |
+
+The `name` of every draft is checked as a model item name is, when the draft is created: an empty name, one with leading or trailing spaces or with characters a name cannot hold is refused.
 
 `based_on` is required and must be `"Parts"`, `"ElementSets"`, or `"AllElements"` (in any case; it reads back in this spelling). `item_limits` must be a non-empty Python dictionary with finite, nonzero values. Its keys are part names, element-set names, or the single key `"All elements"` when `based_on="AllElements"`.
 
@@ -3158,6 +3236,9 @@ Collection of result history outputs.
 | `remove_fields(history_output_name, field_names)` | Removes fields from a history output using command history. |
 | `remove_components(history_output_name, field_name, component_names)` | Removes components from a history-output field using command history. |
 | `export_to_csv(file_name, history_output_names, delimiter=",")` | Exports all fields and components of the selected history outputs to CSV using command history. |
+
+The `name` of every draft is checked as a model item name is, when the draft is created: an empty name, one with
+leading or trailing spaces or with characters a name cannot hold is refused.
 
 
 Creation examples:

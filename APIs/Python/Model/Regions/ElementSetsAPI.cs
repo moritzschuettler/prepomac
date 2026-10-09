@@ -47,7 +47,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds an element set of the elements of the named model parts whose quality metric is " +
-                   "larger, or not larger, than the limit using command history.",
+                   "larger, or not larger, than the limit using command history. The metric is a gmsh quality " +
+                   "measure such as minSICN or gamma, in any case, and the name must not be used by another mesh " +
+                   "entity.",
                    Arguments = "name: str, metric: str, part_names: list[str] or str, larger_than: bool, " +
                                "limit: float", Returns = "ElementSet")]
         public ElementSetAPI add_from_quality(string name, string metric, object part_names, bool larger_than,

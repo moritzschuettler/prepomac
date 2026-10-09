@@ -46,7 +46,8 @@ namespace APIs.Python.Model
             return _service.CreateMeshes(_service.ResolveMeshablePartNames(part_names));
         }
 
-        [PythonAPI("Creates a boundary layer on the selected geometry using command history.",
+        [PythonAPI("Creates a boundary layer on the selected geometry using command history. thickness is " +
+                   "larger than 0.",
                    Arguments = "selection: Selection, thickness: float", Returns = "None")]
         public void generate_boundary_layer(SelectionAPI selection, object thickness)
         {
@@ -55,7 +56,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Remeshes the elements of a region using command history. The region is a selection or " +
                    "an ElementSetName region, which is what the dialog offers. Every parameter that is not " +
-                   "given keeps the application default.",
+                   "given keeps the application default. max_size and min_size are at least 0, a min_size larger " +
+                   "than the max_size it ends up with is refused naming both, and hausdorff is larger than 0.",
                    Arguments = "region: Selection or Region, max_size: float = None, " +
                                "min_size: float = None, hausdorff: float = None", Returns = "None")]
         public void remesh_elements(object region, object max_size = null, object min_size = null,
@@ -64,7 +66,8 @@ namespace APIs.Python.Model
             _toolService.RemeshElements(region, max_size, min_size, hausdorff);
         }
 
-        [PythonAPI("Thickens the shell mesh of the named parts using command history.",
+        [PythonAPI("Thickens the shell mesh of the named parts using command history. thickness is larger " +
+                   "than 0 and number_of_layers at least 1.",
                    Arguments = "part_names: list[str] or str, thickness: float, number_of_layers: int = 1, " +
                                "offset: float = 0, keep_model_edges: bool = False", Returns = "None")]
         public void thicken_shell_mesh(object part_names, object thickness, int number_of_layers = 1,

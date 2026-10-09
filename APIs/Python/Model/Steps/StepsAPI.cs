@@ -13,7 +13,7 @@ namespace APIs.Python.Model
 {
     // Every add method takes the values of its own step type first and the values shared by all step
     // types last. A value that is not given keeps the application default, and on a replace it keeps
-    // the value the step already carries.
+    // the value the step already carries. A step name is matched without regard to case.
     public class StepsAPI : ModelItemsAPI<Step, StepAPI>
     {
         // Variables
@@ -31,7 +31,12 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Adds a static step using command history.",
+        [PythonAPI("Adds a static step using command history. The time period and the increments are positive, " +
+                   "and neither the initial nor the minimum increment may exceed the time period, nor the " +
+                   "initial increment the maximum one; on a replace this holds for the values the step keeps " +
+                   "as well. max_increments is at least 1 and output_frequency at least 0. " +
+                   "copy_bcs_and_loads copies the boundary conditions, loads and defined fields of the last " +
+                   "step that the new step supports and leaves out the others, as the dialog does.",
                    Arguments = "name: str, time_period: float = None, initial_time_increment: float = None, " +
                                "min_time_increment: float = None, max_time_increment: float = None, " +
                                "direct: bool = None, nlgeom: bool = None, max_increments: int = None, " +
@@ -51,7 +56,7 @@ namespace APIs.Python.Model
             _service.ApplyNewStepDefaults(step);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), false);
             _service.Add(step, copy_bcs_and_loads);
             //
             return this[name];
@@ -71,7 +76,7 @@ namespace APIs.Python.Model
             StaticStep step = _service.CloneForReplace<StaticStep>(old_name, "static");
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), true);
             //
             return Replace(old_name, name, step);
         }
@@ -90,7 +95,7 @@ namespace APIs.Python.Model
             _service.ApplyNewStepDefaults(step);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), false);
             _service.Add(step, copy_bcs_and_loads);
             //
             return this[name];
@@ -110,7 +115,7 @@ namespace APIs.Python.Model
             SlipWearStep step = _service.CloneForReplace<SlipWearStep>(old_name, "slip_wear");
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), true);
             //
             return Replace(old_name, name, step);
         }
@@ -152,7 +157,11 @@ namespace APIs.Python.Model
             return Replace(old_name, name, step);
         }
 
-        [PythonAPI("Adds a frequency step using command history.",
+        [PythonAPI("Adds a frequency step using command history. number_of_frequencies is at least 1, the " +
+                   "frequency limits are not negative and the lower one is below the upper one, and the cyclic " +
+                   "symmetry modes are not negative, the minimum not above the maximum; on a replace this " +
+                   "holds for the values the step keeps as well. With an active cyclic symmetry the modes are " +
+                   "checked against its number of sectors, as the dialog does.",
                    Arguments = "name: str, number_of_frequencies: int = None, lower_frequency: float = None, " +
                                "upper_frequency: float = None, storage: bool = None, " +
                                "cyclic_symmetry_mode_min: int = None, cyclic_symmetry_mode_max: int = None, " +
@@ -174,6 +183,7 @@ namespace APIs.Python.Model
                                              cyclic_symmetry_mode_min, cyclic_symmetry_mode_max);
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
+            _service.EnsureCyclicSymmetryModesValid(step);
             _service.Add(step, copy_bcs_and_loads);
             //
             return this[name];
@@ -195,11 +205,13 @@ namespace APIs.Python.Model
                                              cyclic_symmetry_mode_min, cyclic_symmetry_mode_max);
             StepFactory.ApplyCommonValues(step, Common(nlgeom, max_increments, incrementation_type, solver_type,
                                                        output_frequency, perturbation, run_analysis));
+            _service.EnsureCyclicSymmetryModesValid(step);
             //
             return Replace(old_name, name, step);
         }
 
-        [PythonAPI("Adds a complex frequency step using command history. It follows a frequency step.",
+        [PythonAPI("Adds a complex frequency step using command history. It follows a frequency step. " +
+                   "number_of_frequencies is at least 1.",
                    Arguments = "name: str, number_of_frequencies: int = None, and the shared step arguments",
                    Returns = "Step")]
         public StepAPI add_complex_frequency(string name, object number_of_frequencies = null, object nlgeom = null,
@@ -237,7 +249,7 @@ namespace APIs.Python.Model
             return Replace(old_name, name, step);
         }
 
-        [PythonAPI("Adds a buckle step using command history.",
+        [PythonAPI("Adds a buckle step using command history. number_of_buckling_factors is at least 1.",
                    Arguments = "name: str, number_of_buckling_factors: int = None, accuracy: float = None, " +
                                "and the shared step arguments", Returns = "Step")]
         public StepAPI add_buckle(string name, object number_of_buckling_factors = null, object accuracy = null,
@@ -275,7 +287,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a modal dynamics step using command history. The modal damping is created by " +
-                   "pmx.create.modal_damping.",
+                   "pmx.create.modal_damping, and relative_error is between 0 and 1.",
                    Arguments = "name: str, steady_state: bool = None, relative_error: float = None, " +
                                "modal_damping: ModalDamping = None, the arguments of add_static, and the " +
                                "shared step arguments", Returns = "Step")]
@@ -294,7 +306,7 @@ namespace APIs.Python.Model
             StepFactory.ApplyModalDynamicsValues(step, steady_state, relative_error, modal_damping);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), false);
             _service.Add(step, copy_bcs_and_loads);
             //
             return this[name];
@@ -316,13 +328,15 @@ namespace APIs.Python.Model
             StepFactory.ApplyModalDynamicsValues(step, steady_state, relative_error, modal_damping);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), true);
             //
             return Replace(old_name, name, step);
         }
 
         [PythonAPI("Adds a steady state dynamics step using command history. The modal damping is created " +
-                   "by pmx.create.modal_damping.",
+                   "by pmx.create.modal_damping. The lower frequency does not exceed the upper one, also on a " +
+                   "replace with the value the step keeps, number_of_data_points is at least 2, bias at least 1 " +
+                   "and number_of_fourier_terms at least 1.",
                    Arguments = "name: str, harmonic: bool = None, lower_frequency: float = None, " +
                                "upper_frequency: float = None, number_of_data_points: int = None, " +
                                "bias: float = None, number_of_fourier_terms: int = None, time_lower: float = None, " +
@@ -375,7 +389,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, step);
         }
 
-        [PythonAPI("Adds a dynamic step using command history. The damping is created by pmx.create.damping.",
+        [PythonAPI("Adds a dynamic step using command history. The damping is created by pmx.create.damping, " +
+                   "and alpha is between -1/3 and 0.",
                    Arguments = "name: str, alpha: float = None, solution_procedure: str = None, " +
                                "relative_to_absolute: bool = None, damping: Damping = None, the arguments of " +
                                "add_static, and the shared step arguments", Returns = "Step")]
@@ -394,7 +409,7 @@ namespace APIs.Python.Model
             StepFactory.ApplyDynamicValues(step, alpha, solution_procedure, relative_to_absolute, damping);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), false);
             _service.Add(step, copy_bcs_and_loads);
             //
             return this[name];
@@ -417,7 +432,7 @@ namespace APIs.Python.Model
             StepFactory.ApplyDynamicValues(step, alpha, solution_procedure, relative_to_absolute, damping);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), true);
             //
             return Replace(old_name, name, step);
         }
@@ -440,7 +455,7 @@ namespace APIs.Python.Model
             StepFactory.ApplyHeatTransferValues(step, steady_state, deltmx);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), false);
             _service.Add(step, copy_bcs_and_loads);
             //
             return this[name];
@@ -462,7 +477,7 @@ namespace APIs.Python.Model
             StepFactory.ApplyHeatTransferValues(step, steady_state, deltmx);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), true);
             //
             return Replace(old_name, name, step);
         }
@@ -485,7 +500,7 @@ namespace APIs.Python.Model
             StepFactory.ApplyHeatTransferValues(step, steady_state, deltmx);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), false);
             _service.Add(step, copy_bcs_and_loads);
             //
             return this[name];
@@ -509,7 +524,7 @@ namespace APIs.Python.Model
             StepFactory.ApplyHeatTransferValues(step, steady_state, deltmx);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), true);
             //
             return Replace(old_name, name, step);
         }
@@ -532,7 +547,7 @@ namespace APIs.Python.Model
             StepFactory.ApplyHeatTransferValues(step, steady_state, deltmx);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), false);
             _service.Add(step, copy_bcs_and_loads);
             //
             return this[name];
@@ -556,13 +571,14 @@ namespace APIs.Python.Model
             StepFactory.ApplyHeatTransferValues(step, steady_state, deltmx);
             ApplyStatic(step, time_period, initial_time_increment, min_time_increment, max_time_increment,
                         direct, Common(nlgeom, max_increments, incrementation_type, solver_type,
-                                       output_frequency, perturbation, run_analysis));
+                                       output_frequency, perturbation, run_analysis), true);
             //
             return Replace(old_name, name, step);
         }
 
         [PythonAPI("Moves the named steps to the requested position using command history. The target index " +
-                   "is zero based and is evaluated after the moved steps have been removed.",
+                   "is zero based and is evaluated after the moved steps have been removed. A step named twice " +
+                   "is refused.",
                    Arguments = "names: list[str] or str, target_index: int", Returns = "None",
                    Example = "pmx.model.steps.move(['Step-2'], 0)")]
         public void move(object names, int target_index)
@@ -580,7 +596,7 @@ namespace APIs.Python.Model
         }
         protected override StepAPI CreateItemAPI(string name)
         {
-            return new StepAPI(name, _service, _contentServices);
+            return new StepAPI(_service.ResolveStep(name).Name, _service, _contentServices);
         }
         protected override void DuplicateItems(string[] names)
         {
@@ -613,10 +629,10 @@ namespace APIs.Python.Model
         }
         private static void ApplyStatic(StaticStep step, object timePeriod, object initialTimeIncrement,
                                         object minTimeIncrement, object maxTimeIncrement, object direct,
-                                        StepCommonValues common)
+                                        StepCommonValues common, bool replace)
         {
             StepFactory.ApplyStaticValues(step, timePeriod, initialTimeIncrement, minTimeIncrement,
-                                          maxTimeIncrement, direct);
+                                          maxTimeIncrement, direct, replace);
             StepFactory.ApplyCommonValues(step, common);
         }
         private StepAPI Replace(string oldName, string name, Step step)

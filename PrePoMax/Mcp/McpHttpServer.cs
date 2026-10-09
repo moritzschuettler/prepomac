@@ -35,9 +35,15 @@ namespace PrePoMax.Mcp
         public const string EndpointPath = "/mcp";
         private const int AccessDenied = 5;
         private const int ListenerReleaseTimeout = 1000;
+        // How long a client counts as connected after its last request
+        private const int ClientActivitySeconds = 60;
         private readonly RpcServer _server;
+        private readonly object _activityLock;
         private HttpListener _listener;
         private Thread _listenerThread;
+        private Timer _activityTimer;
+        private int _requestsInFlight;
+        private DateTime _lastRequestTime;
         private string _accessToken;
         private int _port;
         private bool _isRunning;
@@ -52,14 +58,32 @@ namespace PrePoMax.Mcp
         public string AccessToken { get { return _accessToken == null ? "" : _accessToken; } }
         public string LastError { get { return _lastError; } }
         public string EndpointUrl { get { return _isRunning ? GetEndpointUrl(_port) : ""; } }
+        // An MCP client holds no connection between requests, so it is counted as connected while a request
+        // of its own is being served and for a while after the last one
+        public bool IsClientActive
+        {
+            get
+            {
+                lock (_activityLock)
+                {
+                    if (!_isRunning) return false;
+                    if (_requestsInFlight > 0) return true;
+                    return (DateTime.UtcNow - _lastRequestTime).TotalSeconds < ClientActivitySeconds;
+                }
+            }
+        }
 
 
         // Constructor                                                                                                              
         public McpHttpServer(RpcServer server)
         {
             _server = server;
+            _activityLock = new object();
             _listener = null;
             _listenerThread = null;
+            _activityTimer = null;
+            _requestsInFlight = 0;
+            _lastRequestTime = DateTime.MinValue;
             _accessToken = null;
             _port = 0;
             _isRunning = false;
@@ -124,6 +148,13 @@ namespace PrePoMax.Mcp
                 throw new CaeException("The MCP endpoint could not be opened: every port from " + wanted + " to " +
                                        last + " is taken. Choose another one in Tools - Settings - Automation.");
             }
+            lock (_activityLock)
+            {
+                _requestsInFlight = 0;
+                _lastRequestTime = DateTime.MinValue;
+            }
+            _activityTimer = new Timer(delegate (object state) { _server.NotifyStateChanged(); }, null,
+                                       Timeout.Infinite, Timeout.Infinite);
             _isRunning = true;
             _listenerThread = new Thread(Listen);
             _listenerThread.IsBackground = true;
@@ -141,6 +172,39 @@ namespace PrePoMax.Mcp
             _listener = null;
             Close(listener);
             _port = 0;
+            //
+            Timer timer = _activityTimer;
+            _activityTimer = null;
+            if (timer != null) timer.Dispose();
+        }
+        // Called for a request that passed the gates, so a probe without the token is not a client
+        public void BeginClientRequest()
+        {
+            bool wasActive = IsClientActive;
+            lock (_activityLock)
+            {
+                _requestsInFlight++;
+                _lastRequestTime = DateTime.UtcNow;
+            }
+            if (!wasActive) _server.NotifyStateChanged();
+        }
+        public void EndClientRequest()
+        {
+            lock (_activityLock)
+            {
+                if (_requestsInFlight > 0) _requestsInFlight--;
+                _lastRequestTime = DateTime.UtcNow;
+            }
+            // The indicator is told once the client has been quiet long enough to stop counting
+            Timer timer = _activityTimer;
+            if (timer == null) return;
+            try
+            {
+                timer.Change(1000 * ClientActivitySeconds + 500, Timeout.Infinite);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
         // The listener thread waits in GetContext, and closing the listener under it ends that wait by
         // throwing - on every shutdown, and where a debugger stops on it. A request of the server's own
@@ -198,21 +262,29 @@ namespace PrePoMax.Mcp
                     if (_isStopping) return;
                     Serve(context);
                 }
-                catch (HttpListenerException)
+                catch (HttpListenerException exception)
                 {
                     // A stop the request of its own did not reach closes the listener underneath the wait
                     if (_isStopping) return;
                     failures++;
-                    ReportError("The MCP endpoint could not accept a request.");
-                    if (failures >= 3) return;
+                    ReportError("The MCP endpoint could not accept a request: " + exception.Message);
+                    // An endpoint that cannot listen is stopped together with the pipe, the way the pipe
+                    // stops, rather than left reporting that it runs
+                    if (failures >= 3)
+                    {
+                        _server.RequestStop();
+                        return;
+                    }
                     Thread.Sleep(200);
                 }
                 catch (ObjectDisposedException)
                 {
+                    if (!_isStopping) _server.RequestStop();
                     return;
                 }
                 catch (InvalidOperationException)
                 {
+                    if (!_isStopping) _server.RequestStop();
                     return;
                 }
             }

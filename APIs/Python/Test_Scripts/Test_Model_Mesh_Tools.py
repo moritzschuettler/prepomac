@@ -131,6 +131,23 @@ def test_element_set_from_quality():
             pmx.model.element_sets.remove([name])
     check_raises(lambda: pmx.model.element_sets.add_from_quality(
         PREFIX + "Q", "Volume", "NoSuchPart", True, 0.0), "an unknown part must be rejected")
+    # The metric is one gmsh knows and the name one no mesh entity uses, both checked before anything is recorded
+    part_name = pmx.model.parts.get_names()[0]
+    before = list(pmx.model.element_sets.get_names())
+    message = raised_message(lambda: pmx.model.element_sets.add_from_quality(
+        PREFIX + "Q", "NoSuchMetric", part_name, True, 0.0))
+    check(message is not None and "metric" in message and "minSICN" in message,
+          "an unknown metric must be refused naming it and the metrics there are: " + str(message))
+    pmx.model.element_sets.add(PREFIX + "Used", pmx.create.selection_by_ids('femodel', 'elements', 'elements', [201]))
+    message = raised_message(lambda: pmx.model.element_sets.add_from_quality(
+        PREFIX.lower() + "used", "minSICN", part_name, True, 0.0))
+    check(message is not None and "already used" in message,
+          "a name another mesh entity uses must be refused, in any case: " + str(message))
+    message = raised_message(lambda: pmx.model.element_sets.add_from_quality(
+        PREFIX + "Q", "minSICN", part_name, True, float("nan")))
+    check(message is not None and "limit" in message, "a limit that is not finite must be refused: " + str(message))
+    pmx.model.element_sets.remove([PREFIX + "Used"])
+    check(list(pmx.model.element_sets.get_names()) == before, "a refused call changed the element sets")
 
 
 def test_mesh_tool_regions():
@@ -162,6 +179,18 @@ def test_mesh_tool_regions():
     check_raises(lambda: mesh.split_part_mesh_using_surface(
         pmx.create.region('PartName', 'NoSuchPart'), element_selection),
         "splitting must reject an unknown part")
+    # A value the model would refuse, clamp or move is refused naming the argument, before the tool runs
+    for call, words in [(lambda: mesh.remesh_elements(element_selection, max_size=1.0, min_size=2.0),
+                         ["min_size", "max_size"]),
+                        (lambda: mesh.remesh_elements(element_selection, max_size=-1.0), ["max_size"]),
+                        (lambda: mesh.remesh_elements(element_selection, hausdorff=0), ["hausdorff"]),
+                        (lambda: mesh.generate_boundary_layer(element_selection, float("nan")), ["thickness"]),
+                        (lambda: mesh.generate_boundary_layer(element_selection, 0), ["thickness"]),
+                        (lambda: mesh.thicken_shell_mesh(part_name, 0), ["thickness"]),
+                        (lambda: mesh.thicken_shell_mesh(part_name, 1.0, 0), ["number_of_layers"])]:
+        message = raised_message(call)
+        check(message is not None and all(word in message for word in words),
+              "the refusal must name " + str(words) + ": " + str(message))
     #
     check(pmx.model.nodes.count == node_count, "a refused mesh tool changed the node count")
     check(pmx.model.elements.count == element_count, "a refused mesh tool changed the element count")

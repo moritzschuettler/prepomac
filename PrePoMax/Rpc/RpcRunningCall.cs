@@ -29,7 +29,8 @@ namespace PrePoMax.Rpc
     public class RpcRunningCall
     {
         // Variables
-        private const int CancelRetryMilliseconds = 1000;
+        private const int CancelStartWaitMilliseconds = 1000;
+        private const int InterruptDeliveryWaitMilliseconds = 1000;
         private readonly int _id;
         private readonly string _method;
         private readonly DateTime _startTime;
@@ -38,8 +39,9 @@ namespace PrePoMax.Rpc
         private volatile bool _isFinished;
         private string _result;
         private ExceptionDispatchInfo _exception;
-        private int _managedThreadId;
         private volatile bool _isCancelRequested;
+        private PythonExecution _execution;
+        private int _startInterruptCount;
         [ThreadStatic] private static RpcRunningCall _current;
 
 
@@ -71,8 +73,9 @@ namespace PrePoMax.Rpc
             _isFinished = false;
             _result = null;
             _exception = null;
-            _managedThreadId = 0;
             _isCancelRequested = false;
+            _execution = null;
+            _startInterruptCount = 0;
         }
 
 
@@ -84,7 +87,6 @@ namespace PrePoMax.Rpc
             Thread thread = new Thread(delegate () { Run(handler, finished); });
             thread.IsBackground = true;
             thread.Name = "PrePoMax automation call " + _id.ToString(CultureInfo.InvariantCulture);
-            _managedThreadId = thread.ManagedThreadId;
             thread.Start();
         }
         private void Run(Func<string> handler, Action finished)
@@ -130,24 +132,59 @@ namespace PrePoMax.Rpc
                 return true;
             }
         }
-        // Asks the call to stop. The Python it is running is interrupted and stops at its next statement; a call
-        // that has not reached its Python yet does not start it, and one that is past it finishes as it would
-        // have. The call thread may be about to enter its Python or just leaving it, so the interrupt is asked
-        // for again for a moment until it lands there or the call ends. Returns whether the interrupt reached
-        // the Python of the call
-        public bool Cancel()
+        // Called by the Python engine on the call thread, with the GIL held, as the Python of the call starts.
+        // Returns whether the call was cancelled already, in which case the engine interrupts that Python at
+        // once. The cancel and this share the lock, so a cancel either finds the Python here or is seen by it
+        public bool AttachExecution(PythonExecution execution)
         {
-            if (_isFinished) return false;
-            //
-            _isCancelRequested = true;
-            DateTime deadline = DateTime.UtcNow.AddMilliseconds(CancelRetryMilliseconds);
-            while (!_isFinished)
+            lock (_stateLock)
             {
-                if (PythonEngineManager.RequestInterrupt(_managedThreadId)) return true;
-                if (DateTime.UtcNow >= deadline) return false;
-                Wait(20);
+                _execution = execution;
+                if (_isCancelRequested) _startInterruptCount++;
+                Monitor.PulseAll(_stateLock);
+                return _isCancelRequested;
             }
-            return false;
+        }
+        public void DetachExecution(PythonExecution execution)
+        {
+            lock (_stateLock)
+            {
+                if (_execution == execution) _execution = null;
+            }
+        }
+        // Asks the call to stop. The Python it is running is interrupted and stops at its next statement; a call
+        // that has not reached its Python yet is interrupted as it starts it, and one that is past it finishes
+        // as it would have. Every cancel delivers an interrupt of its own, so code that caught the one before -
+        // a bare except - is reached again. Returns whether an interrupt was aimed at the Python of the call, and
+        // tells whether it was delivered; one that is not delivered waits for the GIL, which an operation of the
+        // application holds until it returns to Python
+        public bool Cancel(out bool isDelivered)
+        {
+            isDelivered = false;
+            PythonExecution execution;
+            int startInterruptsBefore;
+            lock (_stateLock)
+            {
+                if (_isFinished) return false;
+                startInterruptsBefore = _startInterruptCount;
+                _isCancelRequested = true;
+                execution = _execution;
+            }
+            if (execution != null)
+                return PythonEngineManager.RequestInterrupt(execution, InterruptDeliveryWaitMilliseconds, out isDelivered);
+            // Not in its Python: a call about to start it is interrupted as it does, which is waited for a moment
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(CancelStartWaitMilliseconds);
+            lock (_stateLock)
+            {
+                while (!_isFinished && _startInterruptCount == startInterruptsBefore)
+                {
+                    int left = (int)Math.Ceiling((deadline - DateTime.UtcNow).TotalMilliseconds);
+                    if (left <= 0) break;
+                    Monitor.Wait(_stateLock, left);
+                }
+                isDelivered = _startInterruptCount > startInterruptsBefore;
+                return isDelivered;
+            }
         }
         // The answer the call would have given had the caller waited for it, refusal and all
         public string GetResult()

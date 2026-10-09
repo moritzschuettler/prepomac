@@ -132,8 +132,9 @@ namespace PrePoMax.Python.Journal
                 if (!string.IsNullOrEmpty(temperature.DistributionName))
                     arguments.Add("distribution_name=" +
                                   PythonValueFormatter.Text(temperature.DistributionName));
+                // A temperature read from a file is written without an amplitude, so only this form takes one
+                PythonStepItemEmitter.AddAmplitude(arguments, field.AmplitudeName);
             }
-            PythonStepItemEmitter.AddAmplitude(arguments, field.AmplitudeName);
             DefinedTemperature defaultField = new DefinedTemperature("Default", null,
                                                                      CaeGlobals.RegionTypeEnum.Selection, 0);
             PythonStepItemEmitter.AddColor(arguments, field.Color, defaultField.Color, oldName != null);

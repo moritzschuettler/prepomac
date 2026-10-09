@@ -41,6 +41,7 @@ namespace PrePoMax.Mcp
         private const string JsonContentType = "application/json";
         private readonly McpHttpServer _server;
         private readonly HttpListenerContext _context;
+        private bool _isClientRequest;
 
 
         // Constructor                                                                                                              
@@ -48,6 +49,7 @@ namespace PrePoMax.Mcp
         {
             _server = server;
             _context = context;
+            _isClientRequest = false;
         }
 
 
@@ -63,10 +65,11 @@ namespace PrePoMax.Mcp
                 // A request that fails must not take the endpoint down with it, and the caller is
                 // told rather than left waiting for a response that will never come
                 _server.ReportError("An MCP request failed: " + exception.Message);
-                TryWriteText(500, "The endpoint failed to serve the request.");
+                TryWriteText(500, "The endpoint failed to serve the request: " + exception.Message);
             }
             finally
             {
+                if (_isClientRequest) _server.EndClientRequest();
                 try { _context.Response.Close(); }
                 catch { }
             }
@@ -109,10 +112,14 @@ namespace PrePoMax.Mcp
             if (!IsAuthorized(request))
             {
                 _context.Response.AddHeader("WWW-Authenticate", "Bearer");
-                WriteText(401, "The MCP endpoint needs the access token of this PrePoMax session in an " +
-                               "Authorization: Bearer header.");
+                WriteText(401, "The MCP endpoint needs the current access token of this PrePoMax session in an " +
+                               "Authorization: Bearer header. Copy it from Tools - Settings - Automation, Access " +
+                               "token, into the client configuration: it may have been generated again since the " +
+                               "client was set up, and a newly unpacked PrePoMax folder starts without one.");
                 return;
             }
+            _isClientRequest = true;
+            _server.BeginClientRequest();
             if (!IsEndpointPath(request.Url))
             {
                 WriteText(404, "The MCP endpoint is served at " + McpHttpServer.EndpointPath + ".");
@@ -155,7 +162,10 @@ namespace PrePoMax.Mcp
             return McpAccessToken.IsMatch(_server.AccessToken, header.Substring(scheme.Length).Trim());
         }
         // The body is read through a bounded copy rather than trusted to declare its length, because a
-        // chunked request declares none
+        // chunked request declares none. It is decoded as UTF-8 whatever the request says: JSON exchanged
+        // between systems is UTF-8 (RFC 8259), and the encoding .NET Framework assumes for a Content-Type
+        // without a charset is the ANSI code page, which turned every character outside ASCII into another
+        // one. A byte order mark is dropped rather than read as part of the document
         private bool TryReadBody(HttpListenerRequest request, out string body)
         {
             body = null;
@@ -170,8 +180,9 @@ namespace PrePoMax.Mcp
                     if (content.Length + read > MaximumBodyLength) return false;
                     content.Write(buffer, 0, read);
                 }
-                Encoding encoding = request.ContentEncoding == null ? Encoding.UTF8 : request.ContentEncoding;
-                body = encoding.GetString(content.ToArray());
+                byte[] bytes = content.ToArray();
+                int start = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3 : 0;
+                body = new UTF8Encoding(false).GetString(bytes, start, bytes.Length - start);
             }
             return true;
         }

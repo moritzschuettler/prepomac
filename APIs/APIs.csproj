@@ -66,6 +66,7 @@
     <Compile Include="Python\Model\Meshing\MeshSetupItemsAPI.cs" />
     <Compile Include="Python\Common\PythonColorConverter.cs" />
     <Compile Include="Python\Common\PythonNameComparer.cs" />
+    <Compile Include="Python\Common\PythonModelArgumentCheck.cs" />
     <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataAPI.cs" />
     <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataEntitiesAPI.cs" />
     <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataEntityAPI.cs" />
@@ -131,6 +132,7 @@
     <Compile Include="Python\Model\Steps\StepAPI.cs" />
     <Compile Include="Python\Model\Steps\StepCommonValues.cs" />
     <Compile Include="Python\Model\Steps\StepFactory.cs" />
+    <Compile Include="Python\Model\Steps\GivenEquationValue.cs" />
     <Compile Include="Python\Model\Steps\StepService.cs" />
     <Compile Include="Python\Model\Steps\StepsAPI.cs" />
     <Compile Include="Python\Model\Document\DocumentService.cs" />

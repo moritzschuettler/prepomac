@@ -15,6 +15,9 @@
 #must be stopped by cancel, keep what it recorded before it was stopped and leave the session free for
 #the next call, and a flood of printed output must come back cut to its beginning and its end.
 #
+#Read only mode is also checked against a status call that arrives while a long exec runs: status
+#must not lift the block the exec holds, so the change the exec tries after it is still refused.
+#
 #Neither can be checked from inside a recorded script, because a recorded script suppresses the
 #recording of the commands inside it. So this script starts sessions of its own - PrePoMax with
 #-g No and the automation server, which has no window and no history of its own - and drives them
@@ -264,6 +267,45 @@ def check_read_only(client):
     check("read only" in result["error"], "the refusal must say why: " + result["error"])
     check(result["recordedCommands"] == [], "nothing may be recorded: " + str(result["recordedCommands"]))
     print("read only: a change refused by the history, an analysis kill refused, reading unaffected")
+
+
+# Python bytecode that keeps the call busy for a few seconds and then tries a change. It loops rather
+# than sleeps, so the interpreter is running the whole time the status calls arrive
+READ_ONLY_LATE_CHANGE = '''
+import time
+end = time.time() + 4.0
+while time.time() < end:
+    pass
+pmx.model.parameters.add('blocked_late', 1.0)
+'''
+
+
+def check_read_only_during_status(client):
+    """A status answered while an exec runs must not lift the read only block that exec holds."""
+    before = client.result("status")["model"]["commandCount"]
+    answer = client.result("exec", {"source": READ_ONLY_LATE_CHANGE, "timeout": 0})
+    check(answer.get("running") is True, "the exec must be answered as running at once: " + str(answer))
+    call_id = answer["callId"]
+    # status is not serialized, so it is answered while the exec holds the turn - several times, to
+    # be sure at least one of them finishes before the exec reaches its change
+    deadline = time.time() + 2.0
+    count = 0
+    while time.time() < deadline:
+        status = client.result("status")
+        check(status["isReadOnly"], "the session must stay read only")
+        count += 1
+        time.sleep(0.1)
+    check(count >= 3, "status must answer while the exec runs, it answered " + str(count) + " times")
+    result = client.result("wait", {"call_id": call_id, "timeout": 60})
+    check("running" not in result, "the exec must have finished: " + str(result))
+    check(result["failed"], "the change after the status calls must fail in read only mode: " + str(result))
+    check("read only" in result["error"], "the refusal must say why: " + result["error"])
+    check("--rpc ReadOnly" in result["error"], "the refusal must name where read only comes from: " + result["error"])
+    check(result["recordedCommands"] == [], "nothing may be recorded: " + str(result["recordedCommands"]))
+    value = client.result("eval", {"expression": "pmx.model.parameters.get_names()"})
+    check("blocked_late" not in value["value"], "the refused parameter must not exist: " + str(value["value"]))
+    check(client.result("status")["model"]["commandCount"] == before, "the history must not have grown")
+    print("read only: " + str(count) + " status calls during a long exec left its change refused")
 
 
 def save_model_with_analysis(client, file_name):
@@ -593,6 +635,24 @@ def check_cancel(client):
     check(answer["failed"] and "KeyboardInterrupt" in answer["error"], "the expression must have failed: " + str(answer))
     value = client.result("eval", {"expression": "6 * 7"})
     check(value["value"] == 42, "the next eval must work: " + str(value))
+    # Code that swallows the first interrupt is stopped by the second cancel, which delivers one of its own
+    source = os.linesep.join(["try:", "    while True:", "        pass", "except:", "    pass",
+                              "cancel_swallowed = True", "while True:", "    pass"])
+    answer = client.result("exec", {"source": source, "timeout": 1})
+    call_id = check_running_answer(answer, "exec", "a loop that swallows an interrupt must be answered as running")
+    result = client.result("cancel", {"call_id": call_id})
+    check(result["isInterrupted"] and not result["isFinished"],
+          "the first interrupt must be delivered and swallowed: " + str(result))
+    check("cancel it again" in result["message"], "the answer must say to cancel again: " + result["message"])
+    started = time.time()
+    result = client.result("cancel", {"call_id": call_id})
+    check(time.time() - started < 5, "a second cancel must not wait for the call it stops")
+    check(result["isInterrupted"] and result["isFinished"], "the second cancel must stop the loop: " + str(result))
+    answer = client.result("wait", {"call_id": call_id, "timeout": 30})
+    check(answer["failed"] and "KeyboardInterrupt" in answer["error"] and answer.get("cancelled") is True,
+          "the twice cancelled call must have failed with the interrupt: " + str(answer))
+    value = client.result("eval", {"expression": "cancel_swallowed"})
+    check(value["value"] is True, "the first interrupt must have been swallowed by the script: " + str(value))
     # A call that is not there is refused; a finished one has nothing to cancel
     error = client.error("cancel", {"call_id": call_id + 1000})
     check(error["code"] == INVALID_PARAMS, "cancel of an unknown call must be refused: " + str(error))
@@ -605,9 +665,12 @@ def check_cancel(client):
         time.sleep(0.2)
     result = client.result("cancel", {"call_id": call_id})
     check(not result["cancelRequested"] and result["isFinished"], "a finished call cannot be cancelled: " + str(result))
+    check(not result["isInterrupted"] and not result["isInterruptPending"] and "interrupted" not in result["message"],
+          "the answer for a finished call must not claim an interrupt: " + str(result))
     answer = client.result("wait", {"call_id": call_id})
     check(not answer["failed"] and "cancelled" not in answer, "the finished call must keep its answer: " + str(answer))
-    print("cancel: a loop and an endless expression stopped, the command before the loop kept")
+    print("cancel: a loop, an endless expression and a loop that swallowed an interrupt stopped, the command "
+          "before the loop kept, a finished call not reported as interrupted")
 
 
 def check_output_cap(client):
@@ -654,7 +717,9 @@ def main():
     #
     session = ChildSession("ReadOnly", read_only_model)
     try:
-        check_read_only(session.connect())
+        client = session.connect()
+        check_read_only(client)
+        check_read_only_during_status(client)
     finally:
         session.close()
     #

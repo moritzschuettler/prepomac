@@ -33,7 +33,7 @@ namespace PrePoMax.Commands
             : base("Replace step controls")
         {
             _stepName = stepName;
-            _stepControls = stepControls;
+            _stepControls = stepControls.DeepClone();
         }
 
 

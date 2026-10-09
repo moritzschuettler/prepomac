@@ -8,7 +8,6 @@
 // Contributors:
 
 using APIs.Python;
-using PrePoMax.Python;
 using System;
 using System.Collections.Generic;
 
@@ -16,7 +15,8 @@ namespace PrePoMax.Rpc
 {
     // How an agent learns the API instead of being told it. The path is resolved against the live
     // model, so pmx.model.steps['Step-1'].loads describes what is actually there, and a collection
-    // reports the names it holds right now.
+    // reports the names it holds right now. It is read through RpcDescribePath, never evaluated, so a
+    // path that is not names, attributes and literal indexes runs nothing.
     //
     // A name that is not a path is taken as an API type name, so the half of the API that hangs off
     // something the model does not have yet can still be read. A type name followed by a member path
@@ -36,7 +36,7 @@ namespace PrePoMax.Rpc
             //
             server.Form.PrepareAutomationPythonEngine();
             string error;
-            object target = PythonEngineManager.EvaluateToApiObject(path, out error);
+            object target = Resolve(path, out error);
             if (error == null && target is BaseAPI) return RpcDescribeBuilder.Build(path, target);
             // A path that ends at a method or a property evaluates to a bound method or a value, neither of which
             // carries the metadata; the member is described from the type that owns it
@@ -65,6 +65,12 @@ namespace PrePoMax.Rpc
                                                                (memberError == null ? "" : " " + memberError) +
                                                                GetSuggestion(path));
         }
+        private static object Resolve(string path, out string error)
+        {
+            RpcDescribePath parsed = RpcDescribePath.Parse(path, out error);
+            if (parsed == null) return null;
+            return parsed.Resolve(out error);
+        }
         private static string DescribeMember(string path)
         {
             string head;
@@ -78,7 +84,7 @@ namespace PrePoMax.Rpc
         private static Type ResolveType(string path)
         {
             string error;
-            object target = PythonEngineManager.EvaluateToApiObject(path, out error);
+            object target = Resolve(path, out error);
             if (error == null && target is BaseAPI) return target.GetType();
             //
             List<Type> types = RpcApiTypeLocator.Find(path);

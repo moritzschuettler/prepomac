@@ -34,7 +34,9 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Adds a concentrated force using command history. The selection target is nodes.",
+        [PythonAPI("Adds a concentrated force using command history. A two dimensional model refuses a nonzero " +
+                   "f3. The phase_deg applies only in a steady_state_dynamics step, where a load is complex, " +
+                   "and is refused elsewhere. The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, f1: float = None, " +
                                "f2: float = None, f3: float = None, amplitude_name: str = None, " +
                                "coordinate_system_name: str = None, phase_deg: float = None, " +
@@ -69,7 +71,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Adds a moment using command history. The selection target is nodes.",
+        [PythonAPI("Adds a moment using command history. A two dimensional model refuses a nonzero m1 or m2. " +
+                   "The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, m1: float = None, " +
                                "m2: float = None, m3: float = None, and the shared load arguments",
                    Returns = "Load")]
@@ -139,7 +142,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a hydrostatic pressure using command history. The pressure varies linearly along " +
                    "the given direction between the two points. Possible cutoff values are None, Positive " +
-                   "and Negative. The selection target is surfaces.",
+                   "and Negative. A two dimensional model refuses a nonzero third component of a point or " +
+                   "the direction. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, first_point: list[float] = None, " +
                                "second_point: list[float] = None, direction: list[float] = None, " +
                                "first_point_pressure: float = None, second_point_pressure: float = None, " +
@@ -233,8 +237,9 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a surface traction using command history. Give the force components f1 to f3 " +
                    "without a distribution, or the force per area components p1 to p3 together with a " +
-                   "distribution; the model writes the group that matches the distribution. The selection " +
-                   "target is surfaces.",
+                   "distribution; the model writes only the group that matches the distribution, so the other " +
+                   "group is refused, on a replace for the distribution the load carries after the call. A two " +
+                   "dimensional model refuses a nonzero f3 or p3. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, f1: float = None, f2: float = None, " +
                                "f3: float = None, p1: float = None, p2: float = None, p3: float = None, " +
                                "distribution_name: str = None, and the shared load arguments",
@@ -249,9 +254,9 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, name, null);
             STLoad load = new STLoad(name, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, SurfaceTarget);
-            LoadFactory.ApplySurfaceTraction(load, f1, f2, f3, p1, p2, p3);
             if (distribution_name != null)
                 load.DistributionName = _service.ResolveDistributionName(distribution_name);
+            LoadFactory.ApplySurfaceTraction(load, f1, f2, f3, p1, p2, p3);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
@@ -268,9 +273,9 @@ namespace APIs.Python.Model
         {
             STLoad load = _service.CloneForReplace<STLoad>(StepName, old_name, "surface_traction");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
-            LoadFactory.ApplySurfaceTraction(load, f1, f2, f3, p1, p2, p3);
             if (distribution_name != null)
                 load.DistributionName = _service.ResolveDistributionName(distribution_name);
+            LoadFactory.ApplySurfaceTraction(load, f1, f2, f3, p1, p2, p3);
             //
             return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
@@ -306,7 +311,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Adds a gravity load using command history. The selection target is elements.",
+        [PythonAPI("Adds a gravity load using command history. A two dimensional model refuses a nonzero f3. " +
+                   "The selection target is elements.",
                    Arguments = "name: str, region: Selection or Region, f1: float = None, f2: float = None, " +
                                "f3: float = None, and the shared load arguments", Returns = "Load",
                    Example = "step.loads.add_gravity('Gravity-1', part_selection, f3=-9810)")]
@@ -339,7 +345,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a centrifugal load using command history. The axis is given by a point and a " +
-                   "direction, and the rotational_speed is in rad/s. The selection target is elements.",
+                   "direction, and the rotational_speed is in rad/s and must not be negative. An axisymmetric " +
+                   "model turns about its y axis, so there axis_point must be [0, 0, 0] and axis_direction " +
+                   "[0, 1, 0] when given. The selection target is elements.",
                    Arguments = "name: str, region: Selection or Region, axis_point: list[float] = None, " +
                                "axis_direction: list[float] = None, rotational_speed: float = None, and the " +
                                "shared load arguments", Returns = "Load")]
@@ -376,7 +384,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a pre-tension load using command history. The direction is the surface normal " +
                    "unless one is given. Possible tension_type values are Force and Displacement. It needs a " +
-                   "three dimensional model. The selection target is surfaces.",
+                   "three dimensional model, and as it is never complex it refuses phase_deg. The selection " +
+                   "target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, " +
                                "direction: list[float] = None, tension_type: str = None, and the shared load " +
                                "arguments", Returns = "Load")]
@@ -411,7 +420,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Adds a concentrated flux using command history. The selection target is nodes.",
+        [PythonAPI("Adds a concentrated flux using command history. A thermal load is never complex, so it " +
+                   "refuses phase_deg. The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, " +
                                "add_flux: bool = None, and the shared load arguments", Returns = "Load")]
         public LoadAPI add_concentrated_flux(string name, object region, object magnitude,
@@ -547,9 +557,9 @@ namespace APIs.Python.Model
             return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Adds a radiation heat transfer load using command history. The emissivity can carry its " +
-                   "own amplitude, and a cavity radiation needs a cavity name, which the solver limits to " +
-                   "three characters. The selection target is surfaces.",
+        [PythonAPI("Adds a radiation heat transfer load using command history. The emissivity is between 0 " +
+                   "and 1 and can carry its own amplitude, and a cavity radiation needs a cavity name of at most " +
+                   "three characters, which the solver limits it to. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, sink_temperature: float, " +
                                "emissivity: float, cavity_radiation: bool = None, cavity_name: str = None, " +
                                "emissivity_amplitude_name: str = None, and the shared load arguments",
@@ -592,7 +602,8 @@ namespace APIs.Python.Model
             return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Copies the load to every following step using command history.",
+        [PythonAPI("Copies the load to every following step using command history. It is refused when a " +
+                   "following step does not support the load type.",
                    Arguments = "name: str", Returns = "None")]
         public void propagate(string name)
         {
@@ -668,6 +679,10 @@ namespace APIs.Python.Model
                 string cavity = cavityName as string;
                 if (cavity == null)
                     throw new PythonAPIException("The argument 'cavity_name' must be a string.");
+                // The load cuts a longer name to the three characters the solver takes
+                if (cavity.Length > 3)
+                    throw new PythonAPIException("The argument 'cavity_name' must not be longer than three " +
+                                                 "characters: '" + cavity + "'.");
                 load.CavityName = cavity;
             }
             if (emissivityAmplitudeName != null)

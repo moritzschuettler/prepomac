@@ -245,6 +245,26 @@ def test_defined_fields():
         check(field.region_type == "NodeSetName", "unexpected region type " + field.region_type)
         check(pmx.model.node_sets[field.region_name].count == 2,
               "the region given with the switch back does not resolve to the selected nodes")
+        # A temperature read from a file is written without an amplitude, so it takes none, and a field given
+        # by value keeps its amplitude only as long as it stays one
+        check_raises(lambda: fields.add_temperature_from_file(PREFIX + "Bad", file_name,
+                                                              amplitude_name="Default"),
+                     "a temperature read from a file must not take an amplitude")
+        check_refused(lambda: fields.add_temperature_from_file(PREFIX + "Bad", file_name, step_id=0), "'step_id'",
+                      "a results file step below 1 must be refused")
+        check(not fields.contains(PREFIX + "Bad"), "a refused defined field was recorded")
+        amplitude = PREFIX + "Amp"
+        pmx.model.amplitudes.add(amplitude, [[0, 0], [1, 1]])
+        try:
+            field = fields.replace_temperature(PREFIX + "DF", amplitude_name=amplitude.upper())
+            check(field.amplitude_name == amplitude, "the amplitude did not read back as the model spells it")
+            check_refused(lambda: fields.replace_temperature_from_file(PREFIX + "DF", file_name=file_name),
+                          "amplitude_name", "reading a field that carries an amplitude from a file must be refused")
+            check(fields[PREFIX + "DF"].get_value("type") == "ByValue", "the refused replacement changed the type")
+            field = fields.replace_temperature(PREFIX + "DF", amplitude_name="default")
+            check(field.amplitude_name == "Default", "the amplitude was not cleared")
+        finally:
+            pmx.model.amplitudes.remove([amplitude])
     finally:
         os.remove(file_name)
     # Hide, show and propagate
@@ -252,13 +272,21 @@ def test_defined_fields():
     check(not fields[PREFIX + "DF"].visible, "the defined field was not hidden")
     fields.show([PREFIX + "DF"])
     check(fields[PREFIX + "DF"].visible, "the defined field was not shown")
+    # The thermal step carries no defined temperature, and the controller would skip it silently, so a
+    # propagation that reaches it is refused naming it
     following = pmx.model.steps[NEXT_STEP].defined_fields
-    fields.propagate(PREFIX + "DF")
-    check(following.contains(PREFIX + "DF"), "the defined field was not propagated")
-    # The thermal step carries no defined temperature, so a static step is added after it to be the last one
+    check_refused(lambda: fields.propagate(PREFIX + "DF"), THERMAL_STEP,
+                  "propagating a defined field into a step that does not take it must be refused")
+    check(not following.contains(PREFIX + "DF"), "the refused propagation was recorded")
+    # Two static steps after the thermal one take the field
     pmx.model.steps.add_static(PREFIX + "Static_Last", time_period=1.0)
+    pmx.model.steps.add_static(PREFIX + "Static_After", time_period=1.0)
     last = pmx.model.steps[PREFIX + "Static_Last"].defined_fields
     last.add_temperature(PREFIX + "DF_Last", node_selection([1, 2]), 100)
+    last.propagate(PREFIX + "DF_Last")
+    check(pmx.model.steps[PREFIX + "Static_After"].defined_fields.contains(PREFIX + "DF_Last"),
+          "the defined field was not propagated")
+    pmx.model.steps.remove([PREFIX + "Static_After"])
     check_refused(lambda: last.propagate(PREFIX + "DF_Last"), "no following step",
                   "propagating a defined field from the last step must be refused")
 

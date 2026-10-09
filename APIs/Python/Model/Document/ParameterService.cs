@@ -72,7 +72,7 @@ namespace APIs.Python.Model
                 ValidateName(newName, oldName);
                 parameter = new EquationParameter();
                 parameter.Name = newName;
-                parameter.EquationStr = new EquationString(existing.EquationStr.Equation);
+                SetEquation(parameter, new EquationString(existing.EquationStr.Equation), oldName);
             }
             else parameter = Build(newName, value, oldName);
             // A description that is not given is kept, and an empty one clears it
@@ -104,7 +104,6 @@ namespace APIs.Python.Model
             HashSet<string> usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int i = 0; i < parameterNames.Length; i++)
             {
-                if (parameterNames[i] != null) parameterNames[i] = parameterNames[i].Trim();
                 ValidateNameFormat(parameterNames[i], "names", null);
                 if (!usedNames.Add(parameterNames[i]))
                     throw new PythonAPIException("The parameter '" + parameterNames[i] + "' is given more than once.");
@@ -175,9 +174,53 @@ namespace APIs.Python.Model
             //
             EquationParameter parameter = new EquationParameter();
             parameter.Name = name;
-            parameter.EquationStr = equation;
+            SetEquation(parameter, equation, allowedExistingName);
             //
             return parameter;
+        }
+        // The parameter is evaluated together with the others of the model, the way set_all evaluates them, so an
+        // equation that uses itself or a parameter that does not exist is refused naming the value rather than
+        // failing inside the model
+        private void SetEquation(EquationParameter parameter, EquationString equation, string replacedName)
+        {
+            List<KeyValuePair<string, string>> nameEquations = new List<KeyValuePair<string, string>>();
+            foreach (string existingName in GetNames())
+            {
+                if (replacedName != null && PythonNameComparer.AreSame(existingName, replacedName)) continue;
+                //
+                EquationParameter existing = GetParameter(existingName);
+                if (existing != null && existing.EquationStr != null)
+                    nameEquations.Add(new KeyValuePair<string, string>(existingName, existing.EquationStr.Equation));
+            }
+            nameEquations.Add(new KeyValuePair<string, string>(parameter.Name, equation.Equation));
+            //
+            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            try
+            {
+                Dictionary<string, double> resolvedValues;
+                Dictionary<string, string> errors =
+                    EquationParameterResolver.Evaluate(nameEquations, _modelResolver.GetModel().GetPropertyParameters(),
+                                                       out resolvedValues);
+                string error;
+                if (errors.TryGetValue(parameter.Name, out error))
+                    throw new PythonAPIException("The argument 'value' of the parameter '" + parameter.Name +
+                                                 "' cannot be evaluated: " + error);
+            }
+            finally
+            {
+                // A rejected call must leave the parameters of the model registered
+                MyNCalc.ExistingParameters = existingParameters;
+            }
+            //
+            try
+            {
+                parameter.EquationStr = equation;
+            }
+            catch (Exception ex)
+            {
+                throw new PythonAPIException("The argument 'value' of the parameter '" + parameter.Name +
+                                             "' cannot be evaluated: " + ex.Message);
+            }
         }
         private static string GetFirstError(string[] parameterNames, Dictionary<string, string> errors)
         {

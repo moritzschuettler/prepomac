@@ -39,8 +39,8 @@ namespace APIs.Python.Model
         // Methods
         public void NewModel(string modelSpace, string unitSystem)
         {
-            ModelSpaceEnum modelSpaceValue = PythonValueConverter.ToEnum<ModelSpaceEnum>(modelSpace, "model_space");
-            UnitSystemType unitSystemValue = PythonValueConverter.ToEnum<UnitSystemType>(unitSystem, "unit_system");
+            ModelSpaceEnum modelSpaceValue = ToModelSpace(modelSpace);
+            UnitSystemType unitSystemValue = ToUnitSystem(unitSystem);
             //
             EnsureCommandsAvailable();
             EnsureModelCanBeReplaced("Creating a new model");
@@ -254,12 +254,9 @@ namespace APIs.Python.Model
         public void SetModelSpaceAndUnitSystem(string modelSpace, string unitSystem)
         {
             FeModel model = _modelResolver.GetModel();
-            ModelSpaceEnum modelSpaceValue = modelSpace == null
-                                             ? model.Properties.ModelSpace
-                                             : PythonValueConverter.ToEnum<ModelSpaceEnum>(modelSpace, "model_space");
-            UnitSystemType unitSystemValue = unitSystem == null
-                                             ? model.UnitSystem.UnitSystemType
-                                             : PythonValueConverter.ToEnum<UnitSystemType>(unitSystem, "unit_system");
+            ModelSpaceEnum modelSpaceValue = modelSpace == null ? model.Properties.ModelSpace : ToModelSpace(modelSpace);
+            UnitSystemType unitSystemValue = unitSystem == null ? model.UnitSystem.UnitSystemType
+                                                                : ToUnitSystem(unitSystem);
             //
             EnsureCommandsAvailable();
             _modelGateway.SetNewModelProperties(modelSpaceValue, unitSystemValue);
@@ -279,6 +276,23 @@ namespace APIs.Python.Model
             _modelGateway.ReplaceModelProperties(name, properties);
         }
         //
+        // Undefined is the state of a model nothing has set yet, not a value a model can be given
+        private static ModelSpaceEnum ToModelSpace(string modelSpace)
+        {
+            ModelSpaceEnum value = PythonValueConverter.ToEnum<ModelSpaceEnum>(modelSpace, "model_space");
+            if (value == ModelSpaceEnum.Undefined)
+                throw new PythonAPIException("The argument 'model_space' must name a model space; 'Undefined' " +
+                                             "cannot be set.");
+            return value;
+        }
+        private static UnitSystemType ToUnitSystem(string unitSystem)
+        {
+            UnitSystemType value = PythonValueConverter.ToEnum<UnitSystemType>(unitSystem, "unit_system");
+            if (value == UnitSystemType.Undefined)
+                throw new PythonAPIException("The argument 'unit_system' must name a unit system; 'Undefined' " +
+                                             "cannot be set.");
+            return value;
+        }
         private static object FromUndefined(double value)
         {
             return double.IsInfinity(value) ? null : (object)value;

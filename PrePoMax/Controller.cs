@@ -452,7 +452,7 @@ namespace PrePoMax
         {
             get
             {
-                return _settings.General.LastFileName;
+                return _settings == null ? null : _settings.General.LastFileName;
             }
             set
             {

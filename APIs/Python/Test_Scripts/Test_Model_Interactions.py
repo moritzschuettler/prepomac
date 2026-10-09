@@ -155,6 +155,26 @@ def test_surface_interaction_properties():
     check(plain_values(pmx.create.gap_conductance(conductance=5)) == {"conductance": 5},
           "a constant gap conductance must read back as conductance")
     check_raises(lambda: properties[0].get_value("no_such_value"), "an unknown value name was accepted")
+    # A surface behavior reports only the values its type writes, and refuses the others
+    check(plain_values(pmx.create.surface_behavior('Hard')) == {"pressure_overclosure_type": "Hard"},
+          "a hard surface behavior must report no values: " + str(plain_values(pmx.create.surface_behavior('Hard'))))
+    check(sorted(plain_values(pmx.create.surface_behavior('Exponential')).keys()) ==
+          ["c0", "p0", "pressure_overclosure_type"], "an exponential surface behavior must report c0 and p0")
+    check(sorted(plain_values(pmx.create.surface_behavior('Tied', k=500)).keys()) ==
+          ["k", "pressure_overclosure_type"], "a tied surface behavior must report k only")
+    for maker, argument in [(lambda: pmx.create.surface_behavior('Hard', k=10), "'k'"),
+                            (lambda: pmx.create.surface_behavior('Exponential', s_inf=1), "'s_inf'"),
+                            (lambda: pmx.create.surface_behavior('Linear', p0=1), "'p0'"),
+                            (lambda: pmx.create.surface_behavior('Tied', c0=1), "'c0'"),
+                            (lambda: pmx.create.surface_behavior('Linear', pressure_overclosure=[[0, 0], [1, 1]]),
+                             "'pressure_overclosure'"),
+                            (lambda: pmx.create.surface_behavior('Linear', k=-1), "'k'"),
+                            (lambda: pmx.create.surface_behavior('Exponential', c0=0), "'c0'"),
+                            (lambda: pmx.create.friction(-0.1), "'coefficient'"),
+                            (lambda: pmx.create.friction(0.1, stick_slope=0), "'stick_slope'")]:
+        message = raised_message(maker)
+        check(message is not None and argument in message,
+              "a value the property does not take must be refused naming " + argument + ": " + str(message))
     # The values are the keyword arguments of the maker, and the properties go straight back into a replace
     for prop in properties:
         maker = getattr(pmx.create, prop.property_type)
@@ -218,6 +238,28 @@ def test_contact_pairs():
     pair = pairs.replace(PAIR, method="SurfaceToSurface", small_sliding=False)
     check(pair.method == "SurfaceToSurface", "the method was not replaced")
     check(not pair.small_sliding, "small sliding was not turned off")
+    pair = pairs.replace(PAIR, method="NodeToSurface", small_sliding=True)
+    # Only NodeToSurface writes small sliding, so every other method refuses it rather than dropping it
+    count_before = len(pairs)
+    for method in ["SurfaceToSurface", "Mortar", "Massless"]:
+        message = raised_message(lambda: pairs.add(PREFIX + "CP_Bad", INTERACTION, surface_selection(3),
+                                                   surface_selection(4), method=method, small_sliding=True))
+        check(message is not None and "small sliding" in message,
+              "small sliding with the " + method + " method must be refused: " + str(message))
+    check(len(pairs) == count_before, "a refused contact pair was recorded")
+    message = raised_message(lambda: pairs.replace(PAIR, method="Mortar"))
+    check(message is not None and "small_sliding=False" in message,
+          "a Mortar method that drops small sliding unasked must be refused: " + str(message))
+    pair = pairs.replace(PAIR, method="Massless", small_sliding=False)
+    check(pair.method == "Massless" and not pair.small_sliding, "the Massless method was not replaced")
+    # An adjustment size must not be negative, and it contradicts adjust=False
+    message = raised_message(lambda: pairs.replace(PAIR, adjustment_size=-0.1))
+    check(message is not None and "'adjustment_size'" in message,
+          "a negative adjustment size must be refused naming the argument: " + str(message))
+    message = raised_message(lambda: pairs.replace(PAIR, adjust=False, adjustment_size=0.1))
+    check(message is not None and "'adjustment_size'" in message,
+          "an adjustment size with adjust=False must be refused: " + str(message))
+    check(pmx.model.contact_pairs[PAIR].method == "Massless", "a refused replace changed the contact pair")
     pair = pairs.replace(PAIR, method="NodeToSurface", small_sliding=True)
     # Swap and the collection verbs
     master_before = pair.master_region_name

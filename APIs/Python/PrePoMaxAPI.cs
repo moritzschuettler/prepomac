@@ -104,7 +104,7 @@ namespace APIs.Python
 
         // Methods
         [PythonAPI("Creates a new empty model. Not available inside a recorded script, because it replaces " +
-                   "the command history.",
+                   "the command history. Undefined is refused for either argument.",
                    Arguments = "model_space: str, unit_system: str", Returns = "None",
                    Example = "pmx.new_model('ThreeD', 'MM_TON_S_C')")]
         public void new_model(string model_space, string unit_system)

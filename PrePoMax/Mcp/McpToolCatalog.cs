@@ -26,9 +26,10 @@ namespace PrePoMax.Mcp
     public static class McpToolCatalog
     {
         // Variables                                                                                                                
-        private const string NoArguments = "{\"type\": \"object\", \"properties\": {}}";
+        private const string NoArguments = "{\"type\": \"object\", \"properties\": {}, \"additionalProperties\": false}";
         private const int DefaultTopologyLimit = 40;
-        // The whole answer stops detailing parts after this many listed faces, edges and vertices
+        // The whole answer stops detailing parts after this many listed faces, edges and vertices, and
+        // no one part may list more than that either
         private const int TopologyRowBudget = 240;
         private static List<McpTool> _tools;
 
@@ -73,7 +74,8 @@ namespace PrePoMax.Mcp
                               "results side before a result is open. Defaults to pmx.\"}"), true));
             _tools.Add(new McpTool("read_model", "Read the model",
                 "Returns a snapshot of the open model as JSON: the model properties, the parts with their mesh " +
-                "state, the item names of every collection, the parameters with their equation, value and " +
+                "state - whether each one is meshed, with its node and element count - the item names of every " +
+                "collection, the parameters with their equation, value and " +
                 "description, the steps with what they contain, and the analyses with their status. Nothing is " +
                 "changed. This is the cheapest way to see what is in the model before deciding what to do to it.",
                 SessionSchema(null), true));
@@ -85,11 +87,14 @@ namespace PrePoMax.Mcp
                 "Every part is summarized with its counts and its bounding box. The faces, edges and vertices " +
                 "of a part are listed largest first, capped per part and capped again for the whole answer, " +
                 "so on an assembly the first parts are detailed and the rest say to ask for them by name. " +
-                "Read the remainder of one part through get_face_data and get_edge_data on it.",
+                "Read the remainder of one part through get_face_data and get_edge_data on it. Part names are " +
+                "compared regardless of case, and a name that matches no part is reported under " +
+                "unmatched_part_names.",
                 SessionSchema("\"part_names\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, " +
                               "\"description\": \"The parts to read. All of them when this is left out.\"}, " +
                               "\"limit\": {\"type\": \"integer\", \"description\": " +
-                              "\"How many faces, edges and vertices to list per part. Defaults to 40.\"}"), true));
+                              "\"How many faces, edges and vertices to list per part, 1 to 240. Defaults to " +
+                              "40.\"}"), true));
             _tools.Add(new McpTool("eval_expression", "Evaluate an expression",
                 "Evaluates one Python expression against the live model and returns its value, both as JSON when " +
                 "it has a JSON form and as its repr. Use it for reading - a name list, a property, a computed " +
@@ -149,9 +154,12 @@ namespace PrePoMax.Mcp
                 "holds the session, and in read only mode, because it changes nothing in the model itself.\n\n" +
                 "The call is interrupted at its next Python statement and ends with a KeyboardInterrupt error. " +
                 "An operation of PrePoMax it is inside - meshing, an import, a regeneration - cannot be " +
-                "interrupted and finishes first, so the answer may say it has not stopped yet. The commands it " +
-                "recorded before it stopped stay in the command history. Collect its answer with get_call " +
-                "afterwards: it lists them.",
+                "interrupted and finishes first, and a blocking wait - time.sleep, a socket, input() - is not " +
+                "interrupted until it returns, so the answer may say it has not stopped yet. Code that catches the " +
+                "interrupt - a bare except - keeps running: cancel it again, since every cancel delivers a new " +
+                "interrupt. The answer says only what happened: isInterrupted when the interrupt was delivered, " +
+                "isInterruptPending while it waits for such an operation. The commands it recorded before it " +
+                "stopped stay in the command history. Collect its answer with get_call afterwards: it lists them.",
                 SessionSchema("\"call_id\": {\"type\": \"integer\", \"description\": " +
                               "\"The callId the still running call was answered with.\"}",
                               "\"call_id\""), false));
@@ -159,27 +167,31 @@ namespace PrePoMax.Mcp
                 "Returns the command history of the session and, on request, the journal of it: the whole session " +
                 "written as the Python script a user would have written. The journal is the best way to learn what " +
                 "the user did by hand - it names the exact API calls - and the best way to hand the session back " +
-                "as a script.",
+                "as a script. A journal longer than 200,000 characters is not returned inline: it is written " +
+                "to a file in the temporary folder, and the answer gives its path as journal.fileName.",
                 SessionSchema("\"include_journal\": {\"type\": \"boolean\", \"description\": " +
                               "\"Emit the history as a Python script as well. Defaults to false.\"}, " +
                               "\"limit\": {\"type\": \"integer\", \"description\": " +
                               "\"How many of the most recent commands to list. 0 lists all of them. " +
                               "Defaults to 200.\"}"), true));
             _tools.Add(new McpTool("run_job", "Run an analysis",
-                "Writes the solver input file and starts the analysis, without waiting for it. The solver runs " +
-                "while the user keeps working, and PrePoMax shows its own monitor. Poll get_job for the status, " +
-                "and open the results with run_python when it reports OK.",
+                "Writes the solver input file and starts the analysis, without waiting for it, and returns the " +
+                "status it started with. The solver runs while the user keeps working, and PrePoMax shows its " +
+                "own monitor. Poll get_job for the status, and open the results with run_python when it " +
+                "reports OK.",
                 SessionSchema("\"name\": {\"type\": \"string\", \"description\": " +
                               "\"The name of the analysis to run.\"}", "\"name\""), false));
             _tools.Add(new McpTool("get_job", "Read an analysis status",
-                "Reports the status of an analysis: None, InQueue, Running, OK, Killed, TimedOut, Failed or " +
-                "FailedWithResults, and on request everything the solver wrote to its output.",
+                "Reports the status of an analysis - None, InQueue, Running, OK, Killed, TimedOut, Failed or " +
+                "FailedWithResults - and isUpToDate, which is false when the model changed after the run, and " +
+                "on request everything the solver wrote to its output.",
                 SessionSchema("\"name\": {\"type\": \"string\", \"description\": " +
                               "\"The name of the analysis.\"}, " +
                               "\"include_output\": {\"type\": \"boolean\", \"description\": " +
                               "\"Return the solver output as well. Defaults to false.\"}", "\"name\""), true));
             _tools.Add(new McpTool("screenshot", "Picture the viewport",
-                "Writes a PNG of the 3D viewport and returns the path. Use it to see what the user sees - a " +
+                "Writes a PNG of the 3D viewport, returns the path and attaches the picture as an image, " +
+                "unless it is larger than 4 MB. Use it to see what the user sees - a " +
                 "picture settles a question about orientation, a selection or a result plot that no amount of " +
                 "reading the model can.\n\n" +
                 "The optional arguments set up the shot before it is taken, through pmx.view, and are the same " +
@@ -187,7 +199,8 @@ namespace PrePoMax.Mcp
                 "for what you need and no more. None of it is recorded in the command history, because none " +
                 "of it changes the model.",
                 SessionSchema("\"file_name\": {\"type\": \"string\", \"description\": " +
-                              "\"Where to write the .png. Defaults to a file in the temporary folder.\"}, " +
+                              "\"Where to write the .png. Defaults to a new file in the PrePoMax folder of " +
+                              "the temporary folder, and a relative name is taken in that folder too.\"}, " +
                               "\"transparent_background\": {\"type\": \"boolean\", \"description\": " +
                               "\"Leave the viewport background out of the picture, so it can be put on a page " +
                               "of any color. Defaults to false, which pictures the background the user sees.\"}, " +
@@ -209,6 +222,15 @@ namespace PrePoMax.Mcp
                               "\"component\": {\"type\": \"string\", \"description\": " +
                               "\"The component of that field, for example U3. Defaults to the first one.\"}"),
                 false));
+            _tools.Add(new McpTool("exit_session", "Close a hidden session",
+                "Closes this PrePoMax, and only when it runs without a window - a session started with -g No " +
+                "and the automation server, which nobody is looking at and which has no other way to end. A " +
+                "session open on the user's desktop is refused: the user closes their own application. The " +
+                "model is not saved; one with unsaved changes is refused unless discard_changes is true, so " +
+                "save it with pmx.save(file_name) first when the work should be kept.",
+                SessionSchema("\"discard_changes\": {\"type\": \"boolean\", \"description\": " +
+                              "\"Close although the model has unsaved changes, which are lost. Defaults to " +
+                              "false.\"}"), false));
             return _tools;
         }
         public static string GetInstructions()
@@ -268,15 +290,17 @@ namespace PrePoMax.Mcp
                 if (path != null) parameters.Add("path", path);
                 return Call(dispatcher, "describe", parameters);
             }
-            if (name == "read_model") return CallAndReadOutput(dispatcher, McpModelScript.Source);
+            if (name == "read_model")
+                return CallAndReadOutput(dispatcher, McpModelScript.GetSource(), "Automation server - read_model");
             if (name == "read_topology")
             {
                 List<string> names = JsonReader.ToStringList(JsonReader.GetArray(arguments, "part_names"));
                 string[] partNames = names == null ? null : names.ToArray();
                 int limit = JsonReader.GetInt(arguments, "limit", DefaultTopologyLimit);
                 if (limit <= 0) limit = DefaultTopologyLimit;
-                return CallAndReadOutput(dispatcher,
-                                         McpTopologyScript.GetSource(partNames, limit, TopologyRowBudget));
+                if (limit > TopologyRowBudget) limit = TopologyRowBudget;
+                return CallAndReadOutput(dispatcher, McpTopologyScript.GetSource(partNames, limit, TopologyRowBudget),
+                                         "Automation server - read_topology");
             }
             if (name == "eval_expression")
             {
@@ -322,18 +346,16 @@ namespace PrePoMax.Mcp
             if (name == "run_job")
             {
                 string jobName = RequireString(arguments, "name");
-                string source = "pmx.jobs[" + Quote(jobName) + "].run(wait=False)";
-                return Call(dispatcher, "exec", ExecArguments(source));
+                string source = "print(pmx.jobs[" + Quote(jobName) + "].run(wait=False))";
+                return GetRunJobAnswer(jobName, Call(dispatcher, "exec", ExecArguments(source)));
             }
             if (name == "get_job")
             {
                 string jobName = RequireString(arguments, "name");
                 bool includeOutput = JsonReader.GetBool(arguments, "include_output", false);
-                string expression = includeOutput
-                                    ? "{'status': pmx.jobs[" + Quote(jobName) + "].status, 'output': pmx.jobs[" +
-                                      Quote(jobName) + "].get_output()}"
-                                    : "{'status': pmx.jobs[" + Quote(jobName) + "].status, 'isUpToDate': " +
-                                      "pmx.jobs[" + Quote(jobName) + "].is_up_to_date}";
+                string job = "pmx.jobs[" + Quote(jobName) + "]";
+                string expression = "{'status': " + job + ".status, 'isUpToDate': " + job + ".is_up_to_date" +
+                                    (includeOutput ? ", 'output': " + job + ".get_output()" : "") + "}";
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 parameters.Add("expression", expression);
                 return Call(dispatcher, "eval", parameters);
@@ -352,13 +374,36 @@ namespace PrePoMax.Mcp
                 parameters.Add("magnification", JsonReader.GetInt(arguments, "magnification", 1));
                 return Call(dispatcher, "screenshot", parameters);
             }
+            if (name == "exit_session")
+            {
+                Dictionary<string, object> parameters = new Dictionary<string, object>();
+                parameters.Add("discard_changes", JsonReader.GetBool(arguments, "discard_changes", false));
+                return Call(dispatcher, "exit", parameters);
+            }
             throw new McpException("There is no tool named " + name + ".");
         }
-        // The snapshot is what the script printed, so it is returned as it was printed rather than
-        // wrapped in the answer of the call that ran it
-        private static string CallAndReadOutput(RpcDispatcher dispatcher, string source)
+        // The status the run started with, beside the answer of the call that started it
+        private static string GetRunJobAnswer(string jobName, string answer)
         {
-            string result = Invoke(dispatcher, "exec", ExecArguments(source));
+            object document;
+            string error;
+            if (!JsonReader.TryParse(answer, out document, out error)) return answer;
+            if (JsonReader.GetBool(document, "running", false)) return answer;
+            //
+            JsonWriter writer = new JsonWriter();
+            writer.BeginObject();
+            writer.WriteValue("name", jobName);
+            writer.WriteValue("status", JsonReader.GetString(document, "output", "").Trim());
+            writer.WriteRawValue("run", answer);
+            writer.EndObject();
+            return writer.ToString();
+        }
+        // The snapshot is what the script printed, so it is returned as it was printed rather than
+        // wrapped in the answer of the call that ran it. The script is the catalog's own and the same
+        // every time, so the Python panel shows a one line note for it instead of the whole source
+        private static string CallAndReadOutput(RpcDispatcher dispatcher, string source, string echoNote)
+        {
+            string result = Invoke(dispatcher, "exec", ExecArguments(source), echoNote);
             object document;
             string error;
             if (!JsonReader.TryParse(result, out document, out error)) return result;
@@ -422,11 +467,18 @@ namespace PrePoMax.Mcp
         private static string Invoke(RpcDispatcher dispatcher, string method,
                                      Dictionary<string, object> parameters)
         {
+            return Invoke(dispatcher, method, parameters, null);
+        }
+        private static string Invoke(RpcDispatcher dispatcher, string method,
+                                     Dictionary<string, object> parameters, string echoNote)
+        {
             if (dispatcher == null) throw new McpException("The automation server is not running.");
             //
             try
             {
-                string result = dispatcher.Invoke(RpcRequest.Create(method, parameters));
+                RpcRequest request = RpcRequest.Create(method, parameters);
+                request.EchoNote = echoNote;
+                string result = dispatcher.Invoke(request);
                 return string.IsNullOrEmpty(result) ? "{}" : result;
             }
             catch (RpcException exception)
@@ -522,7 +574,7 @@ namespace PrePoMax.Mcp
             schema.Append("routed: this URL serves one session, so a call naming another one is refused rather ");
             schema.Append("than served against the wrong model. Leave it out unless you mean to assert.\"}}");
             if (required != null) schema.Append(", \"required\": [").Append(required).Append("]");
-            schema.Append("}");
+            schema.Append(", \"additionalProperties\": false}");
             return schema.ToString();
         }
     }

@@ -160,6 +160,73 @@ def test_quad_wild(items, selection):
     check(settings(items, PREFIX + "QuadWild")["alpha"] == 0.02, "a refused replace changed the alpha")
 
 
+def refused(function, words, message):
+    text = raised_message(function)
+    check(text is not None and all(word in text for word in words), message + ": " + str(text))
+
+
+# A value outside the range the model holds it to is refused naming the argument, rather than clamped,
+# moved along with another value or passed on as an exception of the model, and nothing is recorded
+def test_value_ranges(items, solid_selection, shell_selection):
+    before = list(items.get_names())
+    name = PREFIX + "Parameters"
+    kept = settings(items, name)
+    replace = items.replace_meshing_parameters
+    refused(lambda: replace(name, min_size=kept["max_size"] * 2), ["min_size", "max_size"],
+            "a minimum size above the kept maximum was accepted")
+    refused(lambda: replace(name, max_size=1.0, min_size=2.0), ["min_size", "max_size"],
+            "a minimum size above the maximum was accepted")
+    refused(lambda: replace(name, factor_max=0.01, factor_min=0.02), ["factor_min", "factor_max"],
+            "a minimum factor above the maximum was accepted")
+    for arguments in [{"max_size": -1.0}, {"min_size": float("nan")}, {"factor_max": 1.5}, {"factor_min": 0},
+                      {"fineness": 0}, {"grading": 1.5}, {"elements_per_edge": 0}, {"elements_per_curve": -1}]:
+        argument = list(arguments)[0]
+        refused(lambda: replace(name, **arguments), [argument], "the value " + str(arguments) + " was accepted")
+    refused(lambda: replace(name, split_compound_mesh=True, merge_compound_parts=True),
+            ["split_compound_mesh", "merge_compound_parts"], "splitting and merging a compound were both accepted")
+    check(settings(items, name) == kept, "a refused replace changed the meshing parameters")
+    # A pair whose maximum lies below the kept minimum is set as given, not dragged by the order of the setters
+    replace(name, min_size=kept["max_size"] / 2)
+    replace(name, max_size=kept["max_size"] / 8, min_size=kept["max_size"] / 16)
+    values = settings(items, name)
+    check(values["max_size"] == kept["max_size"] / 8 and values["min_size"] == kept["max_size"] / 16,
+          "the sizes were not set as given: " + str(values))
+    replace(name, max_size=kept["max_size"], min_size=kept["min_size"])
+    refused(lambda: items.add_meshing_parameters(PREFIX + "Bad", solid_selection, min_size=1e9),
+            ["min_size", "max_size"], "a minimum size above the part default maximum was accepted")
+    #
+    refused(lambda: items.add_local_mesh_size(PREFIX + "Bad", solid_selection, element_size=0), ["element_size"],
+            "a zero element size was accepted")
+    refused(lambda: items.replace_local_mesh_size(PREFIX + "Local", number_of_elements=0), ["number_of_elements"],
+            "a zero number of elements was accepted")
+    refused(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", optimize_steps_2d=-1), ["optimize_steps_2d"],
+            "a negative number of optimization steps was accepted")
+    refused(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", transfinite_angle_deg=180),
+            ["transfinite_angle_deg"], "a Netgen transfinite angle of 180 degrees was accepted")
+    refused(lambda: items.replace_shell_mmg(PREFIX + "MMG", hausdorff=0), ["hausdorff"],
+            "a zero Hausdorff value was accepted")
+    refused(lambda: items.replace_thicken_shell_mesh(PREFIX + "Thicken", thickness=0), ["thickness"],
+            "a zero thickness was accepted")
+    refused(lambda: items.replace_thicken_shell_mesh(PREFIX + "Thicken", number_of_layers=0), ["number_of_layers"],
+            "a zero number of layers was accepted")
+    refused(lambda: items.add_thicken_shell_mesh(PREFIX + "Bad", shell_selection, float("nan")), ["thickness"],
+            "a thickness that is not finite was accepted")
+    refused(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", quad_wild_alpha=1.5), ["quad_wild_alpha"],
+            "a sweep QuadWild alpha above 1 was accepted")
+    # QuadWild triangulates with Gmsh, Netgen or MMG only
+    for mesher in ["QuadWild", "None"]:
+        refused(lambda: items.replace_shell_quad_wild(PREFIX + "QuadWild", triangulation_mesher=mesher),
+                ["triangulation_mesher", "Gmsh"], "the triangulation mesher " + mesher + " was accepted")
+    for arguments in [{"singularity_position": -1}, {"count_search": -1}, {"transfinite_angle_deg": 80}]:
+        argument = list(arguments)[0]
+        refused(lambda: items.replace_shell_quad_wild(PREFIX + "QuadWild", **arguments), [argument],
+                "the QuadWild value " + str(arguments) + " was accepted")
+    items.replace_shell_quad_wild(PREFIX + "QuadWild", triangulation_mesher="gmsh")
+    check(settings(items, PREFIX + "QuadWild")["triangulation_mesher"] == "Gmsh",
+          "the triangulation mesher was not set in its own spelling")
+    check(list(items.get_names()) == before, "a refused add or replace changed the collection")
+
+
 def test_rejection_leaves_no_trace(items):
     before = list(items.get_names())
     check_raises(lambda: items.replace_local_mesh_size(PREFIX + "Local", number_of_elements=2.5),
@@ -258,6 +325,7 @@ def main():
     test_derived_arguments(items, box_face)
     test_layer_validation(items)
     test_quad_wild(items, shell_selection)
+    test_value_ranges(items, solid_selection, shell_selection)
     test_size_defaults(items, solid, solid_selection, box, part_selection(box))
     test_rejection_leaves_no_trace(items)
     #

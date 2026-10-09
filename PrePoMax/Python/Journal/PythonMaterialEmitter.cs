@@ -53,14 +53,17 @@ namespace PrePoMax.Python.Journal
         private static string GetProperties(Material material)
         {
             List<string> makers = new List<string>();
-            foreach (MaterialProperty property in material.Properties) makers.Add(GetMaker(property));
+            foreach (MaterialProperty property in material.Properties)
+                makers.Add(GetMaker(property, material.TemperatureDependent));
             //
             return "[" + string.Join(", ", makers) + "]";
         }
-        public static string GetMaker(MaterialProperty property)
+        public static string GetMaker(MaterialProperty property, bool temperatureDependent)
         {
             if (property is Density density)
-                return PythonJournalWriter.Join("pmx.create.density", Column(density.DensityTemp, 0, "density"));
+                return PythonJournalWriter.Join("pmx.create.density",
+                                                Column(Used(density.DensityTemp, temperatureDependent, true), 0,
+                                                       "density"));
             if (property is ElasticWithDensity elasticWithDensity)
                 return PythonJournalWriter.Join("pmx.create.elastic_with_density",
                                                 Scalar(elasticWithDensity.YoungsModulus, "youngs_modulus"),
@@ -69,35 +72,43 @@ namespace PrePoMax.Python.Journal
             // A table of rows is given whole as the first argument, so the second one is left out
             if (property is Elastic elastic)
             {
-                if (!IsConstant(elastic.YoungsPoissonsTemp))
-                    return PythonJournalWriter.Join("pmx.create.elastic", Table(elastic.YoungsPoissonsTemp, "elastic"));
-                return PythonJournalWriter.Join("pmx.create.elastic", Column(elastic.YoungsPoissonsTemp, 0,
-                                                                             "youngs_modulus"),
-                                                Column(elastic.YoungsPoissonsTemp, 1, "poissons_ratio"));
+                EquationContainer[][] youngsPoissonsTemp = Used(elastic.YoungsPoissonsTemp, temperatureDependent, true);
+                if (!IsConstant(youngsPoissonsTemp))
+                    return PythonJournalWriter.Join("pmx.create.elastic", Table(youngsPoissonsTemp, "elastic"));
+                return PythonJournalWriter.Join("pmx.create.elastic", Column(youngsPoissonsTemp, 0, "youngs_modulus"),
+                                                Column(youngsPoissonsTemp, 1, "poissons_ratio"));
             }
             if (property is ElasticEngineeringConstants engineeringConstants)
                 return PythonJournalWriter.Join("pmx.create.elastic_engineering_constants",
-                                                Table(engineeringConstants.EngineeringConstantsTemp,
+                                                Table(Used(engineeringConstants.EngineeringConstantsTemp,
+                                                           temperatureDependent, true),
                                                       "elastic_engineering_constants"));
             if (property is ElasticLamina lamina)
                 return PythonJournalWriter.Join("pmx.create.elastic_lamina",
-                                                Table(lamina.LaminaConstantsTemp, "elastic_lamina"));
+                                                Table(Used(lamina.LaminaConstantsTemp, temperatureDependent, true),
+                                                      "elastic_lamina"));
             if (property is Plastic plastic)
-                return PythonJournalWriter.Join("pmx.create.plastic", Table(plastic.StressStrainTemp, "plastic"),
+                return PythonJournalWriter.Join("pmx.create.plastic",
+                                                Table(Used(plastic.StressStrainTemp, temperatureDependent, false),
+                                                      "plastic"),
                                                 "hardening=" + PythonValueFormatter.Text(plastic.Hardening.ToString()));
             if (property is SlipWear slipWear)
                 return PythonJournalWriter.Join("pmx.create.slip_wear", Scalar(slipWear.Hardness, "hardness"),
                                                 Scalar(slipWear.WearCoefficient, "wear_coefficient"));
             if (property is SpecificHeat specificHeat)
                 return PythonJournalWriter.Join("pmx.create.specific_heat",
-                                                Column(specificHeat.SpecificHeatTemp, 0, "specific_heat"));
+                                                Column(Used(specificHeat.SpecificHeatTemp, temperatureDependent, true),
+                                                       0, "specific_heat"));
             if (property is ThermalConductivity thermalConductivity)
                 return PythonJournalWriter.Join("pmx.create.thermal_conductivity",
-                                                Column(thermalConductivity.ThermalConductivityTemp, 0,
-                                                       "thermal_conductivity"));
+                                                Column(Used(thermalConductivity.ThermalConductivityTemp,
+                                                            temperatureDependent, true),
+                                                       0, "thermal_conductivity"));
             if (property is ThermalExpansion thermalExpansion)
                 return PythonJournalWriter.Join("pmx.create.thermal_expansion",
-                                                Column(thermalExpansion.ThermalExpansionTemp, 0, "thermal_expansion"),
+                                                Column(Used(thermalExpansion.ThermalExpansionTemp, temperatureDependent,
+                                                            true),
+                                                       0, "thermal_expansion"),
                                                 GetZeroTemperature(thermalExpansion));
             //
             throw new NotSupportedException("the material property " + property.GetType().Name +
@@ -108,6 +119,24 @@ namespace PrePoMax.Python.Journal
             if (thermalExpansion.ZeroTemperature == null || thermalExpansion.ZeroTemperature.Value == 0) return null;
             //
             return "zero_temperature=" + Scalar(thermalExpansion.ZeroTemperature, "zero_temperature");
+        }
+        // A material that is not temperature dependent writes no temperature, and only the first row of a
+        // property other than plastic, so the rows are emitted the way the analysis uses them; pmx.create
+        // refuses the others for such a material
+        private static EquationContainer[][] Used(EquationContainer[][] table, bool temperatureDependent,
+                                                  bool firstRowOnly)
+        {
+            if (temperatureDependent || table == null || table.Length == 0) return table;
+            //
+            int rowCount = firstRowOnly ? 1 : table.Length;
+            EquationContainer[][] used = new EquationContainer[rowCount][];
+            for (int i = 0; i < rowCount; i++)
+            {
+                used[i] = (EquationContainer[])table[i].Clone();
+                if (used[i].Length > 0) used[i][used[i].Length - 1] = new EquationContainer(typeof(StringDoubleConverter), 0);
+            }
+            //
+            return used;
         }
         // A single row whose temperature is zero is what a constant property looks like, and the maker
         // takes that as a plain number

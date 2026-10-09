@@ -92,10 +92,13 @@ namespace PrePoMax.Rpc
             try
             {
                 // GetProcessById still finds a process that has exited while somebody holds a
-                // handle to it, so it is not enough on its own
+                // handle to it, so it is not enough on its own. Windows also reuses the id of a
+                // process that crashed, so a live process of another program is not this session
                 using (Process process = Process.GetProcessById(processId))
+                using (Process current = Process.GetCurrentProcess())
                 {
-                    return !process.HasExited;
+                    if (process.HasExited) return false;
+                    return string.Equals(process.ProcessName, current.ProcessName, StringComparison.OrdinalIgnoreCase);
                 }
             }
             catch (ArgumentException)

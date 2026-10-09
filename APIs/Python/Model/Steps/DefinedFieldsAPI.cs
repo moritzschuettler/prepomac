@@ -84,32 +84,33 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a defined temperature read from a results file using command history. It covers " +
-                   "the whole model, so it takes no region.",
-                   Arguments = "name: str, file_name: str, step_id: int = None, " +
-                               "amplitude_name: str = None, color: list[int] or str = None",
+                   "the whole model, so it takes no region, and the solver writes it without an amplitude, so " +
+                   "it takes no amplitude_name. The step_id is at least 1.",
+                   Arguments = "name: str, file_name: str, step_id: int = None, color: list[int] or str = None",
                    Returns = "DefinedField")]
         public DefinedFieldAPI add_temperature_from_file(string name, object file_name, object step_id = null,
-                                                         object amplitude_name = null, object color = null)
+                                                         object color = null)
         {
             _service.ValidateName(StepName, name, null);
             DefinedTemperature definedField =
                 new DefinedTemperature(name, null, RegionTypeEnum.Selection, 0);
             definedField.Type = DefinedTemperatureTypeEnum.FromFile;
             definedField.FileName = _service.ResolveExistingFileName(file_name, "file_name");
-            if (step_id != null)
-                definedField.StepNumber = PythonValueConverter.ToInt(step_id, "step_id");
+            if (step_id != null) definedField.StepNumber = ToStepId(step_id);
             //
-            return Add(definedField, amplitude_name, color);
+            return Add(definedField, null, color);
         }
 
         [PythonAPI("Replaces an existing defined temperature read from a results file using command history, " +
                    "keeping every value that is not given. A defined temperature given by value becomes one " +
-                   "read from a file, which needs a file name.",
+                   "read from a file, which needs a file name, and is refused while it carries an amplitude, " +
+                   "which a temperature read from a file does not use; replace_temperature with " +
+                   "amplitude_name='Default' clears it first.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_temperature_from_file with file_name optional", Returns = "DefinedField")]
         public DefinedFieldAPI replace_temperature_from_file(string old_name, string name = null,
                                                              object file_name = null, object step_id = null,
-                                                             object amplitude_name = null, object color = null)
+                                                             object color = null)
         {
             DefinedTemperature definedField =
                 _service.CloneForReplace<DefinedTemperature>(StepName, old_name, "temperature_from_file");
@@ -117,16 +118,22 @@ namespace APIs.Python.Model
             if (definedField.Type != DefinedTemperatureTypeEnum.FromFile && file_name == null)
                 throw new PythonAPIException("The defined field '" + old_name + "' is given by value, so the " +
                                              "argument 'file_name' must be given to read it from a file.");
+            if (definedField.Type != DefinedTemperatureTypeEnum.FromFile &&
+                !PythonNameComparer.AreSame(definedField.AmplitudeName, Amplitude.DefaultAmplitudeName))
+                throw new PythonAPIException("The defined field '" + old_name + "' carries the amplitude '" +
+                                             definedField.AmplitudeName + "', which a temperature read from a " +
+                                             "file does not use. Clear it with replace_temperature and " +
+                                             "amplitude_name='" + Amplitude.DefaultAmplitudeName + "' first.");
             if (file_name != null)
                 definedField.FileName = _service.ResolveExistingFileName(file_name, "file_name");
             definedField.Type = DefinedTemperatureTypeEnum.FromFile;
-            if (step_id != null)
-                definedField.StepNumber = PythonValueConverter.ToInt(step_id, "step_id");
+            if (step_id != null) definedField.StepNumber = ToStepId(step_id);
             //
-            return Replace(old_name, name, definedField, amplitude_name, color);
+            return Replace(old_name, name, definedField, null, color);
         }
 
-        [PythonAPI("Copies the defined field to every following step using command history.",
+        [PythonAPI("Copies the defined field to every following step using command history. It is refused " +
+                   "when a following step does not support the defined field type.",
                    Arguments = "name: str", Returns = "None")]
         public void propagate(string name)
         {
@@ -182,6 +189,14 @@ namespace APIs.Python.Model
                    ", names=" + new StringListAPI(names).ToString() + ")";
         }
         //
+        // The defined temperature reads a step below 1 as step 1
+        private static int ToStepId(object stepId)
+        {
+            int value = PythonValueConverter.ToInt(stepId, "step_id");
+            if (value < 1) throw new PythonAPIException("The argument 'step_id' must be at least 1.");
+            //
+            return value;
+        }
         private DefinedFieldAPI Add(DefinedField definedField, object amplitudeName, object color)
         {
             _service.ApplyCommonValues(definedField, amplitudeName, color);

@@ -25,6 +25,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def test_properties():
     check(pmx.model.is_open(), "a model must be open")
     check(pmx.model.properties.unit_system == "MM_TON_S_C",
@@ -37,6 +46,13 @@ def test_properties():
     #
     check_raises(lambda: setattr(pmx.model.properties, "unit_system", "NOT_A_UNIT_SYSTEM"),
                  "an unknown unit system must be rejected")
+    # Undefined is the state of a model nothing has set, not a value a model can be given
+    for argument in ["model_space", "unit_system"]:
+        message = raised_message(lambda: setattr(pmx.model.properties, argument, "undefined"))
+        check(message is not None and argument in message and "Undefined" in message,
+              "an undefined " + argument + " must be refused naming it: " + str(message))
+    check(pmx.model.properties.unit_system == "MM_TON_S_C" and pmx.model.properties.model_space == "ThreeD",
+          "a refused value changed the model properties")
 
 
 def test_parameters():
@@ -88,6 +104,31 @@ def test_parameters():
     #
     pmx.model.parameters.remove(["pytest_c"])
     check(len(pmx.model.parameters) == count_before, "the parameters were not removed")
+
+
+def test_parameter_refusals():
+    names = list(pmx.model.parameters.get_names())
+    # An equation the model cannot evaluate is refused naming the value, before anything is recorded
+    for call in [lambda: pmx.model.parameters.add("pytest_self", "pytest_self + 1"),
+                 lambda: pmx.model.parameters.add("pytest_bad", "pytest_missing * 2")]:
+        message = raised_message(call)
+        check(message is not None and "'value'" in message, "the refusal must name the value: " + str(message))
+    pmx.model.parameters.add("pytest_r", 1.0)
+    pmx.model.parameters.add("pytest_s", "pytest_r * 2")
+    for value in ["pytest_r * 2", "pytest_s + 1"]:
+        message = raised_message(lambda: pmx.model.parameters.replace("pytest_r", value=value))
+        check(message is not None and "'value'" in message,
+              "a replace that makes the parameter use itself must be refused naming the value: " + str(message))
+    check(pmx.model.parameters["pytest_r"].value == 1.0, "a refused replace changed the parameter")
+    pmx.model.parameters.remove(["pytest_s", "pytest_r"])
+    # set_all refuses a padded name rather than trimming it, and names the item that is not a value
+    message = raised_message(lambda: pmx.model.parameters.set_all([" pytest_p"], [1.0]))
+    check(message is not None and "'names'" in message, "a padded name must be refused: " + str(message))
+    message = raised_message(lambda: pmx.model.parameters.set_all(["pytest_p", "pytest_q"], [1.0, [2.0]]))
+    check(message is not None and "values[1]" in message, "the item that is not a value must be named: " + str(message))
+    message = raised_message(lambda: pmx.model.parameters.set_all(["pytest_p", "pytest_q"], [1.0, None]))
+    check(message is not None and "values[1]" in message, "a None item must be named: " + str(message))
+    check(list(pmx.model.parameters.get_names()) == names, "a refused call changed the parameters")
 
 
 def test_parameters_set_all():
@@ -149,11 +190,14 @@ def test_open_is_refused_in_a_script():
     check_raises(lambda: pmx.open("any.pmx"), "open must be refused inside a recorded script")
     check_raises(lambda: pmx.new_model("ThreeD", "MM_TON_S_C"),
                  "new_model must be refused inside a recorded script")
+    message = raised_message(lambda: pmx.new_model("Undefined", "MM_TON_S_C"))
+    check(message is not None and "model_space" in message, "an undefined model space must be refused: " + str(message))
 
 
 def main():
     test_properties()
     test_parameters()
+    test_parameter_refusals()
     test_parameters_set_all()
     test_export()
     test_open_is_refused_in_a_script()

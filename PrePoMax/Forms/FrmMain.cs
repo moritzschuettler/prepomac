@@ -82,6 +82,10 @@ namespace PrePoMax
         private SidePanelsState _sidePanelsState;
         private SidePanelsState _pendingSidePanelsState;
         private Rpc.RpcServer _automationServer;
+        private string _automationModelFileName;
+        private const string HiddenSessionNoAccessTokenMessage =
+            "The automation server has no access token. Start PrePoMax with its window, generate one in " +
+            "Tools - Settings - Automation, and run this again.";
         private bool _isFirstRunInFolder;
         private bool _startupCompleted;
         private bool _pythonScriptTookState;
@@ -897,8 +901,8 @@ namespace PrePoMax
             }
             catch (Exception ex)
             {
-                // Regeneration
-                if (_controller.BatchRegenerationMode)
+                // Regeneration, and a session without a window whose automation server could not start
+                if (_controller.BatchRegenerationMode || ex is Rpc.RpcStartException)
                 {
                     throw new CaeException(ex.Message, ex);
                 }
@@ -8104,13 +8108,23 @@ namespace PrePoMax
                 if (!_controller.AutomationSettings.StartWithApplication) return;
             }
             //
+            string failure = null;
             try
             {
                 StartAutomationServer();
             }
             catch (Exception ex)
             {
+                failure = ex.Message;
                 WriteDataToOutput("The automation server could not be started: " + ex.Message);
+            }
+            // A session without a window that was started for the server and cannot serve could never be
+            // reached or closed by anyone, so the run ends here with the reason
+            if (_hideWindow && requested && (_automationServer == null || !_automationServer.IsRunning))
+            {
+                if (failure == null) failure = HiddenSessionNoAccessTokenMessage;
+                throw new Rpc.RpcStartException("The automation server could not be started, so this session " +
+                                                "without a window is closed: " + failure);
             }
         }
         private void StartAutomationServer()
@@ -8144,8 +8158,7 @@ namespace PrePoMax
             //
             if (_hideWindow)
             {
-                WriteDataToOutput("The automation server has no access token. Start PrePoMax with its window, " +
-                                  "generate one in Tools - Settings - Automation, and run this again.");
+                WriteDataToOutput(HiddenSessionNoAccessTokenMessage);
                 return false;
             }
             string question = "The automation server needs an access token, which an AI assistant sends to prove " +
@@ -8291,6 +8304,17 @@ namespace PrePoMax
         }
         // A session started with -g No has no window anyone is looking at
         public bool IsWindowHidden { get { return _hideWindow; } }
+        // The model file the window title names, which is the file this session has open. It is null
+        // until a model is opened or created, because the controller reports the last file of the
+        // settings until then, and that may be a file another session had open
+        public string AutomationModelFileName { get { return _automationModelFileName; } }
+        // The title changes whenever the open model file does, so the session file follows it here
+        private void UpdateAutomationModelFileName()
+        {
+            _automationModelFileName = _controller == null ? null : _controller.OpenedFileName;
+            Rpc.RpcServer server = _automationServer;
+            if (server != null && server.IsRunning) server.UpdateSessionFile();
+        }
         // Closes the application on behalf of the automation server. The server only offers it for a
         // hidden session, and it goes through the ordinary close, so the model is saved or discarded
         // by the same rules as always
@@ -8307,11 +8331,20 @@ namespace PrePoMax
         }
         // Everything an agent runs is written where the user can see it. The Python panel is not
         // created for it: opening a side panel the user did not ask for would rearrange the window,
-        // so the echo goes to the console when it exists and to the output in any case
+        // so the echo goes to the console when it exists and to the output in any case. A tool that runs
+        // a fixed script of the application's own - read_model, read_topology - is echoed as the one line
+        // note it names, because its source and the snapshot it prints would bury the console
         public void EchoAutomationExecution(string label, string source, string output, string error)
         {
             if (_controller == null || !_controller.AutomationSettings.EchoToPythonPanel) return;
             //
+            string echoNote = Rpc.RpcDispatcher.CurrentEchoNote;
+            if (echoNote != null)
+            {
+                label = echoNote;
+                source = "# " + echoNote;
+                output = string.IsNullOrEmpty(output) ? output : "# " + output.Length + " characters returned to the agent\n";
+            }
             if (_pythonPanel != null)
             {
                 try
@@ -8349,7 +8382,8 @@ namespace PrePoMax
             if (openForm != null)
             {
                 string name = openForm.Text != null && openForm.Text.Length > 0 ? openForm.Text : openForm.Name;
-                return "A dialog is open: " + name + ". The user is editing something.";
+                return "A dialog is open: " + name + ". The user is editing something; wait until it is closed, " +
+                       "or ask the user to close it.";
             }
             return null;
         }
@@ -8393,6 +8427,27 @@ namespace PrePoMax
             catch (InvalidOperationException)
             {
             }
+        }
+        // Read only takes effect on the next call, so only the indicator has to follow it. The port does
+        // not move a running endpoint - every client is configured with the address it answers on - so
+        // the user is told when a new one takes effect
+        private void UpdateAutomationServerAfterSettings(int previousPort)
+        {
+            UpdateAutomationServerIndicators();
+            if (_automationServer == null || !_automationServer.IsRunning) return;
+            //
+            int port = _controller.AutomationSettings.Port;
+            if (port == previousPort) return;
+            if (_automationServer.RequestedPort > 0)
+            {
+                WriteDataToOutput("The automation server port in the settings is now " + port + ". This session was " +
+                                  "started with --rpcPort, so it keeps answering on " + _automationServer.EndpointPort +
+                                  ".");
+                return;
+            }
+            WriteDataToOutput("The automation server port in the settings is now " + port + ". The server keeps " +
+                              "answering on " + _automationServer.EndpointPort + " until it is started again: switch " +
+                              "it off and on in Tools - Automation Server.");
         }
         private void UpdateAutomationServerIndicators()
         {
@@ -8993,7 +9048,9 @@ namespace PrePoMax
         // Settings
         private void UpdateSettings(SettingsContainer settings)
         {
+            int previousAutomationPort = _controller.AutomationSettings.Port;
             _controller.Settings = settings;
+            UpdateAutomationServerAfterSettings(previousAutomationPort);
         }
 
         // Unit system
@@ -11398,6 +11455,7 @@ namespace PrePoMax
         public void SetTitle(string title)
         {
             InvokeIfRequired(() => this.Text = title);
+            UpdateAutomationModelFileName();
         }
         private bool CheckValidity()
         {

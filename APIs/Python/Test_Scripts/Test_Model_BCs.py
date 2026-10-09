@@ -133,6 +133,15 @@ def test_displacement_rotation():
                  "an unknown coordinate system must be rejected")
     check_raises(lambda: bcs.add_displacement_rotation(name, selection, u1=0),
                  "a duplicate name must be rejected")
+    # A static step is not complex, so a phase would be kept without effect
+    check_refused(lambda: bcs.add_displacement_rotation(PREFIX + "Bad", selection, u1=0, phase_deg=45),
+                  "'phase_deg'", "a phase in a static step must be refused")
+    check_refused(lambda: bcs.replace_displacement_rotation(name, phase_deg=45), "'phase_deg'",
+                  "a phase given to a boundary condition of a static step must be refused")
+    check(not bcs.contains(PREFIX + "Bad"), "a boundary condition with a refused phase was recorded")
+    # The default names are matched without regard to case
+    bc = bcs.replace_displacement_rotation(name, amplitude_name="DEFAULT", coordinate_system_name="global")
+    check(bc.amplitude_name == "Default", "unexpected amplitude name " + bc.amplitude_name)
     # A value that is not given survives the replace, and free_dofs unconstrains one
     bc = bcs.replace_displacement_rotation(name, u1=2.0)
     check(bc.get_value("u1") == 2.0, "u1 was not replaced")
@@ -301,6 +310,10 @@ def test_submodel():
     bc = bcs.replace_submodel(PREFIX + "SM", u2=True)
     check(bc.get_value("u1"), "u1 must survive a replace")
     check(bc.get_value("u2"), "u2 was not replaced")
+    # The boundary condition would read a step below 1 as step 1
+    check_refused(lambda: bcs.replace_submodel(PREFIX + "SM", step_id=0), "'step_id'",
+                  "a submodel step below 1 must be refused")
+    check(bcs[PREFIX + "SM"].get_value("step_id") == 2, "the refused replace changed the step")
     # A submodel boundary condition does not accept a reference point region, and the dialog does
     # not offer one for it
     check_raises(lambda: bcs.add_submodel(PREFIX + "Bad",
@@ -409,6 +422,15 @@ def test_propagate():
     check(last.contains(PREFIX + "T"), "the last step must carry the temperature boundary condition")
     check_refused(lambda: last.propagate(PREFIX + "T"), "no following step",
                   "propagating from the last step must be refused")
+    # The controller would skip a following step that does not take the type, so the propagation is refused
+    frequency = PREFIX + "Frequency"
+    pmx.model.steps.add_frequency(frequency)
+    try:
+        check_refused(lambda: bcs.propagate(PREFIX + "SM"), "does not support",
+                      "propagating into a step that does not take the boundary condition type must be refused")
+        check(not following.contains(PREFIX + "SM"), "the refused propagation was recorded")
+    finally:
+        pmx.model.steps.remove([frequency])
 
 
 def main():

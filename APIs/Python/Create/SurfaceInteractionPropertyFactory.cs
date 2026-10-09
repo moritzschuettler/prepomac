@@ -8,6 +8,8 @@
 // Contributors:
 
 using CaeModel;
+using System;
+using System.Collections.Generic;
 
 namespace APIs.Python
 {
@@ -18,9 +20,8 @@ namespace APIs.Python
         // Methods
         public static Friction CreateFriction(object coefficient, object stickSlope)
         {
-            Friction friction = new Friction(PythonValueConverter.ToDouble(coefficient, "coefficient"));
-            if (stickSlope != null)
-                friction.StickSlope = PythonValueConverter.ToDouble(stickSlope, "stick_slope");
+            Friction friction = new Friction(ToPositive(coefficient, "coefficient"));
+            if (stickSlope != null) friction.StickSlope = ToPositive(stickSlope, "stick_slope");
             //
             return friction;
         }
@@ -61,11 +62,18 @@ namespace APIs.Python
                 surfaceBehavior.PressureOverclosureType =
                     PythonValueConverter.ToEnum<PressureOverclosureEnum>(pressureOverclosureType,
                                                                          "pressure_overclosure_type");
+            // The solver input carries only the values the type uses, so any other given value would be lost
+            PressureOverclosureEnum type = surfaceBehavior.PressureOverclosureType;
+            CheckApplies(type, c0, "c0");
+            CheckApplies(type, p0, "p0");
+            CheckApplies(type, k, "k");
+            CheckApplies(type, s_inf, "s_inf");
+            CheckApplies(type, pressureOverclosure, "pressure_overclosure");
             //
-            if (c0 != null) surfaceBehavior.C0 = PythonValueConverter.ToDouble(c0, "c0");
-            if (p0 != null) surfaceBehavior.P0 = PythonValueConverter.ToDouble(p0, "p0");
-            if (k != null) surfaceBehavior.K = PythonValueConverter.ToDouble(k, "k");
-            if (s_inf != null) surfaceBehavior.Sinf = PythonValueConverter.ToDouble(s_inf, "s_inf");
+            if (c0 != null) surfaceBehavior.C0 = ToPositive(c0, "c0");
+            if (p0 != null) surfaceBehavior.P0 = ToPositive(p0, "p0");
+            if (k != null) surfaceBehavior.K = ToPositive(k, "k");
+            if (s_inf != null) surfaceBehavior.Sinf = ToPositive(s_inf, "s_inf");
             if (pressureOverclosure != null)
             {
                 // Every row is a pressure and an overclosure
@@ -74,6 +82,40 @@ namespace APIs.Python
             }
             //
             return surfaceBehavior;
+        }
+        public static bool UsesValue(PressureOverclosureEnum type, string argumentName)
+        {
+            switch (argumentName)
+            {
+                case "c0": return type == PressureOverclosureEnum.Linear || type == PressureOverclosureEnum.Exponential;
+                case "p0": return type == PressureOverclosureEnum.Exponential;
+                case "k": return type == PressureOverclosureEnum.Linear || type == PressureOverclosureEnum.Tied;
+                case "s_inf": return type == PressureOverclosureEnum.Linear;
+                case "pressure_overclosure": return type == PressureOverclosureEnum.Tabular;
+                default: return false;
+            }
+        }
+        //
+        private static void CheckApplies(PressureOverclosureEnum type, object value, string argumentName)
+        {
+            if (value == null || UsesValue(type, argumentName)) return;
+            //
+            List<string> usedBy = new List<string>();
+            foreach (PressureOverclosureEnum candidate in Enum.GetValues(typeof(PressureOverclosureEnum)))
+            {
+                if (UsesValue(candidate, argumentName)) usedBy.Add(candidate.ToString());
+            }
+            throw new PythonAPIException("The argument '" + argumentName + "' does not apply to the " + type +
+                                         " pressure_overclosure_type; it is used by " + string.Join(" and ", usedBy) +
+                                         ".");
+        }
+        private static double ToPositive(object value, string argumentName)
+        {
+            double number = PythonValueConverter.ToDouble(value, argumentName);
+            if (!(number > 0))
+                throw new PythonAPIException("The argument '" + argumentName + "' must be larger than 0.");
+            //
+            return number;
         }
     }
 }

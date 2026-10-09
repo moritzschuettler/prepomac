@@ -37,14 +37,13 @@ namespace APIs.Python
             return new StringListAPI(names == null ? new string[0] : names);
         }
         [PythonAPI("Adds a text label with an arrow pointing at a point given in model coordinates. The name " +
-                   "must be free; Min_Annotation, Max_Annotation and Measure_Annotation are reserved. Returns the " +
-                   "name it was given.",
+                   "must be free and without leading or trailing spaces; Min_Annotation, Max_Annotation and " +
+                   "Measure_Annotation are reserved. Returns the name it was given.",
                    Arguments = "name: str, text: str, anchor_point: list[float]", Returns = "str",
                    Example = "name = pmx.view.annotations.add_text('Load', 'Pressure 2 MPa', [0, 0, 10])")]
         public string add_text(string name, string text, object anchor_point)
         {
-            if (string.IsNullOrEmpty(name) || name.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'name' must not be empty.");
+            PythonNameComparer.ValidateFormat(name, "name", null);
             if (text == null) throw new PythonAPIException("The argument 'text' must not be None.");
             //
             double[] anchor = PythonDoubleListConverter.ToDoubleArray(anchor_point, "anchor_point");
@@ -56,9 +55,8 @@ namespace APIs.Python
                     throw new PythonAPIException("The argument 'anchor_point' must contain finite coordinates.");
             }
             //
-            string annotationName = name.Trim();
-            Resolve().AddTextAnnotation(annotationName, text, anchor);
-            return annotationName;
+            Resolve().AddTextAnnotation(name, text, anchor);
+            return name;
         }
         [PythonAPI("Adds the annotation of a node of the displayed mesh, the one a node query places: its ID, " +
                    "its coordinates and, in the results view, the plotted value. Returns the name it was given.",

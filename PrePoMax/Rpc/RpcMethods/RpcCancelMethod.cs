@@ -18,9 +18,11 @@ namespace PrePoMax.Rpc
     // is the one holding it. It changes nothing in the model itself, so read only mode does not refuse it.
     //
     // The call is interrupted where Python can be interrupted - at its next statement - so an operation of the
-    // application it is inside, such as meshing, finishes first. The call then ends the way a failed call ends,
-    // and its answer is collected with wait like any other: the commands it recorded before it was stopped stay
-    // in the history and are listed there.
+    // application it is inside, such as meshing, finishes first, and a blocking wait - time.sleep, a socket,
+    // input() - returns first. Each cancel delivers an interrupt of its own, so a call whose code caught the
+    // one before is reached by the next. The call then ends the way a failed call ends, and its answer is
+    // collected with wait like any other: the commands it recorded before it was stopped stay in the history
+    // and are listed there.
     public static class RpcCancelMethod
     {
         // Variables                                                                                                                
@@ -41,12 +43,13 @@ namespace PrePoMax.Rpc
             {
                 throw new RpcException(RpcErrorCode.InvalidParams, "There is no automation call " +
                                        callId.ToString(CultureInfo.InvariantCulture) + " to cancel: it was never " +
-                                       "started, or its answer was already collected. Call status for the calls " +
-                                       "that are running or waiting to be collected.");
+                                       "started, or its answer was already collected. Call get_status (status on " +
+                                       "the pipe) for the calls that are running or waiting to be collected.");
             }
             //
             bool wasRunning = !call.IsFinished;
-            bool isInterrupted = call.Cancel();
+            bool isDelivered;
+            bool isRequested = call.Cancel(out isDelivered);
             bool isFinished = call.Wait(FinishWaitMilliseconds);
             //
             JsonWriter writer = new JsonWriter();
@@ -54,13 +57,15 @@ namespace PrePoMax.Rpc
             writer.WriteValue("callId", call.Id);
             writer.WriteValue("method", call.Method);
             writer.WriteValue("cancelRequested", wasRunning);
-            writer.WriteValue("isInterrupted", isInterrupted);
+            writer.WriteValue("isInterrupted", isDelivered);
+            writer.WriteValue("isInterruptPending", isRequested && !isDelivered);
             writer.WriteValue("isFinished", isFinished);
-            writer.WriteValue("message", GetMessage(call.Id, wasRunning, isInterrupted, isFinished));
+            writer.WriteValue("message", GetMessage(call.Id, wasRunning, isRequested, isDelivered, isFinished));
             writer.EndObject();
             return writer.ToString();
         }
-        private static string GetMessage(int callId, bool wasRunning, bool isInterrupted, bool isFinished)
+        private static string GetMessage(int callId, bool wasRunning, bool isRequested, bool isDelivered,
+                                         bool isFinished)
         {
             string call = "Call " + callId.ToString(CultureInfo.InvariantCulture);
             string collect = "Collect its answer with get_call - the wait method on the pipe.";
@@ -68,26 +73,39 @@ namespace PrePoMax.Rpc
             //
             string recorded = " The commands it recorded before it stopped stay in the command history; its answer " +
                               "lists them, and the user can remove them in Edit - Edit History.";
-            if (isInterrupted && isFinished)
+            string notInterruptible = "An operation of PrePoMax it is inside - meshing, an import, a regeneration - " +
+                                      "cannot be interrupted and finishes first, and a blocking wait - time.sleep, a " +
+                                      "socket, input() - returns first.";
+            if (isDelivered && isFinished)
             {
                 return call + " was interrupted and has stopped. " + collect + " It ends with a KeyboardInterrupt " +
                        "error." + recorded;
             }
-            if (isInterrupted)
+            if (isDelivered)
             {
-                return call + " was interrupted but has not stopped yet. An interrupt lands at the next Python " +
-                       "statement the call runs; an operation of PrePoMax it is inside - meshing, an import, a " +
-                       "regeneration - cannot be interrupted and finishes first. " + collect + " It ends with a " +
-                       "KeyboardInterrupt error." + recorded;
+                return call + " was interrupted but has not stopped yet. The interrupt is raised at the next Python " +
+                       "statement the call runs. " + notInterruptible + " Code that catches the interrupt - a bare " +
+                       "except - keeps running: cancel it again, and every cancel delivers a new interrupt. " + collect +
+                       recorded;
+            }
+            if (isRequested && isFinished)
+            {
+                return call + " finished before the interrupt reached its Python. " + collect;
+            }
+            if (isRequested)
+            {
+                return call + " is inside an operation of PrePoMax that holds Python - meshing, an import, a " +
+                       "regeneration - so the interrupt has not been delivered yet; it is raised when that operation " +
+                       "returns to Python. " + collect + recorded;
             }
             if (isFinished)
             {
-                return call + " was not running Python when the cancel arrived: a call that had not reached its " +
-                       "Python did not start it, and one that was past it finished as it would have. " + collect;
+                return call + " was not running Python when the cancel arrived and has finished: it had already " +
+                       "run its Python, so it completed as it would have, or it ended before starting it. " + collect;
             }
             return call + " was not running Python when the cancel arrived and is still working: it is waiting " +
-                   "for the application to be idle, and will not start its Python, or it is finishing after its " +
-                   "Python. " + collect;
+                   "for the application to be idle, and is interrupted as soon as its Python starts, or it is " +
+                   "finishing after its Python. " + collect;
         }
     }
 }

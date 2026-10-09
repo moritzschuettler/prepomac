@@ -28,8 +28,10 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.labMessage = new System.Windows.Forms.Label();
             this.btnStop = new System.Windows.Forms.Button();
+            this.timerEnableStop = new System.Windows.Forms.Timer(this.components);
             this.SuspendLayout();
             //
             // labMessage
@@ -54,6 +56,11 @@
             this.btnStop.UseVisualStyleBackColor = true;
             this.btnStop.Click += new System.EventHandler(this.btnStop_Click);
             //
+            // timerEnableStop
+            //
+            this.timerEnableStop.Interval = 2000;
+            this.timerEnableStop.Tick += new System.EventHandler(this.timerEnableStop_Tick);
+            //
             // FrmPythonStop
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -68,7 +75,6 @@
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
             this.Text = "Python";
-            this.TopMost = true;
             this.Load += new System.EventHandler(this.FrmPythonStop_Load);
             this.ResumeLayout(false);
 
@@ -78,5 +84,6 @@
 
         private System.Windows.Forms.Label labMessage;
         private System.Windows.Forms.Button btnStop;
+        private System.Windows.Forms.Timer timerEnableStop;
     }
 }

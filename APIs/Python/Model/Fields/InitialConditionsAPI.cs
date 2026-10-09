@@ -51,7 +51,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds an initial translational velocity using command history. The selection target is " +
-                   "nodes.",
+                   "nodes. In a 2D model v3 must be zero.",
                    Arguments = "name: str, region: Selection or Region, v1: float, v2: float, v3: float",
                    Returns = "InitialCondition")]
         public InitialConditionAPI add_translational_velocity(string name, object region, object v1,
@@ -63,7 +63,9 @@ namespace APIs.Python.Model
                                                  _service.GetIsTwoDimensional());
             initialCondition.V1.Equation = PythonValueConverter.ToEquationString(v1, "v1");
             initialCondition.V2.Equation = PythonValueConverter.ToEquationString(v2, "v2");
-            initialCondition.V3.Equation = PythonValueConverter.ToEquationString(v3, "v3");
+            initialCondition.V3.Equation =
+                ToInPlane(initialCondition, initialCondition.V3, PythonValueConverter.ToEquationString(v3, "v3"),
+                          "v3", null);
             _service.ApplyRegion(initialCondition, region, "nodes");
             _service.Add(initialCondition);
             return this[name];
@@ -71,7 +73,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds an initial angular velocity using command history. The axis is given by a point " +
                    "and a direction. The region is a selection or a named region; the selection target is nodes. " +
-                   "The rotational_speed is in rad/s.",
+                   "The rotational_speed is in rad/s and must be zero or larger. In a 2D model the third " +
+                   "value of axis_point and the first two of axis_direction must be zero.",
                    Arguments = "name: str, region: Selection or Region, axis_point: list[float], " +
                                "axis_direction: list[float], rotational_speed: float",
                    Returns = "InitialCondition")]
@@ -84,14 +87,9 @@ namespace APIs.Python.Model
             InitialAngularVelocity initialCondition =
                 new InitialAngularVelocity(name, null, RegionTypeEnum.Selection,
                                            _service.GetIsTwoDimensional());
-            initialCondition.X.Equation = point[0];
-            initialCondition.Y.Equation = point[1];
-            initialCondition.Z.Equation = point[2];
-            initialCondition.N1.Equation = direction[0];
-            initialCondition.N2.Equation = direction[1];
-            initialCondition.N3.Equation = direction[2];
-            initialCondition.RotationalSpeed.Equation =
-                PythonValueConverter.ToEquationString(rotational_speed, "rotational_speed");
+            ApplyAxisPoint(initialCondition, point);
+            ApplyAxisDirection(initialCondition, direction);
+            initialCondition.RotationalSpeed.Equation = ToRotationalSpeed(initialCondition, rotational_speed);
             _service.ApplyRegion(initialCondition, region, "nodes");
             _service.Add(initialCondition);
             return this[name];
@@ -128,7 +126,9 @@ namespace APIs.Python.Model
             ApplyReplacedName(item, old_name, name, region);
             if (v1 != null) item.V1.Equation = PythonValueConverter.ToEquationString(v1, "v1");
             if (v2 != null) item.V2.Equation = PythonValueConverter.ToEquationString(v2, "v2");
-            if (v3 != null) item.V3.Equation = PythonValueConverter.ToEquationString(v3, "v3");
+            if (v3 != null)
+                item.V3.Equation = ToInPlane(item, item.V3, PythonValueConverter.ToEquationString(v3, "v3"), "v3",
+                                             null);
             //
             return Replace(old_name, item);
         }
@@ -147,22 +147,10 @@ namespace APIs.Python.Model
                 _service.Clone<InitialAngularVelocity>(old_name, "angular_velocity");
             ApplyReplacedName(item, old_name, name, region);
             if (axis_point != null)
-            {
-                EquationString[] values = PythonValueConverter.ToEquationArray(axis_point, "axis_point", 3);
-                item.X.Equation = values[0];
-                item.Y.Equation = values[1];
-                item.Z.Equation = values[2];
-            }
+                ApplyAxisPoint(item, PythonValueConverter.ToEquationArray(axis_point, "axis_point", 3));
             if (axis_direction != null)
-            {
-                EquationString[] values = PythonValueConverter.ToEquationArray(axis_direction, "axis_direction", 3);
-                item.N1.Equation = values[0];
-                item.N2.Equation = values[1];
-                item.N3.Equation = values[2];
-            }
-            if (rotational_speed != null)
-                item.RotationalSpeed.Equation = PythonValueConverter.ToEquationString(rotational_speed,
-                                                                                       "rotational_speed");
+                ApplyAxisDirection(item, PythonValueConverter.ToEquationArray(axis_direction, "axis_direction", 3));
+            if (rotational_speed != null) item.RotationalSpeed.Equation = ToRotationalSpeed(item, rotational_speed);
             //
             return Replace(old_name, item);
         }
@@ -228,6 +216,39 @@ namespace APIs.Python.Model
             _service.Replace(oldName, item);
             //
             return this[item.Name];
+        }
+        private static void ApplyAxisPoint(InitialAngularVelocity item, EquationString[] point)
+        {
+            item.X.Equation = point[0];
+            item.Y.Equation = point[1];
+            item.Z.Equation = ToInPlane(item, item.Z, point[2], "axis_point", "third");
+        }
+        private static void ApplyAxisDirection(InitialAngularVelocity item, EquationString[] direction)
+        {
+            item.N1.Equation = ToInPlane(item, item.N1, direction[0], "axis_direction", "first");
+            item.N2.Equation = ToInPlane(item, item.N2, direction[1], "axis_direction", "second");
+            item.N3.Equation = direction[2];
+        }
+        // The model sets an out of plane value of a 2D initial condition to zero, so a given one is refused instead
+        private static EquationString ToInPlane(InitialCondition item, EquationContainer container,
+                                                EquationString equation, string argumentName, string component)
+        {
+            if (!item.TwoD) return equation;
+            //
+            if (PythonModelArgumentCheck.Evaluate(container, equation, argumentName) != 0)
+                throw new PythonAPIException((component == null ? "The argument '" + argumentName + "'" :
+                                              "The " + component + " value of the argument '" + argumentName + "'") +
+                                             " must be zero in a 2D model, which has no out of plane direction.");
+            //
+            return equation;
+        }
+        private static EquationString ToRotationalSpeed(InitialAngularVelocity item, object rotationalSpeed)
+        {
+            EquationString equation = PythonValueConverter.ToEquationString(rotationalSpeed, "rotational_speed");
+            if (PythonModelArgumentCheck.Evaluate(item.RotationalSpeed, equation, "rotational_speed") < 0)
+                throw new PythonAPIException("The argument 'rotational_speed' must be zero or larger.");
+            //
+            return equation;
         }
     }
 }

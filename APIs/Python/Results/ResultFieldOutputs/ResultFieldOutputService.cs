@@ -38,6 +38,7 @@ namespace APIs.Python
         }
         public ResultFieldOutput ResolveFieldOutput(string resultName, string fieldOutputName)
         {
+            if (fieldOutputName == null) throw new PythonAPIException("The field output name must not be None.");
             FeResults result = _resolver.ResolveResult(resultName);
             if (!result.ContainsResultFieldOutput(fieldOutputName))
                 throw new PythonAPIException("The result field output '" + fieldOutputName +
@@ -70,14 +71,14 @@ namespace APIs.Python
         public ResultFieldOutputEnvelopeDraftAPI CreateFieldOutputEnvelope(string name, string fieldName,
                                                                            string componentName)
         {
-            ValidateRequiredString(name, "name");
+            PythonNameComparer.ValidateFormat(name, "name", null);
             ValidateRequiredString(fieldName, "field_name");
             ValidateRequiredString(componentName, "component_name");
             return new ResultFieldOutputEnvelopeDraftAPI(name, fieldName, componentName);
         }
         public ResultFieldOutputEquationDraftAPI CreateFieldOutputEquation(string name, string equation, string unit)
         {
-            ValidateRequiredString(name, "name");
+            PythonNameComparer.ValidateFormat(name, "name", null);
             ValidateRequiredString(equation, "equation");
             if (unit == null) throw new PythonAPIException("The argument 'unit' must not be None.");
             string normalizedEquation = equation.Trim();
@@ -87,7 +88,7 @@ namespace APIs.Python
         public ResultFieldOutputCoordinateSystemTransformDraftAPI CreateFieldOutputCoordinateSystemTransform(
             string name, string fieldName, string coordinateSystemName)
         {
-            ValidateRequiredString(name, "name");
+            PythonNameComparer.ValidateFormat(name, "name", null);
             ValidateRequiredString(fieldName, "field_name");
             ValidateRequiredString(coordinateSystemName, "coordinate_system_name");
             return new ResultFieldOutputCoordinateSystemTransformDraftAPI(name, fieldName, coordinateSystemName);
@@ -233,7 +234,7 @@ namespace APIs.Python
         }
         private static void Validate(FeResults result, ResultFieldOutput fieldOutput, string replacedFieldOutputName)
         {
-            ValidateRequiredString(fieldOutput.Name, "name");
+            PythonNameComparer.ValidateFormat(fieldOutput.Name, "name", replacedFieldOutputName);
             if (result.GetAllFieldNames().Any(existingFieldName =>
                     string.Equals(existingFieldName, fieldOutput.Name, StringComparison.OrdinalIgnoreCase) &&
                     (replacedFieldOutputName == null ||
@@ -331,7 +332,7 @@ namespace APIs.Python
         private static void ValidateDefinition(string name, string fieldName, string componentName,
                                                OrderedDictionary<string, double> itemLimits)
         {
-            ValidateRequiredString(name, "name");
+            PythonNameComparer.ValidateFormat(name, "name", null);
             ValidateRequiredString(fieldName, "field_name");
             ValidateRequiredString(componentName, "component_name");
             if (itemLimits.Count == 0)

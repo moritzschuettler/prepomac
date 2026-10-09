@@ -28,7 +28,11 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a material using command history. The properties are created by pmx.create. " +
-                   "Set temperature_dependent to write the temperature column and every property row.",
+                   "Set temperature_dependent to write the temperature column and every property row. A " +
+                   "material that is not temperature dependent writes only the first row of every property " +
+                   "but plastic and no temperature, so a property other than plastic with more than one row " +
+                   "or a non-zero temperature is refused, naming temperature_dependent. A second elastic " +
+                   "property is refused.",
                    Arguments = "name: str, properties: MaterialProperty or list[MaterialProperty], " +
                                "description: str = None, temperature_dependent: bool = False",
                    Returns = "Material",
@@ -41,7 +45,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Replaces an existing material using command history. A value that is not given keeps " +
-                   "the value the material already carries.",
+                   "the value the material already carries. When properties or temperature_dependent is " +
+                   "given, the merged material is checked the way add checks it.",
                    Arguments = "old_name: str, name: str = None, properties: MaterialProperty or " +
                                "list[MaterialProperty] = None, description: str = None, " +
                                "temperature_dependent: bool = None", Returns = "Material")]

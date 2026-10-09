@@ -96,36 +96,45 @@ namespace APIs.Python.Model
         public void ApplyValues(ContactPair contactPair, object method, object smallSliding, object adjust,
                                 object adjustmentSize)
         {
+            ContactPairMethod methodValue = contactPair.Method;
             if (method != null)
-            {
-                ContactPairMethod value =
-                    PythonValueConverter.ToEnum<ContactPairMethod>(AsString(method, "method"), "method");
-                // The model clears small sliding when the method becomes surface to surface, so a replace that
-                // would lose it without being told is refused
-                if (value == ContactPairMethod.SurfaceToSurface && contactPair.SmallSliding && smallSliding == null)
-                    throw new PythonAPIException("The contact pair '" + contactPair.Name + "' uses small sliding, " +
-                                                 "which the SurfaceToSurface method does not support. Give " +
-                                                 "small_sliding=False together with the method.");
-                contactPair.Method = value;
-            }
+                methodValue = PythonValueConverter.ToEnum<ContactPairMethod>(AsString(method, "method"), "method");
+            bool? smallSlidingValue = null;
             if (smallSliding != null)
+                smallSlidingValue = PythonValueConverter.ToBool(smallSliding, "small_sliding");
+            // Only the node to surface method writes small sliding; the model clears it for surface to surface
+            // and keeps it unwritten for the others, so it is refused rather than silently dropped
+            bool usesSmallSliding = contactPair.Method == ContactPairMethod.NodeToSurface && contactPair.SmallSliding;
+            if (methodValue != ContactPairMethod.NodeToSurface)
             {
-                // The model clears small sliding for a surface to surface pair instead of refusing it,
-                // so the incompatible combination is rejected here rather than silently ignored
-                bool value = PythonValueConverter.ToBool(smallSliding, "small_sliding");
-                if (value && contactPair.Method == ContactPairMethod.SurfaceToSurface)
-                    throw new PythonAPIException("The SurfaceToSurface contact method does not support " +
-                                                 "small sliding. Give a method of NodeToSurface or Mortar " +
-                                                 "together with 'small_sliding'.");
-                contactPair.SmallSliding = value;
+                if (smallSlidingValue == true)
+                    throw new PythonAPIException("The " + methodValue + " contact method does not support small " +
+                                                 "sliding. Give method='NodeToSurface' together with " +
+                                                 "'small_sliding'.");
+                if (method != null && smallSlidingValue == null && usesSmallSliding)
+                    throw new PythonAPIException("The contact pair '" + contactPair.Name + "' uses small " +
+                                                 "sliding, which the " + methodValue + " method does not " +
+                                                 "support. Give small_sliding=False together with the method.");
+                smallSlidingValue = false;
             }
+            contactPair.Method = methodValue;
+            if (smallSlidingValue.HasValue) contactPair.SmallSliding = smallSlidingValue.Value;
+            //
+            bool? adjustValue = null;
+            if (adjust != null) adjustValue = PythonValueConverter.ToBool(adjust, "adjust");
             if (adjustmentSize != null)
             {
+                double size = PythonValueConverter.ToDouble(adjustmentSize, "adjustment_size");
+                if (adjustValue == false)
+                    throw new PythonAPIException("The argument 'adjustment_size' applies only when the slave " +
+                                                 "nodes are adjusted. Leave it out together with adjust=False.");
+                if (!(size >= 0))
+                    throw new PythonAPIException("The argument 'adjustment_size' must be zero or larger.");
                 // An adjustment size implies the adjustment, the way the dialog presents the two
-                contactPair.AdjustmentSize = PythonValueConverter.ToDouble(adjustmentSize, "adjustment_size");
+                contactPair.AdjustmentSize = size;
                 contactPair.Adjust = true;
             }
-            if (adjust != null) contactPair.Adjust = PythonValueConverter.ToBool(adjust, "adjust");
+            if (adjustValue.HasValue) contactPair.Adjust = adjustValue.Value;
         }
         public void Add(ContactPair contactPair)
         {

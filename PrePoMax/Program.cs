@@ -261,6 +261,7 @@ namespace PrePoMax
             while (current != null)
             {
                 if (current is PythonScriptException) return ExitCodeEnum.ScriptError;
+                if (current is Rpc.RpcStartException) return ExitCodeEnum.OptionError;
                 current = current.InnerException;
             }
             //

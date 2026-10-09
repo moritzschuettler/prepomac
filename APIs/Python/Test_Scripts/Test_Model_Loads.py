@@ -124,6 +124,18 @@ def test_concentrated():
                  "replacing a moment by a concentrated force must be rejected")
     check_raises(lambda: loads.add_moment(PREFIX + "M", node_selection([1])),
                  "a duplicate name must be rejected")
+    # The default names are matched without regard to case, and read back as the model spells them
+    load = loads.add_moment(PREFIX + "M2", node_selection([3]), m3=1, amplitude_name="default",
+                            coordinate_system_name="GLOBAL")
+    check(load.amplitude_name == "Default", "unexpected amplitude name " + load.amplitude_name)
+    check(load.coordinate_system_name == "Global", "unexpected coordinate system name " + load.coordinate_system_name)
+    loads.remove([PREFIX + "M2"])
+    # A static step is not complex, so a phase would be kept without effect
+    check_refused(lambda: loads.add_concentrated_force(PREFIX + "Bad", node_selection([1]), f1=1, phase_deg=30),
+                  "'phase_deg'", "a phase in a static step must be refused")
+    check_refused(lambda: loads.replace_concentrated_force(PREFIX + "F", phase_deg=30), "'phase_deg'",
+                  "a phase given to a load of a static step must be refused")
+    check(not loads.contains(PREFIX + "Bad"), "a load with a refused phase was recorded")
 
 
 def test_surface_loads():
@@ -154,6 +166,12 @@ def test_surface_loads():
           "the refused replacement changed the distribution")
     load = loads.replace_pressure(PREFIX + "P", distribution_name=SCALAR_DISTRIBUTION)
     check(load.get_value("distribution_name") == SCALAR_DISTRIBUTION, "the scalar distribution was not set")
+    load = loads.replace_pressure(PREFIX + "P", distribution_name="constant")
+    check(load.get_value("distribution_name") == "Constant",
+          "the default distribution given in other case did not read back as the model spells it")
+    load = loads.replace_pressure(PREFIX + "P", distribution_name=SCALAR_DISTRIBUTION.upper())
+    check(load.get_value("distribution_name") == SCALAR_DISTRIBUTION,
+          "a distribution given in other case did not read back as the model spells it")
     # Hydrostatic pressure
     load = loads.add_hydrostatic_pressure(PREFIX + "HP", surface_selection(1),
                                           first_point=[0, 0, 0], second_point=[0, 0, 1],
@@ -175,19 +193,31 @@ def test_surface_loads():
                                                         first_point=[0, 0]),
                  "a two value point must be rejected")
     # Surface traction: the force components and the force per area components are two independent
-    # groups, and the model writes the one that matches the distribution
+    # groups, and the model writes only the one that matches the distribution, so the other is refused
     load = loads.add_surface_traction(PREFIX + "ST", surface_selection(1), f1=100)
     check(load.get_value("f1") == 100, "f1 was not set")
     check(load.get_value("f_magnitude") == 100, "the force magnitude must follow the components")
     check(load.get_value("p1") == 0, "the force per area group must stay untouched")
-    load = loads.replace_surface_traction(PREFIX + "ST", p2=3.5)
+    check_refused(lambda: loads.replace_surface_traction(PREFIX + "ST", p2=3.5), "'p2'",
+                  "a force per area without a distribution must be refused")
+    check_refused(lambda: loads.add_surface_traction(PREFIX + "Bad", surface_selection(1), f1=1,
+                                                     distribution_name=SCALAR_DISTRIBUTION), "'f1'",
+                  "a force together with a distribution must be refused")
+    check(not loads.contains(PREFIX + "Bad"), "the refused surface traction was recorded")
+    load = loads.replace_surface_traction(PREFIX + "ST", p2=3.5, distribution_name=VECTOR_DISTRIBUTION)
     check(load.get_value("p2") == 3.5, "p2 was not set")
     check(load.get_value("f1") == 100, "f1 must survive a replace")
-    # A surface traction scales its components by either kind of distribution
-    load = loads.replace_surface_traction(PREFIX + "ST", distribution_name=VECTOR_DISTRIBUTION)
     check(load.get_value("distribution_name") == VECTOR_DISTRIBUTION, "the vector distribution was not set")
+    # The group is checked against the distribution the load keeps
+    check_refused(lambda: loads.replace_surface_traction(PREFIX + "ST", f1=5), "'f1'",
+                  "a force for a surface traction that keeps its distribution must be refused")
+    check(loads[PREFIX + "ST"].get_value("f1") == 100, "the refused replace changed f1")
+    # A surface traction scales its components by either kind of distribution
     load = loads.replace_surface_traction(PREFIX + "ST", distribution_name=SCALAR_DISTRIBUTION)
     check(load.get_value("distribution_name") == SCALAR_DISTRIBUTION, "the scalar distribution was not set")
+    load = loads.replace_surface_traction(PREFIX + "ST", f2=50, distribution_name="Constant")
+    check(load.get_value("f2") == 50 and load.get_value("distribution_name") == "Constant",
+          "a force together with the return to no distribution was not accepted")
     # Shell edge load
     load = loads.add_shell_edge_load(PREFIX + "SE", pmx.create.region('SurfaceName', SURFACE), 7.5)
     check(load.get_value("magnitude") == 7.5, "the shell edge magnitude was not set")
@@ -237,6 +267,10 @@ def test_body_loads():
                                  axis_direction=[0, 0, 1], rotational_speed=100)
     check(load.get_value("rotational_speed") == 100, "the rotational speed was not set")
     check(list(load.get_value("axis_direction")) == [0, 0, 1], "the axis direction was not set")
+    # The load refuses a negative speed without naming the argument
+    check_refused(lambda: loads.replace_centrifugal(PREFIX + "C", rotational_speed=-1), "'rotational_speed'",
+                  "a negative rotational speed must be refused")
+    check(loads[PREFIX + "C"].get_value("rotational_speed") == 100, "the refused replace changed the speed")
     check_raises(lambda: loads.add_centrifugal(PREFIX + "Bad", element_selection([1]),
                                                axis_direction=[0, 1]),
                  "a two value axis direction must be rejected")
@@ -301,6 +335,9 @@ def test_thermal_loads():
                  "a concentrated flux in a static step must be rejected")
     #
     loads = pmx.model.steps[THERMAL_STEP].loads
+    # A thermal load is never complex, so it takes no phase
+    check_refused(lambda: loads.add_concentrated_flux(PREFIX + "Bad", node_selection([1]), 5, phase_deg=10),
+                  "'phase_deg'", "a phase of a thermal load must be refused")
     load = loads.add_concentrated_flux(PREFIX + "CF", node_selection([1]), 5, add_flux=True)
     check(load.get_value("magnitude") == 5, "the flux was not set")
     check(load.get_value("add_flux"), "add_flux was not set")
@@ -321,12 +358,20 @@ def test_thermal_loads():
     load = loads.add_radiation_heat_transfer(PREFIX + "RH", surface_selection(1), 20, 0.8)
     check(load.get_value("emissivity") == 0.8, "the emissivity was not set")
     check(not load.get_value("cavity_radiation"), "the cavity radiation must be off by default")
-    load = loads.replace_radiation_heat_transfer(PREFIX + "RH", cavity_radiation=True,
-                                                 cavity_name="Cavity-1")
+    # The solver limits a cavity name to three characters, and the model would cut a longer one
+    check_refused(lambda: loads.replace_radiation_heat_transfer(PREFIX + "RH", cavity_radiation=True,
+                                                                cavity_name="Cavity-1"),
+                  "'cavity_name'", "a cavity name longer than three characters must be refused")
+    check(not loads[PREFIX + "RH"].get_value("cavity_radiation"), "the refused replace changed the load")
+    load = loads.replace_radiation_heat_transfer(PREFIX + "RH", cavity_radiation=True, cavity_name="Cav")
     check(load.get_value("cavity_radiation"), "the cavity radiation was not set")
-    # The solver limits a cavity name to three characters, and the model truncates it
     check(load.get_value("cavity_name") == "Cav",
           "unexpected cavity name " + str(load.get_value("cavity_name")))
+    # The model would clamp an emissivity outside 0 to 1
+    for emissivity in [1.5, -0.1]:
+        check_refused(lambda: loads.replace_radiation_heat_transfer(PREFIX + "RH", emissivity=emissivity),
+                      "'emissivity'", "the emissivity " + str(emissivity) + " must be refused")
+    check(loads[PREFIX + "RH"].get_value("emissivity") == 0.8, "a refused replace changed the emissivity")
 
 
 def test_collection_verbs():
@@ -376,6 +421,32 @@ def test_propagate():
     check(last.contains(PREFIX + "CF"), "the last step must carry the concentrated flux")
     check_refused(lambda: last.propagate(PREFIX + "CF"), "no following step",
                   "propagating from the last step must be refused")
+    # The controller would skip a following step that does not take the load type, so the propagation is refused
+    frequency = PREFIX + "Frequency"
+    pmx.model.steps.add_frequency(frequency)
+    try:
+        check_refused(lambda: loads.propagate(PREFIX + "P"), frequency,
+                      "propagating into a step that does not take the load type must be refused")
+        check(not following.contains(PREFIX + "P"), "the refused propagation was recorded")
+    finally:
+        pmx.model.steps.remove([frequency])
+
+
+def test_complex_phase():
+    # A steady state dynamics step makes its loads complex, and only a complex load takes a phase
+    steps = pmx.model.steps
+    name = PREFIX + "SteadyState"
+    steps.add_steady_state_dynamics(name)
+    try:
+        # The step is found without regard to case, and its loads are recorded under the name the model uses
+        loads = steps[name.lower()].loads
+        check(loads.step_name == name, "unexpected step name " + loads.step_name)
+        loads.add_concentrated_force(PREFIX + "FC", node_selection([1]), f1=1, phase_deg=30)
+        check(loads.contains(PREFIX + "FC"), "a load with a phase was not added to a complex step")
+        load = loads.replace_concentrated_force(PREFIX + "FC", phase_deg="=15 * 2")
+        check("phase_deg" in load.get_equations(), "the phase was not replaced: " + str(load.get_equations()))
+    finally:
+        steps.remove([name])
 
 
 def main():
@@ -395,6 +466,7 @@ def main():
     test_thermal_loads()
     test_collection_verbs()
     test_propagate()
+    test_complex_phase()
     clean()
     if pmx.model.parameters.contains(PREFIX + "p"):
         pmx.model.parameters.remove([PREFIX + "p"])

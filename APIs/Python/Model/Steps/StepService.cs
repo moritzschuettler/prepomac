@@ -42,11 +42,17 @@ namespace APIs.Python.Model
         {
             return _modelResolver.GetModel().StepCollection.GetStepNames();
         }
+        // The step collection matches a name exactly, while the API compares names the way every other model
+        // collection keys them, so the step is found here and its own name is what goes on to the controller
         public Step GetStep(string name)
         {
             if (name == null) return null;
             //
-            return _modelResolver.GetModel().StepCollection.GetStep(name);
+            foreach (Step step in _modelResolver.GetModel().StepCollection.StepsList)
+            {
+                if (PythonNameComparer.AreSame(step.Name, name)) return step;
+            }
+            return null;
         }
         public Step ResolveStep(string name)
         {
@@ -54,6 +60,13 @@ namespace APIs.Python.Model
             if (step == null) throw new PythonAPIException("The step '" + name + "' does not exist.");
             //
             return step;
+        }
+        public string[] ResolveStepNames(string[] names)
+        {
+            string[] stepNames = new string[names.Length];
+            for (int i = 0; i < names.Length; i++) stepNames[i] = ResolveStep(names[i]).Name;
+            //
+            return stepNames;
         }
         // The step type cannot change on a replace, the same way the dialog only edits the type it opened
         public TStep CloneForReplace<TStep>(string name, string itemType) where TStep : Step
@@ -83,30 +96,55 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, Step step)
         {
-            ValidateName(step.Name, oldName);
+            string stepName = ResolveStep(oldName).Name;
+            ValidateName(step.Name, stepName);
             //
             EnsureCommandsAvailable();
-            _modelGateway.ReplaceStep(oldName, step);
+            _modelGateway.ReplaceStep(stepName, step);
         }
         public void Duplicate(string[] names)
         {
+            string[] stepNames = ResolveStepNames(names);
+            //
             EnsureCommandsAvailable();
-            _modelGateway.DuplicateSteps(names);
+            _modelGateway.DuplicateSteps(stepNames);
         }
         public void Remove(string[] names)
         {
+            string[] stepNames = ResolveStepNames(names);
+            //
             EnsureCommandsAvailable();
-            _modelGateway.RemoveSteps(names);
+            _modelGateway.RemoveSteps(stepNames);
         }
         public void Move(string[] names, int targetIndex)
         {
+            // The model refuses a step named twice only after the command is recorded
+            for (int i = 0; i < names.Length; i++)
+            {
+                for (int j = i + 1; j < names.Length; j++)
+                {
+                    if (PythonNameComparer.AreSame(names[i], names[j]))
+                        throw new PythonAPIException("The argument 'names' names the step '" + names[j] + "' more " +
+                                                     "than once.");
+                }
+            }
+            string[] stepNames = ResolveStepNames(names);
             // The target index is evaluated after the moved steps have been removed
-            int count = GetNames().Length - names.Length;
+            int count = GetNames().Length - stepNames.Length;
             if (targetIndex < 0 || targetIndex > count)
                 throw new PythonAPIException("The argument 'target_index' must be between 0 and " + count + ".");
             //
             EnsureCommandsAvailable();
-            _modelGateway.MoveSteps(names, targetIndex);
+            _modelGateway.MoveSteps(stepNames, targetIndex);
+        }
+        // The dialog checks the modes against the active cyclic symmetry before it records the step
+        public void EnsureCyclicSymmetryModesValid(FrequencyStep step)
+        {
+            EnsureCommandsAvailable();
+            string error = _modelGateway.GetCyclicSymmetryModesError(step);
+            if (error != null)
+                throw new PythonAPIException("The arguments 'cyclic_symmetry_mode_min' and 'cyclic_symmetry_mode_max' " +
+                                             "do not fit the cyclic symmetry of the model: " + error);
         }
         public void SetActive(NamedClass[] items, bool active)
         {
@@ -123,7 +161,7 @@ namespace APIs.Python.Model
         }
         public void SetControls(string stepName, object parameters)
         {
-            ResolveStep(stepName);
+            string resolvedStepName = ResolveStep(stepName).Name;
             StepControls stepControls = new StepControls();
             if (parameters != null)
             {
@@ -135,7 +173,7 @@ namespace APIs.Python.Model
             }
             //
             EnsureCommandsAvailable();
-            _modelGateway.ReplaceStepControls(stepName, stepControls);
+            _modelGateway.ReplaceStepControls(resolvedStepName, stepControls);
         }
         public string[] GetControlTypeNames(string stepName)
         {

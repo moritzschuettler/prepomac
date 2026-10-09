@@ -124,7 +124,7 @@ def check_status(client):
     check("status" in result["methods"], "status must name itself")
     check("shutdown" in result["methods"], "status must name shutdown")
     check(result["requestTimeout"] >= 5, "the request timeout must be a usable value")
-    # status runs on the user interface thread, so it also answers the idle question
+    # status asks the user interface thread for the busy reason, so it also answers the idle question
     check("isIdle" in result, "status must report whether the application is idle")
     check(result["isIdle"], "the application must be idle during this test: " + result["busyReason"])
     check(result["busyReason"] == "", "an idle application must give no reason: " + result["busyReason"])
@@ -360,7 +360,8 @@ def check_screenshot(client):
     result = client.result("screenshot")
     check(result["fileName"].endswith(".png"), "a screenshot must be a png: " + result["fileName"])
     check(os.path.exists(result["fileName"]), "the file must exist: " + result["fileName"])
-    print("screenshot: " + result["fileName"] + ", " + result["length"] + " bytes")
+    check(isinstance(result["length"], int) and result["length"] > 0, "the length must be a number: " + str(result))
+    print("screenshot: " + result["fileName"] + ", " + str(result["length"]) + " bytes")
     os.remove(result["fileName"])
     # Only a png is accepted
     error = client.error("screenshot", {"file_name": "viewport.jpg"})
@@ -369,7 +370,7 @@ def check_screenshot(client):
     result = client.result("screenshot", {"transparent_background": True, "magnification": 2})
     check(os.path.exists(result["fileName"]), "the transparent file must exist: " + result["fileName"])
     check(not result["isEmpty"], "the transparent file must not be empty: " + result["fileName"])
-    print("screenshot: transparent and magnified, " + result["length"] + " bytes")
+    print("screenshot: transparent and magnified, " + str(result["length"]) + " bytes")
     os.remove(result["fileName"])
     error = client.error("screenshot", {"magnification": 9})
     check(error["code"] == INVALID_PARAMS, "a magnification of 9 must be refused: " + str(error))
@@ -382,7 +383,9 @@ def check_second_connection():
         check_ping(first)
         check_ping(second)
         result = second.result("status")
-        check(result["connectionCount"] == 2, "two connections must be counted: " + str(result["connectionCount"]))
+        check(result["pipeConnectionCount"] == 2,
+              "two connections must be counted: " + str(result["pipeConnectionCount"]))
+        check(result["connectionCount"] >= 2, "the pipe connections must be in the count: " + str(result["connectionCount"]))
         print("connections: two clients served at once")
     finally:
         second.close()

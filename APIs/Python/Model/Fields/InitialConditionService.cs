@@ -59,7 +59,8 @@ namespace APIs.Python.Model
             if (name == null)
                 throw new PythonAPIException("The argument 'distribution_name' must be a string.");
             //
-            if (name == Distribution.DefaultDistributionName) return name;
+            if (PythonNameComparer.AreSame(name, Distribution.DefaultDistributionName))
+                return Distribution.DefaultDistributionName;
             //
             Distribution distribution;
             if (!ModelResolver.GetModel().Distributions.TryGetValue(name, out distribution))

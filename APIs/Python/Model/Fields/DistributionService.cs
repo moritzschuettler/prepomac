@@ -134,7 +134,7 @@ namespace APIs.Python.Model
         {
             ValidateNewName(name, null);
             DistributionFromFile distribution = new DistributionFromFile(name);
-            distribution.FileName = ResolveDistributionFileName(fileName);
+            ImportFile(distribution, fileName);
             ApplyMappedValues(distribution, interpolatorType, interpolatorRadius, scale, translate);
             //
             return distribution;
@@ -151,7 +151,13 @@ namespace APIs.Python.Model
             ValidateNewName(newName, oldName);
             DistributionFromFile distribution = (DistributionFromFile)existing.DeepClone();
             distribution.Name = newName;
-            if (fileName != null) distribution.FileName = ResolveDistributionFileName(fileName);
+            if (fileName != null)
+            {
+                ImportFile(distribution, fileName);
+                if (distribution.DistributionType != existing.DistributionType)
+                    EnsureUnused(existing, "change it from a " + existing.DistributionType + " to a " +
+                                           distribution.DistributionType + " distribution");
+            }
             ApplyMappedValues(distribution, interpolatorType, interpolatorRadius, scale, translate);
             //
             return distribution;
@@ -186,6 +192,12 @@ namespace APIs.Python.Model
                 distribution.TranslateY.Equation = values[1];
                 distribution.TranslateZ.Equation = values[2];
             }
+        }
+        // Setting the file name imports the file, which decides whether the distribution is a scalar or a vector
+        private static void ImportFile(DistributionFromFile distribution, string fileName)
+        {
+            string fullFileName = ResolveDistributionFileName(fileName);
+            PythonModelArgumentCheck.Apply(() => distribution.FileName = fullFileName, "file_name");
         }
         private static string ResolveDistributionFileName(string fileName)
         {

@@ -114,6 +114,7 @@ namespace APIs.Python
         }
         public PartAPI GetPart(string resultName, string partName)
         {
+            RequireName(partName, "part");
             FeResults result = ResolveResultWithMesh(resultName);
             if (!result.Mesh.Parts.ContainsKey(partName))
                 throw new PythonAPIException("The part '" + partName + "' does not exist in result '" + resultName + "'.");
@@ -121,6 +122,7 @@ namespace APIs.Python
         }
         public PartData GetPartData(string resultName, string partName)
         {
+            RequireName(partName, "part");
             FeResults result = ResolveResultWithMesh(resultName);
             BasePart part;
             if (!result.Mesh.Parts.TryGetValue(partName, out part))
@@ -130,6 +132,7 @@ namespace APIs.Python
         }
         public BasePart GetPartObject(string resultName, string partName)
         {
+            RequireName(partName, "part");
             FeResults result = ResolveResultWithMesh(resultName);
             BasePart part;
             if (!result.Mesh.Parts.TryGetValue(partName, out part))
@@ -225,6 +228,7 @@ namespace APIs.Python
         }
         private FeNodeSet ResolveUserNodeSet(string resultName, string nodeSetName)
         {
+            RequireName(nodeSetName, "node set");
             FeResults result = ResolveResultWithMesh(resultName);
             FeNodeSet nodeSet;
             if (!result.Mesh.NodeSets.TryGetValue(nodeSetName, out nodeSet) || nodeSet.Internal)
@@ -234,6 +238,7 @@ namespace APIs.Python
         }
         private FeElementSet ResolveUserElementSet(string resultName, string elementSetName)
         {
+            RequireName(elementSetName, "element set");
             FeResults result = ResolveResultWithMesh(resultName);
             FeElementSet elementSet;
             if (!result.Mesh.ElementSets.TryGetValue(elementSetName, out elementSet) || elementSet.Internal)
@@ -243,12 +248,17 @@ namespace APIs.Python
         }
         private FeSurface ResolveUserSurface(string resultName, string surfaceName)
         {
+            RequireName(surfaceName, "surface");
             FeResults result = ResolveResultWithMesh(resultName);
             FeSurface surface;
             if (!result.Mesh.Surfaces.TryGetValue(surfaceName, out surface) || surface.Internal)
                 throw new PythonAPIException("The user-visible surface '" + surfaceName +
                                              "' does not exist in result '" + resultName + "'.");
             return surface;
+        }
+        private static void RequireName(string name, string itemDescription)
+        {
+            if (name == null) throw new PythonAPIException("The " + itemDescription + " name must not be None.");
         }
     }
 }

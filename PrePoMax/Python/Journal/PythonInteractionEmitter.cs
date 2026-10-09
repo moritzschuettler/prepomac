@@ -49,12 +49,13 @@ namespace PrePoMax.Python.Journal
             arguments.Add(master);
             arguments.Add(slave);
             arguments.Add("method=" + PythonValueFormatter.Text(contactPair.Method.ToString()));
-            // SurfaceToSurface clears small sliding, so an add leaves it out there; a replace keeps the small
-            // sliding it is not given and refuses SurfaceToSurface over a kept one, so it always writes it
-            bool isSurfaceToSurface = contactPair.Method == ContactPairMethod.SurfaceToSurface;
-            if (oldName != null || !isSurfaceToSurface)
+            // Only NodeToSurface takes small sliding, so an add leaves it out for the other methods; a replace
+            // keeps the small sliding it is not given and refuses another method over a kept one, so it always
+            // writes it
+            bool isNodeToSurface = contactPair.Method == ContactPairMethod.NodeToSurface;
+            if (oldName != null || isNodeToSurface)
                 arguments.Add("small_sliding=" +
-                              PythonValueFormatter.Format(!isSurfaceToSurface && contactPair.SmallSliding));
+                              PythonValueFormatter.Format(isNodeToSurface && contactPair.SmallSliding));
             arguments.Add("adjust=" + PythonValueFormatter.Format(contactPair.Adjust));
             if (contactPair.Adjust)
                 arguments.Add("adjustment_size=" + PythonValueFormatter.Number(contactPair.AdjustmentSize));
@@ -125,7 +126,7 @@ namespace PrePoMax.Python.Journal
                                                         JointCenterDefinitionEnum.Coordinates.ToString()));
                 if (!centerFromMasterSurface) arguments.Add("center=" + Point(joint.X, joint.Y, joint.Z));
                 arguments.Add("axis_defined_by=" + PythonValueFormatter.Text(joint.AxisDefinition.ToString()));
-                if (joint.AxisDefinition == JointDefinitionEnum.UserDefined)
+                if (joint.HasAxis && joint.AxisDefinition == JointDefinitionEnum.UserDefined)
                     arguments.Add("axis_direction=" + Point(joint.N1, joint.N2, joint.N3));
                 arguments.Add("formulation=" + PythonValueFormatter.Text(joint.Formulation.ToString()));
                 if (joint.HasSprings)
@@ -247,15 +248,23 @@ namespace PrePoMax.Python.Journal
                                                 "conductance_table=" +
                                                 Table(gapConductance.ConductnancePressureTemp));
             if (property is SurfaceBehavior surfaceBehavior)
-                return PythonJournalWriter.Join("pmx.create.surface_behavior",
-                                                PythonValueFormatter.Text(
-                                                    surfaceBehavior.PressureOverclosureType.ToString()),
-                                                "c0=" + PythonValueFormatter.Number(surfaceBehavior.C0),
-                                                "p0=" + PythonValueFormatter.Number(surfaceBehavior.P0),
-                                                "k=" + PythonValueFormatter.Number(surfaceBehavior.K),
-                                                "s_inf=" + PythonValueFormatter.Number(surfaceBehavior.Sinf),
-                                                "pressure_overclosure=" +
-                                                Table(surfaceBehavior.PressureOverclosure));
+            {
+                // pmx.create refuses a value the pressure overclosure type does not use
+                PressureOverclosureEnum type = surfaceBehavior.PressureOverclosureType;
+                List<string> arguments = new List<string>();
+                arguments.Add(PythonValueFormatter.Text(type.ToString()));
+                if (type == PressureOverclosureEnum.Linear || type == PressureOverclosureEnum.Exponential)
+                    arguments.Add("c0=" + PythonValueFormatter.Number(surfaceBehavior.C0));
+                if (type == PressureOverclosureEnum.Exponential)
+                    arguments.Add("p0=" + PythonValueFormatter.Number(surfaceBehavior.P0));
+                if (type == PressureOverclosureEnum.Linear || type == PressureOverclosureEnum.Tied)
+                    arguments.Add("k=" + PythonValueFormatter.Number(surfaceBehavior.K));
+                if (type == PressureOverclosureEnum.Linear)
+                    arguments.Add("s_inf=" + PythonValueFormatter.Number(surfaceBehavior.Sinf));
+                if (type == PressureOverclosureEnum.Tabular)
+                    arguments.Add("pressure_overclosure=" + Table(surfaceBehavior.PressureOverclosure));
+                return PythonJournalWriter.Join("pmx.create.surface_behavior", arguments.ToArray());
+            }
             //
             throw new NotSupportedException("the surface interaction property " + property.GetType().Name +
                                             " has no pmx.create maker");

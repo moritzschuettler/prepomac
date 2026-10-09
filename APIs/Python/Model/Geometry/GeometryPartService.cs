@@ -10,7 +10,6 @@
 using CaeGlobals;
 using CaeMesh;
 using System.Collections.Generic;
-using System.Linq;
 using System.Drawing;
 
 namespace APIs.Python.Model
@@ -130,32 +129,30 @@ namespace APIs.Python.Model
             CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
             if (compoundPart == null || !compoundPart.CreatedBySplit)
                 throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split.");
-            if (!compoundPart.GetSplitSubPartNames().Contains(oldName))
+            string storedOldName = FindName(compoundPart.GetSplitSubPartNames(), oldName);
+            if (storedOldName == null)
                 throw new PythonAPIException("The compound part '" + partName + "' has no sub-part named '" +
                                              oldName + "'.");
-            if (newName == null || newName.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'new_name' must not be empty.");
-            string error = NamedClass.CheckNameError(newName, null);
-            if (error != null) throw new PythonAPIException("The argument 'new_name' is not valid: " + error);
+            PythonNameComparer.ValidateFormat(newName, "new_name", storedOldName);
             // The names are compared the way the tree compares them, so two that differ in case only clash
             HashSet<string> reservedNames = ModelResolver.GetModel().GetReservedPartNames();
-            if (!string.Equals(newName, oldName, System.StringComparison.OrdinalIgnoreCase) &&
-                reservedNames.Contains(newName))
+            if (!PythonNameComparer.AreSame(newName, storedOldName) && reservedNames.Contains(newName))
                 throw new PythonAPIException("The name '" + newName + "' is already used by another part.");
             //
             EnsureCommandsAvailable();
-            MeshGateway.RenameSplitSubPart(partName, oldName, newName);
+            MeshGateway.RenameSplitSubPart(partName, storedOldName, newName);
         }
         public string[] GetSplitCellNames(string partName, string subPartName)
         {
             CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
             if (compoundPart == null || !compoundPart.CreatedBySplit)
                 throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split.");
-            if (!compoundPart.GetSplitSubPartNames().Contains(subPartName))
+            string storedSubPartName = FindName(compoundPart.GetSplitSubPartNames(), subPartName);
+            if (storedSubPartName == null)
                 throw new PythonAPIException("The compound part '" + partName + "' has no sub-part named '" +
                                              subPartName + "'.");
             //
-            return compoundPart.GetCellNames(subPartName);
+            return compoundPart.GetCellNames(storedSubPartName);
         }
         public string GroupSplitCells(string partName, object cellNames, string subPartName)
         {
@@ -165,27 +162,20 @@ namespace APIs.Python.Model
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(cellNames, "cell_names");
             if (names == null || names.Length == 0)
                 throw new PythonAPIException("The argument 'cell_names' must name at least one cell.");
-            foreach (string name in names)
-            {
-                if (!compoundPart.SubPartNames.Contains(name))
-                    throw new PythonAPIException("The argument 'cell_names' names '" + name + "', which is not a " +
-                                                 "cell of the compound part '" + partName + "'.");
-            }
-            if (names.Distinct().Count() != names.Length)
-                throw new PythonAPIException("The argument 'cell_names' names a cell more than once.");
+            string[] storedNames = ResolveBodyNames(names, compoundPart.SubPartNames, null, "cell_names", "cell",
+                                                    partName);
+            string storedSubPartName = subPartName;
             if (subPartName != null)
             {
-                if (subPartName.Trim().Length == 0)
-                    throw new PythonAPIException("The argument 'sub_part_name' must not be empty.");
-                string error = NamedClass.CheckNameError(subPartName, null);
-                if (error != null) throw new PythonAPIException("The argument 'sub_part_name' is not valid: " + error);
-                if (!compoundPart.GetSplitSubPartNames().Contains(subPartName) &&
-                    ModelResolver.GetModel().GetReservedPartNames().Contains(subPartName))
+                string existingSubPartName = FindName(compoundPart.GetSplitSubPartNames(), subPartName);
+                PythonNameComparer.ValidateFormat(subPartName, "sub_part_name", existingSubPartName);
+                if (existingSubPartName != null) storedSubPartName = existingSubPartName;
+                else if (ModelResolver.GetModel().GetReservedPartNames().Contains(subPartName))
                     throw new PythonAPIException("The name '" + subPartName + "' is already used by another part.");
             }
             //
             EnsureCommandsAvailable();
-            return MeshGateway.GroupSplitCells(partName, names, subPartName);
+            return MeshGateway.GroupSplitCells(partName, storedNames, storedSubPartName);
         }
         public string FuseBodies(string partName, object bodyNames)
         {
@@ -195,18 +185,12 @@ namespace APIs.Python.Model
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(bodyNames, "body_names");
             if (names == null || names.Length == 0)
                 throw new PythonAPIException("The argument 'body_names' must name at least one sub-part or cell.");
-            string[] subPartNames = compoundPart.GetSplitSubPartNames();
-            foreach (string name in names)
-            {
-                if (!compoundPart.SubPartNames.Contains(name) && !subPartNames.Contains(name))
-                    throw new PythonAPIException("The argument 'body_names' names '" + name + "', which is not a " +
-                                                 "sub-part or a cell of the compound part '" + partName + "'.");
-            }
-            if (names.Distinct().Count() != names.Length)
-                throw new PythonAPIException("The argument 'body_names' names a body more than once.");
+            string[] storedNames = ResolveBodyNames(names, compoundPart.SubPartNames,
+                                                    compoundPart.GetSplitSubPartNames(), "body_names",
+                                                    "sub-part or a cell", partName);
             //
             EnsureCommandsAvailable();
-            return MeshGateway.FuseBodies(partName, names);
+            return MeshGateway.FuseBodies(partName, storedNames);
         }
         public Dictionary<string, int> Defeature(SelectionAPI selection)
         {
@@ -217,7 +201,7 @@ namespace APIs.Python.Model
         public string[] OffsetFace(SelectionAPI selection, object offset)
         {
             GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
-            double offsetValue = offset == null ? 0 : PythonValueConverter.ToDouble(offset, "offset");
+            double offsetValue = offset == null ? 0 : PythonValueConverter.ToFiniteDouble(offset, "offset");
             EnsureCommandsAvailable();
             return MeshGateway.OffsetFace(geometrySelection, offsetValue);
         }
@@ -258,11 +242,43 @@ namespace APIs.Python.Model
                                                              entry.Value.Points));
             return previews;
         }
+        // The stored spelling of a name, compared the way the model compares names, or null
+        private static string FindName(IEnumerable<string> names, string name)
+        {
+            if (name == null) return null;
+            //
+            foreach (string existingName in names)
+            {
+                if (PythonNameComparer.AreSame(existingName, name)) return existingName;
+            }
+            return null;
+        }
+        // The stored spelling of every named body, each one at most once however it is spelled
+        private static string[] ResolveBodyNames(string[] names, string[] cellNames, string[] subPartNames,
+                                                 string argumentName, string bodyDescription, string partName)
+        {
+            string[] storedNames = new string[names.Length];
+            HashSet<string> usedNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < names.Length; i++)
+            {
+                string storedName = FindName(cellNames, names[i]);
+                if (storedName == null && subPartNames != null) storedName = FindName(subPartNames, names[i]);
+                if (storedName == null)
+                    throw new PythonAPIException("The argument '" + argumentName + "' names '" + names[i] + "', which " +
+                                                 "is not a " + bodyDescription + " of the compound part '" + partName +
+                                                 "'.");
+                if (!usedNames.Add(storedName.Trim()))
+                    throw new PythonAPIException("The argument '" + argumentName + "' names '" + names[i] + "' more " +
+                                                 "than once.");
+                storedNames[i] = storedName;
+            }
+            return storedNames;
+        }
         private static void CheckRepair(GeometryRepair geometryRepair, object tolerance)
         {
             if (tolerance != null)
             {
-                geometryRepair.Tolerance = PythonValueConverter.ToDouble(tolerance, "tolerance");
+                geometryRepair.Tolerance = PythonValueConverter.ToFiniteDouble(tolerance, "tolerance");
                 if (geometryRepair.Tolerance <= 0)
                     throw new PythonAPIException("The argument 'tolerance' must be larger than zero.");
             }

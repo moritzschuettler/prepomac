@@ -24,13 +24,15 @@ namespace APIs.Python.Model
             get { return _service.GetModelName(); }
             set { _service.SetModelName(value); }
         }
-        [PythonAPI("The model space: ThreeD, PlaneStress, PlaneStrain or Axisymmetric.", Returns = "str")]
+        [PythonAPI("The model space: ThreeD, PlaneStress, PlaneStrain or Axisymmetric; Undefined is refused.",
+                   Returns = "str")]
         public string model_space
         {
             get { return _service.GetModelSpace(); }
             set { _service.SetModelSpaceAndUnitSystem(value, null); }
         }
-        [PythonAPI("The unit system: M_KG_S_C, MM_TON_S_C, M_TON_S_C, IN_LB_S_F or UNIT_LESS.", Returns = "str")]
+        [PythonAPI("The unit system: M_KG_S_C, MM_TON_S_C, M_TON_S_C, IN_LB_S_F or UNIT_LESS; Undefined is " +
+                   "refused.", Returns = "str")]
         public string unit_system
         {
             get { return _service.GetUnitSystem(); }

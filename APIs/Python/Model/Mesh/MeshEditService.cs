@@ -92,7 +92,7 @@ namespace APIs.Python.Model
             mergeCoincidentNodes.GeometryIds = compilation.Ids;
             mergeCoincidentNodes.CreationData = compilation.Selection;
             if (tolerance != null)
-                mergeCoincidentNodes.Tolerance = PythonValueConverter.ToDouble(tolerance, "tolerance");
+                mergeCoincidentNodes.Tolerance = PythonValueConverter.ToFiniteDouble(tolerance, "tolerance");
             if (nodesToKeep != null)
                 mergeCoincidentNodes.NodesToKeep =
                     PythonValueConverter.ToEnum<NodesToKeepEnum>(nodesToKeep, "nodes_to_keep");
@@ -105,8 +105,15 @@ namespace APIs.Python.Model
         {
             // An element set name also takes the characters FeElementSet adds to the ones every name may contain
             PythonNameComparer.ValidateFormat(name, "name", null, new HashSet<char>() { '@' });
-            if (metric == null || metric.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'metric' must not be empty.");
+            // An element set shares the name space with the other mesh entities
+            foreach (string existingName in _modelResolver.GetAllMeshEntityNames())
+            {
+                if (PythonNameComparer.AreSame(name, existingName))
+                    throw new PythonAPIException("The name '" + name + "' is already used by another model item.");
+            }
+            // The canonical spelling is what gmsh is asked for
+            string metricName = PythonValueConverter.ToEnum<GmshElementQualityMetricEnum>(metric, "metric").ToString();
+            double limitValue = PythonValueConverter.ToFiniteDouble(limit, "limit");
             //
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(partNames, "part_names");
             if (names == null || names.Length == 0)
@@ -120,8 +127,7 @@ namespace APIs.Python.Model
             }
             //
             EnsureCommandsAvailable();
-            _meshGateway.CreateElementSetFromElementQuality(name, metric, names, largerThan,
-                                                            PythonValueConverter.ToDouble(limit, "limit"));
+            _meshGateway.CreateElementSetFromElementQuality(name, metricName, names, largerThan, limitValue);
         }
         //
         private static void ValidateStartId(int startId)

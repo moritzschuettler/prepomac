@@ -38,6 +38,7 @@ namespace PrePoMax.Rpc
         private readonly RpcUiThread _uiThread;
         private readonly object _connectionLock;
         private readonly object _listenerLock;
+        private readonly object _sessionFileLock;
         private readonly List<RpcSession> _sessions;
         private readonly Mcp.McpHttpServer _httpServer;
         private string _pipeName;
@@ -62,11 +63,23 @@ namespace PrePoMax.Rpc
         public string LastError { get { return _lastError; } }
         public Controller Controller { get { return _controller; } }
         public FrmMain Form { get { return _form; } }
-        public int ConnectionCount
+        // The clients connected now. A pipe client holds a connection; an MCP client holds none between
+        // requests, so it counts as one while a request of its own is in flight or has arrived recently
+        public int ConnectionCount { get { return PipeConnectionCount + (_httpServer.IsClientActive ? 1 : 0); } }
+        public int PipeConnectionCount
         {
             get
             {
                 lock (_connectionLock) return _sessions.Count;
+            }
+        }
+        // The model file this session has open, as list_sessions and status report it
+        public string ModelFileName
+        {
+            get
+            {
+                if (_form != null) return _form.AutomationModelFileName;
+                return _controller == null ? null : _controller.OpenedFileName;
             }
         }
         // The command line asks for read only for the whole run; the setting is the user's own choice,
@@ -116,6 +129,7 @@ namespace PrePoMax.Rpc
             _dispatcher = new RpcDispatcher(this);
             _connectionLock = new object();
             _listenerLock = new object();
+            _sessionFileLock = new object();
             _sessions = new List<RpcSession>();
             _httpServer = new Mcp.McpHttpServer(this);
             _pipeName = null;
@@ -138,20 +152,52 @@ namespace PrePoMax.Rpc
             // The endpoint is opened first, so that a port which cannot be had leaves nothing running
             // and nothing to stop: the caller is told, and a manual start says so in a dialog
             _httpServer.Start();
-            //
-            _pipeName = RpcSessionInfoWriter.GetPipeName();
-            _startTime = DateTime.Now;
-            _isStopping = false;
-            _isRunning = true;
-            //
-            _listener = new Thread(Listen);
-            _listener.IsBackground = true;
-            _listener.Name = "PrePoMax automation server";
-            _listener.Start();
-            //
-            RpcSessionInfoWriter.Write(_controller == null ? null : _controller.OpenedFileName, _startTime,
-                                       _httpServer.EndpointUrl, _httpServer.Port, _httpServer.AccessToken);
+            // Anything that fails after that - the pipe thread, the session file - takes down what was
+            // already started, so a failed start never leaves a front open that nothing reports
+            try
+            {
+                _pipeName = RpcSessionInfoWriter.GetPipeName();
+                _startTime = DateTime.Now;
+                _isStopping = false;
+                _isRunning = true;
+                //
+                _listener = new Thread(Listen);
+                _listener.IsBackground = true;
+                _listener.Name = "PrePoMax automation server";
+                _listener.Start();
+                //
+                lock (_sessionFileLock) WriteSessionFile();
+            }
+            catch (Exception)
+            {
+                Stop();
+                _httpServer.Stop();
+                throw;
+            }
             OnStateChanged();
+        }
+        // The session file names the open model, and a model is opened, saved under another name or
+        // closed long after the server started - a hidden session is given its model with -f only once
+        // the server is already up - so the file is written again whenever that name changes
+        public void UpdateSessionFile()
+        {
+            try
+            {
+                lock (_sessionFileLock)
+                {
+                    if (!_isRunning) return;
+                    WriteSessionFile();
+                }
+            }
+            catch (Exception exception)
+            {
+                ReportError("The session file of the automation server could not be updated: " + exception.Message);
+            }
+        }
+        private void WriteSessionFile()
+        {
+            RpcSessionInfoWriter.Write(ModelFileName, _startTime, _httpServer.EndpointUrl, _httpServer.Port,
+                                       _httpServer.AccessToken);
         }
         public void Stop()
         {
@@ -166,7 +212,7 @@ namespace PrePoMax.Rpc
             foreach (RpcSession session in sessions) session.Close();
             //
             _httpServer.Stop();
-            RpcSessionInfoWriter.Remove();
+            lock (_sessionFileLock) RpcSessionInfoWriter.Remove();
             _pipeName = null;
             OnStateChanged();
         }
@@ -321,6 +367,11 @@ namespace PrePoMax.Rpc
             thread.IsBackground = true;
             thread.Name = "PrePoMax automation session";
             thread.Start();
+        }
+        // For the endpoint, whose clients are counted by their requests rather than their connections
+        public void NotifyStateChanged()
+        {
+            OnStateChanged();
         }
         private void OnStateChanged()
         {

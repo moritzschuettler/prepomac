@@ -142,6 +142,7 @@
     <Compile Include="Mcp\McpHttpRequestHandler.cs" />
     <Compile Include="Mcp\McpHttpServer.cs" />
     <Compile Include="Mcp\McpModelScript.cs" />
+    <Compile Include="Mcp\McpPrivateScript.cs" />
     <Compile Include="Mcp\McpTopologyScript.cs" />
     <Compile Include="Mcp\McpAgentGuide.cs" />
     <Compile Include="Mcp\McpProtocolServer.cs" />
@@ -156,6 +157,8 @@
     <Compile Include="Rpc\RpcRunningCall.cs" />
     <Compile Include="Rpc\RpcUiThread.cs" />
     <Compile Include="Rpc\RpcDescribeBuilder.cs" />
+    <Compile Include="Rpc\RpcDescribePath.cs" />
+    <Compile Include="Rpc\RpcStartException.cs" />
     <Compile Include="Rpc\RpcApiTypeLocator.cs" />
     <Compile Include="Rpc\RpcMethods\RpcHistoryMethod.cs" />
     <Compile Include="Rpc\RpcMethods\RpcScreenshotMethod.cs" />
@@ -1505,6 +1508,10 @@ IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licen
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\OCCT_LGPL_EXCEPTION.txt" "$(TargetDir)Meshers\Netgen\OCCT_LGPL_EXCEPTION.txt"
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\LGPL-2.1-pthreads-win32.txt" "$(TargetDir)Meshers\Netgen\LGPL-2.1-pthreads-win32.txt"
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\ZLIB-LICENSE.txt" "$(TargetDir)Meshers\Netgen\ZLIB-LICENSE.txt"
+
+rem The agent skill travels with the application, so a client project copies it from next to PrePoMax.exe
+IF NOT EXIST "$(TargetDir)AgentSkill\prepomax\" mkdir "$(TargetDir)AgentSkill\prepomax\"
+copy "$(SolutionDir)AgentSkill\prepomax\SKILL.md" "$(TargetDir)AgentSkill\prepomax\SKILL.md"
 
 IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
 

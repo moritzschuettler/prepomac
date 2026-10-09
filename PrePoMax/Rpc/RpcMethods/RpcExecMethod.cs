@@ -66,7 +66,8 @@ namespace PrePoMax.Rpc
             writer.EndObject();
             return writer.ToString();
         }
-        // A call cancelled while it waited for the application to be idle does not start its Python
+        // A call cancelled while it waited for the application to be idle does not start its Python. One cancelled
+        // after this check, while it waits for the GIL, is interrupted by the engine as its Python starts
         public static bool IsCancelledBeforeStart()
         {
             RpcRunningCall call = RpcRunningCall.Current;

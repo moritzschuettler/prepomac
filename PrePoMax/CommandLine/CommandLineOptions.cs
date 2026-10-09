@@ -29,8 +29,9 @@ namespace PrePoMax
         public string FileName { get; set; }
         // Gui
         [Option('g', "showGui", Required = false, Default ="Yes", HelpText = "Show graphical user interface: Yes | No. " +
-                                                                             "No can only be used for regeneration or for " +
-                                                                             "running a script.")]
+                                                                             "No runs without a window and can only be used " +
+                                                                             "for regeneration, for running a script or with " +
+                                                                             "the automation server (--rpc On or ReadOnly).")]
         public string ShowGui { get; set; }
         // Script
         [Option("script", Required = false, HelpText = "The Python script file name to be executed after the application " +
@@ -71,7 +72,8 @@ namespace PrePoMax
                                                                      "this session: On | ReadOnly | Off. ReadOnly refuses " +
                                                                      "every call that would change the model. The MCP " +
                                                                      "endpoint listens on this computer only and needs the " +
-                                                                     "access token of the session.")]
+                                                                     "access token of the session. With -g No the run " +
+                                                                     "exits with code 1 when the server cannot start.")]
         public string Rpc { get; set; }
         // Automation server port
         [Option("rpcPort", Required = false, Default = 0, HelpText = "The port the MCP endpoint listens on, instead of the " +
@@ -227,6 +229,12 @@ namespace PrePoMax
                 if (gui == "YES") cmdOptions.ShowGui = "Yes";        // fix all caps and spaces
                 else if (gui == "NO") cmdOptions.ShowGui = "No";     // fix all caps and spaces
                 else throw new CaeException("Show GUI switch can only be set to Yes or No.");
+                // Automation server - normalized before anything below compares it
+                string rpc = cmdOptions.Rpc == null ? "OFF" : cmdOptions.Rpc.ToUpper().Trim();
+                if (rpc == "ON") cmdOptions.Rpc = "On";                    // fix all caps and spaces
+                else if (rpc == "READONLY") cmdOptions.Rpc = "ReadOnly";   // fix all caps and spaces
+                else if (rpc == "OFF") cmdOptions.Rpc = "Off";             // fix all caps and spaces
+                else throw new CaeException("The rpc switch can only be set to On, ReadOnly or Off.");
                 // Overwrite
                 string overwrite = cmdOptions.Overwrite.ToUpper().Trim();
                 if (overwrite == "YES") cmdOptions.Overwrite = "Yes";        // fix all caps and spaces
@@ -356,13 +364,7 @@ namespace PrePoMax
                     if (reportDirectory != null && reportDirectory.Length > 0 && !Directory.Exists(reportDirectory))
                         throw new CaeException("The report directory " + reportDirectory + " does not exist.");
                 }
-                // Automation server
-                string rpc = cmdOptions.Rpc == null ? "OFF" : cmdOptions.Rpc.ToUpper().Trim();
-                if (rpc == "ON") cmdOptions.Rpc = "On";                    // fix all caps and spaces
-                else if (rpc == "READONLY") cmdOptions.Rpc = "ReadOnly";   // fix all caps and spaces
-                else if (rpc == "OFF") cmdOptions.Rpc = "Off";             // fix all caps and spaces
-                else throw new CaeException("The rpc switch can only be set to On, ReadOnly or Off.");
-                // Zero is what says the settings decide, so it is not out of range
+                // Automation server - zero is what says the settings decide, so it is not out of range
                 if (cmdOptions.RpcPort != 0 &&
                     (cmdOptions.RpcPort < AutomationSettings.MinPort || cmdOptions.RpcPort > AutomationSettings.MaxPort))
                 {

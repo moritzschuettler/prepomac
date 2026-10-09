@@ -79,6 +79,12 @@ def test_tie():
                  "replacing a tie by a point spring must be rejected")
     check_raises(lambda: constraints.add_tie(PREFIX + "Tie", surface_selection(1), surface_selection(2)),
                  "a duplicate name must be rejected")
+    # The model refuses a negative position tolerance in words that name no argument
+    message = raised_message(lambda: constraints.replace_tie(PREFIX + "Tie", position_tolerance=-0.01))
+    check(message is not None and "'position_tolerance'" in message,
+          "a negative position tolerance must be refused naming the argument: " + str(message))
+    check(abs(constraints[PREFIX + "Tie"].get_value("position_tolerance") - 0.01) < 1e-12,
+          "a refused replace changed the tie")
 
 
 def test_cyclic_symmetry():
@@ -151,6 +157,16 @@ def test_cyclic_symmetry():
     cs = constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=3, region=element_selection([1]))
     check(cs.get_value("number_of_graph_sectors") == 3, "the graph sector count was not raised")
     check(cs.get_value("region_type") == "ElementSetName", "the expansion region was not set again")
+    # The model would lower the kept graph sectors to fewer sectors on its own, so the merged pair is refused
+    message = raised_message(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_sectors=2))
+    check(message is not None and "'number_of_graph_sectors'" in message,
+          "fewer sectors than the kept graph sectors must be refused naming the graph sectors: " + str(message))
+    message = raised_message(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_sectors=1))
+    check(message is not None and "'number_of_sectors'" in message,
+          "a single sector must be refused naming the argument: " + str(message))
+    check(constraints[PREFIX + "CS"].get_value("number_of_sectors") == 6, "a refused replace changed the sectors")
+    check(constraints[PREFIX + "CS"].get_value("number_of_graph_sectors") == 3,
+          "a refused replace changed the graph sectors")
     constraints.remove([PREFIX + "CS"])
 
 
@@ -208,6 +224,21 @@ def test_joint():
     check_raises(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
                                                center=[0, 0]),
                  "a two value centre must be rejected")
+    # The rigid body formulation has no springs and a ball or a weld has no axis, so those values are refused
+    message = raised_message(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
+                                                           stiffness=5e6))
+    check(message is not None and "'stiffness'" in message,
+          "a stiffness with the rigid body formulation must be refused: " + str(message))
+    message = raised_message(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1), surface_selection(2),
+                                                           formulation="RigidBody", stiffness_defined_by="UserDefined"))
+    check(message is not None and "'stiffness_defined_by'" in message,
+          "a stiffness definition with the rigid body formulation must be refused: " + str(message))
+    for joint_type in ["Ball", "Weld"]:
+        message = raised_message(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1),
+                                                               surface_selection(2), joint_type=joint_type,
+                                                               axis_direction=[0, 0, 1]))
+        check(message is not None and "'axis_direction'" in message,
+              "an axis direction for a " + joint_type + " joint must be refused: " + str(message))
     check(not constraints.contains(PREFIX + "Bad"), "a rejected joint must not be added")
     # Swap works on a joint
     master_before = constraints[PREFIX + "J"].master_region_name
@@ -268,6 +299,16 @@ def test_springs_and_compression_only():
     check(ps.get_equations()["k2"].replace(" ", "") == "=" + PREFIX + "k*2",
           "the k2 equation did not read back: " + str(ps.get_equations()))
     check(ps.get_value("k1") == 100, "k1 must survive a replace")
+    # The model sets a negative stiffness to zero, so it is refused instead, also through an equation
+    for arguments in [{"k1": -100}, {"k3": "-" + PREFIX + "k"}]:
+        message = raised_message(lambda: constraints.replace_point_spring(PREFIX + "PS", **arguments))
+        check(message is not None and "'" + list(arguments)[0] + "'" in message,
+              "a negative spring stiffness must be refused naming the argument: " + str(message))
+    message = raised_message(lambda: constraints.add_surface_spring(PREFIX + "Bad", surface_selection(3), k2=-1))
+    check(message is not None and "'k2'" in message, "a negative surface spring stiffness must be refused: " +
+          str(message))
+    check(not constraints.contains(PREFIX + "Bad"), "a refused spring was added")
+    check(constraints[PREFIX + "PS"].get_value("k1") == 100, "a refused replace changed the spring")
 
 
 def test_collection_verbs():

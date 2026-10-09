@@ -140,6 +140,8 @@ def test_distributions():
                  "the replacement did not keep the three equations of the vector distribution")
     # A distribution read from a file has no equation to keep, so the replacement must be given one
     file_name = os.path.join(tempfile.gettempdir(), "pytest_distribution.txt")
+    vector_file_name = os.path.join(tempfile.gettempdir(), "pytest_distribution_vector.txt")
+    bad_file_name = os.path.join(tempfile.gettempdir(), "pytest_distribution_bad.txt")
     with open(file_name, "w") as writer:
         writer.write("0 0 0 1\n1 0 0 1\n0 1 0 1\n0 0 1 1\n")
     try:
@@ -181,8 +183,40 @@ def test_distributions():
         distribution = distributions.replace_from_equation(PREFIX + "File", equation="1")
         check(distribution.item_type == "from_equation",
               "the file distribution was not replaced by an equation one")
+        # A new file is read again and may turn a scalar distribution into a vector one, which is refused
+        # while an item uses it, the way an equation that does so is
+        with open(vector_file_name, "w") as writer:
+            writer.write("0 0 0 1 2 3\n1 0 0 1 2 3\n0 1 0 1 2 3\n0 0 1 1 2 3\n")
+        with open(bad_file_name, "w") as writer:
+            writer.write("0 0 0 1 2\n1 0 0 1 2\n")
+        distributions.add_from_file(PREFIX + "File_Used", file_name)
+        nodes = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2])
+        pmx.model.initial_conditions.add_temperature(PREFIX + "IC_File", nodes, 20,
+                                                     distribution_name=PREFIX + "File_Used")
+        message = raised_message(lambda: distributions.replace_from_file(PREFIX + "File_Used",
+                                                                         file_name=vector_file_name))
+        check(message is not None and "initial condition " + PREFIX + "IC_File" in message,
+              "a file that makes a used scalar distribution a vector one must be refused: " + str(message))
+        pmx.model.initial_conditions.remove([PREFIX + "IC_File"])
+        distributions.replace_from_file(PREFIX + "File_Used", file_name=vector_file_name)
+        check_raises(lambda: pmx.model.initial_conditions.add_temperature(PREFIX + "Bad", nodes, 20,
+                                                                          distribution_name=PREFIX + "File_Used"),
+                     "the unused file distribution did not become a vector one")
+        # A file that cannot be read is refused naming the argument, before anything is recorded
+        count_before_bad = len(distributions)
+        message = raised_message(lambda: distributions.add_from_file(PREFIX + "Bad", bad_file_name))
+        check(message is not None and "'file_name'" in message,
+              "a file of the wrong shape must be refused naming the argument: " + str(message))
+        message = raised_message(lambda: distributions.replace_from_file(PREFIX + "File_Used",
+                                                                         file_name=bad_file_name))
+        check(message is not None and "'file_name'" in message,
+              "a replace with a file of the wrong shape must be refused naming the argument: " + str(message))
+        check(len(distributions) == count_before_bad, "a refused distribution was recorded")
+        distributions.remove([PREFIX + "File_Used"])
     finally:
-        os.remove(file_name)
+        for name in [file_name, vector_file_name, bad_file_name]:
+            if os.path.isfile(name):
+                os.remove(name)
 
 
 def test_initial_conditions():
@@ -209,6 +243,16 @@ def test_initial_conditions():
     #
     check_raises(lambda: conditions.add_angular_velocity(PREFIX + "Bad", selection, [0, 0], [0, 0, 1], 1),
                  "a 2 value axis point must be rejected")
+    # The model refuses a negative rotational speed in words that name no argument
+    message = raised_message(lambda: conditions.add_angular_velocity(PREFIX + "Bad", selection, [0, 0, 0],
+                                                                     [0, 0, 1], -10))
+    check(message is not None and "'rotational_speed'" in message,
+          "a negative rotational speed must be refused naming the argument: " + str(message))
+    message = raised_message(lambda: conditions.replace_angular_velocity(PREFIX + "Ang", rotational_speed=-1))
+    check(message is not None and "'rotational_speed'" in message,
+          "a replace with a negative rotational speed must be refused: " + str(message))
+    check(conditions[PREFIX + "Ang"].get_value("rotational_speed") == 10, "a refused replace changed the condition")
+    check(not conditions.contains(PREFIX + "Bad"), "a refused initial condition was recorded")
     # A replacement that is not given a region keeps the selection, which is converted again because
     # the replacement deletes the internal node set of the old initial condition
     condition = conditions.replace_temperature(PREFIX + "Temp", temperature=25)
@@ -246,9 +290,10 @@ def test_initial_conditions():
     check(condition.get_value("distribution_name") == PREFIX + "Scalar",
           "the replacement dropped the distribution")
     condition = conditions.replace_temperature(PREFIX + "Temp_D", region=selection,
-                                               distribution_name="Constant")
+                                               distribution_name="constant")
     check(condition.get_value("distribution_name") == "Constant",
-          "the replacement did not change the distribution")
+          "the default distribution must be found regardless of case and read back as Constant: " +
+          str(condition.get_value("distribution_name")))
     # A used distribution keeps its scalar or vector type, because its users were checked against it
     distributions = pmx.model.distributions
     condition = conditions.replace_temperature(PREFIX + "Temp_D", region=selection,

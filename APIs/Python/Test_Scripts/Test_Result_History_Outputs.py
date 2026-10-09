@@ -227,6 +227,16 @@ try:
     check(get_history_output_names(history_outputs) == names_before,
           "a refused named region left a history output behind")
     print("PASS: refuse a named region the result mesh or the history output cannot take")
+    # A draft name is checked as a model item name is: a padded one is refused, never trimmed
+    for name in [" PyTest_History_padded", "PyTest_History_padded ", "PyTest#History"]:
+        try:
+            history_outputs.create_history_output_from_equation(name=name, equation="=1", unit="/")
+        except Exception as ex:
+            check("'name'" in str(ex), "the refusal must name the argument: " + str(ex))
+        else:
+            raise Exception("TEST FAILED: the history output name '" + name + "' was accepted")
+    check(get_history_output_names(history_outputs) == names_before, "a refused name left a history output behind")
+    print("PASS: refuse a history output name that is not a valid name")
 
     # ADD: equation output referencing the generated history set, field, and component.
     generated_field = replaced.fields.first()

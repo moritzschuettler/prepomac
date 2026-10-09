@@ -20,7 +20,10 @@ namespace PrePoMax.Mcp
     // would otherwise bury it. Each part lists at most a given number of faces, edges and vertices -
     // the largest and the longest first, which is the order they are worth reading in - and the whole
     // answer stops detailing parts once it has listed enough rows. Every part is still summarized, so
-    // the caller sees what is there and can ask for one part by name.
+    // the caller sees what is there and can ask for one part by name. A part name is compared the way
+    // the model keys its parts, regardless of case and surrounding spaces, and a name that matched no
+    // part is reported rather than silently left out. Like read_model it runs as one private function,
+    // so it leaves none of its names in the console scope.
     public static class McpTopologyScript
     {
         // Variables                                                                                                                
@@ -99,6 +102,8 @@ namespace PrePoMax.Mcp
             "\n" +
             "def read_topology():\n" +
             "    budget = [BUDGET]\n" +
+            "    wanted = {name.strip().lower(): name for name in PART_NAMES}\n" +
+            "    matched = set()\n" +
             "    topology = {'note': 'A face or an edge is selected by its id with the surfaces or edges '\n" +
             "                        'source, grouped by part id, or by its geometry_id with the geometry '\n" +
             "                        'source; a vertex is selected by its node id. Areas, lengths and '\n" +
@@ -106,13 +111,20 @@ namespace PrePoMax.Mcp
             "    for view, parts in [('model', pmx.model.parts), ('geometry', pmx.model.geometry.parts)]:\n" +
             "        listed = []\n" +
             "        for name in list(parts.get_names()):\n" +
-            "            if PART_NAMES and name not in PART_NAMES:\n" +
+            "            key = name.strip().lower()\n" +
+            "            if wanted and key not in wanted:\n" +
             "                continue\n" +
+            "            matched.add(key)\n" +
             "            try:\n" +
             "                listed.append(read_part(parts[name], budget))\n" +
             "            except Exception as reason:\n" +
             "                listed.append({'name': name, 'unreadable': str(reason).splitlines()[0]})\n" +
             "        topology[view] = listed\n" +
+            "    unmatched = [wanted[key] for key in wanted if key not in matched]\n" +
+            "    if unmatched:\n" +
+            "        topology['unmatched_part_names'] = unmatched\n" +
+            "        topology['unmatched'] = ('No geometry or model part is named %s. The part names are listed by '\n" +
+            "                                 'read_model.' % ', '.join(unmatched))\n" +
             "    return topology\n" +
             "\n" +
             "\n" +
@@ -124,10 +136,10 @@ namespace PrePoMax.Mcp
         // rather than a method the application has to grow
         public static string GetSource(string[] partNames, int limit, int budget)
         {
-            return "PART_NAMES = " + ToPythonList(partNames) + "\n" +
-                   "LIMIT = " + limit + "\n" +
-                   "BUDGET = " + budget + "\n" +
-                   Source;
+            return McpPrivateScript.Wrap("PART_NAMES = " + ToPythonList(partNames) + "\n" +
+                                         "LIMIT = " + limit + "\n" +
+                                         "BUDGET = " + budget + "\n" +
+                                         Source);
         }
         private static string ToPythonList(string[] names)
         {

@@ -85,9 +85,19 @@ def test_refusals(compound, box_1, box_2):
     refused(lambda: parts.fuse_bodies(compound.name, [bottom_1]), "only one solid")
     refused(lambda: parts.fuse_bodies(compound.name, [bottom_1, 'Missing_cell']), "not a sub-part or a cell")
     refused(lambda: parts.fuse_bodies(compound.name, [bottom_1, bottom_1]), "more than once")
+    # Names are compared regardless of case, as the model compares them, so one cell in two spellings is the
+    # same cell twice, and a padded or unusable new name is refused rather than trimmed
+    refused(lambda: parts.fuse_bodies(compound.name, [bottom_1, bottom_1.swapcase()]), "more than once")
+    refused(lambda: parts.group_split_cells(compound.name, [top_1, top_1.swapcase()], 'Twice'), "more than once")
+    refused(lambda: parts.group_split_cells(compound.name, [bottom_1, top_2], ' Diagonal'), "sub_part_name")
+    refused(lambda: parts.rename_split_sub_part(compound.name, box_1, box_1 + ' '), "new_name")
+    refused(lambda: parts.rename_split_sub_part(compound.name, box_1, 'Web#1'), "new_name")
     check(state(compound) == before, "a refused fuse must change nothing: " + str(state(compound)))
-    # A bottom cell of one box and the top cell of the other meet only along an edge
-    parts.group_split_cells(compound.name, [bottom_1, top_2], 'Diagonal')
+    # A bottom cell of one box and the top cell of the other meet only along an edge; a cell named in another
+    # case is the cell the compound has
+    parts.group_split_cells(compound.name, [bottom_1.swapcase(), top_2], 'Diagonal')
+    check(len(compound.get_split_cell_names('Diagonal')) == 2,
+          "both cells must be grouped, also the one named in another case: " + str(state(compound)))
     diagonal = list(compound.get_split_cell_names('Diagonal'))
     refused(lambda: parts.fuse_bodies(compound.name, diagonal), "touch over faces")
     check(list(compound.get_split_cell_names('Diagonal')) == diagonal, "a refused fuse must change nothing")

@@ -51,13 +51,14 @@ PrePoMax serves an MCP endpoint itself, on this computer only, while its automat
 agent client connects to an address rather than starting a process, so nothing is left running when
 PrePoMax is closed.
 
-1. In PrePoMax, switch on **Tools - Automation Server**. To have it on after every restart, set
-   **Tools - Settings - Automation - Start with the application**.
-2. Right click the *Access token* entry in **Tools - Settings - Automation** and choose *Generate the
-   access token*, then read it and the *Address* from that page. The address is also written to the
-   output window when the server starts. Copy it rather than assuming the port: it is 8756 unless
-   that port was taken, and then the server answers on the next free one, which the *Address* shows
-   while the server runs.
+1. In PrePoMax, switch on **Tools - Automation Server**. The server needs an access token, and the
+   first time there is none PrePoMax offers to generate one - answer yes. To have the server on after
+   every restart, set **Tools - Settings - Automation - Start with the application**.
+2. Read the *Access token* and the *Address* from **Tools - Settings - Automation**. A token can also
+   be generated there, or generated again, from the context menu of the *Access token* entry. The
+   address is also written to the output window when the server starts. Copy it rather than assuming
+   the port: it is 8756 unless that port was taken, and then the server answers on the next free one,
+   which the *Address* shows while the server runs.
 3. Point the client at them. For Claude Code, with the address you read:
 
 ```bash
@@ -75,7 +76,9 @@ Another MCP client takes the same address and header in its configuration, usual
                              "headers": {"Authorization": "Bearer <token>"}}}}
 ```
 
-A client that speaks only stdio needs a bridge to HTTP, such as `mcp-remote`.
+A client that speaks only stdio needs a bridge to HTTP, such as `mcp-remote`. So does a client that
+runs in a browser: the endpoint refuses every request that carries an `Origin` header, which is what
+keeps web pages out.
 
 The token is kept in that folder's `settings.bin` and can only be generated, never typed. The server
 will not start without one, and there is no command line switch for it, so a folder has to be opened
@@ -85,8 +88,9 @@ A newly unpacked PrePoMax starts without a token on purpose: `settings.bin` is p
 redistributable, and a token left in it would be shipped to everyone. The first run in a folder
 clears whatever token its settings carry - PrePoMax knows it is the first run because its own
 `trace.info` marker is absent - and the settings page has a *Clear the access token* action to use
-before preparing a release. After an update, generate a token in the new folder, or copy
-`settings.bin` forward as you would to keep any other setting.
+before preparing a release. After an update, generate a token in the new folder, or keep the old
+one: start the new version once and close it, then copy `settings.bin` over from the old folder. A
+`settings.bin` copied in before that first start loses its token, because the first start clears it.
 
 **A client that cannot connect means PrePoMax is closed, or its automation server is off.** Nothing
 answers on the address unless the session is open - that is what serving it from the application
@@ -96,16 +100,17 @@ project's own instructions, so that it asks rather than working around it.
 The application serves the agent its own guide: **`get_guide`** is how the work is ordered, what a
 number without a unit means, how to find the face that was meant, and what to do when a call is
 refused. It travels with the version, so there is nothing to keep in step on the client side.
-`.claude/skills/prepomax/SKILL.md` is a Claude Code skill that points an agent at it. Copy the
-`prepomax` folder to `<project>/.claude/skills/prepomax/` to have it in one project, or to
-`~/.claude/skills/prepomax/` to have it in all of them.
+`AgentSkill\prepomax\SKILL.md`, next to `PrePoMax.exe` (and in [AgentSkill/](AgentSkill/) in this
+repository), is a Claude Code skill that points an agent at it. Copy the `prepomax` folder to
+`<project>/.claude/skills/prepomax/` to have it in one project, or to `~/.claude/skills/prepomax/` to
+have it in all of them.
 
 `Python_API_Overview.md`, section *Agent integration*, documents the tools, the security gates, the
 port, and the pipe the same server also keeps for a client that speaks its protocol directly.
 
 # Structure
 
-The PrePoMax is a solution which consists of 15 projects:
+The PrePoMax is a solution which consists of 14 projects:
 *  APIs: classes for interfacing with PrePoMax from other programs (Python, ...)
 *  CaeGlobals: global classes for all other projects to use
 *  CaeJob: classes for running the analysis

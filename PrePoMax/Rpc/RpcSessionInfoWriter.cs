@@ -77,7 +77,7 @@ namespace PrePoMax.Rpc
             }
             catch
             {
-                // The file is a hint for the bridge, not state the application depends on
+                // The file is a hint for list_sessions, not state the application depends on
             }
         }
         // The file holds the access token while the server runs, so the folder is created with an

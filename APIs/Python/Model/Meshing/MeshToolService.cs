@@ -36,14 +36,14 @@ namespace APIs.Python.Model
         public void CreateBoundaryLayer(SelectionAPI selection, object thickness)
         {
             if (selection == null) throw new PythonAPIException("The argument 'selection' must not be None.");
+            double thicknessValue = MeshSetupItemsAPI.ToThickness(thickness);
             //
             SelectionCompilation compilation = _selectionService.CompileForView(selection, "femodel", "geometry");
             // The selection travels with the command, so a regeneration on changed geometry reselects it
             GeometrySelection geometrySelection =
                 new GeometrySelection("Selection", compilation.Ids, compilation.Selection);
             EnsureCommandsAvailable();
-            _meshGateway.CreateBoundaryLayer(geometrySelection,
-                                             PythonValueConverter.ToDouble(thickness, "thickness"));
+            _meshGateway.CreateBoundaryLayer(geometrySelection, thicknessValue);
         }
         public void RemeshElements(object region, object maxSize, object minSize, object hausdorff)
         {
@@ -51,13 +51,16 @@ namespace APIs.Python.Model
             MeshingParameters meshingParameters = _meshGateway.GetDefaultMeshingParameters("Remeshing");
             if (meshingParameters == null)
                 throw new PythonAPIException("The default meshing parameters are not available.");
-            if (maxSize != null) meshingParameters.MaxH = PythonValueConverter.ToDouble(maxSize, "max_size");
-            if (minSize != null) meshingParameters.MinH = PythonValueConverter.ToDouble(minSize, "min_size");
+            double[] sizes = MeshSetupItemsAPI.ResolveRange(maxSize, minSize, meshingParameters.MaxH,
+                                                            meshingParameters.MinH, "max_size", "min_size", true);
+            if (sizes != null)
+                MeshSetupItemsAPI.SetOrderedRange(sizes[0], sizes[1], meshingParameters.MinH,
+                                                  value => meshingParameters.MaxH = value,
+                                                  value => meshingParameters.MinH = value);
             //
             RemeshingParameters remeshingParameters =
                 new RemeshingParameters(null, RegionTypeEnum.Selection, meshingParameters);
-            if (hausdorff != null)
-                remeshingParameters.Hausdorff = PythonValueConverter.ToDouble(hausdorff, "hausdorff");
+            if (hausdorff != null) remeshingParameters.Hausdorff = ToHausdorff(hausdorff);
             // The dialog offers a selection or a named element set, so the operation takes both
             RegionApplier.Apply(remeshingParameters, region, "region", "geometry", _selectionService,
                                 _modelResolver);
@@ -78,14 +81,12 @@ namespace APIs.Python.Model
                 if (mesh == null || !mesh.Parts.ContainsKey(name))
                     throw new PythonAPIException("The model part '" + name + "' does not exist.");
             }
-            if (numberOfLayers < 1)
-                throw new PythonAPIException("The argument 'number_of_layers' must be larger than zero.");
+            double thicknessValue = MeshSetupItemsAPI.ToThickness(thickness);
+            int layers = MeshSetupItemsAPI.ToNumberOfLayers(numberOfLayers);
+            double offsetValue = offset == null ? 0 : PythonValueConverter.ToFiniteDouble(offset, "offset");
             //
             EnsureCommandsAvailable();
-            _meshGateway.ThickenShellMesh(names, PythonValueConverter.ToDouble(thickness, "thickness"),
-                                          numberOfLayers,
-                                          offset == null ? 0 : PythonValueConverter.ToDouble(offset, "offset"),
-                                          keepModelEdges);
+            _meshGateway.ThickenShellMesh(names, thicknessValue, layers, offsetValue, keepModelEdges);
         }
         public void SplitPartMeshUsingSurface(object basePartRegion, object splitterSurfaceRegion,
                                               object offset, object maxSize, object minSize, object hausdorff,
@@ -105,11 +106,14 @@ namespace APIs.Python.Model
                                     RegionTypeEnum.PartName);
             ValidateSplitRegionType(splitPartMeshData.SlaveRegionType, "splitter_surface_region",
                                     RegionTypeEnum.SurfaceName);
-            if (offset != null) splitPartMeshData.Offset = PythonValueConverter.ToDouble(offset, "offset");
-            if (maxSize != null) splitPartMeshData.MaxH = PythonValueConverter.ToDouble(maxSize, "max_size");
-            if (minSize != null) splitPartMeshData.MinH = PythonValueConverter.ToDouble(minSize, "min_size");
-            if (hausdorff != null)
-                splitPartMeshData.Hausdorff = PythonValueConverter.ToDouble(hausdorff, "hausdorff");
+            if (offset != null) splitPartMeshData.Offset = PythonValueConverter.ToFiniteDouble(offset, "offset");
+            double[] sizes = MeshSetupItemsAPI.ResolveRange(maxSize, minSize, splitPartMeshData.MaxH,
+                                                            splitPartMeshData.MinH, "max_size", "min_size", true);
+            if (sizes != null)
+                MeshSetupItemsAPI.SetOrderedRange(sizes[0], sizes[1], splitPartMeshData.MinH,
+                                                  value => splitPartMeshData.MaxH = value,
+                                                  value => splitPartMeshData.MinH = value);
+            if (hausdorff != null) splitPartMeshData.Hausdorff = ToHausdorff(hausdorff);
             splitPartMeshData.Exact = exact;
             //
             EnsureCommandsAvailable();
@@ -140,6 +144,14 @@ namespace APIs.Python.Model
         {
             if (_meshGateway == null)
                 throw new PythonAPIException("Model changes are not available in this Python API context.");
+        }
+        private static double ToHausdorff(object value)
+        {
+            double number = PythonValueConverter.ToFiniteDouble(value, "hausdorff");
+            if (number <= 0)
+                throw new PythonAPIException("The argument 'hausdorff' must be larger than 0, but " + number +
+                                             " was given.");
+            return number;
         }
         // Remeshing acts on elements, so the dialog offers only a selection or an element set
         private static void ValidateRemeshingRegionType(RegionTypeEnum regionType)

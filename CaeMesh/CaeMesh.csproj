@@ -141,6 +141,7 @@
     <Compile Include="Meshing\Base\SplitPartMeshData.cs" />
     <Compile Include="Meshing\Base\ThickenShellMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshCommandEnum.cs" />
+    <Compile Include="Meshing\Gmsh\Enums\GmshElementQualityMetricEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderShellEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeHighOrderEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderSolidEnum.cs" />
@@ -219,6 +220,7 @@
     <Compile Include="Meshing\QuadWild\EdgeRecovery\QuadWildModelEdge.cs" />
     <Compile Include="Meshing\QuadWild\Enums\QuadWildBoundaryLayerEnum.cs" />
     <Compile Include="Meshing\QuadWild\Enums\QuadWildFlowProfileEnum.cs" />
+    <Compile Include="Meshing\QuadWild\Enums\QuadWildTriangulationMesherEnum.cs" />
     <Compile Include="Meshing\QuadWild\QuadWildRuntime.cs" />
     <Compile Include="Meshing\QuadWild\QuadWildTransfiniteFile.cs" />
     <Compile Include="Meshing\QuadWild\SetupItems\ShellQuadWild.cs" />
