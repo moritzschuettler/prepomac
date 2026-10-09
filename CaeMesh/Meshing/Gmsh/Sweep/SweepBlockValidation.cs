@@ -30,6 +30,7 @@ namespace CaeMesh
         private readonly int[] _targetSurfaceIds;
         private readonly List<int[]> _layerSideSurfaceIds;
         private readonly int[] _directionEdgeIds;
+        private readonly bool _reachedTarget;
         private HashSet<int> _wallEdgeIds;
         private bool? _prismatic;
         private int[][][] _layerGroupEdgeIds;
@@ -41,13 +42,19 @@ namespace CaeMesh
         // Properties                                                                                                               
         public string Error { get { return _error; } }
         public int[] TargetSurfaceIds { get { return _targetSurfaceIds; } }
+        /// <summary>
+        /// Whether the validation found the walls and the target of the block before it refused it, so that the
+        /// error names what is wrong with a block that is there rather than that no block could be found.
+        /// </summary>
+        public bool ReachedTarget { get { return _reachedTarget; } }
 
 
         // Constructors                                                                                                             
         public SweepBlockValidation(string error, int[] sideSurfaceIds, int[] targetSurfaceIds,
-                                    List<int[]> layerSideSurfaceIds, int[] directionEdgeIds)
+                                    List<int[]> layerSideSurfaceIds, int[] directionEdgeIds, bool reachedTarget)
         {
             _error = error;
+            _reachedTarget = reachedTarget;
             _sideSurfaceIds = sideSurfaceIds;
             _targetSurfaceIds = targetSurfaceIds;
             _layerSideSurfaceIds = layerSideSurfaceIds;

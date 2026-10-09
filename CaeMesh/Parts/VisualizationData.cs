@@ -1447,6 +1447,20 @@ namespace CaeMesh
             return false;
         }
         /// <summary>
+        /// Whether a face runs around the body as a ring by itself, without a seam: its boundary is two edge loops,
+        /// one on the given surfaces and the other on none of them - the end of a tube swept through its wall, a flat
+        /// ring between the loop of the inner faces and the loop of the outer ones.
+        /// </summary>
+        public bool IsSurfaceARing(int surfaceId, IEnumerable<int> innerSurfaceIds,
+                                   Dictionary<int, HashSet<int>> vertexIdEdgeIds = null)
+        {
+            HashSet<int>[] loops = GetFreeEdgeLoops(new int[] { surfaceId }, vertexIdEdgeIds);
+            if (loops.Length != 2) return false;
+            HashSet<int> innerEdgeIds = GetEdgeIdsForSurfaceIds(innerSurfaceIds.ToArray());
+            return (loops[0].IsSubsetOf(innerEdgeIds) && !loops[1].Overlaps(innerEdgeIds)) ||
+                   (loops[1].IsSubsetOf(innerEdgeIds) && !loops[0].Overlaps(innerEdgeIds));
+        }
+        /// <summary>
         /// A free edge loop of a single edge is the rim of a bore or of a boss. It can be swept when the surface beyond
         /// it is a periodic wall closed along a single seam, whose grid the sweep lays around the seam.
         /// </summary>
@@ -1995,10 +2009,13 @@ namespace CaeMesh
                         // with exceptions for a cylindrical faces
                         foreach (var surfaceLoop in surfaceLoops)
                         {
-                            // One cylindrical face, closed along a single seam
+                            // One cylindrical face, closed along a single seam, or one face beside the source
+                            // running around the body as a ring without a seam
                             if (surfaceLoop.Count == 1)
                             {
-                                if (!IsSurfaceACylinderLike(surfaceLoop.GetValues().First(), out _)) loop = false;
+                                int surfaceId = surfaceLoop.GetValues().First();
+                                if (!IsSurfaceACylinderLike(surfaceId, out _) &&
+                                    !IsSurfaceARing(surfaceId, sourceSurfaceIds, vertexIdEdgeIds)) loop = false;
                             }
                             // Two cylindrical faces
                             else if (surfaceLoop.Count == 2)

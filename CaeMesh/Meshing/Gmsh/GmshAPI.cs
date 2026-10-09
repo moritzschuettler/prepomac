@@ -1007,9 +1007,28 @@ namespace CaeMesh
             foreach (var dimTag in dimTags) surfaceIdOriginalId.Add(dimTag.Item2, dimTag.Item2);
             Gmsh.Model.GetEntities(out dimTags, 1);
             foreach (var dimTag in dimTags) edgeIdOriginalId.Add(dimTag.Item2, dimTag.Item2);
+            // A wall running around the whole block as one face is split into walls of four sides first
+            List<Tuple<int, int>> copyDimTags = new List<Tuple<int, int>>();
+            Dictionary<SweepBlock, HashSet<int>> blockRingWallIds = new Dictionary<SweepBlock, HashSet<int>>();
+            foreach (var block in _sweepBlocks)
+            {
+                if (block.IsRevolved) continue;
+                HashSet<int> ringWallIds = AddRingWallSplitCurves(block, surfaceIdEdgeIds, copyDimTags);
+                if (ringWallIds.Count > 0) blockRingWallIds.Add(block, ringWallIds);
+            }
+            bool ringWallsSplit = copyDimTags.Count > 0;
+            if (ringWallsSplit)
+            {
+                FragmentVolumesWithCurves(copyDimTags, ref surfaceIdOriginalId, ref edgeIdOriginalId);
+                GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
+                foreach (var block in _sweepBlocks)
+                    RefreshBlockSurfaces(block, blockOriginalSurfaceIds[block], surfaceIdOriginalId);
+                foreach (var entry in blockRingWallIds)
+                    AddRingWallSplitsToLayer(entry.Key, entry.Value, surfaceIdEdgeIds, surfaceIdOriginalId,
+                                             edgeIdOriginalId);
+            }
             //
             int round = 0;
-            List<Tuple<int, int>> copyDimTags = new List<Tuple<int, int>>();
             while (true)
             {
                 copyDimTags.Clear();
@@ -1034,7 +1053,8 @@ namespace CaeMesh
             {
                 if (!block.IsRevolved) PairImprintEdges(block, surfaceIdEdgeIds);
             }
-            if (round > 0) _scaffoldEdgeIds = GetScaffoldEdgeIds(surfaceIdOriginalId, edgeIdOriginalId);
+            if (round > 0 || ringWallsSplit)
+                _scaffoldEdgeIds = GetScaffoldEdgeIds(surfaceIdOriginalId, edgeIdOriginalId);
             // A target surface is meshed only to be thrown away, and the counts on its edges are set for the
             // walls, not for it: a structured grid on it would fail as often as not. Taken once the fragmentation
             // has given the faces their final tags - taken before it, the set named faces the renumbering had
@@ -1388,6 +1408,152 @@ namespace CaeMesh
                 count++;
             }
             return count;
+        }
+        /// <summary>
+        /// Adds a straight curve across every wall of the block that runs around the whole block as one face - a ring
+        /// between a loop on the source and a loop on the target, as the end of a tube swept through its wall is -
+        /// from every vertex of its source loop to the vertex of its target loop opposite it, which the fragmentation
+        /// makes edges of the face. A face without corners takes no structured grid, and the pieces are walls of four
+        /// sides. The vertices are paired in the order of the loops, turned and directed so that the curves are the
+        /// shortest; two loops of different numbers of vertices, or a curve leaving the face, are refused. Returns the
+        /// walls it splits.
+        /// </summary>
+        private HashSet<int> AddRingWallSplitCurves(SweepBlock block, Dictionary<int, int[]> surfaceIdEdgeIds,
+                                                    List<Tuple<int, int>> curveDimTags)
+        {
+            HashSet<int> ringWallIds = new HashSet<int>();
+            int[] edgeIds;
+            HashSet<int> sourceEdgeIds = new HashSet<int>();
+            HashSet<int> targetEdgeIds = new HashSet<int>();
+            foreach (var id in block.SourceSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) sourceEdgeIds.UnionWith(edgeIds);
+            }
+            foreach (var id in block.TargetSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) targetEdgeIds.UnionWith(edgeIds);
+            }
+            foreach (var wallId in block.WallSurfaceIds)
+            {
+                if (!surfaceIdEdgeIds.TryGetValue(wallId, out edgeIds)) continue;
+                int[] wallSourceEdgeIds = edgeIds.Where(sourceEdgeIds.Contains).ToArray();
+                int[] wallTargetEdgeIds = edgeIds.Where(targetEdgeIds.Contains).ToArray();
+                if (wallSourceEdgeIds.Length == 0 || wallTargetEdgeIds.Length == 0 ||
+                    wallSourceEdgeIds.Length + wallTargetEdgeIds.Length != edgeIds.Length) continue;
+                int[] sourceVertexIds = GetLoopVertexIds(wallSourceEdgeIds);
+                int[] targetVertexIds = GetLoopVertexIds(wallTargetEdgeIds);
+                if (sourceVertexIds == null || targetVertexIds == null) continue;
+                if (sourceVertexIds.Length != targetVertexIds.Length)
+                    throw new CaeException("Sweep: the side Surface " + wallId + " runs around the block between a " +
+                                           "loop of " + sourceVertexIds.Length + " vertices on the source and a " +
+                                           "loop of " + targetVertexIds.Length + " vertices on the target, which no " +
+                                           "structured wall can join.");
+                //
+                int n = sourceVertexIds.Length;
+                double[][] sourceCoors = sourceVertexIds.Select(GetVertexCoor).ToArray();
+                double[][] targetCoors = targetVertexIds.Select(GetVertexCoor).ToArray();
+                int bestShift = 0;
+                int bestDirection = 1;
+                double bestLength = double.PositiveInfinity;
+                foreach (var direction in new int[] { 1, -1 })
+                {
+                    for (int shift = 0; shift < n; shift++)
+                    {
+                        double length = 0;
+                        for (int i = 0; i < n; i++)
+                            length += GetDistance(sourceCoors[i], targetCoors[((shift + direction * i) % n + n) % n]);
+                        if (length >= bestLength) continue;
+                        bestLength = length;
+                        bestShift = shift;
+                        bestDirection = direction;
+                    }
+                }
+                for (int i = 0; i < n; i++)
+                {
+                    int k = ((bestShift + bestDirection * i) % n + n) % n;
+                    double[] middle = new double[3];
+                    for (int c = 0; c < 3; c++) middle[c] = 0.5 * (sourceCoors[i][c] + targetCoors[k][c]);
+                    if (!IsPointOnSurface(wallId, middle))
+                        throw new CaeException("Sweep: the side Surface " + wallId + " runs around the block, and the " +
+                                               "straight edge splitting it into walls of four sides would leave it.");
+                    int curveId = Gmsh.Model.OCC.AddLine(sourceVertexIds[i], targetVertexIds[k]);
+                    curveDimTags.Add(new Tuple<int, int>(1, curveId));
+                }
+                _writeOutput?.Invoke(NameGmshEntities("Sweep: the side Surface " + wallId + " runs around the block " +
+                                                      "and is split into " + n + " walls of four sides."));
+                ringWallIds.Add(wallId);
+            }
+            return ringWallIds;
+        }
+        /// <summary>
+        /// Adds the edges that split the ring walls of a block to the layer of the block's sweep lines, so that they
+        /// take the layer count of the other walls; a block with no recorded layer gets one of its own.
+        /// </summary>
+        private void AddRingWallSplitsToLayer(SweepBlock block, HashSet<int> ringWallIds,
+                                              Dictionary<int, int[]> surfaceIdEdgeIds,
+                                              Dictionary<int, int> surfaceIdOriginalId,
+                                              Dictionary<int, int> edgeIdOriginalId)
+        {
+            int[] surfaceIds;
+            int[] edgeIds;
+            Tuple<int, int>[] edgeDimTags;
+            HashSet<int> splitEdgeIds = new HashSet<int>();
+            Gmsh.Model.GetEntities(out edgeDimTags, 1);
+            foreach (var dimTag in edgeDimTags)
+            {
+                if (edgeIdOriginalId.ContainsKey(dimTag.Item2)) continue;
+                Gmsh.Model.GetAdjacencies(1, dimTag.Item2, out surfaceIds, out _);
+                if (surfaceIds.Length > 0 && surfaceIds.All(id => ringWallIds.Contains(surfaceIdOriginalId[id])))
+                    splitEdgeIds.Add(dimTag.Item2);
+            }
+            if (splitEdgeIds.Count == 0) return;
+            //
+            HashSet<int> wallEdgeIds = new HashSet<int>();
+            foreach (var id in block.WallSurfaceIds)
+            {
+                if (surfaceIdEdgeIds.TryGetValue(id, out edgeIds)) wallEdgeIds.UnionWith(edgeIds);
+            }
+            wallEdgeIds.ExceptWith(splitEdgeIds);
+            HashSet<int> layer = _gmshData.EdgeIdsBySweepLayer?.FirstOrDefault(ring => ring.Overlaps(wallEdgeIds));
+            if (layer != null) layer.UnionWith(splitEdgeIds);
+            else if (_gmshData.EdgeIdsBySweepLayer != null)
+                _gmshData.EdgeIdsBySweepLayer = _gmshData.EdgeIdsBySweepLayer.Concat(new HashSet<int>[] { splitEdgeIds })
+                                                                             .ToArray();
+        }
+        /// <summary>
+        /// The vertices of a closed loop of edges in the order the loop runs, or null when the edges do not form one
+        /// loop.
+        /// </summary>
+        private static int[] GetLoopVertexIds(int[] edgeIds)
+        {
+            int[] vertexIds;
+            Dictionary<int, List<int>> vertexIdEdgeIds = new Dictionary<int, List<int>>();
+            Dictionary<int, int[]> edgeIdVertexIds = new Dictionary<int, int[]>();
+            foreach (var edgeId in edgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                edgeIdVertexIds[edgeId] = vertexIds;
+                foreach (var vertexId in vertexIds)
+                {
+                    if (!vertexIdEdgeIds.ContainsKey(vertexId)) vertexIdEdgeIds[vertexId] = new List<int>();
+                    vertexIdEdgeIds[vertexId].Add(edgeId);
+                }
+            }
+            if (edgeIds.Length > 1 && vertexIdEdgeIds.Values.Any(list => list.Count != 2)) return null;
+            List<int> loop = new List<int>();
+            HashSet<int> usedEdgeIds = new HashSet<int>();
+            int currentEdgeId = edgeIds[0];
+            int currentVertexId = edgeIdVertexIds[currentEdgeId][0];
+            while (usedEdgeIds.Add(currentEdgeId))
+            {
+                loop.Add(currentVertexId);
+                int[] ends = edgeIdVertexIds[currentEdgeId];
+                currentVertexId = ends.Length == 2 && ends[0] == currentVertexId ? ends[1] : ends[0];
+                int nextEdgeId = vertexIdEdgeIds[currentVertexId].FirstOrDefault(id => !usedEdgeIds.Contains(id));
+                if (nextEdgeId == 0) break;
+                currentEdgeId = nextEdgeId;
+            }
+            return usedEdgeIds.Count == edgeIds.Length && loop.Count == vertexIdEdgeIds.Count ? loop.ToArray() : null;
         }
         private static string DescribeCarriedEdges(List<Tuple<int, int>> edgeDimTags)
         {

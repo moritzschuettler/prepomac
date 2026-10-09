@@ -3824,6 +3824,10 @@ namespace CaeModel
             List<KeyValuePair<HashSet<int>, string>>[] seedErrors =
                 new List<KeyValuePair<HashSet<int>, string>>[numOfCells];
             string geometryDefect = null;
+            // The first refusal of a seed of every cell that found its walls and target, which names what is wrong
+            // with the block rather than that there is none
+            bool reachedTarget;
+            string[] reachedTargetErrors = new string[numOfCells];
             for (int i = 0; i < numOfCells; i++)
             {
                 candidates[i] = new List<SweepCellCandidate>();
@@ -3846,9 +3850,12 @@ namespace CaeModel
                 }
                 //
                 SweepCellCandidate candidate = CreateSweepCellCandidate(part, pending.Item2, pending.Item3,
-                                                                        twinSurfaceIds, maps, faceTypes, out error);
+                                                                        twinSurfaceIds, maps, faceTypes, out error,
+                                                                        out reachedTarget);
                 if (candidate == null)
                 {
+                    if (!pending.Item3 && reachedTarget && reachedTargetErrors[cell] == null)
+                        reachedTargetErrors[cell] = error;
                     if (geometryDefect == null && error.StartsWith(_splitBoreRimErrorStart)) geometryDefect = error;
                     if (!pending.Item3)
                         seedErrors[cell].Add(new KeyValuePair<HashSet<int>, string>(pending.Item2, error));
@@ -3974,9 +3981,13 @@ namespace CaeModel
                                 GetUnsweptCellReason(sweptParts[i], seedErrors[i]);
                 if (reason != null) reasons.Add(sweptParts[i].PartId, reason);
             }
+            // A single part is told what the first of its sources that found a block ran into, unless a defect of the
+            // geometry says more
+            string partReason = geometryDefect;
+            if (partReason == null && numOfCells == 1) partReason = reachedTargetErrors[0];
             return new SweepDetectionData(null, "No sweep source surface could be found automatically for the part " +
                                           firstUnswept.Name + ". Select the source surfaces by hand." +
-                                          (geometryDefect != null ? " " + geometryDefect : ""), null,
+                                          (partReason != null ? " " + partReason : ""), null,
                                           sweptPartIds, stamp, blocks, null, null, reasons);
         }
         /// <summary>
@@ -4008,7 +4019,7 @@ namespace CaeModel
         private SweepCellCandidate CreateSweepCellCandidate(GeometryPart part, HashSet<int> seedSurfaceIds,
                                                             bool derived, Dictionary<int, int> twinSurfaceIds,
                                                             SweepPartMaps maps, Dictionary<int, GeomFaceType> faceTypes,
-                                                            out string error)
+                                                            out string error, out bool reachedTarget)
         {
             VisualizationData vis = part.Visualization;
             Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = maps.GetSurfaceIdSurfaceNeighbourIds(part);
@@ -4027,6 +4038,7 @@ namespace CaeModel
             SweepBlockValidation validation = maps.GetSweepBlockValidation(part, sourceSurfaceIds, true,
                 () => ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds));
             error = validation.Error;
+            reachedTarget = validation.ReachedTarget;
             if (error != null) return null;
             //
             int[] sideSurfaceIds;
@@ -5084,9 +5096,11 @@ namespace CaeModel
                                           Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
                                           SweepPartMaps maps, Dictionary<int, int> twinSurfaceIds,
                                           out int[] sideSurfaceIds, out int[] targetSurfaceIds,
-                                          out List<int[]> layerSideSurfaceIds, out int[] directionEdgeIds)
+                                          out List<int[]> layerSideSurfaceIds, out int[] directionEdgeIds,
+                                          out bool reachedTarget)
         {
             directionEdgeIds = null;
+            reachedTarget = false;
             //
             VisualizationData vis = part.Visualization;
             int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
@@ -5119,6 +5133,8 @@ namespace CaeModel
             //
             string error = ValidateSweepRings(part, sourceSurfaceIds, maps, twinSurfaceIds, out sideSurfaceIds,
                                               out targetSurfaceIds, out layerSideSurfaceIds);
+            reachedTarget = sideSurfaceIds != null && sideSurfaceIds.Length > 0 && targetSurfaceIds != null &&
+                            targetSurfaceIds.Length > 0;
             if (error == null)
             {
                 error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, targetSurfaceIds, sideSurfaceIds, maps);
@@ -5154,6 +5170,7 @@ namespace CaeModel
                                ? Math.Cos(Globals.SweepSwallowedWallAngle * Math.PI / 180) : _sweepChainCosine;
             if (ValidateSweepChains(part, sourceSurfaceIds, maps, chainCosine, out chainSideSurfaceIds,
                                     out chainTargetSurfaceIds, out chainEdgeIds) != null) return error;
+            reachedTarget = true;
             error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, chainTargetSurfaceIds,
                                                chainSideSurfaceIds, maps);
             if (error == null)
@@ -5174,10 +5191,12 @@ namespace CaeModel
             int[] targetSurfaceIds;
             int[] directionEdgeIds;
             List<int[]> layerSideSurfaceIds;
+            bool reachedTarget;
             string error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds,
                                               out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds,
-                                              out directionEdgeIds);
-            return new SweepBlockValidation(error, sideSurfaceIds, targetSurfaceIds, layerSideSurfaceIds, directionEdgeIds);
+                                              out directionEdgeIds, out reachedTarget);
+            return new SweepBlockValidation(error, sideSurfaceIds, targetSurfaceIds, layerSideSurfaceIds,
+                                            directionEdgeIds, reachedTarget);
         }
         /// <summary>
         /// Refuses a block whose target is divided into several surfaces along an edge the source does not carry.
@@ -5796,8 +5815,10 @@ namespace CaeModel
             // the source or the target face has been split, since the split puts an extra vertex partway
             // along one of its sides. What matters is that it still has exactly two edges following the
             // sweep direction, so its four corners can be nominated to the transfinite algorithm.
-            HashSet<int> crossEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIdsArray);
-            crossEdgeIds.UnionWith(vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds));
+            HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIdsArray);
+            HashSet<int> targetEdgeIdSet = vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds);
+            HashSet<int> crossEdgeIds = new HashSet<int>(sourceEdgeIds);
+            crossEdgeIds.UnionWith(targetEdgeIdSet);
             // A body split along the sweep direction has its walls in rings, and a wall in the middle
             // touches neither the source nor the target: the edges between two rings are cross edges too
             HashSet<int> ringEdgeIds;
@@ -5811,9 +5832,13 @@ namespace CaeModel
             foreach (var surfaceId in sideSurfaceIds)
             {
                 // A wall with a hole - the opening of a bore that runs across the sweep - has no structured
-                // grid; gmsh refuses such a transfinite surface, so it is refused here first
-                if (CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds) != 1)
-                    return GetSweepSideHoleError(part, surfaceId);
+                // grid; gmsh refuses such a transfinite surface, so it is refused here first. A wall running around
+                // the body as a ring, one of its two loops on the source and the other on the target - the end of a
+                // tube swept through its wall - is no such wall: the mesher splits it into walls of four sides
+                int numOfEdgeLoops = CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds);
+                if (numOfEdgeLoops == 2 && IsRingWall(vis.FaceEdgeIds[surfaceId], sourceEdgeIds, targetEdgeIdSet))
+                    continue;
+                if (numOfEdgeLoops != 1) return GetSweepSideHoleError(part, surfaceId);
                 if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
                 //
                 int numDirectionEdges = 0;
@@ -6179,6 +6204,14 @@ namespace CaeModel
                 }
             }
             return vertexIdDegree.Count(entry => entry.Value % 2 == 1);
+        }
+        /// <summary>
+        /// Whether the edges of a wall of two loops lie on the source and on the target alone, with edges on both.
+        /// </summary>
+        private static bool IsRingWall(int[] wallEdgeIds, HashSet<int> sourceEdgeIds, HashSet<int> targetEdgeIds)
+        {
+            return wallEdgeIds.All(id => sourceEdgeIds.Contains(id) != targetEdgeIds.Contains(id)) &&
+                   wallEdgeIds.Any(sourceEdgeIds.Contains) && wallEdgeIds.Any(targetEdgeIds.Contains);
         }
         /// <summary>
         /// The number of closed edge loops the given edges form, edges being joined at their vertices.
