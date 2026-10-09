@@ -75,13 +75,8 @@ namespace APIs.Python.Model
             if (names == null || names.Length == 0)
                 throw new PythonAPIException("The argument 'part_names' must not be empty.");
             //
-            FeMesh mesh = _modelResolver.GetModel().Mesh;
-            foreach (string name in names)
-            {
-                if (mesh == null || !mesh.Parts.ContainsKey(name))
-                    throw new PythonAPIException("The model part '" + name + "' does not exist.");
-            }
             PythonNameComparer.RefuseRepeated(names, "part_names");
+            names = PythonModelArgumentCheck.ToStoredPartNames(_modelResolver.GetModel().Mesh, names, "model");
             double thicknessValue = MeshSetupItemsAPI.ToThickness(thickness);
             int layers = MeshSetupItemsAPI.ToNumberOfLayers(numberOfLayers);
             double offsetValue = offset == null ? 0 : PythonValueConverter.ToFiniteDouble(offset, "offset");

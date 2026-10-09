@@ -48,25 +48,28 @@ namespace APIs.Python.Model
             //
             return amplitude;
         }
-        public void Add(string name, object timeAmplitude, string timeSpan)
+        public void Add(string name, object timeAmplitude, string timeSpan, object shiftTime, object shiftAmplitude)
         {
             ValidateNewName(name, null);
             Amplitude amplitude = Build(name, timeAmplitude, timeSpan);
+            ApplyShifts(amplitude, shiftTime, shiftAmplitude);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddAmplitude(amplitude);
         }
-        public void Replace(string oldName, string name, object timeAmplitude, string timeSpan)
+        public void Replace(string oldName, string name, object timeAmplitude, string timeSpan, object shiftTime,
+                            object shiftAmplitude)
         {
             Amplitude existing = ResolveAmplitude(oldName);
             string newName = name == null ? oldName : name;
             ValidateNewName(newName, oldName);
-            // A value that is not given is kept, including the shifts the API does not expose
+            // A value that is not given is kept
             Amplitude amplitude = existing.DeepClone();
             amplitude.Name = newName;
             if (timeAmplitude != null) amplitude.TimeAmplitude = ToTimeAmplitude(timeAmplitude);
             if (timeSpan != null)
                 amplitude.TimeSpan = PythonValueConverter.ToEnum<AmplitudeTimeSpanEnum>(timeSpan, "time_span");
+            ApplyShifts(amplitude, shiftTime, shiftAmplitude);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceAmplitude(oldName, amplitude);
@@ -100,6 +103,13 @@ namespace APIs.Python.Model
                 amplitude.TimeSpan = PythonValueConverter.ToEnum<AmplitudeTimeSpanEnum>(timeSpan, "time_span");
             //
             return amplitude;
+        }
+        // The dialog stores the shifts as plain numbers, not as expressions
+        private static void ApplyShifts(Amplitude amplitude, object shiftTime, object shiftAmplitude)
+        {
+            if (shiftTime != null) amplitude.ShiftX = PythonValueConverter.ToFiniteDouble(shiftTime, "shift_time");
+            if (shiftAmplitude != null)
+                amplitude.ShiftY = PythonValueConverter.ToFiniteDouble(shiftAmplitude, "shift_amplitude");
         }
         private static double[][] ToTimeAmplitude(object timeAmplitude)
         {

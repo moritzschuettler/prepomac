@@ -50,10 +50,12 @@ namespace APIs.Python
         }
         [PythonAPI("Returns the entity with the specified 1-based ID.", Arguments = "id: int",
                    Returns = "GeometryMetadataEntity")]
-        public GeometryMetadataEntityAPI get(int id)
+        public GeometryMetadataEntityAPI get(object id)
         {
-            GeometryMetadataEntityAPI entity = _entities.FirstOrDefault(item => item.id == id);
-            if (entity == null) throw new PythonAPIException("Geometry metadata entity " + id + " does not exist.");
+            int idValue = PythonValueConverter.ToInt(id, "id");
+            GeometryMetadataEntityAPI entity = _entities.FirstOrDefault(item => item.id == idValue);
+            if (entity == null)
+                throw new PythonAPIException("Geometry metadata entity " + idValue + " does not exist.");
             return entity;
         }
         public IEnumerator<GeometryMetadataEntityAPI> GetEnumerator()

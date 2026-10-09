@@ -44,8 +44,11 @@ namespace PrePoMax.Commands
             return true;
         }
 
+        // The command sets the three dimensional model space as well, so the journal does too
         public override void ToPython(PythonJournalWriter writer)
         {
+            writer.Assign("pmx.model.properties.model_space",
+                          PythonValueFormatter.Text(ModelSpaceEnum.ThreeD.ToString()));
             writer.Assign("pmx.model.properties.unit_system",
                           PythonValueFormatter.Text(_unitSystemType.ToString()));
             writer.CountEmittedCommand();

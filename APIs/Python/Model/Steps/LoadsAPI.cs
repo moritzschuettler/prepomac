@@ -36,8 +36,9 @@ namespace APIs.Python.Model
         // Methods
         [PythonAPI("Adds a concentrated force using command history. A two dimensional model refuses a nonzero " +
                    "f3. The phase_deg applies only in a steady_state_dynamics step, where a load is complex, " +
-                   "and is refused elsewhere; it is at least 0 and below 360 degrees. The selection target is " +
-                   "nodes.",
+                   "and is refused elsewhere; it is at least 0 and below 360 degrees. Only a concentrated " +
+                   "force and a surface traction take a coordinate_system_name other than Global; the other " +
+                   "loads refuse it. The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, f1: float = None, " +
                                "f2: float = None, f3: float = None, amplitude_name: str = None, " +
                                "coordinate_system_name: str = None, phase_deg: float = None, " +
@@ -115,6 +116,7 @@ namespace APIs.Python.Model
                                     object color = null)
         {
             _service.ValidateName(StepName, name, null);
+            RefuseNone(magnitude, "magnitude");
             DLoad load = new DLoad(name, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyPressure(load, magnitude);
@@ -290,6 +292,7 @@ namespace APIs.Python.Model
                                            object color = null)
         {
             _service.ValidateName(StepName, name, null);
+            RefuseNone(magnitude, "magnitude");
             ShellEdgeLoad load = new ShellEdgeLoad(name, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyShellEdgeLoad(load, magnitude);
@@ -396,6 +399,7 @@ namespace APIs.Python.Model
                                        object color = null)
         {
             _service.ValidateName(StepName, name, null);
+            RefuseNone(magnitude, "magnitude");
             PreTensionLoad load = new PreTensionLoad(name, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyPreTension(load, magnitude, direction, tension_type, null);
@@ -431,6 +435,7 @@ namespace APIs.Python.Model
                                              object color = null)
         {
             _service.ValidateName(StepName, name, null);
+            RefuseNone(magnitude, "magnitude");
             CFlux load = new CFlux(name, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, NodeTarget);
             LoadFactory.ApplyConcentratedFlux(load, magnitude, add_flux);
@@ -462,6 +467,7 @@ namespace APIs.Python.Model
                                         object phase_deg = null, object color = null)
         {
             _service.ValidateName(StepName, name, null);
+            RefuseNone(magnitude, "magnitude");
             DFlux load = new DFlux(name, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplySurfaceFlux(load, magnitude);
@@ -492,6 +498,7 @@ namespace APIs.Python.Model
                                      object color = null)
         {
             _service.ValidateName(StepName, name, null);
+            RefuseNone(magnitude, "magnitude");
             BodyFlux load = new BodyFlux(name, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, ElementTarget);
             LoadFactory.ApplyBodyFlux(load, magnitude);
@@ -527,6 +534,8 @@ namespace APIs.Python.Model
                                               object color = null)
         {
             _service.ValidateName(StepName, name, null);
+            RefuseNone(sink_temperature, "sink_temperature");
+            RefuseNone(film_coefficient, "film_coefficient");
             FilmHeatTransfer load = new FilmHeatTransfer(name, null, RegionTypeEnum.Selection, 0, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyFilmHeatTransfer(load, sink_temperature, film_coefficient);
@@ -577,6 +586,8 @@ namespace APIs.Python.Model
                                                    object color = null)
         {
             _service.ValidateName(StepName, name, null);
+            RefuseNone(sink_temperature, "sink_temperature");
+            RefuseNone(emissivity, "emissivity");
             RadiationHeatTransfer load =
                 new RadiationHeatTransfer(name, null, RegionTypeEnum.Selection, 0, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
@@ -671,6 +682,13 @@ namespace APIs.Python.Model
         private bool Complex()
         {
             return _service.GetIsComplex(StepName);
+        }
+        // A replace keeps a value it is not given, and the load factory follows it, so an add refuses a None
+        // for a value it needs, which the load would otherwise take as zero
+        private static void RefuseNone(object value, string argumentName)
+        {
+            if (value == null)
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
         }
         private void ApplyRegionIfGiven(Load load, object region, string target)
         {

@@ -26,7 +26,7 @@ namespace PrePoMax.Python.Journal
             arguments.Add(PythonValueFormatter.Text(constraint.Name));
             //
             string verb = oldName == null ? "add" : "replace";
-            string method = verb + "_" + AddConstraintArguments(writer, arguments, constraint);
+            string method = verb + "_" + AddConstraintArguments(writer, arguments, constraint, oldName != null);
             // A replace keeps the expansion region it does not name, so one the model would discard is cleared
             if (oldName != null && constraint is CyclicSymmetry cyclicSymmetry && cyclicSymmetry.NumberOfGraphSectors < 2)
                 arguments.Add("clear_expansion_region=" + PythonValueFormatter.Format(true));
@@ -82,7 +82,7 @@ namespace PrePoMax.Python.Journal
             writer.CountEmittedCommand();
         }
         private static string AddConstraintArguments(PythonJournalWriter writer, List<string> arguments,
-                                                     Constraint constraint)
+                                                     Constraint constraint, bool replace)
         {
             if (constraint is CyclicSymmetry cyclicSymmetry)
             {
@@ -104,13 +104,13 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("number_of_graph_sectors=" + cyclicSymmetry.NumberOfGraphSectors);
                 arguments.Add("check_sector_angle=" +
                               PythonValueFormatter.Format(cyclicSymmetry.CheckSectorAngle));
-                AddTieValues(arguments, cyclicSymmetry);
+                AddTieValues(arguments, cyclicSymmetry, replace);
                 return "cyclic_symmetry";
             }
             if (constraint is Tie tie)
             {
                 AddMasterSlave(writer, arguments, constraint);
-                AddTieValues(arguments, tie);
+                AddTieValues(arguments, tie, replace);
                 return "tie";
             }
             if (constraint is Joint joint)
@@ -169,10 +169,9 @@ namespace PrePoMax.Python.Journal
                                                        compressionOnly.RegionType,
                                                        compressionOnly.CreationData));
                 arguments.Add("clearance=" + PythonValueFormatter.Equation(compressionOnly.Clearance));
-                arguments.Add("spring_stiffness=" +
-                              PythonValueFormatter.Equation(compressionOnly.SpringStiffness));
-                arguments.Add("tensile_force_at_negative_infinity=" +
-                              PythonValueFormatter.Equation(compressionOnly.TensileForceAtNegativeInfinity));
+                AddDefaultable(arguments, "spring_stiffness=", compressionOnly.SpringStiffness, replace);
+                AddDefaultable(arguments, "tensile_force_at_negative_infinity=",
+                               compressionOnly.TensileForceAtNegativeInfinity, replace);
                 arguments.Add("offset=" + PythonValueFormatter.Equation(compressionOnly.Offset));
                 arguments.Add("non_linear=" + PythonValueFormatter.Format(compressionOnly.NonLinear));
                 return "compression_only";
@@ -201,10 +200,24 @@ namespace PrePoMax.Python.Journal
             arguments.Add(PythonRegionEmitter.Emit(writer, constraint.SlaveRegionName,
                                                    constraint.SlaveRegionType, constraint.SlaveCreationData));
         }
-        private static void AddTieValues(List<string> arguments, Tie tie)
+        private static void AddTieValues(List<string> arguments, Tie tie, bool replace)
         {
-            arguments.Add("position_tolerance=" + PythonValueFormatter.Equation(tie.PositionTolerance));
+            AddDefaultable(arguments, "position_tolerance=", tie.PositionTolerance, replace);
             arguments.Add("adjust=" + PythonValueFormatter.Format(tie.Adjust));
+        }
+        // A value the dialog offers as Default is stored as NaN. An add leaves it out, and a replace, which keeps a
+        // value it is not given, writes float('nan'), which the API takes as Default
+        private static void AddDefaultable(List<string> arguments, string argument, CaeGlobals.EquationContainer value,
+                                           bool replace)
+        {
+            if (value == null) return;
+            //
+            if (!value.IsEquation() && double.IsNaN(value.Value))
+            {
+                if (replace) arguments.Add(argument + "float('nan')");
+                return;
+            }
+            arguments.Add(argument + PythonValueFormatter.Equation(value));
         }
         private static void AddCouplingArguments(PythonJournalWriter writer, List<string> arguments,
                                                  Coupling coupling)

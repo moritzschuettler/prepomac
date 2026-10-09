@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using CaeMesh;
 using CaeModel;
 using System.Linq;
 
@@ -87,10 +88,13 @@ namespace APIs.Python.Model
             string name = referencePointName as string;
             if (name == null)
                 throw new PythonAPIException("The argument 'reference_point_name' must be a string.");
-            if (!_modelResolver.GetModel().Mesh.ReferencePoints.ContainsKey(name))
+            // The controller follows a renamed reference point by comparing names exactly, so the name is
+            // stored in the model's own spelling rather than the caller's
+            FeReferencePoint referencePoint;
+            if (!_modelResolver.GetModel().Mesh.ReferencePoints.TryGetValue(name, out referencePoint))
                 throw new PythonAPIException("The reference point '" + name + "' does not exist.");
             //
-            return name;
+            return referencePoint.Name;
         }
         // A constraint whose single region is the IMultiRegion one: the springs, the compression only,
         // the rigid body and the couplings

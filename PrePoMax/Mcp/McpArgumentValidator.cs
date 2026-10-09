@@ -41,6 +41,17 @@ namespace PrePoMax.Mcp
                         return "The tool " + tool.Name + " needs the argument " + requiredName + ". Nothing was done.";
                 }
             }
+            // A client may send null for an optional argument it means to leave out, and it is taken that way, so
+            // the tool runs with the default the schema describes
+            if (items != null)
+            {
+                List<string> omitted = new List<string>();
+                foreach (KeyValuePair<string, object> item in items)
+                {
+                    if (item.Value == null && (required == null || !required.Contains(item.Key))) omitted.Add(item.Key);
+                }
+                foreach (string name in omitted) items.Remove(name);
+            }
             //
             Dictionary<string, object> properties = JsonReader.GetObject(schema, "properties");
             if (items == null || properties == null) return null;

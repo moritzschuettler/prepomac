@@ -42,64 +42,67 @@ namespace APIs.Python.Model
         public string model_type
         {
             get { return _service.GetModelType(); }
-            set { Update(model_type: value); }
+            set { Update(model_type: RefuseNone(value, "model_type")); }
         }
         [PythonAPI("The global results file a submodel reads its boundary values from.", Returns = "str")]
         public string global_results_file_name
         {
             get { return _service.GetGlobalResultsFileName(); }
-            set { Update(global_results_file_name: value); }
+            set { Update(global_results_file_name: RefuseNone(value, "global_results_file_name")); }
         }
         [PythonAPI("The results a slip wear model keeps: All, LastIncrementOfEachStep or LastIncrement.",
                    Returns = "str")]
         public string slip_wear_results
         {
             get { return _service.GetSlipWearResults(); }
-            set { Update(slip_wear_results: value); }
+            set { Update(slip_wear_results: RefuseNone(value, "slip_wear_results")); }
         }
         [PythonAPI("The number of slip wear cycles, a whole number evaluated from the value or equation it was " +
-                   "entered with; get_equations() returns the equation.", Returns = "int")]
-        public int number_of_cycles
+                   "entered with; get_equations() returns the equation. It takes a whole number or an equation " +
+                   "given as a str, as replace does.", Returns = "int")]
+        public object number_of_cycles
         {
             get { return _service.GetNumberOfCycles(); }
-            set { Update(number_of_cycles: value); }
+            set { Update(number_of_cycles: RefuseNone(value, "number_of_cycles")); }
         }
         [PythonAPI("The slip wear cycle increment, a whole number evaluated from the value or equation it was " +
-                   "entered with; get_equations() returns the equation.", Returns = "int")]
-        public int cycles_increment
+                   "entered with; get_equations() returns the equation. It takes a whole number or an equation " +
+                   "given as a str, as replace does.", Returns = "int")]
+        public object cycles_increment
         {
             get { return _service.GetCyclesIncrement(); }
-            set { Update(cycles_increment: value); }
+            set { Update(cycles_increment: RefuseNone(value, "cycles_increment")); }
         }
         [PythonAPI("The number of slip wear smoothing steps, a whole number evaluated from the value or equation " +
-                   "it was entered with; get_equations() returns the equation.", Returns = "int")]
-        public int number_of_smoothing_steps
+                   "it was entered with; get_equations() returns the equation. It takes a whole number or an " +
+                   "equation given as a str, as replace does.", Returns = "int")]
+        public object number_of_smoothing_steps
         {
             get { return _service.GetNumberOfSmoothingSteps(); }
-            set { Update(number_of_smoothing_steps: value); }
+            set { Update(number_of_smoothing_steps: RefuseNone(value, "number_of_smoothing_steps")); }
         }
         [PythonAPI("Whether a slip wear model uses BDM remeshing.", Returns = "bool")]
-        public bool bdm_remeshing
+        public object bdm_remeshing
         {
             get { return _service.GetBdmRemeshing(); }
-            set { Update(bdm_remeshing: value); }
+            set { Update(bdm_remeshing: RefuseNone(value, "bdm_remeshing")); }
         }
         [PythonAPI("The absolute zero temperature, or None when it is undefined. Assigning None makes it " +
-                   "undefined.", Returns = "float")]
+                   "undefined.", Returns = "float or None")]
         public object absolute_zero
         {
             get { return _service.GetAbsoluteZero(); }
             set { _service.SetPhysicalConstant("absolute_zero", value); }
         }
         [PythonAPI("The Stefan Boltzmann constant, or None when it is undefined. Assigning None makes it " +
-                   "undefined.", Returns = "float")]
+                   "undefined.", Returns = "float or None")]
         public object stefan_boltzmann
         {
             get { return _service.GetStefanBoltzmann(); }
             set { _service.SetPhysicalConstant("stefan_boltzmann", value); }
         }
         [PythonAPI("The Newton gravitational constant, or None when it is undefined. Assigning None makes " +
-                   "it undefined.", Returns = "float")]
+                   "it undefined.", Returns = "float or None")]
         public object newton_gravity
         {
             get { return _service.GetNewtonGravity(); }
@@ -135,11 +138,13 @@ namespace APIs.Python.Model
                             object cycles_increment = null, object number_of_smoothing_steps = null,
                             object bdm_remeshing = null, object absolute_zero = null,
                             object stefan_boltzmann = null, object newton_gravity = null,
-                            bool clear_undefined_constants = false)
+                            object clear_undefined_constants = null)
         {
+            bool clearUndefinedConstants =
+                PythonValueConverter.ToBoolOrDefault(clear_undefined_constants, false, "clear_undefined_constants");
             _service.UpdateProperties(name, model_type, global_results_file_name, slip_wear_results,
                                       number_of_cycles, cycles_increment, number_of_smoothing_steps, bdm_remeshing,
-                                      absolute_zero, stefan_boltzmann, newton_gravity, clear_undefined_constants);
+                                      absolute_zero, stefan_boltzmann, newton_gravity, clearUndefinedConstants);
         }
         [PythonAPI("Returns the expressions number_of_cycles, cycles_increment and number_of_smoothing_steps " +
                    "were entered with, without evaluating them. Only a value entered as an expression is " +
@@ -156,6 +161,14 @@ namespace APIs.Python.Model
                    ", unit_system=" + StringListAPI.ToDisplayString(_service.GetUnitSystem()) + ")";
         }
         //
+        // A property assignment that Update took as not given would leave the value unchanged without a word
+        private static T RefuseNone<T>(T value, string propertyName) where T : class
+        {
+            if (value == null)
+                throw new PythonAPIException("The property '" + propertyName + "' cannot be set to None.");
+            //
+            return value;
+        }
         private void Update(string model_type = null, string global_results_file_name = null,
                             string slip_wear_results = null, object number_of_cycles = null,
                             object cycles_increment = null, object number_of_smoothing_steps = null,

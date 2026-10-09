@@ -19391,7 +19391,10 @@ namespace PrePoMax
         {
             string inputFileName = GetCalculiXInpFileName(jobName);
             bool useBackgroundWorker = asynchronous;
+            string argument = job.Argument;
+            bool isEditedArgument = argument != AnalysisJob.GetDefaultArgument(job.FEMSolver, job.Name);
             AnalysisJob job = _jobs[jobName];
+            if (isEditedArgument) job.Argument = argument;
             string workDirectory = Path.GetDirectoryName(inputFileName);
             if (workDirectory == null || !Directory.Exists(workDirectory))
                 throw new CaeException("The work directory '" + workDirectory + "' of the analysis does not exist.");
@@ -21181,6 +21184,11 @@ namespace PrePoMax
             }
             //
             if (command == null)
+                case OrderedDictionaryTreeLayoutAction.SetLayout:
+                    preview.SetItemLayout(change.Layout);
+                    commandName = "Set tree layout";
+                    details = dictionary.Keys.Count + " items";
+                    break;
             {
                 if (view == ViewGeometryModelResults.Results)
                     command = new CSetResultOrderedDictionaryItemLayout(commandName, change.ItemType, view,

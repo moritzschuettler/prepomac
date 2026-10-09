@@ -70,10 +70,12 @@ namespace APIs.Python.Model
                    "than 0 and number_of_layers at least 1.",
                    Arguments = "part_names: list[str] or str, thickness: float, number_of_layers: int = 1, " +
                                "offset: float = 0, keep_model_edges: bool = False", Returns = "None")]
-        public void thicken_shell_mesh(object part_names, object thickness, int number_of_layers = 1,
-                                       object offset = null, bool keep_model_edges = false)
+        public void thicken_shell_mesh(object part_names, object thickness, object number_of_layers = null,
+                                       object offset = null, object keep_model_edges = null)
         {
-            _toolService.ThickenShellMesh(part_names, thickness, number_of_layers, offset, keep_model_edges);
+            int numberOfLayers = PythonValueConverter.ToIntOrDefault(number_of_layers, 1, "number_of_layers");
+            bool keepModelEdges = PythonValueConverter.ToBoolOrDefault(keep_model_edges, false, "keep_model_edges");
+            _toolService.ThickenShellMesh(part_names, thickness, numberOfLayers, offset, keepModelEdges);
         }
 
         [PythonAPI("Splits a part mesh with a surface using command history. This is a one time operation " +
@@ -87,10 +89,11 @@ namespace APIs.Python.Model
         public void split_part_mesh_using_surface(object base_part_region, object splitter_surface_region,
                                                   object offset = null, object max_size = null,
                                                   object min_size = null, object hausdorff = null,
-                                                  bool exact = false)
+                                                  object exact = null)
         {
+            bool isExact = PythonValueConverter.ToBoolOrDefault(exact, false, "exact");
             _toolService.SplitPartMeshUsingSurface(base_part_region, splitter_surface_region, offset,
-                                                   max_size, min_size, hausdorff, exact);
+                                                   max_size, min_size, hausdorff, isExact);
         }
 
         [PythonAPI("Updates the nodal coordinates of the model mesh from a file using command history.",

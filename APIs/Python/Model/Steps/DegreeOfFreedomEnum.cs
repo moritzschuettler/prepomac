@@ -9,7 +9,7 @@
 
 namespace APIs.Python.Model
 {
-    // The degrees of freedom free_dofs names, so that the vocabulary describe_api serves can list them
+    // The degrees of freedom free_dofs and fixed_dofs name, so that the vocabulary describe_api serves can list them
     public enum DegreeOfFreedomEnum
     {
         U1,

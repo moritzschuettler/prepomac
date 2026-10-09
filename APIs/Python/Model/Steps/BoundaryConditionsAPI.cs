@@ -9,6 +9,8 @@
 
 using CaeGlobals;
 using CaeModel;
+using System;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -60,7 +62,11 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a displacement and rotation boundary condition using command history. A degree of " +
-                   "freedom that is not given is left unconstrained, and a value of 0 fixes it. A scalar " +
+                   "freedom that is not given is left unconstrained, and a value of 0 fixes it. fixed_dofs names " +
+                   "the degrees of freedom the dialog shows as Fixed, which the solver input writes without a " +
+                   "value; it takes U1, U2 and U3 in any case, as the dialog fixes no rotation, a degree of " +
+                   "freedom it names cannot also be given a value, and fixed ones cannot be combined with valued " +
+                   "ones, as the dialog refuses. A scalar " +
                    "distribution scales every prescribed degree of freedom, a vector one scales u1, u2 and u3 by " +
                    "its three components; either needs a nonzero prescribed value and a region that is not a " +
                    "reference point. A two dimensional model has no u3, ur1 and ur2, so it refuses a value for " +
@@ -71,7 +77,8 @@ namespace APIs.Python.Model
                                "u3: float = None, ur1: float = None, ur2: float = None, ur3: float = None, " +
                                "distribution_name: str = None, " +
                                "amplitude_name: str = None, coordinate_system_name: str = None, " +
-                               "phase_deg: float = None, color: list[int] or str = None",
+                               "phase_deg: float = None, color: list[int] or str = None, " +
+                               "fixed_dofs: list[str] = None",
                    Returns = "BoundaryCondition",
                    Example = "step.bcs.add_displacement_rotation('BC-1', selection, u1=0, u2=0, u3=0)")]
         public BoundaryConditionAPI add_displacement_rotation(string name, object region, object u1 = null,
@@ -80,7 +87,8 @@ namespace APIs.Python.Model
                                                               object ur3 = null, object distribution_name = null,
                                                               object amplitude_name = null,
                                                               object coordinate_system_name = null,
-                                                              object phase_deg = null, object color = null)
+                                                              object phase_deg = null, object color = null,
+                                                              object fixed_dofs = null)
         {
             _service.ValidateName(StepName, name, null);
             // The dialog derives the complex flag from the step type
@@ -89,11 +97,13 @@ namespace APIs.Python.Model
                                          _service.GetIsComplex(StepName), 0);
             _service.ApplyRegion(boundaryCondition, region, "nodes");
             ApplyDegreesOfFreedom(boundaryCondition, u1, u2, u3, ur1, ur2, ur3);
+            FixDegreesOfFreedom(boundaryCondition, fixed_dofs, null, u1, u2, u3, ur1, ur2, ur3);
             if (distribution_name != null)
                 boundaryCondition.DistributionName = _service.ResolveDistributionName(distribution_name);
             _service.ApplyAmplitudeName(boundaryCondition, amplitude_name);
             _service.ApplyCoordinateSystemName(boundaryCondition, coordinate_system_name);
             _service.ApplyCommonValues(boundaryCondition, phase_deg, color);
+            EnsureFixedDegreesOfFreedom(boundaryCondition);
             _service.EnsureDistributionApplicable(boundaryCondition);
             _service.Add(StepName, boundaryCondition);
             //
@@ -102,8 +112,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces an existing displacement and rotation boundary condition using command history. " +
                    "A degree of freedom that is not given keeps its value; give free_dofs to unconstrain one. " +
-                   "A degree of freedom named in free_dofs cannot also be given a value. Possible free_dofs " +
-                   "values are U1, U2, U3, UR1, UR2 and UR3, in any case.",
+                   "A degree of freedom named in free_dofs cannot also be given a value or be named in " +
+                   "fixed_dofs. Possible free_dofs values are U1, U2, U3, UR1, UR2 and UR3, in any case.",
                    Arguments = "old_name: str, name: str = None, the arguments of " +
                                "add_displacement_rotation, and free_dofs: list[str] = None",
                    Returns = "BoundaryCondition")]
@@ -116,26 +126,29 @@ namespace APIs.Python.Model
                                                                   object amplitude_name = null,
                                                                   object coordinate_system_name = null,
                                                                   object phase_deg = null, object color = null,
-                                                                  object free_dofs = null)
+                                                                  object fixed_dofs = null, object free_dofs = null)
         {
             DisplacementRotation boundaryCondition =
                 _service.CloneForReplace<DisplacementRotation>(StepName, old_name, "displacement_rotation");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             ApplyDegreesOfFreedom(boundaryCondition, u1, u2, u3, ur1, ur2, ur3);
             if (free_dofs != null) FreeDegreesOfFreedom(boundaryCondition, free_dofs, u1, u2, u3, ur1, ur2, ur3);
+            FixDegreesOfFreedom(boundaryCondition, fixed_dofs, free_dofs, u1, u2, u3, ur1, ur2, ur3);
             if (distribution_name != null)
                 boundaryCondition.DistributionName = _service.ResolveDistributionName(distribution_name);
             _service.ApplyAmplitudeName(boundaryCondition, amplitude_name);
             _service.ApplyCoordinateSystemName(boundaryCondition, coordinate_system_name);
             _service.ApplyCommonValues(boundaryCondition, phase_deg, color);
+            EnsureFixedDegreesOfFreedom(boundaryCondition);
             _service.EnsureDistributionApplicable(boundaryCondition);
             //
             return Replace(old_name, name, boundaryCondition);
         }
 
         [PythonAPI("Adds a submodel boundary condition using command history. The degrees of freedom are " +
-                   "read from the global model results of the given step number, which is at least 1. The " +
-                   "selection target is nodes.",
+                   "read from the global model results of the given step number, which is at least 1. A 2D " +
+                   "model has no u3, ur1 and ur2, so True for any of them is refused there. The selection " +
+                   "target is nodes.",
                    Arguments = "name: str, region: Selection or Region, step_id: int = None, " +
                                "u1: bool = None, u2: bool = None, u3: bool = None, ur1: bool = None, " +
                                "ur2: bool = None, ur3: bool = None, color: list[int] or str = None",
@@ -344,6 +357,108 @@ namespace APIs.Python.Model
                 }
             }
         }
+        // The dialog stores a fixed degree of freedom as positive infinity, which the solver input writes without
+        // a value
+        private static void FixDegreesOfFreedom(DisplacementRotation boundaryCondition, object fixedDofs,
+                                                object freeDofs, object u1, object u2, object u3, object ur1,
+                                                object ur2, object ur3)
+        {
+            if (fixedDofs == null) return;
+            //
+            HashSet<DegreeOfFreedomEnum> free = new HashSet<DegreeOfFreedomEnum>();
+            if (freeDofs != null)
+            {
+                foreach (string dof in PythonStringListConverter.ToStringArrayOrSingle(freeDofs, "free_dofs"))
+                    free.Add(PythonValueConverter.ToEnum<DegreeOfFreedomEnum>(dof, "free_dofs"));
+            }
+            foreach (string name in PythonStringListConverter.ToStringArrayOrSingle(fixedDofs, "fixed_dofs"))
+            {
+                RefuseFixedRotation(name);
+                DegreeOfFreedomEnum dof = (DegreeOfFreedomEnum)Enum.Parse(typeof(DegreeOfFreedomEnum),
+                    PythonValueConverter.ToEnum<FixedDegreeOfFreedomEnum>(name, "fixed_dofs").ToString());
+                if (free.Contains(dof))
+                    throw new PythonAPIException("The degree of freedom " + dof + " is named in both 'fixed_dofs' " +
+                                                 "and 'free_dofs'. Fix it or free it, not both.");
+                RefuseValueOfFixedDegreeOfFreedom(GetDegreeOfFreedomArgument(dof, u1, u2, u3, ur1, ur2, ur3),
+                                                  dof.ToString().ToLowerInvariant());
+                // A two dimensional model leaves this degree of freedom free whatever it is given
+                if (boundaryCondition.TwoD && dof == DegreeOfFreedomEnum.U3)
+                    throw new PythonAPIException("The degree of freedom " + dof + " named in 'fixed_dofs' is one a " +
+                                                 "two dimensional model does not have. Leave it out.");
+                GetDegreeOfFreedom(boundaryCondition, dof).SetEquationFromValue(double.PositiveInfinity);
+            }
+        }
+        // The dialog offers Fixed for the displacements only, and a rotation container stores positive infinity
+        // as 0, so a rotation named in fixed_dofs is refused rather than silently fixed at 0
+        private static void RefuseFixedRotation(string name)
+        {
+            string trimmed = name == null ? null : name.Trim();
+            foreach (DegreeOfFreedomEnum rotation in new[] { DegreeOfFreedomEnum.UR1, DegreeOfFreedomEnum.UR2,
+                                                             DegreeOfFreedomEnum.UR3 })
+            {
+                if (!string.Equals(rotation.ToString(), trimmed, StringComparison.OrdinalIgnoreCase)) continue;
+                //
+                throw new PythonAPIException("The degree of freedom " + rotation + " named in 'fixed_dofs' is a " +
+                                             "rotation, which the dialog does not offer as Fixed; fixed_dofs takes " +
+                                             "U1, U2 and U3. Give it the value 0 in '" +
+                                             rotation.ToString().ToLowerInvariant() + "' instead, and every other " +
+                                             "constrained degree of freedom a value too.");
+            }
+        }
+        private static object GetDegreeOfFreedomArgument(DegreeOfFreedomEnum dof, object u1, object u2, object u3,
+                                                         object ur1, object ur2, object ur3)
+        {
+            switch (dof)
+            {
+                case DegreeOfFreedomEnum.U1: return u1;
+                case DegreeOfFreedomEnum.U2: return u2;
+                case DegreeOfFreedomEnum.U3: return u3;
+                case DegreeOfFreedomEnum.UR1: return ur1;
+                case DegreeOfFreedomEnum.UR2: return ur2;
+                case DegreeOfFreedomEnum.UR3: return ur3;
+                default: throw new NotSupportedException();
+            }
+        }
+        private static EquationContainer GetDegreeOfFreedom(DisplacementRotation boundaryCondition,
+                                                            DegreeOfFreedomEnum dof)
+        {
+            switch (dof)
+            {
+                case DegreeOfFreedomEnum.U1: return boundaryCondition.U1;
+                case DegreeOfFreedomEnum.U2: return boundaryCondition.U2;
+                case DegreeOfFreedomEnum.U3: return boundaryCondition.U3;
+                case DegreeOfFreedomEnum.UR1: return boundaryCondition.UR1;
+                case DegreeOfFreedomEnum.UR2: return boundaryCondition.UR2;
+                case DegreeOfFreedomEnum.UR3: return boundaryCondition.UR3;
+                default: throw new NotSupportedException();
+            }
+        }
+        private static void RefuseValueOfFixedDegreeOfFreedom(object value, string argumentName)
+        {
+            if (value == null) return;
+            //
+            throw new PythonAPIException("The degree of freedom " + argumentName.ToUpperInvariant() + " is given " +
+                                         "a value in '" + argumentName + "' and is also named in 'fixed_dofs'. " +
+                                         "Give it either a value or fix it, not both.");
+        }
+        // The dialog refuses fixed degrees of freedom next to valued ones
+        private static void EnsureFixedDegreesOfFreedom(DisplacementRotation boundaryCondition)
+        {
+            List<string> fixedNames = new List<string>();
+            List<string> valuedNames = new List<string>();
+            foreach (DegreeOfFreedomEnum dof in Enum.GetValues(typeof(DegreeOfFreedomEnum)))
+            {
+                double value = GetDegreeOfFreedom(boundaryCondition, dof).Value;
+                if (double.IsPositiveInfinity(value)) fixedNames.Add(dof.ToString());
+                else if (!double.IsNaN(value)) valuedNames.Add(dof.ToString());
+            }
+            if (fixedNames.Count > 0 && valuedNames.Count > 0)
+                throw new PythonAPIException("The boundary condition fixes " + string.Join(", ", fixedNames) +
+                                             " and gives a value to " + string.Join(", ", valuedNames) + ", but " +
+                                             "fixed and valued degrees of freedom cannot be combined, as the " +
+                                             "dialog refuses. Name every constrained one in 'fixed_dofs', or give " +
+                                             "every one a value, a fixing 0 included.");
+        }
         // Freeing a degree of freedom the same call gives a value would silently discard that value
         private static void RefuseValueOfFreeDegreeOfFreedom(object value, string argumentName)
         {
@@ -366,10 +481,20 @@ namespace APIs.Python.Model
             }
             if (u1 != null) boundaryCondition.U1 = PythonValueConverter.ToBool(u1, "u1");
             if (u2 != null) boundaryCondition.U2 = PythonValueConverter.ToBool(u2, "u2");
-            if (u3 != null) boundaryCondition.U3 = PythonValueConverter.ToBool(u3, "u3");
-            if (ur1 != null) boundaryCondition.UR1 = PythonValueConverter.ToBool(ur1, "ur1");
-            if (ur2 != null) boundaryCondition.UR2 = PythonValueConverter.ToBool(ur2, "ur2");
+            if (u3 != null) boundaryCondition.U3 = ToInPlaneDegreeOfFreedom(boundaryCondition, u3, "u3");
+            if (ur1 != null) boundaryCondition.UR1 = ToInPlaneDegreeOfFreedom(boundaryCondition, ur1, "ur1");
+            if (ur2 != null) boundaryCondition.UR2 = ToInPlaneDegreeOfFreedom(boundaryCondition, ur2, "ur2");
             if (ur3 != null) boundaryCondition.UR3 = PythonValueConverter.ToBool(ur3, "ur3");
+        }
+        // A submodel boundary condition clears an out of plane degree of freedom in a 2D model
+        private static bool ToInPlaneDegreeOfFreedom(SubmodelBC boundaryCondition, object value, string argumentName)
+        {
+            bool used = PythonValueConverter.ToBool(value, argumentName);
+            if (used && boundaryCondition.TwoD)
+                throw new PythonAPIException("The argument '" + argumentName + "' cannot be True in a 2D model, " +
+                                             "which has no " + argumentName.ToUpperInvariant() + " degree of " +
+                                             "freedom.");
+            return used;
         }
         private BoundaryConditionAPI Replace(string oldName, string name, BoundaryCondition boundaryCondition)
         {

@@ -68,9 +68,22 @@ namespace PrePoMax.Rpc
                         writer.WriteLine(failure.Line);
                         continue;
                     }
-                    RpcResponse response = _server.GetDispatcher().Dispatch(request);
-                    // A notification is not answered, which is what makes shutdown possible
-                    if (!request.IsNotification && response != null) writer.WriteLine(response.Line);
+                    // The answer of a long call stays collectable with wait when the line carrying it cannot be
+                    // written, because the client went away before it came
+                    RpcDispatcher dispatcher = _server.GetDispatcher();
+                    bool isDelivered = false;
+                    dispatcher.BeginDelivery();
+                    try
+                    {
+                        RpcResponse response = dispatcher.Dispatch(request);
+                        // A notification is not answered, which is what makes shutdown possible
+                        if (!request.IsNotification && response != null) writer.WriteLine(response.Line);
+                        isDelivered = true;
+                    }
+                    finally
+                    {
+                        dispatcher.EndDelivery(isDelivered);
+                    }
                 }
             }
             catch (Exception)

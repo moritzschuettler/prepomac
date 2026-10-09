@@ -41,13 +41,29 @@ namespace APIs.Python
             }
         }
         [PythonAPI("The complex result angle in degrees.", Returns = "float")]
-        public double complex_angle_deg { get { return _complexAngleDeg; } set { _complexAngleDeg = value; } }
+        public object complex_angle_deg
+        {
+            get { return _complexAngleDeg; }
+            set { _complexAngleDeg = PythonValueConverter.ToFiniteDouble(value, "complex_angle_deg"); }
+        }
         [PythonAPI("The result step ID, or None for all steps.", Returns = "int or None")]
-        public int? step_id { get { return _stepId; } set { _stepId = value; } }
+        public object step_id
+        {
+            get { return _stepId; }
+            set { _stepId = value == null ? (int?)null : PythonValueConverter.ToInt(value, "step_id"); }
+        }
         [PythonAPI("The result increment ID, or None for all increments.", Returns = "int or None")]
-        public int? increment_id { get { return _incrementId; } set { _incrementId = value; } }
+        public object increment_id
+        {
+            get { return _incrementId; }
+            set { _incrementId = value == null ? (int?)null : PythonValueConverter.ToInt(value, "increment_id"); }
+        }
         [PythonAPI("Whether harmonic oscillations are included.", Returns = "bool")]
-        public bool harmonic { get { return _harmonic; } set { _harmonic = value; } }
+        public object harmonic
+        {
+            get { return _harmonic; }
+            set { _harmonic = PythonValueConverter.ToBool(value, "harmonic"); }
+        }
         [PythonAPI("Node coordinate output: Off, Undeformed or Deformed.", Returns = "str")]
         public string output_node_coordinates
         {

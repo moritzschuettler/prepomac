@@ -396,6 +396,65 @@ def test_thermal_loads():
     check(loads[PREFIX + "RH"].get_value("emissivity") == 0.8, "a refused replace changed the emissivity")
 
 
+# A replace keeps a value given as None, and the load factory follows it, so an add refused a None for a value it
+# needs only when it reached the model - which took it as zero
+def test_required_values():
+    loads = pmx.model.steps[STEP].loads
+    thermal = pmx.model.steps[THERMAL_STEP].loads
+    count_before = len(loads)
+    thermal_count_before = len(thermal)
+    for function, argument in [
+            (lambda: loads.add_pressure(PREFIX + "Bad", surface_selection(1), None), "'magnitude'"),
+            (lambda: loads.add_shell_edge_load(PREFIX + "Bad", surface_selection(1), None), "'magnitude'"),
+            (lambda: loads.add_pre_tension(PREFIX + "Bad", surface_selection(1), None), "'magnitude'"),
+            (lambda: thermal.add_concentrated_flux(PREFIX + "Bad", node_selection([1]), None), "'magnitude'"),
+            (lambda: thermal.add_surface_flux(PREFIX + "Bad", surface_selection(1), None), "'magnitude'"),
+            (lambda: thermal.add_body_flux(PREFIX + "Bad", element_selection([1]), None), "'magnitude'"),
+            (lambda: thermal.add_film_heat_transfer(PREFIX + "Bad", surface_selection(1), None, 0.05),
+             "'sink_temperature'"),
+            (lambda: thermal.add_film_heat_transfer(PREFIX + "Bad", surface_selection(1), 20, None),
+             "'film_coefficient'"),
+            (lambda: thermal.add_radiation_heat_transfer(PREFIX + "Bad", surface_selection(1), None, 0.8),
+             "'sink_temperature'"),
+            (lambda: thermal.add_radiation_heat_transfer(PREFIX + "Bad", surface_selection(1), 20, None),
+             "'emissivity'")]:
+        check_refused(function, argument, "a required value given as None must be refused naming " + argument)
+    check(len(loads) == count_before and len(thermal) == thermal_count_before, "a refused load was recorded")
+    # On a replace None keeps the value
+    load = loads.add_pressure(PREFIX + "P_None", surface_selection(1), 3)
+    load = loads.replace_pressure(PREFIX + "P_None", magnitude=None)
+    check(load.get_value("magnitude") == 3, "a replace with magnitude=None must keep the magnitude")
+    loads.remove([PREFIX + "P_None"])
+
+
+# The solver input transforms only the nodes of a concentrated force and of a surface traction into a coordinate
+# system, and the dialog offers one for those two only, so any other load would keep it without effect
+def test_load_coordinate_system():
+    loads = pmx.model.steps[STEP].loads
+    system = PREFIX + "CS_Load"
+    pmx.model.coordinate_systems.add(system, [0, 0, 0], [0, 1, 0], [-1, 0, 0])
+    count_before = len(loads)
+    check_refused(lambda: loads.add_pressure(PREFIX + "Bad", surface_selection(1), 1,
+                                             coordinate_system_name=system),
+                  "'coordinate_system_name'", "a coordinate system of a pressure must be refused")
+    check_refused(lambda: loads.add_moment(PREFIX + "Bad", node_selection([1]), m1=1,
+                                           coordinate_system_name=system),
+                  "'coordinate_system_name'", "a coordinate system of a moment must be refused")
+    check(len(loads) == count_before, "a load with a refused coordinate system was recorded")
+    # The two loads it applies to take it, in the model's spelling
+    load = loads.add_concentrated_force(PREFIX + "F_CS", node_selection([1]), f1=1,
+                                        coordinate_system_name=system.lower())
+    check(load.coordinate_system_name == system, "unexpected coordinate system " + load.coordinate_system_name)
+    load = loads.add_pressure(PREFIX + "P_CS", surface_selection(1), 1)
+    check_refused(lambda: loads.replace_pressure(PREFIX + "P_CS", coordinate_system_name=system),
+                  "'coordinate_system_name'", "a replace must refuse a coordinate system of a pressure")
+    # The default is what every load reads back, so it goes back into every load
+    load = loads.replace_pressure(PREFIX + "P_CS", coordinate_system_name=load.coordinate_system_name)
+    check(load.coordinate_system_name == "Global", "the default coordinate system was not kept")
+    loads.remove([PREFIX + "F_CS", PREFIX + "P_CS"])
+    pmx.model.coordinate_systems.remove([system])
+
+
 def test_collection_verbs():
     loads = pmx.model.steps[STEP].loads
     name = PREFIX + "F"
@@ -515,6 +574,8 @@ def main():
     finally:
         os.remove(file_name)
     test_thermal_loads()
+    test_required_values()
+    test_load_coordinate_system()
     test_collection_verbs()
     test_propagate()
     test_complex_phase()

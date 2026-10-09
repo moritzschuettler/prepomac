@@ -43,6 +43,7 @@ namespace APIs.Python
         IOrderedDictionaryItemLayout<string> GetTreeLayout(string view, string itemType, string parentName);
         void ChangeTreeLayout(string action, string view, string itemType, string parentName, string[] itemNames,
                               string[] groupIds, string groupId, string targetGroupId, int targetIndex, string groupName);
+        void SetTreeLayout(string view, string itemType, string parentName, OrderedDictionaryItemLayout<string> layout);
         // CalculiX keyword editor
         List<FileInOut.Output.Calculix.CalculixKeyword> GetCalculixModelKeywords();
         void SetCalculixUserKeywords(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords);

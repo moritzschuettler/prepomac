@@ -234,15 +234,15 @@ namespace APIs.Python.Model
                    Arguments = "name: str, selection: Selection, thickness: float, number_of_layers: int = 1, " +
                                "offset: float = 0, keep_model_edges: bool = False", Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_thicken_shell_mesh(string name, SelectionAPI selection, object thickness,
-                                                       int number_of_layers = 1, object offset = null,
-                                                       bool keep_model_edges = false)
+                                                       object number_of_layers = null, object offset = null,
+                                                       object keep_model_edges = null)
         {
             _service.ValidateNewName(name);
             ThickenShellMesh item = new ThickenShellMesh(name);
             item.Thickness = ToThickness(thickness);
-            item.NumberOfLayers = ToNumberOfLayers(number_of_layers);
+            item.NumberOfLayers = ToNumberOfLayers(number_of_layers ?? 1);
             if (offset != null) item.Offset = PythonValueConverter.ToFiniteDouble(offset, "offset");
-            item.KeepModelEdges = keep_model_edges;
+            item.KeepModelEdges = PythonValueConverter.ToBoolOrDefault(keep_model_edges, false, "keep_model_edges");
             _service.Add(item, name, selection);
             return this[name];
         }
@@ -396,14 +396,15 @@ namespace APIs.Python.Model
                                "transfinite_angle_deg: float = None, transfinite_three_sided: str = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_transfinite_mesh(string name, SelectionAPI selection,
-                                                     bool allow_pyramid_elements = false, string algorithm_2d = null,
+                                                     object allow_pyramid_elements = null, string algorithm_2d = null,
                                                      string algorithm_3d = null, object recombine = null,
                                                      object transfinite_angle_deg = null,
                                                      string transfinite_three_sided = null)
         {
             _service.ValidateNewName(name);
             TransfiniteMesh item = new TransfiniteMesh(name);
-            item.AllowPyramidElements = allow_pyramid_elements;
+            item.AllowPyramidElements = PythonValueConverter.ToBoolOrDefault(allow_pyramid_elements, false,
+                                                                             "allow_pyramid_elements");
             ApplyTransfiniteMesh(item, algorithm_2d, algorithm_3d, recombine, transfinite_angle_deg,
                                  transfinite_three_sided);
             _service.Add(item, name, selection);
@@ -450,22 +451,23 @@ namespace APIs.Python.Model
                                "quad_wild_smooth: bool = None, symmetry: str = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_sweep_mesh(string name, SelectionAPI selection,
-                                               int number_of_global_smooth_steps = 0, string algorithm_2d = null,
+                                               object number_of_global_smooth_steps = null, string algorithm_2d = null,
                                                string algorithm_3d = null, object recombine_min_quality = null,
                                                string algorithm_recombine = null,
                                                string transfinite_three_sided = null,
                                                object transfinite_four_sided = null,
                                                object transfinite_angle_deg = null,
                                                string optimize_first_order_shell = null,
-                                               object elements_per_layer = null, bool keep_imprint_edges = false,
+                                               object elements_per_layer = null, object keep_imprint_edges = null,
                                                string quad_wild_flow_profile = null, object quad_wild_alpha = null,
                                                object quad_wild_smooth = null, string symmetry = null)
         {
             _service.ValidateNewName(name);
             SweepMesh item = new SweepMesh(name);
             if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
-            item.NumberOfGlobalSmoothSteps = ToNumberOfGlobalSmoothSteps(number_of_global_smooth_steps);
-            item.KeepImprintEdges = keep_imprint_edges;
+            item.NumberOfGlobalSmoothSteps = ToNumberOfGlobalSmoothSteps(number_of_global_smooth_steps ?? 0);
+            item.KeepImprintEdges = PythonValueConverter.ToBoolOrDefault(keep_imprint_edges, false,
+                                                                         "keep_imprint_edges");
             ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
                            transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
                            optimize_first_order_shell, elements_per_layer);

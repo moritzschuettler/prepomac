@@ -88,7 +88,7 @@ namespace APIs.Python
             MeshEditService meshEditService =
                 new MeshEditService(_modelResolver, selectionService, meshGateway);
             _results = new ResultsAPI(_resolver, resultFieldOutputService, resultHistoryOutputService,
-                                      selectionService, commandGateway);
+                                      selectionService, commandGateway, _documentService);
             _model = new ModelAPI(_modelResolver, _documentService, parameterService, geometryPartService,
                                   modelPartService, meshSetupItemService, meshToolService,
                                   meshEditService, materialService,
@@ -112,8 +112,9 @@ namespace APIs.Python
             _documentService.NewModel(model_space, unit_system);
         }
 
-        [PythonAPI("Opens a .pmx, .pmh or .frd file. Not available inside a recorded script, because it " +
-                   "replaces the command history.", Arguments = "file_name: str", Returns = "None")]
+        [PythonAPI("Opens a .pmx or .pmh model file. Not available inside a recorded script, because it " +
+                   "replaces the command history. A result file is opened by pmx.results.open.",
+                   Arguments = "file_name: str", Returns = "None")]
         public void open(string file_name)
         {
             _documentService.OpenFile(file_name);
@@ -121,9 +122,10 @@ namespace APIs.Python
 
         [PythonAPI("Imports a geometry or mesh file into the current model using command history.",
                    Arguments = "file_name: str, only_materials: bool = False", Returns = "None")]
-        public void import_file(string file_name, bool only_materials = false)
+        public void import_file(string file_name, object only_materials = null)
         {
-            _documentService.ImportFile(file_name, only_materials);
+            bool onlyMaterials = PythonValueConverter.ToBoolOrDefault(only_materials, false, "only_materials");
+            _documentService.ImportFile(file_name, onlyMaterials);
         }
 
         [PythonAPI("Saves the model to a .pmx file using command history.", Arguments = "file_name: str",

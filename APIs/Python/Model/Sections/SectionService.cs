@@ -68,12 +68,17 @@ namespace APIs.Python.Model
                     throw new PythonAPIException("The section '" + name + "' already exists.");
             }
         }
-        public void ValidateMaterialName(string materialName)
+        // The controller follows a renamed material by comparing names exactly, so the name is stored in the
+        // model's own spelling rather than the caller's
+        public string GetStoredMaterialName(string materialName)
         {
             if (materialName == null || materialName.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'material_name' must not be empty.");
-            if (!_modelResolver.GetModel().Materials.ContainsKey(materialName))
+            Material material;
+            if (!_modelResolver.GetModel().Materials.TryGetValue(materialName, out material))
                 throw new PythonAPIException("The material '" + materialName + "' does not exist.");
+            //
+            return material.Name;
         }
         // The solid, shell and membrane dialogs build an element set, and the solid one does it by
         // picking parts, so an element region accepts either target

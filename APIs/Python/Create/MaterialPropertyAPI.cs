@@ -64,13 +64,43 @@ namespace APIs.Python
         private static void AddColumns(Dictionary<string, object> values, EquationContainer[][] table,
                                        params string[] argumentNames)
         {
-            if (table.Length == 1 && table[0][table[0].Length - 1].Value == 0)
+            EquationContainer temperature = table.Length == 1 ? table[0][table[0].Length - 1] : null;
+            if (temperature != null && !temperature.IsEquation() && temperature.Value == 0)
             {
-                for (int i = 0; i < argumentNames.Length; i++) values[argumentNames[i]] = table[0][i].Value;
+                for (int i = 0; i < argumentNames.Length; i++) values[argumentNames[i]] = ToValue(table[0][i]);
             }
             else values[argumentNames[0]] = ToTable(table);
         }
-        private static NumericArrayAPI ToTable(EquationContainer[][] table)
+        // A value entered as an expression is read back as that expression, with its leading equals sign, so that
+        // the maker it goes back into keeps it an expression
+        private static object ToValue(EquationContainer value)
+        {
+            if (value.IsEquation()) return value.String;
+            //
+            return value.Value;
+        }
+        // A table with an expression in it is a list of rows, its plain values numbers, because a NumericArray
+        // holds numbers only
+        private static object ToTable(EquationContainer[][] table)
+        {
+            bool hasEquation = false;
+            foreach (EquationContainer[] row in table)
+            {
+                foreach (EquationContainer value in row) hasEquation |= value.IsEquation();
+            }
+            if (!hasEquation) return ToNumericTable(table);
+            //
+            object[] rows = new object[table.Length];
+            for (int i = 0; i < table.Length; i++)
+            {
+                object[] row = new object[table[i].Length];
+                for (int j = 0; j < row.Length; j++) row[j] = ToValue(table[i][j]);
+                rows[i] = PythonListConverter.ToPythonList(row);
+            }
+            //
+            return PythonListConverter.ToPythonList(rows);
+        }
+        private static NumericArrayAPI ToNumericTable(EquationContainer[][] table)
         {
             int columnCount = table.Length == 0 ? 0 : table[0].Length;
             double[,] values = new double[table.Length, columnCount];
@@ -94,9 +124,11 @@ namespace APIs.Python
         [PythonAPI("Returns the values of the property under the names of the pmx.create arguments that set " +
                    "them, in the form those arguments take them: a property given as plain numbers returns " +
                    "them one by one, and a table returns its rows, the last value of every row being the " +
-                   "temperature, under the first argument. Passing the result back as keyword arguments to " +
-                   "the pmx.create method named by property_type makes the same property.",
-                   Returns = "dict[str, float, str or NumericArray]",
+                   "temperature, under the first argument. A value entered as an expression is returned as that " +
+                   "expression, with its leading equals sign, and a table holding one is returned as a list of " +
+                   "rows rather than a NumericArray. Passing the result back as keyword arguments to the " +
+                   "pmx.create method named by property_type makes the same property.",
+                   Returns = "dict[str, float, str, list or NumericArray]",
                    Example = "pmx.create.elastic(**material.get_properties()[0].get_values())")]
         public Dictionary<string, object> get_values()
         {
@@ -104,9 +136,9 @@ namespace APIs.Python
             if (_property is Density density) AddColumns(values, density.DensityTemp, "density");
             else if (_property is ElasticWithDensity elasticWithDensity)
             {
-                values["youngs_modulus"] = elasticWithDensity.YoungsModulus.Value;
-                values["poissons_ratio"] = elasticWithDensity.PoissonsRatio.Value;
-                values["density"] = elasticWithDensity.Density.Value;
+                values["youngs_modulus"] = ToValue(elasticWithDensity.YoungsModulus);
+                values["poissons_ratio"] = ToValue(elasticWithDensity.PoissonsRatio);
+                values["density"] = ToValue(elasticWithDensity.Density);
             }
             else if (_property is Elastic elastic)
                 AddColumns(values, elastic.YoungsPoissonsTemp, "youngs_modulus", "poissons_ratio");
@@ -120,8 +152,8 @@ namespace APIs.Python
             }
             else if (_property is SlipWear slipWear)
             {
-                values["hardness"] = slipWear.Hardness.Value;
-                values["wear_coefficient"] = slipWear.WearCoefficient.Value;
+                values["hardness"] = ToValue(slipWear.Hardness);
+                values["wear_coefficient"] = ToValue(slipWear.WearCoefficient);
             }
             else if (_property is SpecificHeat specificHeat)
                 AddColumns(values, specificHeat.SpecificHeatTemp, "specific_heat");
@@ -130,7 +162,7 @@ namespace APIs.Python
             else if (_property is ThermalExpansion thermalExpansion)
             {
                 AddColumns(values, thermalExpansion.ThermalExpansionTemp, "thermal_expansion");
-                values["zero_temperature"] = thermalExpansion.ZeroTemperature.Value;
+                values["zero_temperature"] = ToValue(thermalExpansion.ZeroTemperature);
             }
             else GetPropertyType(_property);
             //
@@ -144,8 +176,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns one value of the property by the name of the pmx.create argument that sets it. Use " +
-                   "get_value_names to list them.", Arguments = "name: str",
-                   Returns = "float, str or NumericArray")]
+                   "get_value_names to list them. A value entered as an expression is returned as that " +
+                   "expression, as get_values returns it.", Arguments = "name: str",
+                   Returns = "float, str, list or NumericArray")]
         public object get_value(string name)
         {
             if (name == null) throw new PythonAPIException("The argument 'name' must not be empty.");

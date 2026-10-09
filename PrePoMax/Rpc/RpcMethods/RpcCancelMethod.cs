@@ -48,10 +48,14 @@ namespace PrePoMax.Rpc
             }
             //
             bool wasRunning = !call.IsFinished;
+            int startInterruptsBefore = call.StartInterruptCount;
             bool isDelivered;
             bool isRequested = call.Cancel(out isDelivered);
             bool isFinished = call.Wait(FinishWaitMilliseconds);
             bool hasReachedPython = call.HasReachedPython;
+            // A call that reached its Python only while the finish was waited for was interrupted as it started it
+            bool isInterruptedAtStart = call.StartInterruptCount > startInterruptsBefore;
+            if (isInterruptedAtStart) isDelivered = true;
             //
             JsonWriter writer = new JsonWriter();
             writer.BeginObject();
@@ -59,15 +63,16 @@ namespace PrePoMax.Rpc
             writer.WriteValue("method", call.Method);
             writer.WriteValue("cancelRequested", wasRunning);
             writer.WriteValue("isInterrupted", isDelivered);
-            writer.WriteValue("isInterruptPending", isRequested && !isDelivered);
+            // A call that finished - one that met the cancel before its Python started, say - has nothing pending
+            writer.WriteValue("isInterruptPending", isRequested && !isDelivered && !isFinished);
             writer.WriteValue("isFinished", isFinished);
             writer.WriteValue("message", GetMessage(call.Id, wasRunning, isRequested, isDelivered, isFinished,
-                                                    hasReachedPython));
+                                                    hasReachedPython, isInterruptedAtStart));
             writer.EndObject();
             return writer.ToString();
         }
         private static string GetMessage(int callId, bool wasRunning, bool isRequested, bool isDelivered,
-                                         bool isFinished, bool hasReachedPython)
+                                         bool isFinished, bool hasReachedPython, bool isInterruptedAtStart)
         {
             string call = "Call " + callId.ToString(CultureInfo.InvariantCulture);
             string collect = "Collect its answer with get_call - the wait method on the pipe.";
@@ -78,10 +83,16 @@ namespace PrePoMax.Rpc
             string notInterruptible = "An operation of PrePoMax it is inside - meshing, an import, a regeneration - " +
                                       "cannot be interrupted and finishes first, and a blocking wait - time.sleep, a " +
                                       "socket, input() - returns first.";
+            if (isInterruptedAtStart)
+            {
+                return call + " was interrupted as its Python started, so none of its Python ran" +
+                       (isFinished ? " and it has stopped. " : "; it has not finished yet. ") + collect +
+                       " Its answer carries a KeyboardInterrupt error.";
+            }
             if (isDelivered && isFinished)
             {
-                return call + " was interrupted and has stopped. " + collect + " It ends with a KeyboardInterrupt " +
-                       "error." + recorded;
+                return call + " was interrupted and has stopped. " + collect + " Its answer carries a " +
+                       "KeyboardInterrupt error, unless its code caught the interrupt and finished anyway." + recorded;
             }
             if (isDelivered)
             {
@@ -102,7 +113,8 @@ namespace PrePoMax.Rpc
             {
                 return call + " has not reached its Python yet - it is waiting for the application to be idle - so " +
                        "the interrupt is pending: its Python does not run when it gets there, and the call ends with " +
-                       "a KeyboardInterrupt error. " + collect;
+                       "a KeyboardInterrupt error, or with the refusal it meets first, such as the application being " +
+                       "busy. " + collect;
             }
             if (isRequested)
             {

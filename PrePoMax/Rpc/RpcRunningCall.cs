@@ -28,7 +28,7 @@ namespace PrePoMax.Rpc
     // marshals its own user interface work.
     public class RpcRunningCall
     {
-        // Variables
+        // Variables                                                                                                                
         private const int CancelStartWaitMilliseconds = 1000;
         private const int InterruptDeliveryWaitMilliseconds = 1000;
         private readonly int _id;
@@ -52,6 +52,9 @@ namespace PrePoMax.Rpc
         public bool IsFinished { get { return _isFinished; } }
         public bool IsCancelRequested { get { return _isCancelRequested; } }
         public bool HasReachedPython { get { lock (_stateLock) return _hasReachedPython; } }
+        // How many times the Python of the call was interrupted as it started, because a cancel came first
+        public int StartInterruptCount { get { lock (_stateLock) return _startInterruptCount; } }
+        public DateTime EndTime { get { lock (_stateLock) return _endTime; } }
         // The call the calling thread is running, or null on a thread that is not running one
         public static RpcRunningCall Current { get { return _current; } }
         public double Elapsed

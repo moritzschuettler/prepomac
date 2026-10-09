@@ -115,6 +115,12 @@ namespace APIs.Python.Model
         {
             return load.Complex && !(load is PreTensionLoad);
         }
+        // The solver input transforms only the nodes of a concentrated force and of a surface traction into a
+        // coordinate system, and the dialog offers one for those two only
+        internal static bool TakesCoordinateSystem(Load load)
+        {
+            return load is CLoad || load is STLoad;
+        }
         // The phase is stored on every load, so the shared reader leaves it out; it is read back only where the
         // phase_deg argument takes it, because elsewhere the argument is refused
         private static Dictionary<string, object> GetValues(Load load)

@@ -151,8 +151,8 @@ namespace APIs.Python
                                "number_of_iterations: int = 1",
                    Returns = "FieldOutputFilter")]
         public ResultFieldOutputFilterAPI create_median_filter(string source = "AllNodes",
-                                                               int number_of_layers = 1,
-                                                               int number_of_iterations = 1)
+                                                               object number_of_layers = null,
+                                                               object number_of_iterations = null)
         {
             return CreateFilter(FieldResultFilterTypeEnum.Median, source, number_of_layers, number_of_iterations);
         }
@@ -163,8 +163,8 @@ namespace APIs.Python
                                "number_of_iterations: int = 1",
                    Returns = "FieldOutputFilter")]
         public ResultFieldOutputFilterAPI create_average_filter(string source = "AllNodes",
-                                                                int number_of_layers = 1,
-                                                                int number_of_iterations = 1)
+                                                                object number_of_layers = null,
+                                                                object number_of_iterations = null)
         {
             return CreateFilter(FieldResultFilterTypeEnum.Average, source, number_of_layers, number_of_iterations);
         }
@@ -175,8 +175,8 @@ namespace APIs.Python
                                "number_of_iterations: int = 1",
                    Returns = "FieldOutputFilter")]
         public ResultFieldOutputFilterAPI create_smooth_filter(string source = "AllNodes",
-                                                               int number_of_layers = 1,
-                                                               int number_of_iterations = 1)
+                                                               object number_of_layers = null,
+                                                               object number_of_iterations = null)
         {
             return CreateFilter(FieldResultFilterTypeEnum.Smooth, source, number_of_layers, number_of_iterations);
         }
@@ -328,9 +328,11 @@ namespace APIs.Python
         [PythonAPI("Validates and exports all components of a result field output to CSV using command history.",
                    Arguments = "file_name: str, field_output_name: str, step_id: int, increment_id: int",
                    Returns = "None")]
-        public void export_to_csv(string file_name, string field_output_name, int step_id, int increment_id)
+        public void export_to_csv(string file_name, string field_output_name, object step_id, object increment_id)
         {
-            _service.ExportFieldOutputToCsv(_resultName, file_name, field_output_name, step_id, increment_id);
+            _service.ExportFieldOutputToCsv(_resultName, file_name, field_output_name,
+                                            PythonValueConverter.ToInt(step_id, "step_id"),
+                                            PythonValueConverter.ToInt(increment_id, "increment_id"));
         }
         private static TDraft WithFilters<TDraft>(TDraft draft, ResultFieldOutputFilterAPI filter1,
                                                   ResultFieldOutputFilterAPI filter2)
@@ -353,10 +355,12 @@ namespace APIs.Python
                    new StringListAPI(names).GetFullDisplayString() + ")";
         }
         private static ResultFieldOutputFilterAPI CreateFilter(FieldResultFilterTypeEnum type, string source,
-                                                                int layers, int iterations)
+                                                                object numberOfLayers, object numberOfIterations)
         {
             FieldResultFilterSourceTypeEnum sourceType =
                 PythonValueConverter.ToEnum<FieldResultFilterSourceTypeEnum>(source, "source");
+            int layers = PythonValueConverter.ToIntOrDefault(numberOfLayers, 1, "number_of_layers");
+            int iterations = PythonValueConverter.ToIntOrDefault(numberOfIterations, 1, "number_of_iterations");
             if (layers < 1) throw new PythonAPIException("The argument 'number_of_layers' must be at least 1.");
             if (iterations < 1)
                 throw new PythonAPIException("The argument 'number_of_iterations' must be at least 1.");

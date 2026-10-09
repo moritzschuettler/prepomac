@@ -59,13 +59,20 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            if (writer.CommandIndex == 0)
+            // A result file is opened beside the model, so the command history it belongs to goes on
+            if (FileExtension != ".pmx" && FileExtension != ".pmh")
+            {
+                writer.Statement(writer.Call("pmx.results", "open", writer.Path(Tools.GetGlobalPath(_fileName))));
+                writer.CountEmittedCommand();
+            }
+            else if (writer.CommandIndex == 0)
             {
                 writer.Comment("Session start: " + Tools.GetGlobalPath(_fileName));
                 writer.Comment("Replay this journal with:  -f " + Tools.GetGlobalPath(_fileName));
                 writer.CountEmittedCommand();
             }
-            else writer.Unsupported(this, "opening a file replaces the command history and cannot be scripted");
+            else writer.Unsupported(this, "opening a model file replaces the command history, so a journal " +
+                                          "cannot replay it");
         }
         public override string GetCommandString()
         {

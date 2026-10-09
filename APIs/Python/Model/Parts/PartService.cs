@@ -126,7 +126,7 @@ namespace APIs.Python.Model
             properties.Name = newName;
             //
             EnsureCommandsAvailable();
-            ReplacePartProperties(partName, properties);
+            ReplacePartProperties(part.Name, properties);
         }
         public StringListAPI GetElementTypeNames()
         {
@@ -142,8 +142,7 @@ namespace APIs.Python.Model
         // A part keeps an element type only for the element kinds it contains, so only those are listed
         public Dictionary<string, string> GetElementTypes(string partName)
         {
-            ResolvePart(partName);
-            PartProperties properties = GetPartProperties(partName);
+            PartProperties properties = GetPartProperties(ResolvePart(partName).Name);
             Dictionary<string, string> values = new Dictionary<string, string>();
             foreach (FieldInfo field in typeof(PartProperties).GetFields())
             {
@@ -157,7 +156,7 @@ namespace APIs.Python.Model
         // history records that as one command, so the API applies them in one call too
         public void ReplaceProperties(string oldPartName, string name, object color, object elementTypes)
         {
-            ResolvePart(oldPartName);
+            oldPartName = ResolvePart(oldPartName).Name;
             PartProperties properties = GetPartProperties(oldPartName);
             object boxed = properties;
             //
@@ -269,10 +268,13 @@ namespace APIs.Python.Model
             if (names == null || names.Length == 0)
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
             //
-            foreach (string name in names) ResolvePart(name);
             PythonNameComparer.RefuseRepeated(names, argumentName);
+            // The view hides and colours a part by the name of its actor, compared exactly, so the names are
+            // passed on in the model's spelling
+            string[] storedNames = new string[names.Length];
+            for (int i = 0; i < names.Length; i++) storedNames[i] = ResolvePart(names[i]).Name;
             //
-            return names;
+            return storedNames;
         }
         public void EnsureCommandsAvailable()
         {

@@ -44,8 +44,9 @@ namespace APIs.Python.Model
         {
             get
             {
-                ResolveItem(name);
-                return CreateItemAPI(name);
+                // The item is handed on under its stored name, so what it passes to the controller is matched
+                // the way the model and the view match names, exactly
+                return CreateItemAPI(ResolveItem(name).Name);
             }
         }
         // Explicit, so that the Python side sees a single indexer and resolves collection[name] without
@@ -208,10 +209,12 @@ namespace APIs.Python.Model
             if (resolved == null || resolved.Length == 0)
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
             //
-            foreach (string name in resolved) ResolveItem(name);
             PythonNameComparer.RefuseRepeated(resolved, argumentName);
+            // The controller and the view match the names exactly, so they are passed on in the model's spelling
+            string[] storedNames = new string[resolved.Length];
+            for (int i = 0; i < resolved.Length; i++) storedNames[i] = ResolveItem(resolved[i]).Name;
             //
-            return resolved;
+            return storedNames;
         }
     }
 }

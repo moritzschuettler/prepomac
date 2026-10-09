@@ -35,7 +35,9 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a tie constraint using command history. The selection target is surfaces for " +
-                   "both sides. A position_tolerance must be zero or larger.",
+                   "both sides. A position_tolerance must be zero or larger; it is Default when not given, " +
+                   "float('nan') sets it back to Default, which is how a replace clears it, and get_value reads " +
+                   "Default as None.",
                    Arguments = "name: str, master_region: Selection or Region, slave_region: Selection or " +
                                "Region, position_tolerance: float = None, adjust: bool = None",
                    Returns = "Constraint",
@@ -74,7 +76,8 @@ namespace APIs.Python.Model
                    "the result expansion region, its selection target is elements, and it is required " +
                    "when number_of_graph_sectors is larger than 1 and refused otherwise. The axis is given " +
                    "by a point and a direction. number_of_sectors is at least 2 and number_of_graph_sectors " +
-                   "between 1 and number_of_sectors. Cyclic symmetry is refused in a 2D model.",
+                   "between 1 and number_of_sectors. Cyclic symmetry is refused in a 2D model. The " +
+                   "position_tolerance is taken as add_tie takes it, float('nan') meaning Default.",
                    Arguments = "name: str, master_region: Selection or Region, slave_region: Selection or " +
                                "Region, region: Selection or Region = None, axis_point: list[float] = None, " +
                                "axis_direction: list[float] = None, number_of_sectors: int = None, " +
@@ -304,7 +307,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a compression only constraint using command history. The selection target is " +
-                   "surfaces.",
+                   "surfaces. spring_stiffness and tensile_force_at_negative_infinity are Default when not " +
+                   "given; float('nan') sets either back to Default, which is how a replace clears it, and " +
+                   "get_value reads Default as None.",
                    Arguments = "name: str, region: Selection or Region, clearance: float = None, " +
                                "spring_stiffness: float = None, " +
                                "tensile_force_at_negative_infinity: float = None, offset: float = None, " +
@@ -473,7 +478,9 @@ namespace APIs.Python.Model
         //
         private static void ApplyTieValues(Tie constraint, object positionTolerance, object adjust)
         {
-            if (positionTolerance != null)
+            if (IsDefaultValue(positionTolerance, "position_tolerance"))
+                constraint.PositionTolerance.SetEquationFromValue(double.NaN);
+            else if (positionTolerance != null)
             {
                 EquationString equation = PythonValueConverter.ToEquationString(positionTolerance, "position_tolerance");
                 double value = PythonModelArgumentCheck.Evaluate(constraint.PositionTolerance, equation,
@@ -695,10 +702,14 @@ namespace APIs.Python.Model
             if (clearance != null)
                 constraint.Clearance.Equation =
                     PythonValueConverter.ToEquationString(clearance, "clearance");
-            if (springStiffness != null)
+            if (IsDefaultValue(springStiffness, "spring_stiffness"))
+                constraint.SpringStiffness.SetEquationFromValue(double.NaN);
+            else if (springStiffness != null)
                 constraint.SpringStiffness.Equation =
                     PythonValueConverter.ToEquationString(springStiffness, "spring_stiffness");
-            if (tensileForceAtNegativeInfinity != null)
+            if (IsDefaultValue(tensileForceAtNegativeInfinity, "tensile_force_at_negative_infinity"))
+                constraint.TensileForceAtNegativeInfinity.SetEquationFromValue(double.NaN);
+            else if (tensileForceAtNegativeInfinity != null)
                 constraint.TensileForceAtNegativeInfinity.Equation =
                     PythonValueConverter.ToEquationString(tensileForceAtNegativeInfinity,
                                                           "tensile_force_at_negative_infinity");
@@ -706,6 +717,14 @@ namespace APIs.Python.Model
                 constraint.Offset.Equation = PythonValueConverter.ToEquationString(offset, "offset");
             if (nonLinear != null)
                 constraint.NonLinear = PythonValueConverter.ToBool(nonLinear, "non_linear");
+        }
+        // A value the dialog offers as Default is stored as NaN, and None keeps the value on a replace, so
+        // float('nan') is how a script asks for Default, as it is for the frequency limits of a step
+        private static bool IsDefaultValue(object value, string argumentName)
+        {
+            if (value == null || value is string) return false;
+            //
+            return double.IsNaN(PythonValueConverter.ToDouble(value, argumentName));
         }
         private static void ApplySpringValues(SpringConstraint constraint, object k1, object k2, object k3)
         {

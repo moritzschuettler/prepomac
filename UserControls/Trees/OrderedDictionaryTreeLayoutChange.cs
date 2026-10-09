@@ -8,6 +8,7 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 
 namespace UserControls
@@ -18,7 +19,8 @@ namespace UserControls
         RenameGroup,
         RemoveGroup,
         MoveItems,
-        MoveGroup
+        MoveGroup,
+        SetLayout
     }
 
     public sealed class OrderedDictionaryTreeLayoutChange
@@ -33,6 +35,7 @@ namespace UserControls
         public Guid? TargetGroupId { get; private set; }
         public int TargetIndex { get; private set; }
         public string GroupName { get; private set; }
+        public OrderedDictionaryItemLayout<string> Layout { get; private set; }
 
 
         public static OrderedDictionaryTreeLayoutChange CreateGroup(
@@ -72,6 +75,17 @@ namespace UserControls
             return new OrderedDictionaryTreeLayoutChange(
                 view, itemType, parentName, OrderedDictionaryTreeLayoutAction.MoveGroup, null, null,
                 groupId, targetGroupId, targetIndex, null);
+        }
+        public static OrderedDictionaryTreeLayoutChange SetLayout(
+            ViewType view, Type itemType, string parentName, OrderedDictionaryItemLayout<string> layout)
+        {
+            if (layout == null) throw new ArgumentNullException("layout");
+            //
+            OrderedDictionaryTreeLayoutChange change = new OrderedDictionaryTreeLayoutChange(
+                view, itemType, parentName, OrderedDictionaryTreeLayoutAction.SetLayout, null, null,
+                null, null, -1, null);
+            change.Layout = new OrderedDictionaryItemLayout<string>(layout.Nodes);
+            return change;
         }
 
 

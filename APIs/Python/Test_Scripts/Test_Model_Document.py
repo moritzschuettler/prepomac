@@ -68,6 +68,29 @@ def test_properties():
           "the counts at their minimum were not accepted")
     pmx.model.properties.replace(number_of_cycles=counts[0], cycles_increment=counts[1],
                                  number_of_smoothing_steps=counts[2])
+    # A property assignment the replace would take as not given is refused rather than ignored, and a property
+    # typed as a whole number or a boolean takes what replace takes
+    model_type = pmx.model.properties.model_type
+    for argument in ["model_type", "global_results_file_name", "slip_wear_results", "number_of_cycles",
+                     "cycles_increment", "number_of_smoothing_steps", "bdm_remeshing"]:
+        message = raised_message(lambda: setattr(pmx.model.properties, argument, None))
+        check(message is not None and "'" + argument + "'" in message,
+              "None must be refused for " + argument + ": " + str(message))
+    check(pmx.model.properties.model_type == model_type, "a refused assignment changed the model type")
+    pmx.model.properties.cycles_increment = "=1 + 1"
+    check(pmx.model.properties.cycles_increment == 2, "an equation must set cycles_increment")
+    check(pmx.model.properties.get_equations().get("cycles_increment", "").replace(" ", "") == "=1+1",
+          "the cycles_increment equation did not read back: " + str(pmx.model.properties.get_equations()))
+    pmx.model.properties.cycles_increment = counts[1]
+    message = raised_message(lambda: pmx.model.properties.replace(clear_undefined_constants=1))
+    check(message is not None and "'clear_undefined_constants'" in message,
+          "a non boolean clear_undefined_constants must be refused naming it: " + str(message))
+    # A physical constant reads back as a float or as None, and either goes back into the property
+    absolute_zero = pmx.model.properties.absolute_zero
+    check(absolute_zero is None or isinstance(absolute_zero, float),
+          "a physical constant must read back as a float or None: " + repr(absolute_zero))
+    pmx.model.properties.absolute_zero = absolute_zero
+    check(pmx.model.properties.absolute_zero == absolute_zero, "the physical constant did not go back")
 
 
 def test_parameters():

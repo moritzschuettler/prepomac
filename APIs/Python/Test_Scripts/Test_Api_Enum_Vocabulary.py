@@ -142,6 +142,9 @@ def test_values_are_readable():
     free_dofs = list(PythonEnumVocabulary.GetValues("BoundaryConditionsAPI", "replace_displacement_rotation",
                                                     "free_dofs"))
     check(free_dofs == ["U1", "U2", "U3", "UR1", "UR2", "UR3"], "unexpected free_dofs values " + str(free_dofs))
+    fixed_dofs = list(PythonEnumVocabulary.GetValues("BoundaryConditionsAPI", "add_displacement_rotation",
+                                                     "fixed_dofs"))
+    check(fixed_dofs == ["U1", "U2", "U3"], "unexpected fixed_dofs values " + str(fixed_dofs))
     # The view options, the history filter options and the deformation are option strings like any other
     expected = {("ViewAPI", "set_orientation", "orientation"): "IsometricNegative",
                 ("ViewAPI", "result_type", "result_type"): "ColorContours",

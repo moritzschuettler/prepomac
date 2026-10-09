@@ -29,8 +29,8 @@ names the habits.
 - **Check a selection before you use it.** `selection.preview()` resolves it and reports the count,
   the parts, the bounding box and the centroid, and records nothing. A point pick takes the nearest
   entity, so a mistyped coordinate silently selects the wrong face.
-- **Read the unit system.** `get_status` reports it. A plain number is a value in that system and
-  nothing converts it.
+- **Read the unit system.** `get_status` reports it as `model.unitSystem`. A plain number is a value
+  in that system and nothing converts it.
 - **A screenshot answers what reading cannot.** Orientation, a selection, a result plot. The
   `screenshot` tool can set the view up first.
 - **A report picture is `pmx.view` work.** `rotate` and `look_at` frame it, `deformation_type`,
@@ -45,7 +45,9 @@ names the habits.
   one of yours still running - collect it first.
 - **`running` with a `callId`** is not a failure. The call outlasted its wait and goes on to the end,
   recording its commands as usual; collect its answer with `get_call` and do not send the work again.
-  Give a call you know is long - meshing a big part, an import, a regeneration - a larger `timeout`.
+  Give a call you know is long - meshing a big part, an import, a regeneration - a larger `timeout`,
+  but keep it below your client's own request timeout; for long work pass `timeout` 0 and wait with
+  `get_call`. An answer your client gave up on is kept, and `get_status` lists it under `calls`.
   A call that should not finish - a loop that never ends - is stopped with `cancel_call` and its
   `callId`: it stops at its next Python statement, but a PrePoMax operation it is inside, such as
   meshing, finishes first. What it recorded before that stays in the history.

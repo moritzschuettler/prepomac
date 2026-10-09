@@ -95,6 +95,7 @@ namespace APIs.Python
             types.Add("cutoff", typeof(HydrostaticPressureCutoffEnum));
             types.Add("tension_type", typeof(PreTensionLoadType));
             types.Add("free_dofs", typeof(APIs.Python.Model.DegreeOfFreedomEnum));
+            types.Add("fixed_dofs", typeof(APIs.Python.Model.FixedDegreeOfFreedomEnum));
             // Qualified, because the exploded view takes an argument of the same name with other values
             types.Add("ContactPairsAPI.add.method", typeof(ContactPairMethod));
             types.Add("ContactPairsAPI.replace.method", typeof(ContactPairMethod));

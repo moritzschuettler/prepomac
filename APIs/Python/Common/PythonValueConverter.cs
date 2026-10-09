@@ -160,6 +160,20 @@ namespace APIs.Python
             //
             throw new PythonAPIException("The argument '" + argumentName + "' must be True or False.");
         }
+        // A typed .NET parameter refuses None and a float for an int before the call reaches the API, with a message
+        // that names no argument, so an optional one is taken as an object and None stands for its default
+        public static bool ToBoolOrDefault(object value, bool defaultValue, string argumentName)
+        {
+            if (value == null) return defaultValue;
+            //
+            return ToBool(value, argumentName);
+        }
+        public static int ToIntOrDefault(object value, int defaultValue, string argumentName)
+        {
+            if (value == null) return defaultValue;
+            //
+            return ToInt(value, argumentName);
+        }
         // The output variable enums are used as flags, although they carry no FlagsAttribute, so a
         // combined value is neither defined nor printable by Enum.ToString
         public static TEnum ToFlagsEnum<TEnum>(object value, string argumentName) where TEnum : struct

@@ -119,13 +119,8 @@ namespace APIs.Python.Model
             if (names == null || names.Length == 0)
                 throw new PythonAPIException("The argument 'part_names' must not be empty.");
             //
-            FeMesh mesh = _modelResolver.GetModel().Mesh;
-            foreach (string partName in names)
-            {
-                if (mesh == null || !mesh.Parts.ContainsKey(partName))
-                    throw new PythonAPIException("The model part '" + partName + "' does not exist.");
-            }
             PythonNameComparer.RefuseRepeated(names, "part_names");
+            names = PythonModelArgumentCheck.ToStoredPartNames(_modelResolver.GetModel().Mesh, names, "model");
             //
             EnsureCommandsAvailable();
             _meshGateway.CreateElementSetFromElementQuality(name, metricName, names, largerThan, limitValue);

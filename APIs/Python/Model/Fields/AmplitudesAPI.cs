@@ -27,23 +27,27 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a tabular amplitude using command history. Every row is [time, amplitude]. " +
-                   "The time span is StepTime or TotalTime.",
-                   Arguments = "name: str, time_amplitude: list[list[float]], time_span: str = None",
+                   "The time span is StepTime or TotalTime. shift_time and shift_amplitude move every time and " +
+                   "every amplitude value by a fixed amount; both default to 0.",
+                   Arguments = "name: str, time_amplitude: list[list[float]], time_span: str = None, " +
+                               "shift_time: float = None, shift_amplitude: float = None",
                    Returns = "Amplitude",
                    Example = "pmx.model.amplitudes.add('Amp-1', [[0, 0], [1, 1]])")]
-        public AmplitudeAPI add(string name, object time_amplitude, string time_span = null)
+        public AmplitudeAPI add(string name, object time_amplitude, string time_span = null, object shift_time = null,
+                                object shift_amplitude = null)
         {
-            _service.Add(name, time_amplitude, time_span);
+            _service.Add(name, time_amplitude, time_span, shift_time, shift_amplitude);
             return this[name];
         }
 
         [PythonAPI("Replaces an existing amplitude using command history. A value that is not given is kept.",
                    Arguments = "old_name: str, name: str = None, time_amplitude: list[list[float]] = None, " +
-                               "time_span: str = None", Returns = "Amplitude")]
+                               "time_span: str = None, shift_time: float = None, shift_amplitude: float = None",
+                   Returns = "Amplitude")]
         public AmplitudeAPI replace(string old_name, string name = null, object time_amplitude = null,
-                                    string time_span = null)
+                                    string time_span = null, object shift_time = null, object shift_amplitude = null)
         {
-            _service.Replace(old_name, name, time_amplitude, time_span);
+            _service.Replace(old_name, name, time_amplitude, time_span, shift_time, shift_amplitude);
             return this[name == null ? old_name : name];
         }
         //

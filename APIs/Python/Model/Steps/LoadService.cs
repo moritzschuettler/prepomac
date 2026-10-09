@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using CaeMesh;
 using CaeModel;
 
 namespace APIs.Python.Model
@@ -34,7 +35,15 @@ namespace APIs.Python.Model
         {
             if (amplitudeName != null) load.AmplitudeName = ResolveAmplitudeName(amplitudeName, "amplitude_name");
             if (coordinateSystemName != null)
-                load.CoordinateSystemName = ResolveCoordinateSystemName(coordinateSystemName);
+            {
+                string storedName = ResolveCoordinateSystemName(coordinateSystemName);
+                if (storedName != CoordinateSystem.DefaultCoordinateSystemName && !LoadAPI.TakesCoordinateSystem(load))
+                    throw new PythonAPIException("The argument 'coordinate_system_name' applies only to a " +
+                                                 "concentrated_force or a surface_traction load; the solver input " +
+                                                 "applies a " + LoadAPI.GetItemType(load) + " load in the global " +
+                                                 "coordinate system. Leave it out here.");
+                load.CoordinateSystemName = storedName;
+            }
             if (phaseDeg != null)
             {
                 if (!load.Complex)

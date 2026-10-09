@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using System;
 using System.Collections.Generic;
 using CaeJob;
 
@@ -60,12 +61,26 @@ namespace PrePoMax.Python.Journal
             writer.Statement(writer.Call("pmx.jobs", "replace", arguments.ToArray()));
             writer.CountEmittedCommand();
         }
-        public static void Run(PythonJournalWriter writer, string jobName, bool onlyCheckModel)
+        public static void Run(PythonJournalWriter writer, string jobName, bool onlyCheckModel,
+                               int timeoutMilliseconds)
         {
             string job = "pmx.jobs[" + PythonValueFormatter.Text(jobName) + "]";
+            string timeout = timeoutMilliseconds > 0
+                             ? "timeout=" + PythonValueFormatter.Number(ToTimeoutSeconds(timeoutMilliseconds)) : null;
             //
-            writer.Statement(writer.Call(job, onlyCheckModel ? "check_model" : "run", "wait=True"));
+            writer.Statement(writer.Call(job, onlyCheckModel ? "check_model" : "run", "wait=True", timeout));
             writer.CountEmittedCommand();
+        }
+        // The API rounds a timeout in seconds up to whole milliseconds, so the seconds are the largest value
+        // that still rounds up to the recorded milliseconds
+        private static double ToTimeoutSeconds(int timeoutMilliseconds)
+        {
+            double seconds = timeoutMilliseconds / 1000.0;
+            while (Math.Ceiling(seconds * 1000) > timeoutMilliseconds)
+                seconds = BitConverter.Int64BitsToDouble(BitConverter.DoubleToInt64Bits(seconds) - 1);
+            while (Math.Ceiling(seconds * 1000) < timeoutMilliseconds)
+                seconds = BitConverter.Int64BitsToDouble(BitConverter.DoubleToInt64Bits(seconds) + 1);
+            return seconds;
         }
         private static string GetEnvironmentVariables(AnalysisJob job)
         {

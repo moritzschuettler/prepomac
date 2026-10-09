@@ -36,10 +36,11 @@ namespace APIs.Python.Model
         public SectionAPI add_solid(string name, string material_name, object region, object thickness = null)
         {
             _service.ValidateNewName(name, null);
-            SolidSection section = new SolidSection(name, material_name, null, RegionTypeEnum.Selection, 1,
+            string materialName = _service.GetStoredMaterialName(material_name);
+            SolidSection section = new SolidSection(name, materialName, null, RegionTypeEnum.Selection, 1,
                                                     _service.GetIsTwoDimensional());
             ApplySolidThickness(section, thickness);
-            AddSection(name, material_name, section, region, "elements");
+            AddSection(section, region, "elements");
             return this[name];
         }
 
@@ -53,11 +54,12 @@ namespace APIs.Python.Model
                                     object offset = null)
         {
             _service.ValidateNewName(name, null);
-            ShellSection section = new ShellSection(name, material_name, null, RegionTypeEnum.Selection, 1,
+            string materialName = _service.GetStoredMaterialName(material_name);
+            ShellSection section = new ShellSection(name, materialName, null, RegionTypeEnum.Selection, 1,
                                                     _service.GetIsTwoDimensional());
             ApplyThickness(section, thickness);
             ApplyOffset(section.Offset, offset);
-            AddSection(name, material_name, section, region, "elements");
+            AddSection(section, region, "elements");
             return this[name];
         }
 
@@ -72,11 +74,12 @@ namespace APIs.Python.Model
                                        object thickness = null, object offset = null)
         {
             _service.ValidateNewName(name, null);
-            MembraneSection section = new MembraneSection(name, material_name, null, RegionTypeEnum.Selection, 1,
+            string materialName = _service.GetStoredMaterialName(material_name);
+            MembraneSection section = new MembraneSection(name, materialName, null, RegionTypeEnum.Selection, 1,
                                                           _service.GetIsTwoDimensional());
             ApplyThickness(section, thickness);
             ApplyOffset(section.Offset, offset);
-            AddSection(name, material_name, section, region, "elements");
+            AddSection(section, region, "elements");
             return this[name];
         }
 
@@ -89,7 +92,7 @@ namespace APIs.Python.Model
             PointMassSection section = new PointMassSection(name, null, RegionTypeEnum.Selection, 0,
                                                             _service.GetIsTwoDimensional());
             section.Mass.Equation = ToMass(mass, section.Mass);
-            AddSection(name, null, section, region, "nodes");
+            AddSection(section, region, "nodes");
             return this[name];
         }
 
@@ -102,7 +105,7 @@ namespace APIs.Python.Model
             DistributedMassSection section = new DistributedMassSection(name, null, RegionTypeEnum.Selection, 0,
                                                                         _service.GetIsTwoDimensional());
             section.Mass.Equation = ToMass(mass, section.Mass);
-            AddSection(name, null, section, region, "surfaces");
+            AddSection(section, region, "surfaces");
             return this[name];
         }
         //
@@ -203,10 +206,8 @@ namespace APIs.Python.Model
             return "Sections(count=" + names.Length + ", names=" + new StringListAPI(names).ToString() + ")";
         }
         //
-        private void AddSection(string name, string materialName, Section section, object region,
-                                string target)
+        private void AddSection(Section section, object region, string target)
         {
-            if (materialName != null) _service.ValidateMaterialName(materialName);
             _service.ApplyRegion(section, region, target);
             _service.Add(section);
         }
@@ -226,9 +227,9 @@ namespace APIs.Python.Model
         {
             string newName = name == null ? section.Name : name;
             _service.ValidateNewName(newName, oldName);
-            if (materialName != null) _service.ValidateMaterialName(materialName);
+            string storedMaterialName = materialName == null ? null : _service.GetStoredMaterialName(materialName);
             section.Name = newName;
-            if (materialName != null) section.MaterialName = materialName;
+            if (storedMaterialName != null) section.MaterialName = storedMaterialName;
             if (region != null) _service.ApplyRegion(section, region, target);
             _service.Replace(oldName, section);
             //

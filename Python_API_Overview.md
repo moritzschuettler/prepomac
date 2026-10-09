@@ -70,6 +70,10 @@ The root object available in the Python console is `pmx`.
   derives from `Exception` and is a builtin, so a script catches it by name without importing anything:
   `except PythonAPIException as e:`. Any other .NET exception reaching a script is a fault of PrePoMax and keeps
   its .NET type and stack trace.
+- A boolean, whole number or number argument is checked by the API, not by .NET overload resolution, so a
+  wrong value is refused naming the argument: `None` for a required one, `2.5` for a whole number, `1` for a
+  boolean. A whole number also takes a float with a whole value, such as `2.0`, and an optional
+  argument given as `None` takes its documented default.
 
 ## Script execution and regeneration
 
@@ -242,13 +246,13 @@ PrePoMax and switch on Tools - Automation Server; do not work around it.
 | --- | --- |
 | `get_guide` | How to drive a session, served by the application so it matches the version. The first thing to read. |
 | `list_sessions` | The running instances whose server is on, each with the address it answers on and the model file it has open, marking the one that answered. |
-| `get_status` | Idle or busy and why, the open model, the view, the unit system, the command count, read only. A window that does not answer is reported as busy. |
+| `get_status` | Idle or busy and why, the open model, the view, the unit system (`model.unitSystem`), the command count, read only, and under `calls` the long calls still running or waiting to be collected. A window that does not answer is reported as busy. |
 | `describe_api` | The `[PythonAPI]` schema of `pmx`, of any path under it, or of an API type by name, read off the API itself. |
 | `read_model` | A JSON snapshot of the model: properties, the parts with their mesh state (meshed or not, node and element count), collections, mesh setup items, how many user keywords and keyword edits there are, steps with their content, analyses with their status. |
-| `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal. Part names match regardless of case; a name that matches no part is reported. |
+| `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal. Part names match regardless of case; a name that matches no part is reported. Leaving `part_names` out reads every part; an empty list is refused. |
 | `eval_expression` | One expression, with its value as JSON when it has one. |
 | `run_python` | Python against the live model, recorded as commands or as one script. A call that outlasts its wait is answered with a `callId`. |
-| `get_call` | The answer of a `run_python` or `eval_expression` call that outlasted its wait, collected by its `callId`. |
+| `get_call` | The answer of a `run_python` or `eval_expression` call that outlasted its wait, collected by its `callId`. An answer whose response never reached the client stays collectable. |
 | `cancel_call` | Stops a `run_python` or `eval_expression` call that is still running, by its `callId`, at its next Python statement. |
 | `get_history` | The command history, and the journal of it as a Python script. A journal over 200,000 characters is written to a temporary file and returned as its path. |
 | `run_job` | Starts an analysis without waiting, so the user keeps the interface, and returns the status it started with. No monitor is opened; one the user opens is a dialog like any other, so the session answers busy until it is closed. |
@@ -268,7 +272,9 @@ A tool refuses an argument it does not take, naming it, instead of running witho
 schema says `additionalProperties: false`. A value is checked against the schema too: one of the wrong
 type - `"true"` for a boolean, `"10"` or `1.5` for an integer, a number in a list of names - one outside
 the declared `minimum` and `maximum`, or one that is not among the `enum` values is refused with the
-argument named, rather than read as the default or clamped into range.
+argument named, rather than read as the default or clamped into range. A `null` for an optional
+argument is taken as leaving it out, so the tool runs with its default; a `null` for a required one is
+refused.
 
 Every tool except `get_guide` and `list_sessions`, which are not about one session, also takes an
 optional `process_id`. **It is checked, not routed.** One address serves one
@@ -306,7 +312,7 @@ the command class and the line the command history editor shows, which names the
 that wrote several things is not just a list of types. `get_history` carries the same description.
 
 **Units are not converted.** A plain number is a value in the model's unit system, which `get_status`
-reports as `unitSystem`. The instructions say so, because nothing else will: 210000 is a correct
+reports as `model.unitSystem`. The instructions say so, because nothing else will: 210000 is a correct
 steel modulus in `MM_TON_S_C` and wrong by a factor of a million in `M_KG_S_C`.
 
 ### A skill for a client project
@@ -327,17 +333,23 @@ project, or to `~/.claude/skills/prepomax/` to have it in all of them.
   with the reason, and nothing is done. The question is asked on the thread that owns the window,
   because that is the only place the truth is visible: an item dialog of this application is not
   modal, and a modal one keeps pumping messages.
-- **A long call blocks nothing else, but it does say it is working.** The work runs on the
-  connection it arrived on, the way a `--script` run runs it, so the window stays usable and another
-  connection is still answered while a six second call is in flight. Calls that reach the model are
-  served one at a time, so two agents cannot interleave halfway through a change.
+- **A long call leaves the window usable, and says it is working.** The work runs off the thread
+  that owns the window, the way a `--script` run runs it, so the window keeps answering while a six
+  second call is in flight. Calls that reach the model are served one at a time, so two agents cannot
+  interleave halfway through a change: meanwhile only the calls that report, collect or cancel are
+  answered, as the next point lists.
 - **A call that outlasts its wait is answered, not abandoned.** `run_python` and `eval_expression`
   (`exec` and `eval` over RPC) run on a thread of their own, and the caller waits as long as the request
   timeout says - 30 s by default, the `--rpcTimeout` of the run - or as long as the call's own optional
   `timeout` argument says, 0 to 600 s (0 answers at once). A call still running then is answered with
   `{running, callId, method, elapsed, message}`; it goes on to the end on that thread, is recorded
   normally, and keeps its answer until `wait` - `get_call` over MCP, with the `callId` and an optional
-  `timeout` - collects it, once. `get_call` answers `running` again when the call is still working. It
+  `timeout` - collects it. The answer is given up only once the response carrying it has been written:
+  one whose client had given up first - its own request timeout shorter than the wait - or had sent
+  `notifications/cancelled` for the request stays collectable, and `status` lists it under `calls`.
+  Uncollected answers are kept for an hour, the latest 16 of them. Keep `timeout` below the request
+  timeout of the client, or pass 0 and collect with `get_call` for long work. `get_call` answers
+  `running` again when the call is still working. It
   keeps the turn meanwhile, so every other call waits for it - reading ones included - and is refused
   as busy with the call named once it has waited the request timeout. Only `ping`, `status`, `wait`,
   `cancel` and `shutdown` are answered past it - on MCP `get_status`, `get_call`, `cancel_call`,
@@ -352,9 +364,10 @@ project, or to `~/.claude/skills/prepomax/` to have it in all of them.
   new interrupt, so a call whose code caught the last one - a bare `except:` - is stopped by
   cancelling it again. The answer says what actually happened: `isInterrupted` when the interrupt was
   delivered, `isInterruptPending` while it waits - for an operation of the application to return, or
-  for a call that has not reached its Python yet, which then does not run it - and
-  `isFinished` whether the call has stopped; a call that had finished first is not reported as
-  interrupted. The call's own answer, collected with `wait`, carries the error, `cancelled: true`,
+  for a call that has not reached its Python yet, which then does not run it and ends with the
+  `KeyboardInterrupt` or with the refusal it meets first, such as busy - and `isFinished` whether the
+  call has stopped; a call that had finished first is not reported as interrupted, and one that
+  reached its Python while the cancel waited for it is reported as interrupted. The call's own answer, collected with `wait`, carries the error, `cancelled: true`,
   and the commands it recorded before it stopped, which stay in the history. A call cancelled before
   its Python started does not start it, and one cancelled while it was about to start is interrupted
   at its first statement. The Python panel offers the same for the user: a console line or a script
@@ -459,6 +472,9 @@ it. The folder is restricted to the current user, because the token is in it.
 | `screenshot` | Writes a PNG to `file_name`, or to the temporary folder, and returns the path; `transparent_background` and `magnification` (1 to 4) as in the capture dialog. |
 | `shutdown` | Stops the server; never closes the application. |
 | `exit` | Closes a hidden session; refused for one with a window. `discard_changes` closes it with unsaved changes. |
+
+An argument of the wrong type - `"10"` or `2.5` for a whole number, `"true"` for a boolean, a number
+for a string - is refused with `-32602` naming the argument, rather than read as its default.
 
 The error codes are the standard JSON-RPC ones plus an application range: `-32001` busy, `-32003` a
 refused prompt, `-32004` an API error and `-32005` not allowed - `exit` for a session with a window.
@@ -590,7 +606,7 @@ model item.
 | Member | Description |
 | --- | --- |
 | `pmx.new_model(model_space, unit_system)` | Creates a new empty model. `Undefined` is refused for either argument. **Console only.** |
-| `pmx.open(file_name)` | Opens a .pmx, .pmh or .frd file. **Console only.** |
+| `pmx.open(file_name)` | Opens a .pmx or .pmh model file, which replaces the command history. A result file is refused and named to `pmx.results.open`. **Console only.** |
 | `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. |
 | `pmx.save(file_name)` | Saves the model to a .pmx file. |
 | `pmx.export_to_calculix(file_name)` | Exports a CalculiX .inp file. |
@@ -678,15 +694,17 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | `model_type` | `GeneralModel`, `Submodel` or `SlipWearModel`. Writable. |
 | `global_results_file_name` | The results file a submodel reads its boundary values from. Writable. |
 | `slip_wear_results` | Which results a slip wear model keeps. Writable. |
-| `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable with an `int`; an equation is given through `replace(...)`, and `get_equations()` returns it. |
+| `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable with an `int` or a `str` equation, as `replace(...)` takes them, and `get_equations()` returns the equation. |
 | `get_equations()` | The expressions those three values were entered with, without evaluating them, as a `dict[str, str]`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and the property of the same name returns it. |
 | `bdm_remeshing` | Whether a slip wear model uses BDM remeshing. Writable. |
-| `absolute_zero`, `stefan_boltzmann`, `newton_gravity` | The physical constants, or `None` while they are undefined. Writable; assigning `None` makes that constant undefined. |
+| `absolute_zero`, `stefan_boltzmann`, `newton_gravity` | The physical constants as a `float`, or `None` while they are undefined. Writable; assigning `None` makes that constant undefined. |
 | `replace(name=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. `number_of_cycles`, `cycles_increment` and `number_of_smoothing_steps` take an `int` or a `str` equation, rounded to a whole number. `number_of_cycles` and `cycles_increment` must be 1 or larger and `number_of_smoothing_steps` 0 or larger; a smaller value is refused naming the argument rather than raised to the minimum. |
 
 A physical constant that has never been given reads back as `None`. Because a value that is not given
 is kept, clearing one is an explicit request: `replace(clear_undefined_constants=True)` makes every
-constant it was not given undefined again.
+constant it was not given undefined again. Only a physical constant takes `None` as a value:
+assigning `None` to any other writable property is refused naming it, rather than leaving the value
+as it was.
 
 ```python
 pmx.model.properties.replace(model_type='Submodel', global_results_file_name='global.frd')
@@ -751,6 +769,10 @@ per area and are documented with that area.
 | `remove(names)` | Removes the named items using command history. |
 | `activate(names)`, `deactivate(names)` | Keeps the items in the model but stops writing them to the solver input file. Not every area supports it. |
 | `rename(old_name, new_name)` | Renames an item using command history. A `new_name` spelled exactly as the item's stored name changes nothing. |
+
+A name is found regardless of case, but it is passed on in the model's own spelling: `parts.hide('part-1')` hides
+the part `Part-1`, and a name an item refers to - the material of a section, the reference point of a constraint, the
+surface interaction of a contact pair, the contact pair of a history output - is stored as the model spells it.
 
 Every verb that takes `names`, `hide` and `show` included, refuses a name given twice, in any case, naming `names`; an
 operation on model or geometry parts refuses a part named twice in `part_names` the same way.
@@ -1263,19 +1285,19 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 
 | Member | Description |
 | --- | --- |
-| `add(name, time_amplitude, time_span=None)` | Adds a tabular amplitude. Every row is `[time, amplitude]`. |
-| `replace(old_name, name=None, time_amplitude=None, time_span=None)` | Replaces an existing amplitude. Everything that is not given is kept. |
+| `add(name, time_amplitude, time_span=None, shift_time=None, shift_amplitude=None)` | Adds a tabular amplitude. Every row is `[time, amplitude]`. `shift_time` and `shift_amplitude` move every time and every amplitude value by a fixed amount, as the dialog's Modify fields do; both are plain numbers and default to 0. |
+| `replace(old_name, name=None, time_amplitude=None, time_span=None, shift_time=None, shift_amplitude=None)` | Replaces an existing amplitude. Everything that is not given is kept, the shifts included. |
 
-`Amplitude` exposes `name`, `time_span`, `row_count` and `get_time_amplitude()`.
+`Amplitude` exposes `name`, `time_span`, `shift_time`, `shift_amplitude`, `row_count` and `get_time_amplitude()`.
 
 ### `Distributions`
 
 | Member | Description |
 | --- | --- |
-| `add_from_equation(name, equation)` | One equation string for the magnitude, or three, one per direction. |
-| `add_from_file(name, file_name, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Reads the distribution from a point cloud file. |
-| `replace_from_equation(old_name, name=None, equation=None)` | Replaces an equation distribution. A value that is not given is kept. A distribution read from a file is refused - a replace never turns one form into the other. An equation that changes a scalar distribution into a vector one, or back, is refused while an initial condition, a boundary condition, a load or a defined field uses it. |
-| `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None)` | Replaces a file distribution. A value that is not given is kept, and an equation distribution is refused. A new `file_name` is read again, and a file that changes a scalar distribution into a vector one, or back, is refused while an item uses the distribution, as for `replace_from_equation`. A file that cannot be read is refused naming `file_name`. |
+| `add_from_equation(name, equation, coordinate_system_name=None)` | One equation string for the magnitude, or three, one per direction. `coordinate_system_name` names the coordinate system `x`, `y` and `z` are measured in; it is `'Global'` by default, matched regardless of case and stored in the model's spelling. |
+| `add_from_file(name, file_name, interpolator_type=None, interpolator_radius=None, scale=None, translate=None, coordinate_system_name=None)` | Reads the distribution from a point cloud file. `coordinate_system_name` is taken as by `add_from_equation`. |
+| `replace_from_equation(old_name, name=None, equation=None, coordinate_system_name=None)` | Replaces an equation distribution. A value that is not given is kept, the coordinate system included; `'Global'` sets it back. A distribution read from a file is refused - a replace never turns one form into the other. An equation that changes a scalar distribution into a vector one, or back, is refused while an initial condition, a boundary condition, a load or a defined field uses it. |
+| `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None, coordinate_system_name=None)` | Replaces a file distribution. A value that is not given is kept, and an equation distribution is refused. A new `file_name` is read again, and a file that changes a scalar distribution into a vector one, or back, is refused while an item uses the distribution, as for `replace_from_equation`. A file that cannot be read is refused naming `file_name`. |
 
 `Distribution` exposes `name`, `item_type` (`'from_equation'` or `'from_file'`), `equation`, `file_name`,
 `interpolator_type`, `interpolator_radius`, `scale`, `translate`, `coordinate_system_name` and `get_equations()`.
@@ -1288,7 +1310,7 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | `interpolator_radius` | The interpolator radius of a file distribution, in model units, otherwise `None`. |
 | `scale` | The scale factors of a file distribution as a `list[float]` of three, otherwise `None`. |
 | `translate` | The translation of a file distribution in model units as a `list[float]` of three; `None` on an equation distribution. |
-| `coordinate_system_name` | The name of the coordinate system the distribution is defined in. Read-only. |
+| `coordinate_system_name` | The name of the coordinate system the distribution is defined in, `'Global'` when none is set; the `coordinate_system_name` argument takes it back. |
 | `get_equations()` | The expressions a file distribution was entered with, under the `add_from_file` argument names: `interpolator_radius`, and `scale` and `translate` as a list of three (`dict[str, str or list]`). Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and the property of the same name returns it; a list with an expression in any component is returned whole, its plain components as numbers. An equation distribution returns an empty `dict`; its equation is the `equation` property. |
 
 ### `InitialConditions`
@@ -1340,9 +1362,13 @@ Every `pmx.create` property maker (`elastic`, `density`, `elastic_with_density`,
 | Member | Description |
 | --- | --- |
 | `property_type` | The name of the `pmx.create` maker that makes the property, for example `'elastic'`. |
-| `get_values()` | The values under the `pmx.create` argument names, so that `pmx.create.<property_type>(**p.get_values())` rebuilds the property. A single row at temperature 0 reads as scalars; otherwise the whole table is one `NumericArray` under the first argument, its last column being the temperature. |
+| `get_values()` | The values under the `pmx.create` argument names, so that `pmx.create.<property_type>(**p.get_values())` rebuilds the property. A single row at a plain temperature of 0 reads as scalars; otherwise the whole table is one `NumericArray` under the first argument, its last column being the temperature. A value entered as an expression reads back as that expression, with its leading `=`, and a table holding one is a plain list of rows, its other values numbers. |
 | `get_value(name)` | One value, by the `pmx.create` argument name. |
 | `get_value_names()` | The names `get_values()` reports, as a `StringList`. |
+
+Every value a property maker takes may be an **equation string**, as the material dialog takes an expression:
+`pmx.create.elastic('=E_steel', 0.3)` keeps `=E_steel` in the material, so a parameter change reaches it. The value
+is evaluated when the property is made and checked as the dialog checks it, a refusal naming the argument.
 
 ```python
 pmx.model.materials.add('Steel', [pmx.create.elastic(210000, 0.3),
@@ -1379,7 +1405,9 @@ dependent with the rows the analysis uses.
 | `replace_point_mass(old_name, name=None, region=None, mass=None)` | Replaces a point mass section. |
 | `replace_distributed_mass(old_name, name=None, region=None, mass=None)` | Replaces a distributed mass section. The region is a surface region, as on `add_distributed_mass`. |
 
-A `thickness` must be larger than 0 and a `mass` zero or larger, on an add and on a replace.
+A `thickness` must be larger than 0 and a `mass` zero or larger, on an add and on a replace. The
+`material_name` of a solid, shell or membrane section is required on an add, so `None` is refused there;
+on a replace, `None` keeps the material.
 
 A replacement is typed: replacing a solid section as a shell section is refused rather than silently
 turning it into one, with `The section 'X' is made by add_solid, so replace_shell cannot replace it.`
@@ -1573,6 +1601,8 @@ name that already exists.
 | `remove_groups(view, item_type, group_ids, step_name=None)` | Removes groups. The items they hold stay in the tree. |
 | `move_items(view, item_type, item_names, target_group_id=None, target_index=0, step_name=None)` | Moves items into a group, or out of every group. |
 | `move_group(view, item_type, group_id, target_group_id=None, target_index=0, step_name=None)` | Moves a group. |
+| `get_layout(view, item_type, step_name=None)` | The whole layout of the collection, in the form `set_layout` takes. |
+| `set_layout(view, item_type, layout, step_name=None)` | Sets the whole layout of the collection at once. |
 
 `add_group` and `rename_group` validate every group name like a model item name and refuse a bad one with an
 error naming `group_name`. A group of the geometry or mesh `parts` also shares the namespace of the parts, so it
@@ -1582,9 +1612,20 @@ A group is identified by a GUID that the application stores with the layout. `ad
 one when it is not given and returns it, so a script does not have to invent an id while a journal
 can pass the recorded one.
 
+A layout, as `get_layout` returns it and `set_layout` takes it, is a list in tree order whose entries are
+item names and groups; a group is a dict with the keys `'group_name'`, `'group_id'` and `'items'`, the
+last one a list of the same form. `set_layout` must name every item of the collection exactly once,
+checks the group names as `add_group` does, and gives a group without a `'group_id'` a new one. A list of
+item names alone removes every group and sets the order of the items. Setting the layout the collection
+already has records nothing, so the call is idempotent; the journal writes every tree layout change of
+the application as one `set_layout` call with the resulting layout. The expanded or collapsed state of a
+group is a view state, not part of the layout.
+
 ```python
 group = pmx.model.tree.add_group('femodel', 'parts', 'Housing', item_names=['Solid-1'])
 pmx.model.tree.move_items('femodel', 'parts', 'Solid-2', target_group_id=group)
+layout = pmx.model.tree.get_layout('femodel', 'parts')
+pmx.model.tree.set_layout('femodel', 'parts', ['Solid-2', 'Solid-1'])   # removes the group
 ```
 
 ## Interactions
@@ -1597,13 +1638,13 @@ arguments of its `add_*`, all optional.
 
 | Member | Selection target | Description |
 | --- | --- | --- |
-| `add_tie(name, master_region, slave_region, position_tolerance=None, adjust=None)` | surfaces, surfaces | A tie. `position_tolerance` must be zero or larger. |
+| `add_tie(name, master_region, slave_region, position_tolerance=None, adjust=None)` | surfaces, surfaces | A tie. `position_tolerance` must be zero or larger, or `float('nan')` for `Default`. |
 | `add_cyclic_symmetry(name, master_region, slave_region, region=None, axis_point=None, axis_direction=None, number_of_sectors=None, number_of_graph_sectors=None, check_sector_angle=None, position_tolerance=None, adjust=None)` | surfaces, surfaces, elements | A cyclic symmetry, refused in a 2D model. `number_of_sectors` is at least 2. |
 | `add_joint(name, master_region, slave_region, joint_type=None, center_defined_by=None, center=None, axis_defined_by=None, axis_direction=None, formulation=None, stiffness_defined_by=None, stiffness=None)` | surfaces, surfaces | A joint between two surfaces: Hinge, Cylindrical, Slider, Ball or Weld, written as rigid bodies or as springs. Refused in a 2D model. A `center`, `axis_direction` or `stiffness` given together with a definition that does not use it - `center_defined_by='MasterSurface'`, `axis_defined_by='MasterSurface'`, `stiffness_defined_by='FromModel'` - is refused naming both. |
 | `add_rigid_body(name, reference_point_name, region)` | nodes | A rigid body. |
 | `add_kinematic_coupling(name, reference_point_name, region, u1=None, u2=None, u3=None)` | surfaces | A kinematic coupling. In a 2D model `u3=True` is refused. |
 | `add_distributing_coupling(name, reference_point_name, region, u1=None, ..., ur3=None)` | surfaces | A distributing coupling. In a 2D model `u3`, `ur1` and `ur2` set to `True` are refused. |
-| `add_compression_only(name, region, clearance=None, spring_stiffness=None, tensile_force_at_negative_infinity=None, offset=None, non_linear=None)` | surfaces | A compression only constraint. |
+| `add_compression_only(name, region, clearance=None, spring_stiffness=None, tensile_force_at_negative_infinity=None, offset=None, non_linear=None)` | surfaces | A compression only constraint. `spring_stiffness` and `tensile_force_at_negative_infinity` take `float('nan')` for `Default`. |
 | `add_point_spring(name, region, k1=None, k2=None, k3=None)` | nodes | A point spring. A stiffness must be zero or larger, and `k3` zero in a 2D model. |
 | `add_surface_spring(name, region, k1=None, k2=None, k3=None, stiffness_per_area=None)` | surfaces | A surface spring. A stiffness must be zero or larger, and `k3` zero in a 2D model. |
 | `swap_master_slave(names)` | | Swaps the two sides. |
@@ -1616,6 +1657,11 @@ through `get_value_names()` and `get_value(name)`. `get_equations()` returns the
 with, under the names `get_value` uses, as a `dict[str, str or list]`. Only a value entered as an expression is
 returned, with its leading `=`; a plain number is left out, and `get_value` returns it. A vector argument such as
 `axis_point` with an expression in any component is a list, its plain components as numbers.
+
+A value the dialog shows as **`Default`** - the `position_tolerance` of a tie and a cyclic symmetry, the
+`spring_stiffness` and the `tensile_force_at_negative_infinity` of a compression only constraint - is left
+at `Default` when it is not given and reads back as `None` from `get_value`. Because `None` keeps the value
+on a replace, `float('nan')` sets it back to `Default`, as it clears a frequency limit of a step.
 
 ```python
 pmx.model.constraints.add_tie('Tie-1', master_selection, slave_selection)
@@ -1854,8 +1900,8 @@ Reached as `step.bcs`. It shares the collection verbs. Every `region` argument i
 | Member | Description |
 | --- | --- |
 | `add_fixed(name, region, color=None)` | A fixed boundary condition. |
-| `add_displacement_rotation(name, region, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, distribution_name=None, amplitude_name=None, coordinate_system_name=None, phase_deg=None, color=None)` | A displacement and rotation boundary condition. A distribution scales its prescribed values over the region. A two dimensional model refuses a value for `u3`, `ur1` or `ur2`, and `phase_deg` is refused outside a steady state dynamics step; it is at least 0 and below 360 degrees. |
-| `add_submodel(name, region, step_id=None, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, color=None)` | A submodel boundary condition. Its degrees of freedom are booleans, and `step_id` is at least 1. |
+| `add_displacement_rotation(name, region, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, distribution_name=None, amplitude_name=None, coordinate_system_name=None, phase_deg=None, color=None, fixed_dofs=None)` | A displacement and rotation boundary condition. A distribution scales its prescribed values over the region. A two dimensional model refuses a value for `u3`, `ur1` or `ur2`, and `phase_deg` is refused outside a steady state dynamics step; it is at least 0 and below 360 degrees. `fixed_dofs` names the degrees of freedom the dialog shows as `Fixed`. |
+| `add_submodel(name, region, step_id=None, u1=None, u2=None, u3=None, ur1=None, ur2=None, ur3=None, color=None)` | A submodel boundary condition. Its degrees of freedom are booleans, and `step_id` is at least 1. A two dimensional model has no `u3`, `ur1` and `ur2`, so `True` for any of them is refused there. |
 | `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A temperature boundary condition. |
 | `propagate(name)` | Copies the boundary condition to every following step. A following step that does not support the type is skipped, as the dialog does, so from the last step, or when no following step supports it, nothing changes. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
@@ -1870,6 +1916,15 @@ unconstrained**, and reads back as `None`. Because a missing argument means "kee
 `replace_displacement_rotation` takes `free_dofs=['U3']` to unconstrain one again; its values are `U1`,
 `U2`, `U3`, `UR1`, `UR2` and `UR3`, in any case. A degree of freedom named in `free_dofs` cannot also be
 given a value in the same call - the value would be lost - so that is refused.
+
+The dialog also offers **`Fixed`**, a degree of freedom written to the solver input without a value.
+`add_displacement_rotation` and `replace_displacement_rotation` take those as `fixed_dofs=['U1', 'U2']`,
+with the values `U1`, `U2` and `U3`, in any case: the dialog offers `Fixed` for the displacements only, so a
+rotation in `fixed_dofs` is refused - give it `0` instead. A fixed degree of freedom reads back as `None`
+from `get_value`, and `get_value('fixed_dofs')` lists the fixed ones, so the list goes back into the
+argument. As the dialog does, the API refuses a degree of freedom both fixed and given a value, or both
+fixed and named in `free_dofs`, fixed degrees of freedom next to valued ones, and a fixed `U3` in a two
+dimensional model.
 
 A `distribution_name` on a displacement and rotation boundary condition multiplies its prescribed values
 node by node: a `Scalar` distribution scales all of them, a `Vector` distribution scales `u1`, `u2` and
@@ -1900,7 +1955,7 @@ command, naming the step type.
 | `region_type`, `region_name` | The region the boundary condition is applied to. |
 | `amplitude_name`, `coordinate_system_name` | The names the boundary condition refers to. |
 | `color` | The symbol color as a plain list `[R, G, B, A]`. |
-| `get_value_names()`, `get_value(name)` | The values specific to this boundary condition type, named like the `add_*` arguments; a displacement and rotation boundary condition of a steady state dynamics step, which is complex, also reads back `phase_deg`. |
+| `get_value_names()`, `get_value(name)` | The values specific to this boundary condition type, named like the `add_*` arguments; a displacement and rotation boundary condition of a steady state dynamics step, which is complex, also reads back `phase_deg`. A displacement and rotation boundary condition reads a free and a fixed degree of freedom back as `None` and lists the fixed ones under `fixed_dofs`, a `list[str]`. |
 | `get_equations()` | The expressions the values were entered with, under the names `get_value` uses (for example `u1` or `phase_deg`), as a `dict[str, str]`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and `get_value` returns it. |
 
 ### `Loads`
@@ -1929,7 +1984,10 @@ a `Region`; the selection target follows the load type.
 | `hide(names)`, `show(names)` | | Symbol visibility. |
 
 Every `add_*` ends with `amplitude_name`, `coordinate_system_name`, `phase_deg` and `color`, and has
-a matching `replace_*` that takes `old_name` first and `name` second.
+a matching `replace_*` that takes `old_name` first and `name` second. A value an add needs - the
+`magnitude` of a pressure, a shell edge load, a pre-tension or a flux, the `sink_temperature` and
+`film_coefficient` of a film heat transfer, the `sink_temperature` and `emissivity` of a radiation - is
+refused as `None` on the add, while `None` keeps the value on a replace.
 
 ```python
 step.loads.add_concentrated_force('Force-1', selection, f3=-1000)
@@ -1943,6 +2001,9 @@ The details the model imposes:
   `p1`-`p3` the force per area. The solver is given the group that matches the distribution: the
   force components without a distribution, the force per area components with one. The other group is
   refused, checked against the distribution the load carries after the call.
+- **A coordinate system belongs to a concentrated force or a surface traction.** The solver input
+  transforms only their nodes, and the dialog offers one only for them, so any other load refuses a
+  `coordinate_system_name` other than `Global`.
 - **A phase belongs to a complex load.** Only a steady state dynamics step makes its loads complex, so
   `phase_deg` is refused in any other step and by a thermal or pre-tension load, and is read back only
   where it is taken. A phase is at least 0 and below 360 degrees: the load would wrap any other value
@@ -2082,7 +2143,7 @@ only makes the detached **parts** that those methods take as arguments, and reco
 | Member | Description |
 | --- | --- |
 | `selection_by_ids(view, target, source, ids)` | Creates an ID-based selection. |
-| `elastic(youngs_modulus, poissons_ratio=None)` | Elastic property. Two values, or a list of `[E, v, temperature]` rows; `poissons_ratio` is required with a single `youngs_modulus`. |
+| `elastic(youngs_modulus, poissons_ratio=None)` | Elastic property. Two values, or a list of `[E, v, temperature]` rows; `poissons_ratio` is required with a single `youngs_modulus`. Any value of this and of every other material property maker may be an equation string. |
 | `elastic_with_density(youngs_modulus, poissons_ratio, density)` | Combined elastic and density property. |
 | `elastic_engineering_constants(constants)` | Orthotropic elastic. Rows of `[E1, E2, E3, v12, v13, v23, G12, G13, G23, temperature]`, each physically stable, with strictly increasing temperatures. |
 | `elastic_lamina(constants)` | Lamina elastic. Rows of `[E1, E2, v12, G12, G13, G23, temperature]`, each physically stable, with strictly increasing temperatures. |
@@ -2193,7 +2254,7 @@ analysis added without arguments is the one the dialog would offer.
 | Member | Description |
 | --- | --- |
 | `add(name, fem_solver=None, executable=None, argument=None, work_directory=None, compatibility_mode=None, number_of_cpus=None, environment_variables=None)` | Adds an analysis. `fem_solver` is `Calculix`, `Abaqus` or `FEMaster`. |
-| `replace(old_name, name=None, ..., inherit_executable=None, inherit_work_directory=None, inherit_number_of_cpus=None, inherit_environment_variables=None)` | Replaces an analysis. A value that is not given is kept. An `argument` edited away from the solver default survives a new name or solver; otherwise it follows them, so renaming `Job-1` to `Job-2` makes the argument `Job-2` and `fem_solver='Abaqus'` makes it `job=Job-2`. A given `argument` always wins. |
+| `replace(old_name, name=None, ..., inherit_executable=None, inherit_work_directory=None, inherit_number_of_cpus=None, inherit_environment_variables=None)` | Replaces an analysis. A value that is not given is kept. An `argument` edited away from the solver default survives a new name or solver; otherwise it follows them, so renaming `Job-1` to `Job-2` makes the argument `Job-2` and `fem_solver='Abaqus'` makes it `job=Job-2`. A given `argument` always wins. `rename` treats the argument the same way, so an edited argument survives it too. |
 | `open_results(name)` | Opens the results of the analysis. They become the current result of `pmx.results`. |
 
 `len(pmx.jobs)` and `contains(name)` also work where there is no job gateway, and report no analyses; every command
@@ -2505,6 +2566,7 @@ Collection of loaded result files.
 | `history_outputs` | Returns history outputs for the currently selected result. |
 | `field_outputs` | Returns field outputs for the currently selected result. |
 | `get_names()` | Returns result names as `StringList`. |
+| `open(file_name)` | Opens a .frd, .dat, .odb or .foam result file beside the current model through command history, the way **File - Open** does for a result file. The model and its command history are kept, so it is available inside a recorded script and the journal writes it. A .pmx or .pmh file is refused and named to `pmx.open`. |
 | `remove_current()` | Removes the current result through command history. |
 | `clear()` | Removes every loaded result through command history. |
 | `contains(name)` | Checks whether a result exists. |

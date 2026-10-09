@@ -9,6 +9,7 @@
 
 using System.Collections;
 using System.Collections.Generic;
+using APIs.Python.Model;
 
 namespace APIs.Python
 {
@@ -20,6 +21,7 @@ namespace APIs.Python
         private readonly ResultHistoryOutputService _resultHistoryOutputService;
         private readonly SelectionService _selectionService;
         private readonly IPythonCommandGateway _commandGateway;
+        private readonly DocumentService _documentService;
 
 
         // Properties
@@ -40,13 +42,15 @@ namespace APIs.Python
         // Constructors
         internal ResultsAPI(ResultResolver resolver, ResultFieldOutputService resultFieldOutputService,
                             ResultHistoryOutputService resultHistoryOutputService,
-                            SelectionService selectionService, IPythonCommandGateway commandGateway)
+                            SelectionService selectionService, IPythonCommandGateway commandGateway,
+                            DocumentService documentService)
         {
             _resolver = resolver;
             _resultFieldOutputService = resultFieldOutputService;
             _resultHistoryOutputService = resultHistoryOutputService;
             _selectionService = selectionService;
             _commandGateway = commandGateway;
+            _documentService = documentService;
         }
 
 
@@ -85,6 +89,18 @@ namespace APIs.Python
             return new StringListAPI(_resolver.GetResultNames());
         }
 
+        [PythonAPI("Opens a .frd, .dat, .odb or .foam result file beside the current model using command " +
+                   "history. The model and its command history are kept; a .pmx or .pmh file is refused, " +
+                   "because pmx.open opens it.",
+                   Arguments = "file_name: str", Returns = "None",
+                   Example = "pmx.results.open('Analysis-1.frd')")]
+        public void open(string file_name)
+        {
+            if (_documentService == null)
+                throw new PythonAPIException("Opening a result file is not available in this Python API context.");
+            //
+            _documentService.OpenResultFile(file_name);
+        }
         [PythonAPI("Removes the current result using command history.", Returns = "None")]
         public void remove_current()
         {

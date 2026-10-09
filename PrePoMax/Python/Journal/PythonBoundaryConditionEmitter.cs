@@ -15,9 +15,9 @@ using CaeModel;
 namespace PrePoMax.Python.Journal
 {
     // The four boundary condition types, each with its own API member. An unconstrained degree of
-    // freedom carries a NaN and is left out of an add, which leaves it free. A replace keeps every value it
-    // is not given, so there the free degrees of freedom are named in free_dofs and a submodel flag that is
-    // off is written out.
+    // freedom carries a NaN and is left out of an add, which leaves it free, and a fixed one carries positive
+    // infinity and is named in fixed_dofs. A replace keeps every value it is not given, so there the free
+    // degrees of freedom are named in free_dofs and a submodel flag that is off is written out.
     public static class PythonBoundaryConditionEmitter
     {
         // Methods                                                                                                                  
@@ -56,6 +56,7 @@ namespace PrePoMax.Python.Journal
                 AddDegreeOfFreedom(arguments, "ur1", displacementRotation.UR1);
                 AddDegreeOfFreedom(arguments, "ur2", displacementRotation.UR2);
                 AddDegreeOfFreedom(arguments, "ur3", displacementRotation.UR3);
+                AddFixedDegreesOfFreedom(arguments, displacementRotation);
                 if (replace) AddFreeDegreesOfFreedom(arguments, displacementRotation);
                 if (replace || displacementRotation.DistributionName != Distribution.DefaultDistributionName)
                     arguments.Add("distribution_name=" + PythonValueFormatter.Text(displacementRotation.DistributionName));
@@ -93,12 +94,30 @@ namespace PrePoMax.Python.Journal
             PythonModelItemEmitter.EmitState(writer, collection, condition);
             writer.CountEmittedCommand();
         }
-        // A degree of freedom that is not constrained carries a NaN, and the formatter writes None
+        // A degree of freedom that is not constrained carries a NaN, and a fixed one positive infinity; neither
+        // is a value
         private static void AddDegreeOfFreedom(List<string> arguments, string name, EquationContainer value)
         {
-            if (value == null || double.IsNaN(value.Value)) return;
+            if (value == null || double.IsNaN(value.Value) || double.IsPositiveInfinity(value.Value)) return;
             //
             arguments.Add(name + "=" + PythonValueFormatter.Equation(value));
+        }
+        private static void AddFixedDegreesOfFreedom(List<string> arguments, DisplacementRotation condition)
+        {
+            List<string> fixedDofs = new List<string>();
+            AddIfFixed(fixedDofs, "U1", condition.U1);
+            AddIfFixed(fixedDofs, "U2", condition.U2);
+            AddIfFixed(fixedDofs, "U3", condition.U3);
+            AddIfFixed(fixedDofs, "UR1", condition.UR1);
+            AddIfFixed(fixedDofs, "UR2", condition.UR2);
+            AddIfFixed(fixedDofs, "UR3", condition.UR3);
+            if (fixedDofs.Count == 0) return;
+            //
+            arguments.Add("fixed_dofs=[" + string.Join(", ", fixedDofs.ConvertAll(PythonValueFormatter.Text)) + "]");
+        }
+        private static void AddIfFixed(List<string> fixedDofs, string name, EquationContainer value)
+        {
+            if (value != null && double.IsPositiveInfinity(value.Value)) fixedDofs.Add(name);
         }
         private static void AddFreeDegreesOfFreedom(List<string> arguments, DisplacementRotation condition)
         {

@@ -10,13 +10,14 @@
 using CaeGlobals;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace PrePoMax.Rpc
 {
     // One request line of the automation protocol: JSON-RPC 2.0, named arguments only, no batches.
     // The id is kept as it arrived - a string or a number - because it has to be echoed unchanged.
     // The accessors are the ones a handler needs: a missing optional argument is its default value,
-    // and a missing required one is an InvalidParams error naming the argument.
+    // and a missing required one, or one of the wrong type, is an InvalidParams error naming the argument.
     public class RpcRequest
     {
         // Variables                                                                                                                
@@ -134,26 +135,33 @@ namespace PrePoMax.Rpc
         {
             return _parameters.ContainsKey(name) && _parameters[name] != null;
         }
+        // A value of the wrong type is refused rather than read as the default, because the call would
+        // otherwise run as if the argument had not been given: "true" would be false and "10" the default
         public string GetString(string name, string defaultValue)
         {
-            return JsonReader.GetString(_parameters, name, defaultValue);
+            object value;
+            if (!_parameters.TryGetValue(name, out value) || value == null) return defaultValue;
+            return ToStringValue(name, value);
         }
         public int GetInt(string name, int defaultValue)
         {
-            return JsonReader.GetInt(_parameters, name, defaultValue);
+            object value;
+            if (!_parameters.TryGetValue(name, out value) || value == null) return defaultValue;
+            return ToIntValue(name, value);
         }
         public bool GetBool(string name, bool defaultValue)
         {
-            return JsonReader.GetBool(_parameters, name, defaultValue);
+            object value;
+            if (!_parameters.TryGetValue(name, out value) || value == null) return defaultValue;
+            if (!(value is bool)) throw new RpcException(RpcErrorCode.InvalidParams, GetTypeRefusal(name, "true or false", value));
+            return (bool)value;
         }
         public string RequireString(string name)
         {
             object value;
             if (!_parameters.TryGetValue(name, out value) || value == null)
                 throw new RpcException(RpcErrorCode.InvalidParams, "The argument " + name + " is required.");
-            if (!(value is string))
-                throw new RpcException(RpcErrorCode.InvalidParams, "The argument " + name + " must be a string.");
-            return (string)value;
+            return ToStringValue(name, value);
         }
         public string RequireOneOf(string name, string[] allowed)
         {
@@ -164,6 +172,35 @@ namespace PrePoMax.Rpc
             }
             throw new RpcException(RpcErrorCode.InvalidParams, "The argument " + name + " must be one of " +
                                                               string.Join(", ", allowed) + ".");
+        }
+        private static string ToStringValue(string name, object value)
+        {
+            if (!(value is string)) throw new RpcException(RpcErrorCode.InvalidParams, GetTypeRefusal(name, "a string", value));
+            return (string)value;
+        }
+        // Parsed JSON holds every number as a double, while parameters built in process hold their integers as
+        // they are
+        private static int ToIntValue(string name, object value)
+        {
+            if (value is int) return (int)value;
+            if (value is long && (long)value >= int.MinValue && (long)value <= int.MaxValue) return (int)(long)value;
+            if (value is double)
+            {
+                double number = (double)value;
+                if (number == Math.Floor(number) && number >= int.MinValue && number <= int.MaxValue) return (int)number;
+            }
+            throw new RpcException(RpcErrorCode.InvalidParams, GetTypeRefusal(name, "a whole number", value));
+        }
+        private static string GetTypeRefusal(string name, string expected, object value)
+        {
+            string given;
+            if (value is string) given = "the string \"" + (string)value + "\"";
+            else if (value is bool) given = (bool)value ? "true" : "false";
+            else if (value is double) given = ((double)value).ToString("R", CultureInfo.InvariantCulture);
+            else if (value is List<object>) given = "an array";
+            else if (value is Dictionary<string, object>) given = "an object";
+            else given = Convert.ToString(value, CultureInfo.InvariantCulture);
+            return "The argument " + name + " must be " + expected + ", not " + given + ". Nothing was done.";
         }
     }
 }

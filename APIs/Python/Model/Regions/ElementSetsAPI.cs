@@ -52,10 +52,11 @@ namespace APIs.Python.Model
                    "entity.",
                    Arguments = "name: str, metric: str, part_names: list[str] or str, larger_than: bool, " +
                                "limit: float", Returns = "ElementSet")]
-        public ElementSetAPI add_from_quality(string name, string metric, object part_names, bool larger_than,
+        public ElementSetAPI add_from_quality(string name, string metric, object part_names, object larger_than,
                                               object limit)
         {
-            _meshEditService.CreateElementSetFromQuality(name, metric, part_names, larger_than, limit);
+            bool largerThan = PythonValueConverter.ToBool(larger_than, "larger_than");
+            _meshEditService.CreateElementSetFromQuality(name, metric, part_names, largerThan, limit);
             return this[name];
         }
 

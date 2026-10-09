@@ -28,8 +28,16 @@ namespace PrePoMax.Python.Journal
             //
             return GetModelCollection(item.GetType(), stepName);
         }
+        public static string GetCollection(Type itemType, string stepName)
+        {
+            if (itemType == null) throw new NotSupportedException("the command carries no item type");
+            //
+            return GetModelCollection(itemType, stepName);
+        }
         private static string GetModelCollection(Type itemType, string stepName)
         {
+            // Only a mesh part can be activated or deactivated, and it belongs to the model parts
+            if (Is<MeshPart>(itemType)) return "pmx.model.parts";
             if (Is<FeNodeSet>(itemType)) return "pmx.model.node_sets";
             if (Is<FeElementSet>(itemType)) return "pmx.model.element_sets";
             if (Is<FeSurface>(itemType)) return "pmx.model.surfaces";

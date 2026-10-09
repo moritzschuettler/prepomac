@@ -30,9 +30,9 @@ namespace APIs.Python.Model
         // Methods
         [PythonAPI("Renumbers the model nodes using command history.", Arguments = "start_id: int",
                    Returns = "None")]
-        public void renumber(int start_id)
+        public void renumber(object start_id)
         {
-            _service.RenumberNodes(start_id);
+            _service.RenumberNodes(PythonValueConverter.ToInt(start_id, "start_id"));
         }
 
         [PythonAPI("Merges the coincident nodes of the selected geometry using command history. " +

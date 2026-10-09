@@ -31,6 +31,7 @@ namespace PrePoMax.Rpc
         // Variables                                                                                                                
         public const int MaximumWaitSeconds = AutomationSettings.MaxRequestTimeout;
         private const int MaximumUncollectedCalls = 16;
+        private const int MaximumUncollectedMinutes = 60;
         private readonly RpcServer _server;
         private readonly SemaphoreSlim _turn;
         private readonly object _callLock;
@@ -40,6 +41,7 @@ namespace PrePoMax.Rpc
         private int _lastCallId;
         private int _blockCount;
         [ThreadStatic] private static string _echoNote;
+        [ThreadStatic] private static List<RpcRunningCall> _undeliveredCalls;
 
 
         // Properties                                                                                                               
@@ -199,38 +201,73 @@ namespace PrePoMax.Rpc
             }
             _turn.Release();
         }
+        // A finished answer is given up only once it has reached the caller. Inside a delivery the transport
+        // has begun, it stays collectable until the transport says the response was written, because a client
+        // whose own request timeout ran out first is gone, and its answer would otherwise be lost with it
         private string Collect(RpcRunningCall call, int waitSeconds)
         {
             if (!call.Wait(1000 * waitSeconds)) return call.GetRunningAnswer();
             //
-            lock (_callLock) _calls.Remove(call.Id);
+            if (_undeliveredCalls != null) _undeliveredCalls.Add(call);
+            else lock (_callLock) _calls.Remove(call.Id);
             return call.GetResult();
         }
-        // The answer of a call that outlasted the wait of its caller. It is handed over once
+        // Begun by a transport on the thread that serves one request, before it is dispatched, and ended once
+        // the response was written or failed to be. The answers handed over in between are given up only by a
+        // delivery that succeeded; the others stay collectable with get_call
+        public void BeginDelivery()
+        {
+            _undeliveredCalls = new List<RpcRunningCall>();
+        }
+        public void EndDelivery(bool isDelivered)
+        {
+            List<RpcRunningCall> calls = _undeliveredCalls;
+            _undeliveredCalls = null;
+            if (calls == null || !isDelivered) return;
+            //
+            lock (_callLock)
+            {
+                foreach (RpcRunningCall call in calls) _calls.Remove(call.Id);
+            }
+        }
+        // The answer of a call that outlasted the wait of its caller. It is handed over until it is delivered
         public string Collect(int callId, int waitSeconds)
         {
             RpcRunningCall call;
-            lock (_callLock) _calls.TryGetValue(callId, out call);
+            lock (_callLock)
+            {
+                RemoveOldestCollectableCalls();
+                _calls.TryGetValue(callId, out call);
+            }
             if (call == null)
             {
                 throw new RpcException(RpcErrorCode.InvalidParams, "There is no automation call " +
                                        callId.ToString(CultureInfo.InvariantCulture) + " to collect: its " +
-                                       "answer was already returned, or it was never started. Call get_status " +
-                                       "(status on the pipe) for the calls that are running or waiting to be " +
-                                       "collected.");
+                                       "answer was already delivered, it was never started, or it waited too " +
+                                       "long - the latest " + MaximumUncollectedCalls.ToString(CultureInfo.InvariantCulture) +
+                                       " answers are kept for " +
+                                       MaximumUncollectedMinutes.ToString(CultureInfo.InvariantCulture) + " minutes. " +
+                                       "Call get_status (status on the pipe) for the calls that are running or " +
+                                       "waiting to be collected.");
             }
             return Collect(call, waitSeconds);
         }
-        // A caller that never collects must not have every answer kept for the rest of the session
+        // A caller that never collects must not have every answer kept for the rest of the session: only the
+        // latest answers are kept, and none longer than an hour after its call finished
         private void RemoveOldestCollectableCalls()
         {
+            DateTime expired = DateTime.Now.AddMinutes(-MaximumUncollectedMinutes);
             List<int> finished = new List<int>();
             foreach (KeyValuePair<int, RpcRunningCall> entry in _calls)
             {
                 if (entry.Value.IsFinished) finished.Add(entry.Key);
             }
             finished.Sort();
-            for (int i = 0; i < finished.Count - MaximumUncollectedCalls; i++) _calls.Remove(finished[i]);
+            for (int i = 0; i < finished.Count; i++)
+            {
+                if (i < finished.Count - MaximumUncollectedCalls || _calls[finished[i]].EndTime < expired)
+                    _calls.Remove(finished[i]);
+            }
         }
         public RpcRunningCall GetRunningCall()
         {
@@ -247,7 +284,11 @@ namespace PrePoMax.Rpc
         public List<RpcRunningCall> GetCalls()
         {
             List<RpcRunningCall> calls;
-            lock (_callLock) calls = new List<RpcRunningCall>(_calls.Values);
+            lock (_callLock)
+            {
+                RemoveOldestCollectableCalls();
+                calls = new List<RpcRunningCall>(_calls.Values);
+            }
             calls.Sort(delegate (RpcRunningCall first, RpcRunningCall second)
             {
                 return first.Id.CompareTo(second.Id);
@@ -279,8 +320,8 @@ namespace PrePoMax.Rpc
                    method != "cancel";
         }
         // Runs a handler on this thread - the connection thread, or the thread of its own an exec or an
-        // eval is given - which is where the application already runs scripted API calls. The guard is asked first, on the thread that owns the window, because
-        // that is the only place the answer exists
+        // eval is given - which is where the application already runs scripted API calls. The guard is
+        // asked first, on the thread that owns the window, because that is the only place the answer exists
         private string Serve(RpcRequest request, bool requireIdle, Func<RpcRequest, RpcServer, string> handler)
         {
             int timeout = _server.RequestTimeout;
@@ -355,10 +396,11 @@ namespace PrePoMax.Rpc
         }
         private string Execute(RpcRequest request)
         {
-            // Answered on the pipe thread: they say nothing about the model, so they are also the
+            // Answered on the connection thread: they say nothing about the model, so they are also the
             // calls that still answer while the application is busy
             if (request.Method == "ping") return RpcPingMethod.Execute(request, _server);
             else if (request.Method == "shutdown") return RpcShutdownMethod.Execute(request, _server);
+            // Waits its turn like any call that reaches the model, then runs on the connection thread
             else if (request.Method == "exit") return RpcExitMethod.Execute(request, _server);
             // Answered while the call it waits for holds the turn, which is the whole point of it
             else if (request.Method == "wait") return RpcWaitMethod.Execute(request, _server);

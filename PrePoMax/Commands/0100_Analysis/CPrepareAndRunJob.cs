@@ -60,7 +60,7 @@ namespace PrePoMax.Commands
 
         public override void ToPython(PythonJournalWriter writer)
         {
-            PythonJobEmitter.Run(writer, _jobName, _onlyCheckModel);
+            PythonJobEmitter.Run(writer, _jobName, _onlyCheckModel, _timeoutMilliseconds);
         }
         public override string GetCommandString()
         {

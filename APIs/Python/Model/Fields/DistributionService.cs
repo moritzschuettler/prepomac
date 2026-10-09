@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using CaeMesh;
 using CaeModel;
 using CaeResults;
 using System;
@@ -53,14 +54,18 @@ namespace APIs.Python.Model
             //
             return distribution;
         }
-        public Distribution BuildFromEquation(string name, object equation)
+        public Distribution BuildFromEquation(string name, object equation, object coordinateSystemName)
         {
             ValidateNewName(name, null);
-            return CreateFromEquation(name, equation);
+            Distribution distribution = CreateFromEquation(name, equation);
+            ApplyCoordinateSystemName(distribution, coordinateSystemName);
+            //
+            return distribution;
         }
         // An equation that is given may change a scalar distribution into a vector one, so it builds the
-        // distribution anew; the coordinate system, which the API cannot set, is carried over either way
-        public Distribution BuildReplacementFromEquation(string oldName, string name, object equation)
+        // distribution anew; the coordinate system that is not given is carried over either way
+        public Distribution BuildReplacementFromEquation(string oldName, string name, object equation,
+                                                         object coordinateSystemName)
         {
             Distribution existing = ResolveDistribution(oldName);
             EnsureReplaceable(oldName, existing, typeof(DistributionFromEquation), "from_equation");
@@ -70,6 +75,7 @@ namespace APIs.Python.Model
             Distribution distribution = equation == null ? existing.DeepClone() : CreateFromEquation(newName, equation);
             distribution.Name = newName;
             distribution.CoordinateSystemName = existing.CoordinateSystemName;
+            ApplyCoordinateSystemName(distribution, coordinateSystemName);
             if (distribution.DistributionType != existing.DistributionType)
                 EnsureUnused(existing, "change it from a " + existing.DistributionType + " to a " +
                                        distribution.DistributionType + " distribution");
@@ -135,18 +141,20 @@ namespace APIs.Python.Model
             return PythonValueConverter.ToEquationString(equation, "equation").Equation;
         }
         public Distribution BuildFromFile(string name, string fileName, string interpolatorType,
-                                          object interpolatorRadius, object scale, object translate)
+                                          object interpolatorRadius, object scale, object translate,
+                                          object coordinateSystemName)
         {
             ValidateNewName(name, null);
             DistributionFromFile distribution = new DistributionFromFile(name);
             ImportFile(distribution, fileName);
             ApplyMappedValues(distribution, interpolatorType, interpolatorRadius, scale, translate);
+            ApplyCoordinateSystemName(distribution, coordinateSystemName);
             //
             return distribution;
         }
         public Distribution BuildReplacementFromFile(string oldName, string name, string fileName,
                                                      string interpolatorType, object interpolatorRadius,
-                                                     object scale, object translate)
+                                                     object scale, object translate, object coordinateSystemName)
         {
             Distribution resolved = ResolveDistribution(oldName);
             EnsureReplaceable(oldName, resolved, typeof(DistributionFromFile), "from_file");
@@ -163,6 +171,7 @@ namespace APIs.Python.Model
                                            distribution.DistributionType + " distribution");
             }
             ApplyMappedValues(distribution, interpolatorType, interpolatorRadius, scale, translate);
+            ApplyCoordinateSystemName(distribution, coordinateSystemName);
             //
             return distribution;
         }
@@ -170,6 +179,31 @@ namespace APIs.Python.Model
         {
             EnsureCommandsAvailable();
             ModelGateway.AddDistribution(distribution);
+        }
+        // A name is compared without regard to case, and the name the model keys the coordinate system by is
+        // stored, because the model looks the coordinate system up by it when the distribution is evaluated
+        private void ApplyCoordinateSystemName(Distribution distribution, object coordinateSystemName)
+        {
+            if (coordinateSystemName == null) return;
+            //
+            string name = coordinateSystemName as string;
+            if (name == null)
+                throw new PythonAPIException("The argument 'coordinate_system_name' must be a string.");
+            if (PythonNameComparer.AreSame(name, CoordinateSystem.DefaultCoordinateSystemName))
+            {
+                distribution.CoordinateSystemName = CoordinateSystem.DefaultCoordinateSystemName;
+                return;
+            }
+            //
+            foreach (string modelName in ModelResolver.GetModel().Mesh.CoordinateSystems.Keys)
+            {
+                if (!PythonNameComparer.AreSame(modelName, name)) continue;
+                //
+                distribution.CoordinateSystemName = modelName;
+                return;
+            }
+            throw new PythonAPIException("The coordinate system '" + name + "' given as 'coordinate_system_name' " +
+                                         "does not exist.");
         }
         // DistributionFromFile is a MappedDistribution, so the cloud interpolation and the point cloud
         // placement belong to it

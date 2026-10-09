@@ -114,9 +114,11 @@ namespace PrePoMax.Python.Journal
             throw new NotSupportedException("the material property " + property.GetType().Name +
                                             " has no pmx.create maker");
         }
+        // The maker defaults the zero temperature to 20, so it is always written, an expression included whatever it
+        // evaluates to
         private static string GetZeroTemperature(ThermalExpansion thermalExpansion)
         {
-            if (thermalExpansion.ZeroTemperature == null || thermalExpansion.ZeroTemperature.Value == 0) return null;
+            if (thermalExpansion.ZeroTemperature == null) return null;
             //
             return "zero_temperature=" + Scalar(thermalExpansion.ZeroTemperature, "zero_temperature");
         }
@@ -164,21 +166,20 @@ namespace PrePoMax.Python.Journal
             //
             return "[" + string.Join(", ", rows) + "]";
         }
+        // A temperature entered as an expression is kept in the table form, which is the only one that carries it
         private static bool IsConstant(EquationContainer[][] table)
         {
-            return table.Length == 1 && table[0].Length > 0 && table[0][table[0].Length - 1].Value == 0;
+            if (table.Length != 1 || table[0].Length == 0) return false;
+            //
+            EquationContainer temperature = table[0][table[0].Length - 1];
+            return !temperature.IsEquation() && temperature.Value == 0;
         }
-        // The makers convert their arguments to plain numbers, so an equation would be silently written
-        // out as the value it happened to evaluate to
+        // The makers take an equation string as the dialog takes an expression, so it is written as one
         private static string Scalar(EquationContainer value, string name)
         {
             if (value == null) throw new NotSupportedException("the material property '" + name + "' is missing");
-            if (value.IsEquation())
-                throw new NotSupportedException("the material property '" + name +
-                                                "' carries the equation '" + value.String +
-                                                "', which pmx.create cannot take");
             //
-            return PythonValueFormatter.Number(value.Value);
+            return PythonValueFormatter.Equation(value);
         }
     }
 }

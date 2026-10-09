@@ -128,6 +128,7 @@
     <Compile Include="Python\Model\Steps\DefinedFieldService.cs" />
     <Compile Include="Python\Model\Steps\DefinedFieldsAPI.cs" />
     <Compile Include="Python\Model\Steps\DegreeOfFreedomEnum.cs" />
+    <Compile Include="Python\Model\Steps\FixedDegreeOfFreedomEnum.cs" />
     <Compile Include="Python\Model\Steps\FieldOutputAPI.cs" />
     <Compile Include="Python\Model\Steps\FieldOutputService.cs" />
     <Compile Include="Python\Model\Steps\FieldOutputsAPI.cs" />
@@ -221,6 +222,7 @@
     <Compile Include="Python\Results\ResultReferencePointsAPI.cs" />
     <Compile Include="Python\Model\Keywords\KeywordsAPI.cs" />
     <Compile Include="Python\Model\Tree\TreeAPI.cs" />
+    <Compile Include="Python\Model\Tree\TreeLayoutGroup.cs" />
     <Compile Include="Python\Model\Keywords\KeywordEntryAPI.cs" />
     <Compile Include="Python\Model\Keywords\KeywordOverrideAPI.cs" />
     <Compile Include="Python\PrePoMaxAPI.cs" />

@@ -42,7 +42,10 @@ namespace PrePoMax.Python.Journal
             string method = verb + "_" + AddTypeArguments(arguments, load, replace);
             //
             PythonStepItemEmitter.AddAmplitude(arguments, load.AmplitudeName);
-            PythonStepItemEmitter.AddCoordinateSystem(arguments, load.CoordinateSystemName);
+            // The dialog offers a coordinate system for a concentrated force and a surface traction only, and the
+            // API refuses one elsewhere
+            if (load is CLoad || load is STLoad)
+                PythonStepItemEmitter.AddCoordinateSystem(arguments, load.CoordinateSystemName);
             // A pre-tension is complex in a steady state dynamics step, but the solver input carries no phase for it
             PythonStepItemEmitter.AddPhase(arguments, load.Complex && !(load is PreTensionLoad), load.PhaseDeg);
             PythonStepItemEmitter.AddColor(arguments, load.Color, DefaultColor(), replace);
@@ -185,6 +188,11 @@ namespace PrePoMax.Python.Journal
                 AddName(arguments, "emissivity_amplitude_name", radiation.EmissivityAmplitudeName);
                 return "radiation_heat_transfer";
             }
+            // Kept only so that older files still open; the API offers no load that reads a traction field
+            if (load is ImportedSTLoad)
+                throw new NotSupportedException("an imported surface traction is a load of older versions, kept " +
+                                                "only so that their files still open, and the API has no load " +
+                                                "that reads a surface traction from a file");
             //
             throw new NotSupportedException("the load type " + load.GetType().Name + " has no API form");
         }

@@ -245,15 +245,9 @@ namespace APIs.Python.Model
             if (names == null || names.Length == 0)
                 throw new PythonAPIException("The argument 'part_names' must not be empty.");
             //
-            FeMesh geometry = _modelResolver.GetModel().Geometry;
-            foreach (string name in names)
-            {
-                if (geometry == null || !geometry.Parts.ContainsKey(name))
-                    throw new PythonAPIException("The geometry part '" + name + "' does not exist.");
-            }
             PythonNameComparer.RefuseRepeated(names, "part_names");
             //
-            return names;
+            return PythonModelArgumentCheck.ToStoredPartNames(_modelResolver.GetModel().Geometry, names, "geometry");
         }
         //
         // An item the model cannot honour is refused, the way FrmMeshSetupItem.OnApply refuses it. It would

@@ -190,6 +190,15 @@ namespace APIs.Python
             ValidateName(newName, item.Name);
             //
             EnsureCommandsAvailable();
+            // A renamed analysis is given the default argument of its new name, while a replace keeps an argument
+            // the user edited, so an edited argument is renamed the way a replace renames it
+            AnalysisJob job = item as AnalysisJob;
+            if (job != null && job.Argument != AnalysisJob.GetDefaultArgument(job.FEMSolver, job.Name))
+            {
+                Replace(job.Name, BuildReplacement(job.Name, newName, null, null, null, null, null, null, null, null,
+                                                   null, null, null));
+                return;
+            }
             _jobGateway.RenameJob(item, newName);
         }
         public string Run(string name, bool onlyCheckModel, object wait, object timeout)

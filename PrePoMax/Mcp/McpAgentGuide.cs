@@ -63,7 +63,7 @@ step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))
 
 ## Numbers have units
 
-A plain number is a value in the model's unit system, which `get_status` reports as `unitSystem`. In
+A plain number is a value in the model's unit system, which `get_status` reports as `model.unitSystem`. In
 `MM_TON_S_C` a length is a millimetre, a force a newton, a stress a megapascal. Nothing converts for
 you, and nothing warns you: 210000 is a correct steel modulus in that system and wrong in `M_KG_S_C`.
 Read the unit system before you write the first number.
@@ -82,7 +82,7 @@ This is where a scripted model goes wrong most often, so spend a call on it.
 - Select it by ID, grouped by part ID:
   `pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [3]})`
 - Or by a point, which the application resolves the way a mouse click does:
-  `pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.5, 1.0], 'Surface')`
+  `pmx.create.selection_by_pick('femodel', 'surfaces', [0.5, 0.5, 1.0], 'Surface')`
 - A point pick takes the **nearest** entity, so a mistyped coordinate selects the wrong face rather
   than failing. An area or box pick selects only what lies inside it, and reports nothing when empty.
 - Check before you commit: `selection.preview()` resolves it and reports the count, the parts, the
@@ -148,18 +148,23 @@ it has run, and it goes on to the end and records its commands as usual.
   and is refused as busy if it waits longer than `requestTimeout`; `get_status` names the call that
   holds it.
 - When you know a call is long, pass a larger `timeout` - or `timeout=0` to be answered at once with
-  the `callId` and do the waiting through `get_call`.
-- An answer is handed over once. `get_status` lists under `calls` the ones still running or not
-  collected yet.
+  the `callId` and do the waiting through `get_call`. Keep `timeout` below the request timeout of
+  your own client: a client that gives up first never sees the answer, and for long work `timeout=0`
+  and `get_call` is the safe way.
+- An answer is handed over once it has reached you. One whose response never arrived - your client
+  gave up on the request, or cancelled it - is kept: `get_status` lists under `calls` the ones still
+  running or not collected yet, and `get_call` collects them. Uncollected answers are kept for an
+  hour, the latest 16 of them.
 - A call that should not finish - a loop that never ends, or more work than you meant - is stopped
   with `cancel_call` and its `callId`. It is answered at once, even while that call holds the
   session, and also in read only mode. The call stops at its next Python statement with a
-  `KeyboardInterrupt` error; an operation of PrePoMax it is inside - meshing, an import, a
-  regeneration - cannot be interrupted and finishes first, and a blocking wait - `time.sleep`, a
-  socket, `input()` - is not interrupted until it returns. Code that catches the interrupt - a bare
-  `except:` - keeps running; cancel again, as every cancel delivers a new interrupt. What it recorded
-  before it stopped stays in the history: collect its answer with `get_call` and check
-  `recordedCommands`.
+  `KeyboardInterrupt` error - one that has not reached its Python yet does not run it, and ends with
+  that error or with the refusal it meets first, such as busy. An operation of PrePoMax it is
+  inside - meshing, an import, a regeneration - cannot be interrupted and finishes first, and a
+  blocking wait - `time.sleep`, a socket, `input()` - is not interrupted until it returns. Code that
+  catches the interrupt - a bare `except:` - keeps running; cancel again, as every cancel delivers a
+  new interrupt. What it recorded before it stopped stays in the history: collect its answer with
+  `get_call` and check `recordedCommands`.
 - Printed output is capped: an answer keeps the first 1,000,000 and the last 100,000 characters and
   says `[output truncated: N characters omitted]` between them. Print what you need, not everything.
 

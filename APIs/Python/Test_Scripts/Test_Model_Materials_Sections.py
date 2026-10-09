@@ -305,6 +305,51 @@ def test_material_properties():
     materials.remove([PREFIX + "Thermal"])
 
 
+def test_parametric_materials():
+    # The material dialog takes an expression for every value, and the makers take it as an equation string
+    materials = pmx.model.materials
+    parameters = pmx.model.parameters
+    young = PREFIX + "E"
+    zero = PREFIX + "Zero"
+    parameters.add(young, 210000)
+    parameters.add(zero, 0)
+    elastic = pmx.create.elastic("=" + young, 0.3)
+    values = elastic.get_values()
+    check(values["youngs_modulus"].replace(" ", "") == "=" + young and close(values["poissons_ratio"], 0.3),
+          "the elastic equation did not read back as an expression: " + str(values))
+    # A table with an expression reads back as a list of rows, its plain values numbers
+    table = pmx.create.elastic([[young + " * 1", 0.3, 0], [180000, 0.32, 400]]).get_values()["youngs_modulus"]
+    check(type(table) is list and table[0][0].replace(" ", "") == "=" + young + "*1" and close(table[1][0], 180000),
+          "the elastic table did not read back with its expression: " + str(table))
+    expansion = pmx.create.thermal_expansion(1.2e-5, zero_temperature=zero)
+    check(expansion.get_value("zero_temperature") == "=" + zero,
+          "a zero temperature expression evaluating to 0 did not read back: " + str(expansion.get_value("zero_temperature")))
+    properties = [elastic, pmx.create.density("=" + young + " * 3.7e-14"), expansion,
+                  pmx.create.slip_wear("=" + young + " / 1000", 1e-4)]
+    materials.add(PREFIX + "Param", properties)
+    # The expressions survive the material, the maker and a replace
+    for prop in materials[PREFIX + "Param"].get_properties():
+        maker = getattr(pmx.create, prop.property_type)
+        check(close(plain_values(maker(**prop.get_values())), plain_values(prop)),
+              "the " + prop.property_type + " expression does not make the same property again: " +
+              str(prop.get_values()))
+    before = [plain_values(p) for p in materials[PREFIX + "Param"].get_properties()]
+    materials.replace(PREFIX + "Param", properties=materials[PREFIX + "Param"].get_properties())
+    after = [plain_values(p) for p in materials[PREFIX + "Param"].get_properties()]
+    check(close(after, before), "the expressions did not round trip through replace: " + str(after))
+    check(any(isinstance(v, str) and v.startswith("=") for p in after for v in p.values()),
+          "the material lost its expressions: " + str(after))
+    # An expression is checked as a value is, and the refusal names the argument
+    message = raised_message(lambda: pmx.create.elastic("-" + young, 0.3))
+    check(message is not None and "'youngs_modulus'" in message,
+          "a negative Young's modulus expression must be refused naming the argument: " + str(message))
+    message = raised_message(lambda: pmx.create.slip_wear(1, "=" + PREFIX + "NoSuchParameter"))
+    check(message is not None and "'wear_coefficient'" in message,
+          "an unknown parameter must be refused naming the argument: " + str(message))
+    materials.remove([PREFIX + "Param"])
+    parameters.remove([young, zero])
+
+
 def test_sections(material_name):
     sections = pmx.model.sections
     count_before = len(sections)
@@ -327,6 +372,24 @@ def test_sections(material_name):
     check_raises(lambda: sections.add_solid(PREFIX + "Bad", "NoSuchMaterial", element_selection),
                  "an unknown material must be rejected")
     check(not sections.contains(PREFIX + "Bad"), "a rejected section must not be recorded")
+    # A material named in another case is stored in the model's spelling, because the controller follows a
+    # renamed material by comparing the names exactly
+    section = sections.add_solid(PREFIX + "Solid_C", material_name.upper(), element_selection)
+    check(section.material_name == material_name,
+          "the material must be stored in the model's spelling: " + str(section.material_name))
+    section = sections.replace_solid(PREFIX + "Solid_C", material_name=material_name.lower())
+    check(section.material_name == material_name,
+          "a replace must store the material in the model's spelling: " + str(section.material_name))
+    sections.remove([PREFIX + "Solid_C"])
+    # A material is required on an add, so None is refused rather than recorded as a section without one
+    count_before_none = len(sections)
+    for function in [lambda: sections.add_solid(PREFIX + "Bad", None, element_selection),
+                     lambda: sections.add_shell(PREFIX + "Bad", None, element_selection),
+                     lambda: sections.add_membrane(PREFIX + "Bad", None, element_selection)]:
+        message = raised_message(function)
+        check(message is not None and "'material_name'" in message,
+              "a section without a material must be refused naming material_name: " + str(message))
+    check(len(sections) == count_before_none, "a section without a material was recorded")
     # A section takes a named region as well as a selection
     pmx.model.element_sets.add(PREFIX + "ES", element_selection)
     section = sections.add_solid(PREFIX + "Solid_R", material_name,
@@ -425,6 +488,7 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     material_name = test_materials()
     test_material_properties()
+    test_parametric_materials()
     test_sections(material_name)
     # A section references a material, so the sections go first
     clean(pmx.model.sections)

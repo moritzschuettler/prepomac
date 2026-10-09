@@ -77,23 +77,28 @@ namespace APIs.Python
         [PythonAPI("Returns one nodal field component value by node ID.",
                    Arguments = "step_id: int, increment_id: int, field_name: str, component_name: str, node_id: int",
                    Returns = "float")]
-        public float get_nodal_value(int step_id, int increment_id, string field_name, string component_name, int node_id)
+        public float get_nodal_value(object step_id, object increment_id, string field_name, string component_name,
+                                     object node_id)
         {
-            return _dataService.GetNodalValue(_resultName, step_id, increment_id, field_name, component_name, node_id);
+            return _dataService.GetNodalValue(_resultName, PythonValueConverter.ToInt(step_id, "step_id"),
+                                              PythonValueConverter.ToInt(increment_id, "increment_id"), field_name,
+                                              component_name, PythonValueConverter.ToInt(node_id, "node_id"));
         }
         [PythonAPI("Returns the undeformed nodal coordinates [x, y, z] by node ID.",
                    Arguments = "node_id: int",
                    Returns = "list[float]")]
-        public object get_nodal_coordinates(int node_id)
+        public object get_nodal_coordinates(object node_id)
         {
-            return _meshService.GetNodeCoordinates(_resultName, node_id);
+            return _meshService.GetNodeCoordinates(_resultName, PythonValueConverter.ToInt(node_id, "node_id"));
         }
         [PythonAPI("Returns the true-scale deformed nodal coordinates [x, y, z] using the DISP field.",
                    Arguments = "step_id: int, increment_id: int, node_id: int",
                    Returns = "list[float]")]
-        public object get_deformed_nodal_coordinates(int step_id, int increment_id, int node_id)
+        public object get_deformed_nodal_coordinates(object step_id, object increment_id, object node_id)
         {
-            return _dataService.GetDeformedNodalCoordinates(_resultName, step_id, increment_id, node_id);
+            return _dataService.GetDeformedNodalCoordinates(_resultName, PythonValueConverter.ToInt(step_id, "step_id"),
+                                                            PythonValueConverter.ToInt(increment_id, "increment_id"),
+                                                            PythonValueConverter.ToInt(node_id, "node_id"));
         }
         [PythonAPI("Returns the entries in a history output field component.",
                    Arguments = "history_output_name: str, field_name: str, component_name: str",

@@ -71,6 +71,11 @@ namespace PrePoMax.Python.Journal
             arguments.Add(PythonValueFormatter.Text(amplitude.Name));
             arguments.Add(Table(tabular.TimeAmplitude));
             arguments.Add("time_span=" + PythonValueFormatter.Text(tabular.TimeSpan.ToString()));
+            // A replace keeps the shifts it is not given, so a shift back to zero is written out there
+            if (oldName != null || amplitude.ShiftX != 0)
+                arguments.Add("shift_time=" + PythonValueFormatter.Number(amplitude.ShiftX));
+            if (oldName != null || amplitude.ShiftY != 0)
+                arguments.Add("shift_amplitude=" + PythonValueFormatter.Number(amplitude.ShiftY));
             //
             writer.Statement(writer.Call(collection, oldName == null ? "add" : "replace", arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, amplitude);
@@ -87,7 +92,12 @@ namespace PrePoMax.Python.Journal
             if (distribution is DistributionFromEquation fromEquation)
             {
                 method = (oldName == null ? "add" : "replace") + "_from_equation";
-                arguments.Add(PythonValueFormatter.Text(fromEquation.EquationMagnitude));
+                // A vector distribution keeps its magnitude equation unused, so the three directions are written
+                if (fromEquation.DistributionType == DistributionTypeEnum.Vector)
+                    arguments.Add(PythonValueFormatter.List(new string[] { fromEquation.EquationD1,
+                                                                           fromEquation.EquationD2,
+                                                                           fromEquation.EquationD3 }));
+                else arguments.Add(PythonValueFormatter.Text(fromEquation.EquationMagnitude));
             }
             else if (distribution is DistributionFromFile fromFile)
             {
@@ -103,6 +113,10 @@ namespace PrePoMax.Python.Journal
             }
             else throw new NotSupportedException("the distribution type " + distribution.GetType().Name +
                                                  " has no API form");
+            // A replace keeps the coordinate system it is not given, so the global one is written out there
+            if (oldName != null ||
+                distribution.CoordinateSystemName != CaeMesh.CoordinateSystem.DefaultCoordinateSystemName)
+                arguments.Add("coordinate_system_name=" + PythonValueFormatter.Text(distribution.CoordinateSystemName));
             //
             writer.Statement(writer.Call(collection, method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, distribution);

@@ -145,11 +145,12 @@ namespace APIs.Python
         }
         [PythonAPI("Turns the result representation of result parts on or off using command history.",
                    Arguments = "part_names: list[str] or str, result_representation: bool", Returns = "None")]
-        public void set_representation(object part_names, bool result_representation)
+        public void set_representation(object part_names, object result_representation)
         {
             string[] names = ResolvePartNames(part_names);
+            bool resultRepresentation = PythonValueConverter.ToBool(result_representation, "result_representation");
             EnsureCommandsAvailable();
-            _commandGateway.SetResultPartRepresentation(names, result_representation);
+            _commandGateway.SetResultPartRepresentation(names, resultRepresentation);
         }
         [PythonAPI("Merges result parts into one using command history.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]

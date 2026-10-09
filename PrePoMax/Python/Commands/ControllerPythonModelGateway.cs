@@ -171,6 +171,16 @@ namespace PrePoMax.Python
             }
             _controller.ChangeOrderedDictionaryItemLayoutCommand(change);
         }
+        public void SetTreeLayout(string view, string itemType, string parentName,
+                                  OrderedDictionaryItemLayout<string> layout)
+        {
+            ViewGeometryModelResults treeView = GetTreeView(view);
+            ViewType viewValue = treeView == ViewGeometryModelResults.Geometry ? ViewType.Geometry
+                                 : treeView == ViewGeometryModelResults.Model ? ViewType.Model : ViewType.Results;
+            OrderedDictionaryTreeLayoutChange change =
+                OrderedDictionaryTreeLayoutChange.SetLayout(viewValue, GetTreeItemType(itemType), parentName, layout);
+            _controller.ChangeOrderedDictionaryItemLayoutCommand(change);
+        }
         // The tree views are named the way the selections and pmx.view name them
         private static ViewGeometryModelResults GetTreeView(string view)
         {

@@ -19,6 +19,15 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
+def api_error(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def type_error(function):
     """The message of the TypeError the function raises, or None when it raises none."""
     try:
@@ -66,8 +75,49 @@ def test_valid_call(materials):
           "the guarded method must keep the signature of the API method: " + str(parameters))
 
 
+# A typed .NET parameter made pythonnet refuse None, or a float for an int, with 'No method matches given
+# arguments', which names no argument. The API takes those values itself and refuses them by name.
+def test_typed_arguments():
+    nodes = pmx.model.nodes
+    part_names = list(pmx.model.parts.get_names())
+    first_ids = list(nodes.get_ids())[:3]
+    for function, argument in [(lambda: nodes.renumber(None), "'start_id'"),
+                               (lambda: nodes.renumber(1.5), "'start_id'"),
+                               (lambda: pmx.model.elements.renumber(None), "'start_id'"),
+                               (lambda: pmx.model.parts.translate(part_names[0], [0, 0, 1], 1.5),
+                                "'number_of_copies'"),
+                               (lambda: pmx.model.parts.mirror(part_names[0], [0, 0, 0], [1, 0, 0], copy=1),
+                                "'copy'"),
+                               (lambda: nodes.get_ids().contains(None), "'item'"),
+                               (lambda: pmx.create.environment_variable("A", "b", active="yes"), "'active'")]:
+        message = api_error(function)
+        check(message is not None and argument in message and "No method matches" not in message,
+              "a wrong typed value must be refused naming " + argument + ": " + str(message))
+    check(list(nodes.get_ids())[:3] == first_ids, "a refused renumber changed the node ids")
+    check(list(pmx.model.parts.get_names()) == part_names, "a refused transform changed the parts")
+    # A float with a whole value is a whole number, and None takes the documented default
+    check(nodes.get_ids().contains(float(first_ids[0])), "a whole float must be found in an IntList")
+    check(pmx.create.environment_variable("A", "b", active=None).Active, "None must take the default True")
+    # A whole number property takes the values and equations replace takes, and refuses None
+    properties = pmx.model.properties
+    cycles = properties.number_of_cycles
+    properties.number_of_cycles = 3.0
+    check(properties.number_of_cycles == 3, "a whole float must set the number of cycles")
+    properties.number_of_cycles = "=2+2"
+    check(properties.number_of_cycles == 4, "an equation must set the number of cycles")
+    message = api_error(lambda: setattr(properties, "number_of_cycles", None))
+    check(message is not None and "'number_of_cycles'" in message,
+          "None must be refused naming the property: " + str(message))
+    message = api_error(lambda: setattr(properties, "bdm_remeshing", None))
+    check(message is not None and "'bdm_remeshing'" in message,
+          "None must be refused naming the property: " + str(message))
+    check(properties.number_of_cycles == 4, "a refused assignment changed the number of cycles")
+    properties.number_of_cycles = cycles
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
+    test_typed_arguments()
     materials = pmx.model.materials
     test_unknown_keyword(materials)
     test_misspelled_keyword(materials)

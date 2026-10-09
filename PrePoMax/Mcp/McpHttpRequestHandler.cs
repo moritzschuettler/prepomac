@@ -8,6 +8,7 @@
 // Contributors:
 
 using CaeGlobals;
+using PrePoMax.Rpc;
 using System;
 using System.Globalization;
 using System.IO;
@@ -141,16 +142,29 @@ namespace PrePoMax.Mcp
                 WriteText(413, "The request body must not exceed " + MaximumBodyLength + " bytes.");
                 return;
             }
-            string answer = _server.HandleProtocol(body);
-            // A notification is not answered, which is what the protocol says and what a client that
-            // sends notifications/initialized expects
-            if (answer == null)
+            // The answer of a long call is given up only once the response carrying it has been written: a
+            // client whose own request timeout ran out before the wait did is gone, and collects it with get_call
+            RpcDispatcher dispatcher = _server.Server.GetDispatcher();
+            bool isDelivered = false;
+            if (dispatcher != null) dispatcher.BeginDelivery();
+            try
             {
-                _context.Response.StatusCode = 202;
-                WriteBody(new byte[0], null);
-                return;
+                string answer = _server.HandleProtocol(body);
+                // A notification is not answered, which is what the protocol says and what a client that
+                // sends notifications/initialized expects
+                if (answer == null)
+                {
+                    _context.Response.StatusCode = 202;
+                    WriteBody(new byte[0], null);
+                }
+                else WriteBody(Encoding.UTF8.GetBytes(answer), JsonContentType + "; charset=utf-8");
+                _context.Response.Close();
+                isDelivered = true;
             }
-            WriteBody(Encoding.UTF8.GetBytes(answer), JsonContentType + "; charset=utf-8");
+            finally
+            {
+                if (dispatcher != null) dispatcher.EndDelivery(isDelivered);
+            }
         }
         private bool IsAuthorized(HttpListenerRequest request)
         {

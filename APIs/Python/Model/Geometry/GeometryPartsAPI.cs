@@ -241,9 +241,9 @@ namespace APIs.Python.Model
                                "fuse_faces: bool = True, join_edges: bool = True, tolerance: float = None",
                    Returns = "dict[str, int]",
                    Example = "removed = pmx.model.geometry.parts.repair('Solid_part-1', join_edges=False)")]
-        public Dictionary<string, int> repair(object part_names, bool sew_faces = true, bool fix_shape = true,
-                                              bool remove_small_faces = true, bool remove_small_edges = true,
-                                              bool fuse_faces = true, bool join_edges = true,
+        public Dictionary<string, int> repair(object part_names, object sew_faces = null, object fix_shape = null,
+                                              object remove_small_faces = null, object remove_small_edges = null,
+                                              object fuse_faces = null, object join_edges = null,
                                               object tolerance = null)
         {
             GeometryRepair geometryRepair = GetGeometryRepair(sew_faces, fix_shape, remove_small_faces,
@@ -263,27 +263,29 @@ namespace APIs.Python.Model
                    Returns = "dict[str, RepairPreview]",
                    Example = "preview = pmx.model.geometry.parts.repair_preview('Solid_part-1', tolerance=0.01)\n" +
                              "print(preview['Solid_part-1'].edge_count)")]
-        public Dictionary<string, RepairPreviewAPI> repair_preview(object part_names, bool sew_faces = true,
-                                                                   bool fix_shape = true,
-                                                                   bool remove_small_faces = true,
-                                                                   bool remove_small_edges = true,
-                                                                   bool fuse_faces = true, bool join_edges = true,
+        public Dictionary<string, RepairPreviewAPI> repair_preview(object part_names, object sew_faces = null,
+                                                                   object fix_shape = null,
+                                                                   object remove_small_faces = null,
+                                                                   object remove_small_edges = null,
+                                                                   object fuse_faces = null, object join_edges = null,
                                                                    object tolerance = null)
         {
             GeometryRepair geometryRepair = GetGeometryRepair(sew_faces, fix_shape, remove_small_faces,
                                                               remove_small_edges, fuse_faces, join_edges);
             return _service.RepairPreview(_service.ResolveNames(part_names), geometryRepair, tolerance);
         }
-        private static GeometryRepair GetGeometryRepair(bool sewFaces, bool fixShape, bool removeSmallFaces,
-                                                        bool removeSmallEdges, bool fuseFaces, bool joinEdges)
+        private static GeometryRepair GetGeometryRepair(object sewFaces, object fixShape, object removeSmallFaces,
+                                                        object removeSmallEdges, object fuseFaces, object joinEdges)
         {
             GeometryRepair geometryRepair = new GeometryRepair();
-            geometryRepair.SewFaces = sewFaces;
-            geometryRepair.FixShape = fixShape;
-            geometryRepair.RemoveSmallFaces = removeSmallFaces;
-            geometryRepair.RemoveSmallEdges = removeSmallEdges;
-            geometryRepair.FuseFaces = fuseFaces;
-            geometryRepair.JoinEdges = joinEdges;
+            geometryRepair.SewFaces = PythonValueConverter.ToBoolOrDefault(sewFaces, true, "sew_faces");
+            geometryRepair.FixShape = PythonValueConverter.ToBoolOrDefault(fixShape, true, "fix_shape");
+            geometryRepair.RemoveSmallFaces =
+                PythonValueConverter.ToBoolOrDefault(removeSmallFaces, true, "remove_small_faces");
+            geometryRepair.RemoveSmallEdges =
+                PythonValueConverter.ToBoolOrDefault(removeSmallEdges, true, "remove_small_edges");
+            geometryRepair.FuseFaces = PythonValueConverter.ToBoolOrDefault(fuseFaces, true, "fuse_faces");
+            geometryRepair.JoinEdges = PythonValueConverter.ToBoolOrDefault(joinEdges, true, "join_edges");
             return geometryRepair;
         }
 
@@ -296,9 +298,10 @@ namespace APIs.Python.Model
                    Arguments = "part_names: list[str] or str, number_of_faces: int = 2",
                    Returns = "dict[str, int]",
                    Example = "added = pmx.model.geometry.parts.split_periodic_faces('Solid_part-1')")]
-        public Dictionary<string, int> split_periodic_faces(object part_names, int number_of_faces = 2)
+        public Dictionary<string, int> split_periodic_faces(object part_names, object number_of_faces = null)
         {
-            return _service.SplitPeriodicFaces(_service.ResolveNames(part_names), number_of_faces);
+            int numberOfFaces = PythonValueConverter.ToIntOrDefault(number_of_faces, 2, "number_of_faces");
+            return _service.SplitPeriodicFaces(_service.ResolveNames(part_names), numberOfFaces);
         }
 
         [PythonAPI("Flips the surface normals of the named STL parts using command history.",

@@ -113,6 +113,22 @@ def test_model_parts():
     check(not parts[name].visible, "the part was not hidden")
     parts.show(part_names=[name])
     check(parts[name].visible, "the part was not shown")
+    # A part named in another case is passed on in the model's spelling: the view hides a part by the name of
+    # its actor, compared exactly, so a part hidden as 'part-1' stayed drawn
+    check(parts[name.upper()].name == name, "an item must carry the stored name: " + parts[name.upper()].name)
+    parts.hide(name.lower())
+    check(not parts[name].visible, "the part named in another case was not hidden")
+    parts.show([name.upper()])
+    check(parts[name].visible, "the part named in another case was not shown")
+    parts.set_color(name.upper(), [0, 0, 255])
+    check(list(parts[name].color)[0:3] == [0, 0, 255], "the part named in another case was not coloured")
+    parts.reset_color(name.lower())
+    parts.replace_properties(name.upper(), color=[4, 5, 6])
+    check(list(parts[name].color)[0:3] == [4, 5, 6], "replace_properties did not find the part in another case")
+    parts.reset_color(name)
+    parts.rename(name.upper(), "PyTest_Part")
+    check(parts.contains("PyTest_Part") and not parts.contains(name), "the part named in another case was not renamed")
+    parts.rename("PyTest_Part", name)
     # Rename
     parts.rename(name, "PyTest_Part")
     check(parts.contains("PyTest_Part"), "the part was not renamed")

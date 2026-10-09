@@ -10,7 +10,12 @@
 #states the dialogs can store and the API once refused: step controls left at their unset defaults, an
 #initial increment above the maximum one, frequency limits that are unset or have no upper limit, a
 #propagation into or from steps that do not take the item, a defined temperature with an amplitude read
-#from a file, complex phases, and a radiation load whose cavity radiation was turned off.
+#from a file, complex phases, and a radiation load whose cavity radiation was turned off. A fourth carries
+#successive tree layout changes - nested groups, every group removed, ungrouped items reordered - physical
+#constants made undefined and a deactivated part; pmx.open and pmx.results.open each refuse the file the
+#other one opens. Another carries the values only the dialogs set before the API took them: a vector
+#distribution, the coordinate system of a distribution, the shifts of an amplitude, fixed degrees of
+#freedom, values taken back to Default, and a material whose values are expressions.
 #
 #And it checks a call that outlasts the request timeout. A session started with --rpcTimeout 5 is sent
 #Python that sleeps longer than that: the caller must be answered that the call is still running, with
@@ -19,7 +24,9 @@
 #must be stopped by cancel, keep what it recorded before it was stopped and leave the session free for
 #the next call, and a flood of printed output must come back cut to its beginning and its end. A call
 #cancelled while it still waits for the window, before its Python has started, must be told that the
-#interrupt is pending, and must then end without running its Python or recording anything.
+#interrupt is pending, and must then end without running its Python or recording anything; one that
+#reaches its Python while the cancel still waits for it must be reported as interrupted there. A value of
+#the wrong type is refused on the pipe with the argument named.
 #
 #Read only mode is also checked against a status call that arrives while a long exec runs: status
 #must not lift the block the exec holds, so the change the exec tries after it is still refused.
@@ -582,6 +589,205 @@ def check_journal_of_model_states(client):
     print("journal: the states the dialogs store replay to " + str(replayed))
 
 
+def read_layout_states(client):
+    tree = "pmx.model.tree"
+    expressions = ["str(" + tree + ".get_layout('femodel', 'node_sets'))",
+                   "str(" + tree + ".get_layout('femodel', 'element_sets'))",
+                   "pmx.model.properties.absolute_zero",
+                   "pmx.model.properties.stefan_boltzmann",
+                   "pmx.model.properties.newton_gravity",
+                   "[part.active for part in pmx.model.parts]"]
+    value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
+    check(not value["failed"], "the layouts and properties must be readable: " + value["error"])
+    return value["value"]
+
+
+def check_journal_of_layouts(client):
+    """Tree layouts, physical constants left undefined and a deactivated part must come back from their journal."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    source = os.linesep.join([
+        "node = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])",
+        "element = pmx.create.selection_by_ids('femodel', 'elements', 'elements', [1])",
+        "for name in ('tree_a', 'tree_b', 'tree_c'): pmx.model.node_sets.add(name, node)",
+        "for name in ('tree_e1', 'tree_e2'): pmx.model.element_sets.add(name, element)",
+        "tree = pmx.model.tree",
+        # Each gesture records the whole resulting layout, and every one of them must replay after the others:
+        # a nested group, an ungrouped item moved, every group removed and the ungrouped items reordered
+        "g1 = tree.add_group('femodel', 'node_sets', 'tree_g1', item_names=['tree_a'])",
+        "g2 = tree.add_group('femodel', 'node_sets', 'tree_g2', parent_group_id=g1, item_names=['tree_b'])",
+        "tree.move_items('femodel', 'node_sets', 'tree_c', target_index=0)",
+        "tree.remove_groups('femodel', 'node_sets', [g1])",
+        "tree.remove_groups('femodel', 'node_sets', [g2])",
+        "tree.move_items('femodel', 'node_sets', 'tree_b', target_index=0)",
+        # A layout left grouped, built by two successive groups and a rename
+        "e1 = tree.add_group('femodel', 'element_sets', 'tree_eg1', item_names=['tree_e1'])",
+        "tree.add_group('femodel', 'element_sets', 'tree_eg2', item_names=['tree_e2'])",
+        "tree.rename_group('femodel', 'element_sets', e1, 'tree_eg1_renamed')",
+        # A constant set and then made undefined again, which has no Python value of its own
+        "pmx.model.properties.replace(stefan_boltzmann=5.67e-11)",
+        "pmx.model.properties.replace(absolute_zero=-273.15, clear_undefined_constants=True)",
+        "pmx.model.parts.deactivate(list(pmx.model.parts.get_names())[0])"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the layouts must be built: " + result["error"])
+    recorded = read_layout_states(client)
+    check("tree_g" not in recorded[0], "every node set group must be removed: " + recorded[0])
+    check(recorded[0].startswith("['tree_b'"), "the ungrouped node sets were not reordered: " + recorded[0])
+    check("tree_eg1_renamed" in recorded[1] and "tree_eg2" in recorded[1],
+          "the element set groups are missing: " + recorded[1])
+    check(recorded[2] == -273.15 and recorded[3] is None and recorded[4] is None,
+          "only the absolute zero may stay defined: " + str(recorded))
+    check(False in recorded[5], "the part was not deactivated: " + str(recorded))
+    # Setting the layout a collection already has records nothing
+    status = client.result("status")
+    before = status["model"]["commandCount"]
+    result = client.result("exec", {"source": "pmx.model.tree.set_layout('femodel', 'element_sets', "
+                                              "pmx.model.tree.get_layout('femodel', 'element_sets'))"})
+    check(not result["failed"], "setting the same layout must not fail: " + result["error"])
+    check(client.result("status")["model"]["commandCount"] == before, "setting the same layout must record nothing")
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    check(journal["emittedCommandCount"] == result["commandCount"], "every command must be emitted: " + str(journal))
+    journal_source = journal["source"]
+    check("add_group(" not in journal_source, "a layout must be journalled as set_layout:" + os.linesep +
+          journal_source)
+    for expected in ["set_layout(", "clear_undefined_constants=True", "pmx.model.parts.deactivate("]:
+        check(expected in journal_source, expected + " is missing from the journal:" + os.linesep + journal_source)
+    check("stefan_boltzmann=inf" not in journal_source, "an undefined constant has no Python value")
+    # The journal replayed on a new model rebuilds the same layouts
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal of the layouts must replay: " + result["error"] + os.linesep +
+          journal_source)
+    replayed = read_layout_states(client)
+    check(replayed == recorded, "the replayed layouts differ: " + str(replayed) + " against " + str(recorded))
+    print("journal: the tree layouts, constants and part activity replay to " + str(replayed))
+
+
+def check_result_file_opening(client):
+    """A result file opens beside the model and a model file replaces it, so each goes through its own member."""
+    directory = tempfile.mkdtemp(prefix="rpc_open_")
+    model_file = os.path.join(directory, "model.pmx")
+    result_file = os.path.join(directory, "result.frd")
+    for name in (model_file, result_file):
+        open(name, "w").close()
+    try:
+        before = client.result("status")["model"]["commandCount"]
+        result = client.result("exec", {"source": "pmx.results.open(r'" + model_file + "')"})
+        check(result["failed"] and "pmx.open" in result["error"],
+              "pmx.results.open must refuse a model file and name pmx.open: " + str(result))
+        result = client.result("exec", {"source": "pmx.open(r'" + result_file + "')"})
+        check(result["failed"] and "pmx.results.open" in result["error"],
+              "pmx.open must refuse a result file and name pmx.results.open: " + str(result))
+        check(client.result("status")["model"]["commandCount"] == before, "a refused open must record nothing")
+    finally:
+        for name in (model_file, result_file):
+            os.remove(name)
+        os.rmdir(directory)
+    print("open: a model file and a result file are each refused by the member that does not open them")
+
+
+def read_dialog_values(client):
+    distributions = "pmx.model.distributions"
+    bc = "pmx.model.steps['dialog_static'].bcs['dialog_fixed']"
+    constraints = "pmx.model.constraints"
+    steel = "list(pmx.model.materials['dialog_steel'].get_properties())"
+    expressions = ["list(" + distributions + "['dialog_vector'].equation)",
+                   distributions + "['dialog_local'].coordinate_system_name",
+                   distributions + "['dialog_global'].coordinate_system_name",
+                   "pmx.model.amplitudes['dialog_shift'].shift_time",
+                   "pmx.model.amplitudes['dialog_shift'].shift_amplitude",
+                   "pmx.model.amplitudes['dialog_shift_back'].shift_time",
+                   "list(" + bc + ".get_value('fixed_dofs'))",
+                   bc + ".get_value('u1')",
+                   constraints + "['dialog_tie'].get_value('position_tolerance')",
+                   constraints + "['dialog_compression'].get_value('spring_stiffness')",
+                   constraints + "['dialog_compression'].get_value('tensile_force_at_negative_infinity')",
+                   steel + "[0].get_value('youngs_modulus')",
+                   steel + "[1].get_value('zero_temperature')",
+                   "list(pmx.model.steps['dialog_static'].bcs['dialog_valued'].get_value('fixed_dofs'))"]
+    value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
+    check(not value["failed"], "the dialog values must be readable: " + value["error"])
+    return value["value"]
+
+
+def check_journal_of_dialog_values(client):
+    """Values only the dialogs set until the API took them must come back from their journal."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    source = os.linesep.join([
+        "node = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])",
+        "def face(face_id):",
+        "    return pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [face_id]})",
+        # A vector distribution keeps an unused magnitude equation, and a distribution its coordinate system
+        "pmx.model.distributions.add_from_equation('dialog_vector', ['x', 'y', '2 * z'])",
+        "pmx.model.coordinate_systems.add('dialog_cs', [0, 0, 0], [0, 1, 0], [-1, 0, 0])",
+        "pmx.model.distributions.add_from_equation('dialog_local', 'x', coordinate_system_name='DIALOG_CS')",
+        "pmx.model.distributions.add_from_equation('dialog_global', 'y', coordinate_system_name='dialog_cs')",
+        "pmx.model.distributions.replace_from_equation('dialog_global', coordinate_system_name='Global')",
+        # The shifts of an amplitude, one taken back to zero
+        "pmx.model.amplitudes.add('dialog_shift', [[0, 0], [1, 1]], shift_time=0.5, shift_amplitude=0.25)",
+        "pmx.model.amplitudes.add('dialog_shift_back', [[0, 0], [1, 1]], shift_time=0.5)",
+        "pmx.model.amplitudes.replace('dialog_shift_back', shift_time=0)",
+        # Degrees of freedom the dialog shows as Fixed, and fixed ones taken back to values
+        "static = pmx.model.steps.add_static('dialog_static', time_period=1.0)",
+        "static.bcs.add_displacement_rotation('dialog_fixed', node, fixed_dofs=['U1', 'U3'])",
+        "static.bcs.replace_displacement_rotation('dialog_fixed', free_dofs=['U1', 'U3'], fixed_dofs=['U2'])",
+        "static.bcs.add_displacement_rotation('dialog_valued', node, fixed_dofs=['U1'])",
+        "static.bcs.replace_displacement_rotation('dialog_valued', u1=0, u2=0.5)",
+        # Values the dialogs offer as Default, set and taken back to Default
+        "pmx.model.constraints.add_tie('dialog_tie', face(1), face(2), position_tolerance=0.01)",
+        "pmx.model.constraints.replace_tie('dialog_tie', position_tolerance=float('nan'))",
+        "pmx.model.constraints.add_compression_only('dialog_compression', face(3), spring_stiffness=1000, "
+        "tensile_force_at_negative_infinity=5)",
+        "pmx.model.constraints.replace_compression_only('dialog_compression', spring_stiffness=float('nan'), "
+        "tensile_force_at_negative_infinity=float('nan'))",
+        # A parametric material, with a zero temperature expression that evaluates to zero
+        "pmx.model.parameters.add('dialog_e', 210000)",
+        "pmx.model.parameters.add('dialog_zero', 0)",
+        "pmx.model.materials.add('dialog_steel', [pmx.create.elastic('dialog_e', 0.3), "
+        "pmx.create.thermal_expansion(1.2e-5, zero_temperature='dialog_zero')])"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the dialog values must be accepted: " + result["error"])
+    recorded = read_dialog_values(client)
+    check(recorded[0] == ["=x", "=y", "=2 * z"], "the vector equations were not kept: " + str(recorded))
+    check(recorded[1] == "dialog_cs" and recorded[2] == "Global",
+          "the coordinate systems were not kept: " + str(recorded))
+    check(recorded[3] == 0.5 and recorded[4] == 0.25 and recorded[5] == 0,
+          "the amplitude shifts were not kept: " + str(recorded))
+    check(recorded[6] == ["U2"] and recorded[7] is None, "the fixed degrees of freedom were not kept: " + str(recorded))
+    check(recorded[8] is None and recorded[9] is None and recorded[10] is None,
+          "the values did not go back to Default: " + str(recorded))
+    check(recorded[11] == "=dialog_e" and recorded[12] == "=dialog_zero",
+          "the material expressions were not kept: " + str(recorded))
+    check(recorded[13] == [], "the values did not replace the fixed degree of freedom: " + str(recorded))
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    check(journal["isInline"], "a short journal must come back inline")
+    journal_source = journal["source"]
+    for expected in ["['=x', '=y', '=2 * z']", "coordinate_system_name='dialog_cs'", "coordinate_system_name='Global'",
+                     "shift_time=0.0", "shift_amplitude=0.25", "fixed_dofs=['U1', 'U3']", "fixed_dofs=['U2']",
+                     "position_tolerance=float('nan')", "spring_stiffness=float('nan')",
+                     "tensile_force_at_negative_infinity=float('nan')", "pmx.create.elastic('dialog_e'",
+                     "zero_temperature='dialog_zero'"]:
+        check(expected in journal_source, expected + " is missing from the journal:" + os.linesep + journal_source)
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal of the dialog values must replay: " + result["error"] + os.linesep +
+          journal_source)
+    replayed = read_dialog_values(client)
+    check(replayed == recorded, "the replayed values differ: " + str(replayed) + " against " + str(recorded))
+    print("journal: the values only the dialogs set replay to " + str(replayed))
+
+
 def export_deck(client, file_name):
     """The model as CalculiX reads it, without the lines that differ between two runs of the same model."""
     result = client.result("exec", {"source": "pmx.export_to_calculix(r'" + file_name + "')"})
@@ -873,6 +1079,69 @@ def check_cancel_before_python(client):
     print("cancel: a call still waiting for the window reported the interrupt pending and never ran its Python")
 
 
+def check_cancel_reaching_start(client):
+    """A call the cancel lets on to its start does not run its Python, and is told so once it has finished.
+
+    The window is held from a thread of the session's own until the server has taken the cancel, so the call
+    waits for the window when the cancel arrives and reaches its start while the cancel still waits for it -
+    without a race against a clock. The other start, a call already past that check and waiting for the GIL,
+    cannot be produced from outside: the call needs the GIL before the check as well, so a thread holding it
+    stops the call before the check, not after it.
+    """
+    before = client.result("status")["model"]["commandCount"]
+    hold = os.linesep.join(["import threading, time",
+                            "from System import Action",
+                            "from System.Reflection import BindingFlags",
+                            "from System.Windows.Forms import Application",
+                            "hold_form = [form for form in Application.OpenForms if form.GetType().Name == 'FrmMain'][0]",
+                            "hold_server = hold_form.GetType().GetField('_automationServer', BindingFlags.NonPublic | "
+                            "BindingFlags.Instance).GetValue(hold_form)",
+                            "def hold_until_cancelled():",
+                            "    deadline = time.time() + 60",
+                            "    while time.time() < deadline:",
+                            "        call = hold_server.GetDispatcher().GetRunningCall()",
+                            "        if call is not None and call.IsCancelRequested: return",
+                            "        time.sleep(0.01)",
+                            "def hold_window():",
+                            "    time.sleep(2)",
+                            "    hold_form.BeginInvoke(Action(hold_until_cancelled))",
+                            "threading.Thread(target=hold_window).start()"])
+    result = client.result("exec", {"source": hold})
+    check(not result["failed"], "the window hold must be set up: " + result["error"])
+    time.sleep(3.5)
+    answer = client.result("exec", {"source": "pmx.model.parameters.add('cancel_late', 1.0)", "timeout": 0})
+    call_id = check_running_answer(answer, "exec", "a call waiting for the window must be answered as running")
+    result = client.result("cancel", {"call_id": call_id})
+    check(result["cancelRequested"] and not result["isInterrupted"] and not result["isInterruptPending"] and
+          result["isFinished"], "a call that met the cancel at its start must be reported as finished, with no " +
+          "interrupt pending: " + str(result))
+    check("cancelled before its Python started" in result["message"],
+          "the message must say its Python never started: " + result["message"])
+    answer = client.result("wait", {"call_id": call_id, "timeout": 60})
+    check(answer["failed"] and "KeyboardInterrupt" in answer["error"] and answer.get("cancelled") is True,
+          "the call must stop before its Python starts: " + str(answer))
+    check(answer["recordedCommands"] == [], "nothing may be recorded: " + str(answer["recordedCommands"]))
+    check(client.result("status")["model"]["commandCount"] == before, "the cancelled call must record nothing")
+    print("cancel: a call let on to its start by the cancel never ran its Python and was reported finished")
+
+
+def check_argument_types(client):
+    """A value of the wrong type is refused on the pipe with the argument named, before anything runs."""
+    count = client.result("status")["model"]["commandCount"]
+    for method, parameters, argument in (("exec", {"source": "pmx.model.parameters.add('typed', 1.0)",
+                                                   "timeout": "10"}, "timeout"),
+                                         ("exec", {"source": "pmx.model.parameters.add('typed', 1.0)",
+                                                   "record": True}, "record"),
+                                         ("history", {"limit": "10"}, "limit"),
+                                         ("history", {"include_journal": "true"}, "include_journal"),
+                                         ("wait", {"call_id": 1.5}, "call_id")):
+        error = client.error(method, parameters)
+        check(error["code"] == INVALID_PARAMS and ("argument " + argument + " must be") in error["message"],
+              method + " must refuse " + str(parameters) + " naming " + argument + ": " + str(error))
+    check(client.result("status")["model"]["commandCount"] == count, "a refused call must record nothing")
+    print("argument types: values of the wrong type refused by name, nothing recorded")
+
+
 def check_output_cap(client):
     """A flood of printed output is cut to its beginning and its end, with the cut said in between."""
     source = os.linesep.join(["for i in range(300000):", "    print('flood line', i)"])
@@ -904,11 +1173,16 @@ def main():
     try:
         client = session.connect()
         check_cancel_before_python(client)
+        check_cancel_reaching_start(client)
+        check_argument_types(client)
         check_recording(client)
         check_history(client)
         check_journal_of_replaces(client)
         check_journal_of_jobs(client)
         check_journal_of_model_states(client)
+        check_journal_of_dialog_values(client)
+        check_journal_of_layouts(client)
+        check_result_file_opening(client)
         check_journal_round_trip(client)
         check_exit_guards(client)
         read_only_model = os.path.join(session.directory, "read_only.pmx")

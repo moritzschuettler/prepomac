@@ -341,6 +341,52 @@ def test_initial_conditions():
     check(conditions[PREFIX + "Temp"].visible, "the initial condition was not shown")
 
 
+def test_amplitude_shifts():
+    amplitudes = pmx.model.amplitudes
+    # The shifts default to zero and are set by the add
+    amplitude = amplitudes.add(PREFIX + "Shift", [[0, 0], [1, 1]])
+    check(amplitude.shift_time == 0 and amplitude.shift_amplitude == 0,
+          "the shifts must default to zero: %s, %s" % (amplitude.shift_time, amplitude.shift_amplitude))
+    amplitude = amplitudes.add(PREFIX + "Shifted", [[0, 0], [1, 1]], shift_time=0.5, shift_amplitude=-0.25)
+    check(amplitude.shift_time == 0.5 and amplitude.shift_amplitude == -0.25,
+          "the shifts were not set: %s, %s" % (amplitude.shift_time, amplitude.shift_amplitude))
+    # A replace keeps the shifts it is not given, and the read back goes back into the argument
+    amplitude = amplitudes.replace(PREFIX + "Shifted", time_span="TotalTime")
+    check(amplitude.shift_time == 0.5 and amplitude.shift_amplitude == -0.25, "the replace dropped the shifts")
+    amplitude = amplitudes.replace(PREFIX + "Shifted", shift_time=0, shift_amplitude=amplitude.shift_amplitude)
+    check(amplitude.shift_time == 0 and amplitude.shift_amplitude == -0.25, "the shift was not set back to 0")
+    message = raised_message(lambda: amplitudes.add(PREFIX + "Bad", [[0, 0]], shift_time=float("inf")))
+    check(message is not None and "'shift_time'" in message, "an infinite shift must be refused: " + str(message))
+    check(not amplitudes.contains(PREFIX + "Bad"), "a refused amplitude was added")
+    amplitudes.remove([PREFIX + "Shift", PREFIX + "Shifted"])
+
+
+def test_distribution_coordinate_system():
+    distributions = pmx.model.distributions
+    systems = pmx.model.coordinate_systems
+    clean(systems)
+    systems.add(PREFIX + "CS", [0, 0, 0], [0, 1, 0], [-1, 0, 0])
+    # The name is matched regardless of case and stored in the model's spelling
+    distribution = distributions.add_from_equation(PREFIX + "Local", "x", coordinate_system_name=(PREFIX + "cs").upper())
+    check(distribution.coordinate_system_name == PREFIX + "CS",
+          "the coordinate system was not stored in the model's spelling: " + distribution.coordinate_system_name)
+    # A replace keeps it, and Global, in any case, sets it back
+    distribution = distributions.replace_from_equation(PREFIX + "Local", equation=["x", "y", "z"])
+    check(distribution.coordinate_system_name == PREFIX + "CS", "the replace dropped the coordinate system")
+    distribution = distributions.replace_from_equation(PREFIX + "Local", coordinate_system_name="global")
+    check(distribution.coordinate_system_name == "Global", "Global did not set the coordinate system back")
+    distribution = distributions.replace_from_equation(PREFIX + "Local",
+                                                       coordinate_system_name=PREFIX + "CS")
+    check(distribution.coordinate_system_name == PREFIX + "CS", "the read back did not go back into the replace")
+    message = raised_message(lambda: distributions.add_from_equation(PREFIX + "Bad", "x",
+                                                                     coordinate_system_name="NoSuchSystem"))
+    check(message is not None and "'coordinate_system_name'" in message,
+          "a missing coordinate system must be refused naming the argument: " + str(message))
+    check(not distributions.contains(PREFIX + "Bad"), "a refused distribution was added")
+    distributions.remove([PREFIX + "Local"])
+    clean(systems)
+
+
 def test_distribution_reaches_the_deck():
     # An initial temperature driven by a distribution is expanded per node when the deck is written,
     # which is the only place a wrongly stored equation shows up
@@ -362,7 +408,9 @@ def test_distribution_reaches_the_deck():
 def main():
     check(pmx.model.is_open(), "a model must be open")
     test_amplitudes()
+    test_amplitude_shifts()
     test_distributions()
+    test_distribution_coordinate_system()
     test_initial_conditions()
     test_distribution_reaches_the_deck()
     clean(pmx.model.initial_conditions)

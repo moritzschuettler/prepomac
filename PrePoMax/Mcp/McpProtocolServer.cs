@@ -11,12 +11,14 @@ using CaeGlobals;
 using PrePoMax.Rpc;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 
 namespace PrePoMax.Mcp
 {
     // The MCP protocol, as one request in and one response out. It is a tools only server, so it
-    // serves four methods and no more, and it holds no state of its own: no session id is issued. The
+    // serves four methods and no more, and it holds no session of its own: no session id is issued, and
+    // the only thing it remembers is which request ids a client cancelled. The
     // protocol version is negotiated the way the specification says: the client's own version when this
     // server supports it, and the latest one it supports otherwise, which the client may then refuse.
     //
@@ -32,6 +34,10 @@ namespace PrePoMax.Mcp
         private const long MaximumImageLength = 4 * 1024 * 1024;
         private const string ServerName = "prepomax";
         private const string ServerVersion = "1.0.0";
+        // The ids of the requests a client said it cancelled, latest last, so that the answer of a tool call it
+        // gave up on stays collectable with get_call
+        private const int MaximumCancelledRequestIds = 64;
+        private static readonly List<string> CancelledRequestIds = new List<string>();
 
 
         // Static methods                                                                                                           
@@ -59,8 +65,14 @@ namespace PrePoMax.Mcp
             // MCP narrows JSON-RPC here: the id of a request is a string or a number, and never null
             if (!isNotification && id == null)
                 return Error(null, -32600, "The id of a request must be a string or a number.");
-            // A notification this server does not need - initialized, cancelled, progress - and a
-            // request sent as a notification, which is not run because it could not be answered
+            // A cancelled tool call is not stopped - cancel_call does that - but its answer is kept for get_call
+            if (isNotification && method == "notifications/cancelled")
+            {
+                AddCancelledRequestId(GetId(JsonReader.GetObject(document, "params"), "requestId"));
+                return null;
+            }
+            // A notification this server does not need - initialized, progress - and a request sent as a
+            // notification, which is not run because it could not be answered
             if (isNotification) return null;
             if (string.IsNullOrEmpty(method)) return Error(id, -32600, "The request names no method.");
             try
@@ -147,22 +159,54 @@ namespace PrePoMax.Mcp
             string invalid = McpArgumentValidator.Validate(tool, arguments);
             if (invalid != null) return ToolResult(id, invalid, true);
             //
+            // An id the client cancelled before is free for it to use again
+            RemoveCancelledRequestId(id);
+            string result;
             try
             {
                 string text = McpToolCatalog.Execute(name, arguments, dispatcher);
-                if (name == "screenshot") return ToolResult(id, text, false, ReadImage(text));
-                return ToolResult(id, text, false);
+                if (name == "screenshot") result = ToolResult(id, text, false, ReadImage(text));
+                else result = ToolResult(id, text, false);
             }
             catch (McpException exception)
             {
                 // A tool that cannot be served is a result the agent reads and acts on, not a
                 // protocol failure: it may have to wait for the user, or ask them something
-                return ToolResult(id, exception.Message, true);
+                result = ToolResult(id, exception.Message, true);
             }
             catch (Exception exception)
             {
-                return ToolResult(id, "The endpoint failed to serve the tool: " + exception.Message, true);
+                result = ToolResult(id, "The endpoint failed to serve the tool: " + exception.Message, true);
             }
+            // The client no longer reads this answer, so the answer of a long call it carries is not given up
+            if (dispatcher != null && RemoveCancelledRequestId(id)) dispatcher.EndDelivery(false);
+            return result;
+        }
+        private static void AddCancelledRequestId(object id)
+        {
+            string key = GetIdKey(id);
+            if (key == null) return;
+            //
+            lock (CancelledRequestIds)
+            {
+                CancelledRequestIds.Remove(key);
+                CancelledRequestIds.Add(key);
+                if (CancelledRequestIds.Count > MaximumCancelledRequestIds) CancelledRequestIds.RemoveAt(0);
+            }
+        }
+        // Returns whether the id was one the client cancelled
+        private static bool RemoveCancelledRequestId(object id)
+        {
+            string key = GetIdKey(id);
+            if (key == null) return false;
+            //
+            lock (CancelledRequestIds) return CancelledRequestIds.Remove(key);
+        }
+        private static string GetIdKey(object id)
+        {
+            if (id is double) return "n" + ((double)id).ToString("R", CultureInfo.InvariantCulture);
+            if (id is string) return "s" + (string)id;
+            return null;
         }
         private static string GetToolNames()
         {
@@ -236,9 +280,13 @@ namespace PrePoMax.Mcp
         }
         private static object GetId(object document)
         {
-            if (!JsonReader.HasItem(document, "id")) return null;
+            return GetId(document, "id");
+        }
+        private static object GetId(object document, string name)
+        {
+            if (!JsonReader.HasItem(document, name)) return null;
             Dictionary<string, object> items = document as Dictionary<string, object>;
-            object id = items["id"];
+            object id = items[name];
             if (id is string || id is double) return id;
             return null;
         }

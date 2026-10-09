@@ -30,9 +30,9 @@ namespace APIs.Python.Model
         // Methods
         [PythonAPI("Renumbers the model elements using command history.", Arguments = "start_id: int",
                    Returns = "None")]
-        public void renumber(int start_id)
+        public void renumber(object start_id)
         {
-            _service.RenumberElements(start_id);
+            _service.RenumberElements(PythonValueConverter.ToInt(start_id, "start_id"));
         }
 
         [PythonAPI("Returns a copied bulk mesh snapshot ordered by ID.", Returns = "ElementData")]

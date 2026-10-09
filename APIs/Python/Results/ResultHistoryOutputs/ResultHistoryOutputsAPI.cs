@@ -149,11 +149,11 @@ namespace APIs.Python
             string name, string integral_type, string field_name = null, object component_names = null,
             object region = null, string integral_result = "Geometry",
             string deformation_variable_name = "Displacements", string unit = "/",
-            string cross_section = "None", double thickness = 1.0)
+            string cross_section = "None", object thickness = null)
         {
             return _service.CreateFromIntegration(name, integral_type, field_name, component_names, region,
                                                   integral_result, deformation_variable_name, unit,
-                                                  cross_section, thickness);
+                                                  cross_section, ToThickness(thickness));
         }
 
         [PythonAPI("Creates a From Merged Histories draft that merges two to four history components into a " +
@@ -311,13 +311,13 @@ namespace APIs.Python
             string name, string integral_type, string field_name = null, object component_names = null,
             object region = null, string integral_result = "Geometry",
             string deformation_variable_name = "Displacements", string unit = "/",
-            string cross_section = "None", double thickness = 1.0,
+            string cross_section = "None", object thickness = null,
             ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
         {
             return add(WithFilters(_service.CreateFromIntegration(name, integral_type, field_name,
                                                                    component_names, region, integral_result,
                                                                    deformation_variable_name, unit,
-                                                                   cross_section, thickness),
+                                                                   cross_section, ToThickness(thickness)),
                                    filter1, filter2));
         }
 
@@ -328,14 +328,15 @@ namespace APIs.Python
             string old_name, string name, string integral_type, string field_name = null,
             object component_names = null, object region = null, string integral_result = "Geometry",
             string deformation_variable_name = "Displacements", string unit = "/",
-            string cross_section = "None", double thickness = 1.0,
+            string cross_section = "None", object thickness = null,
             ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
         {
             return replace(old_name, WithFilters(_service.CreateFromIntegration(name, integral_type, field_name,
                                                                                 component_names, region,
                                                                                 integral_result,
                                                                                 deformation_variable_name,
-                                                                                unit, cross_section, thickness),
+                                                                                unit, cross_section,
+                                                                                ToThickness(thickness)),
                                                  filter1, filter2));
         }
 
@@ -513,6 +514,12 @@ namespace APIs.Python
             if (incrementId != null) draft.increment_id = PythonValueConverter.ToInt(incrementId, "increment_id");
             if (harmonic != null) draft.harmonic = PythonValueConverter.ToBool(harmonic, "harmonic");
             if (outputNodeCoordinates != null) draft.output_node_coordinates = outputNodeCoordinates;
+        }
+        private static double ToThickness(object thickness)
+        {
+            if (thickness == null) return 1.0;
+            //
+            return PythonValueConverter.ToFiniteDouble(thickness, "thickness");
         }
         private static TDraft WithFilters<TDraft>(TDraft draft, ResultHistoryOutputFilterAPI filter1,
                                                   ResultHistoryOutputFilterAPI filter2)

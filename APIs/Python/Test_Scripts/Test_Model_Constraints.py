@@ -85,6 +85,14 @@ def test_tie():
           "a negative position tolerance must be refused naming the argument: " + str(message))
     check(abs(constraints[PREFIX + "Tie"].get_value("position_tolerance") - 0.01) < 1e-12,
           "a refused replace changed the tie")
+    # Default reads back as None, which keeps the value on a replace, so float('nan') sets it back
+    tie = constraints.replace_tie(PREFIX + "Tie", position_tolerance=float("nan"))
+    check(tie.get_value("position_tolerance") is None,
+          "float('nan') did not set the position tolerance back to Default: " + str(tie.get_value("position_tolerance")))
+    tie = constraints.replace_tie(PREFIX + "Tie", position_tolerance=tie.get_value("position_tolerance"))
+    check(tie.get_value("position_tolerance") is None, "the Default read back did not go back into the replace")
+    tie = constraints.replace_tie(PREFIX + "Tie", position_tolerance=0.01)
+    check(abs(tie.get_value("position_tolerance") - 0.01) < 1e-12, "the position tolerance was not set again")
 
 
 def test_cyclic_symmetry():
@@ -286,6 +294,15 @@ def test_reference_point_constraints():
     check(not dc.get_value("ur2"), "ur2 was not replaced")
     check(not dc.get_value("ur1"), "ur1 must survive a replace")
     check(dc.master_region_name == RP, "the reference point must survive a replace")
+    # A reference point named in another case is stored in the model's spelling, because the controller
+    # follows a renamed reference point by comparing the names exactly
+    rb = constraints.add_rigid_body(PREFIX + "RB_C", RP.lower(), node_selection([5, 6]))
+    check(rb.master_region_name == RP,
+          "the reference point must be stored in the model's spelling: " + str(rb.master_region_name))
+    dc = constraints.replace_distributing_coupling(PREFIX + "DC", reference_point_name=RP.upper())
+    check(dc.master_region_name == RP,
+          "a replace must store the reference point in the model's spelling: " + str(dc.master_region_name))
+    constraints.remove([PREFIX + "RB_C"])
 
 
 def test_springs_and_compression_only():
@@ -307,6 +324,19 @@ def test_springs_and_compression_only():
     check(co.item_type == "compression_only", "unexpected type " + co.item_type)
     check(abs(co.get_value("clearance") - 0.001) < 1e-12, "the clearance was not set")
     check(co.get_value("non_linear"), "non_linear was not set")
+    # The values the dialog offers as Default read back as None and are set back to Default by float('nan')
+    check(co.get_value("spring_stiffness") is None and co.get_value("tensile_force_at_negative_infinity") is None,
+          "the compression only defaults must read back as None")
+    co = constraints.replace_compression_only(PREFIX + "CO", spring_stiffness=1000,
+                                              tensile_force_at_negative_infinity=5)
+    check(co.get_value("spring_stiffness") == 1000 and co.get_value("tensile_force_at_negative_infinity") == 5,
+          "the compression only values were not set")
+    co = constraints.replace_compression_only(PREFIX + "CO", spring_stiffness=float("nan"))
+    check(co.get_value("spring_stiffness") is None, "float('nan') did not set the spring stiffness back to Default")
+    check(co.get_value("tensile_force_at_negative_infinity") == 5, "a value that was not given was not kept")
+    co = constraints.replace_compression_only(PREFIX + "CO", tensile_force_at_negative_infinity=float("nan"))
+    check(co.get_value("tensile_force_at_negative_infinity") is None,
+          "float('nan') did not set the tensile force back to Default")
     # An equation is accepted where a value is
     pmx.model.parameters.add(PREFIX + "k", 25.0)
     ps = constraints.replace_point_spring(PREFIX + "PS", k2=PREFIX + "k * 2")

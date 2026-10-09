@@ -58,8 +58,9 @@ namespace PrePoMax.Mcp
                 NoArguments, true));
             _tools.Add(new McpTool("get_status", "Read the session state",
                 "Reports what PrePoMax is doing right now: whether it is idle or busy and why, the open model file, " +
-                "the current view, the unit system, how many commands are in the history, and whether the server is " +
-                "in read only mode. Call it when a tool answers that the application is busy, and before a change, " +
+                "the current view, the unit system (model.unitSystem), how many commands are in the history, " +
+                "whether the server is in read only mode, and under calls the long calls still running or waiting " +
+                "to be collected. Call it when a tool answers that the application is busy, and before a change, " +
                 "so the state the change assumes is the state it finds.",
                 SessionSchema(null), true));
             _tools.Add(new McpTool("describe_api", "Learn the Python API",
@@ -95,7 +96,8 @@ namespace PrePoMax.Mcp
                 "compared regardless of case, and a name that matches no part is reported under " +
                 "unmatched_part_names.",
                 SessionSchema("\"part_names\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, " +
-                              "\"description\": \"The parts to read. All of them when this is left out.\"}, " +
+                              "\"description\": \"The parts to read, at least one. All of them when this is " +
+                              "left out.\"}, " +
                               "\"limit\": {\"type\": \"integer\", \"minimum\": 1, \"maximum\": " +
                               TopologyRowBudget + ", \"description\": " +
                               "\"How many faces, edges and vertices to list per part, 1 to " + TopologyRowBudget +
@@ -111,7 +113,8 @@ namespace PrePoMax.Mcp
                               "\"How many seconds to wait for the answer, 0 to 600. Defaults to the " +
                               "requestTimeout get_status reports. A call that takes longer is not " +
                               "stopped: it is answered with running and a callId, and get_call collects " +
-                              "its answer.\"}",
+                              "its answer. Keep it below the request timeout of your own client, or pass 0 " +
+                              "and wait through get_call for long work.\"}",
                               "\"expression\""), false));
             _tools.Add(new McpTool("run_python", "Run Python in the session",
                 "Runs Python against the model the user has open, through the same engine the Python panel in " +
@@ -141,19 +144,22 @@ namespace PrePoMax.Mcp
                               "\"How many seconds to wait for the answer, 0 to 600. Defaults to the " +
                               "requestTimeout get_status reports. A call that takes longer is not " +
                               "stopped: it is answered with running and a callId, and get_call collects " +
-                              "its answer.\"}",
+                              "its answer. Keep it below the request timeout of your own client, or pass 0 " +
+                              "and wait through get_call for long work.\"}",
                               "\"source\""), false));
             _tools.Add(new McpTool("get_call", "Collect a long call",
                 "Collects the answer of a run_python or eval_expression call that was still running when its wait " +
                 "ran out and was answered with running and a callId. It waits up to timeout seconds and returns " +
                 "the answer that call would have returned - its output, its error and the commands it recorded - " +
-                "or, if it is still working, running and the callId once more; ask again. An answer is handed " +
-                "over once. get_status lists the calls that are running or waiting to be collected.",
+                "or, if it is still working, running and the callId once more; ask again. An answer is given up " +
+                "once its response has been written to the client; one whose response the client gave up on or " +
+                "cancelled stays collectable, the latest 16 for an hour. get_status lists the calls that are " +
+                "running or waiting to be collected.",
                 SessionSchema("\"call_id\": {\"type\": \"integer\", \"minimum\": 1, \"description\": " +
                               "\"The callId the still running call was answered with.\"}, " +
                               "\"timeout\": {" + TimeoutRange + "\"description\": " +
                               "\"How many seconds to wait for it, 0 to 600. Defaults to the requestTimeout " +
-                              "get_status reports.\"}",
+                              "get_status reports. Keep it below the request timeout of your own client.\"}",
                               "\"call_id\""), true));
             _tools.Add(new McpTool("cancel_call", "Stop a long call",
                 "Stops a run_python or eval_expression call that was answered with running and a callId - one " +
@@ -166,7 +172,8 @@ namespace PrePoMax.Mcp
                 "interrupt - a bare except - keeps running: cancel it again, since every cancel delivers a new " +
                 "interrupt. The answer says only what happened: isInterrupted when the interrupt was delivered, " +
                 "isInterruptPending while it waits - for such an operation to return, or for a call that has not " +
-                "reached its Python yet, which then does not run it. The commands it recorded " +
+                "reached its Python yet, which then does not run it and ends with a KeyboardInterrupt error or " +
+                "with the refusal it meets first, such as busy. The commands it recorded " +
                 "before it stopped stay in the command history. Collect its answer with get_call afterwards: it " +
                 "lists them.",
                 SessionSchema("\"call_id\": {\"type\": \"integer\", \"minimum\": 1, \"description\": " +
@@ -258,7 +265,7 @@ namespace PrePoMax.Mcp
             text.Append("how to learn it, and run_python is how to use it. Look a call up rather than guessing: ");
             text.Append("the API refuses what it does not recognize, and the refusal names the reason.\n\n");
             text.Append("A plain number is a value in the model's unit system, which get_status reports as ");
-            text.Append("unitSystem. Nothing converts it and nothing warns you, so read the unit system before ");
+            text.Append("model.unitSystem. Nothing converts it and nothing warns you, so read the unit system before ");
             text.Append("you write the first number: 210000 is a steel modulus in MM_TON_S_C and wrong in ");
             text.Append("M_KG_S_C. Where the user could type an expression you may pass one as a string, and ");
             text.Append("it is stored as an equation that re-evaluates.\n\n");
@@ -306,7 +313,12 @@ namespace PrePoMax.Mcp
                 return CallAndReadOutput(dispatcher, McpModelScript.GetSource(), "Automation server - read_model");
             if (name == "read_topology")
             {
-                List<string> names = JsonReader.ToStringList(JsonReader.GetArray(arguments, "part_names"));
+                List<object> requestedNames = JsonReader.GetArray(arguments, "part_names");
+                // An empty list would read every part, which is what leaving it out says
+                if (requestedNames != null && requestedNames.Count == 0)
+                    throw new McpException("The argument part_names is an empty list. Name at least one part, or " +
+                                           "leave it out to read every part. Nothing was done.");
+                List<string> names = JsonReader.ToStringList(requestedNames);
                 string[] partNames = names == null ? null : names.ToArray();
                 int limit = JsonReader.GetInt(arguments, "limit", DefaultTopologyLimit);
                 return CallAndReadOutput(dispatcher, McpTopologyScript.GetSource(partNames, limit, TopologyRowBudget),

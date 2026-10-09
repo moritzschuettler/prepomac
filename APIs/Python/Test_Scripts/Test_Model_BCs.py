@@ -351,6 +351,63 @@ def test_displacement_rotation_distribution_local_system():
     pmx.model.coordinate_systems.remove([system])
 
 
+def test_fixed_dofs():
+    # The dialog offers Fixed, which the deck writes as *Boundary, Fixed without a value
+    bcs = pmx.model.steps[STEP].bcs
+    name = PREFIX + "DR_Fixed"
+    bc = bcs.add_displacement_rotation(name, pmx.create.region('NodeSetName', NODE_SET), fixed_dofs=["u1", "U2"])
+    check(list(bc.get_value("fixed_dofs")) == ["U1", "U2"], "the fixed dofs did not read back: " +
+          str(bc.get_value("fixed_dofs")))
+    check(type(bc.get_value("fixed_dofs")) is list, "fixed_dofs must read back as a plain list")
+    check(bc.get_value("u1") is None and bc.get_value("u3") is None,
+          "a fixed and a free degree of freedom must read back as None")
+    lines = read_deck_lines()
+    keyword = lines[lines.index("** Name: " + name) + 1]
+    check(keyword.lower().replace(" ", "").startswith("*boundary,fixed"), "the deck did not fix the dofs: " + keyword)
+    # A replace keeps the fixed dofs it is not given, and the read back goes back into the argument
+    bc = bcs.replace_displacement_rotation(name, fixed_dofs=["U3"])
+    check(list(bc.get_value("fixed_dofs")) == ["U1", "U2", "U3"], "the replace dropped a fixed dof: " +
+          str(bc.get_value("fixed_dofs")))
+    lines = read_deck_lines()
+    index = lines.index("** Name: " + name)
+    check(lines[index + 1].lower().replace(" ", "").startswith("*boundary,fixed"),
+          "the deck did not fix the dofs: " + lines[index + 1])
+    dofs = [line.replace(" ", "").split(",")[1:] for line in lines[index + 2:index + 5]]
+    check(dofs == [["1", "1"], ["2", "2"], ["3", "3"]], "the deck did not fix U1, U2 and U3 without a value: " +
+          str(lines[index + 1:index + 6]))
+    bc = bcs.replace_displacement_rotation(name, free_dofs=["U2", "U3"], fixed_dofs=bc.get_value("fixed_dofs")[:1])
+    check(list(bc.get_value("fixed_dofs")) == ["U1"], "free_dofs did not unfix: " + str(bc.get_value("fixed_dofs")))
+    # Values replace fixed dofs when every constrained one is given a value
+    bc = bcs.replace_displacement_rotation(name, u1=0, u2=0)
+    check(list(bc.get_value("fixed_dofs")) == [] and bc.get_value("u1") == 0, "a value did not replace Fixed")
+    # The refusals name the argument and record nothing
+    check_refused(lambda: bcs.replace_displacement_rotation(name, fixed_dofs=["U3"]), "cannot be combined",
+                  "a fixed dof next to valued ones must be refused")
+    check_refused(lambda: bcs.replace_displacement_rotation(name, u1=1, fixed_dofs=["U1"]), "'u1'",
+                  "a dof both fixed and given a value must be refused")
+    check_refused(lambda: bcs.replace_displacement_rotation(name, free_dofs=["U1"], fixed_dofs=["u1"]),
+                  "'free_dofs'", "a dof both fixed and freed must be refused")
+    check_raises(lambda: bcs.add_displacement_rotation(PREFIX + "Bad", pmx.create.region('NodeSetName', NODE_SET),
+                                                       fixed_dofs=["U9"]),
+                 "an unknown degree of freedom must be rejected")
+    check(not bcs.contains(PREFIX + "Bad"), "a refused boundary condition was recorded")
+    bc = bcs[name]
+    check(list(bc.get_value("fixed_dofs")) == [] and bc.get_value("u1") == 0 and bc.get_value("u3") is None,
+          "a refused replace changed the boundary condition")
+    # The dialog offers Fixed for the displacements only, and a rotation would be stored as 0, so fixing one is
+    # refused, naming the argument that fixes it instead
+    for rotation in ["UR1", "ur2", "UR3"]:
+        check_refused(lambda: bcs.add_displacement_rotation(PREFIX + "Bad",
+                                                            pmx.create.region('NodeSetName', NODE_SET),
+                                                            fixed_dofs=["U1", rotation]),
+                      "'" + rotation.lower() + "'", "a fixed rotation must be refused")
+        check(not bcs.contains(PREFIX + "Bad"), "a refused boundary condition was recorded")
+    check_refused(lambda: bcs.replace_displacement_rotation(name, fixed_dofs=["UR3"]), "rotation",
+                  "a fixed rotation must be refused by a replace")
+    check(list(bcs[name].get_value("fixed_dofs")) == [], "a refused replace changed the boundary condition")
+    bcs.remove([name])
+
+
 def test_submodel():
     bcs = pmx.model.steps[STEP].bcs
     selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])
@@ -378,6 +435,21 @@ def test_submodel():
                  "a submodel boundary condition replaced onto a reference point must be rejected")
     check(bcs[PREFIX + "SM"].region_type == "NodeSetName",
           "the refused replacement changed the region to " + bcs[PREFIX + "SM"].region_type)
+    # A 2D submodel boundary condition clears u3, ur1 and ur2, so True for them is refused rather than dropped
+    model_space = pmx.model.properties.model_space
+    pmx.model.properties.model_space = "PlaneStress"
+    try:
+        for argument in ["u3", "ur1", "ur2"]:
+            check_refused(lambda: bcs.add_submodel(PREFIX + "Bad", selection, step_id=1, **{argument: True}),
+                          "'" + argument + "'", "a 2D submodel boundary condition must refuse " + argument + "=True")
+        check(not bcs.contains(PREFIX + "Bad"), "a refused 2D submodel boundary condition was recorded")
+        bc = bcs.add_submodel(PREFIX + "SM_2D", selection, step_id=1, u1=True, u3=False)
+        check(bc.get_value("u1") and not bc.get_value("u3"), "a 2D submodel boundary condition was not added")
+        check_refused(lambda: bcs.replace_submodel(PREFIX + "SM_2D", ur2=True), "'ur2'",
+                      "a 2D submodel replace must refuse ur2=True")
+        bcs.remove([PREFIX + "SM_2D"])
+    finally:
+        pmx.model.properties.model_space = model_space
 
 
 def test_temperature():
@@ -496,6 +568,7 @@ def main():
     test_complex_phase()
     test_displacement_rotation_distribution()
     test_displacement_rotation_distribution_local_system()
+    test_fixed_dofs()
     test_submodel()
     test_temperature()
     test_collection_verbs()

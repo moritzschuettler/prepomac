@@ -11,6 +11,7 @@ using CaeGlobals;
 using PrePoMax.Python;
 using PrePoMax.Python.Journal;
 using System;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
@@ -54,14 +55,32 @@ namespace PrePoMax.Commands
         }
         // The script is emitted as it was recorded and is never expanded into the calls it made. Its
         // own commands were never recorded, and expanding it would replace a live computation with the
-        // values it produced on its first run.
+        // values it produced on its first run. A script run from a file read sys.argv and __file__ as the
+        // engine set them, so the journal sets the same values around it and restores its own afterwards.
         public override void ToPython(PythonJournalWriter writer)
         {
             string source = _fileName == null ? "embedded script" : _fileName;
             writer.Comment("--- Recorded script: " + source + " ---");
-            if (_arguments != null && _arguments.Length > 0)
-                writer.Comment("Recorded arguments: " + string.Join(" ", _arguments));
+            if (_fileName != null)
+            {
+                List<string> argv = new List<string>();
+                argv.Add(writer.Path(_fileName));
+                if (_arguments != null)
+                {
+                    foreach (string argument in _arguments) argv.Add(PythonValueFormatter.Text(argument));
+                }
+                writer.Line("import sys as _recorded_script_sys");
+                writer.Assign("_recorded_script_saved_argv", "list(_recorded_script_sys.argv)");
+                writer.Assign("_recorded_script_saved_file", "globals().get('__file__')");
+                writer.Assign("_recorded_script_sys.argv", "[" + string.Join(", ", argv) + "]");
+                writer.Assign("__file__", writer.Path(_fileName));
+            }
             writer.Block(_script);
+            if (_fileName != null)
+            {
+                writer.Assign("_recorded_script_sys.argv", "_recorded_script_saved_argv");
+                writer.Assign("__file__", "_recorded_script_saved_file");
+            }
             writer.Comment("--- End of recorded script ---");
             writer.CountEmittedCommand();
         }

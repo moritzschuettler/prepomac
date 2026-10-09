@@ -584,9 +584,10 @@ namespace APIs.Python.Model
                    "is refused.",
                    Arguments = "names: list[str] or str, target_index: int", Returns = "None",
                    Example = "pmx.model.steps.move(['Step-2'], 0)")]
-        public void move(object names, int target_index)
+        public void move(object names, object target_index)
         {
-            _service.Move(ResolveNames(names, "names"), target_index);
+            int targetIndex = PythonValueConverter.ToInt(target_index, "target_index");
+            _service.Move(ResolveNames(names, "names"), targetIndex);
         }
         //
         protected override string[] GetItemNames()

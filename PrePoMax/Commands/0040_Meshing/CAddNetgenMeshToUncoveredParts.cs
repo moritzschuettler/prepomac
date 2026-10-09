@@ -49,11 +49,22 @@ namespace PrePoMax.Commands
             _meshSetupItems = receiver.AddNetgenMeshesToUncoveredParts();
             return true;
         }
-        // The items are built from the parts the model was left with, so only the items added speak
+        // The items are built from the parts the model was left with, so only the items added speak. The
+        // journal exporter writes them before the first meshing command, since the model was meshed by them.
         public override void ToPython(PythonJournalWriter writer)
         {
-            if (_meshSetupItems == null) return;
+            if (_meshSetupItems == null)
+            {
+                writer.Unsupported(this, "the command has not run in this session, so the mesh setup items it " +
+                                         "adds are not known; regenerate the model and export the journal again");
+                return;
+            }
             //
+            if (_meshSetupItems.Length == 0)
+            {
+                writer.Comment(Name + ": every part already has a mesh setup item");
+                writer.CountEmittedCommand();
+            }
             foreach (var meshSetupItem in _meshSetupItems) PythonMeshSetupEmitter.Emit(writer, null, meshSetupItem);
         }
         public override string GetCommandString()

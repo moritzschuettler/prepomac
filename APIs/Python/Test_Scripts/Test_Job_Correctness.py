@@ -115,7 +115,13 @@ def test_argument_follows_name_and_solver():
     pmx.jobs.replace(PREFIX + "Arg3", argument=PREFIX + "Arg3")
     pmx.jobs.replace(PREFIX + "Arg3", PREFIX + "Arg4", argument="-given")
     check(argument("Arg4") == "-given", "a given argument must win: " + argument("Arg4"))
-    pmx.jobs.remove(PREFIX + "Arg4")
+    # A rename treats the argument the way a replace does: an edited one is kept, a default one follows
+    pmx.jobs.rename(PREFIX + "Arg4", PREFIX + "Arg5")
+    check(argument("Arg5") == "-given", "a rename dropped the edited argument: " + argument("Arg5"))
+    pmx.jobs.replace(PREFIX + "Arg5", argument=PREFIX + "Arg5")
+    pmx.jobs.rename(PREFIX + "Arg5", PREFIX + "Arg6")
+    check(argument("Arg6") == PREFIX + "Arg6", "the default argument did not follow a rename: " + argument("Arg6"))
+    pmx.jobs.remove(PREFIX + "Arg6")
 
 
 def test_rejected_arguments():

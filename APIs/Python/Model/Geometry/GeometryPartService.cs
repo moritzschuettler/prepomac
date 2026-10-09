@@ -46,10 +46,10 @@ namespace APIs.Python.Model
         }
         public void SwapGeometries(string partName1, string partName2)
         {
-            ResolvePart(partName1);
-            ResolvePart(partName2);
+            string storedPartName1 = ResolvePart(partName1).Name;
+            string storedPartName2 = ResolvePart(partName2).Name;
             EnsureCommandsAvailable();
-            MeshGateway.SwapPartGeometries(partName1, partName2);
+            MeshGateway.SwapPartGeometries(storedPartName1, storedPartName2);
         }
         public void ConvertShellToSolid(string[] partNames)
         {
@@ -140,7 +140,7 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The name '" + newName + "' is already used by another part.");
             //
             EnsureCommandsAvailable();
-            MeshGateway.RenameSplitSubPart(partName, storedOldName, newName);
+            MeshGateway.RenameSplitSubPart(compoundPart.Name, storedOldName, newName);
         }
         public string[] GetSplitCellNames(string partName, string subPartName)
         {
@@ -175,7 +175,7 @@ namespace APIs.Python.Model
             }
             //
             EnsureCommandsAvailable();
-            return MeshGateway.GroupSplitCells(partName, storedNames, storedSubPartName);
+            return MeshGateway.GroupSplitCells(compoundPart.Name, storedNames, storedSubPartName);
         }
         public string FuseBodies(string partName, object bodyNames)
         {
@@ -190,7 +190,7 @@ namespace APIs.Python.Model
                                                     "sub-part or a cell", partName);
             //
             EnsureCommandsAvailable();
-            return MeshGateway.FuseBodies(partName, storedNames);
+            return MeshGateway.FuseBodies(compoundPart.Name, storedNames);
         }
         public Dictionary<string, int> Defeature(SelectionAPI selection)
         {

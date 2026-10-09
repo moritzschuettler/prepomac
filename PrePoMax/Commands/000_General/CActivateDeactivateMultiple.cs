@@ -53,13 +53,25 @@ namespace PrePoMax.Commands
         {
             // The command carries the items themselves, so the collection of each is recovered from its
             // type, and the items are grouped by that collection to keep the journal short
+            // A part is stored by its name and type only, so its collection is recovered from the stored type
             Dictionary<string, List<string>> namesByCollection = new Dictionary<string, List<string>>();
             for (int i = 0; i < _items.Length; i++)
             {
                 string stepName = _stepNames != null && i < _stepNames.Length ? _stepNames[i] : null;
-                string collection = PythonCollectionResolver.GetCollection(_items[i], stepName);
+                string collection;
+                string itemName;
+                if (_items[i] == null)
+                {
+                    collection = PythonCollectionResolver.GetCollection(_itemTypes[i], stepName);
+                    itemName = _itemNames[i];
+                }
+                else
+                {
+                    collection = PythonCollectionResolver.GetCollection(_items[i], stepName);
+                    itemName = _items[i].Name;
+                }
                 if (!namesByCollection.ContainsKey(collection)) namesByCollection[collection] = new List<string>();
-                namesByCollection[collection].Add(_items[i].Name);
+                namesByCollection[collection].Add(itemName);
             }
             foreach (var entry in namesByCollection)
             {

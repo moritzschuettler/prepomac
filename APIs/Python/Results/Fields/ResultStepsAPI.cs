@@ -99,9 +99,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the step ID exists.", Arguments = "id: int", Returns = "bool")]
-        public bool contains(int id)
+        public bool contains(object id)
         {
-            return _dataService.GetStepIds(_resultName).Contains(id);
+            return _dataService.GetStepIds(_resultName).Contains(PythonValueConverter.ToInt(id, "id"));
         }
         public override string ToString()
         {

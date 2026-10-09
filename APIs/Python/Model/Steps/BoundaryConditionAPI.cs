@@ -86,8 +86,26 @@ namespace APIs.Python.Model
             Dictionary<string, object> values = ModelItemValueReader.GetValues(boundaryCondition,
                                                                                typeof(BoundaryCondition), null);
             if (TakesPhase(boundaryCondition)) values["phase_deg"] = boundaryCondition.PhaseDeg.Value;
+            if (boundaryCondition is DisplacementRotation displacementRotation)
+                values["fixed_dofs"] = GetFixedDegreesOfFreedom(displacementRotation, values);
             //
             return values;
+        }
+        // A fixed degree of freedom is stored as positive infinity, which no value argument takes, so it reads back
+        // as None and is listed under fixed_dofs, the argument that sets it
+        private static object GetFixedDegreesOfFreedom(DisplacementRotation boundaryCondition,
+                                                       Dictionary<string, object> values)
+        {
+            List<object> fixedDofs = new List<object>();
+            foreach (DegreeOfFreedomEnum dof in Enum.GetValues(typeof(DegreeOfFreedomEnum)))
+            {
+                if (boundaryCondition.GetDofType((int)dof + 1) != DOFType.Fixed) continue;
+                //
+                fixedDofs.Add(dof.ToString());
+                values[dof.ToString().ToLowerInvariant()] = null;
+            }
+            //
+            return PythonListConverter.ToPythonList(fixedDofs.ToArray());
         }
 
 
@@ -102,9 +120,10 @@ namespace APIs.Python.Model
         [PythonAPI("Returns a value that is specific to this boundary condition type by the name of the add_* " +
                    "argument that sets it, for example u1. phase_deg is read back only for a displacement " +
                    "rotation of a steady_state_dynamics step, which is complex and takes it. A " +
-                   "displacement degree of freedom that is not constrained reads back as None. Use " +
+                   "displacement degree of freedom that is not constrained reads back as None, and so does a " +
+                   "fixed one, which a displacement rotation lists under fixed_dofs instead. Use " +
                    "get_value_names to list them.", Arguments = "name: str",
-                   Returns = "float, int, bool or str")]
+                   Returns = "float, int, bool, str or list[str]")]
         public object get_value(string name)
         {
             BoundaryCondition boundaryCondition = Resolve();

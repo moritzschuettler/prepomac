@@ -23,6 +23,11 @@ namespace APIs.Python.Model
         public string name { get { return _service.ResolveAmplitude(_amplitudeName).Name; } }
         [PythonAPI("The amplitude time span: StepTime or TotalTime.", Returns = "str")]
         public string time_span { get { return _service.ResolveAmplitude(_amplitudeName).TimeSpan.ToString(); } }
+        [PythonAPI("The fixed amount every time value is shifted by, which shift_time sets.", Returns = "float")]
+        public double shift_time { get { return _service.ResolveAmplitude(_amplitudeName).ShiftX; } }
+        [PythonAPI("The fixed amount every amplitude value is shifted by, which shift_amplitude sets.",
+                   Returns = "float")]
+        public double shift_amplitude { get { return _service.ResolveAmplitude(_amplitudeName).ShiftY; } }
         [PythonAPI("The number of time and amplitude rows.", Returns = "int")]
         public int row_count
         {

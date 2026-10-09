@@ -49,10 +49,35 @@ namespace APIs.Python.Model
         public void OpenFile(string fileName)
         {
             string fullFileName = ResolveExistingFileName(fileName, "file_name");
+            string extension = Path.GetExtension(fullFileName).ToLowerInvariant();
+            if (IsResultFileExtension(extension))
+                throw new PythonAPIException("The file '" + fileName + "' is a result file, which pmx.results.open " +
+                                             "opens beside the current model.");
+            if (extension != ".pmx" && extension != ".pmh")
+                throw new PythonAPIException("The argument 'file_name' must name a .pmx or .pmh file.");
             //
             EnsureCommandsAvailable();
             EnsureModelCanBeReplaced("Opening a file");
             _modelGateway.OpenFile(fullFileName);
+        }
+        // A result file is opened beside the model, so it does not replace the command history and is recorded
+        // as the same open command the application records
+        public void OpenResultFile(string fileName)
+        {
+            string fullFileName = ResolveExistingFileName(fileName, "file_name");
+            string extension = Path.GetExtension(fullFileName).ToLowerInvariant();
+            if (extension == ".pmx" || extension == ".pmh")
+                throw new PythonAPIException("The file '" + fileName + "' is a model file, which replaces the " +
+                                             "command history and is opened by pmx.open.");
+            if (!IsResultFileExtension(extension))
+                throw new PythonAPIException("The argument 'file_name' must name a .frd, .dat, .odb or .foam file.");
+            //
+            EnsureCommandsAvailable();
+            _modelGateway.OpenFile(fullFileName);
+        }
+        private static bool IsResultFileExtension(string extension)
+        {
+            return extension == ".frd" || extension == ".dat" || extension == ".odb" || extension == ".foam";
         }
         public void ImportFile(string fileName, bool onlyMaterials)
         {
@@ -362,26 +387,12 @@ namespace APIs.Python.Model
         private string[] ResolveGeometryPartNames(object partNames)
         {
             string[] names = ToPartNames(partNames);
-            FeMesh geometry = _modelResolver.GetGeometry();
-            foreach (string name in names)
-            {
-                if (!geometry.Parts.ContainsKey(name))
-                    throw new PythonAPIException("The geometry part '" + name + "' does not exist.");
-            }
-            //
-            return names;
+            return PythonModelArgumentCheck.ToStoredPartNames(_modelResolver.GetGeometry(), names, "geometry");
         }
         private string[] ResolveModelPartNames(object partNames)
         {
             string[] names = ToPartNames(partNames);
-            FeMesh mesh = _modelResolver.GetMesh();
-            foreach (string name in names)
-            {
-                if (!mesh.Parts.ContainsKey(name))
-                    throw new PythonAPIException("The mesh part '" + name + "' does not exist.");
-            }
-            //
-            return names;
+            return PythonModelArgumentCheck.ToStoredPartNames(_modelResolver.GetMesh(), names, "mesh");
         }
         private string[] ResolveResultPartNames(object partNames)
         {
@@ -389,13 +400,8 @@ namespace APIs.Python.Model
             FeMesh mesh = _resultResolver == null ? null : _resultResolver.GetCurrentResultMeshOrNull();
             if (mesh == null)
                 throw new PythonAPIException("No current result is selected.");
-            foreach (string name in names)
-            {
-                if (!mesh.Parts.ContainsKey(name))
-                    throw new PythonAPIException("The result part '" + name + "' does not exist.");
-            }
             //
-            return names;
+            return PythonModelArgumentCheck.ToStoredPartNames(mesh, names, "result");
         }
         private static string ResolveExistingFileName(string fileName, string argumentName)
         {

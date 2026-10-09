@@ -54,15 +54,15 @@ namespace APIs.Python
         {
             return this[index];
         }
-        public bool __contains__(int item)
+        public bool __contains__(object item)
         {
             return contains(item);
         }
 
         [PythonAPI("Returns true if the list contains the specified integer.", Arguments = "item: int", Returns = "bool")]
-        public bool contains(int item)
+        public bool contains(object item)
         {
-            return _items.Contains(item);
+            return _items.Contains(PythonValueConverter.ToInt(item, "item"));
         }
 
         [PythonAPI("Returns a copy of the integers as a plain Python list.", Returns = "list[int]")]

@@ -235,6 +235,16 @@ def test_contact_pairs():
     check(pair.method == "NodeToSurface", "the method was not replaced")
     check(pair.master_region_name == master_before, "the master region must survive a replace")
     check(pair.surface_interaction_name == INTERACTION, "the surface interaction must survive a replace")
+    # A surface interaction named in another case is stored in the model's spelling, because the controller
+    # follows a renamed surface interaction by comparing the names exactly
+    pair = pairs.replace(PAIR, surface_interaction_name=INTERACTION.upper())
+    check(pair.surface_interaction_name == INTERACTION,
+          "the surface interaction must be stored in the model's spelling: " + pair.surface_interaction_name)
+    pair = pairs.add(PREFIX + "CP_C", INTERACTION.lower(), surface_selection(3), surface_selection(4))
+    check(pair.surface_interaction_name == INTERACTION,
+          "an add must store the surface interaction in the model's spelling: " + pair.surface_interaction_name)
+    pairs.remove([PREFIX + "CP_C"])
+    pair = pmx.model.contact_pairs[PAIR]
     # An adjustment size implies the adjustment
     pair = pairs.replace(PAIR, adjustment_size=0.01)
     check(pair.adjust, "an adjustment size must turn the adjustment on")
@@ -306,6 +316,16 @@ def test_contact_history_output():
                                                   contact_pair_name=output.get_value("contact_pair_name"),
                                                   variables=output.get_value("variables"))
     check(sorted(list(output.get_variables())) == ["CDIS", "CSTR"], "the read back values did not go back")
+    # A contact pair named in another case is stored in the model's spelling, which the solver input and every
+    # exact comparison of the name expect
+    output = step.history_outputs.replace_contact(PREFIX + "HC", contact_pair_name=PAIR.upper())
+    check(output.region_name == PAIR,
+          "the contact pair must be stored in the model's spelling: " + str(output.region_name))
+    output = step.history_outputs.add_contact(PREFIX + "HC_C", PAIR.lower(), "CDIS")
+    check(output.get_value("contact_pair_name") == PAIR,
+          "an add must store the contact pair in the model's spelling: " +
+          str(output.get_value("contact_pair_name")))
+    step.history_outputs.remove([PREFIX + "HC_C"])
     check_raises(lambda: step.history_outputs.add_contact(PREFIX + "Bad", "NoSuchPair", "CDIS"),
                  "an unknown contact pair must be rejected")
 

@@ -78,10 +78,9 @@ namespace APIs.Python.Model
             string name = surfaceInteractionName as string;
             if (name == null)
                 throw new PythonAPIException("The argument 'surface_interaction_name' must be a string.");
-            //
-            _surfaceInteractionService.ResolveSurfaceInteraction(name);
-            //
-            return name;
+            // The controller follows a renamed surface interaction by comparing names exactly, so the name is
+            // stored in the model's own spelling rather than the caller's
+            return _surfaceInteractionService.ResolveSurfaceInteraction(name).Name;
         }
         public void ApplyMaster(ContactPair contactPair, object region)
         {

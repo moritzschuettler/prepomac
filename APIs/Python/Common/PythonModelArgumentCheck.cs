@@ -9,6 +9,7 @@
 
 using System;
 using CaeGlobals;
+using CaeMesh;
 
 namespace APIs.Python
 {
@@ -31,6 +32,21 @@ namespace APIs.Python
             {
                 throw new PythonAPIException("The argument '" + argumentName + "' is not valid. " + ex.Message);
             }
+        }
+        // The controller and the view match part names exactly - the view hides a part by the name of its actor -
+        // so a part name is passed on in the model's spelling rather than the caller's
+        public static string[] ToStoredPartNames(FeMesh mesh, string[] partNames, string partKind)
+        {
+            string[] storedNames = new string[partNames.Length];
+            for (int i = 0; i < partNames.Length; i++)
+            {
+                BasePart part;
+                if (mesh == null || partNames[i] == null || !mesh.Parts.TryGetValue(partNames[i], out part))
+                    throw new PythonAPIException("The " + partKind + " part '" + partNames[i] + "' does not exist.");
+                storedNames[i] = part.Name;
+            }
+            //
+            return storedNames;
         }
         public static void Apply(Action modelChange, string argumentName)
         {

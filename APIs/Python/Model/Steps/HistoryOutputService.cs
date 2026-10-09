@@ -35,14 +35,16 @@ namespace APIs.Python.Model
                                                                  "totals_type");
             if (global != null) historyOutput.Global = PythonValueConverter.ToBool(global, "global_output");
         }
-        // The contact pair collection is not part of the API yet, so the name is checked against the model
+        // The controller follows a renamed contact pair by comparing names exactly, so the name is stored in the
+        // model's own spelling rather than the caller's
         public string ResolveContactPairName(object contactPairName)
         {
             string name = AsString(contactPairName, "contact_pair_name");
-            if (!ModelResolver.GetModel().ContactPairs.ContainsKey(name))
+            ContactPair contactPair;
+            if (!ModelResolver.GetModel().ContactPairs.TryGetValue(name, out contactPair))
                 throw new PythonAPIException("The contact pair '" + name + "' does not exist.");
             //
-            return name;
+            return contactPair.Name;
         }
         public void Add(string stepName, HistoryOutput historyOutput)
         {

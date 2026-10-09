@@ -56,9 +56,9 @@ namespace APIs.Python
 
         // Methods
         [PythonAPI("Returns node IDs for the specified element ID.", Arguments = "element_id: int", Returns = "IntList")]
-        public IntListAPI get_node_ids(int element_id)
+        public IntListAPI get_node_ids(object element_id)
         {
-            return new IntListAPI(GetConnectivitySlice(element_id));
+            return new IntListAPI(GetConnectivitySlice(PythonValueConverter.ToInt(element_id, "element_id")));
         }
         public override string ToString()
         {

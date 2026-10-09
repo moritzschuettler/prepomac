@@ -376,6 +376,35 @@ def check_screenshot(client):
     check(error["code"] == INVALID_PARAMS, "a magnification of 9 must be refused: " + str(error))
 
 
+def check_argument_types(client):
+    """A value of the wrong type is refused with the argument named, never read as the default."""
+    refused = [("history", {"limit": "10"}, "limit"),
+               ("history", {"limit": 2.5}, "limit"),
+               ("history", {"include_journal": "true"}, "include_journal"),
+               ("history", {"include_journal": True, "journal_file": 5}, "journal_file"),
+               ("screenshot", {"magnification": "2"}, "magnification"),
+               ("screenshot", {"transparent_background": "true"}, "transparent_background"),
+               ("screenshot", {"file_name": 5}, "file_name"),
+               ("describe", {"path": 5}, "path"),
+               ("eval", {"expression": 1}, "expression"),
+               ("eval", {"expression": "1", "timeout": "5"}, "timeout"),
+               ("exec", {"source": "rpc_typed = 1", "record": 5}, "record"),
+               ("exec", {"source": "rpc_typed = 1", "timeout": True}, "timeout"),
+               ("wait", {"call_id": "1"}, "call_id"),
+               ("cancel", {"call_id": "1"}, "call_id"),
+               ("exit", {"discard_changes": "yes"}, "discard_changes")]
+    for method, parameters, argument in refused:
+        error = client.error(method, parameters)
+        check(error["code"] == INVALID_PARAMS and ("argument " + argument + " must be") in error["message"],
+              method + " must refuse " + str(parameters) + " naming " + argument + ": " + str(error))
+    value = client.result("eval", {"expression": "'rpc_typed' in dir()"})
+    check(value["value"] is False, "a refused exec must not have run: " + str(value))
+    # A whole number written with a fraction of zero is still a whole number
+    result = client.result("history", {"limit": 10.0})
+    check("commands" in result, "a limit of 10.0 must be taken as 10: " + str(result))
+    print("argument types: " + str(len(refused)) + " values of the wrong type refused by name")
+
+
 def check_second_connection():
     first = Client()
     second = Client()
@@ -458,6 +487,7 @@ def main():
         check_no_dialogs(client)
         check_history(client)
         check_screenshot(client)
+        check_argument_types(client)
     finally:
         client.close()
     #

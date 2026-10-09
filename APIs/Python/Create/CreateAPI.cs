@@ -105,8 +105,10 @@ namespace APIs.Python
 
         [PythonAPI("Creates an elastic material property. Give the two values for a constant property, " +
                    "or a list of [youngs_modulus, poissons_ratio, temperature] rows; poissons_ratio is " +
-                   "required with a single youngs_modulus. The values are checked as the dialog checks " +
-                   "them, and a value the model refuses is refused naming the argument.",
+                   "required with a single youngs_modulus. Any value of this and of every other material " +
+                   "property maker may also be an equation string, such as '=E_steel', which the property keeps " +
+                   "as an expression, as the dialog does. The values are checked as the dialog checks them, and " +
+                   "a value the model refuses is refused naming the argument.",
                    Arguments = "youngs_modulus: float or list[list[float]], poissons_ratio: float = None",
                    Returns = "MaterialProperty", Example = "pmx.create.elastic(210000, 0.3)")]
         public MaterialPropertyAPI elastic(object youngs_modulus, object poissons_ratio = null)
@@ -115,14 +117,16 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a density material property. Give one value, or a list of " +
-                   "[density, temperature] rows.", Arguments = "density: float or list[list[float]]",
+                   "[density, temperature] rows. Any value may be an equation string.",
+                   Arguments = "density: float or list[list[float]]",
                    Returns = "MaterialProperty")]
         public MaterialPropertyAPI density(object density)
         {
             return new MaterialPropertyAPI(MaterialPropertyFactory.CreateDensity(density));
         }
 
-        [PythonAPI("Creates a combined elastic and density material property.",
+        [PythonAPI("Creates a combined elastic and density material property. Any value may be an equation " +
+                   "string.",
                    Arguments = "youngs_modulus: float, poissons_ratio: float, density: float",
                    Returns = "MaterialProperty")]
         public MaterialPropertyAPI elastic_with_density(object youngs_modulus, object poissons_ratio, object density)
@@ -133,7 +137,8 @@ namespace APIs.Python
 
         [PythonAPI("Creates an orthotropic elastic property. Every row is [E1, E2, E3, v12, v13, v23, " +
                    "G12, G13, G23, temperature]. Every row must be physically stable and the temperatures " +
-                   "strictly increasing.", Arguments = "constants: list[list[float]]",
+                   "strictly increasing. Any value may be an equation string.",
+                   Arguments = "constants: list[list[float]]",
                    Returns = "MaterialProperty")]
         public MaterialPropertyAPI elastic_engineering_constants(object constants)
         {
@@ -141,7 +146,8 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a lamina elastic property. Every row is [E1, E2, v12, G12, G13, G23, temperature]. " +
-                   "Every row must be physically stable and the temperatures strictly increasing.",
+                   "Every row must be physically stable and the temperatures strictly increasing. Any value may " +
+                   "be an equation string.",
                    Arguments = "constants: list[list[float]]", Returns = "MaterialProperty")]
         public MaterialPropertyAPI elastic_lamina(object constants)
         {
@@ -150,7 +156,7 @@ namespace APIs.Python
 
         [PythonAPI("Creates a plastic material property. Every row is [stress, strain, temperature]. " +
                    "Possible hardening values are Isotropic, Kinematic and Combined; it defaults to " +
-                   "Isotropic.",
+                   "Isotropic. Any value of a row may be an equation string.",
                    Arguments = "stress_strain: list[list[float]], hardening: str = None",
                    Returns = "MaterialProperty",
                    Example = "pmx.create.plastic([[250, 0, 20]], hardening='Kinematic')")]
@@ -159,7 +165,7 @@ namespace APIs.Python
             return new MaterialPropertyAPI(MaterialPropertyFactory.CreatePlastic(stress_strain, hardening));
         }
 
-        [PythonAPI("Creates a slip wear material property.",
+        [PythonAPI("Creates a slip wear material property. Any value may be an equation string.",
                    Arguments = "hardness: float, wear_coefficient: float", Returns = "MaterialProperty")]
         public MaterialPropertyAPI slip_wear(object hardness, object wear_coefficient)
         {
@@ -167,7 +173,8 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a specific heat material property. Give one value, or a list of " +
-                   "[specific_heat, temperature] rows.", Arguments = "specific_heat: float or list[list[float]]",
+                   "[specific_heat, temperature] rows. Any value may be an equation string.",
+                   Arguments = "specific_heat: float or list[list[float]]",
                    Returns = "MaterialProperty")]
         public MaterialPropertyAPI specific_heat(object specific_heat)
         {
@@ -175,7 +182,7 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a thermal conductivity material property. Give one value, or a list of " +
-                   "[conductivity, temperature] rows.",
+                   "[conductivity, temperature] rows. Any value may be an equation string.",
                    Arguments = "thermal_conductivity: float or list[list[float]]", Returns = "MaterialProperty")]
         public MaterialPropertyAPI thermal_conductivity(object thermal_conductivity)
         {
@@ -184,7 +191,7 @@ namespace APIs.Python
 
         [PythonAPI("Creates a thermal expansion material property. Give one value, or a list of " +
                    "[expansion, temperature] rows. The zero temperature is the temperature the expansion " +
-                   "starts from and defaults to 20 in model units.",
+                   "starts from and defaults to 20 in model units. Any value may be an equation string.",
                    Arguments = "thermal_expansion: float or list[list[float]], " +
                                "zero_temperature: float = None",
                    Returns = "MaterialProperty",
@@ -341,7 +348,7 @@ namespace APIs.Python
                    Example = "pmx.create.split_tool_extrude_edges(edges, direction=[0, 0, 1])")]
         public SplitToolAPI split_tool_extrude_edges(SelectionAPI edges, object direction = null,
                                                      SelectionAPI direction_selection = null, object length = null,
-                                                     bool both_directions = true)
+                                                     object both_directions = null)
         {
             if (edges == null) throw new PythonAPIException("The argument 'edges' must not be None.");
             if ((direction == null) == (direction_selection == null))
@@ -363,7 +370,8 @@ namespace APIs.Python
                 splitByExtrudedEdges.Length = lengthValue;
             }
             else splitByExtrudedEdges.LengthType = SplitExtrusionLengthTypeEnum.ThroughRegion;
-            splitByExtrudedEdges.BothDirections = both_directions;
+            splitByExtrudedEdges.BothDirections =
+                PythonValueConverter.ToBoolOrDefault(both_directions, true, "both_directions");
             //
             return new SplitToolAPI(splitByExtrudedEdges, edges, "edges", direction_selection);
         }
@@ -450,10 +458,11 @@ namespace APIs.Python
 
         [PythonAPI("Creates a detached solver environment variable, including its enabled state.",
                    Arguments = "name: str, value: str, active: bool = True", Returns = "EnvironmentVariable")]
-        public EnvironmentVariable environment_variable(string name, string value, bool active = true)
+        public EnvironmentVariable environment_variable(string name, string value, object active = null)
         {
+            bool isActive = PythonValueConverter.ToBoolOrDefault(active, true, "active");
             JobService.ValidateEnvironmentVariable(name, value);
-            return new EnvironmentVariable(name, value) { Active = active };
+            return new EnvironmentVariable(name, value) { Active = isActive };
         }
         public override string ToString()
         {

@@ -27,38 +27,45 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a distribution defined by an equation using command history. Give one equation " +
-                   "string for the magnitude, or three for the three directions.",
-                   Arguments = "name: str, equation: str or list[str]", Returns = "Distribution",
+                   "string for the magnitude, or three for the three directions. The coordinate system, Global " +
+                   "by default, is the one x, y and z are measured in; its name is matched regardless of case.",
+                   Arguments = "name: str, equation: str or list[str], coordinate_system_name: str = None",
+                   Returns = "Distribution",
                    Example = "pmx.model.distributions.add_from_equation('D-1', 'x + y')")]
-        public DistributionAPI add_from_equation(string name, object equation)
+        public DistributionAPI add_from_equation(string name, object equation, object coordinate_system_name = null)
         {
-            _service.Add(_service.BuildFromEquation(name, equation));
+            _service.Add(_service.BuildFromEquation(name, equation, coordinate_system_name));
             return this[name];
         }
 
         [PythonAPI("Adds a distribution read from a point cloud file using command history. The " +
                    "interpolator type is ClosestPoint, Gauss or Shepard, and the scale and the translate " +
-                   "vectors place the cloud on the model.",
+                   "vectors place the cloud on the model. The coordinate system is Global by default, and its " +
+                   "name is matched regardless of case.",
                    Arguments = "name: str, file_name: str, interpolator_type: str = None, " +
                                "interpolator_radius: float = None, scale: list[float] = None, " +
-                               "translate: list[float] = None", Returns = "Distribution")]
+                               "translate: list[float] = None, coordinate_system_name: str = None",
+                   Returns = "Distribution")]
         public DistributionAPI add_from_file(string name, string file_name, string interpolator_type = null,
                                              object interpolator_radius = null, object scale = null,
-                                             object translate = null)
+                                             object translate = null, object coordinate_system_name = null)
         {
             _service.Add(_service.BuildFromFile(name, file_name, interpolator_type, interpolator_radius, scale,
-                                                translate));
+                                                translate, coordinate_system_name));
             return this[name];
         }
 
         [PythonAPI("Replaces an existing equation based distribution using command history, keeping every " +
                    "value that is not given. A distribution read from a file is refused; remove it and add " +
                    "the equation based one instead.",
-                   Arguments = "old_name: str, name: str = None, equation: str or list[str] = None",
+                   Arguments = "old_name: str, name: str = None, equation: str or list[str] = None, " +
+                               "coordinate_system_name: str = None",
                    Returns = "Distribution")]
-        public DistributionAPI replace_from_equation(string old_name, string name = null, object equation = null)
+        public DistributionAPI replace_from_equation(string old_name, string name = null, object equation = null,
+                                                     object coordinate_system_name = null)
         {
-            Distribution item = _service.BuildReplacementFromEquation(old_name, name, equation);
+            Distribution item = _service.BuildReplacementFromEquation(old_name, name, equation,
+                                                                       coordinate_system_name);
             _service.Replace(old_name, item);
             //
             return this[item.Name];
@@ -68,14 +75,17 @@ namespace APIs.Python.Model
                    "instead.",
                    Arguments = "old_name: str, name: str = None, file_name: str = None, " +
                                "interpolator_type: str = None, interpolator_radius: float = None, " +
-                               "scale: list[float] = None, translate: list[float] = None",
+                               "scale: list[float] = None, translate: list[float] = None, " +
+                               "coordinate_system_name: str = None",
                    Returns = "Distribution")]
         public DistributionAPI replace_from_file(string old_name, string name = null, string file_name = null,
                                                  string interpolator_type = null, object interpolator_radius = null,
-                                                 object scale = null, object translate = null)
+                                                 object scale = null, object translate = null,
+                                                 object coordinate_system_name = null)
         {
             Distribution item = _service.BuildReplacementFromFile(old_name, name, file_name, interpolator_type,
-                                                                   interpolator_radius, scale, translate);
+                                                                   interpolator_radius, scale, translate,
+                                                                   coordinate_system_name);
             _service.Replace(old_name, item);
             //
             return this[item.Name];

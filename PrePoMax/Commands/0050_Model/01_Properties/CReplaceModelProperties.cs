@@ -79,11 +79,22 @@ namespace PrePoMax.Commands
             arguments.Add("number_of_smoothing_steps=" +
                           PythonValueFormatter.Equation(_newModelProperties.NumOfSmoothingSteps));
             arguments.Add("bdm_remeshing=" + PythonValueFormatter.Format(_newModelProperties.BdmRemeshing));
-            arguments.Add("absolute_zero=" + PythonValueFormatter.Number(_newModelProperties.AbsoluteZero));
-            arguments.Add("stefan_boltzmann=" + PythonValueFormatter.Number(_newModelProperties.StefanBoltzmann));
-            arguments.Add("newton_gravity=" + PythonValueFormatter.Number(_newModelProperties.NewtonGravity));
+            // An undefined physical constant is stored as infinity, which has no Python form; the replace makes
+            // every constant it is not given undefined when told to, so the replay sets exactly these constants
+            bool anyConstantUndefined = false;
+            anyConstantUndefined |= AddConstant(arguments, "absolute_zero", _newModelProperties.AbsoluteZero);
+            anyConstantUndefined |= AddConstant(arguments, "stefan_boltzmann", _newModelProperties.StefanBoltzmann);
+            anyConstantUndefined |= AddConstant(arguments, "newton_gravity", _newModelProperties.NewtonGravity);
+            if (anyConstantUndefined) arguments.Add("clear_undefined_constants=True");
             writer.Statement(writer.Call("pmx.model.properties", "replace", arguments.ToArray()));
             writer.CountEmittedCommand();
+        }
+        private static bool AddConstant(List<string> arguments, string argumentName, double value)
+        {
+            if (double.IsInfinity(value) || double.IsNaN(value)) return true;
+            //
+            arguments.Add(argumentName + "=" + PythonValueFormatter.Number(value));
+            return false;
         }
         public override string GetCommandString()
         {

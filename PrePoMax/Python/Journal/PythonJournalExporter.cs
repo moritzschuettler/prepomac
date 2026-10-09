@@ -51,20 +51,30 @@ namespace PrePoMax.Python.Journal
             //
             if (commands != null)
             {
+                // The Netgen items of an older model close its history, but the application meshes that model
+                // the way they say from the start, so the journal adds them before the first meshing
+                int netgenMeshIndex = -1;
+                int firstMeshingIndex = -1;
+                for (int i = 0; i < commands.Count; i++)
+                {
+                    if (commands[i] is CAddNetgenMeshToUncoveredParts) netgenMeshIndex = i;
+                    else if (firstMeshingIndex < 0 && commands[i] is CCreateMesh) firstMeshingIndex = i;
+                }
+                bool moveNetgenMesh = firstMeshingIndex >= 0 && netgenMeshIndex > firstMeshingIndex;
+                //
                 for (int i = 0; i < commands.Count; i++)
                 {
                     Command command = commands[i];
                     writer.BeginCommand(i);
                     if (command == null) continue;
                     //
-                    try
+                    if (moveNetgenMesh && i == firstMeshingIndex) EmitCommand(writer, commands[netgenMeshIndex]);
+                    if (moveNetgenMesh && i == netgenMeshIndex)
                     {
-                        command.ToPython(writer);
+                        writer.Comment(command.Name + ": its mesh setup items are added before the first meshing");
+                        continue;
                     }
-                    catch (Exception ex)
-                    {
-                        writer.Unsupported(command, ex.Message);
-                    }
+                    EmitCommand(writer, command);
                 }
             }
             //
@@ -78,6 +88,17 @@ namespace PrePoMax.Python.Journal
                 commandFirstLineNumbers[i] = headerLineCount + writer.CommandFirstLineIndices[i] + 1;
             //
             return header + writer.GetText();
+        }
+        private static void EmitCommand(PythonJournalWriter writer, Command command)
+        {
+            try
+            {
+                command.ToPython(writer);
+            }
+            catch (Exception ex)
+            {
+                writer.Unsupported(command, ex.Message);
+            }
         }
         private static int GetLineCount(string text)
         {

@@ -12,9 +12,10 @@
 #
 #It also checks what the protocol promises beyond the tools: a body is read as UTF-8 whatever its
 #Content-Type says, a batch and an argument a tool does not take are refused, a value of the wrong type
-#or out of the declared range is refused rather than read as the default, a tools/call sent as a
-#notification is not run, the protocol version is negotiated, and the tools that run a script of their
-#own leave the console scope as they found it.
+#or out of the declared range is refused rather than read as the default, a null for an optional argument
+#is taken as leaving it out, the answer of a request the client dropped or cancelled stays collectable
+#with get_call, a tools/call sent as a notification is not run, the protocol version is negotiated,
+#and the tools that run a script of their own leave the console scope as they found it.
 #
 #  PrePoMax.com --script Test_Mcp_Http.py -g No -x Yes -w <work directory>
 #
@@ -26,11 +27,14 @@ import json
 import os
 import shutil
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 PROTOCOL_VERSION = "2024-11-05"
@@ -487,6 +491,84 @@ def check_cancel_call(endpoint):
     print("cancel_call: a loop that never ends was stopped and the session answered the next call")
 
 
+def find_finished_call(endpoint, timeout=30.0):
+    """The one call get_status lists, once it has finished."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        calls = json.loads(endpoint.tool("get_status"))["calls"]
+        check(len(calls) <= 1, "only the call under test may be listed: " + str(calls))
+        if calls and calls[0]["isFinished"]:
+            return calls[0]["callId"]
+        time.sleep(0.5)
+    raise Exception("TEST FAILED: get_status never listed a finished call to collect")
+
+
+def send_and_drop(endpoint, message, wait):
+    """Sends one request on a socket of its own and closes it hard, the way a client whose own request
+    timeout ran out goes away."""
+    address = urllib.parse.urlparse(endpoint.url)
+    body = json.dumps(message).encode("utf-8")
+    head = ("POST " + address.path + " HTTP/1.1\r\nHost: " + address.netloc + "\r\n" +
+            "Content-Type: application/json\r\nAuthorization: Bearer " + endpoint.token + "\r\n" +
+            "Content-Length: " + str(len(body)) + "\r\nConnection: close\r\n\r\n")
+    connection = socket.create_connection((address.hostname, address.port))
+    connection.sendall(head.encode("ascii") + body)
+    time.sleep(wait)
+    connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+    connection.close()
+
+
+def check_undelivered_answers(endpoint):
+    """An answer whose response never reached the client stays collectable with get_call."""
+    check(json.loads(endpoint.tool("get_status"))["calls"] == [], "no call may be pending before the check")
+    # The client gives up before the call is done, with a wait that would have answered it in full
+    source = os.linesep.join(["import time", "time.sleep(3)", "pmx.model.parameters.add('mcp_dropped', 1.0)",
+                              "print('mcp_dropped done')"])
+    send_and_drop(endpoint, {"jsonrpc": "2.0", "id": "dropped-1", "method": "tools/call",
+                             "params": {"name": "run_python", "arguments": {"source": source, "timeout": 30}}}, 1.0)
+    call_id = find_finished_call(endpoint)
+    answer = json.loads(endpoint.tool("get_call", {"call_id": call_id, "timeout": 30}))
+    check("mcp_dropped done" in answer["output"], "the dropped answer must be collected whole: " + str(answer))
+    check(json.loads(endpoint.tool("get_status"))["calls"] == [], "a delivered answer must be given up")
+    # The client cancels the request and reads no answer, although one is written to it
+    source = os.linesep.join(["import time", "time.sleep(3)", "print('mcp_cancelled done')"])
+    message = {"jsonrpc": "2.0", "id": "cancelled-1", "method": "tools/call",
+               "params": {"name": "run_python", "arguments": {"source": source, "timeout": 30}}}
+    answers = []
+    thread = threading.Thread(target=lambda: answers.append(
+        request(endpoint.url, json.dumps(message).encode("utf-8"), endpoint.token)))
+    thread.start()
+    time.sleep(1.0)
+    endpoint.notify("notifications/cancelled", {"requestId": "cancelled-1", "reason": "the user gave up"})
+    thread.join(60)
+    check(len(answers) == 1 and answers[0][0] == 200, "the cancelled request must still be answered: " + str(answers))
+    call_id = find_finished_call(endpoint)
+    answer = json.loads(endpoint.tool("get_call", {"call_id": call_id, "timeout": 30}))
+    check("mcp_cancelled done" in answer["output"], "the cancelled answer must be collected whole: " + str(answer))
+    # An answer that reached its client is not kept
+    endpoint.tool("run_python", {"source": "print('delivered')", "timeout": 30})
+    check(json.loads(endpoint.tool("get_status"))["calls"] == [], "a delivered answer must not be kept")
+    print("undelivered answers: a dropped and a cancelled request were collected with get_call")
+
+
+def check_null_optional_arguments(endpoint):
+    """null for an optional argument is taken as leaving it out; null for a required one is refused."""
+    result = json.loads(endpoint.tool("run_python", {"source": "print('null optional')", "record": None,
+                                                     "timeout": None, "process_id": None}))
+    check(not result["failed"] and result["record"] == "commands",
+          "a null record must run with the default: " + str(result))
+    history = json.loads(endpoint.tool("get_history", {"include_journal": None, "limit": None}))
+    check("journal" not in history, "a null include_journal must be false: " + str(list(history.keys())))
+    topology = json.loads(endpoint.tool("read_topology", {"part_names": None, "limit": None}))
+    check(len(topology["model"]) > 0, "a null part_names must read every part: " + str(topology))
+    text = endpoint.failing_tool("run_python", {"source": None})
+    check("argument source" in text, "a null required argument must be refused by name: " + text)
+    text = endpoint.failing_tool("read_topology", {"part_names": []})
+    check("argument part_names" in text and "Nothing was done" in text,
+          "an empty part_names must be refused rather than read every part: " + text)
+    print("null arguments: an optional one taken as left out, a required one refused, an empty part list refused")
+
+
 def check_screenshot(endpoint):
     answer = endpoint.result("tools/call", {"name": "screenshot", "arguments": {}})
     check(not answer.get("isError"), "the screenshot must be taken: " + answer["content"][0]["text"])
@@ -686,6 +768,8 @@ def main():
         check_writing_tools(endpoint)
         check_a_long_call(endpoint)
         check_cancel_call(endpoint)
+        check_undelivered_answers(endpoint)
+        check_null_optional_arguments(endpoint)
         check_screenshot(endpoint)
         check_refusals(endpoint)
         check_argument_values(endpoint)

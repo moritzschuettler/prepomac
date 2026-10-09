@@ -102,9 +102,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the increment ID exists in this step.", Arguments = "id: int", Returns = "bool")]
-        public bool contains(int id)
+        public bool contains(object id)
         {
-            return _dataService.GetIncrementIds(_resultName, _stepId).Contains(id);
+            return _dataService.GetIncrementIds(_resultName, _stepId).Contains(PythonValueConverter.ToInt(id, "id"));
         }
         public override string ToString()
         {
