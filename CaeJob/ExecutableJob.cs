@@ -205,6 +205,7 @@ namespace CaeJob
                 _exe.ErrorDataReceived += _exe_ErrorDataReceived;
                 //
                 _exe.Start();
+                ChildProcessJob.Add(_exe);
                 _exe.BeginOutputReadLine();
                 _exe.BeginErrorReadLine();
                 //
@@ -241,6 +242,7 @@ namespace CaeJob
             _exe = new Process();
             _exe.StartInfo = psi;
             _exe.Start();
+            ChildProcessJob.Add(_exe);
             //
             int ms = 1000 * 3600 * 24 * 7 * 3; // 3 weeks
             if (_exe.WaitForExit(ms))

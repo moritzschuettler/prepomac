@@ -250,6 +250,7 @@ namespace CaeMesh
                 process.OutputDataReceived += keepLine;
                 process.ErrorDataReceived += keepLine;
                 process.Start();
+                ChildProcessJob.Add(process);
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
                 process.WaitForExit();

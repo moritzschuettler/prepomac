@@ -564,6 +564,7 @@ namespace CaeJob
             _exe = new Process();
             _exe.StartInfo = psi;
             _exe.Start();
+            ChildProcessJob.Add(_exe);
             //
             int ms = GetRemainingRunTime();
             if (_exe.WaitForExit(ms))
@@ -633,6 +634,7 @@ namespace CaeJob
                 };
                 //
                 _exe.Start();
+                ChildProcessJob.Add(_exe);
                 //
                 _exe.BeginOutputReadLine();
                 _exe.BeginErrorReadLine();
