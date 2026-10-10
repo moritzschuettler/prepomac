@@ -166,9 +166,11 @@ namespace PrePoMax.Forms
         }
         public override void UpdateVisibility()
         {
+            bool quadWild = _sweepMesh.SourceMesher == SweepSourceMesherEnum.QuadWild;
+            _dctd.GetProperty(nameof(AlgorithmRecombine)).SetIsBrowsable(!quadWild);
             base.UpdateVisibility();
             //
-            bool quadWild = _sweepMesh.SourceMesher == SweepSourceMesherEnum.QuadWild;
+            if (quadWild) _dctd.GetProperty(nameof(RecombineMinQuality)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(QuadWildFlowProfile)).SetIsBrowsable(quadWild);
             _dctd.GetProperty(nameof(QuadWildAlpha)).SetIsBrowsable(quadWild);
             _dctd.GetProperty(nameof(QuadWildSmooth)).SetIsBrowsable(quadWild);
