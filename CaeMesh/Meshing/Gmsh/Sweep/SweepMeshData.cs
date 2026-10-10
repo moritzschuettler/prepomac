@@ -37,6 +37,7 @@ namespace CaeMesh.Sweep
         private bool[] _isBoundaryNode;                 // source node lies on the source/wall boundary, or is pinned
         private int[] _interiorNodes;                   // source node indices that are not boundary nodes
         private int[] _pinnedNodes;                     // source nodes on a carried imprint, whose lines are prescribed
+        private double[][] _pinnedTargetCoors;          // the target edge node every pinned line ends at
         private int[][] _sourceElements;                // source element -> source node indices (3 or 4)
         private int[] _sourceElementTypes;              // gmsh element type of each source element
         private int[] _sourceElementSurfaceIds;         // gmsh surface the source element came from
@@ -142,27 +143,30 @@ namespace CaeMesh.Sweep
         }
         /// <summary>
         /// Pins the sweep lines between the edges splitting the source inside and the edges of the target above
-        /// them: every node of such a source edge is paired with the node of the target edge it stands below,
-        /// the layers between them are interpolated, and the target node of the line is the target edge's node
-        /// itself, so that a neighbour standing on the target, whose walls start from those nodes, shares them,
-        /// and so that the target edge keeps a line mesh the cap elements agree with. The morph then treats the
-        /// pinned lines as boundary and fills around them.
+        /// them: every node of such a source edge is paired with the node of the target edge it stands below, and
+        /// the target node of the line is the target edge's node itself, so that a neighbour standing on the
+        /// target, whose walls start from those nodes, shares them, and so that the target edge keeps a line mesh
+        /// the cap elements agree with.
         ///
         /// The pairing is made between two edges that are a translation of each other, which a block that is
-        /// not a prism can have as well - the two tangency lines of a bent plate are one such pair - so the
-        /// straight line between two paired nodes is a sweep line whether or not the whole block is prismatic.
+        /// not a prism can have as well - the two tangency lines of a bent plate are one such pair - or between
+        /// two edges running between the same walls, which the two lines are when an end wall is cut along a
+        /// curve and makes them of different lengths. The layers between two paired nodes are not interpolated
+        /// here: a straight line between them cuts across a block that curves, and squeezes the elements beside
+        /// it. The morph places them with the interior first, and BlendPinnedLines then moves every line onto its
+        /// target node.
         /// </summary>
         private void PinImprintLines(SweepBlock block)
         {
             if (block.ImprintEdgeCopyIds == null || block.ImprintEdgeCopyIds.Count == 0) return;
             //
             int node;
-            int index;
             IntPtr[] sourceTags;
             IntPtr[] targetTags;
             double[] sourceCoor;
             double[] targetCoor;
             List<int> pinned = new List<int>();
+            List<double[]> pinnedTargetCoors = new List<double[]>();
             foreach (var entry in block.ImprintEdgeCopyIds)
             {
                 // The nodes of both edges in the order along the edge, the target edge read the way the source
@@ -181,27 +185,47 @@ namespace CaeMesh.Sweep
                         throw new CaeException("A node of an edge splitting the sweep source was not found in the " +
                                                "source mesh.");
                     // A node on the wall boundary is a wall line already, and is left to the wall grid
-                    if (_isBoundaryNode[node]) continue;
-                    // A straight line from the source node to the target node, the two edges being a translation
-                    // of each other
-                    _isBoundaryNode[node] = true;
+                    if (_isBoundaryNode[node] || pinned.Contains(node)) continue;
                     pinned.Add(node);
-                    for (int layer = 1; layer < _numLayers; layer++)
-                    {
-                        double ratio = (double)layer / (_numLayers - 1);
-                        index = Index(layer, node);
-                        for (int k = 0; k < 3; k++)
-                            _coords[3 * index + k] = sourceCoor[3 * i + k] + ratio * (targetCoor[3 * i + k] - sourceCoor[3 * i + k]);
-                    }
+                    pinnedTargetCoors.Add(new double[] { targetCoor[3 * i], targetCoor[3 * i + 1], targetCoor[3 * i + 2] });
                     _nodeTags[Index(_numLayers - 1, node)] = targetTags[i];
                 }
             }
             if (pinned.Count == 0) return;
             //
             _pinnedNodes = pinned.ToArray();
+            _pinnedTargetCoors = pinnedTargetCoors.ToArray();
+        }
+        /// <summary>
+        /// Moves every pinned sweep line, which the morph has placed with the interior, onto the node of the target
+        /// edge it ends at: the gap at the target is added to the layers in proportion to how far along the line
+        /// they lie, so that the line keeps the course the morph gave it and its neighbours. The lines then count
+        /// as boundary, and the morph is run again to carry the small correction into the interior around them.
+        /// False when the block pins no line.
+        /// </summary>
+        public bool BlendPinnedLines()
+        {
+            if (_pinnedNodes == null || _pinnedNodes.Length == 0) return false;
+            //
+            int lastIndex;
+            for (int i = 0; i < _pinnedNodes.Length; i++)
+            {
+                int node = _pinnedNodes[i];
+                lastIndex = Index(_numLayers - 1, node);
+                double[] gap = new double[3];
+                for (int k = 0; k < 3; k++) gap[k] = _pinnedTargetCoors[i][k] - _coords[3 * lastIndex + k];
+                for (int layer = 1; layer < _numLayers; layer++)
+                {
+                    double ratio = (double)layer / (_numLayers - 1);
+                    int index = Index(layer, node);
+                    for (int k = 0; k < 3; k++) _coords[3 * index + k] += ratio * gap[k];
+                }
+                _isBoundaryNode[node] = true;
+            }
             List<int> interior = new List<int>();
             for (int i = 0; i < _numNodes; i++) if (!_isBoundaryNode[i]) interior.Add(i);
             _interiorNodes = interior.ToArray();
+            return true;
         }
         /// <summary>
         /// The nodes of a meshed curve, its end vertices included, in the order along the curve: from the node

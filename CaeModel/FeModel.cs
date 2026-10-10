@@ -5142,6 +5142,9 @@ namespace CaeModel
                     error = GetWallChainsError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
                                                ringDirectionEdgeIds, maps);
                     if (error == null)
+                        error = GetUnreachedWallsError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
+                                                       ringDirectionEdgeIds, maps);
+                    if (error == null)
                         error = GetUnpairedTargetEdgesError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
                                                             ringDirectionEdgeIds);
                 }
@@ -5199,7 +5202,9 @@ namespace CaeModel
         /// source edge. The mesher also pins the sweep lines between an edge splitting the target and the edge
         /// splitting the source it is a copy of, moved: on a prism edge by edge, by the translation of the prism,
         /// and on any other block only when every edge splitting the target has such a copy of its own on the
-        /// source, one for one - the two tangency lines of a bent plate on its front and on its back. Such edges
+        /// source, one for one - the two tangency lines of a bent plate on its front and on its back - or a source
+        /// edge running between the same walls, which those two lines are when an end wall is cut along a curve
+        /// and makes them of different lengths. Such edges
         /// need no edges at their ends. Any other edge between the target surfaces - one ending inside a side of
         /// a wall, where no edge follows the sweep direction, or one no source edge runs beneath - is lost, and
         /// the geometry with it.
@@ -5306,6 +5311,8 @@ namespace CaeModel
                     }
                 }
                 if (usedSourceEdgeIds.Count == innerTargetEdgeIds.Length) unpairedEdgeIds.Clear();
+                else if (PairInnerEdgesByWalls(vis, innerTargetEdgeIds, innerSourceEdgeIds, sideSurfaceIds) != null)
+                    unpairedEdgeIds.Clear();
             }
             if (unpairedEdgeIds.Count == 0) return null;
             //
@@ -5314,6 +5321,34 @@ namespace CaeModel
                    "surface/s (" + GetSweepSurfaceNames(part, sourceSurfaceIds) + ") is swept onto, so the sweep would " +
                    "lose them. Select the source surfaces by hand, or split the part so that each piece is swept on " +
                    "its own.";
+        }
+        /// <summary>
+        /// The source edge of every edge splitting the target, paired across the walls their ends lie on, as the
+        /// mesher pairs them; null when an edge has none.
+        /// </summary>
+        private Dictionary<int, int> PairInnerEdgesByWalls(VisualizationData vis, int[] innerTargetEdgeIds,
+                                                           int[] innerSourceEdgeIds, int[] sideSurfaceIds)
+        {
+            Dictionary<int, HashSet<int>> vertexIdWallIds = new Dictionary<int, HashSet<int>>();
+            foreach (var wallId in sideSurfaceIds)
+            {
+                foreach (var vertexId in vis.GetVertexNodeIdsForSurfaceIds(new int[] { wallId }))
+                {
+                    if (!vertexIdWallIds.ContainsKey(vertexId)) vertexIdWallIds.Add(vertexId, new HashSet<int>());
+                    vertexIdWallIds[vertexId].Add(wallId);
+                }
+            }
+            Func<int, int[]> getEnds = edgeId =>
+            {
+                int[] vertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
+                return new int[] { vertexIds[0], vertexIds[vertexIds.Length - 1] };
+            };
+            HashSet<int> noWallIds = new HashSet<int>();
+            return SweepImprintPairing.PairByWalls(innerTargetEdgeIds.ToDictionary(id => id, getEnds),
+                                                   innerSourceEdgeIds.ToDictionary(id => id, getEnds),
+                                                   vertexId => vertexIdWallIds.TryGetValue(vertexId, out HashSet<int> wallIds)
+                                                               ? wallIds : noWallIds,
+                                                   vertexId => _geometry.Nodes[vertexId].Coor);
         }
         /// <summary>
         /// The translation that moves a source edge onto a target edge, or null when the target edge is not the
@@ -6051,6 +6086,76 @@ namespace CaeModel
         /// The number of vertices at which an odd number of the given edges end: two for every chain the
         /// edges form, none for a closed loop.
         /// </summary>
+        /// <summary>
+        /// Refuses a block with a wall that touches neither its source nor its target and that no chain of the edges
+        /// following the sweep direction reaches from the source. The mesher sides such a wall by those chains alone -
+        /// from every source vertex along the edge that continues most smoothly, within the angle a swallowed wall
+        /// may turn by - and a wall they do not reach is left with neither side, which gmsh then refuses to mesh as
+        /// a structured grid, failing the whole compound. The rings of walls one half hole would sweep onto another
+        /// through a bent plate turn at every bend, and their chains stop at the first.
+        /// </summary>
+        private string GetUnreachedWallsError(GeometryPart part, HashSet<int> sourceSurfaceIds, int[] wallSurfaceIds,
+                                              int[] targetSurfaceIds, HashSet<int> directionEdgeIds, SweepPartMaps maps)
+        {
+            VisualizationData vis = part.Visualization;
+            HashSet<int> sourceEdgeIds = vis.GetEdgeIdsForSurfaceIds(sourceSurfaceIds.ToArray());
+            HashSet<int> targetEdgeIds = vis.GetEdgeIdsForSurfaceIds(targetSurfaceIds);
+            HashSet<int> candidateEdgeIds = vis.GetEdgeIdsForSurfaceIds(wallSurfaceIds);
+            candidateEdgeIds.IntersectWith(directionEdgeIds);
+            candidateEdgeIds.ExceptWith(sourceEdgeIds);
+            Dictionary<int, HashSet<int>> vertexIdEdgeIds = maps.GetVertexIdEdgeIds(part);
+            double minCosine = Math.Cos(Globals.SweepSwallowedWallAngle * Math.PI / 180);
+            //
+            HashSet<int> reachedEdgeIds = new HashSet<int>();
+            foreach (var startVertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()).OrderBy(id => id))
+            {
+                foreach (var startEdgeId in vertexIdEdgeIds[startVertexId].OrderBy(id => id))
+                {
+                    if (!candidateEdgeIds.Contains(startEdgeId) || reachedEdgeIds.Contains(startEdgeId)) continue;
+                    //
+                    int edgeId = startEdgeId;
+                    int vertexId = startVertexId;
+                    while (true)
+                    {
+                        reachedEdgeIds.Add(edgeId);
+                        int[] vertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
+                        if (vertexIds.Distinct().Count() != 2) break;
+                        int nextVertexId = vertexIds[0] == vertexId ? vertexIds[vertexIds.Length - 1] : vertexIds[0];
+                        Vec3D incoming = GetSweepEdgeTangent(vis, edgeId, nextVertexId);
+                        int bestEdgeId = -1;
+                        double bestCosine = minCosine;
+                        foreach (var candidateId in vertexIdEdgeIds[nextVertexId])
+                        {
+                            if (!candidateEdgeIds.Contains(candidateId) || reachedEdgeIds.Contains(candidateId)) continue;
+                            Vec3D outgoing = GetSweepEdgeTangent(vis, candidateId, nextVertexId);
+                            if (incoming.Len <= 0 || outgoing.Len <= 0) continue;
+                            double cosine = -Vec3D.DotProduct(incoming, outgoing) / (incoming.Len * outgoing.Len);
+                            if (cosine <= bestCosine) continue;
+                            bestCosine = cosine;
+                            bestEdgeId = candidateId;
+                        }
+                        if (bestEdgeId < 0) break;
+                        edgeId = bestEdgeId;
+                        vertexId = nextVertexId;
+                    }
+                }
+            }
+            //
+            List<int> unreachedWallIds = new List<int>();
+            foreach (var wallId in wallSurfaceIds)
+            {
+                int[] wallEdgeIds = vis.FaceEdgeIds[wallId];
+                if (wallEdgeIds.Any(reachedEdgeIds.Contains)) continue;
+                if (wallEdgeIds.Any(sourceEdgeIds.Contains) || wallEdgeIds.Any(targetEdgeIds.Contains)) continue;
+                unreachedWallIds.Add(wallId);
+            }
+            if (unreachedWallIds.Count == 0) return null;
+            //
+            return "The edges following the sweep direction from the sweep source surface/s (" +
+                   GetSweepSurfaceNames(part, sourceSurfaceIds.ToArray()) + ") do not reach the sweep side surface/s (" +
+                   GetSweepSurfaceNames(part, unreachedWallIds) + "), which touch neither the source nor the target. " +
+                   "Select the source surfaces by hand, or split the part so that each piece is swept on its own.";
+        }
         /// <summary>
         /// Refuses a block with a flat wall whose two chains along the sweep run different ways and are not as long
         /// as each other. A source that reaches round to the far end of the part - the round at the end of a flat

@@ -175,6 +175,7 @@
     <Compile Include="Meshing\Transfinite\ThreeBlockGrid.cs" />
     <Compile Include="Meshing\Transfinite\ThreeBlockMapping.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteSideTriple.cs" />
+    <Compile Include="Meshing\Gmsh\Sweep\SweepImprintPairing.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepWallTopology.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepMeshData.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepLaplacian.cs" />

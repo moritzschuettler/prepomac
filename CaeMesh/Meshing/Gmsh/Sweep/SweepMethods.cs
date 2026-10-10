@@ -93,6 +93,7 @@ namespace CaeMesh
             // Interior of every layer
             SweepLaplacian laplacian = SweepLaplacian.Create(data);
             SweepLayerMorph.MorphLayers(data, laplacian, _maxSolverIterations, _solverTolerance);
+            if (data.BlendPinnedLines()) SweepLayerMorph.MorphLayers(data, laplacian, _maxSolverIterations, _solverTolerance);
             // Target layer onto the geometry, correction spread back along the sweep lines. A block closing a ring
             // ends on the meshed source the ring started from, node for node, and leaves no cap of its own
             double maxDistance;

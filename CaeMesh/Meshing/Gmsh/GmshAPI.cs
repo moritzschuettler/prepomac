@@ -2212,17 +2212,66 @@ namespace CaeMesh
                 // A block that is not a prism has had nothing carried across, so it is pinned only where both
                 // of its ends are already split at matching places - as the two tangency lines of a bent plate
                 // split its front face and its back face alike. Every edge splitting the target then stands
-                // above an edge splitting the source, one for one; where that does not hold the block sweeps
-                // unpinned, as it did before, rather than failing
+                // above an edge splitting the source, one for one, or runs between the same walls as one where
+                // an end wall cut along a curve makes the two lines of a pair of different lengths; where neither
+                // holds the block sweeps unpinned, as it did before, rather than failing
                 if (sourceEdgeIds.Count != targetEdgeIds.Count) return;
                 foreach (var entry in targetSignatures)
                 {
                     sourceEdgeId = FindEdgeUnderTarget(entry.Key, entry.Value, sourceSignatures, tolerance);
-                    if (sourceEdgeId < 0 || imprintEdgeCopyIds.ContainsValue(sourceEdgeId)) return;
+                    if (sourceEdgeId < 0 || imprintEdgeCopyIds.ContainsValue(sourceEdgeId))
+                    {
+                        imprintEdgeCopyIds = PairImprintEdgesByWalls(block, sourceEdgeIds, targetEdgeIds,
+                                                                     surfaceIdEdgeIds);
+                        if (imprintEdgeCopyIds == null) return;
+                        break;
+                    }
                     imprintEdgeCopyIds.Add(entry.Key, sourceEdgeId);
                 }
             }
             block.ImprintEdgeCopyIds = imprintEdgeCopyIds;
+        }
+        /// <summary>
+        /// The edge splitting the source of every edge splitting the target, paired across the walls their ends
+        /// lie on, as the detection pairs them; null when an edge has none.
+        /// </summary>
+        private static Dictionary<int, int> PairImprintEdgesByWalls(SweepBlock block, HashSet<int> sourceEdgeIds,
+                                                                    HashSet<int> targetEdgeIds,
+                                                                    Dictionary<int, int[]> surfaceIdEdgeIds)
+        {
+            int[] edgeIds;
+            int[] vertexIds;
+            Dictionary<int, HashSet<int>> vertexIdWallIds = new Dictionary<int, HashSet<int>>();
+            foreach (var wallId in block.WallSurfaceIds)
+            {
+                if (!surfaceIdEdgeIds.TryGetValue(wallId, out edgeIds)) continue;
+                foreach (var edgeId in edgeIds)
+                {
+                    Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                    foreach (var vertexId in vertexIds)
+                    {
+                        if (!vertexIdWallIds.ContainsKey(vertexId)) vertexIdWallIds.Add(vertexId, new HashSet<int>());
+                        vertexIdWallIds[vertexId].Add(wallId);
+                    }
+                }
+            }
+            Func<int, int[]> getEnds = edgeId =>
+            {
+                int[] endVertexIds;
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out endVertexIds);
+                return endVertexIds.Distinct().ToArray();
+            };
+            HashSet<int> noWallIds = new HashSet<int>();
+            return SweepImprintPairing.PairByWalls(targetEdgeIds.ToDictionary(id => id, getEnds),
+                                                   sourceEdgeIds.ToDictionary(id => id, getEnds),
+                                                   vertexId => vertexIdWallIds.TryGetValue(vertexId, out HashSet<int> wallIds)
+                                                               ? wallIds : noWallIds,
+                                                   vertexId =>
+                                                   {
+                                                       double[] coor;
+                                                       Gmsh.Model.GetValue(0, vertexId, new double[3], out coor);
+                                                       return coor;
+                                                   });
         }
         /// <summary>
         /// The edge splitting the source that the given edge splitting the target stands above, for a block

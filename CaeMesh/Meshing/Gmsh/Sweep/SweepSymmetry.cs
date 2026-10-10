@@ -340,6 +340,22 @@ namespace CaeMesh
                            FormatDistance(distance) + " off " + _partIdPart[partId].Name +
                            GetToleranceText(_curveTolerance);
             }
+            // A hole only the master has keeps its vertices and edges on the surface of the cell, so the faces of the
+            // master have to lie on faces of the cell turned the same way, which the walls of the hole do not
+            double[] center;
+            double[] normal;
+            for (int faceId = 0; faceId < master.FaceTriangles.Count; faceId++)
+            {
+                if (!master.GetFaceSample(faceId, out center, out normal)) continue;
+                double[] imageCenter = Transform(center, planes, bits);
+                double[] imageNormal = Transform(new double[] { center[0] + normal[0], center[1] + normal[1],
+                                                                center[2] + normal[2] }, planes, bits);
+                for (int k = 0; k < 3; k++) imageNormal[k] -= imageCenter[k];
+                distance = cell.DistanceToSurface(imageCenter, imageNormal);
+                if (distance > _curveTolerance)
+                    return "the mirror image of surface " + (faceId + 1) + " of " + masterName + " lies on no surface " +
+                           "of " + _partIdPart[partId].Name;
+            }
             return null;
         }
         /// <summary>
@@ -705,6 +721,55 @@ namespace CaeMesh
                         min = Math.Min(min, DistanceToTriangle(coor, triangle[0], triangle[1], triangle[2]));
                 }
                 return min;
+            }
+            /// <summary>
+            /// The distance to the nearest triangle turned the same way as the given normal, either side, to within the
+            /// angle two tessellations of one curved face can differ by.
+            /// </summary>
+            public double DistanceToSurface(double[] coor, double[] normal)
+            {
+                double min = double.MaxValue;
+                foreach (var triangles in FaceTriangles)
+                {
+                    foreach (var triangle in triangles)
+                    {
+                        double[] triangleNormal = GetTriangleNormal(triangle);
+                        if (triangleNormal == null || Math.Abs(Dot(triangleNormal, normal)) < 0.5) continue;
+                        min = Math.Min(min, DistanceToTriangle(coor, triangle[0], triangle[1], triangle[2]));
+                    }
+                }
+                return min;
+            }
+            /// <summary>
+            /// The centre and the unit normal of the largest triangle of a face.
+            /// </summary>
+            public bool GetFaceSample(int faceId, out double[] center, out double[] normal)
+            {
+                center = null;
+                normal = null;
+                double largestArea = 0;
+                foreach (var triangle in FaceTriangles[faceId])
+                {
+                    double area = TriangleArea(triangle);
+                    double[] triangleNormal = GetTriangleNormal(triangle);
+                    if (area <= largestArea || triangleNormal == null) continue;
+                    largestArea = area;
+                    normal = triangleNormal;
+                    center = new double[] { (triangle[0][0] + triangle[1][0] + triangle[2][0]) / 3,
+                                            (triangle[0][1] + triangle[1][1] + triangle[2][1]) / 3,
+                                            (triangle[0][2] + triangle[1][2] + triangle[2][2]) / 3 };
+                }
+                return center != null;
+            }
+            private static double[] GetTriangleNormal(double[][] triangle)
+            {
+                double[] a = triangle[0], b = triangle[1], c = triangle[2];
+                double[] ab = { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+                double[] ac = { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
+                double[] n = { ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0] };
+                double length = Math.Sqrt(Dot(n, n));
+                if (length <= 0) return null;
+                return new double[] { n[0] / length, n[1] / length, n[2] / length };
             }
             /// <summary>
             /// The entity of this cell that the given entity of another cell mirrors onto, or -1.
