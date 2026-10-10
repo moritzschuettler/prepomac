@@ -36,12 +36,13 @@ namespace APIs.Python.Model
                                "totals_type: str = None, global_output: bool = None",
                    Returns = "HistoryOutput",
                    Example = "step.history_outputs.add_nodal('H-Output-1', selection, ['U', 'RF'])")]
-        public HistoryOutputAPI add_nodal(string name, object region, object variables,
+        public HistoryOutputAPI add_nodal(object name, object region, object variables,
                                           object totals_type = null, object global_output = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             NodalHistoryOutput historyOutput =
-                new NodalHistoryOutput(name,
+                new NodalHistoryOutput(nameText,
                                        PythonValueConverter.ToFlagsEnum<NodalHistoryVariable>(variables,
                                                                                               "variables"),
                                        null, RegionTypeEnum.Selection);
@@ -53,30 +54,33 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing nodal history output using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_nodal with " +
                                "region and variables optional", Returns = "HistoryOutput")]
-        public HistoryOutputAPI replace_nodal(string old_name, string name = null, object region = null,
+        public HistoryOutputAPI replace_nodal(object old_name, object name = null, object region = null,
                                               object variables = null, object totals_type = null,
                                               object global_output = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             NodalHistoryOutput historyOutput =
-                _service.CloneForReplace<NodalHistoryOutput>(StepName, old_name, "nodal");
+                _service.CloneForReplace<NodalHistoryOutput>(StepName, oldName, "nodal");
             if (region != null) _service.ApplyRegion(historyOutput, region, "nodes");
             if (variables != null)
                 historyOutput.Variables =
                     PythonValueConverter.ToFlagsEnum<NodalHistoryVariable>(variables, "variables");
             //
-            return Replace(old_name, name, historyOutput, totals_type, global_output);
+            return Replace(oldName, nameText, historyOutput, totals_type, global_output);
         }
 
         [PythonAPI("Adds an element history output using command history. Possible variables are S, E, ME, " +
                    "PEEQ, HFL, ENER, ELSE, ELKE, EVOL, EBHE and SDV. The selection target is elements.",
                    Arguments = "name: str, region: Selection or Region, variables: list[str] or str, and " +
                                "the shared history output arguments", Returns = "HistoryOutput")]
-        public HistoryOutputAPI add_element(string name, object region, object variables,
+        public HistoryOutputAPI add_element(object name, object region, object variables,
                                             object totals_type = null, object global_output = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             ElementHistoryOutput historyOutput =
-                new ElementHistoryOutput(name,
+                new ElementHistoryOutput(nameText,
                                          PythonValueConverter.ToFlagsEnum<ElementHistoryVariable>(variables,
                                                                                                   "variables"),
                                          null, RegionTypeEnum.Selection);
@@ -88,30 +92,33 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing element history output using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_element with " +
                                "region and variables optional", Returns = "HistoryOutput")]
-        public HistoryOutputAPI replace_element(string old_name, string name = null, object region = null,
+        public HistoryOutputAPI replace_element(object old_name, object name = null, object region = null,
                                                 object variables = null, object totals_type = null,
                                                 object global_output = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             ElementHistoryOutput historyOutput =
-                _service.CloneForReplace<ElementHistoryOutput>(StepName, old_name, "element");
+                _service.CloneForReplace<ElementHistoryOutput>(StepName, oldName, "element");
             if (region != null) _service.ApplyRegion(historyOutput, region, "elements");
             if (variables != null)
                 historyOutput.Variables =
                     PythonValueConverter.ToFlagsEnum<ElementHistoryVariable>(variables, "variables");
             //
-            return Replace(old_name, name, historyOutput, totals_type, global_output);
+            return Replace(oldName, nameText, historyOutput, totals_type, global_output);
         }
 
         [PythonAPI("Adds a section history output using command history. Possible variables are SOF, SOM " +
                    "and SOAREA. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, variables: list[str] or str, and " +
                                "the shared history output arguments", Returns = "HistoryOutput")]
-        public HistoryOutputAPI add_section(string name, object region, object variables,
+        public HistoryOutputAPI add_section(object name, object region, object variables,
                                             object totals_type = null, object global_output = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             SectionHistoryOutput historyOutput =
-                new SectionHistoryOutput(name,
+                new SectionHistoryOutput(nameText,
                                          PythonValueConverter.ToFlagsEnum<SectionHistoryVariableEnum>(
                                              variables, "variables"),
                                          null, RegionTypeEnum.Selection);
@@ -123,30 +130,33 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing section history output using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_section with " +
                                "region and variables optional", Returns = "HistoryOutput")]
-        public HistoryOutputAPI replace_section(string old_name, string name = null, object region = null,
+        public HistoryOutputAPI replace_section(object old_name, object name = null, object region = null,
                                                 object variables = null, object totals_type = null,
                                                 object global_output = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             SectionHistoryOutput historyOutput =
-                _service.CloneForReplace<SectionHistoryOutput>(StepName, old_name, "section");
+                _service.CloneForReplace<SectionHistoryOutput>(StepName, oldName, "section");
             if (region != null) _service.ApplyRegion(historyOutput, region, "surfaces");
             if (variables != null)
                 historyOutput.Variables =
                     PythonValueConverter.ToFlagsEnum<SectionHistoryVariableEnum>(variables, "variables");
             //
-            return Replace(old_name, name, historyOutput, totals_type, global_output);
+            return Replace(oldName, nameText, historyOutput, totals_type, global_output);
         }
 
         [PythonAPI("Adds a contact history output using command history. It names a contact pair instead " +
                    "of a region. Possible variables are CDIS, CSTR, CELS, CNUM and CF.",
                    Arguments = "name: str, contact_pair_name: str, variables: list[str] or str, and the " +
                                "shared history output arguments", Returns = "HistoryOutput")]
-        public HistoryOutputAPI add_contact(string name, object contact_pair_name, object variables,
+        public HistoryOutputAPI add_contact(object name, object contact_pair_name, object variables,
                                             object totals_type = null, object global_output = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             ContactHistoryOutput historyOutput =
-                new ContactHistoryOutput(name,
+                new ContactHistoryOutput(nameText,
                                          PythonValueConverter.ToFlagsEnum<ContactHistoryVariable>(variables,
                                                                                                   "variables"),
                                          _service.ResolveContactPairName(contact_pair_name));
@@ -157,27 +167,30 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing contact history output using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_contact with " +
                                "contact_pair_name and variables optional", Returns = "HistoryOutput")]
-        public HistoryOutputAPI replace_contact(string old_name, string name = null,
+        public HistoryOutputAPI replace_contact(object old_name, object name = null,
                                                 object contact_pair_name = null, object variables = null,
                                                 object totals_type = null, object global_output = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             ContactHistoryOutput historyOutput =
-                _service.CloneForReplace<ContactHistoryOutput>(StepName, old_name, "contact");
+                _service.CloneForReplace<ContactHistoryOutput>(StepName, oldName, "contact");
             if (contact_pair_name != null)
                 historyOutput.RegionName = _service.ResolveContactPairName(contact_pair_name);
             if (variables != null)
                 historyOutput.Variables =
                     PythonValueConverter.ToFlagsEnum<ContactHistoryVariable>(variables, "variables");
             //
-            return Replace(old_name, name, historyOutput, totals_type, global_output);
+            return Replace(oldName, nameText, historyOutput, totals_type, global_output);
         }
 
         [PythonAPI("Copies the history output to every following step using command history. From the " +
                    "last step nothing changes, as in the dialog.",
                    Arguments = "name: str", Returns = "None")]
-        public void propagate(string name)
+        public void propagate(object name)
         {
-            _service.Propagate(StepName, name);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.Propagate(StepName, nameText);
         }
         //
         protected override string[] GetItemNames()

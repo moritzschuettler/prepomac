@@ -212,49 +212,12 @@ namespace PrePoMax.Forms
                     pbAnalysisStatus.Style = ProgressBarStyle.Blocks;
                     labAnalysisStatus.Text = "      " + "Failed with results";
                     labAnalysisStatus.Image = Properties.Resources.Warning;
-                    //
-                    CheckForErrors();
                 }
                 else
                 {
                     pbAnalysisStatus.Style = ProgressBarStyle.Blocks;
                     labAnalysisStatus.Text = "      " + _job.JobStatus.ToString();
                     labAnalysisStatus.Image = Properties.Resources.NoResult;
-                    //
-                    CheckForErrors();
-                }
-            }
-        }
-        private void CheckForErrors()
-        {
-            string output = tbOutput.Text.ToUpper();
-            //
-            if (output.Contains("*ERROR"))
-            {
-                if (output.Contains("NONPOSITIVE JACOBIAN"))
-                {
-                    string[] sets = output.Split(new string[] { "DETERMINANT IN ELEMENT" }, StringSplitOptions.RemoveEmptyEntries);
-                    //
-                    string[] tmp;
-                    HashSet<int> errorElementIds = new HashSet<int>();
-                    //
-                    for (int i = 1; i < sets.Length; i++)   // skip the first set
-                    {
-                        tmp = sets[i].Split(new string[] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
-                        errorElementIds.Add(int.Parse(tmp[0]));
-                    }
-                    // While the history is replayed or a script recorded as one command runs, the set would be made
-                    // by no recorded command
-                    if (_controller.IsCommandRecordingSuppressed || _controller.AreCommandsBlocked) return;
-                    int[] elementIds = errorElementIds.ToArray();
-                    if (_controller.ContainsElementSetOfElements(Globals.NonpositiveJacobian, elementIds)) return;
-                    //
-                    string elementSetName = _controller.Model.Mesh.ElementSets.GetNextNumberedKey(Globals.NonpositiveJacobian);
-                    _controller.AddElementSetCommand(new CaeMesh.FeElementSet(elementSetName, elementIds));
-                    //
-                    tbOutput.AppendText(Environment.NewLine);
-                    tbOutput.AppendText(" An element set containing elements with nonpositive Jacobian determinant was created.");
-                    tbOutput.AppendText(Environment.NewLine);
                 }
             }
         }

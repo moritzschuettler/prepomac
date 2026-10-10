@@ -18,13 +18,6 @@ namespace APIs.Python.Model
     internal class StepService
     {
         // Variables
-        private static readonly Dictionary<Type, string> ControlTypes = new Dictionary<Type, string>
-        {
-            { typeof(TimeIncrementationStepControlParameter), "time_incrementation_control" },
-            { typeof(FieldStepControlParameter), "field_control" },
-            { typeof(ContactStepControlParameter), "contact_control" },
-            { typeof(ResetStepControlParameter), "reset_control" }
-        };
         private readonly ModelResolver _modelResolver;
         private readonly IPythonModelGateway _modelGateway;
 
@@ -165,11 +158,12 @@ namespace APIs.Python.Model
             StepControls stepControls = new StepControls();
             if (parameters != null)
             {
-                List<StepControlParameter> converted =
-                    PythonObjectListConverter.ToList<StepControlParameter>(parameters, "parameters",
-                                                                            "a step control parameter created by " +
-                                                                            "pmx.create, or a list of them");
-                foreach (StepControlParameter parameter in converted) stepControls.AddParameter(parameter);
+                List<StepControlParameterAPI> converted =
+                    PythonObjectListConverter.ToList<StepControlParameterAPI>(parameters, "parameters",
+                                                                               "a step control parameter created " +
+                                                                               "by pmx.create, or a list of them");
+                foreach (StepControlParameterAPI parameter in converted)
+                    stepControls.AddParameter(parameter.GetParameterCopy());
             }
             //
             EnsureCommandsAvailable();
@@ -180,7 +174,8 @@ namespace APIs.Python.Model
             StepControls stepControls = ResolveStep(stepName).StepControls;
             if (stepControls == null) return new string[0];
             //
-            return stepControls.Parameters.Select(parameter => GetControlType(parameter)).ToArray();
+            return stepControls.Parameters.Select(parameter => StepControlParameterAPI.GetControlType(parameter))
+                                          .ToArray();
         }
         // Copies, so a parameter changed by the script changes nothing until it goes back into set_controls
         public object[] GetControls(string stepName)
@@ -192,19 +187,11 @@ namespace APIs.Python.Model
             foreach (StepControlParameter parameter in stepControls.Parameters)
             {
                 // A parameter no pmx.create method makes could not go back into set_controls
-                GetControlType(parameter);
-                parameters.Add(parameter.DeepClone());
+                StepControlParameterAPI.GetControlType(parameter);
+                parameters.Add(new StepControlParameterAPI(parameter.DeepClone()));
             }
             //
             return parameters.ToArray();
-        }
-        private static string GetControlType(StepControlParameter parameter)
-        {
-            string controlType;
-            if (ControlTypes.TryGetValue(parameter.GetType(), out controlType)) return controlType;
-            //
-            throw new PythonAPIException("The step control parameter " + parameter.GetType().Name + " is not made " +
-                                         "by any pmx.create method.");
         }
         public void ValidateName(string name, string allowedExistingName)
         {

@@ -10,6 +10,7 @@
 using CaeJob;
 using CaeModel;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace APIs.Python
 {
@@ -23,8 +24,8 @@ namespace APIs.Python
             Damping damping = new Damping();
             if (dampingType != null)
                 damping.DampingType = PythonValueConverter.ToEnum<DampingTypeEnum>(dampingType, "damping_type");
-            if (alpha != null) damping.Alpha = PythonValueConverter.ToDouble(alpha, "alpha");
-            if (beta != null) damping.Beta = PythonValueConverter.ToDouble(beta, "beta");
+            if (alpha != null) damping.Alpha = PythonValueConverter.ToFiniteDouble(alpha, "alpha");
+            if (beta != null) damping.Beta = PythonValueConverter.ToFiniteDouble(beta, "beta");
             //
             return damping;
         }
@@ -35,22 +36,21 @@ namespace APIs.Python
             if (dampingType != null)
                 modalDamping.DampingType =
                     PythonValueConverter.ToEnum<ModalDampingTypeEnum>(dampingType, "damping_type");
-            if (alpha != null) modalDamping.Alpha = PythonValueConverter.ToDouble(alpha, "alpha");
-            if (beta != null) modalDamping.Beta = PythonValueConverter.ToDouble(beta, "beta");
+            if (alpha != null) modalDamping.Alpha = PythonValueConverter.ToFiniteDouble(alpha, "alpha");
+            if (beta != null) modalDamping.Beta = PythonValueConverter.ToFiniteDouble(beta, "beta");
             if (viscousDampingRatio != null)
                 modalDamping.ViscousDampingRatio =
-                    PythonValueConverter.ToDouble(viscousDampingRatio, "viscous_damping_ratio");
+                    PythonValueConverter.ToFiniteDouble(viscousDampingRatio, "viscous_damping_ratio");
             if (dampingRatios != null)
             {
-                List<DampingRatioAndRange> ranges =
-                    PythonObjectListConverter.ToList<DampingRatioAndRange>(dampingRatios, "damping_ratios",
-                                                                            "a damping ratio created by " +
-                                                                            "pmx.create.damping_ratio, or a list " +
-                                                                            "of them");
+                List<DampingRatioAPI> ranges =
+                    PythonObjectListConverter.ToList<DampingRatioAPI>(dampingRatios, "damping_ratios",
+                                                                      "a damping ratio created by " +
+                                                                      "pmx.create.damping_ratio, or a list of them");
                 if (ranges.Count == 0)
                     throw new PythonAPIException("The argument 'damping_ratios' must not be empty.");
                 //
-                modalDamping.DampingRatiosAndRanges = ranges;
+                modalDamping.DampingRatiosAndRanges = ranges.Select(range => range.GetDampingRatioCopy()).ToList();
             }
             //
             return modalDamping;
@@ -58,7 +58,7 @@ namespace APIs.Python
         public static DampingRatioAndRange CreateDampingRatio(object dampingRatio, object lowestMode,
                                                               object highestMode)
         {
-            return new DampingRatioAndRange(PythonValueConverter.ToDouble(dampingRatio, "damping_ratio"),
+            return new DampingRatioAndRange(PythonValueConverter.ToFiniteDouble(dampingRatio, "damping_ratio"),
                                             PythonValueConverter.ToInt(lowestMode, "lowest_mode"),
                                             PythonValueConverter.ToInt(highestMode, "highest_mode"));
         }
@@ -130,7 +130,7 @@ namespace APIs.Python
         }
         private static double ToDoubleAtLeast(double minimum, object value, string argumentName)
         {
-            double converted = PythonValueConverter.ToDouble(value, argumentName);
+            double converted = PythonValueConverter.ToFiniteDouble(value, argumentName);
             if (!(converted >= minimum))
                 throw new PythonAPIException("The argument '" + argumentName + "' must be at least " + minimum + ".");
             //

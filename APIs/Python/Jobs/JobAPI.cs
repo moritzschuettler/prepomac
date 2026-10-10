@@ -44,8 +44,11 @@ namespace APIs.Python
             get
             {
                 List<EnvironmentVariable> environmentVariables = Resolve().EnvironmentVariables;
-                if (environmentVariables == null) return PythonListConverter.ToPythonList(new EnvironmentVariable[0]);
-                return PythonListConverter.ToPythonList(environmentVariables.DeepClone().ToArray());
+                if (environmentVariables == null) return PythonListConverter.ToPythonList(new object[0]);
+                object[] variables = new object[environmentVariables.Count];
+                for (int i = 0; i < variables.Length; i++)
+                    variables[i] = new EnvironmentVariableAPI(environmentVariables[i].DeepClone());
+                return PythonListConverter.ToPythonList(variables);
             }
         }
         [PythonAPI("True when the solver executable follows the application settings, False when the analysis " +

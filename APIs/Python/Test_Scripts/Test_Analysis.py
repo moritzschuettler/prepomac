@@ -48,7 +48,7 @@ def build_model():
     pmx.model.node_sets.add(PREFIX + "Bottom",
                             pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))
     #
-    step = pmx.model.steps.add_static(STEP, time_period=1.0)
+    step = pmx.model.steps.add_static(STEP)
     step.bcs.add_fixed(PREFIX + "Fix", pmx.create.region('NodeSetName', PREFIX + "Bottom"))
     step.loads.add_concentrated_force(PREFIX + "Force",
                                       pmx.create.selection_by_ids('femodel', 'nodes', 'nodes',

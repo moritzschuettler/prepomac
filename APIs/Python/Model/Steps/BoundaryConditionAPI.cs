@@ -141,10 +141,11 @@ namespace APIs.Python.Model
                    "under free_dofs, the argument replace_displacement_rotation takes, and both read back as " +
                    "None under their own name. Use get_value_names to list them.", Arguments = "name: str",
                    Returns = "float, int, bool, str or list[str]")]
-        public object get_value(string name)
+        public object get_value(object name)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
             BoundaryCondition boundaryCondition = Resolve();
-            return ModelItemValueReader.GetValue(GetValues(boundaryCondition), name,
+            return ModelItemValueReader.GetValue(GetValues(boundaryCondition), nameText,
                                                  GetItemType(boundaryCondition) + " boundary condition");
         }
 

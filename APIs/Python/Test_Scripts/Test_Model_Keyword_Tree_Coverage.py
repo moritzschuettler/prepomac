@@ -137,6 +137,15 @@ def test_tree():
     tree.move_items('femodel', 'parts', [part_names[0]])
     tree.move_group('femodel', 'parts', group)
     tree.remove_groups('femodel', 'parts', group)
+    # An item name is found regardless of case and passed on in the model's spelling
+    group = tree.add_group('femodel', 'parts', 'PyTest_Case', item_names=[part_names[0].swapcase()])
+    groups = [entry for entry in tree.get_layout('femodel', 'parts') if isinstance(entry, dict)]
+    check(any(entry['group_id'] == group and entry['items'] == [part_names[0]] for entry in groups),
+          "add_group did not move the item in the model's spelling: " + repr(groups))
+    tree.move_items('femodel', 'parts', [part_names[0].swapcase()])
+    check(part_names[0] in tree.get_layout('femodel', 'parts'),
+          "move_items did not move the item in the model's spelling")
+    tree.remove_groups('femodel', 'parts', group)
     #
     check_raises(lambda: tree.add_group('NotAView', 'parts', 'PyTest_Bad'), "an unknown view was accepted")
     check_raises(lambda: tree.add_group('femodel', 'widgets', 'PyTest_Bad'),

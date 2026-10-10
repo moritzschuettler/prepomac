@@ -339,7 +339,7 @@ namespace APIs.Python
         private static void ValidateFromField(FeResults result, ResultHistoryOutputFromField output)
         {
             ValidateRegion(result, output, "nodes", RegionTypeEnum.NodeSetName, RegionTypeEnum.SurfaceName);
-            ValidateFieldComponents(result, output.FieldName, output.ComponentNames);
+            output.FieldName = ValidateFieldComponents(result, output.FieldName, output.ComponentNames);
             if (output.StepId == -1)
             {
                 if (output.StepIncrementId != -1)
@@ -378,7 +378,7 @@ namespace APIs.Python
             else ValidateRegion(result, output, "elements", RegionTypeEnum.ElementSetName);
             // The geometry (measure) result integrates the unit field, so it needs no field/components
             if (output.IntegralResult != IntegralResultEnum.Geometry)
-                ValidateFieldComponents(result, output.FieldName, output.ComponentNames);
+                output.FieldName = ValidateFieldComponents(result, output.FieldName, output.ComponentNames);
             ValidateDeformationField(result, output.DeformationVariableName);
             if (output.Unit == null) throw new PythonAPIException("The integration unit must not be None.");
             ValidateCrossSection(output.IntegralType, output.CrossSection, output.Thickness);
@@ -570,19 +570,25 @@ namespace APIs.Python
                                                  "' does not contain any faces.");
             }
         }
-        private static void ValidateFieldComponents(FeResults result, string fieldName, string[] componentNames)
+        // A user-defined field output is found regardless of case and returned in the spelling of the result, as
+        // the result field outputs find their source field
+        private static string ValidateFieldComponents(FeResults result, string fieldName, string[] componentNames)
         {
             ValidateRequiredString(fieldName, "field_name");
             ValidateStringList(componentNames, "component_names");
-            if (!result.GetAllFieldNames().Contains(fieldName))
-                throw new PythonAPIException("The source field '" + fieldName + "' does not exist in the result.");
-            string[] existingComponents = result.GetFieldComponentNames(fieldName);
+            string storedFieldName;
+            if (result.ContainsResultFieldOutput(fieldName))
+                storedFieldName = result.GetResultFieldOutput(fieldName).Name;
+            else if (result.GetAllFieldNames().Contains(fieldName)) storedFieldName = fieldName;
+            else throw new PythonAPIException("The source field '" + fieldName + "' does not exist in the result.");
+            string[] existingComponents = result.GetFieldComponentNames(storedFieldName);
             foreach (string componentName in componentNames)
             {
                 if (existingComponents == null || !existingComponents.Contains(componentName))
                     throw new PythonAPIException("The component '" + componentName +
-                                                 "' does not exist in field '" + fieldName + "'.");
+                                                 "' does not exist in field '" + storedFieldName + "'.");
             }
+            return storedFieldName;
         }
         private static void ValidateDeformationField(FeResults result, string deformationVariableName)
         {

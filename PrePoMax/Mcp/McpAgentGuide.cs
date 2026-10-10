@@ -42,7 +42,7 @@ have produced by hand. Treat it as their model: read it before you change it.
 ```python
 pmx.model.materials.add('Steel', [pmx.create.elastic(210000, 0.3), pmx.create.density(7.85e-9)])
 pmx.model.sections.add_solid('Section-1', 'Steel', part_selection)
-step = pmx.model.steps.add_static('Step-1', time_period=1.0)
+step = pmx.model.steps.add_static('Step-1')
 step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))
 ```
 

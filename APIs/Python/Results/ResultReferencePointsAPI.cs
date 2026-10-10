@@ -51,9 +51,10 @@ namespace APIs.Python
         {
             return Count;
         }
-        public ResultReferencePointAPI __getitem__(string name)
+        public ResultReferencePointAPI __getitem__(object name)
         {
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            return this[nameText];
         }
         public ResultReferencePointAPI this[string name]
         {
@@ -81,7 +82,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(string name)
+        public bool __contains__(object name)
         {
             return contains(name);
         }
@@ -92,15 +93,17 @@ namespace APIs.Python
         }
         [PythonAPI("Returns true if the result mesh contains the result reference point. Names are compared " +
                    "without regard to case.", Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return name != null && PythonNameComparer.Contains(GetNames(), name);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return nameText != null && PythonNameComparer.Contains(GetNames(), nameText);
         }
         [PythonAPI("Returns the result reference point with the specified name.", Arguments = "name: str",
                    Returns = "ReferencePoint")]
-        public ResultReferencePointAPI get(string name)
+        public ResultReferencePointAPI get(object name)
         {
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            return this[nameText];
         }
         [PythonAPI("Returns the first result reference point.", Returns = "ReferencePoint")]
         public ResultReferencePointAPI first()
@@ -120,17 +123,18 @@ namespace APIs.Python
                    Arguments = "name: str, coordinates: list[float], name_visible: bool = None, " +
                                "color: list[int] or str = None", Returns = "ReferencePoint",
                    Example = "pmx.results.current.mesh.reference_points.add('RP-1', [0, 0, 0])")]
-        public ResultReferencePointAPI add(string name, object coordinates, object name_visible = null,
+        public ResultReferencePointAPI add(object name, object coordinates, object name_visible = null,
                                            object color = null)
         {
-            ValidateName(name, null);
-            FeReferencePoint point = new FeReferencePoint(name, 0, 0, 0);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            ValidateName(nameText, null);
+            FeReferencePoint point = new FeReferencePoint(nameText, 0, 0, 0);
             ApplyCoordinates(point, coordinates);
             ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultReferencePoint(point);
-            return this[name];
+            return this[nameText];
         }
         [PythonAPI("Adds a result reference point from selected result mesh points using command history. " +
                    "The mode is OnPoint, BetweenTwoPoints or CircleCenter, and the coordinates are " +
@@ -140,17 +144,20 @@ namespace APIs.Python
                    Returns = "ReferencePoint",
                    Example = "pmx.results.current.mesh.reference_points.add_from_selection('RP-1', " +
                              "'CircleCenter', selection)")]
-        public ResultReferencePointAPI add_from_selection(string name, string created_from, SelectionAPI selection,
+        public ResultReferencePointAPI add_from_selection(object name, object created_from, object selection,
                                                           object name_visible = null, object color = null)
         {
-            ValidateName(name, null);
-            FeReferencePoint point = new FeReferencePoint(name, 0, 0, 0);
-            ApplySelection(point, created_from, selection);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string createdFrom = PythonValueConverter.ToText(created_from, "created_from", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            ValidateName(nameText, null);
+            FeReferencePoint point = new FeReferencePoint(nameText, 0, 0, 0);
+            ApplySelection(point, createdFrom, selectionValue);
             ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultReferencePoint(point);
-            return this[name];
+            return this[nameText];
         }
         [PythonAPI("Adds a result reference point from a named result region using command history. The " +
                    "mode is CenterOfGravity or BoundingBoxCenter, and the region type is NodeSetName or " +
@@ -158,18 +165,22 @@ namespace APIs.Python
                    Arguments = "name: str, created_from: str, region_type: str, region_name: str, " +
                                "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint")]
-        public ResultReferencePointAPI add_from_region(string name, string created_from, string region_type,
-                                                       string region_name, object name_visible = null,
+        public ResultReferencePointAPI add_from_region(object name, object created_from, object region_type,
+                                                       object region_name, object name_visible = null,
                                                        object color = null)
         {
-            ValidateName(name, null);
-            FeReferencePoint point = new FeReferencePoint(name, 0, 0, 0);
-            ApplyRegion(point, created_from, region_type, region_name);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string createdFrom = PythonValueConverter.ToText(created_from, "created_from", false);
+            string regionType = PythonValueConverter.ToText(region_type, "region_type", false);
+            string regionName = PythonValueConverter.ToText(region_name, "region_name", false);
+            ValidateName(nameText, null);
+            FeReferencePoint point = new FeReferencePoint(nameText, 0, 0, 0);
+            ApplyRegion(point, createdFrom, regionType, regionName);
             ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultReferencePoint(point);
-            return this[name];
+            return this[nameText];
         }
         [PythonAPI("Replaces a result reference point using command history. The coordinates are the whole " +
                    "definition and are always given; the name and the display values may be left out and " +
@@ -177,17 +188,19 @@ namespace APIs.Python
                    Arguments = "old_name: str, name: str = None, coordinates: list[float], " +
                                "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint")]
-        public ResultReferencePointAPI replace(string old_name, string name = null, object coordinates = null,
+        public ResultReferencePointAPI replace(object old_name, object name = null, object coordinates = null,
                                                object name_visible = null, object color = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             if (coordinates == null)
                 throw new PythonAPIException("The argument 'coordinates' must be given.");
-            FeReferencePoint point = CloneForReplace(old_name, name);
+            FeReferencePoint point = CloneForReplace(oldName, nameText);
             ApplyCoordinates(point, coordinates);
             ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultReferencePoint(ResolveReferencePoint(old_name).Name, point);
+            _commandGateway.ReplaceResultReferencePoint(ResolveReferencePoint(oldName).Name, point);
             return this[point.Name];
         }
         [PythonAPI("Replaces a result reference point by result mesh points selected the way " +
@@ -196,19 +209,23 @@ namespace APIs.Python
                    Arguments = "old_name: str, name: str = None, created_from: str = None, " +
                                "selection: Selection = None, name_visible: bool = None, " +
                                "color: list[int] or str = None", Returns = "ReferencePoint")]
-        public ResultReferencePointAPI replace_from_selection(string old_name, string name = null,
-                                                              string created_from = null,
-                                                              SelectionAPI selection = null,
+        public ResultReferencePointAPI replace_from_selection(object old_name, object name = null,
+                                                              object created_from = null,
+                                                              object selection = null,
                                                               object name_visible = null, object color = null)
         {
-            if (created_from == null || selection == null)
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string createdFrom = PythonValueConverter.ToText(created_from, "created_from", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            if (createdFrom == null || selectionValue == null)
                 throw new PythonAPIException("The arguments 'created_from' and 'selection' must both be given.");
-            FeReferencePoint point = CloneForReplace(old_name, name);
-            ApplySelection(point, created_from, selection);
+            FeReferencePoint point = CloneForReplace(oldName, nameText);
+            ApplySelection(point, createdFrom, selectionValue);
             ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultReferencePoint(ResolveReferencePoint(old_name).Name, point);
+            _commandGateway.ReplaceResultReferencePoint(ResolveReferencePoint(oldName).Name, point);
             return this[point.Name];
         }
         [PythonAPI("Replaces a result reference point by a named result region the way add_from_region " +
@@ -217,20 +234,25 @@ namespace APIs.Python
                                "region_type: str = None, region_name: str = None, " +
                                "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint")]
-        public ResultReferencePointAPI replace_from_region(string old_name, string name = null,
-                                                           string created_from = null, string region_type = null,
-                                                           string region_name = null, object name_visible = null,
+        public ResultReferencePointAPI replace_from_region(object old_name, object name = null,
+                                                           object created_from = null, object region_type = null,
+                                                           object region_name = null, object name_visible = null,
                                                            object color = null)
         {
-            if (created_from == null || region_type == null || region_name == null)
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string createdFrom = PythonValueConverter.ToText(created_from, "created_from", true);
+            string regionType = PythonValueConverter.ToText(region_type, "region_type", true);
+            string regionName = PythonValueConverter.ToText(region_name, "region_name", true);
+            if (createdFrom == null || regionType == null || regionName == null)
                 throw new PythonAPIException("The arguments 'created_from', 'region_type' and 'region_name' " +
                                              "must all be given.");
-            FeReferencePoint point = CloneForReplace(old_name, name);
-            ApplyRegion(point, created_from, region_type, region_name);
+            FeReferencePoint point = CloneForReplace(oldName, nameText);
+            ApplyRegion(point, createdFrom, regionType, regionName);
             ApplyDisplayValues(point, name_visible, color);
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultReferencePoint(ResolveReferencePoint(old_name).Name, point);
+            _commandGateway.ReplaceResultReferencePoint(ResolveReferencePoint(oldName).Name, point);
             return this[point.Name];
         }
         [PythonAPI("Duplicates result reference points using command history.",
@@ -243,16 +265,18 @@ namespace APIs.Python
         }
         [PythonAPI("Renames a result reference point using command history.",
                    Arguments = "old_name: str, new_name: str", Returns = "None")]
-        public void rename(string old_name, string new_name)
+        public void rename(object old_name, object new_name)
         {
-            FeReferencePoint point = ResolveReferencePoint(old_name);
-            PythonNameComparer.ValidateFormat(new_name, "new_name", point.Name);
-            if (string.Equals(point.Name, new_name)) return;
-            if (!PythonNameComparer.AreSame(new_name, point.Name) && PythonNameComparer.Contains(GetNames(), new_name))
-                throw new PythonAPIException("The result reference point '" + new_name + "' already exists.");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string newName = PythonValueConverter.ToText(new_name, "new_name", false);
+            FeReferencePoint point = ResolveReferencePoint(oldName);
+            PythonNameComparer.ValidateFormat(newName, "new_name", point.Name);
+            if (string.Equals(point.Name, newName)) return;
+            if (!PythonNameComparer.AreSame(newName, point.Name) && PythonNameComparer.Contains(GetNames(), newName))
+                throw new PythonAPIException("The result reference point '" + newName + "' already exists.");
             //
             EnsureCommandsAvailable();
-            _commandGateway.RenameResultItem(point, new_name);
+            _commandGateway.RenameResultItem(point, newName);
         }
         [PythonAPI("Removes result reference points using command history.",
                    Arguments = "names: list[str] or str", Returns = "None")]

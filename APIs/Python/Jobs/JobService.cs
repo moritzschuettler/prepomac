@@ -139,9 +139,12 @@ namespace APIs.Python
             if (environmentVariables != null)
             {
                 List<EnvironmentVariable> variables =
-                    PythonObjectListConverter.ToList<EnvironmentVariable>(environmentVariables,
-                                                                          "environment_variables",
-                                                                          "a list of environment variables");
+                    PythonObjectListConverter.ToList<EnvironmentVariableAPI>(environmentVariables,
+                                                                             "environment_variables",
+                                                                             "a list of environment variables " +
+                                                                             "created by " +
+                                                                             "pmx.create.environment_variable")
+                                             .Select(variable => variable.GetVariableCopy()).ToList();
                 HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (EnvironmentVariable variable in variables)
                 {
@@ -149,7 +152,7 @@ namespace APIs.Python
                     if (!names.Add(variable.Name))
                         throw new PythonAPIException("Environment variable names must be unique.");
                 }
-                job.EnvironmentVariables = variables.DeepClone();
+                job.EnvironmentVariables = variables;
                 job.EnvironmentVariablesOverridden = true;
             }
         }

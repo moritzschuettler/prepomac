@@ -39,11 +39,12 @@ namespace APIs.Python
         // Methods
         [PythonAPI("Returns the detailed entities of a kind. Unknown and unavailable kinds return an empty list.",
                    Arguments = "kind: str", Returns = "GeometryMetadataEntities")]
-        public GeometryMetadataEntitiesAPI get_entities(string kind)
+        public GeometryMetadataEntitiesAPI get_entities(object kind)
         {
-            if (String.IsNullOrWhiteSpace(kind))
+            string kindText = PythonValueConverter.ToText(kind, "kind", true);
+            if (String.IsNullOrWhiteSpace(kindText))
                 throw new PythonAPIException("The geometry metadata entity kind must not be empty.");
-            return new GeometryMetadataEntitiesAPI(_metadata?.GetEntities(kind) ??
+            return new GeometryMetadataEntitiesAPI(_metadata?.GetEntities(kindText) ??
                                                    new GeometryMetadataEntity[0]);
         }
         public override string ToString()

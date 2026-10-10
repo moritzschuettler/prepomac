@@ -74,10 +74,12 @@ namespace APIs.Python.Model
                                "element_types: dict[str, str] = None", Returns = "None",
                    Example = "parts.replace_properties('Solid-1', name='Bracket', " +
                              "element_types={'linear_tetra': 'C3D4'})")]
-        public void replace_properties(string old_name, string name = null, object color = null,
+        public void replace_properties(object old_name, object name = null, object color = null,
                                        object element_types = null)
         {
-            _service.ReplaceProperties(old_name, name, color, element_types);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            _service.ReplaceProperties(oldName, nameText, color, element_types);
         }
         [PythonAPI("Returns the supported element type names, for example linear_tetra.",
                    Returns = "StringList")]
@@ -91,22 +93,26 @@ namespace APIs.Python.Model
                    "the part contains are listed.",
                    Arguments = "part_name: str", Returns = "dict[str, str]",
                    Example = "types = parts.get_element_types('Solid-1')  # {'linear_tetra': 'C3D4', ...}")]
-        public Dictionary<string, string> get_element_types(string part_name)
+        public Dictionary<string, string> get_element_types(object part_name)
         {
-            return _service.GetElementTypes(part_name);
+            string partName = PythonValueConverter.ToText(part_name, "part_name", false);
+            return _service.GetElementTypes(partName);
         }
 
         [PythonAPI("Sets one element type of the named parts using command history. An element kind a " +
                    "part does not contain is refused.",
                    Arguments = "part_names: list[str] or str, element_type: str, value: str", Returns = "None",
                    Example = "parts.set_element_type('Solid-1', 'linear_tetra', 'C3D4')")]
-        public void set_element_type(object part_names, string element_type, string value)
+        public void set_element_type(object part_names, object element_type, object value)
         {
-            _service.SetElementType(_service.ResolveNames(part_names), element_type, value);
+            string elementType = PythonValueConverter.ToText(element_type, "element_type", false);
+            string valueText = PythonValueConverter.ToText(value, "value", false);
+            _service.SetElementType(_service.ResolveNames(part_names), elementType, valueText);
         }
 
         [PythonAPI("Translates the named parts using command history. A number of copies of 0 moves the parts, and " +
-                   "a larger number keeps them and creates that many copies, copy k translated k times.",
+                   "a larger number keeps them and creates that many copies, copy k translated k times. The " +
+                   "vector components must be finite.",
                    Arguments = "part_names: list[str] or str, translate_vector: list[float], " +
                                "number_of_copies: int = 0", Returns = "None",
                    Example = "pmx.model.parts.translate('Solid-1', [0, 0, 10])")]
@@ -118,7 +124,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Rotates the named parts around an axis using command history. The angle is in degrees and " +
                    "right handed about the axis. A number of copies of 0 moves the parts, and a larger number " +
-                   "keeps them and creates that many copies, copy k rotated k times.",
+                   "keeps them and creates that many copies, copy k rotated k times. The center and the angle " +
+                   "must be finite.",
                    Arguments = "part_names: list[str] or str, rotate_center: list[float], " +
                                "rotate_axis: list[float], rotate_angle_deg: float, number_of_copies: int = 0",
                    Returns = "None",
@@ -132,7 +139,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Mirrors the named parts over the plane through a point with the given normal using command " +
-                   "history. With copy the parts are kept and a mirrored copy is created.",
+                   "history. With copy the parts are kept and a mirrored copy is created. The point must be " +
+                   "finite.",
                    Arguments = "part_names: list[str] or str, mirror_point: list[float], " +
                                "mirror_direction: list[float], copy: bool = False", Returns = "None")]
         public void mirror(object part_names, object mirror_point, object mirror_direction, object copy = null)
@@ -141,7 +149,7 @@ namespace APIs.Python.Model
             _service.Mirror(_service.ResolveNames(part_names), mirror_point, mirror_direction, keepOriginal);
         }
 
-        [PythonAPI("Scales the named parts using command history.",
+        [PythonAPI("Scales the named parts using command history. The center and the factors must be finite.",
                    Arguments = "part_names: list[str] or str, scale_center: list[float], " +
                                "scale_factors: list[float], copy: bool = False", Returns = "None")]
         public void scale(object part_names, object scale_center, object scale_factors, object copy = null)

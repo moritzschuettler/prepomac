@@ -54,15 +54,16 @@ namespace APIs.Python
         {
             return this[index];
         }
-        public bool __contains__(string item)
+        public bool __contains__(object item)
         {
             return contains(item);
         }
 
         [PythonAPI("Returns true if the list contains the specified string.", Arguments = "item: str", Returns = "bool")]
-        public bool contains(string item)
+        public bool contains(object item)
         {
-            return _items.Contains(item);
+            string itemText = PythonValueConverter.ToText(item, "item", true);
+            return _items.Contains(itemText);
         }
 
         [PythonAPI("Returns a copy of the strings as a plain Python list.", Returns = "list[str]")]

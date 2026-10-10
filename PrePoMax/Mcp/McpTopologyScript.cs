@@ -117,7 +117,7 @@ namespace PrePoMax.Mcp
             "                        'source, grouped by part id, or by its geometry_id with the geometry '\n" +
             "                        'source; a vertex is selected by its node id. Areas, lengths and '\n" +
             "                        'coordinates are in model units.'}\n" +
-            "    for view, parts in [('model', pmx.model.parts), ('geometry', pmx.model.geometry.parts)]:\n" +
+            "    for view, parts in [('femodel', pmx.model.parts), ('geometry', pmx.model.geometry.parts)]:\n" +
             "        listed = []\n" +
             "        for name in list(parts.get_names()):\n" +
             "            key = name.lower()\n" +

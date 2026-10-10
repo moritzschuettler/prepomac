@@ -188,6 +188,101 @@ namespace APIs.Python
             //
             return ToInt(value, argumentName);
         }
+        // A typed .NET parameter refuses a value of another kind with 'No method matches given arguments', which names
+        // no argument, so a name, an option and an API object are taken as an object and converted here
+        public static string ToText(object value, string argumentName, bool allowNone)
+        {
+            if (value == null)
+            {
+                if (allowNone) return null;
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
+            }
+            //
+            string text = value as string;
+            if (text != null) return text;
+            //
+            PyObject python = value as PyObject;
+            if (python != null)
+            {
+                using (Py.GIL())
+                {
+                    if (PyString.IsStringType(python)) return python.As<string>();
+                }
+            }
+            //
+            throw new PythonAPIException("The argument '" + argumentName + "' must be a string, not " +
+                                         DescribeKind(value) + ".");
+        }
+        public static string ToTextOrDefault(object value, string defaultValue, string argumentName)
+        {
+            if (value == null) return defaultValue;
+            //
+            return ToText(value, argumentName, false);
+        }
+        public static T ToApiObject<T>(object value, string argumentName, bool allowNone) where T : class
+        {
+            if (value == null)
+            {
+                if (allowNone) return null;
+                throw new PythonAPIException("The argument '" + argumentName + "' must not be None. It takes " +
+                                             DescribeApiType(typeof(T)) + ".");
+            }
+            //
+            T apiObject = value as T;
+            if (apiObject != null) return apiObject;
+            //
+            throw new PythonAPIException("The argument '" + argumentName + "' takes " + DescribeApiType(typeof(T)) +
+                                         ", not " + DescribeKind(value) + ".");
+        }
+        private static string DescribeApiType(Type type)
+        {
+            if (type == typeof(SelectionAPI))
+                return "a Selection made by pmx.create.selection_by_ids, selection_by_pick, selection_by_area, " +
+                       "selection_by_box or selection_all";
+            if (type == typeof(SplitToolAPI)) return "a SplitTool made by one of the pmx.create.split_tool_* methods";
+            if (type == typeof(ResultFieldOutputFilterAPI))
+                return "a FieldOutputFilter made by create_median_filter, create_average_filter or " +
+                       "create_smooth_filter of the result field outputs";
+            if (type == typeof(ResultHistoryOutputFilterAPI))
+                return "a HistoryOutputFilter made by create_minimum_filter, create_maximum_filter, " +
+                       "create_sum_filter or create_average_filter of the result history outputs";
+            if (type == typeof(ResultFieldOutputDraftAPI))
+                return "a field output draft made by one of the create_field_output_* methods of the result " +
+                       "field outputs";
+            if (type == typeof(ResultHistoryOutputDraftAPI))
+                return "a history output draft made by one of the create_history_output_* methods of the result " +
+                       "history outputs";
+            //
+            return "a " + ToPythonTypeName(type);
+        }
+        private static string DescribeKind(object value)
+        {
+            if (value is string) return "str";
+            if (value is bool) return "bool";
+            if (value is int || value is long || value is short || value is byte || value is uint || value is ulong)
+                return "int";
+            if (value is double || value is float || value is decimal) return "float";
+            //
+            PyObject python = value as PyObject;
+            if (python != null)
+            {
+                using (Py.GIL())
+                using (PyObject type = python.GetPythonType())
+                using (PyObject typeName = type.GetAttr("__name__"))
+                {
+                    return typeName.As<string>();
+                }
+            }
+            //
+            return ToPythonTypeName(value.GetType());
+        }
+        private static string ToPythonTypeName(Type type)
+        {
+            string name = type.Name;
+            if (name.EndsWith("API") && name.Length > 3) name = name.Substring(0, name.Length - 3);
+            //
+            return name;
+        }
         // The output variable enums are used as flags, although they carry no FlagsAttribute, so a
         // combined value is neither defined nor printable by Enum.ToString
         public static TEnum ToFlagsEnum<TEnum>(object value, string argumentName) where TEnum : struct

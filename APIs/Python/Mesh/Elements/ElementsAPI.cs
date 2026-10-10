@@ -36,9 +36,10 @@ namespace APIs.Python
 
 
         // Methods
-        public ElementAPI __getitem__(int elementId)
+        public ElementAPI __getitem__(object elementId)
         {
-            return this[elementId];
+            int elementIdNumber = PythonValueConverter.ToInt(elementId, "id");
+            return this[elementIdNumber];
         }
         public ElementAPI this[int elementId]
         {
@@ -71,7 +72,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(int elementId)
+        public bool __contains__(object elementId)
         {
             return contains(elementId);
         }

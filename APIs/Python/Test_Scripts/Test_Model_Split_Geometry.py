@@ -96,7 +96,11 @@ def test_refusals(part):
     refused(lambda: pmx.create.split_tool_extrude_edges(vertex, [0, 0, 1], length=0), "length")
     # A line is drawn on a surface, so it only splits faces
     line = pmx.create.split_tool_line_by_two_points([[0, 0, 0], [1, 0, 0]])
-    check(line.tool_type == "Line by two points", "the tool must report its type: " + line.tool_type)
+    # The type is the word of the pmx.create method that makes the tool, so it leads back to that method
+    check(line.tool_type == "line_by_two_points", "the tool must report its type: " + line.tool_type)
+    check(hasattr(pmx.create, "split_tool_" + line.tool_type), "the tool type must name its pmx.create method")
+    plane = pmx.create.split_tool_plane_by_point_and_normal([0, 0, 0], [0, 0, 1])
+    check(plane.tool_type == "plane_by_point_and_normal", "the tool must report its type: " + plane.tool_type)
     refused(lambda: parts.split_solid(part_region(part), line), "split_face")
     # A solid split names parts and a face split names surfaces, as the two dialogs pick
     plane = pmx.create.split_tool_plane_by_point_and_normal(normal=[0, 0, 1])
@@ -143,7 +147,7 @@ def test_split_solid_by_vertices(part):
            corner(rows, [high[0], low[1], high[2]])]
     vertices = pmx.create.selection_by_ids('geometry', 'geometry', 'vertices', ids)
     tool = pmx.create.split_tool_plane_by_three_points(splitter=vertices)
-    check(tool.tool_type == "Plane by three points", "the tool must report its type: " + tool.tool_type)
+    check(tool.tool_type == "plane_by_three_points", "the tool must report its type: " + tool.tool_type)
     # The part is gone once it is cut, so its name is read before
     name = part.name
     before = list(parts.get_names())

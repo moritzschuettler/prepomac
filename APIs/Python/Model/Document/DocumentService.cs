@@ -107,7 +107,7 @@ namespace APIs.Python.Model
         {
             double ratio = edgeThicknessRatio == null
                            ? 1
-                           : PythonValueConverter.ToDouble(edgeThicknessRatio, "edge_thickness_ratio");
+                           : PythonValueConverter.ToFiniteDouble(edgeThicknessRatio, "edge_thickness_ratio");
             if (ratio <= 0)
                 throw new PythonAPIException("The argument 'edge_thickness_ratio' must be larger than zero.");
             //
@@ -176,29 +176,41 @@ namespace APIs.Python.Model
         {
             return _modelResolver.GetModel().Properties.ModelType.ToString();
         }
+        // A value the model type does not use is hidden by the dialog and refused by its setter, so it reads None
         public string GetGlobalResultsFileName()
         {
-            return _modelResolver.GetModel().Properties.GlobalResultsFileName;
+            ModelProperties properties = _modelResolver.GetModel().Properties;
+            return properties.ModelType == ModelType.Submodel ? properties.GlobalResultsFileName : null;
         }
         public string GetSlipWearResults()
         {
-            return _modelResolver.GetModel().Properties.SlipWearResults.ToString();
+            ModelProperties properties = GetSlipWearProperties();
+            return properties == null ? null : properties.SlipWearResults.ToString();
         }
-        public bool GetBdmRemeshing()
+        public object GetBdmRemeshing()
         {
-            return _modelResolver.GetModel().Properties.BdmRemeshing;
+            ModelProperties properties = GetSlipWearProperties();
+            return properties == null ? null : (object)properties.BdmRemeshing;
         }
-        public int GetNumberOfCycles()
+        public object GetNumberOfCycles()
         {
-            return (int)_modelResolver.GetModel().Properties.NumberOfCycles.Value;
+            ModelProperties properties = GetSlipWearProperties();
+            return properties == null ? null : (object)(int)properties.NumberOfCycles.Value;
         }
-        public int GetCyclesIncrement()
+        public object GetCyclesIncrement()
         {
-            return (int)_modelResolver.GetModel().Properties.CyclesIncrement.Value;
+            ModelProperties properties = GetSlipWearProperties();
+            return properties == null ? null : (object)(int)properties.CyclesIncrement.Value;
         }
-        public int GetNumberOfSmoothingSteps()
+        public object GetNumberOfSmoothingSteps()
         {
-            return (int)_modelResolver.GetModel().Properties.NumOfSmoothingSteps.Value;
+            ModelProperties properties = GetSlipWearProperties();
+            return properties == null ? null : (object)(int)properties.NumOfSmoothingSteps.Value;
+        }
+        private ModelProperties GetSlipWearProperties()
+        {
+            ModelProperties properties = _modelResolver.GetModel().Properties;
+            return properties.ModelType == ModelType.SlipWearModel ? properties : null;
         }
         public Dictionary<string, string> GetPropertyEquations()
         {
@@ -240,7 +252,7 @@ namespace APIs.Python.Model
         {
             return FromUndefined(_modelResolver.GetModel().Properties.NewtonGravity);
         }
-        public void UpdateProperties(string name, string modelType, string globalResultsFileName,
+        public void UpdateProperties(string name, string modelSpace, string modelType, string globalResultsFileName,
                                      string slipWearResults, object numberOfCycles, object cyclesIncrement,
                                      object numOfSmoothingSteps, object bdmRemeshing, object absoluteZero,
                                      object stefanBoltzmann, object newtonGravity, bool clearUndefinedConstants)
@@ -248,6 +260,7 @@ namespace APIs.Python.Model
             FeModel model = _modelResolver.GetModel();
             ModelProperties properties = model.Properties.DeepClone();
             if (name != null) ValidateModelName(name);
+            if (modelSpace != null) properties.ModelSpace = ToReplacedModelSpace(properties.ModelSpace, modelSpace);
             if (modelType != null)
                 properties.ModelType = PythonValueConverter.ToEnum<ModelType>(modelType, "model_type");
             RefuseUnusedProperties(properties.ModelType, globalResultsFileName, slipWearResults, numberOfCycles,
@@ -308,10 +321,20 @@ namespace APIs.Python.Model
         {
             return _modelResolver.GetModel().UnitSystem.UnitSystemType.ToString();
         }
+        // The model space of a new model, set as the new model dialog sets it, which leaves the element types of an
+        // existing mesh as they are; the dialog asks for it only while the model space or the unit system is
+        // undefined, so a defined model space of a model with a geometry or a mesh is changed by the replace
         public void SetModelSpaceAndUnitSystem(string modelSpace, string unitSystem)
         {
             FeModel model = _modelResolver.GetModel();
             ModelSpaceEnum modelSpaceValue = modelSpace == null ? model.Properties.ModelSpace : ToModelSpace(modelSpace);
+            ModelSpaceEnum current = model.Properties.ModelSpace;
+            if (modelSpaceValue != current && current != ModelSpaceEnum.Undefined &&
+                (HasNodes(model.Geometry) || HasNodes(model.Mesh)))
+                throw new PythonAPIException("The property 'model_space' sets the model space of a new model, and " +
+                                             "this model already has a geometry or a mesh. Change it with " +
+                                             "pmx.model.properties.replace(model_space=...), which updates the " +
+                                             "element types.");
             UnitSystemType unitSystemValue = unitSystem == null ? model.UnitSystem.UnitSystemType
                                                                 : ToUnitSystem(unitSystem);
             //
@@ -364,6 +387,22 @@ namespace APIs.Python.Model
                     throw new PythonAPIException("The argument '" + argumentNames[i] + "' applies only to a " +
                                                  "SlipWearModel, but the model type is " + modelType + ".");
             }
+        }
+        private static bool HasNodes(FeMesh mesh)
+        {
+            return mesh != null && mesh.Nodes.Count > 0;
+        }
+        // The dialog changes the model space only within the 2D spaces or within 3D, because the element types
+        // of the mesh follow it
+        private static ModelSpaceEnum ToReplacedModelSpace(ModelSpaceEnum current, string modelSpace)
+        {
+            ModelSpaceEnum value = ToModelSpace(modelSpace);
+            if (value.IsTwoD() != current.IsTwoD())
+                throw new PythonAPIException("The argument 'model_space' cannot change the model space from " +
+                                             current + " to " + value + ": a replace changes it only between the " +
+                                             "2D spaces PlaneStress, PlaneStrain and Axisymmetric, as the dialog " +
+                                             "does.");
+            return value;
         }
         // Undefined is the state of a model nothing has set yet, not a value a model can be given
         private static ModelSpaceEnum ToModelSpace(string modelSpace)

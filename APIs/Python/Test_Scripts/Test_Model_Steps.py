@@ -53,7 +53,7 @@ def test_static_and_shared_values():
     steps = pmx.model.steps
     count_before = len(steps)
     step = steps.add_static(PREFIX + "S1", time_period=2.5, initial_time_increment=0.5,
-                            min_time_increment=1e-4, max_time_increment=1.0, direct=True,
+                            min_time_increment=1e-4, max_time_increment=1.0,
                             nlgeom=True, max_increments=50, incrementation_type="Automatic",
                             solver_type="Pardiso", output_frequency=2, run_analysis=False)
     check(len(steps) == count_before + 1, "the static step was not added")
@@ -72,7 +72,9 @@ def test_static_and_shared_values():
     check(step.get_value("time_period") == 2.5, "unexpected time period " + str(step.get_value("time_period")))
     check(step.get_value("initial_time_increment") == 0.5, "initial_time_increment was not set")
     check(step.get_value("max_time_increment") == 1.0, "max_time_increment was not set")
-    check(step.get_value("direct"), "direct was not set")
+    # The incrementation type alone decides whether the solver works directly, as in the dialog
+    check_raises(lambda: step.get_value("direct"), "direct is not a value of the step")
+    check_raises(lambda: steps.add_static(PREFIX + "Bad", direct=True), "direct is not an argument")
     check_raises(lambda: step.get_value("no_such_value"), "an unknown value name must be rejected")
     # A static step is never a perturbation step
     check_raises(lambda: pmx.model.steps.add_static(PREFIX + "Bad", perturbation=True),
@@ -186,15 +188,17 @@ def test_refused_values():
     # A value the model would clamp, or refuse without naming the argument, is refused naming it
     refusals = [(lambda: steps.add_static(bad, max_increments=0), "'max_increments'"),
                 (lambda: steps.add_static(bad, output_frequency=-1), "'output_frequency'"),
-                (lambda: steps.add_static(bad, time_period=0), "'time_period'"),
-                (lambda: steps.add_static(bad, initial_time_increment=-1.0), "'initial_time_increment'"),
-                (lambda: steps.add_static(bad, time_period=1.0, initial_time_increment=2.0),
+                (lambda: steps.add_static(bad, time_period=0, incrementation_type="Automatic"), "'time_period'"),
+                (lambda: steps.add_static(bad, initial_time_increment=-1.0, incrementation_type="Automatic"),
                  "'initial_time_increment'"),
-                (lambda: steps.add_static(bad, time_period=1.0, min_time_increment=2.0), "'min_time_increment'"),
+                (lambda: steps.add_static(bad, time_period=1.0, initial_time_increment=2.0,
+                                          incrementation_type="Automatic"), "'initial_time_increment'"),
+                (lambda: steps.add_static(bad, time_period=1.0, min_time_increment=2.0,
+                                          incrementation_type="Automatic"), "'min_time_increment'"),
                 (lambda: steps.add_dynamic(bad, alpha=0.1), "'alpha'"),
                 (lambda: steps.add_dynamic(bad, alpha=-0.5), "'alpha'"),
-                (lambda: steps.add_modal_dynamics(bad, relative_error=-0.1), "'relative_error'"),
-                (lambda: steps.add_modal_dynamics(bad, relative_error=2.0), "'relative_error'"),
+                (lambda: steps.add_modal_dynamics(bad, steady_state=True, relative_error=-0.1), "'relative_error'"),
+                (lambda: steps.add_modal_dynamics(bad, steady_state=True, relative_error=2.0), "'relative_error'"),
                 (lambda: steps.add_steady_state_dynamics(bad, number_of_data_points=1), "'number_of_data_points'"),
                 (lambda: steps.add_steady_state_dynamics(bad, bias=0.5), "'bias'"),
                 (lambda: steps.add_steady_state_dynamics(bad, number_of_fourier_terms=0),
@@ -259,7 +263,8 @@ def test_refused_values():
     # An initial increment above the maximum one is stored as given, as the dialog does, and a replace that
     # sets the maximum, which would shorten it, keeps it
     initial = PREFIX + "S_Initial"
-    step = steps.add_static(initial, time_period=1.0, initial_time_increment=0.5, max_time_increment=0.1)
+    step = steps.add_static(initial, time_period=1.0, initial_time_increment=0.5, max_time_increment=0.1,
+                            incrementation_type="Automatic")
     check(step.get_value("initial_time_increment") == 0.5 and step.get_value("max_time_increment") == 0.1,
           "an initial increment above the maximum one was not kept")
     step = steps.replace_static(initial, max_time_increment=0.2)
@@ -339,11 +344,28 @@ def test_dynamic_types():
     check(step.get_value("solution_procedure") == "ImplicitExplicit", "the solution procedure was not set")
     check(step.get_value("relative_to_absolute"), "relative_to_absolute was not set")
     read_damping = step.get_value("damping")
-    check(read_damping.DampingType.ToString() == "Rayleigh", "the damping type was not set")
-    check(read_damping.Alpha == 0.1 and read_damping.Beta == 0.001, "the damping alpha and beta were not set")
-    # The damping read back is the part pmx.create.damping makes, so it goes back into the argument
+    check(read_damping.get_values() == {"damping_type": "Rayleigh", "alpha": 0.1, "beta": 0.001},
+          "the damping did not read back under the pmx.create argument names: " + repr(read_damping.get_values()))
+    check(read_damping.get_value("damping_type") == "Rayleigh", "the damping type was not set")
+    check(list(read_damping.get_value_names()) == ["damping_type", "alpha", "beta"],
+          "unexpected damping value names " + str(list(read_damping.get_value_names())))
+    check_raises(lambda: read_damping.get_value("Alpha"), "a .NET property name is not a damping value")
+    check(not hasattr(read_damping, "Alpha"), "the damping must not hand out the .NET model object")
+    # The damping read back is the part pmx.create.damping makes, so it goes back into the argument, and so do
+    # its values into the maker
     step = steps.replace_dynamic(PREFIX + "D1", damping=read_damping)
-    check(step.get_value("damping").Alpha == 0.1, "the damping read back did not go back into the step")
+    check(step.get_value("damping").get_value("alpha") == 0.1, "the damping read back did not go back into the step")
+    step = steps.replace_dynamic(PREFIX + "D1", damping=pmx.create.damping(**read_damping.get_values()))
+    check(step.get_value("damping").get_values() == read_damping.get_values(),
+          "the damping values did not go back into pmx.create.damping")
+    for bad in [float("nan"), float("inf"), -float("inf")]:
+        check_raises(lambda: pmx.create.damping("Rayleigh", alpha=bad), "a non-finite alpha must be rejected")
+        check_raises(lambda: pmx.create.damping("Rayleigh", beta=bad), "a non-finite beta must be rejected")
+        check_raises(lambda: pmx.create.modal_damping("Constant", viscous_damping_ratio=bad),
+                     "a non-finite viscous damping ratio must be rejected")
+        check_raises(lambda: pmx.create.modal_damping("Rayleigh", alpha=bad),
+                     "a non-finite modal alpha must be rejected")
+        check_raises(lambda: pmx.create.damping_ratio(bad, 1, 5), "a non-finite damping ratio must be rejected")
     check(step.get_value("time_period") == 0.5, "a dynamic step also takes the static values")
     check_raises(lambda: steps.add_dynamic(PREFIX + "Bad", damping="Rayleigh"),
                  "a damping given as a string must be rejected")
@@ -355,11 +377,19 @@ def test_dynamic_types():
     step = steps.add_modal_dynamics(PREFIX + "MD1", steady_state=True, relative_error=0.001,
                                     modal_damping=modal_damping)
     read_modal_damping = step.get_value("modal_damping")
-    check(read_modal_damping.DampingType.ToString() == "Direct", "the modal damping type was not set")
-    check(read_modal_damping.DampingRatiosAndRanges.Count == 2, "the modal damping ratios were not set")
+    check(read_modal_damping.get_value("damping_type") == "Direct", "the modal damping type was not set")
+    ratios = read_modal_damping.get_value("damping_ratios")
+    check(type(ratios) is list and len(ratios) == 2, "the modal damping ratios were not set: " + repr(ratios))
+    check(ratios[1].get_values() == {"damping_ratio": 0.03, "lowest_mode": 6, "highest_mode": 10},
+          "the damping ratio did not read back under the pmx.create argument names: " + repr(ratios[1].get_values()))
     step = steps.replace_modal_dynamics(PREFIX + "MD1", modal_damping=read_modal_damping)
-    check(step.get_value("modal_damping").DampingRatiosAndRanges.Count == 2,
+    check(len(step.get_value("modal_damping").get_value("damping_ratios")) == 2,
           "the modal damping read back did not go back into the step")
+    step = steps.replace_modal_dynamics(PREFIX + "MD1",
+                                        modal_damping=pmx.create.modal_damping(**read_modal_damping.get_values()))
+    check(repr(step.get_value("modal_damping")) == repr(read_modal_damping),
+          "the modal damping values did not go back into pmx.create.modal_damping: " +
+          repr(step.get_value("modal_damping")))
     check(step.get_value("steady_state"), "steady_state was not set")
     check(step.get_value("relative_error") == 0.001, "relative_error was not set")
     check_raises(lambda: steps.add_modal_dynamics(PREFIX + "Bad", modal_damping=pmx.create.damping()),
@@ -372,7 +402,10 @@ def test_dynamic_types():
                                                "Constant", viscous_damping_ratio=0.02))
     check(not step.get_value("harmonic"), "harmonic was not set")
     check(step.get_value("number_of_data_points") == 10, "number_of_data_points was not set")
-    check(step.get_value("modal_damping").ViscousDampingRatio == 0.02, "the viscous damping ratio was not set")
+    check(step.get_value("modal_damping").get_value("viscous_damping_ratio") == 0.02,
+          "the viscous damping ratio was not set")
+    check(step.get_value("modal_damping").get_value("damping_ratios") is None,
+          "a modal damping without damping ratios must read them back as None")
     # The default upper frequency is 10, so a range above it is set upper limit first
     step = steps.add_steady_state_dynamics(PREFIX + "SSD2", lower_frequency=20.0, upper_frequency=100.0)
     check(step.get_value("lower_frequency") == 20.0, "the lower frequency above the default was not set")
@@ -384,7 +417,8 @@ def test_dynamic_types():
 
 def test_thermal_and_wear_types():
     steps = pmx.model.steps
-    step = steps.add_heat_transfer(PREFIX + "HT1", steady_state=False, deltmx=5.0, time_period=10.0)
+    step = steps.add_heat_transfer(PREFIX + "HT1", steady_state=False, deltmx=5.0, time_period=10.0,
+                                   incrementation_type="Automatic")
     check(not step.get_value("steady_state"), "steady_state was not set")
     check(step.get_value("deltmx") == 5.0, "deltmx was not set")
     check(step.get_value("time_period") == 10.0, "a heat transfer step also takes the static values")
@@ -404,11 +438,11 @@ def test_thermal_and_wear_types():
     step = steps.replace_uncoupled_temp_disp(PREFIX + "UTD1", deltmx=float("inf"))
     check(step.get_value("deltmx") == float("inf"), "deltmx was not put back to the default")
     #
-    step = steps.add_coupled_temp_disp(PREFIX + "CTD1", time_period=4.0)
+    step = steps.add_coupled_temp_disp(PREFIX + "CTD1", time_period=4.0, incrementation_type="Direct")
     check(step.item_type == "coupled_temp_disp", "unexpected step type " + step.item_type)
     check(step.get_value("time_period") == 4.0, "the time period was not set on the coupled step")
     # A boundary displacement step follows a slip wear step
-    step = steps.add_slip_wear(PREFIX + "SW1", time_period=1.0)
+    step = steps.add_slip_wear(PREFIX + "SW1")
     check(step.item_type == "slip_wear", "unexpected step type " + step.item_type)
     step = steps.add_boundary_displacement(PREFIX + "BD1", max_increments=20)
     check(step.item_type == "boundary_displacement", "unexpected step type " + step.item_type)
@@ -429,6 +463,61 @@ def test_thermal_and_wear_types():
         check(message is not None and "add_" + item_type + "," in message,
               "replacing the " + item_type + " " + step_name + " by a base type must be refused: " + str(message))
         check(steps[step_name].item_type == item_type, "a refused replace changed the type of " + step_name)
+
+
+# The solver input carries the time values only under the incrementation type that uses them, and the dialog
+# shows only those, so a value the type the call ends with does not use is refused before anything is recorded
+def test_incrementation_type_values():
+    steps = pmx.model.steps
+    bad = PREFIX + "Bad"
+    count_before = len(steps)
+    for argument in ["time_period", "initial_time_increment", "min_time_increment", "max_time_increment"]:
+        message = raised_message(lambda: steps.add_static(bad, **{argument: 0.5}))
+        check(message is not None and "'" + argument + "'" in message and "incrementation_type" in message,
+              "a new static step of the Default type must refuse " + argument + ": " + str(message))
+        message = raised_message(lambda: steps.add_heat_transfer(bad, **{argument: 0.5}))
+        check(message is not None and "'" + argument + "'" in message,
+              "a new heat transfer step of the Default type must refuse " + argument + ": " + str(message))
+    message = raised_message(lambda: steps.add_static(bad, max_increments=20))
+    check(message is not None and "'max_increments'" in message and "incrementation_type" in message,
+          "a static step of the Default type must refuse max_increments: " + str(message))
+    for argument in ["min_time_increment", "max_time_increment"]:
+        message = raised_message(lambda: steps.add_static(bad, incrementation_type="Direct", **{argument: 0.1}))
+        check(message is not None and "'" + argument + "'" in message and "Automatic" in message,
+              "a Direct static step must refuse " + argument + ": " + str(message))
+        message = raised_message(lambda: steps.add_modal_dynamics(bad, **{argument: 0.1}))
+        check(message is not None and "'" + argument + "'" in message,
+              "a modal dynamics step must refuse " + argument + ": " + str(message))
+    check_refused(lambda: steps.add_modal_dynamics(bad, steady_state=True, time_period=1.0), "'time_period'",
+                  "a steady state modal dynamics step must refuse the time period")
+    check_refused(lambda: steps.add_modal_dynamics(bad, relative_error=0.01), "'relative_error'",
+                  "a modal dynamics step that is not a steady state one must refuse the relative error")
+    check(len(steps) == count_before and not steps.contains(bad), "a refused step was recorded")
+    # A Direct step takes the period and the initial increment, and reads the increments it does not use as None
+    direct = PREFIX + "S_Direct"
+    step = steps.add_static(direct, time_period=2.0, initial_time_increment=0.5, max_increments=30,
+                            incrementation_type="Direct")
+    check(step.get_value("time_period") == 2.0 and step.max_increments == 30, "a Direct step did not take its values")
+    check(step.get_value("min_time_increment") is None and step.get_value("max_time_increment") is None,
+          "a Direct step must read the increments it does not use as None")
+    steps.remove([direct])
+    # A replace judges by the type it ends with, and a step set back to Default keeps its values hidden
+    hidden = PREFIX + "S_Default"
+    steps.add_static(hidden, time_period=2.0, initial_time_increment=0.25, max_increments=40,
+                     incrementation_type="Automatic")
+    step = steps.replace_static(hidden, incrementation_type="Default")
+    check(step.incrementation_type == "Default", "the incrementation type was not set back to Default")
+    check(step.get_value("time_period") is None and step.get_value("initial_time_increment") is None,
+          "a Default step must read its time values as None")
+    check(step.max_increments is None, "a Default step must read max_increments as None")
+    check_refused(lambda: steps.replace_static(hidden, time_period=3.0), "'time_period'",
+                  "a replace of a Default step must refuse the time period")
+    check(steps[hidden].incrementation_type == "Default", "the refused replace changed the step")
+    step = steps.replace_static(hidden, incrementation_type="Automatic", time_period=3.0)
+    check(step.get_value("time_period") == 3.0 and step.get_value("initial_time_increment") == 0.25 and
+          step.max_increments == 40, "the hidden values were not kept")
+    # The Default step stays for the read back round trip
+    steps.replace_static(hidden, incrementation_type="Default")
 
 
 def test_controls():
@@ -454,6 +543,19 @@ def test_controls():
                        pmx.create.contact_control(delcon=0.5)])
     copies = step.get_controls()
     check(type(copies) is list and len(copies) == 2, "the controls did not read back as a list: " + repr(copies))
+    check([copy.control_type for copy in copies] == ["time_incrementation_control", "contact_control"],
+          "the controls did not read back their control_type")
+    values = copies[0].get_values()
+    check(values["i0"] == 8 and values["ic"] == 32 and values["is_value"] is None and values["wg"] is None,
+          "the time incrementation control did not read back its values: " + repr(values))
+    check(not hasattr(copies[0], "I0"), "a control must not hand out the .NET model object")
+    step.set_controls([getattr(pmx.create, copy.control_type)(**copy.get_values()) for copy in copies])
+    check([repr(copy) for copy in step.get_controls()] == [repr(copy) for copy in copies],
+          "the control values did not go back into the pmx.create makers")
+    check(pmx.create.field_control(q0a=None).get_value("q0a") is None, "an unset field control value must be None")
+    check(pmx.create.reset_control().get_values() == {}, "a reset control has no values")
+    check_raises(lambda: pmx.create.time_incrementation_control(df=float("inf")),
+                 "an infinite control value must be rejected")
     step.set_controls(copies)
     check(list(step.get_control_types()) == ["time_incrementation_control", "contact_control"],
           "the controls read back did not go back into set_controls")
@@ -522,6 +624,7 @@ def main():
     test_dynamic_types()
     test_refused_values()
     test_thermal_and_wear_types()
+    test_incrementation_type_values()
     test_read_back_round_trip()
     test_controls()
     test_move()

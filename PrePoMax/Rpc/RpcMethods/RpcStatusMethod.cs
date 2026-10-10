@@ -61,8 +61,11 @@ namespace PrePoMax.Rpc
             WriteCalls(writer, server);
             writer.WriteValue("isIdle", busyReason == null);
             // A recorded script suppresses command recording while it runs, so an agent can see
-            // whether what it does is reaching the history the user can edit and regenerate
-            writer.WriteValue("isCommandRecordingSuppressed", server.Controller != null &&
+            // whether what it does is reaching the history the user can edit and regenerate. Regenerate
+            // suppresses it too, as the history already holds what it executes, and is reported apart
+            bool isRegenerating = server.Controller != null && server.Controller.IsReplayingHistory;
+            writer.WriteValue("isRegenerating", isRegenerating);
+            writer.WriteValue("isCommandRecordingSuppressed", server.Controller != null && !isRegenerating &&
                                                               server.Controller.IsCommandRecordingSuppressed);
             writer.WriteValue("busyReason", busyReason == null ? "" : busyReason);
             WriteModel(writer, server);

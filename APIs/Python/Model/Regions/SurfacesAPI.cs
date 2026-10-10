@@ -30,19 +30,25 @@ namespace APIs.Python.Model
                    "surface_type is Element, a surface of element faces, or Node, a surface of the nodes on " +
                    "those faces; it is Element when not given. A load acts on an Element surface only.",
                    Arguments = "name: str, selection: Selection, surface_type: str = None", Returns = "Surface")]
-        public SurfaceAPI add(string name, SelectionAPI selection, string surface_type = null)
+        public SurfaceAPI add(object name, object selection, object surface_type = null)
         {
-            _service.Add(name, selection, surface_type);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            string surfaceType = PythonValueConverter.ToText(surface_type, "surface_type", true);
+            _service.Add(nameText, selectionValue, surfaceType);
+            return this[nameText];
         }
 
         [PythonAPI("Creates a surface from an existing node set using command history. The surface_type " +
                    "is taken as add takes it.",
                    Arguments = "name: str, node_set_name: str, surface_type: str = None", Returns = "Surface")]
-        public SurfaceAPI add_from_node_set(string name, string node_set_name, string surface_type = null)
+        public SurfaceAPI add_from_node_set(object name, object node_set_name, object surface_type = null)
         {
-            _service.AddFromNodeSet(name, node_set_name, surface_type);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string nodeSetName = PythonValueConverter.ToText(node_set_name, "node_set_name", false);
+            string surfaceType = PythonValueConverter.ToText(surface_type, "surface_type", true);
+            _service.AddFromNodeSet(nameText, nodeSetName, surfaceType);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing surface using command history. A value that is not given is kept, " +
@@ -50,22 +56,30 @@ namespace APIs.Python.Model
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, " +
                                "surface_type: str = None",
                    Returns = "Surface")]
-        public SurfaceAPI replace(string old_name, string name = null, SelectionAPI selection = null,
-                                  string surface_type = null)
+        public SurfaceAPI replace(object old_name, object name = null, object selection = null,
+                                  object surface_type = null)
         {
-            _service.Replace(old_name, name, selection, surface_type);
-            return this[name == null ? old_name : name];
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            string surfaceType = PythonValueConverter.ToText(surface_type, "surface_type", true);
+            _service.Replace(oldName, nameText, selectionValue, surfaceType);
+            return this[nameText == null ? oldName : nameText];
         }
         [PythonAPI("Replaces an existing surface from a node set using command history. A value that is not " +
                    "given is kept, the surface_type included.",
                    Arguments = "old_name: str, name: str = None, node_set_name: str = None, " +
                                "surface_type: str = None",
                    Returns = "Surface")]
-        public SurfaceAPI replace_from_node_set(string old_name, string name = null, string node_set_name = null,
-                                                string surface_type = null)
+        public SurfaceAPI replace_from_node_set(object old_name, object name = null, object node_set_name = null,
+                                                object surface_type = null)
         {
-            _service.ReplaceFromNodeSet(old_name, name, node_set_name, surface_type);
-            return this[name == null ? old_name : name];
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string nodeSetName = PythonValueConverter.ToText(node_set_name, "node_set_name", true);
+            string surfaceType = PythonValueConverter.ToText(surface_type, "surface_type", true);
+            _service.ReplaceFromNodeSet(oldName, nameText, nodeSetName, surfaceType);
+            return this[nameText == null ? oldName : nameText];
         }
         //
         protected override string[] GetItemNames()

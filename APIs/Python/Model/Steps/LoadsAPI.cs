@@ -44,13 +44,14 @@ namespace APIs.Python.Model
                                "coordinate_system_name: str = None, phase_deg: float = None, " +
                                "color: list[int] or str = None", Returns = "Load",
                    Example = "step.loads.add_concentrated_force('Force-1', selection, f3=-1000)")]
-        public LoadAPI add_concentrated_force(string name, object region, object f1 = null, object f2 = null,
+        public LoadAPI add_concentrated_force(object name, object region, object f1 = null, object f2 = null,
                                               object f3 = null, object amplitude_name = null,
                                               object coordinate_system_name = null, object phase_deg = null,
                                               object color = null)
         {
-            _service.ValidateName(StepName, name, null);
-            CLoad load = new CLoad(name, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
+            CLoad load = new CLoad(nameText, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, NodeTarget);
             LoadFactory.ApplyConcentratedForce(load, f1, f2, f3);
             //
@@ -60,17 +61,19 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing concentrated force using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_concentrated_force", Returns = "Load")]
-        public LoadAPI replace_concentrated_force(string old_name, string name = null, object region = null,
+        public LoadAPI replace_concentrated_force(object old_name, object name = null, object region = null,
                                                   object f1 = null, object f2 = null, object f3 = null,
                                                   object amplitude_name = null,
                                                   object coordinate_system_name = null, object phase_deg = null,
                                                   object color = null)
         {
-            CLoad load = _service.CloneForReplace<CLoad>(StepName, old_name, "concentrated_force");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            CLoad load = _service.CloneForReplace<CLoad>(StepName, oldName, "concentrated_force");
             ApplyRegionIfGiven(load, region, NodeTarget);
             LoadFactory.ApplyConcentratedForce(load, f1, f2, f3);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a moment using command history. A two dimensional model refuses a nonzero m1 or m2. " +
@@ -78,13 +81,14 @@ namespace APIs.Python.Model
                    Arguments = "name: str, region: Selection or Region, m1: float = None, " +
                                "m2: float = None, m3: float = None, and the shared load arguments",
                    Returns = "Load")]
-        public LoadAPI add_moment(string name, object region, object m1 = null, object m2 = null,
+        public LoadAPI add_moment(object name, object region, object m1 = null, object m2 = null,
                                   object m3 = null, object amplitude_name = null,
                                   object coordinate_system_name = null, object phase_deg = null,
                                   object color = null)
         {
-            _service.ValidateName(StepName, name, null);
-            MomentLoad load = new MomentLoad(name, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
+            MomentLoad load = new MomentLoad(nameText, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, NodeTarget);
             LoadFactory.ApplyMoment(load, m1, m2, m3);
             //
@@ -94,30 +98,33 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing moment using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_moment",
                    Returns = "Load")]
-        public LoadAPI replace_moment(string old_name, string name = null, object region = null, object m1 = null,
+        public LoadAPI replace_moment(object old_name, object name = null, object region = null, object m1 = null,
                                       object m2 = null, object m3 = null, object amplitude_name = null,
                                       object coordinate_system_name = null, object phase_deg = null,
                                       object color = null)
         {
-            MomentLoad load = _service.CloneForReplace<MomentLoad>(StepName, old_name, "moment");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            MomentLoad load = _service.CloneForReplace<MomentLoad>(StepName, oldName, "moment");
             ApplyRegionIfGiven(load, region, NodeTarget);
             LoadFactory.ApplyMoment(load, m1, m2, m3);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a pressure using command history. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, " +
                                "distribution_name: str = None, and the shared load arguments",
                    Returns = "Load", Example = "step.loads.add_pressure('Pressure-1', selection, 2.5)")]
-        public LoadAPI add_pressure(string name, object region, object magnitude,
+        public LoadAPI add_pressure(object name, object region, object magnitude,
                                     object distribution_name = null, object amplitude_name = null,
                                     object coordinate_system_name = null, object phase_deg = null,
                                     object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
-            DLoad load = new DLoad(name, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
+            DLoad load = new DLoad(nameText, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyPressure(load, magnitude);
             if (distribution_name != null)
@@ -129,18 +136,20 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing pressure using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_pressure with " +
                                "magnitude optional", Returns = "Load")]
-        public LoadAPI replace_pressure(string old_name, string name = null, object region = null,
+        public LoadAPI replace_pressure(object old_name, object name = null, object region = null,
                                         object magnitude = null, object distribution_name = null,
                                         object amplitude_name = null, object coordinate_system_name = null,
                                         object phase_deg = null, object color = null)
         {
-            DLoad load = _service.CloneForReplace<DLoad>(StepName, old_name, "pressure");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            DLoad load = _service.CloneForReplace<DLoad>(StepName, oldName, "pressure");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyPressure(load, magnitude);
             if (distribution_name != null)
                 load.DistributionName = _service.ResolveScalarDistributionName(distribution_name, "a pressure");
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a hydrostatic pressure using command history. The pressure varies linearly along " +
@@ -151,7 +160,7 @@ namespace APIs.Python.Model
                                "second_point: list[float] = None, direction: list[float] = None, " +
                                "first_point_pressure: float = None, second_point_pressure: float = None, " +
                                "cutoff: str = None, and the shared load arguments", Returns = "Load")]
-        public LoadAPI add_hydrostatic_pressure(string name, object region, object first_point = null,
+        public LoadAPI add_hydrostatic_pressure(object name, object region, object first_point = null,
                                                 object second_point = null, object direction = null,
                                                 object first_point_pressure = null,
                                                 object second_point_pressure = null, object cutoff = null,
@@ -159,9 +168,10 @@ namespace APIs.Python.Model
                                                 object coordinate_system_name = null, object phase_deg = null,
                                                 object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             HydrostaticPressure load =
-                new HydrostaticPressure(name, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
+                new HydrostaticPressure(nameText, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyHydrostaticPressure(load, first_point, second_point, direction,
                                                  first_point_pressure, second_point_pressure, cutoff);
@@ -172,7 +182,7 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing hydrostatic pressure using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_hydrostatic_pressure", Returns = "Load")]
-        public LoadAPI replace_hydrostatic_pressure(string old_name, string name = null, object region = null,
+        public LoadAPI replace_hydrostatic_pressure(object old_name, object name = null, object region = null,
                                                     object first_point = null, object second_point = null,
                                                     object direction = null, object first_point_pressure = null,
                                                     object second_point_pressure = null, object cutoff = null,
@@ -180,13 +190,15 @@ namespace APIs.Python.Model
                                                     object coordinate_system_name = null,
                                                     object phase_deg = null, object color = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             HydrostaticPressure load =
-                _service.CloneForReplace<HydrostaticPressure>(StepName, old_name, "hydrostatic_pressure");
+                _service.CloneForReplace<HydrostaticPressure>(StepName, oldName, "hydrostatic_pressure");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyHydrostaticPressure(load, first_point, second_point, direction,
                                                  first_point_pressure, second_point_pressure, cutoff);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds an imported pressure using command history. The pressure is read from a results " +
@@ -198,16 +210,17 @@ namespace APIs.Python.Model
                                "interpolator_type: str = None, magnitude_factor: float = None, " +
                                "geometry_scale_factor: float = None, and the shared load arguments",
                    Returns = "Load")]
-        public LoadAPI add_imported_pressure(string name, object region, object file_name, object pressure_time,
+        public LoadAPI add_imported_pressure(object name, object region, object file_name, object pressure_time,
                                              object pressure_variable_name,
                                              object interpolator_type = null, object magnitude_factor = null,
                                              object geometry_scale_factor = null, object amplitude_name = null,
                                              object coordinate_system_name = null, object phase_deg = null,
                                              object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             ImportedPressure load =
-                new ImportedPressure(name, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
+                new ImportedPressure(nameText, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, SurfaceTarget);
             load.FileName = _service.ResolveExistingFileName(file_name, "file_name");
             LoadFactory.ApplyImportedPressure(load, pressure_time, pressure_variable_name, interpolator_type,
@@ -219,7 +232,7 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing imported pressure using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_imported_pressure with file_name optional", Returns = "Load")]
-        public LoadAPI replace_imported_pressure(string old_name, string name = null, object region = null,
+        public LoadAPI replace_imported_pressure(object old_name, object name = null, object region = null,
                                                  object file_name = null, object pressure_time = null,
                                                  object pressure_variable_name = null,
                                                  object interpolator_type = null, object magnitude_factor = null,
@@ -228,14 +241,16 @@ namespace APIs.Python.Model
                                                  object coordinate_system_name = null, object phase_deg = null,
                                                  object color = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             ImportedPressure load =
-                _service.CloneForReplace<ImportedPressure>(StepName, old_name, "imported_pressure");
+                _service.CloneForReplace<ImportedPressure>(StepName, oldName, "imported_pressure");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             if (file_name != null) load.FileName = _service.ResolveExistingFileName(file_name, "file_name");
             LoadFactory.ApplyImportedPressure(load, pressure_time, pressure_variable_name, interpolator_type,
                                               magnitude_factor, geometry_scale_factor);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a surface traction using command history. Give the force components f1 to f3 " +
@@ -247,15 +262,16 @@ namespace APIs.Python.Model
                                "f3: float = None, p1: float = None, p2: float = None, p3: float = None, " +
                                "distribution_name: str = None, and the shared load arguments",
                    Returns = "Load")]
-        public LoadAPI add_surface_traction(string name, object region, object f1 = null, object f2 = null,
+        public LoadAPI add_surface_traction(object name, object region, object f1 = null, object f2 = null,
                                             object f3 = null, object p1 = null, object p2 = null,
                                             object p3 = null, object distribution_name = null,
                                             object amplitude_name = null,
                                             object coordinate_system_name = null, object phase_deg = null,
                                             object color = null)
         {
-            _service.ValidateName(StepName, name, null);
-            STLoad load = new STLoad(name, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
+            STLoad load = new STLoad(nameText, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, SurfaceTarget);
             if (distribution_name != null)
                 load.DistributionName = _service.ResolveDistributionName(distribution_name);
@@ -267,33 +283,36 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing surface traction using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_surface_traction",
                    Returns = "Load")]
-        public LoadAPI replace_surface_traction(string old_name, string name = null, object region = null,
+        public LoadAPI replace_surface_traction(object old_name, object name = null, object region = null,
                                                 object f1 = null, object f2 = null, object f3 = null,
                                                 object p1 = null, object p2 = null, object p3 = null,
                                                 object distribution_name = null, object amplitude_name = null,
                                                 object coordinate_system_name = null, object phase_deg = null,
                                                 object color = null)
         {
-            STLoad load = _service.CloneForReplace<STLoad>(StepName, old_name, "surface_traction");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            STLoad load = _service.CloneForReplace<STLoad>(StepName, oldName, "surface_traction");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             if (distribution_name != null)
                 load.DistributionName = _service.ResolveDistributionName(distribution_name);
             LoadFactory.ApplySurfaceTraction(load, f1, f2, f3, p1, p2, p3);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a shell edge load using command history. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, and the shared " +
                                "load arguments", Returns = "Load")]
-        public LoadAPI add_shell_edge_load(string name, object region, object magnitude,
+        public LoadAPI add_shell_edge_load(object name, object region, object magnitude,
                                            object amplitude_name = null,
                                            object coordinate_system_name = null, object phase_deg = null,
                                            object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
-            ShellEdgeLoad load = new ShellEdgeLoad(name, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
+            ShellEdgeLoad load = new ShellEdgeLoad(nameText, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyShellEdgeLoad(load, magnitude);
             //
@@ -303,16 +322,18 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing shell edge load using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_shell_edge_load " +
                                "with magnitude optional", Returns = "Load")]
-        public LoadAPI replace_shell_edge_load(string old_name, string name = null, object region = null,
+        public LoadAPI replace_shell_edge_load(object old_name, object name = null, object region = null,
                                                object magnitude = null, object amplitude_name = null,
                                                object coordinate_system_name = null, object phase_deg = null,
                                                object color = null)
         {
-            ShellEdgeLoad load = _service.CloneForReplace<ShellEdgeLoad>(StepName, old_name, "shell_edge_load");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            ShellEdgeLoad load = _service.CloneForReplace<ShellEdgeLoad>(StepName, oldName, "shell_edge_load");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyShellEdgeLoad(load, magnitude);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a gravity load using command history. A two dimensional model refuses a nonzero f3. " +
@@ -320,13 +341,14 @@ namespace APIs.Python.Model
                    Arguments = "name: str, region: Selection or Region, f1: float = None, f2: float = None, " +
                                "f3: float = None, and the shared load arguments", Returns = "Load",
                    Example = "step.loads.add_gravity('Gravity-1', part_selection, f3=-9810)")]
-        public LoadAPI add_gravity(string name, object region, object f1 = null, object f2 = null,
+        public LoadAPI add_gravity(object name, object region, object f1 = null, object f2 = null,
                                    object f3 = null, object amplitude_name = null,
                                    object coordinate_system_name = null, object phase_deg = null,
                                    object color = null)
         {
-            _service.ValidateName(StepName, name, null);
-            GravityLoad load = new GravityLoad(name, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
+            GravityLoad load = new GravityLoad(nameText, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, ElementTarget);
             LoadFactory.ApplyGravity(load, f1, f2, f3);
             //
@@ -336,16 +358,18 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing gravity load using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_gravity",
                    Returns = "Load")]
-        public LoadAPI replace_gravity(string old_name, string name = null, object region = null,
+        public LoadAPI replace_gravity(object old_name, object name = null, object region = null,
                                        object f1 = null, object f2 = null, object f3 = null,
                                        object amplitude_name = null, object coordinate_system_name = null,
                                        object phase_deg = null, object color = null)
         {
-            GravityLoad load = _service.CloneForReplace<GravityLoad>(StepName, old_name, "gravity");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            GravityLoad load = _service.CloneForReplace<GravityLoad>(StepName, oldName, "gravity");
             ApplyRegionIfGiven(load, region, ElementTarget);
             LoadFactory.ApplyGravity(load, f1, f2, f3);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a centrifugal load using command history. The axis is given by a point and a " +
@@ -355,14 +379,15 @@ namespace APIs.Python.Model
                    Arguments = "name: str, region: Selection or Region, axis_point: list[float] = None, " +
                                "axis_direction: list[float] = None, rotational_speed: float = None, and the " +
                                "shared load arguments", Returns = "Load")]
-        public LoadAPI add_centrifugal(string name, object region, object axis_point = null,
+        public LoadAPI add_centrifugal(object name, object region, object axis_point = null,
                                        object axis_direction = null, object rotational_speed = null,
                                        object amplitude_name = null, object coordinate_system_name = null,
                                        object phase_deg = null, object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             // The dialog derives the axisymmetric flag from the model space
-            CentrifLoad load = new CentrifLoad(name, null, RegionTypeEnum.Selection, TwoD(),
+            CentrifLoad load = new CentrifLoad(nameText, null, RegionTypeEnum.Selection, TwoD(),
                                                _service.GetIsAxisymmetric(), Complex(), 0);
             _service.ApplyRegion(load, region, ElementTarget);
             LoadFactory.ApplyCentrifugal(load, axis_point, axis_direction, rotational_speed);
@@ -373,17 +398,19 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing centrifugal load using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_centrifugal",
                    Returns = "Load")]
-        public LoadAPI replace_centrifugal(string old_name, string name = null, object region = null,
+        public LoadAPI replace_centrifugal(object old_name, object name = null, object region = null,
                                            object axis_point = null, object axis_direction = null,
                                            object rotational_speed = null, object amplitude_name = null,
                                            object coordinate_system_name = null, object phase_deg = null,
                                            object color = null)
         {
-            CentrifLoad load = _service.CloneForReplace<CentrifLoad>(StepName, old_name, "centrifugal");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            CentrifLoad load = _service.CloneForReplace<CentrifLoad>(StepName, oldName, "centrifugal");
             ApplyRegionIfGiven(load, region, ElementTarget);
             LoadFactory.ApplyCentrifugal(load, axis_point, axis_direction, rotational_speed);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a pre-tension load using command history. The direction is the surface normal " +
@@ -394,14 +421,15 @@ namespace APIs.Python.Model
                    Arguments = "name: str, region: Selection or Region, magnitude: float, " +
                                "direction: list[float] = None, tension_type: str = None, and the shared load " +
                                "arguments, then auto_direction: bool = None", Returns = "Load")]
-        public LoadAPI add_pre_tension(string name, object region, object magnitude, object direction = null,
+        public LoadAPI add_pre_tension(object name, object region, object magnitude, object direction = null,
                                        object tension_type = null, object amplitude_name = null,
                                        object coordinate_system_name = null, object phase_deg = null,
                                        object color = null, object auto_direction = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
-            PreTensionLoad load = new PreTensionLoad(name, null, RegionTypeEnum.Selection, 0, TwoD());
+            PreTensionLoad load = new PreTensionLoad(nameText, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyPreTension(load, magnitude, direction, tension_type, auto_direction);
             //
@@ -413,31 +441,34 @@ namespace APIs.Python.Model
                    "auto_direction=True returns to the surface normal.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_pre_tension with " +
                                "magnitude optional", Returns = "Load")]
-        public LoadAPI replace_pre_tension(string old_name, string name = null, object region = null,
+        public LoadAPI replace_pre_tension(object old_name, object name = null, object region = null,
                                            object magnitude = null, object direction = null,
                                            object tension_type = null, object amplitude_name = null,
                                            object coordinate_system_name = null, object phase_deg = null,
                                            object color = null, object auto_direction = null)
         {
-            PreTensionLoad load = _service.CloneForReplace<PreTensionLoad>(StepName, old_name, "pre_tension");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            PreTensionLoad load = _service.CloneForReplace<PreTensionLoad>(StepName, oldName, "pre_tension");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyPreTension(load, magnitude, direction, tension_type, auto_direction);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a concentrated flux using command history. A thermal load is never complex, so it " +
                    "refuses phase_deg. The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, " +
                                "add_flux: bool = None, and the shared load arguments", Returns = "Load")]
-        public LoadAPI add_concentrated_flux(string name, object region, object magnitude,
+        public LoadAPI add_concentrated_flux(object name, object region, object magnitude,
                                              object add_flux = null, object amplitude_name = null,
                                              object coordinate_system_name = null, object phase_deg = null,
                                              object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
-            CFlux load = new CFlux(name, null, RegionTypeEnum.Selection, 0, TwoD());
+            CFlux load = new CFlux(nameText, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, NodeTarget);
             LoadFactory.ApplyConcentratedFlux(load, magnitude, add_flux);
             //
@@ -447,29 +478,32 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing concentrated flux using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_concentrated_flux with magnitude optional", Returns = "Load")]
-        public LoadAPI replace_concentrated_flux(string old_name, string name = null, object region = null,
+        public LoadAPI replace_concentrated_flux(object old_name, object name = null, object region = null,
                                                  object magnitude = null, object add_flux = null,
                                                  object amplitude_name = null,
                                                  object coordinate_system_name = null, object phase_deg = null,
                                                  object color = null)
         {
-            CFlux load = _service.CloneForReplace<CFlux>(StepName, old_name, "concentrated_flux");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            CFlux load = _service.CloneForReplace<CFlux>(StepName, oldName, "concentrated_flux");
             ApplyRegionIfGiven(load, region, NodeTarget);
             LoadFactory.ApplyConcentratedFlux(load, magnitude, add_flux);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a surface flux using command history. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, and the shared " +
                                "load arguments", Returns = "Load")]
-        public LoadAPI add_surface_flux(string name, object region, object magnitude,
+        public LoadAPI add_surface_flux(object name, object region, object magnitude,
                                         object amplitude_name = null, object coordinate_system_name = null,
                                         object phase_deg = null, object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
-            DFlux load = new DFlux(name, null, RegionTypeEnum.Selection, 0, TwoD());
+            DFlux load = new DFlux(nameText, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplySurfaceFlux(load, magnitude);
             //
@@ -479,28 +513,31 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing surface flux using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_surface_flux with " +
                                "magnitude optional", Returns = "Load")]
-        public LoadAPI replace_surface_flux(string old_name, string name = null, object region = null,
+        public LoadAPI replace_surface_flux(object old_name, object name = null, object region = null,
                                             object magnitude = null, object amplitude_name = null,
                                             object coordinate_system_name = null, object phase_deg = null,
                                             object color = null)
         {
-            DFlux load = _service.CloneForReplace<DFlux>(StepName, old_name, "surface_flux");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            DFlux load = _service.CloneForReplace<DFlux>(StepName, oldName, "surface_flux");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplySurfaceFlux(load, magnitude);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a body flux using command history. The selection target is elements.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, and the shared " +
                                "load arguments", Returns = "Load")]
-        public LoadAPI add_body_flux(string name, object region, object magnitude, object amplitude_name = null,
+        public LoadAPI add_body_flux(object name, object region, object magnitude, object amplitude_name = null,
                                      object coordinate_system_name = null, object phase_deg = null,
                                      object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
-            BodyFlux load = new BodyFlux(name, null, RegionTypeEnum.Selection, 0, TwoD());
+            BodyFlux load = new BodyFlux(nameText, null, RegionTypeEnum.Selection, 0, TwoD());
             _service.ApplyRegion(load, region, ElementTarget);
             LoadFactory.ApplyBodyFlux(load, magnitude);
             //
@@ -510,16 +547,18 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing body flux using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_body_flux with " +
                                "magnitude optional", Returns = "Load")]
-        public LoadAPI replace_body_flux(string old_name, string name = null, object region = null,
+        public LoadAPI replace_body_flux(object old_name, object name = null, object region = null,
                                          object magnitude = null, object amplitude_name = null,
                                          object coordinate_system_name = null, object phase_deg = null,
                                          object color = null)
         {
-            BodyFlux load = _service.CloneForReplace<BodyFlux>(StepName, old_name, "body_flux");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            BodyFlux load = _service.CloneForReplace<BodyFlux>(StepName, oldName, "body_flux");
             ApplyRegionIfGiven(load, region, ElementTarget);
             LoadFactory.ApplyBodyFlux(load, magnitude);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a film heat transfer load using command history. The film coefficient can carry " +
@@ -527,17 +566,18 @@ namespace APIs.Python.Model
                    Arguments = "name: str, region: Selection or Region, sink_temperature: float, " +
                                "film_coefficient: float, coefficient_amplitude_name: str = None, and the " +
                                "shared load arguments", Returns = "Load")]
-        public LoadAPI add_film_heat_transfer(string name, object region, object sink_temperature,
+        public LoadAPI add_film_heat_transfer(object name, object region, object sink_temperature,
                                               object film_coefficient,
                                               object coefficient_amplitude_name = null,
                                               object amplitude_name = null,
                                               object coordinate_system_name = null, object phase_deg = null,
                                               object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             RefuseNone(sink_temperature, "sink_temperature");
             RefuseNone(film_coefficient, "film_coefficient");
-            FilmHeatTransfer load = new FilmHeatTransfer(name, null, RegionTypeEnum.Selection, 0, 0, TwoD());
+            FilmHeatTransfer load = new FilmHeatTransfer(nameText, null, RegionTypeEnum.Selection, 0, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyFilmHeatTransfer(load, sink_temperature, film_coefficient);
             if (coefficient_amplitude_name != null)
@@ -550,22 +590,24 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing film heat transfer load using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_film_heat_transfer with the values optional", Returns = "Load")]
-        public LoadAPI replace_film_heat_transfer(string old_name, string name = null, object region = null,
+        public LoadAPI replace_film_heat_transfer(object old_name, object name = null, object region = null,
                                                   object sink_temperature = null, object film_coefficient = null,
                                                   object coefficient_amplitude_name = null,
                                                   object amplitude_name = null,
                                                   object coordinate_system_name = null, object phase_deg = null,
                                                   object color = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             FilmHeatTransfer load =
-                _service.CloneForReplace<FilmHeatTransfer>(StepName, old_name, "film_heat_transfer");
+                _service.CloneForReplace<FilmHeatTransfer>(StepName, oldName, "film_heat_transfer");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyFilmHeatTransfer(load, sink_temperature, film_coefficient);
             if (coefficient_amplitude_name != null)
                 load.CoefficientAmplitudeName =
                     _service.ResolveAmplitudeName(coefficient_amplitude_name, "coefficient_amplitude_name");
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a radiation heat transfer load using command history. The emissivity is between 0 " +
@@ -578,7 +620,7 @@ namespace APIs.Python.Model
                                "emissivity: float, cavity_radiation: bool = None, cavity_name: str = None, " +
                                "emissivity_amplitude_name: str = None, and the shared load arguments",
                    Returns = "Load")]
-        public LoadAPI add_radiation_heat_transfer(string name, object region, object sink_temperature,
+        public LoadAPI add_radiation_heat_transfer(object name, object region, object sink_temperature,
                                                    object emissivity, object cavity_radiation = null,
                                                    object cavity_name = null,
                                                    object emissivity_amplitude_name = null,
@@ -586,11 +628,12 @@ namespace APIs.Python.Model
                                                    object coordinate_system_name = null, object phase_deg = null,
                                                    object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             RefuseNone(sink_temperature, "sink_temperature");
             RefuseNone(emissivity, "emissivity");
             RadiationHeatTransfer load =
-                new RadiationHeatTransfer(name, null, RegionTypeEnum.Selection, 0, 0, TwoD());
+                new RadiationHeatTransfer(nameText, null, RegionTypeEnum.Selection, 0, 0, TwoD());
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyRadiationHeatTransfer(load, sink_temperature, emissivity, cavity_radiation);
             ApplyRadiationNames(load, cavity_name, emissivity_amplitude_name);
@@ -601,7 +644,7 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing radiation heat transfer load using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_radiation_heat_transfer with the values optional", Returns = "Load")]
-        public LoadAPI replace_radiation_heat_transfer(string old_name, string name = null, object region = null,
+        public LoadAPI replace_radiation_heat_transfer(object old_name, object name = null, object region = null,
                                                        object sink_temperature = null, object emissivity = null,
                                                        object cavity_radiation = null, object cavity_name = null,
                                                        object emissivity_amplitude_name = null,
@@ -609,22 +652,25 @@ namespace APIs.Python.Model
                                                        object coordinate_system_name = null,
                                                        object phase_deg = null, object color = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             RadiationHeatTransfer load =
-                _service.CloneForReplace<RadiationHeatTransfer>(StepName, old_name, "radiation_heat_transfer");
+                _service.CloneForReplace<RadiationHeatTransfer>(StepName, oldName, "radiation_heat_transfer");
             ApplyRegionIfGiven(load, region, SurfaceTarget);
             LoadFactory.ApplyRadiationHeatTransfer(load, sink_temperature, emissivity, cavity_radiation);
             ApplyRadiationNames(load, cavity_name, emissivity_amplitude_name);
             //
-            return Replace(old_name, name, load, amplitude_name, coordinate_system_name, phase_deg, color);
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Copies the load to every following step using command history. A following step that " +
                    "does not support the load type is skipped, as the dialog does, so from the last step, or " +
                    "when no following step supports it, nothing changes.",
                    Arguments = "name: str", Returns = "None")]
-        public void propagate(string name)
+        public void propagate(object name)
         {
-            _service.Propagate(StepName, name);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.Propagate(StepName, nameText);
         }
 
         [PythonAPI("Hides the symbols of the named loads using command history.",

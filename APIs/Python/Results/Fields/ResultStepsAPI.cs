@@ -31,9 +31,10 @@ namespace APIs.Python
 
 
         // Methods
-        public ResultStepAPI __getitem__(int stepId)
+        public ResultStepAPI __getitem__(object stepId)
         {
-            return this[stepId];
+            int stepIdNumber = PythonValueConverter.ToInt(stepId, "id");
+            return this[stepIdNumber];
         }
         public ResultStepAPI this[int stepId]
         {
@@ -71,7 +72,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(int stepId)
+        public bool __contains__(object stepId)
         {
             return contains(stepId);
         }

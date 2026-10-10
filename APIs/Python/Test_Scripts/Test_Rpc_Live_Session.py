@@ -20,7 +20,8 @@
 #constraint, contact pair and initial condition dialogs set. One more carries a
 #recorded script that binds selection_1, which must not change the journal lines after it, and a global
 #results file name cleared with '' as the dialog clears it. A recorded script that fails part way must be
-#recorded with what it changed before the error and its journal must run it to that error and go on, while
+#recorded with what it changed before the error and its journal must run it to that error and go on, a
+#sys.exit() included, while
 #one that fails before changing anything records nothing. Two model checks of elements without a section
 #must leave one Missing_section set, and so must their journal.
 #
@@ -76,7 +77,7 @@ ROUND_TRIP_MODEL = [
     "pmx.model.element_sets.add('rt_cube', pmx.create.selection_by_ids('femodel', 'elements', 'elements', [1]))",
     "pmx.model.surfaces.add('rt_face', pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [2]}))",
     "pmx.model.amplitudes.add('rt_ramp', [[0, 0], [1, 1]])",
-    "step = pmx.model.steps.add_static('rt_static', time_period=1.0)",
+    "step = pmx.model.steps.add_static('rt_static')",
     "step.bcs.add_fixed('rt_fix', pmx.create.region('NodeSetName', 'rt_bottom'))",
     "step.bcs.add_displacement_rotation('rt_dr', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [7, 8]), "
     "u1=0, u2=0, u3=1.5)",
@@ -202,6 +203,7 @@ def check_recording(client):
     check(status["isWindowHidden"], "the child must have no window")
     check(not status["isReadOnly"], "the child must accept changes")
     check(not status["isCommandRecordingSuppressed"], "a session of its own records what it is told")
+    check(status["isRegenerating"] is False, "the child must not be regenerating: " + str(status))
     check(status["isIdle"], "the child must be idle: " + status["busyReason"])
     before = status["model"]["commandCount"]
     # One API call is one command
@@ -381,7 +383,7 @@ def check_journal_of_replaces(client):
     check(not result["failed"], "the new model must be built: " + result["error"])
     # Each value is set by the add and taken back to its default by the replace
     source = os.linesep.join([
-        "pmx.model.steps.add_static('journal_static', time_period=1.0)",
+        "pmx.model.steps.add_static('journal_static')",
         "bcs = pmx.model.steps['journal_static'].bcs",
         "bcs.add_displacement_rotation('journal_dr', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', "
         "[7, 8]), u1=0, u2=0, u3=1.5)",
@@ -505,7 +507,10 @@ def read_model_states(client):
                    steps + "['state_steady'].bcs['state_rotation'].get_value('phase_deg')",
                    "'phase_deg' in list(" + steps + "['state_steady'].loads['state_tension'].get_value_names())",
                    steps + "['state_steady'].loads['state_tension'].get_value('magnitude')",
-                   steps + "['state_heat'].loads['state_radiation'].get_value('cavity_radiation')"]
+                   steps + "['state_heat'].loads['state_radiation'].get_value('cavity_radiation')",
+                   steps + "['state_default'].incrementation_type",
+                   steps + "['state_default'].get_value('time_period')",
+                   steps + "['state_default'].max_increments"]
     value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
     check(not value["failed"], "the model states must be readable: " + value["error"])
     return value["value"]
@@ -526,7 +531,12 @@ def check_journal_of_model_states(client):
         "pmx.model.amplitudes.add('state_ramp', [[0, 0], [1, 1]])",
         # An initial increment above the maximum one, and controls whose unset values the journal leaves out
         "static = pmx.model.steps.add_static('state_static', time_period=1.0, initial_time_increment=0.5, "
-        "max_time_increment=0.1)",
+        "max_time_increment=0.1, incrementation_type='Automatic')",
+        # A step set back to the Default incrementation keeps its time values hidden, as the dialog does, and
+        # the journal of the replace must not write them, or the replay is refused
+        "pmx.model.steps.add_static('state_default', time_period=2.0, initial_time_increment=0.25, "
+        "max_increments=40, incrementation_type='Automatic')",
+        "pmx.model.steps.replace_static('state_default', incrementation_type='Default')",
         "static.set_controls([pmx.create.time_incrementation_control(i0=8), pmx.create.field_control(rna=0.01), "
         "pmx.create.contact_control(delcon=0.002)])",
         "static.loads.add_concentrated_force('state_force', node, f1=1)",
@@ -569,6 +579,8 @@ def check_journal_of_model_states(client):
         check(recorded[11] == "=15*2" and recorded[12] == 45, "the phases were not kept: " + str(recorded))
         check(recorded[13] is False and recorded[14] == 600, "the pre-tension took a phase: " + str(recorded))
         check(recorded[15] is False, "the cavity radiation was not turned off: " + str(recorded))
+        check(recorded[16] == "Default" and recorded[17] is None and recorded[18] is None,
+              "a Default static step must read its hidden time values as None: " + str(recorded))
         result = client.result("history", {"include_journal": True})
         journal = result["journal"]
         check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
@@ -743,7 +755,7 @@ def check_journal_of_dialog_values(client):
         "pmx.model.amplitudes.add('dialog_shift_back', [[0, 0], [1, 1]], shift_time=0.5)",
         "pmx.model.amplitudes.replace('dialog_shift_back', shift_time=0)",
         # Degrees of freedom the dialog shows as Fixed, and fixed ones taken back to values
-        "static = pmx.model.steps.add_static('dialog_static', time_period=1.0)",
+        "static = pmx.model.steps.add_static('dialog_static')",
         "static.bcs.add_displacement_rotation('dialog_fixed', node, fixed_dofs=['U1', 'U3'])",
         "static.bcs.replace_displacement_rotation('dialog_fixed', free_dofs=['U1', 'U3'], fixed_dofs=['U2'])",
         "static.bcs.add_displacement_rotation('dialog_valued', node, fixed_dofs=['U1'])",
@@ -933,7 +945,7 @@ def check_journal_of_script_and_properties(client):
 
 
 def read_failed_script_states(client):
-    names = ("failed_before", "failed_after", "failed_later")
+    names = ("failed_before", "failed_after", "failed_exit", "failed_later")
     value = client.result("eval", {"expression": "[pmx.model.node_sets.contains(name) for name in " +
                                                  str(list(names)) + "]"})
     check(not value["failed"], "the node sets must be readable: " + value["error"])
@@ -964,22 +976,33 @@ def check_journal_of_failed_script(client):
           "a script that failed before changing anything must not be recorded: " + str(result["recordedCommands"]))
     check("recorded in the command history" not in result["error"],
           "a script that was not recorded must not be said to be: " + result["error"])
+    # A script that ends in sys.exit() after a change is recorded the same way, and its journal must not stop there
+    script = os.linesep.join(["pmx.model.node_sets.add('failed_exit', " + first_node + ")",
+                              "import sys",
+                              "sys.exit(3)"])
+    result = client.result("exec", {"source": script, "record": "script"})
+    check(result["failed"], "the script ending in sys.exit() must fail: " + str(result))
+    check([entry["type"] for entry in result["recordedCommands"]] == ["CRunPythonScript"],
+          "the script ending in sys.exit() must be recorded as one command: " + str(result["recordedCommands"]))
     result = client.result("exec", {"source": "pmx.model.node_sets.add('failed_later', " + first_node + ")"})
     check(not result["failed"], "the node set after the script must be added: " + result["error"])
     recorded = read_failed_script_states(client)
-    check(recorded == [True, False, True], "the states are not the ones built: " + str(recorded))
+    check(recorded == [True, False, True, True], "the states are not the ones built: " + str(recorded))
     result = client.result("history", {"include_journal": True})
     journal = result["journal"]
     check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
     journal_source = journal["source"]
-    check("except Exception as _recorded_script_error" in journal_source,
+    check("except BaseException as _recorded_script_error" in journal_source,
           "the journal must let the failed script fail and go on:" + os.linesep + journal_source)
+    check("except KeyboardInterrupt:" in journal_source,
+          "the journal must still stop when it is interrupted:" + os.linesep + journal_source)
     result = client.result("exec", {"source": model})
     check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
     result = client.result("exec", {"source": journal_source})
     check(not result["failed"], "the journal of the failed script must replay: " + result["error"] + os.linesep +
           journal_source)
     check("planned failure" in result["output"], "the replay must report the failure: " + result["output"])
+    check("SystemExit" in result["output"], "the replay must report the sys.exit() and go on: " + result["output"])
     replayed = read_failed_script_states(client)
     check(replayed == recorded, "the replayed states differ: " + str(replayed) + " against " + str(recorded))
     print("journal: a script that failed part way replays to " + str(replayed))
@@ -1000,7 +1023,7 @@ def check_journal_of_missing_section(client):
                                               "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
     check(not result["failed"], "the new model must be built: " + result["error"])
     source = os.linesep.join([
-        "step = pmx.model.steps.add_static('missing_static', time_period=1.0)",
+        "step = pmx.model.steps.add_static('missing_static')",
         "step.bcs.add_fixed('missing_fix', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))",
         "job = pmx.jobs.add('missing_job')",
         "job.check_model(timeout=120)",

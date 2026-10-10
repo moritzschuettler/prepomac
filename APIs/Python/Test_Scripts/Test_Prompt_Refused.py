@@ -19,7 +19,7 @@ def main():
     if not pmx.model.is_open():
         raise Exception("TEST FAILED: a model must be open")
     # A step is needed for the analysis to have something to run, but no section is assigned
-    step = pmx.model.steps.add_static(STEP, time_period=1.0)
+    step = pmx.model.steps.add_static(STEP)
     step.bcs.add_fixed(PREFIX + "Fix",
                        pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))
     #

@@ -59,8 +59,8 @@ def element_selection(ids):
 
 
 def setup():
-    pmx.model.steps.add_static(STEP, time_period=1.0)
-    pmx.model.steps.add_static(NEXT_STEP, time_period=1.0)
+    pmx.model.steps.add_static(STEP)
+    pmx.model.steps.add_static(NEXT_STEP)
     pmx.model.steps.add_uncoupled_temp_disp(THERMAL_STEP)
 
 
@@ -126,8 +126,10 @@ def test_field_outputs():
     # Propagate
     following = pmx.model.steps[NEXT_STEP].field_outputs
     check(not following.contains(PREFIX + "NF"), "the following step must not carry it yet")
-    outputs.propagate(PREFIX + "NF")
-    check(following.contains(PREFIX + "NF"), "the field output was not propagated")
+    # A name is found regardless of case and passed on in the model's spelling
+    outputs.propagate((PREFIX + "NF").lower())
+    check(PREFIX + "NF" in list(following.get_names()),
+          "the field output was not propagated in the model's spelling")
     # The thermal step is the last one: the dialog propagates from it too and copies nothing, so a journal
     # of that replays
     last = pmx.model.steps[THERMAL_STEP].field_outputs
@@ -173,8 +175,9 @@ def test_history_outputs():
     check(outputs.contains(PREFIX + "HN_R"), "the history output was not renamed")
     outputs.rename(PREFIX + "HN_R", PREFIX + "HN")
     following = pmx.model.steps[NEXT_STEP].history_outputs
-    outputs.propagate(PREFIX + "HN")
-    check(following.contains(PREFIX + "HN"), "the history output was not propagated")
+    outputs.propagate((PREFIX + "HN").lower())
+    check(PREFIX + "HN" in list(following.get_names()),
+          "the history output was not propagated in the model's spelling")
     last = pmx.model.steps[THERMAL_STEP].history_outputs
     check(last.contains(PREFIX + "HN"), "the history output was not propagated to the last step")
     # From the last step nothing is copied, as in the dialog, and a journal of it replays
@@ -285,13 +288,14 @@ def test_defined_fields():
     # The thermal step carries no defined temperature, so the propagation skips it, as the dialog does
     following = pmx.model.steps[NEXT_STEP].defined_fields
     check(not following.contains(PREFIX + "DF"), "the following step must not carry the defined field yet")
-    fields.propagate(PREFIX + "DF")
-    check(following.contains(PREFIX + "DF"), "the defined field was not propagated to the static step")
+    fields.propagate((PREFIX + "DF").lower())
+    check(PREFIX + "DF" in list(following.get_names()),
+          "the defined field was not propagated to the static step in the model's spelling")
     check(not pmx.model.steps[THERMAL_STEP].defined_fields.contains(PREFIX + "DF"),
           "the thermal step took a defined temperature")
     # Two static steps after the thermal one take the field
-    pmx.model.steps.add_static(PREFIX + "Static_Last", time_period=1.0)
-    pmx.model.steps.add_static(PREFIX + "Static_After", time_period=1.0)
+    pmx.model.steps.add_static(PREFIX + "Static_Last")
+    pmx.model.steps.add_static(PREFIX + "Static_After")
     last = pmx.model.steps[PREFIX + "Static_Last"].defined_fields
     last.add_temperature(PREFIX + "DF_Last", node_selection([1, 2]), 100)
     last.propagate(PREFIX + "DF_Last")

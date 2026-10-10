@@ -30,9 +30,10 @@ namespace APIs.Python
 
 
         // Methods
-        public ResultNodeSetAPI __getitem__(string nodeSetName)
+        public ResultNodeSetAPI __getitem__(object nodeSetName)
         {
-            return this[nodeSetName];
+            string nodeSetNameText = PythonValueConverter.ToText(nodeSetName, "name", false);
+            return this[nodeSetNameText];
         }
         public ResultNodeSetAPI this[string nodeSetName]
         {
@@ -65,7 +66,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(string nodeSetName)
+        public bool __contains__(object nodeSetName)
         {
             return contains(nodeSetName);
         }
@@ -94,9 +95,10 @@ namespace APIs.Python
 
         [PythonAPI("Returns true if the result contains the specified user-visible node set.",
                    Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return PythonNameComparer.Contains(_meshService.GetNodeSetNames(_resultName), name);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return PythonNameComparer.Contains(_meshService.GetNodeSetNames(_resultName), nameText);
         }
         public override string ToString()
         {

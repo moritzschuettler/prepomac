@@ -4,7 +4,8 @@
 #Checks the automation server. The script is its own client: it runs inside the application and
 #connects to the named pipe of its own process, so the whole contract is checked unattended. A null id is
 #refused, and a request sent as a notification is dropped and not run, shutdown alone excepted - a malformed
-#one is dropped unanswered as well. An argument a method does not take is refused, naming it.
+#one is dropped unanswered as well. An argument a method does not take is refused, naming it, and a method
+#the server does not serve is refused at once, even while another call holds the turn.
 #
 #  PrePoMax.com --script Test_Rpc_Server.py --rpc On -g No -x Yes -w <work directory>
 #
@@ -389,6 +390,20 @@ def check_history(client):
     check("PrePoMax" in journal["source"], "the journal must carry its header: " + journal["source"][:80])
     print("history: " + str(result["commandCount"]) + " commands, journal of " +
           str(len(journal["source"])) + " characters")
+    # A journal file is only written with the journal, so asking for one without it is refused
+    for parameters in ({"journal_file": "rpc_journal.py"}, {"include_journal": False, "journal_file": "rpc_journal.py"}):
+        error = client.error("history", parameters)
+        check(error["code"] == INVALID_PARAMS and "journal_file" in error["message"] and
+              "include_journal" in error["message"], "a journal_file without include_journal must be refused: " +
+              str(error))
+    # A relative journal file is written under the temporary folder, not in the folder the process started in
+    result = client.result("history", {"include_journal": True, "journal_file": "rpc_journal.py"})
+    file_name = result["journal"]["fileName"]
+    check(os.path.isabs(file_name) and os.path.basename(os.path.dirname(file_name)) == "PrePoMax" and
+          os.path.exists(file_name), "a relative journal_file must be written in the PrePoMax temporary folder: " +
+          file_name)
+    os.remove(file_name)
+    print("history: a journal_file without include_journal refused, a relative one placed in " + file_name)
 
 
 def check_screenshot(client):
@@ -459,6 +474,34 @@ def check_unknown_arguments(client):
                                                  "if name in dir()]"})
     check(value["value"] == [], "a call with an unknown argument must not have run: " + str(value))
     print("unknown arguments: " + str(len(refused)) + " refused by name, none of them run")
+
+
+def check_call_ids(client):
+    """A call_id that cannot belong to any call is refused as out of range, not as missing."""
+    for method in ("wait", "cancel"):
+        error = client.error(method, {"call_id": -3})
+        check(error["code"] == INVALID_PARAMS and "call_id must be at least 1" in error["message"],
+              method + " must refuse call_id -3 as below 1: " + str(error))
+        error = client.error(method, {})
+        check(error["code"] == INVALID_PARAMS and "call_id is required" in error["message"],
+              method + " must refuse a missing call_id as required: " + str(error))
+    print("call ids: a negative one refused as below 1, a missing one as required")
+
+
+def check_unknown_method_while_busy(client):
+    """A method the server does not serve is refused at once, not after the call holding the turn ends."""
+    source = os.linesep.join(["import time", "time.sleep(4)"])
+    answer = client.result("exec", {"source": source, "timeout": 0})
+    check(answer.get("running") is True and answer.get("callId", 0) > 0,
+          "a timeout of 0 must answer at once with a callId: " + str(answer))
+    started = time.time()
+    error = client.error("no_such_method_while_busy")
+    elapsed = time.time() - started
+    check(error["code"] == METHOD_NOT_FOUND, "an unknown method must be MethodNotFound while busy: " + str(error))
+    check(elapsed < 2.0, "an unknown method must not wait for the turn: refused after " + str(elapsed) + " s")
+    result = client.result("wait", {"call_id": answer["callId"], "timeout": 30})
+    check(not result.get("failed") and not result.get("running"), "the holding call must finish: " + str(result))
+    print("unknown method: refused in " + str(round(elapsed, 2)) + " s while another call held the turn")
 
 
 def check_second_connection():
@@ -546,6 +589,8 @@ def main():
         check_screenshot(client)
         check_argument_types(client)
         check_unknown_arguments(client)
+        check_call_ids(client)
+        check_unknown_method_while_busy(client)
     finally:
         client.close()
     #

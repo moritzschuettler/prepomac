@@ -36,16 +36,17 @@ namespace APIs.Python
                                "compatibility_mode: bool = None, number_of_cpus: int = None, " +
                                "environment_variables: list[EnvironmentVariable] = None", Returns = "Job",
                    Example = "job = pmx.jobs.add('Job-1')")]
-        public JobAPI add(string name, object fem_solver = null, object executable = null,
+        public JobAPI add(object name, object fem_solver = null, object executable = null,
                           object argument = null, object work_directory = null,
                           object compatibility_mode = null, object number_of_cpus = null, object environment_variables = null)
         {
-            _service.ValidateName(name, null);
-            AnalysisJob job = _service.Build(name, fem_solver, executable, argument, work_directory,
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
+            AnalysisJob job = _service.Build(nameText, fem_solver, executable, argument, work_directory,
                                              compatibility_mode, number_of_cpus, environment_variables);
             _service.Add(job);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing analysis using command history. A value that is not given is " +
@@ -56,26 +57,30 @@ namespace APIs.Python
                                "inherit_executable: bool = None, inherit_work_directory: bool = None, " +
                                "inherit_number_of_cpus: bool = None, inherit_environment_variables: bool = None",
                    Returns = "Job")]
-        public JobAPI replace(string old_name, string name = null, object fem_solver = null,
+        public JobAPI replace(object old_name, object name = null, object fem_solver = null,
                               object executable = null, object argument = null, object work_directory = null,
                               object compatibility_mode = null, object number_of_cpus = null, object environment_variables = null,
                               object inherit_executable = null, object inherit_work_directory = null,
                               object inherit_number_of_cpus = null, object inherit_environment_variables = null)
         {
-            AnalysisJob job = _service.BuildReplacement(old_name, name, fem_solver, executable, argument, work_directory,
-                                                        compatibility_mode, number_of_cpus, environment_variables,
-                                                        inherit_executable, inherit_work_directory,
-                                                        inherit_number_of_cpus, inherit_environment_variables);
-            _service.Replace(old_name, job);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            AnalysisJob job = _service.BuildReplacement(oldName, nameText, fem_solver, executable, argument,
+                                                        work_directory, compatibility_mode, number_of_cpus,
+                                                        environment_variables, inherit_executable,
+                                                        inherit_work_directory, inherit_number_of_cpus,
+                                                        inherit_environment_variables);
+            _service.Replace(oldName, job);
             return this[job.Name];
         }
 
         [PythonAPI("Opens the results of the named analysis using command history. The results become the " +
                    "current result of pmx.results.", Arguments = "name: str", Returns = "None",
                    Example = "pmx.jobs.open_results('Job-1')")]
-        public void open_results(string name)
+        public void open_results(object name)
         {
-            _service.OpenResults(name);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.OpenResults(nameText);
         }
         //
         protected override string[] GetItemNames()

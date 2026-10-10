@@ -217,7 +217,7 @@ namespace APIs.Python.Model
         {
             double[] center = ToVector(rotateCenter, "rotate_center");
             double[] axis = ToDirection(rotateAxis, "rotate_axis");
-            double angleDeg = PythonValueConverter.ToDouble(rotateAngle, "rotate_angle_deg");
+            double angleDeg = PythonValueConverter.ToFiniteDouble(rotateAngle, "rotate_angle_deg");
             ValidateNumberOfCopies(numberOfCopies);
             EnsureCommandsAvailable();
             RotateParts(partNames, center, axis, angleDeg * Math.PI / 180, ToCommandNumberOfCopies(numberOfCopies));
@@ -255,6 +255,11 @@ namespace APIs.Python.Model
             double[] vector = PythonDoubleListConverter.ToDoubleArray(value, argumentName);
             if (vector == null || vector.Length != 3)
                 throw new PythonAPIException("The argument '" + argumentName + "' must contain 3 values.");
+            for (int i = 0; i < vector.Length; i++)
+            {
+                if (double.IsNaN(vector[i]) || double.IsInfinity(vector[i]))
+                    throw new PythonAPIException("The argument '" + argumentName + "[" + i + "]' must be finite.");
+            }
             //
             return vector;
         }

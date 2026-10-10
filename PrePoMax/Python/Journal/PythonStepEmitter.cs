@@ -79,9 +79,13 @@ namespace PrePoMax.Python.Journal
             if (step is ModalDynamicsStep modalDynamics)
             {
                 arguments.Add("steady_state=" + PythonValueFormatter.Format(modalDynamics.SteadyState));
-                arguments.Add("relative_error=" + PythonValueFormatter.Number(modalDynamics.RelativeError));
+                if (modalDynamics.SteadyState)
+                    arguments.Add("relative_error=" + PythonValueFormatter.Number(modalDynamics.RelativeError));
                 arguments.Add("modal_damping=" + GetModalDamping(modalDynamics.ModalDamping));
-                AddStaticValues(arguments, modalDynamics);
+                if (!modalDynamics.SteadyState)
+                    arguments.Add("time_period=" + PythonValueFormatter.Number(modalDynamics.TimePeriod));
+                arguments.Add("initial_time_increment=" +
+                              PythonValueFormatter.Number(modalDynamics.InitialTimeIncrement));
                 return "modal_dynamics";
             }
             if (step is SlipWearStep slipWear)
@@ -132,13 +136,18 @@ namespace PrePoMax.Python.Journal
             //
             throw new NotSupportedException("the step type " + step.GetType().Name + " has no API form");
         }
+        // Only the values the incrementation type uses, which are the values the dialog shows: the API refuses the
+        // others, and a replace keeps them
         private static void AddStaticValues(List<string> arguments, StaticStep step)
         {
+            if (step.IncrementationType == IncrementationTypeEnum.Default) return;
+            //
             arguments.Add("time_period=" + PythonValueFormatter.Number(step.TimePeriod));
             arguments.Add("initial_time_increment=" + PythonValueFormatter.Number(step.InitialTimeIncrement));
+            if (step.IncrementationType != IncrementationTypeEnum.Automatic) return;
+            //
             arguments.Add("min_time_increment=" + PythonValueFormatter.Number(step.MinTimeIncrement));
             arguments.Add("max_time_increment=" + PythonValueFormatter.Number(step.MaxTimeIncrement));
-            arguments.Add("direct=" + PythonValueFormatter.Format(step.Direct));
         }
         private static void AddHeatTransferValues(List<string> arguments, HeatTransferStep step)
         {
@@ -160,7 +169,8 @@ namespace PrePoMax.Python.Journal
         private static void AddCommonValues(List<string> arguments, Step step)
         {
             arguments.Add("nlgeom=" + PythonValueFormatter.Format(step.Nlgeom));
-            arguments.Add("max_increments=" + step.MaxIncrements);
+            if (!(step is StaticStep) || step.IncrementationType != IncrementationTypeEnum.Default)
+                arguments.Add("max_increments=" + step.MaxIncrements);
             arguments.Add("incrementation_type=" + PythonValueFormatter.Text(step.IncrementationType.ToString()));
             arguments.Add("solver_type=" + PythonValueFormatter.Text(step.SolverType.ToString()));
             arguments.Add("output_frequency=" + GetUnsetCount(step.OutputFrequency));

@@ -44,12 +44,13 @@ namespace APIs.Python.Model
                                "master_color: list[int] or str = None, slave_color: list[int] or str = None",
                    Returns = "Constraint",
                    Example = "pmx.model.constraints.add_tie('Tie-1', master, slave)")]
-        public ConstraintAPI add_tie(string name, object master_region, object slave_region,
+        public ConstraintAPI add_tie(object name, object master_region, object slave_region,
                                      object position_tolerance = null, object adjust = null,
                                      object master_color = null, object slave_color = null)
         {
-            _service.ValidateName(name, null);
-            Tie constraint = new Tie(name, null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection,
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
+            Tie constraint = new Tie(nameText, null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection,
                                      _service.GetIsTwoDimensional());
             _service.ApplyMaster(constraint, master_region, SurfaceTarget);
             _service.ApplySlave(constraint, slave_region, SurfaceTarget);
@@ -57,24 +58,26 @@ namespace APIs.Python.Model
             ApplyColors(constraint, master_color, slave_color);
             _service.Add(constraint);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing tie constraint using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_tie, all optional",
                    Returns = "Constraint")]
-        public ConstraintAPI replace_tie(string old_name, string name = null, object master_region = null,
+        public ConstraintAPI replace_tie(object old_name, object name = null, object master_region = null,
                                          object slave_region = null, object position_tolerance = null,
                                          object adjust = null, object master_color = null,
                                          object slave_color = null)
         {
-            Tie constraint = _service.CloneForReplace<Tie>(old_name, "tie");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            Tie constraint = _service.CloneForReplace<Tie>(oldName, "tie");
             if (master_region != null) _service.ApplyMaster(constraint, master_region, SurfaceTarget);
             if (slave_region != null) _service.ApplySlave(constraint, slave_region, SurfaceTarget);
             ApplyTieValues(constraint, position_tolerance, adjust);
             ApplyColors(constraint, master_color, slave_color);
             //
-            return Replace(old_name, name, constraint);
+            return Replace(oldName, nameText, constraint);
         }
 
         [PythonAPI("Adds a cyclic symmetry constraint using command history. The master and the slave " +
@@ -92,7 +95,7 @@ namespace APIs.Python.Model
                                "position_tolerance: float = None, adjust: bool = None, " +
                                "master_color: list[int] or str = None, slave_color: list[int] or str = None",
                    Returns = "Constraint")]
-        public ConstraintAPI add_cyclic_symmetry(string name, object master_region, object slave_region,
+        public ConstraintAPI add_cyclic_symmetry(object name, object master_region, object slave_region,
                                                  object region = null, object axis_point = null,
                                                  object axis_direction = null, object number_of_sectors = null,
                                                  object number_of_graph_sectors = null,
@@ -100,10 +103,11 @@ namespace APIs.Python.Model
                                                  object position_tolerance = null, object adjust = null,
                                                  object master_color = null, object slave_color = null)
         {
-            _service.ValidateName(name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
             EnsureThreeDimensional("Cyclic symmetry");
             CyclicSymmetry constraint =
-                new CyclicSymmetry(name, null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection,
+                new CyclicSymmetry(nameText, null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection,
                                    _service.GetIsTwoDimensional());
             _service.ApplyMaster(constraint, master_region, SurfaceTarget);
             _service.ApplySlave(constraint, slave_region, SurfaceTarget);
@@ -112,10 +116,10 @@ namespace APIs.Python.Model
             ApplyExpansionRegion(constraint, region);
             ApplyTieValues(constraint, position_tolerance, adjust);
             ApplyColors(constraint, master_color, slave_color);
-            CheckExpansionRegion(constraint, name);
+            CheckExpansionRegion(constraint, nameText);
             _service.Add(constraint);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing cyclic symmetry constraint using command history. A replace that " +
@@ -125,7 +129,7 @@ namespace APIs.Python.Model
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_cyclic_symmetry, all optional, clear_expansion_region: bool = None",
                    Returns = "Constraint")]
-        public ConstraintAPI replace_cyclic_symmetry(string old_name, string name = null,
+        public ConstraintAPI replace_cyclic_symmetry(object old_name, object name = null,
                                                      object master_region = null, object slave_region = null,
                                                      object region = null, object axis_point = null,
                                                      object axis_direction = null,
@@ -136,7 +140,9 @@ namespace APIs.Python.Model
                                                      object master_color = null, object slave_color = null,
                                                      object clear_expansion_region = null)
         {
-            CyclicSymmetry constraint = _service.CloneForReplace<CyclicSymmetry>(old_name, "cyclic_symmetry");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            CyclicSymmetry constraint = _service.CloneForReplace<CyclicSymmetry>(oldName, "cyclic_symmetry");
             bool clearExpansionRegion = clear_expansion_region != null &&
                 PythonValueConverter.ToBool(clear_expansion_region, "clear_expansion_region");
             if (clearExpansionRegion && region != null)
@@ -150,9 +156,9 @@ namespace APIs.Python.Model
             ApplyExpansionRegion(constraint, region);
             ApplyTieValues(constraint, position_tolerance, adjust);
             ApplyColors(constraint, master_color, slave_color);
-            CheckExpansionRegion(constraint, old_name);
+            CheckExpansionRegion(constraint, oldName);
             //
-            return Replace(old_name, name, constraint);
+            return Replace(oldName, nameText, constraint);
         }
 
         [PythonAPI("Adds a joint constraint using command history. The selection target is surfaces for both " +
@@ -176,16 +182,17 @@ namespace APIs.Python.Model
                                "master_color: list[int] or str = None, slave_color: list[int] or str = None",
                    Returns = "Constraint",
                    Example = "pmx.model.constraints.add_joint('Hinge-1', bore_a, bore_b, joint_type='Hinge')")]
-        public ConstraintAPI add_joint(string name, object master_region, object slave_region, object joint_type = null,
+        public ConstraintAPI add_joint(object name, object master_region, object slave_region, object joint_type = null,
                                        object center_defined_by = null, object center = null,
                                        object axis_defined_by = null, object axis_direction = null,
                                        object formulation = null, object stiffness_defined_by = null,
                                        object stiffness = null, object master_color = null,
                                        object slave_color = null)
         {
-            _service.ValidateName(name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
             EnsureThreeDimensional("A joint");
-            Joint constraint = new Joint(name, null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection,
+            Joint constraint = new Joint(nameText, null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection,
                                          _service.GetIsTwoDimensional());
             _service.ApplyMaster(constraint, master_region, SurfaceTarget);
             _service.ApplySlave(constraint, slave_region, SurfaceTarget);
@@ -194,13 +201,13 @@ namespace APIs.Python.Model
             ApplyColors(constraint, master_color, slave_color);
             _service.Add(constraint);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing joint constraint using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_joint, all optional",
                    Returns = "Constraint")]
-        public ConstraintAPI replace_joint(string old_name, string name = null, object master_region = null,
+        public ConstraintAPI replace_joint(object old_name, object name = null, object master_region = null,
                                            object slave_region = null, object joint_type = null,
                                            object center_defined_by = null, object center = null,
                                            object axis_defined_by = null, object axis_direction = null,
@@ -208,14 +215,16 @@ namespace APIs.Python.Model
                                            object stiffness = null, object master_color = null,
                                            object slave_color = null)
         {
-            Joint constraint = _service.CloneForReplace<Joint>(old_name, "joint");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            Joint constraint = _service.CloneForReplace<Joint>(oldName, "joint");
             if (master_region != null) _service.ApplyMaster(constraint, master_region, SurfaceTarget);
             if (slave_region != null) _service.ApplySlave(constraint, slave_region, SurfaceTarget);
             ApplyJointValues(constraint, joint_type, center_defined_by, center, axis_defined_by, axis_direction,
                              formulation, stiffness_defined_by, stiffness);
             ApplyColors(constraint, master_color, slave_color);
             //
-            return Replace(old_name, name, constraint);
+            return Replace(oldName, nameText, constraint);
         }
 
         [PythonAPI("Adds a rigid body constraint using command history. The selection target is nodes. " +
@@ -223,35 +232,38 @@ namespace APIs.Python.Model
                    Arguments = "name: str, reference_point_name: str, region: Selection or Region, " +
                                "color: list[int] or str = None",
                    Returns = "Constraint")]
-        public ConstraintAPI add_rigid_body(string name, object reference_point_name, object region,
+        public ConstraintAPI add_rigid_body(object name, object reference_point_name, object region,
                                             object color = null)
         {
-            _service.ValidateName(name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
             RigidBody constraint =
-                new RigidBody(name, _service.ResolveReferencePointName(reference_point_name), null,
+                new RigidBody(nameText, _service.ResolveReferencePointName(reference_point_name), null,
                               RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
             _service.ApplyRegion(constraint, region, NodeTarget);
             ApplyColor(constraint, color);
             _service.Add(constraint);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing rigid body constraint using command history.",
                    Arguments = "old_name: str, name: str = None, reference_point_name: str = None, " +
                                "region: Selection or Region = None, color: list[int] or str = None",
                    Returns = "Constraint")]
-        public ConstraintAPI replace_rigid_body(string old_name, string name = null,
+        public ConstraintAPI replace_rigid_body(object old_name, object name = null,
                                                 object reference_point_name = null, object region = null,
                                                 object color = null)
         {
-            RigidBody constraint = _service.CloneForReplace<RigidBody>(old_name, "rigid_body");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            RigidBody constraint = _service.CloneForReplace<RigidBody>(oldName, "rigid_body");
             if (reference_point_name != null)
                 constraint.ReferencePointName = _service.ResolveReferencePointName(reference_point_name);
             if (region != null) _service.ApplyRegion(constraint, region, NodeTarget);
             ApplyColor(constraint, color);
             //
-            return Replace(old_name, name, constraint);
+            return Replace(oldName, nameText, constraint);
         }
 
         [PythonAPI("Adds a kinematic coupling constraint using command history. The selection target is " +
@@ -260,40 +272,43 @@ namespace APIs.Python.Model
                    Arguments = "name: str, reference_point_name: str, region: Selection or Region, " +
                                "u1: bool = None, u2: bool = None, u3: bool = None, color: list[int] or str = None",
                    Returns = "Constraint")]
-        public ConstraintAPI add_kinematic_coupling(string name, object reference_point_name, object region,
+        public ConstraintAPI add_kinematic_coupling(object name, object reference_point_name, object region,
                                                     object u1 = null, object u2 = null, object u3 = null,
                                                     object color = null)
         {
-            _service.ValidateName(name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
             KinematicCoupling constraint =
-                new KinematicCoupling(name, _service.ResolveReferencePointName(reference_point_name), null,
+                new KinematicCoupling(nameText, _service.ResolveReferencePointName(reference_point_name), null,
                                       RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
             _service.ApplyRegion(constraint, region, SurfaceTarget);
             ApplyKinematicValues(constraint, u1, u2, u3);
             ApplyColor(constraint, color);
             _service.Add(constraint);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing kinematic coupling constraint using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_kinematic_coupling, all optional", Returns = "Constraint")]
-        public ConstraintAPI replace_kinematic_coupling(string old_name, string name = null,
+        public ConstraintAPI replace_kinematic_coupling(object old_name, object name = null,
                                                         object reference_point_name = null,
                                                         object region = null, object u1 = null,
                                                         object u2 = null, object u3 = null,
                                                         object color = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             KinematicCoupling constraint =
-                _service.CloneForReplace<KinematicCoupling>(old_name, "kinematic_coupling");
+                _service.CloneForReplace<KinematicCoupling>(oldName, "kinematic_coupling");
             if (reference_point_name != null)
                 constraint.ReferencePointName = _service.ResolveReferencePointName(reference_point_name);
             if (region != null) _service.ApplyRegion(constraint, region, SurfaceTarget);
             ApplyKinematicValues(constraint, u1, u2, u3);
             ApplyColor(constraint, color);
             //
-            return Replace(old_name, name, constraint);
+            return Replace(oldName, nameText, constraint);
         }
 
         [PythonAPI("Adds a distributing coupling constraint using command history. The selection target is " +
@@ -303,42 +318,45 @@ namespace APIs.Python.Model
                                "u1: bool = None, u2: bool = None, u3: bool = None, ur1: bool = None, " +
                                "ur2: bool = None, ur3: bool = None, color: list[int] or str = None",
                    Returns = "Constraint")]
-        public ConstraintAPI add_distributing_coupling(string name, object reference_point_name, object region,
+        public ConstraintAPI add_distributing_coupling(object name, object reference_point_name, object region,
                                                        object u1 = null, object u2 = null, object u3 = null,
                                                        object ur1 = null, object ur2 = null,
                                                        object ur3 = null, object color = null)
         {
-            _service.ValidateName(name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
             DistributingCoupling constraint =
-                new DistributingCoupling(name, _service.ResolveReferencePointName(reference_point_name), null,
+                new DistributingCoupling(nameText, _service.ResolveReferencePointName(reference_point_name), null,
                                          RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
             _service.ApplyRegion(constraint, region, SurfaceTarget);
             ApplyDistributingValues(constraint, u1, u2, u3, ur1, ur2, ur3);
             ApplyColor(constraint, color);
             _service.Add(constraint);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing distributing coupling constraint using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_distributing_coupling, all optional", Returns = "Constraint")]
-        public ConstraintAPI replace_distributing_coupling(string old_name, string name = null,
+        public ConstraintAPI replace_distributing_coupling(object old_name, object name = null,
                                                            object reference_point_name = null,
                                                            object region = null, object u1 = null,
                                                            object u2 = null, object u3 = null,
                                                            object ur1 = null, object ur2 = null,
                                                            object ur3 = null, object color = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             DistributingCoupling constraint =
-                _service.CloneForReplace<DistributingCoupling>(old_name, "distributing_coupling");
+                _service.CloneForReplace<DistributingCoupling>(oldName, "distributing_coupling");
             if (reference_point_name != null)
                 constraint.ReferencePointName = _service.ResolveReferencePointName(reference_point_name);
             if (region != null) _service.ApplyRegion(constraint, region, SurfaceTarget);
             ApplyDistributingValues(constraint, u1, u2, u3, ur1, ur2, ur3);
             ApplyColor(constraint, color);
             //
-            return Replace(old_name, name, constraint);
+            return Replace(oldName, nameText, constraint);
         }
 
         [PythonAPI("Adds a compression only constraint using command history. The selection target is " +
@@ -350,40 +368,43 @@ namespace APIs.Python.Model
                                "spring_stiffness: float = None, " +
                                "tensile_force_at_negative_infinity: float = None, offset: float = None, " +
                                "non_linear: bool = None, color: list[int] or str = None", Returns = "Constraint")]
-        public ConstraintAPI add_compression_only(string name, object region, object clearance = null,
+        public ConstraintAPI add_compression_only(object name, object region, object clearance = null,
                                                   object spring_stiffness = null,
                                                   object tensile_force_at_negative_infinity = null,
                                                   object offset = null, object non_linear = null,
                                                   object color = null)
         {
-            _service.ValidateName(name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
             CompressionOnly constraint =
-                new CompressionOnly(name, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
+                new CompressionOnly(nameText, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
             _service.ApplyRegion(constraint, region, SurfaceTarget);
             ApplyCompressionOnlyValues(constraint, clearance, spring_stiffness,
                                        tensile_force_at_negative_infinity, offset, non_linear);
             ApplyColor(constraint, color);
             _service.Add(constraint);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing compression only constraint using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of " +
                                "add_compression_only, all optional", Returns = "Constraint")]
-        public ConstraintAPI replace_compression_only(string old_name, string name = null, object region = null,
+        public ConstraintAPI replace_compression_only(object old_name, object name = null, object region = null,
                                                       object clearance = null, object spring_stiffness = null,
                                                       object tensile_force_at_negative_infinity = null,
                                                       object offset = null, object non_linear = null,
                                                       object color = null)
         {
-            CompressionOnly constraint = _service.CloneForReplace<CompressionOnly>(old_name, "compression_only");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            CompressionOnly constraint = _service.CloneForReplace<CompressionOnly>(oldName, "compression_only");
             if (region != null) _service.ApplyRegion(constraint, region, SurfaceTarget);
             ApplyCompressionOnlyValues(constraint, clearance, spring_stiffness,
                                        tensile_force_at_negative_infinity, offset, non_linear);
             ApplyColor(constraint, color);
             //
-            return Replace(old_name, name, constraint);
+            return Replace(oldName, nameText, constraint);
         }
 
         [PythonAPI("Adds a point spring constraint using command history. The selection target is nodes. " +
@@ -391,33 +412,36 @@ namespace APIs.Python.Model
                    "color is the constraint color, given as [R, G, B], [R, G, B, A] or a color name.",
                    Arguments = "name: str, region: Selection or Region, k1: float = None, " +
                                "k2: float = None, k3: float = None, color: list[int] or str = None", Returns = "Constraint")]
-        public ConstraintAPI add_point_spring(string name, object region, object k1 = null, object k2 = null,
+        public ConstraintAPI add_point_spring(object name, object region, object k1 = null, object k2 = null,
                                               object k3 = null, object color = null)
         {
-            _service.ValidateName(name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
             PointSpring constraint =
-                new PointSpring(name, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional(), true);
+                new PointSpring(nameText, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional(), true);
             _service.ApplyRegion(constraint, region, NodeTarget);
             ApplySpringValues(constraint, k1, k2, k3);
             ApplyColor(constraint, color);
             _service.Add(constraint);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing point spring constraint using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_point_spring, " +
                                "all optional", Returns = "Constraint")]
-        public ConstraintAPI replace_point_spring(string old_name, string name = null, object region = null,
+        public ConstraintAPI replace_point_spring(object old_name, object name = null, object region = null,
                                                   object k1 = null, object k2 = null, object k3 = null,
                                                   object color = null)
         {
-            PointSpring constraint = _service.CloneForReplace<PointSpring>(old_name, "point_spring");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            PointSpring constraint = _service.CloneForReplace<PointSpring>(oldName, "point_spring");
             if (region != null) _service.ApplyRegion(constraint, region, NodeTarget);
             ApplySpringValues(constraint, k1, k2, k3);
             ApplyColor(constraint, color);
             //
-            return Replace(old_name, name, constraint);
+            return Replace(oldName, nameText, constraint);
         }
 
         [PythonAPI("Adds a surface spring constraint using command history. The selection target is " +
@@ -427,13 +451,14 @@ namespace APIs.Python.Model
                                "k2: float = None, k3: float = None, stiffness_per_area: bool = None, " +
                                "color: list[int] or str = None",
                    Returns = "Constraint")]
-        public ConstraintAPI add_surface_spring(string name, object region, object k1 = null, object k2 = null,
+        public ConstraintAPI add_surface_spring(object name, object region, object k1 = null, object k2 = null,
                                                 object k3 = null, object stiffness_per_area = null,
                                                 object color = null)
         {
-            _service.ValidateName(name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
             SurfaceSpring constraint =
-                new SurfaceSpring(name, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional(), true);
+                new SurfaceSpring(nameText, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional(), true);
             _service.ApplyRegion(constraint, region, SurfaceTarget);
             ApplySpringValues(constraint, k1, k2, k3);
             if (stiffness_per_area != null)
@@ -442,17 +467,19 @@ namespace APIs.Python.Model
             ApplyColor(constraint, color);
             _service.Add(constraint);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing surface spring constraint using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_surface_spring, " +
                                "all optional", Returns = "Constraint")]
-        public ConstraintAPI replace_surface_spring(string old_name, string name = null, object region = null,
+        public ConstraintAPI replace_surface_spring(object old_name, object name = null, object region = null,
                                                     object k1 = null, object k2 = null, object k3 = null,
                                                     object stiffness_per_area = null, object color = null)
         {
-            SurfaceSpring constraint = _service.CloneForReplace<SurfaceSpring>(old_name, "surface_spring");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SurfaceSpring constraint = _service.CloneForReplace<SurfaceSpring>(oldName, "surface_spring");
             if (region != null) _service.ApplyRegion(constraint, region, SurfaceTarget);
             ApplySpringValues(constraint, k1, k2, k3);
             if (stiffness_per_area != null)
@@ -460,7 +487,7 @@ namespace APIs.Python.Model
                     PythonValueConverter.ToBool(stiffness_per_area, "stiffness_per_area");
             ApplyColor(constraint, color);
             //
-            return Replace(old_name, name, constraint);
+            return Replace(oldName, nameText, constraint);
         }
 
         [PythonAPI("Swaps the master and the slave side of the named constraints using command history.",

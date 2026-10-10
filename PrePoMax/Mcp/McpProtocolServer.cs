@@ -72,8 +72,10 @@ namespace PrePoMax.Mcp
             // MCP narrows JSON-RPC here: the id of a request is a string or a number, and never null
             if (!isNotification && id == null)
                 return Error(null, -32600, "The id of a request must be a string or a number.");
-            // A cancelled tool call is not stopped - cancel_call does that - but its answer is kept for get_call
-            if (isNotification && method == "notifications/cancelled")
+            // A cancelled tool call is not stopped - cancel_call does that - but its answer is kept for get_call.
+            // A notification that is not JSON-RPC 2.0 is dropped like any other, since it cannot be answered
+            if (isNotification && method == "notifications/cancelled" &&
+                JsonReader.GetString(document, "jsonrpc", null) == "2.0")
             {
                 AddCancelledRequestId(GetId(JsonReader.GetObject(document, "params"), "requestId"));
                 return null;

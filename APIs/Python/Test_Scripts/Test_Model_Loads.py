@@ -85,8 +85,8 @@ def element_selection(ids):
 
 def setup():
     pmx.model.surfaces.add(SURFACE, surface_selection(2))
-    pmx.model.steps.add_static(STEP, time_period=1.0)
-    pmx.model.steps.add_static(NEXT_STEP, time_period=1.0)
+    pmx.model.steps.add_static(STEP)
+    pmx.model.steps.add_static(NEXT_STEP)
     pmx.model.steps.add_uncoupled_temp_disp(THERMAL_STEP)
     pmx.model.distributions.add_from_equation(SCALAR_DISTRIBUTION, "1 + 0.01 * x")
     pmx.model.distributions.add_from_equation(VECTOR_DISTRIBUTION, ["x", "y", "z"])
@@ -555,8 +555,9 @@ def test_propagate():
     name = PREFIX + "F"
     following = pmx.model.steps[NEXT_STEP].loads
     check(not following.contains(name), "the following step must not carry the load yet")
-    loads.propagate(name)
-    check(following.contains(name), "the load was not propagated")
+    # A name is found regardless of case and passed on in the model's spelling
+    loads.propagate(name.upper())
+    check(name in list(following.get_names()), "the load was not propagated in the model's spelling")
     check_raises(lambda: loads.propagate("NoSuchLoad"), "propagating an unknown name must be rejected")
     # The thermal step is the last one: the dialog propagates from it too and copies nothing, so a journal of
     # that replays

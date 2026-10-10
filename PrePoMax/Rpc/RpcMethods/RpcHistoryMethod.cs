@@ -41,6 +41,11 @@ namespace PrePoMax.Rpc
             if (limit < 0)
                 throw new RpcException(RpcErrorCode.InvalidParams, "The argument limit must be 0 or more: 0 lists every command.");
             int first = limit == 0 || limit >= commands.Count ? 0 : commands.Count - limit;
+            bool includeJournal = request.GetBool("include_journal", false);
+            string journalFile = request.GetString("journal_file", null);
+            if (journalFile != null && !includeJournal)
+                throw new RpcException(RpcErrorCode.InvalidParams, "The argument journal_file is only used with " +
+                                                                   "include_journal set to true.");
             //
             JsonWriter writer = new JsonWriter();
             writer.BeginObject();
@@ -59,16 +64,15 @@ namespace PrePoMax.Rpc
             }
             writer.EndArray();
             //
-            if (request.GetBool("include_journal", false))
-                WriteJournal(writer, request, commands, controller.Settings.General.NumOfSplitFaces);
+            if (includeJournal)
+                WriteJournal(writer, journalFile, commands, controller.Settings.General.NumOfSplitFaces);
             writer.EndObject();
             return writer.ToString();
         }
-        private static void WriteJournal(JsonWriter writer, RpcRequest request, List<Command> commands,
+        private static void WriteJournal(JsonWriter writer, string requestedFile, List<Command> commands,
                                          int numOfLegacySplitFaces)
         {
-            string requestedFile = request.GetString("journal_file", null);
-            string fileName = requestedFile == null ? GetTemporaryFileName() : requestedFile;
+            string fileName = requestedFile == null ? GetTemporaryFileName() : GetRequestedFileName(requestedFile);
             PythonJournalReport report = PythonJournalExporter.Export(commands, fileName, "the automation server",
                                                                       numOfLegacySplitFaces);
             //
@@ -95,9 +99,32 @@ namespace PrePoMax.Rpc
         }
         private static string GetTemporaryFileName()
         {
-            string directory = Path.Combine(Path.GetTempPath(), "PrePoMax");
+            string directory = GetTemporaryDirectory();
             if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
             return Path.Combine(directory, "journal_" + Guid.NewGuid().ToString("N") + ".py");
+        }
+        // A relative name is placed where a screenshot is, not in whatever folder the process started in
+        private static string GetRequestedFileName(string requestedFile)
+        {
+            if (Path.IsPathRooted(requestedFile)) return requestedFile;
+            //
+            string fileName = Path.Combine(GetTemporaryDirectory(), requestedFile);
+            string directory = Path.GetDirectoryName(fileName);
+            try
+            {
+                if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+            }
+            catch (Exception exception)
+            {
+                throw new RpcException(RpcErrorCode.InvalidParams, "The directory " + directory +
+                                                                   " does not exist and could not be created: " +
+                                                                   exception.Message);
+            }
+            return fileName;
+        }
+        private static string GetTemporaryDirectory()
+        {
+            return Path.Combine(Path.GetTempPath(), "PrePoMax");
         }
         private static string ReadAndRemove(string fileName, bool remove)
         {

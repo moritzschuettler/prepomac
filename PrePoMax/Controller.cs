@@ -179,6 +179,7 @@ namespace PrePoMax
             set { _batchRegenerationMode = value; }
         }
         public bool IsCommandRecordingSuppressed { get { return _commands.IsCommandRecordingSuppressed; } }
+        public bool IsReplayingHistory { get { return _commands.IsReplayingHistory; } }
         public bool AreCommandsBlocked { get { return _commands.AreCommandsBlocked; } }
         public void RefuseWhenCommandsBlocked(string actionName)
         {
@@ -19882,7 +19883,7 @@ namespace PrePoMax
         }
         private void JobStatusChanged(string jobName, JobStatus jobStatus)
         {
-            _form.UpdateAnalysisProgress();
+            _form.UpdateAnalysisProgress(jobName, jobStatus);
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, jobName, _jobs[jobName], null, true);
         }
         //

@@ -30,6 +30,7 @@ namespace PrePoMax.Commands
 
         // Properties                                                                                                               
         public PythonEngineResult ExecutionResult { get { return _executionResult; } }
+        public override bool IsRecordedAsFailed { get { return _failed; } }
 
 
         // Constructor                                                                                                              
@@ -90,7 +91,9 @@ namespace PrePoMax.Commands
             {
                 writer.Line("try:");
                 writer.Line("    " + exec);
-                writer.Line("except Exception as _recorded_script_error:");
+                writer.Line("except KeyboardInterrupt:");
+                writer.Line("    raise");
+                writer.Line("except BaseException as _recorded_script_error:");
                 writer.Line("    print('The recorded script failed, as it did when it was recorded: ' + " +
                             "repr(_recorded_script_error))");
             }

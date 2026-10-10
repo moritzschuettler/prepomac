@@ -33,9 +33,10 @@ namespace APIs.Python
 
 
         // Methods
-        public ResultIncrementAPI __getitem__(int incrementId)
+        public ResultIncrementAPI __getitem__(object incrementId)
         {
-            return this[incrementId];
+            int incrementIdNumber = PythonValueConverter.ToInt(incrementId, "id");
+            return this[incrementIdNumber];
         }
         public ResultIncrementAPI this[int incrementId]
         {
@@ -74,7 +75,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(int incrementId)
+        public bool __contains__(object incrementId)
         {
             return contains(incrementId);
         }

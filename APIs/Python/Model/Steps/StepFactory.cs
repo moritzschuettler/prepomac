@@ -50,10 +50,19 @@ namespace APIs.Python.Model
         // step, but never with a value the caller gave, and on a replace every stored value counts as one the
         // caller gave. An initial increment longer than the maximum one is stored as it is, but setting the maximum
         // shortens it, so the initial increment is set after the maximum and a replace sets the kept one again.
+        // The incrementation type and the steady state flag are applied first, so the step decides with the values
+        // the call ends with which of the given values it uses. The model keeps its Direct flag in step with the
+        // incrementation type, as the dialog does.
         public static void ApplyStaticValues(StaticStep step, object timePeriod, object initialTimeIncrement,
-                                             object minTimeIncrement, object maxTimeIncrement, object direct,
+                                             object minTimeIncrement, object maxTimeIncrement, object maxIncrements,
                                              bool replace)
         {
+            EnsureUsed(step, maxIncrements, "max_increments");
+            EnsureUsed(step, timePeriod, "time_period");
+            EnsureUsed(step, initialTimeIncrement, "initial_time_increment");
+            EnsureUsed(step, minTimeIncrement, "min_time_increment");
+            EnsureUsed(step, maxTimeIncrement, "max_time_increment");
+            //
             double period = timePeriod == null ? step.TimePeriod : ToPositiveDouble(timePeriod, "time_period");
             double initial = initialTimeIncrement == null ? step.InitialTimeIncrement :
                              ToPositiveDouble(initialTimeIncrement, "initial_time_increment");
@@ -75,7 +84,53 @@ namespace APIs.Python.Model
             if (maxTimeIncrement != null) step.MaxTimeIncrement = maximum;
             if (replace || initialTimeIncrement != null) step.InitialTimeIncrement = initial;
             if (minTimeIncrement != null) step.MinTimeIncrement = minimum;
-            if (direct != null) step.Direct = PythonValueConverter.ToBool(direct, "direct");
+            step.Direct = step.IncrementationType == IncrementationTypeEnum.Direct;
+        }
+        // The solver input of a step derived from the static step carries the maximum number of increments unless
+        // the incrementation type is Default, the time period and the initial increment under Automatic and Direct,
+        // and the minimum and the maximum increment only under Automatic; the dialog hides each value the type does
+        // not use. A modal dynamics step writes its initial increment always, its time period unless it is a steady
+        // state one, its relative error only then, and no minimum or maximum increment. Returns why the step does
+        // not use the value of the argument, or null when it does.
+        public static string GetUnusedValueReason(StaticStep step, string argumentName)
+        {
+            if (argumentName == "max_increments")
+                return step.IncrementationType == IncrementationTypeEnum.Default ?
+                       "the incrementation type of the step is Default. Give incrementation_type='Automatic' or " +
+                       "'Direct' with it, or leave it out" : null;
+            //
+            ModalDynamicsStep modalDynamicsStep = step as ModalDynamicsStep;
+            if (modalDynamicsStep != null)
+            {
+                if (argumentName == "time_period" && modalDynamicsStep.SteadyState)
+                    return "a steady state modal dynamics step does not use it. Give steady_state=False with it, " +
+                           "or leave it out";
+                if (argumentName == "relative_error" && !modalDynamicsStep.SteadyState)
+                    return "only a steady state modal dynamics step uses it. Give steady_state=True with it, or " +
+                           "leave it out";
+                if (argumentName == "min_time_increment" || argumentName == "max_time_increment")
+                    return "a modal dynamics step does not use it. Leave it out";
+                return null;
+            }
+            //
+            if (argumentName == "time_period" || argumentName == "initial_time_increment")
+                return step.IncrementationType == IncrementationTypeEnum.Default ?
+                       "the incrementation type of the step is Default. Give incrementation_type='Automatic' or " +
+                       "'Direct' with it, or leave it out" : null;
+            if (argumentName == "min_time_increment" || argumentName == "max_time_increment")
+                return step.IncrementationType == IncrementationTypeEnum.Automatic ? null :
+                       "the incrementation type of the step is " + step.IncrementationType + " and only Automatic " +
+                       "uses it. Give incrementation_type='Automatic' with it, or leave it out";
+            //
+            return null;
+        }
+        public static void EnsureUsed(StaticStep step, object value, string argumentName)
+        {
+            if (value == null) return;
+            //
+            string reason = GetUnusedValueReason(step, argumentName);
+            if (reason != null)
+                throw new PythonAPIException("The argument '" + argumentName + "' is not used: " + reason + ".");
         }
         public static void ApplyFrequencyValues(FrequencyStep step, object numOfFrequencies, object lowerFrequency,
                                                 object upperFrequency, object storage,
@@ -129,6 +184,7 @@ namespace APIs.Python.Model
                                                     object relativeError, object modalDamping)
         {
             if (steadyState != null) step.SteadyState = PythonValueConverter.ToBool(steadyState, "steady_state");
+            EnsureUsed(step, relativeError, "relative_error");
             if (relativeError != null)
                 step.RelativeError = ToDoubleBetween(relativeError, "relative_error", 0, 1);
             if (modalDamping != null) step.ModalDamping = ToModalDamping(modalDamping);
@@ -170,11 +226,11 @@ namespace APIs.Python.Model
                 step.RelativeToAbsolute = PythonValueConverter.ToBool(relativeToAbsolute, "relative_to_absolute");
             if (damping != null)
             {
-                Damping converted = damping as Damping;
+                DampingAPI converted = damping as DampingAPI;
                 if (converted == null)
                     throw new PythonAPIException("The argument 'damping' must be a damping part created by " +
                                                  "pmx.create.damping.");
-                step.Damping = converted;
+                step.Damping = converted.GetDampingCopy();
             }
         }
         public static void ApplyHeatTransferValues(HeatTransferStep step, object steadyState, object deltmx)
@@ -259,12 +315,12 @@ namespace APIs.Python.Model
         }
         private static ModalDamping ToModalDamping(object value)
         {
-            ModalDamping converted = value as ModalDamping;
+            ModalDampingAPI converted = value as ModalDampingAPI;
             if (converted == null)
                 throw new PythonAPIException("The argument 'modal_damping' must be a modal damping part created " +
                                              "by pmx.create.modal_damping.");
             //
-            return converted;
+            return converted.GetModalDampingCopy();
         }
         private static string AsString(object value, string argumentName)
         {

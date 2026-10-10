@@ -48,19 +48,20 @@ namespace APIs.Python
                    Arguments = "name: str, default: object = None",
                    Returns = "float, str, list[float], IntList, StringList or the default",
                    Example = "radius = face.get_property('radius')   # None on a face that has no radius")]
-        public object get_property(string name, object @default = null)
+        public object get_property(object name, object @default = null)
         {
-            if (String.IsNullOrWhiteSpace(name))
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            if (String.IsNullOrWhiteSpace(nameText))
                 throw new PythonAPIException("The geometry metadata property name must not be empty.");
-            if (GeometryMetadata.IsCanonicalProperty(_entity.Kind, name))
-                throw new PythonAPIException("The property '" + name + "' is a canonical topology measurement " +
+            if (GeometryMetadata.IsCanonicalProperty(_entity.Kind, nameText))
+                throw new PythonAPIException("The property '" + nameText + "' is a canonical topology measurement " +
                                              "and is exposed directly by the part data API.");
             GeometryMetadataProperty property;
-            if (!_entity.Properties.TryGetValue(name, out property)) return @default;
+            if (!_entity.Properties.TryGetValue(nameText, out property)) return @default;
             if (property.IsNumeric)
             {
                 double[] values = property.NumericValues;
-                if (name.EndsWith("_ids", StringComparison.OrdinalIgnoreCase))
+                if (nameText.EndsWith("_ids", StringComparison.OrdinalIgnoreCase))
                     return new IntListAPI(values.Select(value => Convert.ToInt32(value)));
                 if (values.Length == 1) return values[0];
                 return PythonListConverter.ToPythonList(values);

@@ -97,6 +97,12 @@
     <Compile Include="Python\Common\PythonValueConverter.cs" />
     <Compile Include="Python\Common\PythonObjectListConverter.cs" />
     <Compile Include="Python\Create\StepPartFactory.cs" />
+    <Compile Include="Python\Create\DetachedPartAPI.cs" />
+    <Compile Include="Python\Create\DampingAPI.cs" />
+    <Compile Include="Python\Create\ModalDampingAPI.cs" />
+    <Compile Include="Python\Create\DampingRatioAPI.cs" />
+    <Compile Include="Python\Create\StepControlParameterAPI.cs" />
+    <Compile Include="Python\Create\EnvironmentVariableAPI.cs" />
     <Compile Include="Python\Create\RegionAPI.cs" />
     <Compile Include="Python\Create\SplitToolAPI.cs" />
     <Compile Include="Python\Create\SurfaceInteractionPropertyFactory.cs" />

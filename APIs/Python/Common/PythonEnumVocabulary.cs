@@ -96,10 +96,27 @@ namespace APIs.Python
                                                               CsPointCreatedFromEnum.BetweenTwoPoints,
                                                               CsPointCreatedFromEnum.CircleCenter);
             Dictionary<string, string[]> allowedValues = new Dictionary<string, string[]>(StringComparer.Ordinal);
+            // Undefined is the state of a model nothing has set yet, which no member sets
+            allowedValues.Add("model_space", NamesExcept(ModelSpaceEnum.Undefined));
+            allowedValues.Add("unit_system", NamesExcept(UnitSystemType.Undefined));
             allowedValues.Add("add_from_selection.created_from", referencePointBySelection);
             allowedValues.Add("replace_from_selection.created_from", referencePointBySelection);
             allowedValues.Add("add_from_region.created_from", referencePointByRegion);
             allowedValues.Add("replace_from_region.created_from", referencePointByRegion);
+            // The reference point dialog takes a node set or a surface as its region
+            string[] referencePointRegionTypes = Names(RegionTypeEnum.NodeSetName, RegionTypeEnum.SurfaceName);
+            allowedValues.Add("add_from_region.region_type", referencePointRegionTypes);
+            allowedValues.Add("replace_from_region.region_type", referencePointRegionTypes);
+            // A region names a set, a surface, a reference point, a part or a mass section of the model
+            string[] namedRegionTypes = new string[RegionAPI.NamedRegionTypes.Length];
+            for (int i = 0; i < namedRegionTypes.Length; i++)
+                namedRegionTypes[i] = RegionAPI.NamedRegionTypes[i].ToString();
+            allowedValues.Add("CreateAPI.region.region_type", namedRegionTypes);
+            // Every pick, area and box selection refuses the modes that pick nothing, and every operation
+            // refuses Invert, which invert() adds
+            allowedValues.Add("select_by", NamesExcept(vtkSelectBy.Off, vtkSelectBy.Default, vtkSelectBy.Id,
+                                                       vtkSelectBy.Widget));
+            allowedValues.Add("operation", NamesExcept(vtkSelectOperation.Invert));
             foreach (string point in new[] { "origin", "point_on_x", "point_in_xy" })
             {
                 allowedValues.Add("add_from_selections." + point + "_created_from", coordinateSystemPointBySelection);
@@ -109,6 +126,17 @@ namespace APIs.Python
             //
             _allowedValues = allowedValues;
             return _allowedValues;
+        }
+        private static string[] NamesExcept(params Enum[] excludedValues)
+        {
+            HashSet<string> excludedNames = new HashSet<string>();
+            foreach (Enum excludedValue in excludedValues) excludedNames.Add(excludedValue.ToString());
+            List<string> names = new List<string>();
+            foreach (string name in Enum.GetNames(excludedValues[0].GetType()))
+            {
+                if (!excludedNames.Contains(name)) names.Add(name);
+            }
+            return names.ToArray();
         }
         private static string[] Names(params Enum[] values)
         {
@@ -133,6 +161,9 @@ namespace APIs.Python
             types.Add("export_results.format", typeof(ResultsExportFormatEnum));
             // Selections and regions
             types.Add("region_type", typeof(RegionTypeEnum));
+            types.Add("CreateAPI.region.region_type", typeof(RegionTypeEnum));
+            types.Add("add_from_region.region_type", typeof(RegionTypeEnum));
+            types.Add("replace_from_region.region_type", typeof(RegionTypeEnum));
             types.Add("select_by", typeof(vtkSelectBy));
             types.Add("operation", typeof(vtkSelectOperation));
             types.Add("geometry_select_mode", typeof(GeometrySelectModeEnum));

@@ -41,10 +41,12 @@ namespace APIs.Python
                    "Measure_Annotation are reserved. Returns the name it was given.",
                    Arguments = "name: str, text: str, anchor_point: list[float]", Returns = "str",
                    Example = "name = pmx.view.annotations.add_text('Load', 'Pressure 2 MPa', [0, 0, 10])")]
-        public string add_text(string name, string text, object anchor_point)
+        public string add_text(object name, object text, object anchor_point)
         {
-            PythonNameComparer.ValidateFormat(name, "name", null);
-            if (text == null) throw new PythonAPIException("The argument 'text' must not be None.");
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string textValue = PythonValueConverter.ToText(text, "text", true);
+            PythonNameComparer.ValidateFormat(nameText, "name", null);
+            if (textValue == null) throw new PythonAPIException("The argument 'text' must not be None.");
             //
             double[] anchor = PythonDoubleListConverter.ToDoubleArray(anchor_point, "anchor_point");
             if (anchor == null || anchor.Length != 3)
@@ -55,8 +57,8 @@ namespace APIs.Python
                     throw new PythonAPIException("The argument 'anchor_point' must contain finite coordinates.");
             }
             //
-            Resolve().AddTextAnnotation(name, text, anchor);
-            return name;
+            Resolve().AddTextAnnotation(nameText, textValue, anchor);
+            return nameText;
         }
         [PythonAPI("Adds the annotation of a node of the displayed mesh, the one a node query places: its ID, " +
                    "its coordinates and, in the results view, the plotted value. Returns the name it was given.",

@@ -37,9 +37,10 @@ namespace APIs.Python
 
 
         // Methods
-        public ResultHistoryOutputEntryAPI __getitem__(string entryName)
+        public ResultHistoryOutputEntryAPI __getitem__(object entryName)
         {
-            return this[entryName];
+            string entryNameText = PythonValueConverter.ToText(entryName, "name", false);
+            return this[entryNameText];
         }
         public ResultHistoryOutputEntryAPI this[string entryName]
         {
@@ -104,10 +105,11 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the history entry exists in this component.", Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             return _resultHistoryService.GetEntryNames(_resultName, _historyOutputName, _fieldName,
-                                                 _componentName).Contains(name);
+                                                 _componentName).Contains(nameText);
         }
         public override string ToString()
         {

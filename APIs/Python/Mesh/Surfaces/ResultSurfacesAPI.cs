@@ -30,9 +30,10 @@ namespace APIs.Python
 
 
         // Methods
-        public ResultSurfaceAPI __getitem__(string surfaceName)
+        public ResultSurfaceAPI __getitem__(object surfaceName)
         {
-            return this[surfaceName];
+            string surfaceNameText = PythonValueConverter.ToText(surfaceName, "name", false);
+            return this[surfaceNameText];
         }
         public ResultSurfaceAPI this[string surfaceName]
         {
@@ -65,7 +66,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(string surfaceName)
+        public bool __contains__(object surfaceName)
         {
             return contains(surfaceName);
         }
@@ -94,9 +95,10 @@ namespace APIs.Python
 
         [PythonAPI("Returns true if the result contains the specified user-visible surface.",
                    Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return PythonNameComparer.Contains(_meshService.GetSurfaceNames(_resultName), name);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return PythonNameComparer.Contains(_meshService.GetSurfaceNames(_resultName), nameText);
         }
         public override string ToString()
         {

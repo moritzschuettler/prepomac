@@ -37,11 +37,13 @@ namespace APIs.Python.Model
                                "description: str = None, temperature_dependent: bool = False",
                    Returns = "Material",
                    Example = "pmx.model.materials.add('Steel', [pmx.create.elastic(210000, 0.3)])")]
-        public MaterialAPI add(string name, object properties, string description = null,
+        public MaterialAPI add(object name, object properties, object description = null,
                                object temperature_dependent = null)
         {
-            _service.Add(name, properties, description, temperature_dependent);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string descriptionText = PythonValueConverter.ToText(description, "description", true);
+            _service.Add(nameText, properties, descriptionText, temperature_dependent);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing material using command history. A value that is not given keeps " +
@@ -50,10 +52,13 @@ namespace APIs.Python.Model
                    Arguments = "old_name: str, name: str = None, properties: MaterialProperty or " +
                                "list[MaterialProperty] = None, description: str = None, " +
                                "temperature_dependent: bool = None", Returns = "Material")]
-        public MaterialAPI replace(string old_name, string name = null, object properties = null,
-                                   string description = null, object temperature_dependent = null)
+        public MaterialAPI replace(object old_name, object name = null, object properties = null,
+                                   object description = null, object temperature_dependent = null)
         {
-            Material material = _service.Replace(old_name, name, properties, description,
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string descriptionText = PythonValueConverter.ToText(description, "description", true);
+            Material material = _service.Replace(oldName, nameText, properties, descriptionText,
                                                   temperature_dependent);
             return this[material.Name];
         }

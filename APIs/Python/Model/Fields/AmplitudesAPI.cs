@@ -33,22 +33,27 @@ namespace APIs.Python.Model
                                "shift_time: float = None, shift_amplitude: float = None",
                    Returns = "Amplitude",
                    Example = "pmx.model.amplitudes.add('Amp-1', [[0, 0], [1, 1]])")]
-        public AmplitudeAPI add(string name, object time_amplitude, string time_span = null, object shift_time = null,
+        public AmplitudeAPI add(object name, object time_amplitude, object time_span = null, object shift_time = null,
                                 object shift_amplitude = null)
         {
-            _service.Add(name, time_amplitude, time_span, shift_time, shift_amplitude);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string timeSpan = PythonValueConverter.ToText(time_span, "time_span", true);
+            _service.Add(nameText, time_amplitude, timeSpan, shift_time, shift_amplitude);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing amplitude using command history. A value that is not given is kept.",
                    Arguments = "old_name: str, name: str = None, time_amplitude: list[list[float]] = None, " +
                                "time_span: str = None, shift_time: float = None, shift_amplitude: float = None",
                    Returns = "Amplitude")]
-        public AmplitudeAPI replace(string old_name, string name = null, object time_amplitude = null,
-                                    string time_span = null, object shift_time = null, object shift_amplitude = null)
+        public AmplitudeAPI replace(object old_name, object name = null, object time_amplitude = null,
+                                    object time_span = null, object shift_time = null, object shift_amplitude = null)
         {
-            _service.Replace(old_name, name, time_amplitude, time_span, shift_time, shift_amplitude);
-            return this[name == null ? old_name : name];
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string timeSpan = PythonValueConverter.ToText(time_span, "time_span", true);
+            _service.Replace(oldName, nameText, time_amplitude, timeSpan, shift_time, shift_amplitude);
+            return this[nameText == null ? oldName : nameText];
         }
         //
         protected override string[] GetItemNames()

@@ -50,10 +50,14 @@ namespace APIs.Python
                    "takes recorded geometry IDs unchanged.",
                    Arguments = "source: str, ids: list[int] or dict[int, list[int]], operation: str = None, " +
                                "geometry_select_mode: str = 'SelectId'", Returns = "Selection")]
-        public SelectionAPI add_by_ids(string source, object ids, string operation = null,
-                                       string geometry_select_mode = "SelectId")
+        public SelectionAPI add_by_ids(object source, object ids, object operation = null,
+                                       object geometry_select_mode = null)
         {
-            _service.AddByIds(this, source, ids, operation, geometry_select_mode);
+            string sourceText = PythonValueConverter.ToText(source, "source", false);
+            string operationText = PythonValueConverter.ToText(operation, "operation", true);
+            string geometrySelectMode =
+                PythonValueConverter.ToTextOrDefault(geometry_select_mode, "SelectId", "geometry_select_mode");
+            _service.AddByIds(this, sourceText, ids, operationText, geometrySelectMode);
             return this;
         }
         [PythonAPI("Adds a pick to the selection. The point is a location in space, and the " +
@@ -67,13 +71,15 @@ namespace APIs.Python
                                "completely_inside: bool = False, operation: str = None, precision: float = None, " +
                                "part_offsets: list[list[float]] = None", Returns = "Selection",
                    Example = "selection.add_by_pick([0.5, 0.5, 1.0], 'Surface')")]
-        public SelectionAPI add_by_pick(object point, string select_by, object angle_deg = null,
+        public SelectionAPI add_by_pick(object point, object select_by, object angle_deg = null,
                                         object direction = null, object part_ids = null,
-                                        object completely_inside = null, string operation = null,
+                                        object completely_inside = null, object operation = null,
                                         object precision = null, object part_offsets = null)
         {
-            _service.AddByPick(this, point, select_by, angle_deg, direction, part_ids, completely_inside,
-                               operation, precision, part_offsets);
+            string selectBy = PythonValueConverter.ToText(select_by, "select_by", false);
+            string operationText = PythonValueConverter.ToText(operation, "operation", true);
+            _service.AddByPick(this, point, selectBy, angle_deg, direction, part_ids, completely_inside,
+                               operationText, precision, part_offsets);
             return this;
         }
 
@@ -84,11 +90,14 @@ namespace APIs.Python
                                "part_ids: list[int] = None, completely_inside: bool = False, operation: str = None, " +
                                "part_offsets: list[list[float]] = None",
                    Returns = "Selection")]
-        public SelectionAPI add_by_area(object planes, string select_by, object angle_deg = null,
+        public SelectionAPI add_by_area(object planes, object select_by, object angle_deg = null,
                                         object part_ids = null, object completely_inside = null,
-                                        string operation = null, object part_offsets = null)
+                                        object operation = null, object part_offsets = null)
         {
-            _service.AddByArea(this, planes, select_by, angle_deg, part_ids, completely_inside, operation, part_offsets);
+            string selectBy = PythonValueConverter.ToText(select_by, "select_by", false);
+            string operationText = PythonValueConverter.ToText(operation, "operation", true);
+            _service.AddByArea(this, planes, selectBy, angle_deg, part_ids, completely_inside, operationText,
+                               part_offsets);
             return this;
         }
         [PythonAPI("Adds an axis aligned box to the selection, which is the six plane form of add_by_area. " +
@@ -98,11 +107,14 @@ namespace APIs.Python
                                "part_offsets: list[list[float]] = None",
                    Returns = "Selection",
                    Example = "selection.add_by_box([0, 0, 0.9], [1, 1, 1.1], 'Node', operation='Subtract')")]
-        public SelectionAPI add_by_box(object corner1, object corner2, string select_by, object part_ids = null,
-                                       object completely_inside = null, string operation = null,
+        public SelectionAPI add_by_box(object corner1, object corner2, object select_by, object part_ids = null,
+                                       object completely_inside = null, object operation = null,
                                        object part_offsets = null)
         {
-            _service.AddByBox(this, corner1, corner2, select_by, part_ids, completely_inside, operation, part_offsets);
+            string selectBy = PythonValueConverter.ToText(select_by, "select_by", false);
+            string operationText = PythonValueConverter.ToText(operation, "operation", true);
+            _service.AddByBox(this, corner1, corner2, selectBy, part_ids, completely_inside, operationText,
+                              part_offsets);
             return this;
         }
 
@@ -116,9 +128,10 @@ namespace APIs.Python
 
         [PythonAPI("Adds every visible active node, element or surface. Operation is None, Add, Subtract or Intersect.",
                    Arguments = "operation: str = 'Add'", Returns = "Selection")]
-        public SelectionAPI add_all(string operation = "Add")
+        public SelectionAPI add_all(object operation = null)
         {
-            _service.AddAll(this, operation);
+            string operationText = PythonValueConverter.ToTextOrDefault(operation, "Add", "operation");
+            _service.AddAll(this, operationText);
             return this;
         }
         [PythonAPI("Resolves this selection against the current mesh without creating a model item.", Returns = "IntList")]
@@ -152,15 +165,17 @@ namespace APIs.Python
                    "given keeps the current option.",
                    Arguments = "max_geometry_ids: int = None, max_item_ids: int = None, limit_to: str = None, " +
                                "shell_edges_only: bool = None, enable_shell_edge_faces: bool = None", Returns = "Selection")]
-        public SelectionAPI configure(object max_geometry_ids = null, object max_item_ids = null, string limit_to = null,
+        public SelectionAPI configure(object max_geometry_ids = null, object max_item_ids = null, object limit_to = null,
                                       object shell_edges_only = null, object enable_shell_edge_faces = null)
         {
+            string limitToText = PythonValueConverter.ToText(limit_to, "limit_to", true);
             CaeGlobals.Selection options = _options.DeepCopy(false, false);
             if (max_geometry_ids != null) options.MaxNumberOfGeometryIds = ToLimit(max_geometry_ids, "max_geometry_ids");
             if (max_item_ids != null) options.MaxNumberOfItemIds = ToLimit(max_item_ids, "max_item_ids");
-            if (limit_to != null)
+            if (limitToText != null)
             {
-                SelectionLimitToEnum limitTo = PythonValueConverter.ToEnum<SelectionLimitToEnum>(limit_to, "limit_to");
+                SelectionLimitToEnum limitTo =
+                    PythonValueConverter.ToEnum<SelectionLimitToEnum>(limitToText, "limit_to");
                 options.LimitSelectionToFirstPart = limitTo == SelectionLimitToEnum.FirstPart;
                 options.LimitSelectionToFirstGeometryType = limitTo == SelectionLimitToEnum.FirstGeometryType;
                 options.LimitSelectionToFirstMesherType = limitTo == SelectionLimitToEnum.FirstMesherType;

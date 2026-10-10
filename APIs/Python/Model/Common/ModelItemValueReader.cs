@@ -135,7 +135,8 @@ namespace APIs.Python.Model
             if (equation != null) return double.IsNaN(equation.Value) ? null : (object)equation.Value;
             // A damping is handed over as the part pmx.create makes, a copy, so it goes back into the step
             // argument it came from and changing it changes nothing in the model
-            if (value is Damping || value is ModalDamping) return value.DeepClone();
+            if (value is Damping damping) return new DampingAPI(damping.DeepClone());
+            if (value is ModalDamping modalDamping) return new ModalDampingAPI(modalDamping.DeepClone());
             // A flag like enum is set from a list of names, so it is read back as one, even with one flag
             if (FlagsEnumTypes.Contains(value.GetType()))
                 return PythonListConverter.ToPythonList(PythonValueConverter.FromFlagsEnum(value.GetType(), value));

@@ -44,14 +44,15 @@ namespace APIs.Python.Model
                                "adjustment_size: float = None, master_color: list[int] or str = None, " +
                                "slave_color: list[int] or str = None", Returns = "ContactPair",
                    Example = "pmx.model.contact_pairs.add('CP-1', 'SI-1', master, slave)")]
-        public ContactPairAPI add(string name, object surface_interaction_name, object master_region,
+        public ContactPairAPI add(object name, object surface_interaction_name, object master_region,
                                   object slave_region, object method = null, object small_sliding = null,
                                   object adjust = null, object adjustment_size = null, object master_color = null,
                                   object slave_color = null)
         {
-            _service.ValidateName(name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
             ContactPair contactPair =
-                new ContactPair(name, _service.ResolveSurfaceInteractionName(surface_interaction_name),
+                new ContactPair(nameText, _service.ResolveSurfaceInteractionName(surface_interaction_name),
                                 null, RegionTypeEnum.Selection, null, RegionTypeEnum.Selection);
             _service.ApplyMaster(contactPair, master_region);
             _service.ApplySlave(contactPair, slave_region);
@@ -59,7 +60,7 @@ namespace APIs.Python.Model
             ContactPairService.ApplyColors(contactPair, master_color, slave_color);
             _service.Add(contactPair);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing contact pair using command history. A value that is not given " +
@@ -67,14 +68,16 @@ namespace APIs.Python.Model
                    "on a pair with small sliding is refused unless small_sliding=False is given too.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add, all optional",
                    Returns = "ContactPair")]
-        public ContactPairAPI replace(string old_name, string name = null,
+        public ContactPairAPI replace(object old_name, object name = null,
                                       object surface_interaction_name = null, object master_region = null,
                                       object slave_region = null, object method = null,
                                       object small_sliding = null, object adjust = null,
                                       object adjustment_size = null, object master_color = null,
                                       object slave_color = null)
         {
-            ContactPair contactPair = _service.CloneForReplace(old_name);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            ContactPair contactPair = _service.CloneForReplace(oldName);
             if (surface_interaction_name != null)
                 contactPair.SurfaceInteractionName =
                     _service.ResolveSurfaceInteractionName(surface_interaction_name);
@@ -82,12 +85,12 @@ namespace APIs.Python.Model
             if (slave_region != null) _service.ApplySlave(contactPair, slave_region);
             _service.ApplyValues(contactPair, method, small_sliding, adjust, adjustment_size);
             ContactPairService.ApplyColors(contactPair, master_color, slave_color);
-            if (name != null)
+            if (nameText != null)
             {
-                _service.ValidateName(name, old_name);
-                contactPair.Name = name;
+                _service.ValidateName(nameText, oldName);
+                contactPair.Name = nameText;
             }
-            _service.Replace(old_name, contactPair);
+            _service.Replace(oldName, contactPair);
             //
             return this[contactPair.Name];
         }

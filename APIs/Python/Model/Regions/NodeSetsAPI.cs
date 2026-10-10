@@ -30,19 +30,24 @@ namespace APIs.Python.Model
         [PythonAPI("Creates a node set from a selection and adds it to the model using command history.",
                    Arguments = "name: str, selection: Selection", Returns = "NodeSet",
                    Example = "pmx.model.node_sets.add('Fixed', selection)")]
-        public NodeSetAPI add(string name, SelectionAPI selection)
+        public NodeSetAPI add(object name, object selection)
         {
-            _service.Add(name, selection);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            _service.Add(nameText, selectionValue);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing node set using command history. A value that is not given is kept.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None",
                    Returns = "NodeSet")]
-        public NodeSetAPI replace(string old_name, string name = null, SelectionAPI selection = null)
+        public NodeSetAPI replace(object old_name, object name = null, object selection = null)
         {
-            _service.Replace(old_name, name, selection);
-            return this[name == null ? old_name : name];
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            _service.Replace(oldName, nameText, selectionValue);
+            return this[nameText == null ? oldName : nameText];
         }
         //
         protected override string[] GetItemNames()

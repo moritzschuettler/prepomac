@@ -14,6 +14,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace PrePoMax.Rpc
 {
@@ -147,12 +148,12 @@ namespace PrePoMax.Rpc
                 writer.WriteValue("arguments", GetArguments(attribute, method));
                 writer.WriteValue("returns", GetReturns(attribute, ""));
                 writer.WriteValue("description", attribute.Description);
-                WriteParameters(writer, type, method);
+                WriteParameters(writer, type, method, attribute.Arguments);
             }
             WriteExample(writer, attribute);
             writer.EndObject();
         }
-        private static void WriteParameters(JsonWriter writer, Type type, MethodInfo method)
+        private static void WriteParameters(JsonWriter writer, Type type, MethodInfo method, string arguments)
         {
             ParameterInfo[] parameters = method.GetParameters();
             if (parameters.Length == 0) return;
@@ -164,7 +165,7 @@ namespace PrePoMax.Rpc
                 writer.BeginObject();
                 writer.WriteValue("name", parameter.Name);
                 writer.WriteValue("isOptional", parameter.IsOptional);
-                if (parameter.IsOptional) writer.WriteValue("default", GetDefault(parameter));
+                if (parameter.IsOptional) writer.WriteValue("default", GetDefault(parameter, arguments));
                 WriteValues(writer, "values",
                             PythonEnumVocabulary.GetValues(type.Name, method.Name, parameter.Name));
                 writer.EndObject();
@@ -175,16 +176,29 @@ namespace PrePoMax.Rpc
         // so the declared parameter type says nothing a caller can use. The default does: it is what
         // the member does when the argument is left out, which on the model side means keeping what
         // is already there
-        private static string GetDefault(ParameterInfo parameter)
+        private static string GetDefault(ParameterInfo parameter, string arguments)
         {
             object value = parameter.RawDefaultValue;
-            if (value == null || value == DBNull.Value) return "None";
+            if (value == null || value == DBNull.Value) return GetDocumentedDefault(parameter.Name, arguments) ?? "None";
             if (value is bool) return (bool)value ? "True" : "False";
             if (value is string) return "'" + (string)value + "'";
             IFormattable formattable = value as IFormattable;
             if (formattable != null) return formattable.ToString(null, CultureInfo.InvariantCulture);
             //
             return value.ToString();
+        }
+        // A text argument with a default arrives as object, which C# gives no default but null, so the default the
+        // member applies when the argument is left out is the one its Arguments text documents
+        private static string GetDocumentedDefault(string parameterName, string arguments)
+        {
+            if (string.IsNullOrEmpty(arguments)) return null;
+            //
+            Match match = Regex.Match(arguments, @"(?:^|,)\s*" + Regex.Escape(parameterName) +
+                                                 @"\s*:[^=,]*=\s*('[^']*'|""[^""]*""|[^,]+)");
+            if (!match.Success) return null;
+            //
+            string value = match.Groups[1].Value.Trim();
+            return value == "None" ? null : value;
         }
         private static void WriteValues(JsonWriter writer, string name, string[] values)
         {

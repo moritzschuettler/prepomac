@@ -81,6 +81,11 @@ The root object available in the Python console is `pmx`.
   wrong value is refused naming the argument: `None` for a required one, `2.5` for a whole number, `1` for a
   boolean. A whole number also takes a float with a whole value, such as `2.0`, and an optional
   argument given as `None` takes its documented default.
+- So are a name or option string and an API object: a number for a name is refused as `The argument 'name'
+  must be a string, not int.`, and a region where a selection is taken as `The argument 'selection' takes a
+  Selection made by pmx.create.selection_by_ids, ..., not Region.`. The same holds for a filter, a draft and a
+  split tool, and for `in` on a collection; `contains(None)` and `None in` a collection are `False`,
+  and an ID collection takes a whole float in `in` as `contains` does.
 
 ## Script execution and regeneration
 
@@ -256,10 +261,10 @@ PrePoMax and switch on Tools - Automation Server; do not work around it.
 | --- | --- |
 | `get_guide` | How to drive a session, served by the application so it matches the version. The first thing to read. |
 | `list_sessions` | The running instances whose server is on, each with the address it answers on and the model file it has open, marking the one that answered. |
-| `get_status` | Idle or busy and why, the open model, the view, the unit system (`model.unitSystem`), the command count, read only, and under `calls` the long calls still running or waiting to be collected. A window that does not answer is reported as busy. |
+| `get_status` | Idle or busy and why, the open model, the view, the unit system (`model.unitSystem`), the command count, read only, whether Regenerate is replaying the history (`isRegenerating`) or a recorded script keeps what runs out of the history (`isCommandRecordingSuppressed`), and under `calls` the long calls still running or waiting to be collected. A window that does not answer is reported as busy. |
 | `describe_api` | The `[PythonAPI]` schema of `pmx`, of any path under it, or of an API type by name, read off the API itself. |
 | `read_model` | A JSON snapshot of the model: properties, the parts with their mesh state (meshed or not, node and element count), collections, mesh setup items, how many user keywords and keyword edits there are, steps with their content, analyses with their status. |
-| `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal - faces largest first, edges longest first, vertices in index order, at most `limit` of each per part and 240 rows in the whole answer. Part names match regardless of case and are not trimmed; a name that matches no part, a padded one included, is reported. Leaving `part_names` out reads every part; an empty list is refused. |
+| `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal - faces largest first, edges longest first, vertices in index order, at most `limit` of each per part and 240 rows in the whole answer. The parts are listed under `geometry` and `femodel`, the words the views use. Part names match regardless of case and are not trimmed; a name that matches no part, a padded one included, is reported. Leaving `part_names` out reads every part; an empty list is refused. |
 | `eval_expression` | One expression, with its value as JSON when it has one. |
 | `run_python` | Python against the live model, recorded as commands or as one script. A call that outlasts its wait is answered with a `callId`. |
 | `get_call` | The answer of a call that outlasted its wait, collected by its `callId`, shaped the way the tool that started it shapes it - `run_python` and `eval_expression`, and `read_model`, `read_topology`, `run_job` and `get_job`, which run Python too. An answer whose response never reached the client stays collectable. |
@@ -477,13 +482,16 @@ first, not a setting, and a running server goes on serving the one it started wi
 2.0, one object per line, UTF-8, with no token: the operating system authenticates the caller, and
 only the user running PrePoMax may open it. It is there for a client that speaks the protocol
 directly. Every method is a request and is answered, with one exception: `shutdown` may be sent as a
-notification, without an `id`, and is then run without an answer. Any other notification is dropped
-unanswered and not run, as on MCP, because an `exec` nobody waits for would change the model with no
-way to say what it did, and would hold the turn unseen. A malformed object without an `id` - a wrong
+notification, without an `id`, and is then run without an answer. A notification is never answered,
+so not even a refusal comes back: a `shutdown` notification with an argument the method does not
+take is refused in silence and does nothing. Send `shutdown` as a request to see that it ran. Any
+other notification is dropped unanswered and not run, as on MCP, because an `exec` nobody waits for
+would change the model with no way to say what it did, and would hold the turn unseen. A malformed object without an `id` - a wrong
 `jsonrpc`, no `method`, `params` that are not an object - is a notification as well and is dropped
 the same way; a line that is not JSON, a batch and a line that is not an object carry no `id` that
-could be read, and are answered with a `null` one. An `id` that is `null` is an invalid request,
-answered with `-32600`. Either way a running instance writes
+could be read, and are answered with a `null` one. An `id` that is `null`, or neither a string nor
+a number - an object, an array, a boolean - is an invalid request, answered with `-32600` and a
+`null` `id`. Either way a running instance writes
 `%LOCALAPPDATA%\PrePoMax\sessions\<process id>.json` while its server is on - process id, pipe
 name, `url`, `port`, `token`, versions, model file, start time - which is how a client finds it. A
 file whose process no longer exists is stale, and the next instance asked for `list_sessions` prunes
@@ -492,13 +500,13 @@ it. The folder is restricted to the current user, because the token is in it.
 | Method | What it does |
 | --- | --- |
 | `ping` | Liveness and versions. Answered without touching the model, so it answers while the application is busy. |
-| `status` | The state, and the methods this server serves. `connectionCount` counts the pipe connections and an MCP client that sent a request in the last minute. |
+| `status` | The state, and the methods this server serves. `connectionCount` counts the pipe connections and an MCP client that sent a request in the last minute. `isRegenerating` is true while Regenerate or an undo replays the history; `isCommandRecordingSuppressed` is true while a recorded script runs, outside a replay, so the commands it executes reach no history of their own. |
 | `describe` | The API schema of a `path` - a name followed by `.attribute` and `['name']` or `[index]` steps, read without being evaluated - or of an API type name. |
 | `eval` | Evaluates an `expression`; `timeout` is the wait in seconds. |
 | `exec` | Runs `source`; `record` is `commands` or `script`, regardless of case, and `timeout` is the wait in seconds. |
 | `wait` | Collects the answer of an `exec` or `eval` that outlasted its wait, by its `call_id`, waiting up to `timeout` seconds; `get_call` over MCP. |
 | `cancel` | Interrupts a running `exec` or `eval`, by its `call_id`; `cancel_call` over MCP. Never waits for the turn, and is served in read only mode. |
-| `history` | The commands - the last `limit` of them, 200 by default, 0 for all, a negative one refused - and the journal with `include_journal`, written to `journal_file` when it is given. |
+| `history` | The commands - the last `limit` of them, 200 by default, 0 for all, a negative one refused - and the journal with `include_journal`, written to `journal_file` when it is given - a relative one under the temporary folder's `PrePoMax` folder, as `screenshot` places it. `journal_file` without `include_journal` is refused. |
 | `screenshot` | Writes a PNG to `file_name`, or to the temporary folder, and returns the path; `transparent_background` and `magnification` (1 to 4) as in the capture dialog. |
 | `shutdown` | Stops the server; never closes the application. |
 | `exit` | Closes a hidden session; refused for one with a window. `discard_changes` closes it with unsaved changes. |
@@ -506,7 +514,8 @@ it. The folder is restricted to the current user, because the token is in it.
 An argument of the wrong type - `"10"` or `2.5` for a whole number, `"true"` for a boolean, a number
 for a string - is refused with `-32602` naming the argument, rather than read as its default. An
 argument the method does not take - a misspelt `timout`, or a `timeout` given to `history` - is
-refused the same way, naming it, and nothing is done, as the MCP endpoint refuses it.
+refused the same way, naming it, and nothing is done, as the MCP endpoint refuses it. A method the
+server does not serve is refused with `-32601` at once, without waiting for a running call to end.
 
 The error codes are the standard JSON-RPC ones plus an application range: `-32001` busy, `-32003` a
 refused prompt, `-32004` an API error and `-32005` not allowed - `exit` for a session with a window.
@@ -528,7 +537,7 @@ pmx.model.materials.add('Steel', pmx.create.elastic_with_density(210000, 0.3, 7.
 pmx.model.sections.add_solid('Section-1', 'Steel', part_selection)
 pmx.model.node_sets.add('Bottom', bottom_selection)
 
-step = pmx.model.steps.add_static('Step-1', time_period=1.0)
+step = pmx.model.steps.add_static('Step-1', time_period=1.0, incrementation_type='Automatic')
 step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))
 step.loads.add_pressure('Pressure-1', top_selection, 2.5)
 step.field_outputs.add_nodal('NF-Output-1', ['U', 'RF'])
@@ -643,7 +652,7 @@ model item.
 | `pmx.save(file_name)` | Saves the model to a .pmx file. |
 | `pmx.export_to_calculix(file_name)` | Exports a CalculiX .inp file. |
 | `pmx.export_to_abaqus(file_name)` | Exports an Abaqus .inp file. |
-| `pmx.export_to_3mf(file_name, edge_thickness_ratio=1)` | Exports the model to a 3MF file. |
+| `pmx.export_to_3mf(file_name, edge_thickness_ratio=1)` | Exports the model to a 3MF file. `edge_thickness_ratio` must be finite and larger than zero. |
 | `pmx.export_geometry(part_names, file_name, format=None)` | Exports the named geometry parts; the extension picks .stp/.step, .brep, .stl or .mesh (Mmg). |
 | `pmx.export_mesh(part_names, file_name, format=None)` | Exports the nodes and elements of the named mesh parts; the extension picks .inp (CalculiX, or `format="Abaqus"`), .msh (Gmsh), .mesh (Mmg) or .stl. |
 | `pmx.export_model(file_name, format=None)` | Exports the whole model as a solver input deck; .inp is CalculiX unless `format="Abaqus"`. |
@@ -721,16 +730,16 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | Member | Description |
 | --- | --- |
 | `name` | The model name. Writable; an empty name, or one that starts or ends with a space, is refused. |
-| `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable; `Undefined` is refused. |
-| `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable; `Undefined` is refused. |
+| `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable; `Undefined` and `None` are refused. Assigning it sets the model space of a new model, as the new model dialog does, and leaves the element types as they are, so once the model has a geometry or a mesh a defined model space is changed by `replace(model_space=...)`, which updates them. |
+| `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable; `Undefined` and `None` are refused. |
 | `model_type` | `GeneralModel`, `Submodel` or `SlipWearModel`. Writable. |
-| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable on a `Submodel`; `''` clears it, as emptying the field in the dialog does. |
-| `slip_wear_results` | Which results a slip wear model keeps. Writable on a `SlipWearModel`. |
-| `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable on a `SlipWearModel` with an `int` or a `str` equation, as `replace(...)` takes them, and `get_equations()` returns the equation. |
+| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable on a `Submodel`; `''` clears it, as emptying the field in the dialog does. Another model type reads it as `None`. |
+| `slip_wear_results` | Which results a slip wear model keeps. Writable on a `SlipWearModel`; another model type reads it as `None`. |
+| `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable on a `SlipWearModel` with an `int` or a `str` equation, as `replace(...)` takes them, and `get_equations()` returns the equation. Another model type reads them as `None`. |
 | `get_equations()` | The expressions those three values were entered with, without evaluating them, as a `dict[str, str]`, on a `SlipWearModel`; another model type returns an empty `dict`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and the property of the same name returns it. |
-| `bdm_remeshing` | Whether a slip wear model uses BDM remeshing. Writable on a `SlipWearModel`. |
+| `bdm_remeshing` | Whether a slip wear model uses BDM remeshing. Writable on a `SlipWearModel`; another model type reads it as `None`. |
 | `absolute_zero`, `stefan_boltzmann`, `newton_gravity` | The physical constants as a `float`, or `None` while they are undefined. Writable; assigning `None` makes that constant undefined. |
-| `replace(name=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. `number_of_cycles`, `cycles_increment` and `number_of_smoothing_steps` take an `int` or a `str` equation, rounded to a whole number. `number_of_cycles` and `cycles_increment` must be 1 or larger and `number_of_smoothing_steps` 0 or larger; a smaller value is refused naming the argument rather than raised to the minimum. A value the model type does not use - `global_results_file_name` on a model that is not a `Submodel`, `slip_wear_results`, `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` or `bdm_remeshing` on one that is not a `SlipWearModel` - is refused naming it, judged by the `model_type` the call ends with, so `replace(model_type='SlipWearModel', number_of_cycles=10)` is accepted. |
+| `replace(name=None, model_space=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. `model_space` changes the model space between `PlaneStress`, `PlaneStrain` and `Axisymmetric` and updates the element types of the mesh, as the dialog does; a change between a 2D space and `ThreeD`, and `Undefined`, are refused. `number_of_cycles`, `cycles_increment` and `number_of_smoothing_steps` take an `int` or a `str` equation, rounded to a whole number. `number_of_cycles` and `cycles_increment` must be 1 or larger and `number_of_smoothing_steps` 0 or larger; a smaller value is refused naming the argument rather than raised to the minimum. A value the model type does not use - `global_results_file_name` on a model that is not a `Submodel`, `slip_wear_results`, `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` or `bdm_remeshing` on one that is not a `SlipWearModel` - is refused naming it, judged by the `model_type` the call ends with, so `replace(model_type='SlipWearModel', number_of_cycles=10)` is accepted. |
 
 A physical constant that has never been given reads back as `None`. Because a value that is not given
 is kept, clearing one is an explicit request: `replace(clear_undefined_constants=True)` makes every
@@ -994,7 +1003,7 @@ Every `part_names` argument accepts a single name or a list of names.
 | `translate(part_names, translate_vector, number_of_copies=0)` | Translates the parts. |
 | `rotate(part_names, rotate_center, rotate_axis, rotate_angle_deg, number_of_copies=0)` | Rotates the parts about an axis; the angle is in degrees and right handed about the axis. |
 | `mirror(part_names, mirror_point, mirror_direction, copy=False)` | Mirrors the parts over the plane through the point with the direction as its normal. |
-| `scale(part_names, scale_center, scale_factors, copy=False)` | Scales the parts. |
+| `scale(part_names, scale_center, scale_factors, copy=False)` | Scales the parts. Every point, vector, factor and angle of the four transforms must be finite; a NaN or an infinity is refused naming the argument, a component as `scale_factors[1]`. |
 | `get_element_type_names()` | The names of the 14 element type slots a part carries, for example `linear_tetra`. |
 | `get_element_types(part_name)` | The element type of every slot of a part, as a `dict[str, str]` of slot name to element type name, for example `{'linear_tetra': 'C3D4'}` - the form `set_element_type` and `replace_properties` take. The part type is not a slot, and only the element kinds the part contains are listed. |
 | `set_element_type(part_names, element_type, value)` | Sets one element type slot using command history. A value that names no element type of the slot is refused, and so is `None`. An element kind the part does not contain is refused with an error naming the kinds it has. |
@@ -1642,7 +1651,7 @@ name that already exists.
 | `add_group(view, item_type, group_name, group_id=None, parent_group_id=None, target_index=0, item_names=None, step_name=None)` | Adds a group and optionally moves items into it. Returns the group id. The empty id `00000000-0000-0000-0000-000000000000` is refused, here and wherever a group id is taken. It has no `replace_group`: `rename_group` and `move_group` change a group. |
 | `rename_group(view, item_type, group_id, group_name, step_name=None)` | Renames a group. |
 | `remove_groups(view, item_type, group_ids, step_name=None)` | Removes groups. The items they hold stay in the tree. |
-| `move_items(view, item_type, item_names, target_group_id=None, target_index=0, step_name=None)` | Moves items into a group, or out of every group. |
+| `move_items(view, item_type, item_names, target_group_id=None, target_index=0, step_name=None)` | Moves items into a group, or out of every group. Item names here and in `add_group` are found regardless of case and passed on in the model's spelling. |
 | `move_group(view, item_type, group_id, target_group_id=None, target_index=0, step_name=None)` | Moves a group. |
 | `get_layout(view, item_type, step_name=None)` | The whole layout of the collection, in the form `set_layout` takes. |
 | `set_layout(view, item_type, layout, step_name=None)` | Sets the whole layout of the collection at once. |
@@ -1878,13 +1887,13 @@ Reached as `pmx.model.steps`. It shares the collection verbs, including `activat
 
 | Member | Description |
 | --- | --- |
-| `add_static(name, time_period=None, initial_time_increment=None, min_time_increment=None, max_time_increment=None, direct=None, ...)` | A static step. The time period and the increments are positive; neither the initial nor the minimum increment may exceed the time period. An initial increment above the maximum one is kept as given, as the dialog does. |
+| `add_static(name, time_period=None, initial_time_increment=None, min_time_increment=None, max_time_increment=None, ...)` | A static step. A new one has the incrementation type `Default`, which uses no time values: `time_period`, `initial_time_increment` and `max_increments` take `incrementation_type` `Automatic` or `Direct`, and `min_time_increment` and `max_time_increment` take `Automatic`, as the dialog shows them. A value the incrementation type the call ends with does not use is refused naming it, and `get_value` and `max_increments` read it as `None`. The time period and the increments are positive; neither the initial nor the minimum increment may exceed the time period. An initial increment above the maximum one is kept as given, as the dialog does. |
 | `add_slip_wear(name, ...)` | A slip wear step. It takes the arguments of `add_static`. |
 | `add_boundary_displacement(name, ...)` | A boundary displacement step, which follows a slip wear step. |
 | `add_frequency(name, number_of_frequencies=None, lower_frequency=None, upper_frequency=None, storage=None, cyclic_symmetry_mode_min=None, cyclic_symmetry_mode_max=None, ...)` | A frequency step. `number_of_frequencies` is at least 1, the limits are not negative and the lower one is below the upper one, unless the upper one is 0, which means no upper limit. `float('nan')` leaves a limit unset, which is how a replace clears one, and `get_value` reads an unset limit as `None`. The modes are not negative with the minimum not above the maximum; `float('nan')` leaves a mode unset, and `get_value` reads an unset mode as `None`. With an active cyclic symmetry the modes are checked against its number of sectors, as the dialog does. |
 | `add_complex_frequency(name, number_of_frequencies=None, ...)` | A complex frequency step. `number_of_frequencies` is at least 1. |
 | `add_buckle(name, number_of_buckling_factors=None, accuracy=None, ...)` | A buckle step. `number_of_buckling_factors` is at least 1. |
-| `add_modal_dynamics(name, steady_state=None, relative_error=None, modal_damping=None, ...)` | A modal dynamics step. `relative_error` is between 0 and 1. It also takes the arguments of `add_static`. |
+| `add_modal_dynamics(name, steady_state=None, relative_error=None, modal_damping=None, ...)` | A modal dynamics step. `relative_error` is between 0 and 1. It also takes the arguments of `add_static`, but uses its initial increment always, `time_period` unless it is a steady state step, `relative_error` only then, and no `min_time_increment` or `max_time_increment`; a value it does not use is refused, and `get_value` reads it as `None`. |
 | `add_steady_state_dynamics(name, harmonic=None, lower_frequency=None, upper_frequency=None, number_of_data_points=None, bias=None, number_of_fourier_terms=None, time_lower=None, time_upper=None, modal_damping=None, ...)` | A steady state dynamics step. The lower frequency does not exceed the upper one, `number_of_data_points` is at least 2, or `float('nan')` to leave it unset, which `get_value` reads as `None`, `bias` at least 1 and `number_of_fourier_terms` at least 1. |
 | `add_dynamic(name, alpha=None, solution_procedure=None, relative_to_absolute=None, damping=None, ...)` | A dynamic step. `alpha` is between -1/3 and 0. It also takes the arguments of `add_static`. |
 | `add_heat_transfer(name, steady_state=None, deltmx=None, ...)` | A heat transfer step. `deltmx` limits the temperature change in an increment and must be positive; `float('inf')`, the default, does not limit it. It also takes the arguments of `add_static`. |
@@ -1898,7 +1907,7 @@ Every `add_*` has a matching `replace_*` that takes `old_name` first and `name` 
 | Shared argument | Description |
 | --- | --- |
 | `nlgeom` | Accounts for the geometric nonlinearity. |
-| `max_increments` | The maximum number of increments, at least 1. |
+| `max_increments` | The maximum number of increments, at least 1. A step of the `add_static` arguments uses it under the incrementation type `Automatic` or `Direct` only, and refuses it under `Default`. |
 | `incrementation_type` | `Default`, `Automatic` or `Direct`. |
 | `solver_type` | `Default`, `PaStiX`, `Pardiso`, `Spooles`, `IterativeScaling` or `IterativeCholesky`. A new step starts from the solver type in the application settings. |
 | `output_frequency` | The results output frequency, at least 0, or `float('nan')` to leave it unset, as a new step has it; `None` keeps it on a replace, and the step property reads an unset one as `None`. |
@@ -1911,7 +1920,7 @@ can move past each other in one call. A single limit is checked against the othe
 period against the increments a static step keeps, and a cyclic symmetry mode against the other mode.
 
 ```python
-step = pmx.model.steps.add_static('Step-1', time_period=1.0, nlgeom=True)
+step = pmx.model.steps.add_static('Step-1', time_period=1.0, incrementation_type='Automatic', nlgeom=True)
 pmx.model.steps.replace_static('Step-1', max_time_increment=0.1)
 ```
 
@@ -1926,16 +1935,16 @@ also has a contact one, 3 in all, and a boundary displacement step has none.
 | `name`, `item_type` | The step name and the type, named after the `add_*` method that makes it without `add_`: `static`, `slip_wear`, `boundary_displacement`, `frequency`, `complex_frequency`, `buckle`, `modal_dynamics`, `steady_state_dynamics`, `dynamic`, `heat_transfer`, `uncoupled_temp_disp` or `coupled_temp_disp`. |
 | `active` | True when the step is written to the solver input file. |
 | `nlgeom`, `perturbation`, `run_analysis` | The shared solution flags. |
-| `max_increments`, `incrementation_type`, `solver_type`, `output_frequency` | The shared solution values. |
+| `max_increments`, `incrementation_type`, `solver_type`, `output_frequency` | The shared solution values. `max_increments` is `None` for a step of the `add_static` arguments whose incrementation type is `Default`. |
 | `bcs` | The boundary conditions of the step. |
 | `loads` | The loads of the step. |
 | `field_outputs` | The field outputs of the step. |
 | `history_outputs` | The history outputs of the step. |
 | `defined_fields` | The defined fields of the step. |
 | `get_value_names()` | The names of the values specific to this step type, the `replace_*` arguments that set them and nothing else. |
-| `get_value(name)` | One value specific to this step type, for example `time_period` or `number_of_frequencies`; an unset frequency limit, cyclic symmetry mode or number of data points is `None`. |
+| `get_value(name)` | One value specific to this step type, for example `time_period` or `number_of_frequencies`; an unset frequency limit, cyclic symmetry mode or number of data points is `None`, and so is a time value or `relative_error` the step does not use. |
 | `get_control_types()` | The types of the step control parameters, named after the `pmx.create` maker that makes each: `time_incrementation_control`, `field_control`, `contact_control` or `reset_control`. |
-| `get_controls()` | Detached copies of the step control parameters, the parts `pmx.create` makes, as a plain list that goes back into `set_controls`. |
+| `get_controls()` | Detached copies of the step control parameters, the `StepControlParameter` parts `pmx.create` makes, as a plain list that goes back into `set_controls`. |
 | `set_controls(parameters)` | Replaces the step control parameters. They are made by `pmx.create`. |
 | `clear_controls()` | Removes the step control parameters. |
 
@@ -1953,8 +1962,10 @@ step.set_controls([pmx.create.time_incrementation_control(i0=8, ic=32)])
 A step control set is replaced as a whole, because the application has a single command for it.
 `get_value('damping')` and `get_value('modal_damping')` return a copy of the part `pmx.create.damping`
 or `pmx.create.modal_damping` makes, so it goes back into the `damping` or `modal_damping` argument of
-the step's add or replace. Its values are the .NET properties of that part, for example `Alpha`,
-`DampingType` or `DampingRatiosAndRanges`, and changing the copy changes nothing in the model.
+the step's add or replace. It is a `Damping` or `ModalDamping` detached part (see `DetachedPart` below),
+whose `get_values()` reads its values under the maker's argument names, so
+`pmx.create.damping(**step.get_value('damping').get_values())` makes the same part. Nothing read from it
+changes the model.
 
 ### `BoundaryConditions`
 
@@ -2219,19 +2230,20 @@ only makes the detached **parts** that those methods take as arguments, and reco
 | `thermal_conductivity(thermal_conductivity)` | Thermal conductivity, same shape. |
 | `thermal_expansion(thermal_expansion, zero_temperature=None)` | Thermal expansion, same shape. `zero_temperature` is the temperature the expansion starts from and defaults to 20 in model units. |
 | `slip_wear(hardness, wear_coefficient)` | Slip wear property. |
-| `region(region_type, name)` | Names an existing region of the model. |
+| `region(region_type, name)` | Names an existing region of the model. Only the region types a named region of the model carries are taken; `None`, `NodeId`, `ElementId`, `Selection` and `ContactPair` are refused. |
 | `split_tool_line_by_two_points(points=None, splitter=None)` | A line drawn on the surfaces through two points, for `split_face` only. |
 | `split_tool_plane_by_three_points(points=None, splitter=None, offset=0)` | A plane through three points. |
 | `split_tool_plane_by_point_and_normal(point=None, normal=None, splitter=None, offset=0)` | A plane given by a point and a normal. |
 | `split_tool_extend_face(faces, offset=0)` | The surfaces of the selected faces, continued past their boundaries. |
 | `split_tool_extrude_edges(edges, direction=None, direction_selection=None, length=None, both_directions=True)` | The selected edges swept along a direction. |
-| `damping(damping_type=None, alpha=None, beta=None)` | Rayleigh damping for a dynamic step. |
-| `modal_damping(damping_type=None, alpha=None, beta=None, viscous_damping_ratio=None, damping_ratios=None)` | Modal damping for a modal dynamics or steady state dynamics step. |
-| `damping_ratio(damping_ratio, lowest_mode, highest_mode)` | A viscous damping ratio for a mode range, used by the `Direct` modal damping type. |
-| `time_incrementation_control(...)` | A time incrementation step control parameter. |
-| `field_control(...)` | A field step control parameter. |
-| `contact_control(...)` | A contact step control parameter. |
-| `reset_control()` | A reset step control parameter, which restores the CalculiX defaults. |
+| `damping(damping_type=None, alpha=None, beta=None)` | Rayleigh damping for a dynamic step, a `Damping` part. `alpha` and `beta` must be finite. |
+| `modal_damping(damping_type=None, alpha=None, beta=None, viscous_damping_ratio=None, damping_ratios=None)` | Modal damping for a modal dynamics or steady state dynamics step, a `ModalDamping` part. The real values must be finite. |
+| `damping_ratio(damping_ratio, lowest_mode, highest_mode)` | A viscous damping ratio for a mode range, used by the `Direct` modal damping type, a `DampingRatio` part. The ratio must be finite. |
+| `time_incrementation_control(...)` | A time incrementation step control parameter, a `StepControlParameter` part. |
+| `field_control(...)` | A field step control parameter, a `StepControlParameter` part. |
+| `contact_control(...)` | A contact step control parameter, a `StepControlParameter` part. |
+| `reset_control()` | A reset step control parameter, which restores the CalculiX defaults, a `StepControlParameter` part. |
+| `environment_variable(name, value, active=True)` | A solver environment variable for `pmx.jobs.add` and `replace`, an `EnvironmentVariable` part. |
 
 A tabular property takes either the values of a single row, or a list of rows whose **last value is
 always the temperature**. `plastic`, `elastic_engineering_constants` and `elastic_lamina` always
@@ -2244,13 +2256,39 @@ that are given override the solver defaults - `time_incrementation_control` take
 takes `delcon`, `alea`, `kscalemax` and `itf2f`. A value left out or `None` keeps the solver default;
 `is_value`, `ij`, `it`, `ds`, `dh` and `wg` of the time incrementation and `q0a` and `qua` of the field
 control are unset by default, and the journal leaves out every value that is still the default. A value the
-parameter would clamp is refused: the integer values are at least 1, the real values at least 0, and `alea`
-is between 0 and 1.
+parameter would clamp is refused: the integer values are at least 1, the real values finite and at least 0,
+and `alea` is between 0 and 1.
+
+### `DetachedPart`
+
+The damping parts, the step control parameters and the environment variable are detached parts:
+`pmx.create.damping`, `modal_damping` and `damping_ratio` make a `Damping`, a `ModalDamping` and a
+`DampingRatio`, the four `*_control` makers a `StepControlParameter`, and `environment_variable` an
+`EnvironmentVariable`. They are also what `step.get_value('damping')`, `step.get_value('modal_damping')`,
+`step.get_controls()` and `job.environment_variables` return, as copies, so changing nothing in the model.
+None of them hands out the .NET model object; each one reads back under the argument names of its maker,
+the way a `MaterialProperty` does:
+
+| Member | Description |
+| --- | --- |
+| `get_values()` | The values under the argument names of the `pmx.create` maker, as a `dict`, so that the maker given them back as keyword arguments makes the same part - `pmx.create.damping(**d.get_values())`. An option is its PascalCase name, a value that is not set (`is_value`, `ij`, `it`, `ds`, `dh`, `wg`, `q0a`, `qua` left at their defaults, `damping_ratios` of a modal damping without ratios) is `None`, and the damping ratios of a modal damping are a plain list of `DampingRatio` parts. A reset control has no values. |
+| `get_value(name)` | One value, by the maker's argument name. |
+| `get_value_names()` | The names `get_values()` reports, as a `StringList`. |
+| `control_type` | `StepControlParameter` only: the maker that made it, `time_incrementation_control`, `field_control`, `contact_control` or `reset_control`, so `getattr(pmx.create, c.control_type)(**c.get_values())` rebuilds it. |
+| `name`, `value`, `active` | `EnvironmentVariable` only: the variable as `environment_variable` takes it. |
+
+```python
+controls = step.get_controls()
+print([c.control_type for c in controls], controls[0].get_values())
+damping = pmx.create.damping('Rayleigh', alpha=0.1, beta=0.001)
+print(damping.get_values())   # {'damping_type': 'Rayleigh', 'alpha': 0.1, 'beta': 0.001}
+```
 
 ### `SplitTool`
 
 Created by a `pmx.create.split_tool_*` method and taken by `split_solid` and `split_face`. Its only
-member is `tool_type`, the operation as the split dialogs name it. A tool is a detached description:
+member is `tool_type`, the name of the method that made it without `split_tool_`, for example
+`'plane_by_three_points'` for `split_tool_plane_by_three_points`. A tool is a detached description:
 its selections are built in the `geometry` view and resolved only when a split applies it, so one
 tool can be used on several regions, and a pick is read again when the history is regenerated.
 
@@ -2276,7 +2314,8 @@ tool can be used on several regions, and a pick is read again when the history i
 
 Created by `pmx.create.region(region_type, name)`. It points a model item at an existing region of
 the model instead of giving the item its own selection. `region_type` is `NodeSetName`,
-`ElementSetName`, `SurfaceName`, `ReferencePointName`, `PartName` or `MassSection`.
+`ElementSetName`, `SurfaceName`, `ReferencePointName`, `PartName` or `MassSection`; any other region type
+names no region of the model and is refused when the region is created.
 
 A named region of a type the item's dialog does not offer is **refused**, before anything is recorded. What
 each item takes:
@@ -2346,7 +2385,7 @@ pmx.jobs.replace('Job-1', inherit_number_of_cpus=True)
 | `executable`, `argument`, `work_directory` | What the solver is run as. The argument names the input file and defaults to the analysis name. The work directory is where the input file is written, where the previous run's files are deleted and where the solver runs, so an analysis with its own work directory is self contained. |
 | `compatibility_mode` | Runs the solver in the simplified mode. |
 | `number_of_cpus` | The number of solver CPUs. |
-| `environment_variables` | Detached copies of the solver environment variables, as a plain `list` that goes back into `environment_variables` of `add` and `replace`. |
+| `environment_variables` | Detached copies of the solver environment variables, `EnvironmentVariable` parts (see `DetachedPart`), as a plain `list` that goes back into `environment_variables` of `add` and `replace`. |
 | `inherit_executable`, `inherit_work_directory`, `inherit_number_of_cpus`, `inherit_environment_variables` | True when the value follows the application settings, False when the analysis overrides it. They go back into the `inherit_*` arguments of `replace`, so a copy of an analysis gives an inherited value back as `inherit_*=True` rather than as the value, which would turn it into an override. |
 | `status` | The status of the last run: `None`, `InQueue`, `Running`, `OK`, `Killed`, `TimedOut`, `Failed` or `FailedWithResults`. |
 | `results_file_name` | The name of the results file the analysis writes. |
@@ -2367,7 +2406,8 @@ pmx.jobs.open_results('Job-1')
 `run` and `check_model` return the job status rather than a bool, because a run that starts is not a
 run that succeeds. With `wait` the call returns only when the solver has finished, which is what an
 unattended script needs; `wait=False` starts the solver and returns at once, and is only useful from
-the console, because a batch run that ends while the solver is still working kills it.
+the console or an automation call, because a batch run that ends while the solver is still working
+kills it.
 
 A `timeout` in seconds kills the solver and returns `TimedOut`. It needs `wait`, since a run that is
 not waited for has nothing to time out. The `--timeout` command line switch stays the outer safety
@@ -2664,7 +2704,7 @@ Single loaded result file.
 | --- | --- |
 | `name` | Immutable user-visible result name. |
 | `file_name` | Source result file name. |
-| `date_time` | Result file date and time. |
+| `date_time` | Result file date and time, as an ISO-8601 string in local time without fractions of a second or a time zone, for example `'2026-10-10T14:03:22'`. |
 | `unit_system` | Result unit system. |
 | `steps` | Result steps indexed by result step ID. |
 | `mesh` | Result mesh. |
@@ -3496,6 +3536,13 @@ scaling changes its dimension, so a scaled line integral returns an area and a s
 volume:
 
 ```python
+faces = pmx.create.selection_by_ids(
+    view="results",
+    target="surfaces",
+    source="surfaces",
+    ids={1: [3]}
+)
+
 output = result.history_outputs.create_history_output_from_integration(
     name="Surface_area",
     integral_type="Surface",

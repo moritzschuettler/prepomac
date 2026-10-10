@@ -181,10 +181,11 @@ namespace APIs.Python.Model
                    "Use get_value_names to list them.",
                    Arguments = "name: str",
                    Returns = "float, int, bool, str or list[float]")]
-        public object get_value(string name)
+        public object get_value(object name)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
             Load load = Resolve();
-            return ModelItemValueReader.GetValue(GetValues(load), name, GetItemType(load) + " load");
+            return ModelItemValueReader.GetValue(GetValues(load), nameText, GetItemType(load) + " load");
         }
         [PythonAPI("Returns the expressions the load was entered with, without evaluating them, under the names " +
                    "get_value uses. Only a value entered as an expression is returned, with its leading equals " +

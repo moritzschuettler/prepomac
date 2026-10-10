@@ -25,11 +25,16 @@ namespace PrePoMax.Rpc
         // Static methods                                                                                                           
         public static string Execute(RpcRequest request, RpcServer server)
         {
-            int callId = request.GetInt("call_id", 0);
-            if (callId <= 0)
+            if (!request.Has("call_id"))
             {
                 throw new RpcException(RpcErrorCode.InvalidParams, "The argument call_id is required: the callId " +
                                                                   "a still running call was answered with.");
+            }
+            int callId = request.GetInt("call_id", 0);
+            if (callId < 1)
+            {
+                throw new RpcException(RpcErrorCode.InvalidParams, "The argument call_id must be at least 1: the " +
+                                                                  "callId a still running call was answered with.");
             }
             int waitSeconds = RpcDispatcher.GetWaitSeconds(request, "timeout", server.RequestTimeout);
             return server.GetDispatcher().Collect(callId, waitSeconds);

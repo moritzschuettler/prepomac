@@ -53,9 +53,10 @@ namespace APIs.Python
                    Returns = "FieldExtremes",
                    Example = "peak = increment.fields['S'].get_extremes('Mises')\n" +
                              "print(peak.max_value, peak.unit, peak.max_node_id)")]
-        public FieldExtremesAPI get_extremes(string component_name)
+        public FieldExtremesAPI get_extremes(object component_name)
         {
-            return _dataService.GetExtremes(_resultName, _stepId, _incrementId, _fieldName, component_name);
+            string componentName = PythonValueConverter.ToText(component_name, "component_name", false);
+            return _dataService.GetExtremes(_resultName, _stepId, _incrementId, _fieldName, componentName);
         }
         public override string ToString()
         {

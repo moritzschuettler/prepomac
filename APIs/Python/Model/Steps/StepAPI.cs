@@ -50,8 +50,20 @@ namespace APIs.Python.Model
         public bool perturbation { get { return _service.ResolveStep(_stepName).Perturbation; } }
         [PythonAPI("True when the step is solved, false when the model is only checked.", Returns = "bool")]
         public bool run_analysis { get { return _service.ResolveStep(_stepName).RunAnalysis; } }
-        [PythonAPI("The maximum number of increments.", Returns = "int")]
-        public int max_increments { get { return _service.ResolveStep(_stepName).MaxIncrements; } }
+        [PythonAPI("The maximum number of increments, or None for a step of the add_static arguments whose " +
+                   "incrementation type is Default, which does not use it.", Returns = "int or None")]
+        public object max_increments
+        {
+            get
+            {
+                Step step = _service.ResolveStep(_stepName);
+                StaticStep staticStep = step as StaticStep;
+                if (staticStep != null && StepFactory.GetUnusedValueReason(staticStep, "max_increments") != null)
+                    return null;
+                //
+                return step.MaxIncrements;
+            }
+        }
         [PythonAPI("The incrementation type: Default, Automatic or Direct.", Returns = "str")]
         public string incrementation_type
         {
@@ -129,7 +141,7 @@ namespace APIs.Python.Model
             // The step types that take the arguments of add_static derive from the static step
             if (step is StaticStep)
                 ModelItemValueReader.AddArguments(names, "time_period", "initial_time_increment", "min_time_increment",
-                                                  "max_time_increment", "direct");
+                                                  "max_time_increment");
             //
             return names;
         }
@@ -148,16 +160,22 @@ namespace APIs.Python.Model
 
         [PythonAPI("Returns a value that is specific to this step type by the name of the add_* argument that " +
                    "sets it, for example time_period. Use get_value_names to list them. A frequency limit, a " +
-                   "cyclic symmetry mode or a number of data points that is not set is None. A damping or " +
+                   "cyclic symmetry mode or a number of data points that is not set is None, and so is a time " +
+                   "value or relative_error the step does not use, which add_static describes. A damping or " +
                    "modal_damping is returned as a copy of the part pmx.create makes, which the argument takes " +
                    "back.", Arguments = "name: str",
                    Returns = "float, int, bool, str, Damping, ModalDamping or None")]
-        public object get_value(string name)
+        public object get_value(object name)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
             Step step = _service.ResolveStep(_stepName);
             object value = ModelItemValueReader.GetValue(ModelItemValueReader.GetValues(step,
                                                                                         GetArgumentValueNames(step)),
-                                                         name, GetItemType(step) + " step");
+                                                         nameText, GetItemType(step) + " step");
+            // A value the step does not use is kept hidden, as the dialog hides it, and would be refused back
+            StaticStep staticStep = step as StaticStep;
+            if (staticStep != null && StepFactory.GetUnusedValueReason(staticStep, nameText.Trim()) != null)
+                return null;
             // A frequency limit that is not set is stored as NaN, and a count as the smallest integer
             if (value is double number && double.IsNaN(number)) return null;
             if (value is int count) return FromUnsetInt(count);

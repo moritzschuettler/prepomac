@@ -109,6 +109,10 @@ def find_solid_element_set(result):
 
 result = pmx.results.current
 check(result is not None, "Open and select a result before running this script.")
+# The result file date and time reads back as an ISO-8601 string, never as a .NET DateTime
+check(isinstance(result.date_time, str) and len(result.date_time) == 19 and result.date_time[10] == "T" and
+      result.date_time[4] == "-" and result.date_time[13] == ":",
+      "the result date and time must read back as an ISO-8601 string: " + repr(result.date_time))
 
 step = result.steps.last()
 check(step is not None, "The current result contains no result steps.")
@@ -184,6 +188,31 @@ try:
     check(history_outputs.contains(FROM_FIELD_NAME), "replace() removed the From Field output.")
     check(replaced.name == FROM_FIELD_NAME, "replace() returned the wrong From Field output.")
     print("PASS: replace From Field history output")
+
+    # A user-defined result field output is found regardless of case, as the result keys it, and the history
+    # output stores it in the spelling of the result
+    limit_source_name = "PyTest_History_limit_source"
+    result.field_outputs.add(result.field_outputs.create_field_output_limit(
+        name=limit_source_name, field_name="STRESS", component_name=stress_component, based_on="AllElements",
+        item_limits={"All elements": 235.0}))
+    try:
+        limit_component = get_component_name(result.steps.last().increments.last(), limit_source_name, [])
+        draft = history_outputs.create_history_output_from_field(
+            name=FROM_FIELD_NAME, field_name=limit_source_name.upper(), component_names=[limit_component],
+            region=node_selection)
+        draft.step_id = step.id
+        draft.increment_id = increment.id
+        replaced = history_outputs.replace(FROM_FIELD_NAME, draft)
+        check(replaced.field_name == limit_source_name,
+              "the source field was stored in the caller's spelling: " + replaced.field_name)
+        print("PASS: find a user-defined source field regardless of case")
+    finally:
+        restored = history_outputs.create_history_output_from_field(
+            name=FROM_FIELD_NAME, field_name="FORC", component_names=[force_component], region=node_selection)
+        restored.step_id = step.id
+        restored.increment_id = increment.id
+        history_outputs.replace(FROM_FIELD_NAME, restored)
+        result.field_outputs.remove(limit_source_name)
 
     # Exercise every available named From Field region through command history.
     for named_region in named_field_regions[1:]:

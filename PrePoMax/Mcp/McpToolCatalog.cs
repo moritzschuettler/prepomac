@@ -66,7 +66,9 @@ namespace PrePoMax.Mcp
             tools.Add(new McpTool("get_status", "Read the session state",
                 "Reports what PrePoMax is doing right now: whether it is idle or busy and why, the open model file, " +
                 "the current view, the unit system (model.unitSystem), how many commands are in the history, " +
-                "whether the server is in read only mode, and under calls the long calls still running or waiting " +
+                "whether the server is in read only mode, whether Regenerate is replaying the history " +
+                "(isRegenerating) or a recorded script keeps what runs out of the history " +
+                "(isCommandRecordingSuppressed), and under calls the long calls still running or waiting " +
                 "to be collected. Call it when a tool answers that the application is busy, and before a change, " +
                 "so the state the change assumes is the state it finds.",
                 SessionSchema(null), true));

@@ -36,9 +36,10 @@ namespace APIs.Python.Model
 
 
         // Methods
-        public TItemAPI __getitem__(string name)
+        public TItemAPI __getitem__(object name)
         {
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            return this[nameText];
         }
         public TItemAPI this[string name]
         {
@@ -82,7 +83,7 @@ namespace APIs.Python.Model
         }
 
         // Python's in operator; without it, in compares the name with every item object and is always False
-        public bool __contains__(string name)
+        public bool __contains__(object name)
         {
             return contains(name);
         }
@@ -90,16 +91,18 @@ namespace APIs.Python.Model
         [PythonAPI("Returns true if an item with the specified name exists. The name is compared regardless of " +
                    "case, the way the item is found by get and by indexing.", Arguments = "name: str",
                    Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             // The same lookup as get, so a name contains accepts is one get finds
-            return name != null && GetItem(name) != null;
+            return nameText != null && GetItem(nameText) != null;
         }
 
         [PythonAPI("Returns the item with the specified name.", Arguments = "name: str")]
-        public TItemAPI get(string name)
+        public TItemAPI get(object name)
         {
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            return this[nameText];
         }
 
         [PythonAPI("Returns the first item in the collection.")]
@@ -149,14 +152,16 @@ namespace APIs.Python.Model
 
         [PythonAPI("Renames an item using command history.", Arguments = "old_name: str, new_name: str",
                    Returns = "None")]
-        public void rename(string old_name, string new_name)
+        public void rename(object old_name, object new_name)
         {
-            TItem item = ResolveItem(old_name);
-            PythonNameComparer.ValidateFormat(new_name, "new_name", item.Name, GetAdditionalNameCharacters());
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string newName = PythonValueConverter.ToText(new_name, "new_name", false);
+            TItem item = ResolveItem(oldName);
+            PythonNameComparer.ValidateFormat(newName, "new_name", item.Name, GetAdditionalNameCharacters());
             // The stored spelling decides, so a rename that changes only the case is still carried out
-            if (string.Equals(item.Name, new_name, System.StringComparison.Ordinal)) return;
+            if (string.Equals(item.Name, newName, System.StringComparison.Ordinal)) return;
             //
-            RenameItem(item, new_name);
+            RenameItem(item, newName);
         }
         public override string ToString()
         {

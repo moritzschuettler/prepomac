@@ -69,6 +69,9 @@ namespace PrePoMax.Commands
         {
             List<string> arguments = new List<string>();
             arguments.Add("name=" + PythonValueFormatter.Text(_newModelName));
+            // The dialog changes the model space between the 2D spaces; a model nothing has set keeps Undefined
+            if (_newModelProperties.ModelSpace != ModelSpaceEnum.Undefined)
+                arguments.Add("model_space=" + PythonValueFormatter.Text(_newModelProperties.ModelSpace.ToString()));
             arguments.Add("model_type=" + PythonValueFormatter.Text(_newModelProperties.ModelType.ToString()));
             // The replace refuses a value the model type does not use, and keeps the hidden one it is not given
             if (_newModelProperties.ModelType == ModelType.Submodel && _newModelProperties.GlobalResultsFileName != null)

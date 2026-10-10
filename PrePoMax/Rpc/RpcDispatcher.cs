@@ -106,7 +106,8 @@ namespace PrePoMax.Rpc
             try
             {
                 string[] parameters = GetParameters(request.Method);
-                if (parameters != null) request.RefuseUnknownParameters(parameters);
+                if (parameters == null) throw CreateMethodNotFound(request.Method);
+                request.RefuseUnknownParameters(parameters);
                 // A method that only reports is answered while another one is still working, so a
                 // client can always ask what is going on; anything that reaches the model waits its
                 // turn, whichever connection it arrived on
@@ -325,7 +326,7 @@ namespace PrePoMax.Rpc
         {
             return method == "exec" || method == "eval";
         }
-        // The arguments each method takes, or null for a method this server does not serve, which Execute refuses
+        // The arguments each method takes, or null for a method this server does not serve, which Invoke refuses
         private static string[] GetParameters(string method)
         {
             if (method == "ping") return RpcPingMethod.Parameters;
@@ -445,8 +446,12 @@ namespace PrePoMax.Rpc
             else if (request.Method == "screenshot")
                 return ServeOnUiThread(request, true, RpcScreenshotMethod.Execute);
             //
-            throw new RpcException(RpcErrorCode.MethodNotFound, "The method " + request.Method + " does not exist. " +
-                                                                "Call status to see the methods this server serves.");
+            throw CreateMethodNotFound(request.Method);
+        }
+        private static RpcException CreateMethodNotFound(string method)
+        {
+            return new RpcException(RpcErrorCode.MethodNotFound, "The method " + method + " does not exist. " +
+                                                                 "Call status to see the methods this server serves.");
         }
     }
 }

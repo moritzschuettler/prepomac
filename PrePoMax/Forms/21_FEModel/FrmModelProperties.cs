@@ -68,6 +68,12 @@ namespace PrePoMax.Forms
         protected override void OnApply(bool onOkAddNew)
         {
             _viewModelProperties = (ViewModelProperties)propertyGrid.SelectedObject;
+            // The Python API refuses these names, so a journal of the dialog could not set them again
+            string name = _viewModelProperties.Name;
+            if (name == null || name.Trim().Length == 0)
+                throw new CaeException("The model name must not be empty.");
+            if (name.Trim().Length != name.Length)
+                throw new CaeException("The model name must not start or end with a space: '" + name + "'.");
             //
             if (_viewModelProperties.ModelType == ModelType.Submodel)
             {

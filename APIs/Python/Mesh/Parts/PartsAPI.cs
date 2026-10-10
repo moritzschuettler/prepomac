@@ -32,9 +32,10 @@ namespace APIs.Python
 
 
         // Methods
-        public PartAPI __getitem__(string partName)
+        public PartAPI __getitem__(object partName)
         {
-            return this[partName];
+            string partNameText = PythonValueConverter.ToText(partName, "name", false);
+            return this[partNameText];
         }
         public PartAPI this[string partName]
         {
@@ -67,7 +68,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(string partName)
+        public bool __contains__(object partName)
         {
             return contains(partName);
         }
@@ -95,9 +96,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the result mesh contains the specified part.", Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return PythonNameComparer.Contains(_meshService.GetPartNames(_resultName), name);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return PythonNameComparer.Contains(_meshService.GetPartNames(_resultName), nameText);
         }
         [PythonAPI("Hides result parts using command history.", Arguments = "part_names: list[str] or str",
                    Returns = "None")]
@@ -164,40 +166,44 @@ namespace APIs.Python
                    "given is kept.",
                    Arguments = "old_name: str, name: str = None, color: list[int] or str = None",
                    Returns = "None")]
-        public void replace_properties(string old_name, string name = null, object color = null)
+        public void replace_properties(object old_name, object name = null, object color = null)
         {
-            if (old_name == null) throw new PythonAPIException("The argument 'old_name' must not be None.");
-            string storedOldName = ResolvePartNames(old_name, "old_name")[0];
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", true);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            if (oldName == null) throw new PythonAPIException("The argument 'old_name' must not be None.");
+            string storedOldName = ResolvePartNames(oldName, "old_name")[0];
             EnsureCommandsAvailable();
             CaeMesh.PartProperties properties =
                 _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[storedOldName].GetProperties();
-            if (name != null)
+            if (nameText != null)
             {
-                ValidateNewPartName(name, storedOldName);
-                properties.Name = name;
+                ValidateNewPartName(nameText, storedOldName);
+                properties.Name = nameText;
             }
             if (color != null) properties.Color = PythonColorConverter.ToColor(color, "color");
             _commandGateway.ReplaceResultPartProperties(storedOldName, properties);
         }
         [PythonAPI("Renames a result part using command history.", Arguments = "old_name: str, new_name: str",
                    Returns = "None")]
-        public void rename(string old_name, string new_name)
+        public void rename(object old_name, object new_name)
         {
-            if (old_name == null) throw new PythonAPIException("The argument 'old_name' must not be None.");
-            string storedOldName = ResolvePartNames(old_name, "old_name")[0];
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", true);
+            string newName = PythonValueConverter.ToText(new_name, "new_name", false);
+            if (oldName == null) throw new PythonAPIException("The argument 'old_name' must not be None.");
+            string storedOldName = ResolvePartNames(oldName, "old_name")[0];
             CaeMesh.BasePart part = _meshService.ResolveResultWithMesh(_resultName).Mesh.Parts[storedOldName];
-            PythonNameComparer.ValidateFormat(new_name, "new_name", part.Name);
-            if (string.Equals(part.Name, new_name)) return;
-            if (!PythonNameComparer.AreSame(new_name, part.Name) &&
-                PythonNameComparer.Contains(_meshService.GetPartNames(_resultName), new_name))
-                throw new PythonAPIException("The result part '" + new_name + "' already exists.");
+            PythonNameComparer.ValidateFormat(newName, "new_name", part.Name);
+            if (string.Equals(part.Name, newName)) return;
+            if (!PythonNameComparer.AreSame(newName, part.Name) &&
+                PythonNameComparer.Contains(_meshService.GetPartNames(_resultName), newName))
+                throw new PythonAPIException("The result part '" + newName + "' already exists.");
             // The results view renames only the parts a result was read with
             if (!(part is CaeMesh.ResultPart))
-                throw new PythonAPIException("The result part '" + old_name + "' is a " + part.GetType().Name +
+                throw new PythonAPIException("The result part '" + oldName + "' is a " + part.GetType().Name +
                                              ", which cannot be renamed. Use replace_properties instead.");
             //
             EnsureCommandsAvailable();
-            _commandGateway.RenameResultItem(part, new_name);
+            _commandGateway.RenameResultItem(part, newName);
         }
         [PythonAPI("Removes result parts using command history.", Arguments = "names: list[str] or str",
                    Returns = "None")]

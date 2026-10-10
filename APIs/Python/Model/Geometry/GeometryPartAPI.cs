@@ -61,9 +61,10 @@ namespace APIs.Python.Model
         [PythonAPI("The cells of one sub-part of a compound part made by split_solid, in the order the compound " +
                    "holds them, which group_split_cells takes.",
                    Arguments = "sub_part_name: str", Returns = "StringList")]
-        public StringListAPI get_split_cell_names(string sub_part_name)
+        public StringListAPI get_split_cell_names(object sub_part_name)
         {
-            return new StringListAPI(_service.GetSplitCellNames(_partName, sub_part_name));
+            string subPartName = PythonValueConverter.ToText(sub_part_name, "sub_part_name", false);
+            return new StringListAPI(_service.GetSplitCellNames(_partName, subPartName));
         }
         protected override BasePart ResolvePart()
         {

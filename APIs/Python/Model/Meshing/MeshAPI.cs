@@ -49,9 +49,10 @@ namespace APIs.Python.Model
         [PythonAPI("Creates a boundary layer on the selected geometry using command history. thickness is " +
                    "larger than 0.",
                    Arguments = "selection: Selection, thickness: float", Returns = "None")]
-        public void generate_boundary_layer(SelectionAPI selection, object thickness)
+        public void generate_boundary_layer(object selection, object thickness)
         {
-            _toolService.CreateBoundaryLayer(selection, thickness);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            _toolService.CreateBoundaryLayer(selectionValue, thickness);
         }
 
         [PythonAPI("Remeshes the elements of a region using command history. The region is a selection or " +
@@ -98,9 +99,10 @@ namespace APIs.Python.Model
 
         [PythonAPI("Updates the nodal coordinates of the model mesh from a file using command history.",
                    Arguments = "file_name: str", Returns = "None")]
-        public void update_nodal_coordinates_from_file(string file_name)
+        public void update_nodal_coordinates_from_file(object file_name)
         {
-            _toolService.UpdateNodalCoordinatesFromFile(file_name);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            _toolService.UpdateNodalCoordinatesFromFile(fileName);
         }
         public override string ToString()
         {

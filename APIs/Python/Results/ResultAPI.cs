@@ -34,8 +34,12 @@ namespace APIs.Python
         public string name { get { return _resultName; } }
         [PythonAPI("The source result file name.", Returns = "str")]
         public string file_name { get { return Resolve().FileName; } }
-        [PythonAPI("The result file date and time.", Returns = "DateTime")]
-        public System.DateTime date_time { get { return Resolve().DateTime; } }
+        [PythonAPI("The result file date and time as an ISO-8601 string in local time, without fractions of a " +
+                   "second or a time zone, for example '2026-10-10T14:03:22'.", Returns = "str")]
+        public string date_time
+        {
+            get { return Resolve().DateTime.ToString("s", System.Globalization.CultureInfo.InvariantCulture); }
+        }
         [PythonAPI("The result unit system.", Returns = "str")]
         public string unit_system { get { return Resolve().UnitSystem != null ? Resolve().UnitSystem.ToString() : null; } }
         [PythonAPI("Result steps indexed by result step ID.", Returns = "Steps")]
@@ -77,12 +81,14 @@ namespace APIs.Python
         [PythonAPI("Returns one nodal field component value by node ID.",
                    Arguments = "step_id: int, increment_id: int, field_name: str, component_name: str, node_id: int",
                    Returns = "float")]
-        public float get_nodal_value(object step_id, object increment_id, string field_name, string component_name,
+        public float get_nodal_value(object step_id, object increment_id, object field_name, object component_name,
                                      object node_id)
         {
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", false);
+            string componentName = PythonValueConverter.ToText(component_name, "component_name", false);
             return _dataService.GetNodalValue(_resultName, PythonValueConverter.ToInt(step_id, "step_id"),
-                                              PythonValueConverter.ToInt(increment_id, "increment_id"), field_name,
-                                              component_name, PythonValueConverter.ToInt(node_id, "node_id"));
+                                              PythonValueConverter.ToInt(increment_id, "increment_id"), fieldName,
+                                              componentName, PythonValueConverter.ToInt(node_id, "node_id"));
         }
         [PythonAPI("Returns the undeformed nodal coordinates [x, y, z] by node ID.",
                    Arguments = "node_id: int",
@@ -103,21 +109,28 @@ namespace APIs.Python
         [PythonAPI("Returns the entries in a history output field component.",
                    Arguments = "history_output_name: str, field_name: str, component_name: str",
                    Returns = "HistoryEntries")]
-        public ResultHistoryOutputEntriesAPI get_history_output_entries(string history_output_name, string field_name,
-                                                                        string component_name)
+        public ResultHistoryOutputEntriesAPI get_history_output_entries(object history_output_name, object field_name,
+                                                                        object component_name)
         {
-            _resultHistoryService.ResolveComponent(_resultName, history_output_name, field_name, component_name);
-            return new ResultHistoryOutputEntriesAPI(_resultName, history_output_name, field_name, component_name,
+            string historyOutputName = PythonValueConverter.ToText(history_output_name, "history_output_name", false);
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", false);
+            string componentName = PythonValueConverter.ToText(component_name, "component_name", false);
+            _resultHistoryService.ResolveComponent(_resultName, historyOutputName, fieldName, componentName);
+            return new ResultHistoryOutputEntriesAPI(_resultName, historyOutputName, fieldName, componentName,
                                                      _resultHistoryService);
         }
         [PythonAPI("Returns one named entry in a history output field component.",
                    Arguments = "history_output_name: str, field_name: str, component_name: str, entry_name: str",
                    Returns = "HistoryEntry")]
-        public ResultHistoryOutputEntryAPI get_history_output_entry(string history_output_name, string field_name,
-                                                                    string component_name, string entry_name)
+        public ResultHistoryOutputEntryAPI get_history_output_entry(object history_output_name, object field_name,
+                                                                    object component_name, object entry_name)
         {
-            _resultHistoryService.ResolveEntry(_resultName, history_output_name, field_name, component_name, entry_name);
-            return new ResultHistoryOutputEntryAPI(_resultName, history_output_name, field_name, component_name, entry_name,
+            string historyOutputName = PythonValueConverter.ToText(history_output_name, "history_output_name", false);
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", false);
+            string componentName = PythonValueConverter.ToText(component_name, "component_name", false);
+            string entryName = PythonValueConverter.ToText(entry_name, "entry_name", false);
+            _resultHistoryService.ResolveEntry(_resultName, historyOutputName, fieldName, componentName, entryName);
+            return new ResultHistoryOutputEntryAPI(_resultName, historyOutputName, fieldName, componentName, entryName,
                                                    _resultHistoryService);
         }
         private FeResults Resolve()

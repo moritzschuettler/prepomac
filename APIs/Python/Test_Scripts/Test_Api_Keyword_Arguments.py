@@ -97,7 +97,29 @@ def test_typed_arguments():
     check(list(pmx.model.parts.get_names()) == part_names, "a refused transform changed the parts")
     # A float with a whole value is a whole number, and None takes the documented default
     check(nodes.get_ids().contains(float(first_ids[0])), "a whole float must be found in an IntList")
-    check(pmx.create.environment_variable("A", "b", active=None).Active, "None must take the default True")
+    check(pmx.create.environment_variable("A", "b", active=None).active, "None must take the default True")
+    # A NaN or an infinity is refused by the name of the argument, a vector component by its index, before
+    # anything is recorded
+    parts = pmx.model.parts
+    nan, inf = float("nan"), float("inf")
+    for function, argument in [(lambda: parts.translate(part_names[0], [0, nan, 0]), "'translate_vector[1]'"),
+                               (lambda: parts.rotate(part_names[0], [inf, 0, 0], [0, 0, 1], 90),
+                                "'rotate_center[0]'"),
+                               (lambda: parts.rotate(part_names[0], [0, 0, 0], [0, 0, 1], nan),
+                                "'rotate_angle_deg'"),
+                               (lambda: parts.mirror(part_names[0], [0, 0, -inf], [1, 0, 0]), "'mirror_point[2]'"),
+                               (lambda: parts.scale(part_names[0], [0, 0, 0], [1, inf, 1]), "'scale_factors[1]'"),
+                               (lambda: parts.scale(part_names[0], [nan, 0, 0], [1, 1, 1]), "'scale_center[0]'"),
+                               (lambda: pmx.export_to_3mf("finite.3mf", edge_thickness_ratio=inf),
+                                "'edge_thickness_ratio'"),
+                               (lambda: pmx.create.damping("Rayleigh", alpha=nan), "'alpha'"),
+                               (lambda: pmx.create.modal_damping("Constant", viscous_damping_ratio=inf),
+                                "'viscous_damping_ratio'"),
+                               (lambda: pmx.create.damping_ratio(nan, 1, 2), "'damping_ratio'")]:
+        message = api_error(function)
+        check(message is not None and argument in message and "finite" in message,
+              "a non-finite value must be refused naming " + argument + ": " + str(message))
+    check(list(pmx.model.parts.get_names()) == part_names, "a refused non-finite transform changed the parts")
     # A whole number property takes the values and equations replace takes, and refuses None
     properties = pmx.model.properties
     model_type = properties.model_type
@@ -118,9 +140,53 @@ def test_typed_arguments():
     properties.model_type = model_type
 
 
+# A typed .NET parameter made pythonnet refuse a value of another kind - a number for a name, a region for a
+# selection - with 'No method matches given arguments', which names no argument. The API takes those values
+# itself and refuses them by name, saying what the argument takes, before anything is recorded.
+def test_wrong_kind_arguments():
+    model = pmx.model
+    collections = [model.node_sets, model.element_sets, model.surfaces, model.steps, model.reference_points,
+                   model.coordinate_systems, model.mesh.setup_items]
+    names_before = [list(collection.get_names()) for collection in collections]
+    node_count = len(list(model.nodes.get_ids()))
+    selection = pmx.create.selection_by_ids("femodel", "nodes", "nodes", [1, 2, 3])
+    region = pmx.create.region("NodeSetName", PREFIX + "Missing")
+    for function, argument, words in [
+            (lambda: model.node_sets.add(PREFIX + "NS", region), "'selection'", "Selection"),
+            (lambda: model.node_sets.add(PREFIX + "NS", None), "'selection'", "None"),
+            (lambda: model.node_sets.add(PREFIX + "NS", "nodes"), "'selection'", "str"),
+            (lambda: model.node_sets.add(5, selection), "'name'", "string"),
+            (lambda: model.node_sets.replace(PREFIX + "Missing", selection=region), "'selection'", "Selection"),
+            (lambda: model.element_sets.add(PREFIX + "ES", region), "'selection'", "Selection"),
+            (lambda: model.surfaces.add(PREFIX + "S", region), "'selection'", "Selection"),
+            (lambda: model.mesh.setup_items.add_local_mesh_size(PREFIX + "LMS", region, element_size=1),
+             "'selection'", "Selection"),
+            (lambda: model.nodes.merge_coincident(region), "'selection'", "Selection"),
+            (lambda: model.reference_points.add_from_selection(PREFIX + "RP", "CenterOfGravity", region),
+             "'selection'", "Selection"),
+            (lambda: model.coordinate_systems.add_from_selections(PREFIX + "CS", origin_selection=region),
+             "'origin_selection'", "Selection"),
+            (lambda: pmx.create.split_tool_extend_face(region), "'faces'", "Selection"),
+            (lambda: pmx.selection.highlight(region), "'selection'", "Selection"),
+            (lambda: model.steps.add_static(5), "'name'", "string"),
+            (lambda: model.steps.add_static(None), "'name'", "None"),
+            (lambda: model.steps.rename(PREFIX + "Missing", 5), "'new_name'", "string"),
+            (lambda: model.node_sets.contains(5), "'name'", "string"),
+            (lambda: 5 in model.node_sets, "'name'", "string")]:
+        message = api_error(function)
+        check(message is not None and argument in message and words in message and
+              "No method matches" not in message,
+              "a value of the wrong kind must be refused naming " + argument + ": " + str(message))
+    check([list(collection.get_names()) for collection in collections] == names_before,
+          "a refused call changed the model")
+    check(len(list(model.nodes.get_ids())) == node_count, "a refused merge changed the nodes")
+    check(model.node_sets.contains(None) is False, "contains(None) must be False")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     test_typed_arguments()
+    test_wrong_kind_arguments()
     materials = pmx.model.materials
     test_unknown_keyword(materials)
     test_misspelled_keyword(materials)

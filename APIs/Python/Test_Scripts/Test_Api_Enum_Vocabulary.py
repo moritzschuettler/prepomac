@@ -167,6 +167,10 @@ def test_values_are_readable():
         values = PythonEnumVocabulary.GetValues(declaring, member, argument)
         check(values is not None and value in list(values),
               "the vocabulary does not describe %s.%s: %s" % (member, argument, values))
+    # A read-back region_type lists every region type, as an item converted from a selection reads back
+    load_region_types = list(PythonEnumVocabulary.GetValues("LoadAPI", "region_type", "region_type"))
+    check("Selection" in load_region_types and "NodeId" in load_region_types,
+          "a read-back region_type must list every region type: " + str(load_region_types))
     contact_methods = list(PythonEnumVocabulary.GetValues("ContactPairsAPI", "add", "method"))
     check("CenterPoint" not in contact_methods, "the exploded view method leaked into the contact pair method")
     print("every entry resolves to a non empty list of values")
@@ -201,10 +205,36 @@ def test_narrowed_values():
                 ("ResultReferencePointsAPI", "add_from_selection", "created_from"): by_selection,
                 ("ReferencePointsAPI", "add_from_region", "created_from"): by_region,
                 ("ResultReferencePointsAPI", "replace_from_region", "created_from"): by_region}
+    model_spaces = ["ThreeD", "PlaneStress", "PlaneStrain", "Axisymmetric"]
+    unit_systems = [name for name in PythonEnumVocabulary.GetTypes()["unit_system"].GetEnumNames()
+                    if name != "Undefined"]
+    for declaring, member in [("PrePoMaxAPI", "new_model"), ("ModelPropertiesAPI", "replace"),
+                              ("ModelPropertiesAPI", "model_space")]:
+        expected[(declaring, member, "model_space")] = model_spaces
+    for declaring, member in [("PrePoMaxAPI", "new_model"), ("ModelPropertiesAPI", "unit_system")]:
+        expected[(declaring, member, "unit_system")] = unit_systems
     for collection in ["CoordinateSystemsAPI", "ResultCoordinateSystemsAPI"]:
         for member in ["add_from_selections", "replace_from_selections"]:
             for point in ["origin", "point_on_x", "point_in_xy"]:
                 expected[(collection, member, point + "_created_from")] = by_selection
+    # A reference point takes a node set or a surface as its region, and pmx.create.region only the types a
+    # named region of the model carries
+    for collection in ["ReferencePointsAPI", "ResultReferencePointsAPI"]:
+        for member in ["add_from_region", "replace_from_region"]:
+            expected[(collection, member, "region_type")] = ["NodeSetName", "SurfaceName"]
+    expected[("CreateAPI", "region", "region_type")] = ["NodeSetName", "ElementSetName", "SurfaceName",
+                                                        "ReferencePointName", "PartName", "MassSection"]
+    # Every pick, area and box selection refuses the select_by modes that pick nothing, and every operation
+    # refuses Invert, which invert() adds
+    select_by = [name for name in PythonEnumVocabulary.GetTypes()["select_by"].GetEnumNames()
+                 if name not in ("Off", "Default", "Id", "Widget")]
+    for declaring, member in [("CreateAPI", "selection_by_pick"), ("CreateAPI", "selection_by_area"),
+                              ("CreateAPI", "selection_by_box"), ("SelectionAPI", "add_by_pick"),
+                              ("SelectionAPI", "add_by_area"), ("SelectionAPI", "add_by_box")]:
+        expected[(declaring, member, "select_by")] = select_by
+    operations = [name for name in PythonEnumVocabulary.GetTypes()["operation"].GetEnumNames() if name != "Invert"]
+    for member in ["add_by_ids", "add_by_pick", "add_by_area", "add_by_box", "add_all"]:
+        expected[("SelectionAPI", member, "operation")] = operations
     for (declaring, member, argument), values in expected.items():
         described = PythonEnumVocabulary.GetValues(declaring, member, argument)
         check(described is not None and list(described) == values,

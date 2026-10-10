@@ -31,19 +31,24 @@ namespace APIs.Python.Model
         // Methods
         [PythonAPI("Creates an element set from a selection and adds it to the model using command history.",
                    Arguments = "name: str, selection: Selection", Returns = "ElementSet")]
-        public ElementSetAPI add(string name, SelectionAPI selection)
+        public ElementSetAPI add(object name, object selection)
         {
-            _service.Add(name, selection);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            _service.Add(nameText, selectionValue);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing element set using command history. A value that is not given is " +
                    "kept.", Arguments = "old_name: str, name: str = None, selection: Selection = None",
                    Returns = "ElementSet")]
-        public ElementSetAPI replace(string old_name, string name = null, SelectionAPI selection = null)
+        public ElementSetAPI replace(object old_name, object name = null, object selection = null)
         {
-            _service.Replace(old_name, name, selection);
-            return this[name == null ? old_name : name];
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            _service.Replace(oldName, nameText, selectionValue);
+            return this[nameText == null ? oldName : nameText];
         }
 
         [PythonAPI("Adds an element set of the elements of the named model parts whose quality metric is " +
@@ -52,12 +57,14 @@ namespace APIs.Python.Model
                    "entity.",
                    Arguments = "name: str, metric: str, part_names: list[str] or str, larger_than: bool, " +
                                "limit: float", Returns = "ElementSet")]
-        public ElementSetAPI add_from_quality(string name, string metric, object part_names, object larger_than,
+        public ElementSetAPI add_from_quality(object name, object metric, object part_names, object larger_than,
                                               object limit)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string metricText = PythonValueConverter.ToText(metric, "metric", false);
             bool largerThan = PythonValueConverter.ToBool(larger_than, "larger_than");
-            _meshEditService.CreateElementSetFromQuality(name, metric, part_names, largerThan, limit);
-            return this[name];
+            _meshEditService.CreateElementSetFromQuality(nameText, metricText, part_names, largerThan, limit);
+            return this[nameText];
         }
 
         [PythonAPI("Converts the named element sets into mesh parts using command history.",

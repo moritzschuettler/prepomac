@@ -40,10 +40,15 @@ namespace APIs.Python
                                "geometry_select_mode: str = 'SelectId'",
                    Returns = "Selection",
                    Example = "pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [3]})")]
-        public SelectionAPI selection_by_ids(string view, string target, string source, object ids,
-                                              string geometry_select_mode = "SelectId")
+        public SelectionAPI selection_by_ids(object view, object target, object source, object ids,
+                                              object geometry_select_mode = null)
         {
-            return _selectionService.CreateByIds(view, target, source, ids, geometry_select_mode);
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string targetText = PythonValueConverter.ToText(target, "target", false);
+            string sourceText = PythonValueConverter.ToText(source, "source", false);
+            string geometrySelectMode =
+                PythonValueConverter.ToTextOrDefault(geometry_select_mode, "SelectId", "geometry_select_mode");
+            return _selectionService.CreateByIds(viewText, targetText, sourceText, ids, geometrySelectMode);
         }
 
         [PythonAPI("Creates a selection from a pick. The point is a location in space, and the " +
@@ -57,12 +62,15 @@ namespace APIs.Python
                                "part_offsets: list[list[float]] = None",
                    Returns = "Selection",
                    Example = "pmx.create.selection_by_pick('femodel', 'surfaces', [0.5, 0.5, 1.0], 'Surface')")]
-        public SelectionAPI selection_by_pick(string view, string target, object point, string select_by,
+        public SelectionAPI selection_by_pick(object view, object target, object point, object select_by,
                                               object angle_deg = null, object direction = null,
                                               object part_ids = null, object completely_inside = null,
                                               object precision = null, object part_offsets = null)
         {
-            return _selectionService.CreateByPick(view, target, point, select_by, angle_deg, direction, part_ids,
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string targetText = PythonValueConverter.ToText(target, "target", false);
+            string selectBy = PythonValueConverter.ToText(select_by, "select_by", false);
+            return _selectionService.CreateByPick(viewText, targetText, point, selectBy, angle_deg, direction, part_ids,
                                                    completely_inside, precision, part_offsets);
         }
 
@@ -73,11 +81,14 @@ namespace APIs.Python
                    Arguments = "view: str, target: str, planes: list[list[float]], select_by: str, " +
                                "angle_deg: float = None, part_ids: list[int] = None, " +
                                "completely_inside: bool = False, part_offsets: list[list[float]] = None", Returns = "Selection")]
-        public SelectionAPI selection_by_area(string view, string target, object planes, string select_by,
+        public SelectionAPI selection_by_area(object view, object target, object planes, object select_by,
                                               object angle_deg = null, object part_ids = null,
                                               object completely_inside = null, object part_offsets = null)
         {
-            return _selectionService.CreateByArea(view, target, planes, select_by, angle_deg, part_ids,
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string targetText = PythonValueConverter.ToText(target, "target", false);
+            string selectBy = PythonValueConverter.ToText(select_by, "select_by", false);
+            return _selectionService.CreateByArea(viewText, targetText, planes, selectBy, angle_deg, part_ids,
                                                    completely_inside, part_offsets);
         }
 
@@ -88,19 +99,24 @@ namespace APIs.Python
                                "completely_inside: bool = False, part_offsets: list[list[float]] = None",
                    Returns = "Selection",
                    Example = "pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 'Node')")]
-        public SelectionAPI selection_by_box(string view, string target, object corner1, object corner2,
-                                             string select_by, object part_ids = null,
+        public SelectionAPI selection_by_box(object view, object target, object corner1, object corner2,
+                                             object select_by, object part_ids = null,
                                              object completely_inside = null, object part_offsets = null)
         {
-            return _selectionService.CreateByBox(view, target, corner1, corner2, select_by, part_ids,
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string targetText = PythonValueConverter.ToText(target, "target", false);
+            string selectBy = PythonValueConverter.ToText(select_by, "select_by", false);
+            return _selectionService.CreateByBox(viewText, targetText, corner1, corner2, selectBy, part_ids,
                                                   completely_inside, part_offsets);
         }
 
         [PythonAPI("Selects every visible active node, element or surface in the requested view.",
                    Arguments = "view: str, target: str", Returns = "Selection")]
-        public SelectionAPI selection_all(string view, string target)
+        public SelectionAPI selection_all(object view, object target)
         {
-            return _selectionService.CreateAll(view, target);
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string targetText = PythonValueConverter.ToText(target, "target", false);
+            return _selectionService.CreateAll(viewText, targetText);
         }
 
         [PythonAPI("Creates an elastic material property. Give the two values for a constant property, " +
@@ -160,9 +176,10 @@ namespace APIs.Python
                    Arguments = "stress_strain: list[list[float]], hardening: str = None",
                    Returns = "MaterialProperty",
                    Example = "pmx.create.plastic([[250, 0, 20]], hardening='Kinematic')")]
-        public MaterialPropertyAPI plastic(object stress_strain, string hardening = null)
+        public MaterialPropertyAPI plastic(object stress_strain, object hardening = null)
         {
-            return new MaterialPropertyAPI(MaterialPropertyFactory.CreatePlastic(stress_strain, hardening));
+            string hardeningText = PythonValueConverter.ToText(hardening, "hardening", true);
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreatePlastic(stress_strain, hardeningText));
         }
 
         [PythonAPI("Creates a slip wear material property. Any value may be an equation string.",
@@ -233,12 +250,14 @@ namespace APIs.Python
                                "pressure_overclosure: list[list[float]] = None",
                    Returns = "SurfaceInteractionProperty",
                    Example = "pmx.create.surface_behavior('Linear', k=2000)")]
-        public SurfaceInteractionPropertyAPI surface_behavior(string pressure_overclosure_type = null, object c0 = null,
+        public SurfaceInteractionPropertyAPI surface_behavior(object pressure_overclosure_type = null, object c0 = null,
                                                               object p0 = null, object k = null, object s_inf = null,
                                                               object pressure_overclosure = null)
         {
+            string pressureOverclosureType =
+                PythonValueConverter.ToText(pressure_overclosure_type, "pressure_overclosure_type", true);
             return new SurfaceInteractionPropertyAPI(
-                SurfaceInteractionPropertyFactory.CreateSurfaceBehavior(pressure_overclosure_type, c0, p0, k, s_inf,
+                SurfaceInteractionPropertyFactory.CreateSurfaceBehavior(pressureOverclosureType, c0, p0, k, s_inf,
                                                                         pressure_overclosure));
         }
 
@@ -246,15 +265,22 @@ namespace APIs.Python
                    "carrying its own selection. Possible region_type values are NodeSetName, ElementSetName, " +
                    "SurfaceName, ReferencePointName, PartName and MassSection. A MassSection region names a " +
                    "point mass or distributed mass section and is used by the gravity and the centrifugal " +
-                   "load.",
+                   "load. Any other region type is refused, because no named region of the model carries it.",
                    Arguments = "region_type: str, name: str", Returns = "Region",
                    Example = "pmx.create.region('NodeSetName', 'Bottom')")]
-        public RegionAPI region(string region_type, string name)
+        public RegionAPI region(object region_type, object name)
         {
-            if (name == null || name.Trim().Length == 0)
+            string regionType = PythonValueConverter.ToText(region_type, "region_type", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            RegionTypeEnum parsedRegionType = PythonValueConverter.ToEnum<RegionTypeEnum>(regionType, "region_type");
+            if (System.Array.IndexOf(RegionAPI.NamedRegionTypes, parsedRegionType) < 0)
+                throw new PythonAPIException("The argument 'region_type' must be NodeSetName, ElementSetName, " +
+                                             "SurfaceName, ReferencePointName, PartName or MassSection, not " +
+                                             parsedRegionType + ".");
+            if (nameText == null || nameText.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'name' must not be empty.");
             //
-            return new RegionAPI(PythonValueConverter.ToEnum<RegionTypeEnum>(region_type, "region_type"), name);
+            return new RegionAPI(parsedRegionType, nameText);
         }
 
         [PythonAPI("Creates the splitting tool of a line drawn on the surfaces through two points, which only " +
@@ -264,13 +290,14 @@ namespace APIs.Python
                    Arguments = "points: list[list[float]] = None, splitter: Selection = None",
                    Returns = "SplitTool",
                    Example = "pmx.create.split_tool_line_by_two_points([[0, 0, 20], [60, 40, 20]])")]
-        public SplitToolAPI split_tool_line_by_two_points(object points = null, SelectionAPI splitter = null)
+        public SplitToolAPI split_tool_line_by_two_points(object points = null, object splitter = null)
         {
+            SelectionAPI splitterValue = PythonValueConverter.ToApiObject<SelectionAPI>(splitter, "splitter", true);
             SplitByLineTwoPoints splitByLineTwoPoints = new SplitByLineTwoPoints();
-            SetSplitToolPoints(splitByLineTwoPoints.Points, points, splitter);
+            SetSplitToolPoints(splitByLineTwoPoints.Points, points, splitterValue);
             if (points != null) splitByLineTwoPoints.NumberOfPoints = 2;
             //
-            return new SplitToolAPI(splitByLineTwoPoints, splitter, "splitter", null);
+            return new SplitToolAPI(splitByLineTwoPoints, splitterValue, "splitter", null);
         }
 
         [PythonAPI("Creates the splitting tool of a plane through three points. Give the points, or a " +
@@ -279,15 +306,16 @@ namespace APIs.Python
                    Arguments = "points: list[list[float]] = None, splitter: Selection = None, offset: float = 0",
                    Returns = "SplitTool",
                    Example = "pmx.create.split_tool_plane_by_three_points([[0, 0, 10], [1, 0, 10], [0, 1, 10]])")]
-        public SplitToolAPI split_tool_plane_by_three_points(object points = null, SelectionAPI splitter = null,
+        public SplitToolAPI split_tool_plane_by_three_points(object points = null, object splitter = null,
                                                              object offset = null)
         {
+            SelectionAPI splitterValue = PythonValueConverter.ToApiObject<SelectionAPI>(splitter, "splitter", true);
             SplitByPlaneThreePoints splitByPlaneThreePoints = new SplitByPlaneThreePoints();
-            SetSplitToolPoints(splitByPlaneThreePoints.Points, points, splitter);
+            SetSplitToolPoints(splitByPlaneThreePoints.Points, points, splitterValue);
             if (points != null) splitByPlaneThreePoints.NumberOfPoints = 3;
             splitByPlaneThreePoints.Offset = ToSplitToolOffset(offset);
             //
-            return new SplitToolAPI(splitByPlaneThreePoints, splitter, "splitter", null);
+            return new SplitToolAPI(splitByPlaneThreePoints, splitterValue, "splitter", null);
         }
 
         [PythonAPI("Creates the splitting tool of a plane given by a point and a normal. Give them, or a " +
@@ -302,9 +330,10 @@ namespace APIs.Python
                    Returns = "SplitTool",
                    Example = "pmx.create.split_tool_plane_by_point_and_normal([30, 20, 10], [0, 0, 1])")]
         public SplitToolAPI split_tool_plane_by_point_and_normal(object point = null, object normal = null,
-                                                                 SelectionAPI splitter = null, object offset = null)
+                                                                 object splitter = null, object offset = null)
         {
-            if (normal == null && splitter == null)
+            SelectionAPI splitterValue = PythonValueConverter.ToApiObject<SelectionAPI>(splitter, "splitter", true);
+            if (normal == null && splitterValue == null)
                 throw new PythonAPIException("Give the argument 'normal' or a 'splitter' selection that gives it.");
             //
             SplitByPointAndNormal splitByPointAndNormal = new SplitByPointAndNormal();
@@ -314,7 +343,7 @@ namespace APIs.Python
             splitByPointAndNormal.Normal = normal == null ? null : ToSplitToolVector(normal, "normal", true);
             splitByPointAndNormal.Offset = ToSplitToolOffset(offset);
             //
-            return new SplitToolAPI(splitByPointAndNormal, splitter, "splitter", null);
+            return new SplitToolAPI(splitByPointAndNormal, splitterValue, "splitter", null);
         }
 
         [PythonAPI("Creates the splitting tool of the surfaces of the selected faces, continued past their " +
@@ -325,14 +354,15 @@ namespace APIs.Python
                    "the radius of a curved one.",
                    Arguments = "faces: Selection, offset: float = 0", Returns = "SplitTool",
                    Example = "pmx.create.split_tool_extend_face(faces)")]
-        public SplitToolAPI split_tool_extend_face(SelectionAPI faces, object offset = null)
+        public SplitToolAPI split_tool_extend_face(object faces, object offset = null)
         {
-            if (faces == null) throw new PythonAPIException("The argument 'faces' must not be None.");
+            SelectionAPI facesValue = PythonValueConverter.ToApiObject<SelectionAPI>(faces, "faces", true);
+            if (facesValue == null) throw new PythonAPIException("The argument 'faces' must not be None.");
             //
             SplitByExtendedFace splitByExtendedFace = new SplitByExtendedFace();
             splitByExtendedFace.Offset = ToSplitToolOffset(offset);
             //
-            return new SplitToolAPI(splitByExtendedFace, faces, "faces", null);
+            return new SplitToolAPI(splitByExtendedFace, facesValue, "faces", null);
         }
 
         [PythonAPI("Creates the splitting tool of the selected edges swept along a direction. The edges are " +
@@ -346,12 +376,15 @@ namespace APIs.Python
                                "both_directions: bool = True",
                    Returns = "SplitTool",
                    Example = "pmx.create.split_tool_extrude_edges(edges, direction=[0, 0, 1])")]
-        public SplitToolAPI split_tool_extrude_edges(SelectionAPI edges, object direction = null,
-                                                     SelectionAPI direction_selection = null, object length = null,
+        public SplitToolAPI split_tool_extrude_edges(object edges, object direction = null,
+                                                     object direction_selection = null, object length = null,
                                                      object both_directions = null)
         {
-            if (edges == null) throw new PythonAPIException("The argument 'edges' must not be None.");
-            if ((direction == null) == (direction_selection == null))
+            SelectionAPI edgesValue = PythonValueConverter.ToApiObject<SelectionAPI>(edges, "edges", true);
+            SelectionAPI directionSelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(direction_selection, "direction_selection", true);
+            if (edgesValue == null) throw new PythonAPIException("The argument 'edges' must not be None.");
+            if ((direction == null) == (directionSelection == null))
                 throw new PythonAPIException("Give either the argument 'direction' or 'direction_selection'.");
             //
             SplitByExtrudedEdges splitByExtrudedEdges = new SplitByExtrudedEdges();
@@ -373,39 +406,45 @@ namespace APIs.Python
             splitByExtrudedEdges.BothDirections =
                 PythonValueConverter.ToBoolOrDefault(both_directions, true, "both_directions");
             //
-            return new SplitToolAPI(splitByExtrudedEdges, edges, "edges", direction_selection);
+            return new SplitToolAPI(splitByExtrudedEdges, edgesValue, "edges", directionSelection);
         }
 
         [PythonAPI("Creates a Rayleigh damping part for a dynamic step. Possible damping_type values are " +
-                   "Off and Rayleigh.",
+                   "Off and Rayleigh. alpha and beta must be finite. The part reads its values back with " +
+                   "get_values, under these argument names.",
                    Arguments = "damping_type: str = None, alpha: float = None, beta: float = None",
                    Returns = "Damping", Example = "pmx.create.damping('Rayleigh', alpha=0.1, beta=0.001)")]
-        public Damping damping(string damping_type = null, object alpha = null, object beta = null)
+        public DampingAPI damping(object damping_type = null, object alpha = null, object beta = null)
         {
-            return StepPartFactory.CreateDamping(damping_type, alpha, beta);
+            string dampingType = PythonValueConverter.ToText(damping_type, "damping_type", true);
+            return new DampingAPI(StepPartFactory.CreateDamping(dampingType, alpha, beta));
         }
 
         [PythonAPI("Creates a modal damping part for a modal dynamics or steady state dynamics step. " +
                    "Possible damping_type values are Off, Constant, Direct and Rayleigh. The damping ratios " +
-                   "are used by the Direct type.",
+                   "are used by the Direct type. alpha, beta and viscous_damping_ratio must be finite. The part " +
+                   "reads its values back with get_values, under these argument names.",
                    Arguments = "damping_type: str = None, alpha: float = None, beta: float = None, " +
                                "viscous_damping_ratio: float = None, damping_ratios: DampingRatio or " +
                                "list[DampingRatio] = None", Returns = "ModalDamping",
                    Example = "pmx.create.modal_damping('Constant', viscous_damping_ratio=0.02)")]
-        public ModalDamping modal_damping(string damping_type = null, object alpha = null, object beta = null,
-                                          object viscous_damping_ratio = null, object damping_ratios = null)
+        public ModalDampingAPI modal_damping(object damping_type = null, object alpha = null, object beta = null,
+                                             object viscous_damping_ratio = null, object damping_ratios = null)
         {
-            return StepPartFactory.CreateModalDamping(damping_type, alpha, beta, viscous_damping_ratio,
-                                                      damping_ratios);
+            string dampingType = PythonValueConverter.ToText(damping_type, "damping_type", true);
+            return new ModalDampingAPI(StepPartFactory.CreateModalDamping(dampingType, alpha, beta,
+                                                                          viscous_damping_ratio, damping_ratios));
         }
 
-        [PythonAPI("Creates a viscous damping ratio for a mode range, used by the Direct modal damping type.",
+        [PythonAPI("Creates a viscous damping ratio for a mode range, used by the Direct modal damping type. " +
+                   "The damping ratio must be finite. The part reads its values back with get_values, under " +
+                   "these argument names.",
                    Arguments = "damping_ratio: float, lowest_mode: int, highest_mode: int",
                    Returns = "DampingRatio", Example = "pmx.create.damping_ratio(0.02, 1, 10)")]
-        public DampingRatioAndRange damping_ratio(object damping_ratio, object lowest_mode,
-                                                  object highest_mode)
+        public DampingRatioAPI damping_ratio(object damping_ratio, object lowest_mode, object highest_mode)
         {
-            return StepPartFactory.CreateDampingRatio(damping_ratio, lowest_mode, highest_mode);
+            return new DampingRatioAPI(StepPartFactory.CreateDampingRatio(damping_ratio, lowest_mode,
+                                                                          highest_mode));
         }
 
         [PythonAPI("Creates a time incrementation step control parameter. Only the given values override " +
@@ -417,14 +456,15 @@ namespace APIs.Python
                                "db: float = None, da: float = None, ds: float = None, dh: float = None, " +
                                "dd: float = None, wg: float = None", Returns = "StepControlParameter",
                    Example = "pmx.create.time_incrementation_control(i0=8, ic=32)")]
-        public TimeIncrementationStepControlParameter time_incrementation_control(
+        public StepControlParameterAPI time_incrementation_control(
             object i0 = null, object ir = null, object ip = null, object ic = null, object il = null,
             object ig = null, object is_value = null, object ia = null, object ij = null, object it = null,
             object df = null, object dc = null, object db = null, object da = null, object ds = null,
             object dh = null, object dd = null, object wg = null)
         {
-            return StepPartFactory.CreateTimeIncrementationControl(i0, ir, ip, ic, il, ig, is_value, ia, ij, it,
-                                                                   df, dc, db, da, ds, dh, dd, wg);
+            return new StepControlParameterAPI(
+                StepPartFactory.CreateTimeIncrementationControl(i0, ir, ip, ic, il, ig, is_value, ia, ij, it, df, dc,
+                                                                db, da, ds, dh, dd, wg));
         }
 
         [PythonAPI("Creates a field step control parameter. Only the given values override the CalculiX " +
@@ -432,37 +472,41 @@ namespace APIs.Python
                    Arguments = "rna: float = None, cna: float = None, q0a: float = None, qua: float = None, " +
                                "rpa: float = None, ea: float = None, cea: float = None, rla: float = None",
                    Returns = "StepControlParameter")]
-        public FieldStepControlParameter field_control(object rna = null, object cna = null, object q0a = null,
-                                                       object qua = null, object rpa = null, object ea = null,
-                                                       object cea = null, object rla = null)
+        public StepControlParameterAPI field_control(object rna = null, object cna = null, object q0a = null,
+                                                     object qua = null, object rpa = null, object ea = null,
+                                                     object cea = null, object rla = null)
         {
-            return StepPartFactory.CreateFieldControl(rna, cna, q0a, qua, rpa, ea, cea, rla);
+            return new StepControlParameterAPI(StepPartFactory.CreateFieldControl(rna, cna, q0a, qua, rpa, ea, cea,
+                                                                                  rla));
         }
 
         [PythonAPI("Creates a contact step control parameter. Only the given values override the CalculiX " +
                    "defaults.",
                    Arguments = "delcon: float = None, alea: float = None, kscalemax: int = None, " +
                                "itf2f: int = None", Returns = "StepControlParameter")]
-        public ContactStepControlParameter contact_control(object delcon = null, object alea = null,
-                                                           object kscalemax = null, object itf2f = null)
+        public StepControlParameterAPI contact_control(object delcon = null, object alea = null,
+                                                       object kscalemax = null, object itf2f = null)
         {
-            return StepPartFactory.CreateContactControl(delcon, alea, kscalemax, itf2f);
+            return new StepControlParameterAPI(StepPartFactory.CreateContactControl(delcon, alea, kscalemax, itf2f));
         }
 
         [PythonAPI("Creates a reset step control parameter, which restores the CalculiX default controls.",
                    Returns = "StepControlParameter")]
-        public ResetStepControlParameter reset_control()
+        public StepControlParameterAPI reset_control()
         {
-            return StepPartFactory.CreateResetControl();
+            return new StepControlParameterAPI(StepPartFactory.CreateResetControl());
         }
 
-        [PythonAPI("Creates a detached solver environment variable, including its enabled state.",
+        [PythonAPI("Creates a detached solver environment variable, including its enabled state. It reads its " +
+                   "values back as name, value and active, and with get_values.",
                    Arguments = "name: str, value: str, active: bool = True", Returns = "EnvironmentVariable")]
-        public EnvironmentVariable environment_variable(string name, string value, object active = null)
+        public EnvironmentVariableAPI environment_variable(object name, object value, object active = null)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string valueText = PythonValueConverter.ToText(value, "value", false);
             bool isActive = PythonValueConverter.ToBoolOrDefault(active, true, "active");
-            JobService.ValidateEnvironmentVariable(name, value);
-            return new EnvironmentVariable(name, value) { Active = isActive };
+            JobService.ValidateEnvironmentVariable(nameText, valueText);
+            return new EnvironmentVariableAPI(new EnvironmentVariable(nameText, valueText) { Active = isActive });
         }
         public override string ToString()
         {

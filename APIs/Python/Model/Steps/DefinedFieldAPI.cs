@@ -90,12 +90,13 @@ namespace APIs.Python.Model
                    "argument that sets it: temperature and distribution_name, or file_name and step_id for a " +
                    "temperature read from a file. Use get_value_names to list them.",
                    Arguments = "name: str", Returns = "float, int or str")]
-        public object get_value(string name)
+        public object get_value(object name)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
             DefinedField definedField = Resolve();
             return ModelItemValueReader.GetValue(ModelItemValueReader.GetValues(definedField,
                                                                                 GetArgumentValueNames(definedField)),
-                                                 name, GetItemType(definedField) + " defined field");
+                                                 nameText, GetItemType(definedField) + " defined field");
         }
 
         [PythonAPI("Returns the expressions the defined field was entered with, without evaluating them, under " +

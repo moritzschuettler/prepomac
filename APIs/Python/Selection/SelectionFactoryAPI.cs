@@ -25,9 +25,10 @@ namespace APIs.Python
         // Methods
         [PythonAPI("Highlights a Python selection in its stored view. This replaces the current interactive selection.",
                    Arguments = "selection: Selection", Returns = "None")]
-        public void highlight(SelectionAPI selection)
+        public void highlight(object selection)
         {
-            _service.Highlight(selection);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            _service.Highlight(selectionValue);
         }
         [PythonAPI("Clears the current interactive selection and its highlight.", Returns = "None")]
         public void clear_highlight()

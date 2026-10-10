@@ -52,7 +52,7 @@ def test_material_readback():
 
 def test_equation_readback():
     pmx.model.parameters.add(PREFIX + "P", 2.0)
-    step = pmx.model.steps.add_static(PREFIX + "Step", time_period=1.0)
+    step = pmx.model.steps.add_static(PREFIX + "Step")
     load = step.loads.add_concentrated_force(
         PREFIX + "Load", pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1]),
         f1=PREFIX + "P", f2='=3', f3=4)
@@ -132,7 +132,7 @@ def check_collection_round_trips(collection, expected_types):
 
 
 def test_load_round_trips():
-    static = pmx.model.steps.add_static(PREFIX + "RT_Static", time_period=1.0)
+    static = pmx.model.steps.add_static(PREFIX + "RT_Static")
     loads = static.loads
     loads.add_concentrated_force(PREFIX + "F", node_selection([1, 2]), f1=PREFIX + "P", f3=4)
     loads.add_moment(PREFIX + "M", node_selection([3]), m2="=5.5")

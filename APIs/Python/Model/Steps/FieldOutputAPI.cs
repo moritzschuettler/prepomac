@@ -110,12 +110,13 @@ namespace APIs.Python.Model
                    "that sets it, for example output. Use get_value_names to list them. The variables are " +
                    "returned as a list of names, the form the variables argument takes.", Arguments = "name: str",
                    Returns = "float, int, bool, str or list[str]")]
-        public object get_value(string name)
+        public object get_value(object name)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
             FieldOutput fieldOutput = Resolve();
             return ModelItemValueReader.GetValue(ModelItemValueReader.GetValues(fieldOutput,
                                                                                 GetArgumentValueNames(fieldOutput)),
-                                                 name, GetItemType(fieldOutput) + " field output");
+                                                 nameText, GetItemType(fieldOutput) + " field output");
         }
         public override string ToString()
         {

@@ -37,9 +37,10 @@ namespace APIs.Python
 
 
         // Methods
-        public FieldComponentAPI __getitem__(string componentName)
+        public FieldComponentAPI __getitem__(object componentName)
         {
-            return this[componentName];
+            string componentNameText = PythonValueConverter.ToText(componentName, "name", false);
+            return this[componentNameText];
         }
         public FieldComponentAPI this[string componentName]
         {
@@ -102,9 +103,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if this field contains the specified component.", Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName).Contains(name);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return _dataService.GetComponentNames(_resultName, _stepId, _incrementId, _fieldName).Contains(nameText);
         }
         public override string ToString()
         {

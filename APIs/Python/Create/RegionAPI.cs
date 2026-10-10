@@ -17,6 +17,11 @@ namespace APIs.Python
     public class RegionAPI : BaseAPI
     {
         // Variables
+        internal static readonly RegionTypeEnum[] NamedRegionTypes =
+        {
+            RegionTypeEnum.NodeSetName, RegionTypeEnum.ElementSetName, RegionTypeEnum.SurfaceName,
+            RegionTypeEnum.ReferencePointName, RegionTypeEnum.PartName, RegionTypeEnum.MassSection
+        };
         private readonly RegionTypeEnum _regionType;
         private readonly string _name;
 

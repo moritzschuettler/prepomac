@@ -48,9 +48,10 @@ namespace APIs.Python.Model
         // Methods
         [PythonAPI("Returns the collections that can be organized in a model tree view. The view is " +
                    "'geometry', 'femodel' or 'results'.", Arguments = "view: str", Returns = "StringList")]
-        public StringListAPI get_item_types(string view)
+        public StringListAPI get_item_types(object view)
         {
-            return new StringListAPI(GetItemTypes(ToView(view)));
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            return new StringListAPI(GetItemTypes(ToView(viewText)));
         }
         [PythonAPI("Adds a model tree group and optionally moves items into it. The view is 'geometry', " +
                    "'femodel' or 'results'. It returns the group id, which is generated when it is not given. " +
@@ -61,74 +62,88 @@ namespace APIs.Python.Model
                                "parent_group_id: str = None, target_index: int = 0, " +
                                "item_names: list[str] = None, step_name: str = None", Returns = "str",
                    Example = "group = pmx.model.tree.add_group('femodel', 'parts', 'Housing')")]
-        public string add_group(string view, string item_type, string group_name, string group_id = null,
-                                string parent_group_id = null, object target_index = null, object item_names = null,
-                                string step_name = null)
+        public string add_group(object view, object item_type, object group_name, object group_id = null,
+                                object parent_group_id = null, object target_index = null, object item_names = null,
+                                object step_name = null)
         {
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string itemType = PythonValueConverter.ToText(item_type, "item_type", false);
+            string groupName = PythonValueConverter.ToText(group_name, "group_name", false);
+            string groupIdText = PythonValueConverter.ToText(group_id, "group_id", true);
+            string parentGroupIdText = PythonValueConverter.ToText(parent_group_id, "parent_group_id", true);
+            string stepName = PythonValueConverter.ToText(step_name, "step_name", true);
             int targetIndex = PythonValueConverter.ToIntOrDefault(target_index, 0, "target_index");
-            item_type = ToItemType(view, item_type);
-            string viewName = Validate(view, item_type, step_name, group_name, targetIndex);
-            step_name = ToStepName(viewName, item_type, step_name);
-            ValidateGroupName(group_name);
-            string id = group_id == null ? Guid.NewGuid().ToString() : group_id;
+            itemType = ToItemType(viewText, itemType);
+            string viewName = Validate(viewText, itemType, stepName, groupName, targetIndex);
+            stepName = ToStepName(viewName, itemType, stepName);
+            ValidateGroupName(groupName);
+            string id = groupIdText == null ? Guid.NewGuid().ToString() : groupIdText;
             Guid groupId = ValidateGroupId(id, "group_id");
             Guid? parentGroupId = null;
-            if (parent_group_id != null) parentGroupId = ValidateGroupId(parent_group_id, "parent_group_id");
+            if (parentGroupIdText != null) parentGroupId = ValidateGroupId(parentGroupIdText, "parent_group_id");
             string[] names = ToNames(item_names, "item_names");
             //
-            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, item_type, step_name);
+            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, itemType, stepName);
             IList<OrderedDictionaryItemNode<string>> nodes = layout.GetItemLayoutSnapshot().Nodes;
             Guid? existingParentId;
             IList<OrderedDictionaryItemNode<string>> existingSiblings;
             if (FindNode(nodes, groupId, null, out existingParentId, out existingSiblings) != null)
-                throw new PythonAPIException("The group id '" + id + "' already exists in the " + item_type +
+                throw new PythonAPIException("The group id '" + id + "' already exists in the " + itemType +
                                              " tree of the " + viewName + " view.");
             IList<OrderedDictionaryItemNode<string>> siblings =
-                GetGroupChildren(nodes, parentGroupId, "parent_group_id", viewName, item_type);
+                GetGroupChildren(nodes, parentGroupId, "parent_group_id", viewName, itemType);
             CheckTargetIndex(targetIndex, siblings.Count);
-            CheckSiblingGroupName(siblings, group_name, Guid.Empty, item_type);
-            CheckPartGroupName(viewName, item_type, groupId, group_name);
-            if (names != null) CheckItemNames(layout, names, "item_names", viewName, item_type);
+            CheckSiblingGroupName(siblings, groupName, Guid.Empty, itemType);
+            CheckPartGroupName(viewName, itemType, groupId, groupName);
+            if (names != null) names = ToStoredItemNames(layout, names, "item_names", viewName, itemType);
             //
             EnsureCommandsAvailable();
-            _modelResolver.ModelGateway.ChangeTreeLayout("CreateGroup", viewName, item_type, step_name, names, null,
-                                                         id, parent_group_id, targetIndex, group_name);
+            _modelResolver.ModelGateway.ChangeTreeLayout("CreateGroup", viewName, itemType, stepName, names, null,
+                                                         id, parentGroupIdText, targetIndex, groupName);
             return id;
         }
         [PythonAPI("Renames a model tree group. The view is 'geometry', 'femodel' or 'results'. A group name " +
                    "follows the rules of a model item name.",
                    Arguments = "view: str, item_type: str, group_id: str, group_name: str, " +
                                "step_name: str = None", Returns = "None")]
-        public void rename_group(string view, string item_type, string group_id, string group_name,
-                                 string step_name = null)
+        public void rename_group(object view, object item_type, object group_id, object group_name,
+                                 object step_name = null)
         {
-            item_type = ToItemType(view, item_type);
-            string viewName = Validate(view, item_type, step_name, group_name, 0);
-            step_name = ToStepName(viewName, item_type, step_name);
-            ValidateGroupName(group_name);
-            Guid groupId = ValidateGroupId(group_id, "group_id");
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string itemType = PythonValueConverter.ToText(item_type, "item_type", false);
+            string groupIdText = PythonValueConverter.ToText(group_id, "group_id", false);
+            string groupName = PythonValueConverter.ToText(group_name, "group_name", false);
+            string stepName = PythonValueConverter.ToText(step_name, "step_name", true);
+            itemType = ToItemType(viewText, itemType);
+            string viewName = Validate(viewText, itemType, stepName, groupName, 0);
+            stepName = ToStepName(viewName, itemType, stepName);
+            ValidateGroupName(groupName);
+            Guid groupId = ValidateGroupId(groupIdText, "group_id");
             //
-            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, item_type, step_name);
+            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, itemType, stepName);
             Guid? parentId;
             IList<OrderedDictionaryItemNode<string>> siblings;
-            ResolveGroup(layout.GetItemLayoutSnapshot().Nodes, groupId, "group_id", viewName, item_type,
+            ResolveGroup(layout.GetItemLayoutSnapshot().Nodes, groupId, "group_id", viewName, itemType,
                          out parentId, out siblings);
-            CheckSiblingGroupName(siblings, group_name, groupId, item_type);
-            CheckPartGroupName(viewName, item_type, groupId, group_name);
+            CheckSiblingGroupName(siblings, groupName, groupId, itemType);
+            CheckPartGroupName(viewName, itemType, groupId, groupName);
             //
             EnsureCommandsAvailable();
-            _modelResolver.ModelGateway.ChangeTreeLayout("RenameGroup", viewName, item_type, step_name, null, null,
-                                                         group_id, null, -1, group_name);
+            _modelResolver.ModelGateway.ChangeTreeLayout("RenameGroup", viewName, itemType, stepName, null, null,
+                                                         groupIdText, null, -1, groupName);
         }
         [PythonAPI("Removes model tree groups. The items they hold stay in the tree. The view is 'geometry', " +
                    "'femodel' or 'results'.",
                    Arguments = "view: str, item_type: str, group_ids: list[str] or str, step_name: str = None",
                    Returns = "None")]
-        public void remove_groups(string view, string item_type, object group_ids, string step_name = null)
+        public void remove_groups(object view, object item_type, object group_ids, object step_name = null)
         {
-            item_type = ToItemType(view, item_type);
-            string viewName = Validate(view, item_type, step_name, null, 0);
-            step_name = ToStepName(viewName, item_type, step_name);
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string itemType = PythonValueConverter.ToText(item_type, "item_type", false);
+            string stepName = PythonValueConverter.ToText(step_name, "step_name", true);
+            itemType = ToItemType(viewText, itemType);
+            string viewName = Validate(viewText, itemType, stepName, null, 0);
+            stepName = ToStepName(viewName, itemType, stepName);
             string[] ids = ToNames(group_ids, "group_ids");
             if (ids == null || ids.Length == 0)
                 throw new PythonAPIException("The argument 'group_ids' must not be empty.");
@@ -139,7 +154,7 @@ namespace APIs.Python.Model
                     throw new PythonAPIException("The group id '" + id + "' is given more than once in 'group_ids'.");
             }
             //
-            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, item_type, step_name);
+            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, itemType, stepName);
             IList<OrderedDictionaryItemNode<string>> nodes = layout.GetItemLayoutSnapshot().Nodes;
             foreach (string id in ids)
             {
@@ -147,7 +162,7 @@ namespace APIs.Python.Model
                 Guid? parentId;
                 IList<OrderedDictionaryItemNode<string>> siblings;
                 OrderedDictionaryItemNode<string> group = ResolveGroup(nodes, groupId, "group_ids", viewName,
-                                                                       item_type, out parentId, out siblings);
+                                                                       itemType, out parentId, out siblings);
                 // The children of a removed group take its place, beside groups that may carry their names
                 foreach (OrderedDictionaryItemNode<string> child in group.Children)
                 {
@@ -165,7 +180,7 @@ namespace APIs.Python.Model
             }
             //
             EnsureCommandsAvailable();
-            _modelResolver.ModelGateway.ChangeTreeLayout("RemoveGroup", viewName, item_type, step_name, null, ids,
+            _modelResolver.ModelGateway.ChangeTreeLayout("RemoveGroup", viewName, itemType, stepName, null, ids,
                                                          null, null, -1, null);
         }
         [PythonAPI("Moves model tree items into a group, or out of every group when no group is given. The view " +
@@ -173,24 +188,28 @@ namespace APIs.Python.Model
                    Arguments = "view: str, item_type: str, item_names: list[str] or str, " +
                                "target_group_id: str = None, target_index: int = 0, step_name: str = None",
                    Returns = "None")]
-        public void move_items(string view, string item_type, object item_names, string target_group_id = null,
-                               object target_index = null, string step_name = null)
+        public void move_items(object view, object item_type, object item_names, object target_group_id = null,
+                               object target_index = null, object step_name = null)
         {
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string itemType = PythonValueConverter.ToText(item_type, "item_type", false);
+            string targetGroupIdText = PythonValueConverter.ToText(target_group_id, "target_group_id", true);
+            string stepName = PythonValueConverter.ToText(step_name, "step_name", true);
             int targetIndex = PythonValueConverter.ToIntOrDefault(target_index, 0, "target_index");
-            item_type = ToItemType(view, item_type);
-            string viewName = Validate(view, item_type, step_name, null, targetIndex);
-            step_name = ToStepName(viewName, item_type, step_name);
+            itemType = ToItemType(viewText, itemType);
+            string viewName = Validate(viewText, itemType, stepName, null, targetIndex);
+            stepName = ToStepName(viewName, itemType, stepName);
             string[] names = ToNames(item_names, "item_names");
             if (names == null || names.Length == 0)
                 throw new PythonAPIException("The argument 'item_names' must not be empty.");
             Guid? targetGroupId = null;
-            if (target_group_id != null) targetGroupId = ValidateGroupId(target_group_id, "target_group_id");
+            if (targetGroupIdText != null) targetGroupId = ValidateGroupId(targetGroupIdText, "target_group_id");
             //
-            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, item_type, step_name);
-            CheckItemNames(layout, names, "item_names", viewName, item_type);
+            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, itemType, stepName);
+            names = ToStoredItemNames(layout, names, "item_names", viewName, itemType);
             IList<OrderedDictionaryItemNode<string>> targetChildren =
                 GetGroupChildren(layout.GetItemLayoutSnapshot().Nodes, targetGroupId, "target_group_id", viewName,
-                                 item_type);
+                                 itemType);
             // The index counts the target's entries after the moved items have left it
             HashSet<string> movedNames = new HashSet<string>(names, layout.Comparer);
             int count = 0;
@@ -201,29 +220,34 @@ namespace APIs.Python.Model
             CheckTargetIndex(targetIndex, count);
             //
             EnsureCommandsAvailable();
-            _modelResolver.ModelGateway.ChangeTreeLayout("MoveItems", viewName, item_type, step_name, names, null,
-                                                         null, target_group_id, targetIndex, null);
+            _modelResolver.ModelGateway.ChangeTreeLayout("MoveItems", viewName, itemType, stepName, names, null,
+                                                         null, targetGroupIdText, targetIndex, null);
         }
         [PythonAPI("Moves a model tree group into another group, or to the top level when no group is given. The " +
                    "view is 'geometry', 'femodel' or 'results'.",
                    Arguments = "view: str, item_type: str, group_id: str, target_group_id: str = None, " +
                                "target_index: int = 0, step_name: str = None", Returns = "None")]
-        public void move_group(string view, string item_type, string group_id, string target_group_id = null,
-                               object target_index = null, string step_name = null)
+        public void move_group(object view, object item_type, object group_id, object target_group_id = null,
+                               object target_index = null, object step_name = null)
         {
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string itemType = PythonValueConverter.ToText(item_type, "item_type", false);
+            string groupIdText = PythonValueConverter.ToText(group_id, "group_id", false);
+            string targetGroupIdText = PythonValueConverter.ToText(target_group_id, "target_group_id", true);
+            string stepName = PythonValueConverter.ToText(step_name, "step_name", true);
             int targetIndex = PythonValueConverter.ToIntOrDefault(target_index, 0, "target_index");
-            item_type = ToItemType(view, item_type);
-            string viewName = Validate(view, item_type, step_name, null, targetIndex);
-            step_name = ToStepName(viewName, item_type, step_name);
-            Guid groupId = ValidateGroupId(group_id, "group_id");
+            itemType = ToItemType(viewText, itemType);
+            string viewName = Validate(viewText, itemType, stepName, null, targetIndex);
+            stepName = ToStepName(viewName, itemType, stepName);
+            Guid groupId = ValidateGroupId(groupIdText, "group_id");
             Guid? targetGroupId = null;
-            if (target_group_id != null) targetGroupId = ValidateGroupId(target_group_id, "target_group_id");
+            if (targetGroupIdText != null) targetGroupId = ValidateGroupId(targetGroupIdText, "target_group_id");
             //
-            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, item_type, step_name);
+            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, itemType, stepName);
             IList<OrderedDictionaryItemNode<string>> nodes = layout.GetItemLayoutSnapshot().Nodes;
             Guid? parentId;
             IList<OrderedDictionaryItemNode<string>> siblings;
-            OrderedDictionaryItemNode<string> group = ResolveGroup(nodes, groupId, "group_id", viewName, item_type,
+            OrderedDictionaryItemNode<string> group = ResolveGroup(nodes, groupId, "group_id", viewName, itemType,
                                                                    out parentId, out siblings);
             Guid? nestedParentId;
             IList<OrderedDictionaryItemNode<string>> nestedSiblings;
@@ -233,16 +257,16 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The group '" + group.Name + "' cannot be moved into itself or into one " +
                                              "of its own groups.");
             IList<OrderedDictionaryItemNode<string>> targetChildren =
-                GetGroupChildren(nodes, targetGroupId, "target_group_id", viewName, item_type);
-            CheckSiblingGroupName(targetChildren, group.Name, groupId, item_type);
+                GetGroupChildren(nodes, targetGroupId, "target_group_id", viewName, itemType);
+            CheckSiblingGroupName(targetChildren, group.Name, groupId, itemType);
             // The index counts the target's entries after the moved group has left it
             bool sameParent = parentId.HasValue == targetGroupId.HasValue &&
                               (!targetGroupId.HasValue || parentId.Value == targetGroupId.Value);
             CheckTargetIndex(targetIndex, targetChildren.Count - (sameParent ? 1 : 0));
             //
             EnsureCommandsAvailable();
-            _modelResolver.ModelGateway.ChangeTreeLayout("MoveGroup", viewName, item_type, step_name, null, null,
-                                                         group_id, target_group_id, targetIndex, null);
+            _modelResolver.ModelGateway.ChangeTreeLayout("MoveGroup", viewName, itemType, stepName, null, null,
+                                                         groupIdText, targetGroupIdText, targetIndex, null);
         }
         [PythonAPI("Returns the whole layout of a collection in the form set_layout takes it: a list whose " +
                    "entries are item names and groups, in tree order. A group is a dict with the keys " +
@@ -250,13 +274,16 @@ namespace APIs.Python.Model
                    "'geometry', 'femodel' or 'results'.",
                    Arguments = "view: str, item_type: str, step_name: str = None", Returns = "list",
                    Example = "layout = pmx.model.tree.get_layout('femodel', 'parts')")]
-        public object get_layout(string view, string item_type, string step_name = null)
+        public object get_layout(object view, object item_type, object step_name = null)
         {
-            item_type = ToItemType(view, item_type);
-            string viewName = Validate(view, item_type, step_name, null, 0);
-            step_name = ToStepName(viewName, item_type, step_name);
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string itemType = PythonValueConverter.ToText(item_type, "item_type", false);
+            string stepName = PythonValueConverter.ToText(step_name, "step_name", true);
+            itemType = ToItemType(viewText, itemType);
+            string viewName = Validate(viewText, itemType, stepName, null, 0);
+            stepName = ToStepName(viewName, itemType, stepName);
             //
-            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, item_type, step_name);
+            IOrderedDictionaryItemLayout<string> layout = ResolveLayout(viewName, itemType, stepName);
             using (Py.GIL())
             {
                 return ToPythonLayout(layout.GetItemLayoutSnapshot().Nodes);
@@ -276,31 +303,34 @@ namespace APIs.Python.Model
                    Returns = "None",
                    Example = "pmx.model.tree.set_layout('femodel', 'parts', ['Solid-2', {'group_name': 'Housing', " +
                              "'items': ['Solid-1']}])")]
-        public void set_layout(string view, string item_type, object layout, string step_name = null)
+        public void set_layout(object view, object item_type, object layout, object step_name = null)
         {
-            item_type = ToItemType(view, item_type);
-            string viewName = Validate(view, item_type, step_name, null, 0);
-            step_name = ToStepName(viewName, item_type, step_name);
+            string viewText = PythonValueConverter.ToText(view, "view", false);
+            string itemType = PythonValueConverter.ToText(item_type, "item_type", false);
+            string stepName = PythonValueConverter.ToText(step_name, "step_name", true);
+            itemType = ToItemType(viewText, itemType);
+            string viewName = Validate(viewText, itemType, stepName, null, 0);
+            stepName = ToStepName(viewName, itemType, stepName);
             if (layout == null) throw new PythonAPIException("The argument 'layout' must not be None.");
             List<object> entries = ToLayoutEntries(layout, "layout");
             //
-            IOrderedDictionaryItemLayout<string> dictionary = ResolveLayout(viewName, item_type, step_name);
+            IOrderedDictionaryItemLayout<string> dictionary = ResolveLayout(viewName, itemType, stepName);
             OrderedDictionaryItemLayout<string> oldLayout = dictionary.GetItemLayoutSnapshot();
             HashSet<string> itemNames = new HashSet<string>(dictionary.Comparer);
             HashSet<Guid> groupIds = new HashSet<Guid>();
             List<TreeLayoutGroup> groups = new List<TreeLayoutGroup>();
-            CheckLayoutEntries(dictionary, entries, itemNames, groupIds, groups, viewName, item_type);
+            CheckLayoutEntries(dictionary, entries, itemNames, groupIds, groups, viewName, itemType);
             List<string> missingNames = new List<string>();
             foreach (string key in dictionary.Keys)
             {
                 if (!itemNames.Contains(key)) missingNames.Add(key);
             }
             if (missingNames.Count > 0)
-                throw new PythonAPIException("The argument 'layout' must name every item of the " + item_type +
+                throw new PythonAPIException("The argument 'layout' must name every item of the " + itemType +
                                              " collection exactly once, and it leaves out " +
                                              string.Join(", ", missingNames) + ".");
             Dictionary<Guid, string> linkedRenames = new Dictionary<Guid, string>();
-            if (viewName != "results" && item_type == "parts")
+            if (viewName != "results" && itemType == "parts")
             {
                 linkedRenames = GetLinkedPartGroupRenames(groups, oldLayout.Nodes, viewName);
                 CheckPartGroupNames(groups, oldLayout.Nodes, viewName, linkedRenames);
@@ -315,7 +345,7 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             if (linkedRenames.Count == 0)
             {
-                _modelResolver.ModelGateway.SetTreeLayout(viewName, item_type, step_name, newLayout);
+                _modelResolver.ModelGateway.SetTreeLayout(viewName, itemType, stepName, newLayout);
                 return;
             }
             // Both views change in one command, as the tree records a linked rename, so one undo reverts both
@@ -523,12 +553,15 @@ namespace APIs.Python.Model
                                              "of a part group. Uppercase and lowercase letters are regarded as " +
                                              "equal.");
         }
-        private static void CheckItemNames(IOrderedDictionaryItemLayout<string> layout, string[] names,
-                                           string argumentName, string view, string itemType)
+        // The gateway matches the names exactly, so each one is passed on in the collection's own spelling
+        private static string[] ToStoredItemNames(IOrderedDictionaryItemLayout<string> layout, string[] names,
+                                                  string argumentName, string view, string itemType)
         {
             HashSet<string> givenNames = new HashSet<string>(layout.Comparer);
-            foreach (string name in names)
+            string[] storedNames = new string[names.Length];
+            for (int i = 0; i < names.Length; i++)
             {
+                string name = names[i];
                 if (!layout.ContainsKey(name))
                     throw new PythonAPIException("The argument '" + argumentName + "' names '" + name + "', which " +
                                                  "does not exist in the " + itemType + " collection of the " +
@@ -536,7 +569,16 @@ namespace APIs.Python.Model
                 if (!givenNames.Add(name))
                     throw new PythonAPIException("The argument '" + argumentName + "' names '" + name +
                                                  "' more than once.");
+                foreach (string key in layout.Keys)
+                {
+                    if (layout.Comparer.Equals(key, name))
+                    {
+                        storedNames[i] = key;
+                        break;
+                    }
+                }
             }
+            return storedNames;
         }
         private static string[] ToNames(object value, string argumentName)
         {

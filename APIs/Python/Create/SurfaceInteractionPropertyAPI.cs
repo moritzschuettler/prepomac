@@ -127,14 +127,15 @@ namespace APIs.Python
         [PythonAPI("Returns one value of the property by the name of the pmx.create argument that sets it. Use " +
                    "get_value_names to list them.", Arguments = "name: str",
                    Returns = "float, str, NumericArray or None")]
-        public object get_value(string name)
+        public object get_value(object name)
         {
-            if (name == null) throw new PythonAPIException("The argument 'name' must not be empty.");
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            if (nameText == null) throw new PythonAPIException("The argument 'name' must not be empty.");
             //
             Dictionary<string, object> values = get_values();
             object value;
-            if (!values.TryGetValue(name.Trim(), out value))
-                throw new PythonAPIException("The value '" + name + "' is not defined for a " +
+            if (!values.TryGetValue(nameText.Trim(), out value))
+                throw new PythonAPIException("The value '" + nameText + "' is not defined for a " +
                                              GetPropertyType(_property) + " surface interaction property. " +
                                              "Possible values are " + string.Join(", ", values.Keys) + ".");
             //

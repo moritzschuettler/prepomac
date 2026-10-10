@@ -30,10 +30,12 @@ namespace APIs.Python.Model
                    "one that cannot be evaluated, or uses its own parameter, is refused.",
                    Arguments = "name: str, value: float or str, description: str = None", Returns = "Parameter",
                    Example = "pmx.model.parameters.add('t', 2.5, description='Plate thickness')")]
-        public ParameterAPI add(string name, object value, string description = null)
+        public ParameterAPI add(object name, object value, object description = null)
         {
-            _service.Add(name, value, description);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string descriptionText = PythonValueConverter.ToText(description, "description", true);
+            _service.Add(nameText, value, descriptionText);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces a model parameter using command history. A value that is not given is kept. A " +
@@ -42,11 +44,14 @@ namespace APIs.Python.Model
                    Arguments = "old_name: str, name: str = None, value: float or str = None, " +
                                "description: str = None",
                    Returns = "Parameter")]
-        public ParameterAPI replace(string old_name, string name = null, object value = null,
-                                    string description = null)
+        public ParameterAPI replace(object old_name, object name = null, object value = null,
+                                    object description = null)
         {
-            _service.Replace(old_name, name, value, description);
-            return this[name == null ? old_name : name];
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string descriptionText = PythonValueConverter.ToText(description, "description", true);
+            _service.Replace(oldName, nameText, value, descriptionText);
+            return this[nameText == null ? oldName : nameText];
         }
 
         [PythonAPI("Replaces the whole parameter table using command history. The names, the values and the " +
@@ -62,16 +67,18 @@ namespace APIs.Python.Model
 
         [PythonAPI("Imports the parameters from a .pmp file using command history.",
                    Arguments = "file_name: str", Returns = "None")]
-        public void import_from_file(string file_name)
+        public void import_from_file(object file_name)
         {
-            _service.ImportFromFile(file_name);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            _service.ImportFromFile(fileName);
         }
 
         [PythonAPI("Exports the parameters to a .pmp file using command history.",
                    Arguments = "file_name: str", Returns = "None")]
-        public void export_to_file(string file_name)
+        public void export_to_file(object file_name)
         {
-            _service.ExportToFile(file_name);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            _service.ExportToFile(fileName);
         }
         //
         protected override string[] GetItemNames()

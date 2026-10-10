@@ -348,6 +348,36 @@ try:
     for name in TEST_NAMES:
         check(not field_outputs.contains(name), "remove() did not remove '%s'." % name)
     print("PASS: remove multiple field outputs")
+
+    # A value of the wrong kind is refused by the API naming the argument, never by pythonnet's 'No method
+    # matches given arguments', and a whole float is an ID for 'in' as it is for contains
+    elements = result.mesh.elements
+    check(float(list(elements.get_ids())[0]) in elements, "a whole float must be found in the result elements")
+    check(float(step.id) in result.steps, "a whole float must be found in the result steps")
+    check(float(increment.id) in step.increments, "a whole float must be found in the result increments")
+    check_refused(lambda: 1.5 in elements, "'id'", "a fractional element ID in 'in' must be refused naming it")
+    median = field_outputs.create_median_filter()
+    for function, argument in [
+            (lambda: field_outputs.add_equation(EQUATION_NAME, "STRESS.MISES", filter1="Median"), "'filter1'"),
+            (lambda: field_outputs.add_equation(EQUATION_NAME, "STRESS.MISES", filter2=median,
+                                                filter1=result.history_outputs.create_sum_filter()), "'filter1'"),
+            (lambda: field_outputs.add(median), "'output'"),
+            (lambda: field_outputs.add(None), "'output'"),
+            (lambda: field_outputs.add_equation(5, "STRESS.MISES"), "'name'"),
+            (lambda: field_outputs.add_equation(EQUATION_NAME, "STRESS.MISES", unit=1), "'unit'"),
+            (lambda: field_outputs.create_median_filter(source=1), "'source'"),
+            (lambda: result.history_outputs.add(median), "'output'"),
+            (lambda: result.history_outputs.create_minimum_filter(return_value=0), "'return_value'")]:
+        try:
+            function()
+            message = None
+        except Exception as ex:
+            message = str(ex)
+        check(message is not None and argument in message and "No method matches" not in message,
+              "a value of the wrong kind must be refused naming " + argument + ": " + str(message))
+    check(not field_outputs.contains(EQUATION_NAME), "a refused add changed the field outputs")
+    check(field_outputs.contains(None) is False, "contains(None) must be False")
+    print("PASS: wrong kind arguments")
     print("RESULT: all result field-output command tests passed")
     print("TEST PASSED")
 finally:

@@ -36,29 +36,32 @@ namespace APIs.Python.Model
                    Arguments = "name: str, region: Selection or Region, color: list[int] or str = None",
                    Returns = "BoundaryCondition",
                    Example = "step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))")]
-        public BoundaryConditionAPI add_fixed(string name, object region, object color = null)
+        public BoundaryConditionAPI add_fixed(object name, object region, object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             FixedBC boundaryCondition =
-                new FixedBC(name, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
+                new FixedBC(nameText, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
             _service.ApplyRegion(boundaryCondition, region, "nodes");
             _service.ApplyCommonValues(boundaryCondition, null, color);
             _service.Add(StepName, boundaryCondition);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing fixed boundary condition using command history.",
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
                                "color: list[int] or str = None", Returns = "BoundaryCondition")]
-        public BoundaryConditionAPI replace_fixed(string old_name, string name = null, object region = null,
+        public BoundaryConditionAPI replace_fixed(object old_name, object name = null, object region = null,
                                                   object color = null)
         {
-            FixedBC boundaryCondition = _service.CloneForReplace<FixedBC>(StepName, old_name, "fixed");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            FixedBC boundaryCondition = _service.CloneForReplace<FixedBC>(StepName, oldName, "fixed");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             _service.ApplyCommonValues(boundaryCondition, null, color);
             //
-            return Replace(old_name, name, boundaryCondition);
+            return Replace(oldName, nameText, boundaryCondition);
         }
 
         [PythonAPI("Adds a displacement and rotation boundary condition using command history. A degree of " +
@@ -81,7 +84,7 @@ namespace APIs.Python.Model
                                "fixed_dofs: list[str] = None",
                    Returns = "BoundaryCondition",
                    Example = "step.bcs.add_displacement_rotation('BC-1', selection, u1=0, u2=0, u3=0)")]
-        public BoundaryConditionAPI add_displacement_rotation(string name, object region, object u1 = null,
+        public BoundaryConditionAPI add_displacement_rotation(object name, object region, object u1 = null,
                                                               object u2 = null, object u3 = null,
                                                               object ur1 = null, object ur2 = null,
                                                               object ur3 = null, object distribution_name = null,
@@ -90,10 +93,11 @@ namespace APIs.Python.Model
                                                               object phase_deg = null, object color = null,
                                                               object fixed_dofs = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             // The dialog derives the complex flag from the step type
             DisplacementRotation boundaryCondition =
-                new DisplacementRotation(name, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional(),
+                new DisplacementRotation(nameText, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional(),
                                          _service.GetIsComplex(StepName), 0);
             _service.ApplyRegion(boundaryCondition, region, "nodes");
             ApplyDegreesOfFreedom(boundaryCondition, u1, u2, u3, ur1, ur2, ur3);
@@ -107,7 +111,7 @@ namespace APIs.Python.Model
             _service.EnsureDistributionApplicable(boundaryCondition);
             _service.Add(StepName, boundaryCondition);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing displacement and rotation boundary condition using command history. " +
@@ -117,7 +121,7 @@ namespace APIs.Python.Model
                    Arguments = "old_name: str, name: str = None, the arguments of " +
                                "add_displacement_rotation, and free_dofs: list[str] = None",
                    Returns = "BoundaryCondition")]
-        public BoundaryConditionAPI replace_displacement_rotation(string old_name, string name = null,
+        public BoundaryConditionAPI replace_displacement_rotation(object old_name, object name = null,
                                                                   object region = null, object u1 = null,
                                                                   object u2 = null, object u3 = null,
                                                                   object ur1 = null, object ur2 = null,
@@ -128,8 +132,10 @@ namespace APIs.Python.Model
                                                                   object phase_deg = null, object color = null,
                                                                   object fixed_dofs = null, object free_dofs = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             DisplacementRotation boundaryCondition =
-                _service.CloneForReplace<DisplacementRotation>(StepName, old_name, "displacement_rotation");
+                _service.CloneForReplace<DisplacementRotation>(StepName, oldName, "displacement_rotation");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             ApplyDegreesOfFreedom(boundaryCondition, u1, u2, u3, ur1, ur2, ur3);
             if (free_dofs != null) FreeDegreesOfFreedom(boundaryCondition, free_dofs, u1, u2, u3, ur1, ur2, ur3);
@@ -142,7 +148,7 @@ namespace APIs.Python.Model
             EnsureFixedDegreesOfFreedom(boundaryCondition);
             _service.EnsureDistributionApplicable(boundaryCondition);
             //
-            return Replace(old_name, name, boundaryCondition);
+            return Replace(oldName, nameText, boundaryCondition);
         }
 
         [PythonAPI("Adds a submodel boundary condition using command history. The degrees of freedom are " +
@@ -153,36 +159,39 @@ namespace APIs.Python.Model
                                "u1: bool = None, u2: bool = None, u3: bool = None, ur1: bool = None, " +
                                "ur2: bool = None, ur3: bool = None, color: list[int] or str = None",
                    Returns = "BoundaryCondition")]
-        public BoundaryConditionAPI add_submodel(string name, object region, object step_id = null,
+        public BoundaryConditionAPI add_submodel(object name, object region, object step_id = null,
                                                  object u1 = null, object u2 = null, object u3 = null,
                                                  object ur1 = null, object ur2 = null, object ur3 = null,
                                                  object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             SubmodelBC boundaryCondition =
-                new SubmodelBC(name, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
+                new SubmodelBC(nameText, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
             _service.ApplyRegion(boundaryCondition, region, "nodes");
             ApplySubmodelValues(boundaryCondition, step_id, u1, u2, u3, ur1, ur2, ur3);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             _service.Add(StepName, boundaryCondition);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing submodel boundary condition using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_submodel",
                    Returns = "BoundaryCondition")]
-        public BoundaryConditionAPI replace_submodel(string old_name, string name = null, object region = null,
+        public BoundaryConditionAPI replace_submodel(object old_name, object name = null, object region = null,
                                                      object step_id = null, object u1 = null,
                                                      object u2 = null, object u3 = null, object ur1 = null,
                                                      object ur2 = null, object ur3 = null, object color = null)
         {
-            SubmodelBC boundaryCondition = _service.CloneForReplace<SubmodelBC>(StepName, old_name, "submodel");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SubmodelBC boundaryCondition = _service.CloneForReplace<SubmodelBC>(StepName, oldName, "submodel");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             ApplySubmodelValues(boundaryCondition, step_id, u1, u2, u3, ur1, ur2, ur3);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             //
-            return Replace(old_name, name, boundaryCondition);
+            return Replace(oldName, nameText, boundaryCondition);
         }
 
         [PythonAPI("Adds a temperature boundary condition using command history. The selection target is " +
@@ -191,14 +200,15 @@ namespace APIs.Python.Model
                                "distribution_name: str = None, amplitude_name: str = None, " +
                                "color: list[int] or str = None", Returns = "BoundaryCondition",
                    Example = "step.bcs.add_temperature('BC-2', selection, 100)")]
-        public BoundaryConditionAPI add_temperature(string name, object region, object temperature,
+        public BoundaryConditionAPI add_temperature(object name, object region, object temperature,
                                                     object distribution_name = null,
                                                     object amplitude_name = null, object color = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             // The constructor takes a plain value, while the temperature can also be an equation
             TemperatureBC boundaryCondition =
-                new TemperatureBC(name, null, RegionTypeEnum.Selection, 0, _service.GetIsTwoDimensional());
+                new TemperatureBC(nameText, null, RegionTypeEnum.Selection, 0, _service.GetIsTwoDimensional());
             PythonModelArgumentCheck.SetEquation(boundaryCondition.Temperature, temperature, "temperature");
             _service.ApplyRegion(boundaryCondition, region, "nodes");
             if (distribution_name != null)
@@ -208,7 +218,7 @@ namespace APIs.Python.Model
             _service.ApplyCommonValues(boundaryCondition, null, color);
             _service.Add(StepName, boundaryCondition);
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing temperature boundary condition using command history.",
@@ -216,13 +226,15 @@ namespace APIs.Python.Model
                                "temperature: float = None, distribution_name: str = None, " +
                                "amplitude_name: str = None, color: list[int] or str = None",
                    Returns = "BoundaryCondition")]
-        public BoundaryConditionAPI replace_temperature(string old_name, string name = null, object region = null,
+        public BoundaryConditionAPI replace_temperature(object old_name, object name = null, object region = null,
                                                         object temperature = null,
                                                         object distribution_name = null,
                                                         object amplitude_name = null, object color = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             TemperatureBC boundaryCondition =
-                _service.CloneForReplace<TemperatureBC>(StepName, old_name, "temperature");
+                _service.CloneForReplace<TemperatureBC>(StepName, oldName, "temperature");
             if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
             if (temperature != null)
                 PythonModelArgumentCheck.SetEquation(boundaryCondition.Temperature, temperature, "temperature");
@@ -232,7 +244,7 @@ namespace APIs.Python.Model
             _service.ApplyAmplitudeName(boundaryCondition, amplitude_name);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             //
-            return Replace(old_name, name, boundaryCondition);
+            return Replace(oldName, nameText, boundaryCondition);
         }
 
         [PythonAPI("Copies the boundary condition to every following step using command history. A " +
@@ -240,9 +252,10 @@ namespace APIs.Python.Model
                    "dialog does, so from the last step, or when no following step supports it, nothing " +
                    "changes.",
                    Arguments = "name: str", Returns = "None")]
-        public void propagate(string name)
+        public void propagate(object name)
         {
-            _service.Propagate(StepName, name);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.Propagate(StepName, nameText);
         }
 
         [PythonAPI("Hides the symbols of the named boundary conditions using command history.",

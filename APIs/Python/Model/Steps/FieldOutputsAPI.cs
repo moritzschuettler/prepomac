@@ -34,12 +34,13 @@ namespace APIs.Python.Model
                                "contact_elements: bool = None, global_output: bool = None",
                    Returns = "FieldOutput",
                    Example = "step.field_outputs.add_nodal('NF-Output-1', ['U', 'RF'])")]
-        public FieldOutputAPI add_nodal(string name, object variables, object last_iterations = null,
+        public FieldOutputAPI add_nodal(object name, object variables, object last_iterations = null,
                                         object contact_elements = null, object global_output = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             NodalFieldOutput fieldOutput =
-                new NodalFieldOutput(name, PythonValueConverter.ToFlagsEnum<NodalFieldVariable>(variables,
+                new NodalFieldOutput(nameText, PythonValueConverter.ToFlagsEnum<NodalFieldVariable>(variables,
                                                                                                 "variables"));
             //
             return Add(fieldOutput, last_iterations, contact_elements, global_output);
@@ -48,17 +49,19 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing nodal field output using command history.",
                    Arguments = "old_name: str, name: str = None, variables: list[str] or str = None, and " +
                                "the arguments of add_nodal", Returns = "FieldOutput")]
-        public FieldOutputAPI replace_nodal(string old_name, string name = null, object variables = null,
+        public FieldOutputAPI replace_nodal(object old_name, object name = null, object variables = null,
                                             object last_iterations = null, object contact_elements = null,
                                             object global_output = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             NodalFieldOutput fieldOutput =
-                _service.CloneForReplace<NodalFieldOutput>(StepName, old_name, "nodal");
+                _service.CloneForReplace<NodalFieldOutput>(StepName, oldName, "nodal");
             if (variables != null)
                 fieldOutput.Variables =
                     PythonValueConverter.ToFlagsEnum<NodalFieldVariable>(variables, "variables");
             //
-            return Replace(old_name, name, fieldOutput, last_iterations, contact_elements, global_output);
+            return Replace(oldName, nameText, fieldOutput, last_iterations, contact_elements, global_output);
         }
 
         [PythonAPI("Adds an element field output using command history. Possible variables are S, PHS, E, " +
@@ -67,13 +70,14 @@ namespace APIs.Python.Model
                    Arguments = "name: str, variables: list[str] or str, output: str = None, and the shared " +
                                "field output arguments", Returns = "FieldOutput",
                    Example = "step.field_outputs.add_element('EF-Output-1', ['S', 'E'])")]
-        public FieldOutputAPI add_element(string name, object variables, object output = null,
+        public FieldOutputAPI add_element(object name, object variables, object output = null,
                                           object last_iterations = null, object contact_elements = null,
                                           object global_output = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             ElementFieldOutput fieldOutput =
-                new ElementFieldOutput(name,
+                new ElementFieldOutput(nameText,
                                        PythonValueConverter.ToFlagsEnum<ElementFieldVariable>(variables,
                                                                                               "variables"));
             ApplyElementOutput(fieldOutput, output);
@@ -84,30 +88,33 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing element field output using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_element with " +
                                "variables optional", Returns = "FieldOutput")]
-        public FieldOutputAPI replace_element(string old_name, string name = null, object variables = null,
+        public FieldOutputAPI replace_element(object old_name, object name = null, object variables = null,
                                               object output = null, object last_iterations = null,
                                               object contact_elements = null, object global_output = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             ElementFieldOutput fieldOutput =
-                _service.CloneForReplace<ElementFieldOutput>(StepName, old_name, "element");
+                _service.CloneForReplace<ElementFieldOutput>(StepName, oldName, "element");
             if (variables != null)
                 fieldOutput.Variables =
                     PythonValueConverter.ToFlagsEnum<ElementFieldVariable>(variables, "variables");
             ApplyElementOutput(fieldOutput, output);
             //
-            return Replace(old_name, name, fieldOutput, last_iterations, contact_elements, global_output);
+            return Replace(oldName, nameText, fieldOutput, last_iterations, contact_elements, global_output);
         }
 
         [PythonAPI("Adds a contact field output using command history. Possible variables are CDIS, CSTR, " +
                    "CELS and PCON.",
                    Arguments = "name: str, variables: list[str] or str, and the shared field output " +
                                "arguments", Returns = "FieldOutput")]
-        public FieldOutputAPI add_contact(string name, object variables, object last_iterations = null,
+        public FieldOutputAPI add_contact(object name, object variables, object last_iterations = null,
                                           object contact_elements = null, object global_output = null)
         {
-            _service.ValidateName(StepName, name, null);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
             ContactFieldOutput fieldOutput =
-                new ContactFieldOutput(name,
+                new ContactFieldOutput(nameText,
                                        PythonValueConverter.ToFlagsEnum<ContactFieldVariable>(variables,
                                                                                               "variables"));
             //
@@ -117,25 +124,28 @@ namespace APIs.Python.Model
         [PythonAPI("Replaces an existing contact field output using command history.",
                    Arguments = "old_name: str, name: str = None, and the arguments of add_contact with " +
                                "variables optional", Returns = "FieldOutput")]
-        public FieldOutputAPI replace_contact(string old_name, string name = null, object variables = null,
+        public FieldOutputAPI replace_contact(object old_name, object name = null, object variables = null,
                                               object last_iterations = null, object contact_elements = null,
                                               object global_output = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
             ContactFieldOutput fieldOutput =
-                _service.CloneForReplace<ContactFieldOutput>(StepName, old_name, "contact");
+                _service.CloneForReplace<ContactFieldOutput>(StepName, oldName, "contact");
             if (variables != null)
                 fieldOutput.Variables =
                     PythonValueConverter.ToFlagsEnum<ContactFieldVariable>(variables, "variables");
             //
-            return Replace(old_name, name, fieldOutput, last_iterations, contact_elements, global_output);
+            return Replace(oldName, nameText, fieldOutput, last_iterations, contact_elements, global_output);
         }
 
         [PythonAPI("Copies the field output to every following step using command history. From the last " +
                    "step nothing changes, as in the dialog.",
                    Arguments = "name: str", Returns = "None")]
-        public void propagate(string name)
+        public void propagate(object name)
         {
-            _service.Propagate(StepName, name);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.Propagate(StepName, nameText);
         }
         //
         protected override string[] GetItemNames()

@@ -32,9 +32,10 @@ namespace APIs.Python
 
 
         // Methods
-        public ResultHistoryOutputFieldAPI __getitem__(string fieldName)
+        public ResultHistoryOutputFieldAPI __getitem__(object fieldName)
         {
-            return this[fieldName];
+            string fieldNameText = PythonValueConverter.ToText(fieldName, "name", false);
+            return this[fieldNameText];
         }
         public ResultHistoryOutputFieldAPI this[string fieldName]
         {
@@ -95,9 +96,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the history field exists in this history output.", Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return _resultHistoryService.GetFieldNames(_resultName, _historyOutputName).Contains(name);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return _resultHistoryService.GetFieldNames(_resultName, _historyOutputName).Contains(nameText);
         }
         public override string ToString()
         {

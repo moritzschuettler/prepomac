@@ -158,7 +158,7 @@ namespace APIs.Python.Model
                    Arguments = "name: str, selection: Selection, " + MeshingParameterArguments,
                    Returns = "MeshSetupItem",
                    Example = "pmx.model.mesh.setup_items.add_meshing_parameters('MP-1', selection, max_size=5.0)")]
-        public MeshSetupItemAPI add_meshing_parameters(string name, SelectionAPI selection, object max_size = null,
+        public MeshSetupItemAPI add_meshing_parameters(object name, object selection, object max_size = null,
                                                        object min_size = null, object fineness = null,
                                                        object grading = null, object elements_per_edge = null,
                                                        object elements_per_curve = null, object second_order = null,
@@ -169,16 +169,18 @@ namespace APIs.Python.Model
                                                        object merge_compound_parts = null,
                                                        object merge_cells = null)
         {
-            _service.ValidateNewName(name);
-            MeshingParameters item = _service.CreateDefaultMeshingParameters(name);
-            _service.PrepareItem(item, name, selection);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            _service.ValidateNewName(nameText);
+            MeshingParameters item = _service.CreateDefaultMeshingParameters(nameText);
+            _service.PrepareItem(item, nameText, selectionValue);
             _service.ApplyPartDefaults(item);
             ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
                                    elements_per_curve, second_order, midside_nodes_on_geometry,
                                    relative_size, factor_max, factor_min, split_compound_mesh,
                                    merge_compound_parts, merge_cells);
             _service.AddPreparedItem(item);
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces meshing parameters, keeping every value that is not given. A new selection given " +
@@ -188,8 +190,8 @@ namespace APIs.Python.Model
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, " +
                                MeshingParameterArguments,
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_meshing_parameters(string old_name, string name = null,
-                                                           SelectionAPI selection = null, object max_size = null,
+        public MeshSetupItemAPI replace_meshing_parameters(object old_name, object name = null,
+                                                           object selection = null, object max_size = null,
                                                            object min_size = null, object fineness = null,
                                                            object grading = null, object elements_per_edge = null,
                                                            object elements_per_curve = null,
@@ -201,7 +203,10 @@ namespace APIs.Python.Model
                                                            object merge_compound_parts = null,
                                                            object merge_cells = null)
         {
-            MeshingParameters item = _service.CloneItem<MeshingParameters>(old_name);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            MeshingParameters item = _service.CloneItem<MeshingParameters>(oldName);
             bool valuesGiven = IsAnyGiven(max_size, min_size, fineness, grading, elements_per_edge,
                                           elements_per_curve, second_order, midside_nodes_on_geometry,
                                           relative_size, factor_max, factor_min, split_compound_mesh,
@@ -210,37 +215,42 @@ namespace APIs.Python.Model
                                    elements_per_curve, second_order, midside_nodes_on_geometry,
                                    relative_size, factor_max, factor_min, split_compound_mesh,
                                    merge_compound_parts, merge_cells);
-            return Replace(old_name, name, item, selection, GetPartDefaultsRebuild(valuesGiven));
+            return Replace(oldName, nameText, item, selectionValue, GetPartDefaultsRebuild(valuesGiven));
         }
 
         [PythonAPI("Adds a local mesh size for the selected geometry. Use either element_size, larger than 0, " +
                    "or number_of_elements, at least 1.",
                    Arguments = "name: str, selection: Selection, element_size: float = None, " +
                                "number_of_elements: int = None", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_local_mesh_size(string name, SelectionAPI selection, object element_size = null,
+        public MeshSetupItemAPI add_local_mesh_size(object name, object selection, object element_size = null,
                                                     object number_of_elements = null)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
             if (element_size == null && number_of_elements == null)
                 throw new PythonAPIException("Either 'element_size' or 'number_of_elements' must be given.");
             //
-            _service.ValidateNewName(name);
-            LocalMeshSize item = new LocalMeshSize(name);
+            _service.ValidateNewName(nameText);
+            LocalMeshSize item = new LocalMeshSize(nameText);
             ApplyLocalMeshSize(item, element_size, number_of_elements);
-            _service.Add(item, name, selection);
-            return this[name];
+            _service.Add(item, nameText, selectionValue);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces a local mesh size, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, " +
                                "element_size: float = None, number_of_elements: int = None",
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_local_mesh_size(string old_name, string name = null,
-                                                        SelectionAPI selection = null, object element_size = null,
+        public MeshSetupItemAPI replace_local_mesh_size(object old_name, object name = null,
+                                                        object selection = null, object element_size = null,
                                                         object number_of_elements = null)
         {
-            LocalMeshSize item = _service.CloneItem<LocalMeshSize>(old_name);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            LocalMeshSize item = _service.CloneItem<LocalMeshSize>(oldName);
             ApplyLocalMeshSize(item, element_size, number_of_elements);
-            return Replace(old_name, name, item, selection);
+            return Replace(oldName, nameText, item, selectionValue);
         }
 
         [PythonAPI("Adds a shell MMG mesh setup item, which selects MMG for the selected STL shell parts. " +
@@ -248,17 +258,19 @@ namespace APIs.Python.Model
                    Arguments = "name: str, selection: Selection, " + ShellMmgArguments,
                    Returns = "MeshSetupItem",
                    Example = "pmx.model.mesh.setup_items.add_shell_mmg('Shell_Mmg-1', selection)")]
-        public MeshSetupItemAPI add_shell_mmg(string name, SelectionAPI selection, object relative_size = null,
+        public MeshSetupItemAPI add_shell_mmg(object name, object selection, object relative_size = null,
                                               object relative_hausdorff = null, object hausdorff = null,
                                               object keep_model_edges = null)
         {
-            _service.ValidateNewName(name);
-            ShellMmg item = _service.CreateDefaultShellMmg(name);
-            _service.PrepareItem(item, name, selection);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            _service.ValidateNewName(nameText);
+            ShellMmg item = _service.CreateDefaultShellMmg(nameText);
+            _service.PrepareItem(item, nameText, selectionValue);
             _service.ApplyPartDefaults(item);
             ApplyShellMmg(item, relative_size, relative_hausdorff, hausdorff, keep_model_edges);
             _service.AddPreparedItem(item);
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces a shell MMG mesh setup item, keeping every value that is not given. A new selection " +
@@ -268,51 +280,59 @@ namespace APIs.Python.Model
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, " +
                                ShellMmgArguments,
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_shell_mmg(string old_name, string name = null,
-                                                  SelectionAPI selection = null, object relative_size = null,
+        public MeshSetupItemAPI replace_shell_mmg(object old_name, object name = null,
+                                                  object selection = null, object relative_size = null,
                                                   object relative_hausdorff = null, object hausdorff = null,
                                                   object keep_model_edges = null)
         {
-            ShellMmg item = _service.CloneItem<ShellMmg>(old_name);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            ShellMmg item = _service.CloneItem<ShellMmg>(oldName);
             bool valuesGiven = IsAnyGiven(relative_size, relative_hausdorff, hausdorff, keep_model_edges);
             ApplyShellMmg(item, relative_size, relative_hausdorff, hausdorff, keep_model_edges);
-            return Replace(old_name, name, item, selection, GetPartDefaultsRebuild(valuesGiven));
+            return Replace(oldName, nameText, item, selectionValue, GetPartDefaultsRebuild(valuesGiven));
         }
 
         [PythonAPI("Adds a thicken shell mesh item for the selected geometry. thickness is larger than 0 and " +
                    "number_of_layers at least 1.",
                    Arguments = "name: str, selection: Selection, thickness: float, number_of_layers: int = 1, " +
                                "offset: float = 0, keep_model_edges: bool = False", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_thicken_shell_mesh(string name, SelectionAPI selection, object thickness,
+        public MeshSetupItemAPI add_thicken_shell_mesh(object name, object selection, object thickness,
                                                        object number_of_layers = null, object offset = null,
                                                        object keep_model_edges = null)
         {
-            _service.ValidateNewName(name);
-            ThickenShellMesh item = new ThickenShellMesh(name);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            _service.ValidateNewName(nameText);
+            ThickenShellMesh item = new ThickenShellMesh(nameText);
             item.Thickness = ToThickness(thickness);
             item.NumberOfLayers = ToNumberOfLayers(number_of_layers ?? 1);
             if (offset != null) item.Offset = PythonValueConverter.ToFiniteDouble(offset, "offset");
             item.KeepModelEdges = PythonValueConverter.ToBoolOrDefault(keep_model_edges, false, "keep_model_edges");
-            _service.Add(item, name, selection);
-            return this[name];
+            _service.Add(item, nameText, selectionValue);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces a thicken shell mesh item, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, " +
                                "thickness: float = None, number_of_layers: int = None, offset: float = None, " +
                                "keep_model_edges: bool = None", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_thicken_shell_mesh(string old_name, string name = null,
-                                                           SelectionAPI selection = null, object thickness = null,
+        public MeshSetupItemAPI replace_thicken_shell_mesh(object old_name, object name = null,
+                                                           object selection = null, object thickness = null,
                                                            object number_of_layers = null, object offset = null,
                                                            object keep_model_edges = null)
         {
-            ThickenShellMesh item = _service.CloneItem<ThickenShellMesh>(old_name);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            ThickenShellMesh item = _service.CloneItem<ThickenShellMesh>(oldName);
             if (thickness != null) item.Thickness = ToThickness(thickness);
             if (number_of_layers != null) item.NumberOfLayers = ToNumberOfLayers(number_of_layers);
             if (offset != null) item.Offset = PythonValueConverter.ToFiniteDouble(offset, "offset");
             if (keep_model_edges != null)
                 item.KeepModelEdges = PythonValueConverter.ToBool(keep_model_edges, "keep_model_edges");
-            return Replace(old_name, name, item, selection);
+            return Replace(oldName, nameText, item, selectionValue);
         }
 
         [PythonAPI("Adds a Netgen mesh item for the selected solid or shell parts. The mesh size comes " +
@@ -321,37 +341,46 @@ namespace APIs.Python.Model
                    "transfinite_angle_deg lies between 0 and 180, both excluded.",
                    Arguments = "name: str, selection: Selection, " + NetgenMeshArguments,
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_netgen_mesh(string name, SelectionAPI selection,
+        public MeshSetupItemAPI add_netgen_mesh(object name, object selection,
                                                 object number_of_optimize_steps_2d = null,
                                                 object number_of_optimize_steps_3d = null, object quad_dominated = null,
-                                                string transfinite_three_sided = null,
+                                                object transfinite_three_sided = null,
                                                 object transfinite_four_sided = null,
                                                 object transfinite_angle_deg = null)
         {
-            _service.ValidateNewName(name);
-            NetgenMesh item = new NetgenMesh(name);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            _service.ValidateNewName(nameText);
+            NetgenMesh item = new NetgenMesh(nameText);
             ApplyNetgenMesh(item, number_of_optimize_steps_2d, number_of_optimize_steps_3d, quad_dominated,
-                            transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg);
-            _service.Add(item, name, selection);
-            return this[name];
+                            transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg);
+            _service.Add(item, nameText, selectionValue);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces a Netgen mesh item, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, " +
                                NetgenMeshArguments,
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_netgen_mesh(string old_name, string name = null, SelectionAPI selection = null,
+        public MeshSetupItemAPI replace_netgen_mesh(object old_name, object name = null, object selection = null,
                                                     object number_of_optimize_steps_2d = null,
                                                     object number_of_optimize_steps_3d = null,
                                                     object quad_dominated = null,
-                                                    string transfinite_three_sided = null,
+                                                    object transfinite_three_sided = null,
                                                     object transfinite_four_sided = null,
                                                     object transfinite_angle_deg = null)
         {
-            NetgenMesh item = _service.CloneItem<NetgenMesh>(old_name);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            NetgenMesh item = _service.CloneItem<NetgenMesh>(oldName);
             ApplyNetgenMesh(item, number_of_optimize_steps_2d, number_of_optimize_steps_3d, quad_dominated,
-                            transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg);
-            return Replace(old_name, name, item, selection);
+                            transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg);
+            return Replace(oldName, nameText, item, selectionValue);
         }
 
         [PythonAPI("Adds a Gmsh tetrahedral mesh item for the selected geometry. " + GmshValueRanges,
@@ -360,44 +389,65 @@ namespace APIs.Python.Model
                                GmshRecombineArguments + ", transfinite_angle_deg: float = None, " +
                                "optimize_first_order_solid: str = None, optimize_high_order: str = None",
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_tetrahedral_gmsh(string name, SelectionAPI selection, string algorithm_2d = null,
-                                                     string algorithm_3d = null,
+        public MeshSetupItemAPI add_tetrahedral_gmsh(object name, object selection, object algorithm_2d = null,
+                                                     object algorithm_3d = null,
                                                      object recombine_min_quality = null,
-                                                     string algorithm_recombine = null,
-                                                     string transfinite_three_sided = null,
+                                                     object algorithm_recombine = null,
+                                                     object transfinite_three_sided = null,
                                                      object transfinite_four_sided = null,
                                                      object transfinite_angle_deg = null,
-                                                     string optimize_first_order_solid = null,
-                                                     string optimize_high_order = null)
+                                                     object optimize_first_order_solid = null,
+                                                     object optimize_high_order = null)
         {
-            _service.ValidateNewName(name);
-            TetrahedralGmsh item = new TetrahedralGmsh(name);
-            ApplyTetrahedralGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                                 transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
-                                 optimize_first_order_solid, optimize_high_order);
-            _service.Add(item, name, selection);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            string algorithm2d = PythonValueConverter.ToText(algorithm_2d, "algorithm_2d", true);
+            string algorithm3d = PythonValueConverter.ToText(algorithm_3d, "algorithm_3d", true);
+            string algorithmRecombine = PythonValueConverter.ToText(algorithm_recombine, "algorithm_recombine", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            string optimizeFirstOrderSolid =
+                PythonValueConverter.ToText(optimize_first_order_solid, "optimize_first_order_solid", true);
+            string optimizeHighOrder = PythonValueConverter.ToText(optimize_high_order, "optimize_high_order", true);
+            _service.ValidateNewName(nameText);
+            TetrahedralGmsh item = new TetrahedralGmsh(nameText);
+            ApplyTetrahedralGmsh(item, algorithm2d, algorithm3d, recombine_min_quality, algorithmRecombine,
+                                 transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg,
+                                 optimizeFirstOrderSolid, optimizeHighOrder);
+            _service.Add(item, nameText, selectionValue);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces a Gmsh tetrahedral mesh item, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, and the " +
                                "arguments of add_tetrahedral_gmsh", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_tetrahedral_gmsh(string old_name, string name = null,
-                                                         SelectionAPI selection = null, string algorithm_2d = null,
-                                                         string algorithm_3d = null,
+        public MeshSetupItemAPI replace_tetrahedral_gmsh(object old_name, object name = null,
+                                                         object selection = null, object algorithm_2d = null,
+                                                         object algorithm_3d = null,
                                                          object recombine_min_quality = null,
-                                                         string algorithm_recombine = null,
-                                                         string transfinite_three_sided = null,
+                                                         object algorithm_recombine = null,
+                                                         object transfinite_three_sided = null,
                                                          object transfinite_four_sided = null,
                                                          object transfinite_angle_deg = null,
-                                                         string optimize_first_order_solid = null,
-                                                         string optimize_high_order = null)
+                                                         object optimize_first_order_solid = null,
+                                                         object optimize_high_order = null)
         {
-            TetrahedralGmsh item = _service.CloneItem<TetrahedralGmsh>(old_name);
-            ApplyTetrahedralGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                                 transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
-                                 optimize_first_order_solid, optimize_high_order);
-            return Replace(old_name, name, item, selection);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            string algorithm2d = PythonValueConverter.ToText(algorithm_2d, "algorithm_2d", true);
+            string algorithm3d = PythonValueConverter.ToText(algorithm_3d, "algorithm_3d", true);
+            string algorithmRecombine = PythonValueConverter.ToText(algorithm_recombine, "algorithm_recombine", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            string optimizeFirstOrderSolid =
+                PythonValueConverter.ToText(optimize_first_order_solid, "optimize_first_order_solid", true);
+            string optimizeHighOrder = PythonValueConverter.ToText(optimize_high_order, "optimize_high_order", true);
+            TetrahedralGmsh item = _service.CloneItem<TetrahedralGmsh>(oldName);
+            ApplyTetrahedralGmsh(item, algorithm2d, algorithm3d, recombine_min_quality, algorithmRecombine,
+                                 transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg,
+                                 optimizeFirstOrderSolid, optimizeHighOrder);
+            return Replace(oldName, nameText, item, selectionValue);
         }
 
         [PythonAPI("Adds a Gmsh shell mesh item for the selected geometry. " + GmshValueRanges,
@@ -406,40 +456,59 @@ namespace APIs.Python.Model
                                GmshRecombineArguments + ", transfinite_angle_deg: float = None, " +
                                "optimize_first_order_shell: str = None",
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_shell_gmsh(string name, SelectionAPI selection, string algorithm_2d = null,
-                                               string algorithm_3d = null, object recombine_min_quality = null,
-                                               string algorithm_recombine = null,
-                                               string transfinite_three_sided = null,
+        public MeshSetupItemAPI add_shell_gmsh(object name, object selection, object algorithm_2d = null,
+                                               object algorithm_3d = null, object recombine_min_quality = null,
+                                               object algorithm_recombine = null,
+                                               object transfinite_three_sided = null,
                                                object transfinite_four_sided = null,
                                                object transfinite_angle_deg = null,
-                                               string optimize_first_order_shell = null)
+                                               object optimize_first_order_shell = null)
         {
-            _service.ValidateNewName(name);
-            ShellGmsh item = new ShellGmsh(name);
-            ApplyShellGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                           transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
-                           optimize_first_order_shell);
-            _service.Add(item, name, selection);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            string algorithm2d = PythonValueConverter.ToText(algorithm_2d, "algorithm_2d", true);
+            string algorithm3d = PythonValueConverter.ToText(algorithm_3d, "algorithm_3d", true);
+            string algorithmRecombine = PythonValueConverter.ToText(algorithm_recombine, "algorithm_recombine", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            string optimizeFirstOrderShell =
+                PythonValueConverter.ToText(optimize_first_order_shell, "optimize_first_order_shell", true);
+            _service.ValidateNewName(nameText);
+            ShellGmsh item = new ShellGmsh(nameText);
+            ApplyShellGmsh(item, algorithm2d, algorithm3d, recombine_min_quality, algorithmRecombine,
+                           transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg,
+                           optimizeFirstOrderShell);
+            _service.Add(item, nameText, selectionValue);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces a Gmsh shell mesh item, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, and the " +
                                "arguments of add_shell_gmsh", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_shell_gmsh(string old_name, string name = null,
-                                                   SelectionAPI selection = null, string algorithm_2d = null,
-                                                   string algorithm_3d = null, object recombine_min_quality = null,
-                                                   string algorithm_recombine = null,
-                                                   string transfinite_three_sided = null,
+        public MeshSetupItemAPI replace_shell_gmsh(object old_name, object name = null,
+                                                   object selection = null, object algorithm_2d = null,
+                                                   object algorithm_3d = null, object recombine_min_quality = null,
+                                                   object algorithm_recombine = null,
+                                                   object transfinite_three_sided = null,
                                                    object transfinite_four_sided = null,
                                                    object transfinite_angle_deg = null,
-                                                   string optimize_first_order_shell = null)
+                                                   object optimize_first_order_shell = null)
         {
-            ShellGmsh item = _service.CloneItem<ShellGmsh>(old_name);
-            ApplyShellGmsh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                           transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
-                           optimize_first_order_shell);
-            return Replace(old_name, name, item, selection);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            string algorithm2d = PythonValueConverter.ToText(algorithm_2d, "algorithm_2d", true);
+            string algorithm3d = PythonValueConverter.ToText(algorithm_3d, "algorithm_3d", true);
+            string algorithmRecombine = PythonValueConverter.ToText(algorithm_recombine, "algorithm_recombine", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            string optimizeFirstOrderShell =
+                PythonValueConverter.ToText(optimize_first_order_shell, "optimize_first_order_shell", true);
+            ShellGmsh item = _service.CloneItem<ShellGmsh>(oldName);
+            ApplyShellGmsh(item, algorithm2d, algorithm3d, recombine_min_quality, algorithmRecombine,
+                           transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg,
+                           optimizeFirstOrderShell);
+            return Replace(oldName, nameText, item, selectionValue);
         }
 
         [PythonAPI("Adds a Gmsh transfinite mesh item for the selected geometry. " + GmshValueRanges,
@@ -447,39 +516,52 @@ namespace APIs.Python.Model
                                "algorithm_2d: str = None, algorithm_3d: str = None, recombine: bool = None, " +
                                "transfinite_angle_deg: float = None, transfinite_three_sided: str = None",
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_transfinite_mesh(string name, SelectionAPI selection,
-                                                     object allow_pyramid_elements = null, string algorithm_2d = null,
-                                                     string algorithm_3d = null, object recombine = null,
+        public MeshSetupItemAPI add_transfinite_mesh(object name, object selection,
+                                                     object allow_pyramid_elements = null, object algorithm_2d = null,
+                                                     object algorithm_3d = null, object recombine = null,
                                                      object transfinite_angle_deg = null,
-                                                     string transfinite_three_sided = null)
+                                                     object transfinite_three_sided = null)
         {
-            _service.ValidateNewName(name);
-            TransfiniteMesh item = new TransfiniteMesh(name);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            string algorithm2d = PythonValueConverter.ToText(algorithm_2d, "algorithm_2d", true);
+            string algorithm3d = PythonValueConverter.ToText(algorithm_3d, "algorithm_3d", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            _service.ValidateNewName(nameText);
+            TransfiniteMesh item = new TransfiniteMesh(nameText);
             item.AllowPyramidElements = PythonValueConverter.ToBoolOrDefault(allow_pyramid_elements, false,
                                                                              "allow_pyramid_elements");
-            ApplyTransfiniteMesh(item, algorithm_2d, algorithm_3d, recombine, transfinite_angle_deg,
-                                 transfinite_three_sided);
-            _service.Add(item, name, selection);
-            return this[name];
+            ApplyTransfiniteMesh(item, algorithm2d, algorithm3d, recombine, transfinite_angle_deg,
+                                 transfiniteThreeSided);
+            _service.Add(item, nameText, selectionValue);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces a Gmsh transfinite mesh item, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, and the " +
                                "arguments of add_transfinite_mesh", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_transfinite_mesh(string old_name, string name = null,
-                                                         SelectionAPI selection = null,
+        public MeshSetupItemAPI replace_transfinite_mesh(object old_name, object name = null,
+                                                         object selection = null,
                                                          object allow_pyramid_elements = null,
-                                                         string algorithm_2d = null, string algorithm_3d = null,
+                                                         object algorithm_2d = null, object algorithm_3d = null,
                                                          object recombine = null, object transfinite_angle_deg = null,
-                                                         string transfinite_three_sided = null)
+                                                         object transfinite_three_sided = null)
         {
-            TransfiniteMesh item = _service.CloneItem<TransfiniteMesh>(old_name);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            string algorithm2d = PythonValueConverter.ToText(algorithm_2d, "algorithm_2d", true);
+            string algorithm3d = PythonValueConverter.ToText(algorithm_3d, "algorithm_3d", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            TransfiniteMesh item = _service.CloneItem<TransfiniteMesh>(oldName);
             if (allow_pyramid_elements != null)
                 item.AllowPyramidElements = PythonValueConverter.ToBool(allow_pyramid_elements,
                                                                         "allow_pyramid_elements");
-            ApplyTransfiniteMesh(item, algorithm_2d, algorithm_3d, recombine, transfinite_angle_deg,
-                                 transfinite_three_sided);
-            return Replace(old_name, name, item, selection);
+            ApplyTransfiniteMesh(item, algorithm2d, algorithm3d, recombine, transfinite_angle_deg,
+                                 transfiniteThreeSided);
+            return Replace(oldName, nameText, item, selectionValue);
         }
 
         [PythonAPI("Adds a Gmsh sweep mesh item for the selected source surfaces. The sweep direction, " +
@@ -502,60 +584,87 @@ namespace APIs.Python.Model
                                "quad_wild_flow_profile: str = None, quad_wild_alpha: float = None, " +
                                "quad_wild_smooth: bool = None, symmetry: str = None",
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_sweep_mesh(string name, SelectionAPI selection,
-                                               object number_of_global_smooth_steps = null, string algorithm_2d = null,
-                                               string algorithm_3d = null, object recombine_min_quality = null,
-                                               string algorithm_recombine = null,
-                                               string transfinite_three_sided = null,
+        public MeshSetupItemAPI add_sweep_mesh(object name, object selection,
+                                               object number_of_global_smooth_steps = null, object algorithm_2d = null,
+                                               object algorithm_3d = null, object recombine_min_quality = null,
+                                               object algorithm_recombine = null,
+                                               object transfinite_three_sided = null,
                                                object transfinite_four_sided = null,
                                                object transfinite_angle_deg = null,
-                                               string optimize_first_order_shell = null,
+                                               object optimize_first_order_shell = null,
                                                object elements_per_layer = null, object keep_imprint_edges = null,
-                                               string quad_wild_flow_profile = null, object quad_wild_alpha = null,
-                                               object quad_wild_smooth = null, string symmetry = null)
+                                               object quad_wild_flow_profile = null, object quad_wild_alpha = null,
+                                               object quad_wild_smooth = null, object symmetry = null)
         {
-            _service.ValidateNewName(name);
-            SweepMesh item = new SweepMesh(name);
-            if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            string algorithm2d = PythonValueConverter.ToText(algorithm_2d, "algorithm_2d", true);
+            string algorithm3d = PythonValueConverter.ToText(algorithm_3d, "algorithm_3d", true);
+            string algorithmRecombine = PythonValueConverter.ToText(algorithm_recombine, "algorithm_recombine", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            string optimizeFirstOrderShell =
+                PythonValueConverter.ToText(optimize_first_order_shell, "optimize_first_order_shell", true);
+            string quadWildFlowProfile =
+                PythonValueConverter.ToText(quad_wild_flow_profile, "quad_wild_flow_profile", true);
+            string symmetryText = PythonValueConverter.ToText(symmetry, "symmetry", true);
+            _service.ValidateNewName(nameText);
+            SweepMesh item = new SweepMesh(nameText);
+            if (symmetryText != null)
+                item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetryText, "symmetry");
             item.NumberOfGlobalSmoothSteps = ToNumberOfGlobalSmoothSteps(number_of_global_smooth_steps ?? 0);
             item.KeepImprintEdges = PythonValueConverter.ToBoolOrDefault(keep_imprint_edges, false,
                                                                          "keep_imprint_edges");
-            ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                           transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
-                           optimize_first_order_shell, elements_per_layer);
-            ApplySweepQuadWild(item, quad_wild_flow_profile, quad_wild_alpha, quad_wild_smooth);
-            _service.Add(item, name, selection);
-            return this[name];
+            ApplySweepMesh(item, algorithm2d, algorithm3d, recombine_min_quality, algorithmRecombine,
+                           transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg,
+                           optimizeFirstOrderShell, elements_per_layer);
+            ApplySweepQuadWild(item, quadWildFlowProfile, quad_wild_alpha, quad_wild_smooth);
+            _service.Add(item, nameText, selectionValue);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces a Gmsh sweep mesh item, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, and the " +
                                "arguments of add_sweep_mesh", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_sweep_mesh(string old_name, string name = null,
-                                                   SelectionAPI selection = null,
+        public MeshSetupItemAPI replace_sweep_mesh(object old_name, object name = null,
+                                                   object selection = null,
                                                    object number_of_global_smooth_steps = null,
-                                                   string algorithm_2d = null, string algorithm_3d = null,
+                                                   object algorithm_2d = null, object algorithm_3d = null,
                                                    object recombine_min_quality = null,
-                                                   string algorithm_recombine = null,
-                                                   string transfinite_three_sided = null,
+                                                   object algorithm_recombine = null,
+                                                   object transfinite_three_sided = null,
                                                    object transfinite_four_sided = null,
                                                    object transfinite_angle_deg = null,
-                                                   string optimize_first_order_shell = null,
+                                                   object optimize_first_order_shell = null,
                                                    object elements_per_layer = null, object keep_imprint_edges = null,
-                                                   string quad_wild_flow_profile = null, object quad_wild_alpha = null,
-                                                   object quad_wild_smooth = null, string symmetry = null)
+                                                   object quad_wild_flow_profile = null, object quad_wild_alpha = null,
+                                                   object quad_wild_smooth = null, object symmetry = null)
         {
-            SweepMesh item = _service.CloneItem<SweepMesh>(old_name);
-            if (symmetry != null) item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetry, "symmetry");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            string algorithm2d = PythonValueConverter.ToText(algorithm_2d, "algorithm_2d", true);
+            string algorithm3d = PythonValueConverter.ToText(algorithm_3d, "algorithm_3d", true);
+            string algorithmRecombine = PythonValueConverter.ToText(algorithm_recombine, "algorithm_recombine", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            string optimizeFirstOrderShell =
+                PythonValueConverter.ToText(optimize_first_order_shell, "optimize_first_order_shell", true);
+            string quadWildFlowProfile =
+                PythonValueConverter.ToText(quad_wild_flow_profile, "quad_wild_flow_profile", true);
+            string symmetryText = PythonValueConverter.ToText(symmetry, "symmetry", true);
+            SweepMesh item = _service.CloneItem<SweepMesh>(oldName);
+            if (symmetryText != null)
+                item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetryText, "symmetry");
             if (number_of_global_smooth_steps != null)
                 item.NumberOfGlobalSmoothSteps = ToNumberOfGlobalSmoothSteps(number_of_global_smooth_steps);
             if (keep_imprint_edges != null)
                 item.KeepImprintEdges = PythonValueConverter.ToBool(keep_imprint_edges, "keep_imprint_edges");
-            ApplySweepMesh(item, algorithm_2d, algorithm_3d, recombine_min_quality, algorithm_recombine,
-                           transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg,
-                           optimize_first_order_shell, elements_per_layer);
-            ApplySweepQuadWild(item, quad_wild_flow_profile, quad_wild_alpha, quad_wild_smooth);
-            return Replace(old_name, name, item, selection);
+            ApplySweepMesh(item, algorithm2d, algorithm3d, recombine_min_quality, algorithmRecombine,
+                           transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg,
+                           optimizeFirstOrderShell, elements_per_layer);
+            ApplySweepQuadWild(item, quadWildFlowProfile, quad_wild_alpha, quad_wild_smooth);
+            return Replace(oldName, nameText, item, selectionValue);
         }
 
         [PythonAPI("Adds a QuadWild shell mesh item for the selected geometry. Every parameter that is not " +
@@ -571,53 +680,70 @@ namespace APIs.Python.Model
                                "boundary_layer: str = None, transfinite_three_sided: str = None, " +
                                "transfinite_four_sided: bool = None, transfinite_angle_deg: float = None",
                    Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI add_shell_quad_wild(string name, SelectionAPI selection, object preview = null,
+        public MeshSetupItemAPI add_shell_quad_wild(object name, object selection, object preview = null,
                                                     object smooth = null, object alpha = null,
-                                                    string triangulation_mesher = null, string flow_profile = null,
+                                                    object triangulation_mesher = null, object flow_profile = null,
                                                     object keep_files_on_failure = null,
                                                     object debug_visualization = null, object old_algorithm = null,
                                                     object pin_edge_nodes = null, object edge_rotations = null,
                                                     object singularity_position = null,
                                                     object number_of_search_rounds = null,
-                                                    string boundary_layer = null, string transfinite_three_sided = null,
+                                                    object boundary_layer = null, object transfinite_three_sided = null,
                                                     object transfinite_four_sided = null,
                                                     object transfinite_angle_deg = null)
         {
-            _service.ValidateNewName(name);
-            ShellQuadWild item = new ShellQuadWild(name);
-            ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher,
-                               flow_profile, keep_files_on_failure, debug_visualization, old_algorithm,
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            string triangulationMesher =
+                PythonValueConverter.ToText(triangulation_mesher, "triangulation_mesher", true);
+            string flowProfile = PythonValueConverter.ToText(flow_profile, "flow_profile", true);
+            string boundaryLayer = PythonValueConverter.ToText(boundary_layer, "boundary_layer", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            _service.ValidateNewName(nameText);
+            ShellQuadWild item = new ShellQuadWild(nameText);
+            ApplyShellQuadWild(item, preview, smooth, alpha, triangulationMesher,
+                               flowProfile, keep_files_on_failure, debug_visualization, old_algorithm,
                                pin_edge_nodes, edge_rotations, singularity_position, number_of_search_rounds,
-                               boundary_layer,
-                               transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg);
-            _service.Add(item, name, selection);
-            return this[name];
+                               boundaryLayer,
+                               transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg);
+            _service.Add(item, nameText, selectionValue);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces a QuadWild shell mesh item, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, selection: Selection = None, and the " +
                                "arguments of add_shell_quad_wild", Returns = "MeshSetupItem")]
-        public MeshSetupItemAPI replace_shell_quad_wild(string old_name, string name = null,
-                                                        SelectionAPI selection = null, object preview = null,
-                                                        object smooth = null, object alpha = null, string triangulation_mesher = null,
-                                                        string flow_profile = null,
+        public MeshSetupItemAPI replace_shell_quad_wild(object old_name, object name = null,
+                                                        object selection = null, object preview = null,
+                                                        object smooth = null, object alpha = null, object triangulation_mesher = null,
+                                                        object flow_profile = null,
                                                         object keep_files_on_failure = null,
                                                         object debug_visualization = null,
                                                         object old_algorithm = null,
                                                         object pin_edge_nodes = null, object edge_rotations = null,
                                                     object singularity_position = null,
                                                     object number_of_search_rounds = null,
-                                                    string boundary_layer = null, string transfinite_three_sided = null,
+                                                    object boundary_layer = null, object transfinite_three_sided = null,
                                                     object transfinite_four_sided = null,
                                                     object transfinite_angle_deg = null)
         {
-            ShellQuadWild item = _service.CloneItem<ShellQuadWild>(old_name);
-            ApplyShellQuadWild(item, preview, smooth, alpha, triangulation_mesher,
-                               flow_profile, keep_files_on_failure, debug_visualization, old_algorithm,
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            string triangulationMesher =
+                PythonValueConverter.ToText(triangulation_mesher, "triangulation_mesher", true);
+            string flowProfile = PythonValueConverter.ToText(flow_profile, "flow_profile", true);
+            string boundaryLayer = PythonValueConverter.ToText(boundary_layer, "boundary_layer", true);
+            string transfiniteThreeSided =
+                PythonValueConverter.ToText(transfinite_three_sided, "transfinite_three_sided", true);
+            ShellQuadWild item = _service.CloneItem<ShellQuadWild>(oldName);
+            ApplyShellQuadWild(item, preview, smooth, alpha, triangulationMesher,
+                               flowProfile, keep_files_on_failure, debug_visualization, old_algorithm,
                                pin_edge_nodes, edge_rotations, singularity_position, number_of_search_rounds,
-                               boundary_layer,
-                               transfinite_three_sided, transfinite_four_sided, transfinite_angle_deg);
-            return Replace(old_name, name, item, selection);
+                               boundaryLayer,
+                               transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg);
+            return Replace(oldName, nameText, item, selectionValue);
         }
         //
         protected override string[] GetItemNames()

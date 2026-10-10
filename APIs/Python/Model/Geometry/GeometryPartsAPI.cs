@@ -45,9 +45,11 @@ namespace APIs.Python.Model
 
         [PythonAPI("Swaps the geometries of two parts using command history.",
                    Arguments = "part_name_1: str, part_name_2: str", Returns = "None")]
-        public void swap_geometries(string part_name_1, string part_name_2)
+        public void swap_geometries(object part_name_1, object part_name_2)
         {
-            _service.SwapGeometries(part_name_1, part_name_2);
+            string partName1 = PythonValueConverter.ToText(part_name_1, "part_name_1", false);
+            string partName2 = PythonValueConverter.ToText(part_name_2, "part_name_2", false);
+            _service.SwapGeometries(partName1, partName2);
         }
 
         [PythonAPI("Converts the named shell parts to solid parts using command history.",
@@ -76,9 +78,10 @@ namespace APIs.Python.Model
                    "part, so a part that was skipped is visible: it reports zero. Only the faces of CAD " +
                    "shell parts can be flipped.",
                    Arguments = "selection: Selection", Returns = "dict[str, int]")]
-        public Dictionary<string, int> flip_face_orientations(SelectionAPI selection)
+        public Dictionary<string, int> flip_face_orientations(object selection)
         {
-            return _service.FlipFaceOrientations(selection);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            return _service.FlipFaceOrientations(selectionValue);
         }
 
         [PythonAPI("Splits the selected CAD parts with a splitting tool made by pmx.create.split_tool_*, the way " +
@@ -93,10 +96,12 @@ namespace APIs.Python.Model
                    Returns = "dict[str, int]",
                    Example = "tool = pmx.create.split_tool_plane_by_point_and_normal([30, 20, 10], [0, 0, 1])\n" +
                              "added = pmx.model.geometry.parts.split_solid(selection, tool)")]
-        public Dictionary<string, int> split_solid(SelectionAPI selection, SplitToolAPI tool,
+        public Dictionary<string, int> split_solid(object selection, object tool,
                                                    object fuzzy_tolerance = null)
         {
-            return _service.SplitGeometry(selection, tool, fuzzy_tolerance, SplitTypeEnum.Solid);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            SplitToolAPI toolValue = PythonValueConverter.ToApiObject<SplitToolAPI>(tool, "tool", false);
+            return _service.SplitGeometry(selectionValue, toolValue, fuzzy_tolerance, SplitTypeEnum.Solid);
         }
 
         [PythonAPI("Splits the selected surfaces of CAD parts with a splitting tool made by " +
@@ -110,10 +115,12 @@ namespace APIs.Python.Model
                    Returns = "dict[str, int]",
                    Example = "tool = pmx.create.split_tool_line_by_two_points(splitter=vertices)\n" +
                              "added = pmx.model.geometry.parts.split_face(surfaces, tool)")]
-        public Dictionary<string, int> split_face(SelectionAPI selection, SplitToolAPI tool,
+        public Dictionary<string, int> split_face(object selection, object tool,
                                                    object fuzzy_tolerance = null)
         {
-            return _service.SplitGeometry(selection, tool, fuzzy_tolerance, SplitTypeEnum.Shell);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            SplitToolAPI toolValue = PythonValueConverter.ToApiObject<SplitToolAPI>(tool, "tool", false);
+            return _service.SplitGeometry(selectionValue, toolValue, fuzzy_tolerance, SplitTypeEnum.Shell);
         }
 
         [PythonAPI("Renames a sub-part of a compound part made by split_solid, the way renaming it in the " +
@@ -122,9 +129,12 @@ namespace APIs.Python.Model
                    "meshed into. old_name is matched regardless of case.",
                    Arguments = "part_name: str, old_name: str, new_name: str", Returns = "None",
                    Example = "pmx.model.geometry.parts.rename_split_sub_part('Compound_part-1', 'Solid_part-1', 'Web')")]
-        public void rename_split_sub_part(string part_name, string old_name, string new_name)
+        public void rename_split_sub_part(object part_name, object old_name, object new_name)
         {
-            _service.RenameSplitSubPart(part_name, old_name, new_name);
+            string partName = PythonValueConverter.ToText(part_name, "part_name", false);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string newName = PythonValueConverter.ToText(new_name, "new_name", false);
+            _service.RenameSplitSubPart(partName, oldName, newName);
         }
 
         [PythonAPI("Puts the named cells of a compound part made by split_solid under one sub-part, the way " +
@@ -141,9 +151,11 @@ namespace APIs.Python.Model
                    Returns = "str",
                    Example = "cells = compound.get_split_cell_names('Solid_part-1')\n" +
                              "pmx.model.geometry.parts.group_split_cells(compound.name, cells[:2], 'Steel')")]
-        public string group_split_cells(string part_name, object cell_names, string sub_part_name = null)
+        public string group_split_cells(object part_name, object cell_names, object sub_part_name = null)
         {
-            return _service.GroupSplitCells(part_name, cell_names, sub_part_name);
+            string partName = PythonValueConverter.ToText(part_name, "part_name", false);
+            string subPartName = PythonValueConverter.ToText(sub_part_name, "sub_part_name", true);
+            return _service.GroupSplitCells(partName, cell_names, subPartName);
         }
 
         [PythonAPI("Makes one solid of the named bodies of a compound part, the way Fuse Bodies in the tree " +
@@ -159,9 +171,10 @@ namespace APIs.Python.Model
                    "and id of the sub-part it ends in. Returns the name of the fused solid, or of that part.",
                    Arguments = "part_name: str, body_names: list[str] or str", Returns = "str",
                    Example = "pmx.model.geometry.parts.fuse_bodies(compound.name, ['Solid_part-1', 'Solid_part-2'])")]
-        public string fuse_bodies(string part_name, object body_names)
+        public string fuse_bodies(object part_name, object body_names)
         {
-            return _service.FuseBodies(part_name, body_names);
+            string partName = PythonValueConverter.ToText(part_name, "part_name", false);
+            return _service.FuseBodies(partName, body_names);
         }
 
         [PythonAPI("Removes the selected geometry features using command history. The selection uses the " +
@@ -170,9 +183,10 @@ namespace APIs.Python.Model
                    "A blind hole needs its bottom face selected as well as its wall.",
                    Arguments = "selection: Selection", Returns = "dict[str, int]",
                    Example = "removed = pmx.model.geometry.parts.defeature(selection)")]
-        public Dictionary<string, int> defeature(SelectionAPI selection)
+        public Dictionary<string, int> defeature(object selection)
         {
-            return _service.Defeature(selection);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            return _service.Defeature(selectionValue);
         }
 
         [PythonAPI("Offsets the selected surfaces into new shell parts using command history. The " +
@@ -187,9 +201,10 @@ namespace APIs.Python.Model
                    "surface gives a mid-surface. Returns the names of the parts that were created.",
                    Arguments = "selection: Selection, offset: float = 0", Returns = "StringList",
                    Example = "names = pmx.model.geometry.parts.offset_face(selection, -1.5)")]
-        public StringListAPI offset_face(SelectionAPI selection, object offset = null)
+        public StringListAPI offset_face(object selection, object offset = null)
         {
-            return new StringListAPI(_service.OffsetFace(selection, offset));
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            return new StringListAPI(_service.OffsetFace(selectionValue, offset));
         }
 
         [PythonAPI("Deletes the selected CAD part faces using command history and leaves the gap open. " +
@@ -205,9 +220,10 @@ namespace APIs.Python.Model
                    "part that was left alone reports zero.",
                    Arguments = "selection: Selection", Returns = "dict[str, int]",
                    Example = "deleted = pmx.model.geometry.parts.delete_cad_faces(selection)")]
-        public Dictionary<string, int> delete_cad_faces(SelectionAPI selection)
+        public Dictionary<string, int> delete_cad_faces(object selection)
         {
-            return _service.DeleteCadFaces(selection);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            return _service.DeleteCadFaces(selectionValue);
         }
 
         [PythonAPI("Fuses the selected CAD part faces into one using command history, the way Fuse Faces in the " +
@@ -222,9 +238,10 @@ namespace APIs.Python.Model
                    "be fused reports zero.",
                    Arguments = "selection: Selection", Returns = "dict[str, int]",
                    Example = "fused = pmx.model.geometry.parts.fuse_faces(selection)")]
-        public Dictionary<string, int> fuse_faces(SelectionAPI selection)
+        public Dictionary<string, int> fuse_faces(object selection)
         {
-            return _service.FuseFaces(selection);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            return _service.FuseFaces(selectionValue);
         }
 
         [PythonAPI("Repairs the whole of the named CAD parts using command history, the way Repair in the CAD " +
@@ -316,9 +333,10 @@ namespace APIs.Python.Model
                    "part, so a part that was skipped is visible: it reports zero. Only the faces of STL " +
                    "parts can be deleted.",
                    Arguments = "selection: Selection", Returns = "dict[str, int]")]
-        public Dictionary<string, int> delete_stl_faces(SelectionAPI selection)
+        public Dictionary<string, int> delete_stl_faces(object selection)
         {
-            return _service.DeleteStlFaces(selection);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            return _service.DeleteStlFaces(selectionValue);
         }
         //
         protected override GeometryPartAPI CreateItemAPI(string name)

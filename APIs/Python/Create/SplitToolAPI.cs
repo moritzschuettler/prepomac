@@ -8,6 +8,8 @@
 // Contributors:
 
 using CaeMesh;
+using System;
+using System.Collections.Generic;
 
 namespace APIs.Python
 {
@@ -17,6 +19,14 @@ namespace APIs.Python
     public class SplitToolAPI : BaseAPI
     {
         // Variables
+        private static readonly Dictionary<Type, string> ToolTypes = new Dictionary<Type, string>
+        {
+            { typeof(SplitByLineTwoPoints), "line_by_two_points" },
+            { typeof(SplitByPlaneThreePoints), "plane_by_three_points" },
+            { typeof(SplitByPointAndNormal), "plane_by_point_and_normal" },
+            { typeof(SplitByExtendedFace), "extend_face" },
+            { typeof(SplitByExtrudedEdges), "extrude_edges" }
+        };
         private readonly GeometryFeature _geometryFeature;
         private readonly SelectionAPI _splitter;
         private readonly string _splitterArgumentName;
@@ -24,9 +34,9 @@ namespace APIs.Python
 
 
         // Properties
-        [PythonAPI("The splitting operation, as the split dialogs name it, for example 'Plane by three points'.",
-                   Returns = "str")]
-        public string tool_type { get { return _geometryFeature.DisplayName; } }
+        [PythonAPI("The splitting tool, named after the pmx.create method that makes it without split_tool_, " +
+                   "for example 'plane_by_three_points' for split_tool_plane_by_three_points.", Returns = "str")]
+        public string tool_type { get { return GetToolType(_geometryFeature); } }
         internal GeometryFeature GeometryFeature { get { return _geometryFeature; } }
         internal SelectionAPI Splitter { get { return _splitter; } }
         internal string SplitterArgumentName { get { return _splitterArgumentName; } }
@@ -44,10 +54,21 @@ namespace APIs.Python
         }
 
 
+        // Static methods
+        private static string GetToolType(GeometryFeature geometryFeature)
+        {
+            string toolType;
+            if (ToolTypes.TryGetValue(geometryFeature.GetType(), out toolType)) return toolType;
+            //
+            throw new PythonAPIException("The splitting tool " + geometryFeature.GetType().Name + " is not made " +
+                                         "by any pmx.create method.");
+        }
+
+
         // Methods
         public override string ToString()
         {
-            return "SplitTool(type=" + StringListAPI.ToDisplayString(_geometryFeature.DisplayName) + ")";
+            return "SplitTool(type=" + StringListAPI.ToDisplayString(GetToolType(_geometryFeature)) + ")";
         }
     }
 }

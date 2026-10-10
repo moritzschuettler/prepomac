@@ -117,10 +117,11 @@ namespace APIs.Python.Model
                    "argument that sets it, for example variables or contact_pair_name. Use get_value_names to " +
                    "list them. The variables are returned as a list of names, the form the variables argument " +
                    "takes.", Arguments = "name: str", Returns = "float, int, bool, str or list[str]")]
-        public object get_value(string name)
+        public object get_value(object name)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
             HistoryOutput historyOutput = Resolve();
-            return ModelItemValueReader.GetValue(GetValues(historyOutput), name,
+            return ModelItemValueReader.GetValue(GetValues(historyOutput), nameText,
                                                  GetItemType(historyOutput) + " history output");
         }
         public override string ToString()

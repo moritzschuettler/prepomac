@@ -47,9 +47,10 @@ names the habits.
   `read_topology`, `run_job` and `get_job` run Python too. The call outlasted its wait and goes on to
   the end, recording its commands as usual; collect its answer with `get_call`, which returns what
   that tool would have returned, and do not send the work again.
-  Only `run_python` and `eval_expression` take a `timeout`: give one you know is long - meshing a big
-  part, an import, a regeneration - a larger one, but keep it below your client's own request
-  timeout; for long work pass `timeout` 0 and wait with `get_call`. An answer your client gave up on is kept, and `get_status` lists it under `calls`.
+  Of the tools that start work, only `run_python` and `eval_expression` take a `timeout`: give one
+  you know is long - meshing a big part, an import, a regeneration - a larger one, but keep it below
+  your client's own request timeout; for long work pass `timeout` 0 and wait with `get_call`. An
+  answer your client gave up on is kept, and `get_status` lists it under `calls`.
   A call that should not finish - a loop that never ends - is stopped with `cancel_call` and its
   `callId`: it stops at its next Python statement, but a PrePoMax operation it is inside, such as
   meshing, finishes first. What it recorded before that stays in the history.

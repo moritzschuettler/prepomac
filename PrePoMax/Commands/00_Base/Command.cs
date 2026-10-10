@@ -36,6 +36,8 @@ namespace PrePoMax.Commands
         /// every geometry operation split the periodic faces, and it has to be regenerated the same way.
         /// </summary>
         public bool SplitsPeriodicFacesAutomatically { get { return !_periodicFacesSplitOnlyOnRequest; } }
+        // A command the history holds although its execution failed, with the changes it made before the error
+        public virtual bool IsRecordedAsFailed { get { return false; } }
 
 
         // Constructors                                                                                                             

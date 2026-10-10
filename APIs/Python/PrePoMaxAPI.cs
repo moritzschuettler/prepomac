@@ -107,88 +107,105 @@ namespace APIs.Python
                    "the command history. Undefined is refused for either argument.",
                    Arguments = "model_space: str, unit_system: str", Returns = "None",
                    Example = "pmx.new_model('ThreeD', 'MM_TON_S_C')")]
-        public void new_model(string model_space, string unit_system)
+        public void new_model(object model_space, object unit_system)
         {
-            _documentService.NewModel(model_space, unit_system);
+            string modelSpace = PythonValueConverter.ToText(model_space, "model_space", false);
+            string unitSystem = PythonValueConverter.ToText(unit_system, "unit_system", false);
+            _documentService.NewModel(modelSpace, unitSystem);
         }
 
         [PythonAPI("Opens a .pmx or .pmh model file. Not available inside a recorded script, because it " +
                    "replaces the command history. A result file is opened by pmx.results.open.",
                    Arguments = "file_name: str", Returns = "None")]
-        public void open(string file_name)
+        public void open(object file_name)
         {
-            _documentService.OpenFile(file_name);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            _documentService.OpenFile(fileName);
         }
 
         [PythonAPI("Imports a geometry or mesh file into the current model using command history.",
                    Arguments = "file_name: str, only_materials: bool = False", Returns = "None")]
-        public void import_file(string file_name, object only_materials = null)
+        public void import_file(object file_name, object only_materials = null)
         {
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
             bool onlyMaterials = PythonValueConverter.ToBoolOrDefault(only_materials, false, "only_materials");
-            _documentService.ImportFile(file_name, onlyMaterials);
+            _documentService.ImportFile(fileName, onlyMaterials);
         }
 
         [PythonAPI("Saves the model to a .pmx file using command history.", Arguments = "file_name: str",
                    Returns = "None")]
-        public void save(string file_name)
+        public void save(object file_name)
         {
-            _documentService.SaveToPmx(file_name);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            _documentService.SaveToPmx(fileName);
         }
 
         [PythonAPI("Exports the model to a CalculiX .inp file using command history.",
                    Arguments = "file_name: str", Returns = "None")]
-        public void export_to_calculix(string file_name)
+        public void export_to_calculix(object file_name)
         {
-            _documentService.ExportToCalculix(file_name);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            _documentService.ExportToCalculix(fileName);
         }
 
         [PythonAPI("Exports the model to an Abaqus .inp file using command history.",
                    Arguments = "file_name: str", Returns = "None")]
-        public void export_to_abaqus(string file_name)
+        public void export_to_abaqus(object file_name)
         {
-            _documentService.ExportToAbaqus(file_name);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            _documentService.ExportToAbaqus(fileName);
         }
 
-        [PythonAPI("Exports the model to a .3mf file using command history.",
+        [PythonAPI("Exports the model to a .3mf file using command history. The edge thickness ratio must be " +
+                   "finite and larger than zero.",
                    Arguments = "file_name: str, edge_thickness_ratio: float = 1", Returns = "None")]
-        public void export_to_3mf(string file_name, object edge_thickness_ratio = null)
+        public void export_to_3mf(object file_name, object edge_thickness_ratio = null)
         {
-            _documentService.ExportTo3mf(file_name, edge_thickness_ratio);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            _documentService.ExportTo3mf(fileName, edge_thickness_ratio);
         }
 
         [PythonAPI("Exports the named geometry parts using command history. The file extension picks the format: " +
                    ".stp or .step and .brep need CAD parts, .stl takes any geometry part and .mesh (Mmg) a solid or " +
                    "shell part. Give 'format' to override the extension.",
                    Arguments = "part_names: list[str] or str, file_name: str, format: str = None", Returns = "None")]
-        public void export_geometry(object part_names, string file_name, string format = null)
+        public void export_geometry(object part_names, object file_name, object format = null)
         {
-            _documentService.ExportGeometry(part_names, file_name, format);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            string formatText = PythonValueConverter.ToText(format, "format", true);
+            _documentService.ExportGeometry(part_names, fileName, formatText);
         }
 
         [PythonAPI("Exports the nodes and elements of the named mesh parts using command history. The file " +
                    "extension picks the format: .inp is CalculiX unless format='Abaqus', .msh is Gmsh, .mesh is Mmg " +
                    "and .stl the visualization surface. Give 'format' to override the extension.",
                    Arguments = "part_names: list[str] or str, file_name: str, format: str = None", Returns = "None")]
-        public void export_mesh(object part_names, string file_name, string format = null)
+        public void export_mesh(object part_names, object file_name, object format = null)
         {
-            _documentService.ExportMesh(part_names, file_name, format);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            string formatText = PythonValueConverter.ToText(format, "format", true);
+            _documentService.ExportMesh(part_names, fileName, formatText);
         }
 
         [PythonAPI("Exports the whole model as a solver input deck using command history. An .inp file is " +
                    "CalculiX unless format='Abaqus'.",
                    Arguments = "file_name: str, format: str = None", Returns = "None")]
-        public void export_model(string file_name, string format = null)
+        public void export_model(object file_name, object format = null)
         {
-            _documentService.ExportModel(file_name, format);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            string formatText = PythonValueConverter.ToText(format, "format", true);
+            _documentService.ExportModel(fileName, formatText);
         }
 
         [PythonAPI("Exports the named parts of the current result in their deformed shape using command history. " +
                    "The file extension picks the format: .inp is a CalculiX mesh, .stl the deformed visualization " +
                    "surface. Give 'format' to override the extension.",
                    Arguments = "part_names: list[str] or str, file_name: str, format: str = None", Returns = "None")]
-        public void export_results(object part_names, string file_name, string format = null)
+        public void export_results(object part_names, object file_name, object format = null)
         {
-            _documentService.ExportResults(part_names, file_name, format);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            string formatText = PythonValueConverter.ToText(format, "format", true);
+            _documentService.ExportResults(part_names, fileName, formatText);
         }
         public override string ToString()
         {

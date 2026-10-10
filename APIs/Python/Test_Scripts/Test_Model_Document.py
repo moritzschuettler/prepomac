@@ -127,6 +127,47 @@ def test_properties():
     check(pmx.model.properties.absolute_zero == absolute_zero, "the physical constant did not go back")
 
 
+def test_model_space_and_unused_values():
+    properties = pmx.model.properties
+    # The dialog changes the model space only between the 2D spaces, and updates the element types when it does;
+    # the cube is a 3D model, so a 2D space and Undefined are refused naming the argument
+    for value in ["PlaneStress", "PlaneStrain", "Axisymmetric", "Undefined"]:
+        message = raised_message(lambda: properties.replace(model_space=value))
+        check(message is not None and "'model_space'" in message,
+              "a replace to the model space " + value + " must be refused naming it: " + str(message))
+    check(properties.model_space == "ThreeD", "a refused replace changed the model space")
+    properties.replace(model_space="threed")
+    check(properties.model_space == "ThreeD", "a replace keeping the model space was not accepted")
+    # Assigning the model space sets it as the new model dialog does, without the element types, so a defined
+    # model space of a model with a mesh is changed by the replace
+    message = raised_message(lambda: setattr(properties, "model_space", "PlaneStrain"))
+    check(message is not None and "replace(model_space" in message,
+          "assigning another model space to a meshed model must point to the replace: " + str(message))
+    check(properties.model_space == "ThreeD", "a refused assignment changed the model space")
+    # None would record a command that changes nothing
+    for argument in ["model_space", "unit_system"]:
+        message = raised_message(lambda: setattr(properties, argument, None))
+        check(message is not None and "'" + argument + "'" in message,
+              "None must be refused for " + argument + ": " + str(message))
+    check(properties.unit_system == "MM_TON_S_C", "a refused assignment changed the unit system")
+    # A value the model type does not use reads back as None, which goes back into the replace as not given
+    model_type = properties.model_type
+    properties.model_type = "GeneralModel"
+    unused = ["global_results_file_name", "slip_wear_results", "number_of_cycles", "cycles_increment",
+              "number_of_smoothing_steps", "bdm_remeshing"]
+    values = {argument: getattr(properties, argument) for argument in unused}
+    check(all(value is None for value in values.values()),
+          "a general model must read the submodel and slip wear values as None: " + str(values))
+    properties.replace(**values)
+    properties.replace(model_type="Submodel", global_results_file_name="global.frd")
+    check(properties.global_results_file_name == "global.frd" and properties.number_of_cycles is None,
+          "a submodel must read its file and no slip wear value: " + str(properties.global_results_file_name))
+    properties.replace(model_type="SlipWearModel")
+    check(properties.global_results_file_name is None and isinstance(properties.number_of_cycles, int) and
+          isinstance(properties.bdm_remeshing, bool), "a slip wear model must read its values and no file")
+    properties.model_type = model_type
+
+
 def test_parameters():
     for name in list(pmx.model.parameters.get_names()):
         if name.startswith("pytest"):
@@ -300,6 +341,7 @@ def test_open_is_refused_in_a_script():
 
 def main():
     test_properties()
+    test_model_space_and_unused_values()
     test_parameters()
     test_parameter_refusals()
     test_parameters_set_all()

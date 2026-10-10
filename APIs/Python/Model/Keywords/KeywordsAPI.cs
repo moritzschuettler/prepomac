@@ -77,15 +77,16 @@ namespace APIs.Python.Model
         [PythonAPI("Inserts or replaces one user CalculiX keyword at a generated keyword index path.",
                    Arguments = "indices: list[int], data: str", Returns = "None",
                    Example = "pmx.model.keywords.set_user_keyword([3, 1], '*NO ANALYSIS')")]
-        public void set_user_keyword(object indices, string data)
+        public void set_user_keyword(object indices, object data)
         {
+            string dataText = PythonValueConverter.ToText(data, "data", true);
             int[] path = ToIndices(indices, "indices");
-            if (string.IsNullOrEmpty(data)) throw new PythonAPIException("The argument 'data' must not be empty.");
+            if (string.IsNullOrEmpty(dataText)) throw new PythonAPIException("The argument 'data' must not be empty.");
             ValidateUserKeywordPath(path);
             //
             OrderedDictionary<int[], CalculixUserKeyword> keywords = GetUserKeywords();
             RemoveAt(keywords, path);
-            keywords.Add(path, new CalculixUserKeyword(data));
+            keywords.Add(path, new CalculixUserKeyword(dataText));
             //
             SetUserKeywords(keywords);
         }
@@ -122,12 +123,13 @@ namespace APIs.Python.Model
                    "disabled flag writes it as a comment. An omitted value is kept.",
                    Arguments = "indices: list[int], data: str = None, disabled: bool = None", Returns = "None",
                    Example = "pmx.model.keywords.set_override([0, 2], disabled=True)")]
-        public void set_override(object indices, string data = null, object disabled = null)
+        public void set_override(object indices, object data = null, object disabled = null)
         {
+            string dataText = PythonValueConverter.ToText(data, "data", true);
             int[] path = ToIndices(indices, "indices");
-            if (data == null && disabled == null)
+            if (dataText == null && disabled == null)
                 throw new PythonAPIException("Either the argument 'data' or the argument 'disabled' must be given.");
-            if (data != null && data.Length == 0)
+            if (dataText != null && dataText.Length == 0)
                 throw new PythonAPIException("The argument 'data' must not be empty.");
             bool applyDisabled = disabled != null && PythonValueConverter.ToBool(disabled, "disabled");
             string signature = ResolveGeneratedKeywordSignature(path);
@@ -135,7 +137,7 @@ namespace APIs.Python.Model
             List<CalculixKeywordOverride> overrides = GetOverrides();
             CalculixKeywordOverride existing = FindOverride(overrides, path, signature);
             CalculixKeywordOverride replacement = new CalculixKeywordOverride(path, signature);
-            replacement.Data = data != null ? data : (existing != null ? existing.Data : null);
+            replacement.Data = dataText != null ? dataText : (existing != null ? existing.Data : null);
             replacement.Disabled = disabled != null ? applyDisabled : (existing != null && existing.Disabled);
             overrides.RemoveAll(item => item != null && item.HasSameIndices(path));
             // The editor keeps an edit only while it changes something, so an edit that undoes itself is dropped

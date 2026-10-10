@@ -45,7 +45,7 @@ def build_solvable_model():
                                                  [pmx.model.parts.first().id])
     pmx.model.materials.add(PREFIX + "Steel", pmx.create.elastic(210000, 0.3))
     pmx.model.sections.add_solid(PREFIX + "Section", PREFIX + "Steel", part_selection)
-    pmx.model.steps.add_static(PREFIX + "Step", time_period=1.0)
+    pmx.model.steps.add_static(PREFIX + "Step")
 
 
 def test_explicit_settings(work):
@@ -56,16 +56,20 @@ def test_explicit_settings(work):
     check(job.executable == SLEEPING_SOLVER, "the explicit executable was overwritten: " + job.executable)
     check(job.work_directory == work, "the explicit work directory was overwritten")
     check(job.number_of_cpus == 2, "the explicit CPU count was overwritten")
-    check(job.environment_variables[0].Name == "PMX_TEST_VALUE", "the environment variable was not stored")
-    # The readback is detached, so changing it cannot reach the stored analysis
+    check(job.environment_variables[0].name == "PMX_TEST_VALUE", "the environment variable was not stored")
+    # The readback is a detached part with snake_case read-backs, never the .NET model object
     copy = job.environment_variables
     check(type(copy) is list, "the environment variables must read back as a plain list: " + str(type(copy)))
-    copy[0].Value = "changed"
-    check(job.environment_variables[0].Value == "one", "the environment readback was not detached")
+    check(copy[0].get_values() == {"name": "PMX_TEST_VALUE", "value": "one", "active": True},
+          "the environment variable did not read back under the pmx.create argument names: " +
+          repr(copy[0].get_values()))
+    check(not hasattr(copy[0], "Value"), "the environment variable must not hand out the .NET model object")
+    check(pmx.create.environment_variable(**copy[0].get_values()).get_values() == copy[0].get_values(),
+          "the environment variable values did not go back into pmx.create.environment_variable")
     # The read-back goes back into the argument that sets it
     pmx.jobs.replace(PREFIX + "Explicit", environment_variables=job.environment_variables)
     variables = pmx.jobs[PREFIX + "Explicit"].environment_variables
-    check(len(variables) == 1 and variables[0].Name == "PMX_TEST_VALUE" and variables[0].Value == "one",
+    check(len(variables) == 1 and variables[0].name == "PMX_TEST_VALUE" and variables[0].value == "one",
           "the environment variables did not survive a round trip")
     # Adding another analysis reapplies the settings, which must leave the explicit values alone
     pmx.jobs.add(PREFIX + "Other")

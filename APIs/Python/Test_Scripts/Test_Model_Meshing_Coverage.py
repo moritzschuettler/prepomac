@@ -277,7 +277,7 @@ def test_value_ranges(items, solid_selection, shell_selection):
     check(list(items.get_names()) == before, "a refused add or replace changed the collection")
 
 
-def test_rejection_leaves_no_trace(items):
+def test_rejection_leaves_no_trace(items, selection):
     before = list(items.get_names())
     check_raises(lambda: items.replace_local_mesh_size(PREFIX + "Local", number_of_elements=2.5),
                  "a fractional element count was accepted")
@@ -286,9 +286,9 @@ def test_rejection_leaves_no_trace(items):
     check(message is not None and PREFIX + "Local" in message and "add_local_mesh_size" in message,
           "a replace of another item type must name the item and its type: " + str(message))
     # A name the model could not take is refused before the item is built or its defaults are fetched
-    for add in [lambda: items.add_local_mesh_size(PREFIX + "Bad Name", None, element_size=0.4),
-                lambda: items.add_meshing_parameters(PREFIX + "Bad#", None),
-                lambda: items.add_shell_mmg(" " + PREFIX + "Spaced", None)]:
+    for add in [lambda: items.add_local_mesh_size(PREFIX + "Bad Name", selection, element_size=0.4),
+                lambda: items.add_meshing_parameters(PREFIX + "Bad#", selection),
+                lambda: items.add_shell_mmg(" " + PREFIX + "Spaced", selection)]:
         message = raised_message(add)
         check(message is not None and "'name'" in message, "a bad name must be refused naming it: " + str(message))
     message = raised_message(lambda: items.replace_local_mesh_size(PREFIX + "Local", name=PREFIX + "Bad Name"))
@@ -378,7 +378,7 @@ def main():
     test_settings_round_trip(items)
     test_value_ranges(items, solid_selection, shell_selection)
     test_size_defaults(items, solid, solid_selection, box, part_selection(box))
-    test_rejection_leaves_no_trace(items)
+    test_rejection_leaves_no_trace(items, solid_selection)
     #
     items.remove([n for n in items.get_names() if n.startswith(PREFIX)])
     print("TEST PASSED")

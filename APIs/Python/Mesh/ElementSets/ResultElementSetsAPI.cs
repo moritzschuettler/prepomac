@@ -30,9 +30,10 @@ namespace APIs.Python
 
 
         // Methods
-        public ResultElementSetAPI __getitem__(string elementSetName)
+        public ResultElementSetAPI __getitem__(object elementSetName)
         {
-            return this[elementSetName];
+            string elementSetNameText = PythonValueConverter.ToText(elementSetName, "name", false);
+            return this[elementSetNameText];
         }
         public ResultElementSetAPI this[string elementSetName]
         {
@@ -65,7 +66,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(string elementSetName)
+        public bool __contains__(object elementSetName)
         {
             return contains(elementSetName);
         }
@@ -94,9 +95,10 @@ namespace APIs.Python
 
         [PythonAPI("Returns true if the result contains the specified user-visible element set.",
                    Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return PythonNameComparer.Contains(_meshService.GetElementSetNames(_resultName), name);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return PythonNameComparer.Contains(_meshService.GetElementSetNames(_resultName), nameText);
         }
         public override string ToString()
         {

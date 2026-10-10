@@ -102,7 +102,7 @@ def build_analysis(mesh_part):
     pmx.model.materials.add(PREFIX + "Steel",
                             [pmx.create.elastic(210000, 0.3), pmx.create.density(7.85e-9)])
     pmx.model.sections.add_solid(PREFIX + "Section", PREFIX + "Steel", part_selection)
-    step = pmx.model.steps.add_static(STEP, time_period=1.0)
+    step = pmx.model.steps.add_static(STEP)
     step.bcs.add_fixed(PREFIX + "Fix", pmx.create.region('NodeSetName', PREFIX + "Bottom"))
     step.loads.add_concentrated_force(PREFIX + "Force",
                                       pmx.create.region('NodeSetName', PREFIX + "Top"), f3=-1000)

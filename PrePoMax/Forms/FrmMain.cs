@@ -9470,9 +9470,53 @@ namespace PrePoMax
                 _controller.RemoveJobsCommand(jobNames);
             }
         }
-        public void UpdateAnalysisProgress()
+        public void UpdateAnalysisProgress(string jobName, JobStatus jobStatus)
         {
             InvokeIfRequired(_frmMonitor.UpdateProgress);
+            //
+            if (jobStatus == JobStatus.Failed || jobStatus == JobStatus.FailedWithResults ||
+                jobStatus == JobStatus.Killed || jobStatus == JobStatus.TimedOut)
+                InvokeIfRequired(AddNonpositiveJacobianElementSet, jobName);
+        }
+        // Every job that ends with the error gets the set once, when it ends, whether or not its monitor is open
+        private void AddNonpositiveJacobianElementSet(string jobName)
+        {
+            try
+            {
+                AnalysisJob job = _controller.GetJob(jobName);
+                string output = job == null ? null : job.GetAllOutputData();
+                if (output == null) return;
+                output = output.ToUpper();
+                if (!output.Contains("*ERROR") || !output.Contains("NONPOSITIVE JACOBIAN")) return;
+                //
+                string[] sets = output.Split(new string[] { "DETERMINANT IN ELEMENT" }, StringSplitOptions.RemoveEmptyEntries);
+                string[] tmp;
+                HashSet<int> errorElementIds = new HashSet<int>();
+                for (int i = 1; i < sets.Length; i++)   // skip the first set
+                {
+                    tmp = sets[i].Split(new string[] { "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+                    errorElementIds.Add(int.Parse(tmp[0]));
+                }
+                if (errorElementIds.Count == 0) return;
+                // While the history is replayed or a script recorded as one command runs, the set would be made
+                // by no recorded command
+                if (_controller.IsCommandRecordingSuppressed || _controller.AreCommandsBlocked) return;
+                // Python running on another thread records its own commands, which this one must not interleave
+                if (PythonEngineManager.IsExecuting) return;
+                if (_controller.Model == null || _controller.Model.Mesh == null) return;
+                int[] elementIds = errorElementIds.ToArray();
+                if (_controller.ContainsElementSetOfElements(Globals.NonpositiveJacobian, elementIds)) return;
+                //
+                string elementSetName = _controller.Model.Mesh.ElementSets.GetNextNumberedKey(Globals.NonpositiveJacobian);
+                _controller.AddElementSetCommand(new FeElementSet(elementSetName, elementIds));
+                //
+                WriteDataToOutput("An element set containing elements with nonpositive Jacobian determinant was " +
+                                  "created: " + elementSetName);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
         }
         //
         public AnalysisJob GetDefaultJob()

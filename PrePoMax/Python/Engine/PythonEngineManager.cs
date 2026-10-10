@@ -113,6 +113,8 @@ namespace PrePoMax.Python
 
         // Properties
         public static bool Initialized { get { return _initialized; } }
+        // Python someone wrote is running on some thread - an automation call, a script of the Python panel
+        public static bool IsExecuting { get { lock (_executionLock) return _executions.Count > 0; } }
 
 
         // Methods

@@ -34,9 +34,10 @@ namespace APIs.Python
 
 
         // Methods
-        public ResultHistoryOutputAPI __getitem__(string historyOutputName)
+        public ResultHistoryOutputAPI __getitem__(object historyOutputName)
         {
-            return this[historyOutputName];
+            string historyOutputNameText = PythonValueConverter.ToText(historyOutputName, "name", false);
+            return this[historyOutputNameText];
         }
         public ResultHistoryOutputAPI this[string historyOutputName]
         {
@@ -73,7 +74,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(string historyOutputName)
+        public bool __contains__(object historyOutputName)
         {
             return contains(historyOutputName);
         }
@@ -101,9 +102,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if the history output exists.", Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return _dataService.ContainsHistoryOutput(_resultName, name);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return _dataService.ContainsHistoryOutput(_resultName, nameText);
         }
 
         [PythonAPI("Creates a From Field result history-output draft. The region can be a result node selection, " +
@@ -113,18 +115,23 @@ namespace APIs.Python
                                "region: Selection or Region or NodeSet or Surface",
                    Returns = "HistoryOutputFromFieldDraft")]
         public ResultHistoryOutputFromFieldDraftAPI create_history_output_from_field(
-            string name, string field_name, object component_names, object region)
+            object name, object field_name, object component_names, object region)
         {
-            return _service.CreateFromField(name, field_name, component_names, region);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", false);
+            return _service.CreateFromField(nameText, fieldName, component_names, region);
         }
 
         [PythonAPI("Creates a From History Output by Equation draft. This does not modify the result.",
                    Arguments = "name: str, equation: str, unit: str = '/'",
                    Returns = "HistoryOutputFromEquationDraft")]
         public ResultHistoryOutputFromEquationDraftAPI create_history_output_from_equation(
-            string name, string equation, string unit = "/")
+            object name, object equation, object unit = null)
         {
-            return _service.CreateFromEquation(name, equation, unit);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string equationText = PythonValueConverter.ToText(equation, "equation", false);
+            string unitText = PythonValueConverter.ToTextOrDefault(unit, "/", "unit");
+            return _service.CreateFromEquation(nameText, equationText, unitText);
         }
 
         [PythonAPI("Creates a From Integration draft. Possible integral_type values are Line, Surface and " +
@@ -150,14 +157,24 @@ namespace APIs.Python
                                "unit: str = '/', cross_section: str = 'None', thickness: float = None",
                    Returns = "HistoryOutputFromIntegrationDraft")]
         public ResultHistoryOutputFromIntegrationDraftAPI create_history_output_from_integration(
-            string name, string integral_type, object region, string field_name = null,
-            object component_names = null, string integral_result = "Geometry",
-            string deformation_variable_name = "Displacements", string unit = "/",
-            string cross_section = "None", object thickness = null)
+            object name, object integral_type, object region, object field_name = null,
+            object component_names = null, object integral_result = null,
+            object deformation_variable_name = null, object unit = null,
+            object cross_section = null, object thickness = null)
         {
-            return _service.CreateFromIntegration(name, integral_type, field_name, component_names, region,
-                                                  integral_result, deformation_variable_name, unit,
-                                                  cross_section, thickness);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string integralType = PythonValueConverter.ToText(integral_type, "integral_type", false);
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", true);
+            string integralResult =
+                PythonValueConverter.ToTextOrDefault(integral_result, "Geometry", "integral_result");
+            string deformationVariableName =
+                PythonValueConverter.ToTextOrDefault(deformation_variable_name, "Displacements",
+                                                     "deformation_variable_name");
+            string unitText = PythonValueConverter.ToTextOrDefault(unit, "/", "unit");
+            string crossSection = PythonValueConverter.ToTextOrDefault(cross_section, "None", "cross_section");
+            return _service.CreateFromIntegration(nameText, integralType, fieldName, component_names, region,
+                                                  integralResult, deformationVariableName, unitText,
+                                                  crossSection, thickness);
         }
 
         [PythonAPI("Creates a From Merged Histories draft that merges two to four history components into a " +
@@ -170,9 +187,10 @@ namespace APIs.Python
                                "source4: HistoryComponent or list[str] = None",
                    Returns = "HistoryOutputFromMergedHistoriesDraft")]
         public ResultHistoryOutputFromMergedHistoriesDraftAPI create_history_output_from_merged_histories(
-            string name, object source1, object source2, object source3 = null, object source4 = null)
+            object name, object source1, object source2, object source3 = null, object source4 = null)
         {
-            return _service.CreateFromMergedHistories(name, source1, source2, source3, source4);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            return _service.CreateFromMergedHistories(nameText, source1, source2, source3, source4);
         }
 
         [PythonAPI("Creates a From Extracted Entry draft that extracts one named entry of a history component into " +
@@ -181,9 +199,11 @@ namespace APIs.Python
                    Arguments = "name: str, source: HistoryComponent or list[str], entry_name: str",
                    Returns = "HistoryOutputFromExtractedEntryDraft")]
         public ResultHistoryOutputFromExtractedEntryDraftAPI create_history_output_from_extracted_entry(
-            string name, object source, string entry_name)
+            object name, object source, object entry_name)
         {
-            return _service.CreateFromExtractedEntry(name, source, entry_name);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string entryName = PythonValueConverter.ToText(entry_name, "entry_name", false);
+            return _service.CreateFromExtractedEntry(nameText, source, entryName);
         }
 
         [PythonAPI("Creates an XY draft that plots the entries of the Y history component against the values of " +
@@ -193,9 +213,10 @@ namespace APIs.Python
                    Arguments = "name: str, x_source: HistoryComponent or list[str], " +
                                "y_source: HistoryComponent or list[str]",
                    Returns = "HistoryOutputXYDraft")]
-        public ResultHistoryOutputXYDraftAPI create_history_output_xy(string name, object x_source, object y_source)
+        public ResultHistoryOutputXYDraftAPI create_history_output_xy(object name, object x_source, object y_source)
         {
-            return _service.CreateXY(name, x_source, y_source);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            return _service.CreateXY(nameText, x_source, y_source);
         }
 
         [PythonAPI("Creates a From Table draft from user-defined data. Every row of data_points holds the X value " +
@@ -206,38 +227,45 @@ namespace APIs.Python
                                "x_axis_unit: str = '/', y_axis_unit: str = '/'",
                    Returns = "HistoryOutputFromTableDraft")]
         public ResultHistoryOutputFromTableDraftAPI create_history_output_from_table(
-            string name, object data_points, object y_column_names = null, string x_axis_unit = "/",
-            string y_axis_unit = "/")
+            object name, object data_points, object y_column_names = null, object x_axis_unit = null,
+            object y_axis_unit = null)
         {
-            return _service.CreateFromTable(name, data_points, y_column_names, x_axis_unit, y_axis_unit);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string xAxisUnit = PythonValueConverter.ToTextOrDefault(x_axis_unit, "/", "x_axis_unit");
+            string yAxisUnit = PythonValueConverter.ToTextOrDefault(y_axis_unit, "/", "y_axis_unit");
+            return _service.CreateFromTable(nameText, data_points, y_column_names, xAxisUnit, yAxisUnit);
         }
 
         [PythonAPI("Creates a minimum history-output filter. Possible return_value values are Row and Column.",
                    Arguments = "return_value: str = 'Column'", Returns = "HistoryOutputFilter")]
-        public ResultHistoryOutputFilterAPI create_minimum_filter(string return_value = "Column")
+        public ResultHistoryOutputFilterAPI create_minimum_filter(object return_value = null)
         {
-            return CreateMinMaxFilter(HistoryResultFilterTypeEnum.Minimum, return_value);
+            string returnValue = PythonValueConverter.ToTextOrDefault(return_value, "Column", "return_value");
+            return CreateMinMaxFilter(HistoryResultFilterTypeEnum.Minimum, returnValue);
         }
 
         [PythonAPI("Creates a maximum history-output filter. Possible return_value values are Row and Column.",
                    Arguments = "return_value: str = 'Column'", Returns = "HistoryOutputFilter")]
-        public ResultHistoryOutputFilterAPI create_maximum_filter(string return_value = "Column")
+        public ResultHistoryOutputFilterAPI create_maximum_filter(object return_value = null)
         {
-            return CreateMinMaxFilter(HistoryResultFilterTypeEnum.Maximum, return_value);
+            string returnValue = PythonValueConverter.ToTextOrDefault(return_value, "Column", "return_value");
+            return CreateMinMaxFilter(HistoryResultFilterTypeEnum.Maximum, returnValue);
         }
 
         [PythonAPI("Creates a sum history-output filter. Possible operate_on values are Rows and Columns.",
                    Arguments = "operate_on: str = 'Columns'", Returns = "HistoryOutputFilter")]
-        public ResultHistoryOutputFilterAPI create_sum_filter(string operate_on = "Columns")
+        public ResultHistoryOutputFilterAPI create_sum_filter(object operate_on = null)
         {
-            return CreateAggregateFilter(HistoryResultFilterTypeEnum.Sum, operate_on);
+            string operateOn = PythonValueConverter.ToTextOrDefault(operate_on, "Columns", "operate_on");
+            return CreateAggregateFilter(HistoryResultFilterTypeEnum.Sum, operateOn);
         }
 
         [PythonAPI("Creates an average history-output filter. Possible operate_on values are Rows and Columns.",
                    Arguments = "operate_on: str = 'Columns'", Returns = "HistoryOutputFilter")]
-        public ResultHistoryOutputFilterAPI create_average_filter(string operate_on = "Columns")
+        public ResultHistoryOutputFilterAPI create_average_filter(object operate_on = null)
         {
-            return CreateAggregateFilter(HistoryResultFilterTypeEnum.Average, operate_on);
+            string operateOn = PythonValueConverter.ToTextOrDefault(operate_on, "Columns", "operate_on");
+            return CreateAggregateFilter(HistoryResultFilterTypeEnum.Average, operateOn);
         }
 
         [PythonAPI("Creates a From Field history output and adds it to the current result, in one call. " +
@@ -249,61 +277,96 @@ namespace APIs.Python
                                "harmonic: bool = None, output_node_coordinates: str = None, " +
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
                    Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI add_from_field(string name, string field_name, object component_names,
-                                                     object region, string complex_result_type = null,
+        public ResultHistoryOutputAPI add_from_field(object name, object field_name, object component_names,
+                                                     object region, object complex_result_type = null,
                                                      object complex_angle_deg = null, object step_id = null,
                                                      object increment_id = null, object harmonic = null,
-                                                     string output_node_coordinates = null,
-                                                     ResultHistoryOutputFilterAPI filter1 = null,
-                                                     ResultHistoryOutputFilterAPI filter2 = null)
+                                                     object output_node_coordinates = null,
+                                                     object filter1 = null,
+                                                     object filter2 = null)
         {
-            ResultHistoryOutputFromFieldDraftAPI draft = _service.CreateFromField(name, field_name, component_names,
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", false);
+            string complexResultType = PythonValueConverter.ToText(complex_result_type, "complex_result_type", true);
+            string outputNodeCoordinates =
+                PythonValueConverter.ToText(output_node_coordinates, "output_node_coordinates", true);
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            ResultHistoryOutputFromFieldDraftAPI draft = _service.CreateFromField(nameText, fieldName, component_names,
                                                                                   region);
-            ApplyFromFieldOptions(draft, complex_result_type, complex_angle_deg, step_id, increment_id, harmonic,
-                                  output_node_coordinates);
-            return add(WithFilters(draft, filter1, filter2));
+            ApplyFromFieldOptions(draft, complexResultType, complex_angle_deg, step_id, increment_id, harmonic,
+                                  outputNodeCoordinates);
+            return add(WithFilters(draft, filter1Value, filter2Value));
         }
 
         [PythonAPI("Replaces a result history output by a From Field one, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_field",
                    Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI replace_from_field(string old_name, string name, string field_name,
+        public ResultHistoryOutputAPI replace_from_field(object old_name, object name, object field_name,
                                                          object component_names, object region,
-                                                         string complex_result_type = null,
+                                                         object complex_result_type = null,
                                                          object complex_angle_deg = null, object step_id = null,
                                                          object increment_id = null, object harmonic = null,
-                                                         string output_node_coordinates = null,
-                                                         ResultHistoryOutputFilterAPI filter1 = null,
-                                                         ResultHistoryOutputFilterAPI filter2 = null)
+                                                         object output_node_coordinates = null,
+                                                         object filter1 = null,
+                                                         object filter2 = null)
         {
-            ResultHistoryOutputFromFieldDraftAPI draft = _service.CreateFromField(name, field_name, component_names,
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", false);
+            string complexResultType = PythonValueConverter.ToText(complex_result_type, "complex_result_type", true);
+            string outputNodeCoordinates =
+                PythonValueConverter.ToText(output_node_coordinates, "output_node_coordinates", true);
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            ResultHistoryOutputFromFieldDraftAPI draft = _service.CreateFromField(nameText, fieldName, component_names,
                                                                                   region);
-            ApplyFromFieldOptions(draft, complex_result_type, complex_angle_deg, step_id, increment_id, harmonic,
-                                  output_node_coordinates);
-            return replace(old_name, WithFilters(draft, filter1, filter2));
+            ApplyFromFieldOptions(draft, complexResultType, complex_angle_deg, step_id, increment_id, harmonic,
+                                  outputNodeCoordinates);
+            return replace(oldName, WithFilters(draft, filter1Value, filter2Value));
         }
 
         [PythonAPI("Creates a From Equation history output and adds it to the current result, in one call.",
                    Arguments = "name: str, equation: str, unit: str = '/', " +
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
                    Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI add_from_equation(string name, string equation, string unit = "/",
-                                                        ResultHistoryOutputFilterAPI filter1 = null,
-                                                        ResultHistoryOutputFilterAPI filter2 = null)
+        public ResultHistoryOutputAPI add_from_equation(object name, object equation, object unit = null,
+                                                        object filter1 = null,
+                                                        object filter2 = null)
         {
-            return add(WithFilters(_service.CreateFromEquation(name, equation, unit), filter1, filter2));
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string equationText = PythonValueConverter.ToText(equation, "equation", false);
+            string unitText = PythonValueConverter.ToTextOrDefault(unit, "/", "unit");
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return add(WithFilters(_service.CreateFromEquation(nameText, equationText, unitText),
+                                   filter1Value, filter2Value));
         }
 
         [PythonAPI("Replaces a result history output by a From Equation one, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_equation",
                    Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI replace_from_equation(string old_name, string name, string equation,
-                                                            string unit = "/",
-                                                            ResultHistoryOutputFilterAPI filter1 = null,
-                                                            ResultHistoryOutputFilterAPI filter2 = null)
+        public ResultHistoryOutputAPI replace_from_equation(object old_name, object name, object equation,
+                                                            object unit = null,
+                                                            object filter1 = null,
+                                                            object filter2 = null)
         {
-            return replace(old_name, WithFilters(_service.CreateFromEquation(name, equation, unit),
-                                                 filter1, filter2));
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string equationText = PythonValueConverter.ToText(equation, "equation", false);
+            string unitText = PythonValueConverter.ToTextOrDefault(unit, "/", "unit");
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return replace(oldName, WithFilters(_service.CreateFromEquation(nameText, equationText, unitText),
+                                                 filter1Value, filter2Value));
         }
 
         [PythonAPI("Creates a From Integration history output and adds it to the current result, in one " +
@@ -318,35 +381,64 @@ namespace APIs.Python
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI add_from_integration(
-            string name, string integral_type, object region, string field_name = null,
-            object component_names = null, string integral_result = "Geometry",
-            string deformation_variable_name = "Displacements", string unit = "/",
-            string cross_section = "None", object thickness = null,
-            ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
+            object name, object integral_type, object region, object field_name = null,
+            object component_names = null, object integral_result = null,
+            object deformation_variable_name = null, object unit = null,
+            object cross_section = null, object thickness = null,
+            object filter1 = null, object filter2 = null)
         {
-            return add(WithFilters(_service.CreateFromIntegration(name, integral_type, field_name,
-                                                                   component_names, region, integral_result,
-                                                                   deformation_variable_name, unit,
-                                                                   cross_section, thickness),
-                                   filter1, filter2));
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string integralType = PythonValueConverter.ToText(integral_type, "integral_type", false);
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", true);
+            string integralResult =
+                PythonValueConverter.ToTextOrDefault(integral_result, "Geometry", "integral_result");
+            string deformationVariableName =
+                PythonValueConverter.ToTextOrDefault(deformation_variable_name, "Displacements",
+                                                     "deformation_variable_name");
+            string unitText = PythonValueConverter.ToTextOrDefault(unit, "/", "unit");
+            string crossSection = PythonValueConverter.ToTextOrDefault(cross_section, "None", "cross_section");
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return add(WithFilters(_service.CreateFromIntegration(nameText, integralType, fieldName,
+                                                                   component_names, region, integralResult,
+                                                                   deformationVariableName, unitText,
+                                                                   crossSection, thickness),
+                                   filter1Value, filter2Value));
         }
 
         [PythonAPI("Replaces a result history output by a From Integration one, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_integration",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_integration(
-            string old_name, string name, string integral_type, object region, string field_name = null,
-            object component_names = null, string integral_result = "Geometry",
-            string deformation_variable_name = "Displacements", string unit = "/",
-            string cross_section = "None", object thickness = null,
-            ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
+            object old_name, object name, object integral_type, object region, object field_name = null,
+            object component_names = null, object integral_result = null,
+            object deformation_variable_name = null, object unit = null,
+            object cross_section = null, object thickness = null,
+            object filter1 = null, object filter2 = null)
         {
-            return replace(old_name, WithFilters(_service.CreateFromIntegration(name, integral_type, field_name,
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string integralType = PythonValueConverter.ToText(integral_type, "integral_type", false);
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", true);
+            string integralResult =
+                PythonValueConverter.ToTextOrDefault(integral_result, "Geometry", "integral_result");
+            string deformationVariableName =
+                PythonValueConverter.ToTextOrDefault(deformation_variable_name, "Displacements",
+                                                     "deformation_variable_name");
+            string unitText = PythonValueConverter.ToTextOrDefault(unit, "/", "unit");
+            string crossSection = PythonValueConverter.ToTextOrDefault(cross_section, "None", "cross_section");
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return replace(oldName, WithFilters(_service.CreateFromIntegration(nameText, integralType, fieldName,
                                                                                 component_names, region,
-                                                                                integral_result,
-                                                                                deformation_variable_name,
-                                                                                unit, cross_section, thickness),
-                                                 filter1, filter2));
+                                                                                integralResult,
+                                                                                deformationVariableName,
+                                                                                unitText, crossSection, thickness),
+                                                 filter1Value, filter2Value));
         }
 
         [PythonAPI("Creates a From Merged Histories history output and adds it to the current result, in " +
@@ -357,26 +449,37 @@ namespace APIs.Python
                                "source4: HistoryComponent or list[str] = None, " +
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
                    Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI add_from_merged_histories(string name, object source1, object source2,
+        public ResultHistoryOutputAPI add_from_merged_histories(object name, object source1, object source2,
                                                                 object source3 = null, object source4 = null,
-                                                                ResultHistoryOutputFilterAPI filter1 = null,
-                                                                ResultHistoryOutputFilterAPI filter2 = null)
+                                                                object filter1 = null,
+                                                                object filter2 = null)
         {
-            return add(WithFilters(_service.CreateFromMergedHistories(name, source1, source2, source3, source4),
-                                   filter1, filter2));
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return add(WithFilters(_service.CreateFromMergedHistories(nameText, source1, source2, source3, source4),
+                                   filter1Value, filter2Value));
         }
 
         [PythonAPI("Replaces a result history output by a From Merged Histories one, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_merged_histories",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_merged_histories(
-            string old_name, string name, object source1, object source2, object source3 = null,
-            object source4 = null, ResultHistoryOutputFilterAPI filter1 = null,
-            ResultHistoryOutputFilterAPI filter2 = null)
+            object old_name, object name, object source1, object source2, object source3 = null,
+            object source4 = null, object filter1 = null,
+            object filter2 = null)
         {
-            return replace(old_name, WithFilters(_service.CreateFromMergedHistories(name, source1, source2,
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return replace(oldName, WithFilters(_service.CreateFromMergedHistories(nameText, source1, source2,
                                                                                     source3, source4),
-                                                 filter1, filter2));
+                                                 filter1Value, filter2Value));
         }
 
         [PythonAPI("Creates a From Extracted Entry history output and adds it to the current result, in " +
@@ -384,44 +487,68 @@ namespace APIs.Python
                    Arguments = "name: str, source: HistoryComponent or list[str], entry_name: str, " +
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
                    Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI add_from_extracted_entry(string name, object source, string entry_name,
-                                                               ResultHistoryOutputFilterAPI filter1 = null,
-                                                               ResultHistoryOutputFilterAPI filter2 = null)
+        public ResultHistoryOutputAPI add_from_extracted_entry(object name, object source, object entry_name,
+                                                               object filter1 = null,
+                                                               object filter2 = null)
         {
-            return add(WithFilters(_service.CreateFromExtractedEntry(name, source, entry_name),
-                                   filter1, filter2));
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string entryName = PythonValueConverter.ToText(entry_name, "entry_name", false);
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return add(WithFilters(_service.CreateFromExtractedEntry(nameText, source, entryName),
+                                   filter1Value, filter2Value));
         }
 
         [PythonAPI("Replaces a result history output by a From Extracted Entry one, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_extracted_entry",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_extracted_entry(
-            string old_name, string name, object source, string entry_name,
-            ResultHistoryOutputFilterAPI filter1 = null, ResultHistoryOutputFilterAPI filter2 = null)
+            object old_name, object name, object source, object entry_name,
+            object filter1 = null, object filter2 = null)
         {
-            return replace(old_name, WithFilters(_service.CreateFromExtractedEntry(name, source, entry_name),
-                                                 filter1, filter2));
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string entryName = PythonValueConverter.ToText(entry_name, "entry_name", false);
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return replace(oldName, WithFilters(_service.CreateFromExtractedEntry(nameText, source, entryName),
+                                                 filter1Value, filter2Value));
         }
 
         [PythonAPI("Creates an XY history output and adds it to the current result, in one call.",
                    Arguments = "name: str, x_source: HistoryComponent or list[str], " +
                                "y_source: HistoryComponent or list[str], filter1: HistoryOutputFilter = None, " +
                                "filter2: HistoryOutputFilter = None", Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI add_xy(string name, object x_source, object y_source,
-                                             ResultHistoryOutputFilterAPI filter1 = null,
-                                             ResultHistoryOutputFilterAPI filter2 = null)
+        public ResultHistoryOutputAPI add_xy(object name, object x_source, object y_source,
+                                             object filter1 = null,
+                                             object filter2 = null)
         {
-            return add(WithFilters(_service.CreateXY(name, x_source, y_source), filter1, filter2));
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return add(WithFilters(_service.CreateXY(nameText, x_source, y_source), filter1Value, filter2Value));
         }
 
         [PythonAPI("Replaces a result history output by an XY one, in one call.",
                    Arguments = "old_name: str, and the arguments of add_xy", Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI replace_xy(string old_name, string name, object x_source, object y_source,
-                                                 ResultHistoryOutputFilterAPI filter1 = null,
-                                                 ResultHistoryOutputFilterAPI filter2 = null)
+        public ResultHistoryOutputAPI replace_xy(object old_name, object name, object x_source, object y_source,
+                                                 object filter1 = null,
+                                                 object filter2 = null)
         {
-            return replace(old_name, WithFilters(_service.CreateXY(name, x_source, y_source),
-                                                 filter1, filter2));
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return replace(oldName, WithFilters(_service.CreateXY(nameText, x_source, y_source),
+                                                 filter1Value, filter2Value));
         }
 
         [PythonAPI("Creates a From Table history output and adds it to the current result, in one call.",
@@ -429,52 +556,74 @@ namespace APIs.Python
                                "y_column_names: list[str] = None, x_axis_unit: str = '/', " +
                                "y_axis_unit: str = '/', filter1: HistoryOutputFilter = None, " +
                                "filter2: HistoryOutputFilter = None", Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI add_from_table(string name, object data_points,
-                                                     object y_column_names = null, string x_axis_unit = "/",
-                                                     string y_axis_unit = "/",
-                                                     ResultHistoryOutputFilterAPI filter1 = null,
-                                                     ResultHistoryOutputFilterAPI filter2 = null)
+        public ResultHistoryOutputAPI add_from_table(object name, object data_points,
+                                                     object y_column_names = null, object x_axis_unit = null,
+                                                     object y_axis_unit = null,
+                                                     object filter1 = null,
+                                                     object filter2 = null)
         {
-            return add(WithFilters(_service.CreateFromTable(name, data_points, y_column_names, x_axis_unit,
-                                                            y_axis_unit), filter1, filter2));
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string xAxisUnit = PythonValueConverter.ToTextOrDefault(x_axis_unit, "/", "x_axis_unit");
+            string yAxisUnit = PythonValueConverter.ToTextOrDefault(y_axis_unit, "/", "y_axis_unit");
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return add(WithFilters(_service.CreateFromTable(nameText, data_points, y_column_names, xAxisUnit,
+                                                            yAxisUnit), filter1Value, filter2Value));
         }
 
         [PythonAPI("Replaces a result history output by a From Table one, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_table",
                    Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI replace_from_table(string old_name, string name, object data_points,
+        public ResultHistoryOutputAPI replace_from_table(object old_name, object name, object data_points,
                                                          object y_column_names = null,
-                                                         string x_axis_unit = "/", string y_axis_unit = "/",
-                                                         ResultHistoryOutputFilterAPI filter1 = null,
-                                                         ResultHistoryOutputFilterAPI filter2 = null)
+                                                         object x_axis_unit = null, object y_axis_unit = null,
+                                                         object filter1 = null,
+                                                         object filter2 = null)
         {
-            return replace(old_name, WithFilters(_service.CreateFromTable(name, data_points, y_column_names,
-                                                                          x_axis_unit, y_axis_unit),
-                                                 filter1, filter2));
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string xAxisUnit = PythonValueConverter.ToTextOrDefault(x_axis_unit, "/", "x_axis_unit");
+            string yAxisUnit = PythonValueConverter.ToTextOrDefault(y_axis_unit, "/", "y_axis_unit");
+            ResultHistoryOutputFilterAPI filter1Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
+            ResultHistoryOutputFilterAPI filter2Value =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter2, "filter2", true);
+            return replace(oldName, WithFilters(_service.CreateFromTable(nameText, data_points, y_column_names,
+                                                                          xAxisUnit, yAxisUnit),
+                                                 filter1Value, filter2Value));
         }
 
         [PythonAPI("Validates and adds a result history-output draft using command history.",
                    Arguments = "output: HistoryOutputDraft", Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI add(ResultHistoryOutputDraftAPI output)
+        public ResultHistoryOutputAPI add(object output)
         {
-            string name = _service.AddHistoryOutput(_resultName, output);
+            ResultHistoryOutputDraftAPI outputValue =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputDraftAPI>(output, "output", false);
+            string name = _service.AddHistoryOutput(_resultName, outputValue);
             return this[name];
         }
 
         [PythonAPI("Validates and replaces a result history-output definition using command history. The " +
                    "draft must be of the type the replaced output is made by.",
                    Arguments = "old_name: str, output: HistoryOutputDraft", Returns = "HistoryOutput")]
-        public ResultHistoryOutputAPI replace(string old_name, ResultHistoryOutputDraftAPI output)
+        public ResultHistoryOutputAPI replace(object old_name, object output)
         {
-            string name = _service.ReplaceHistoryOutput(_resultName, old_name, output);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            ResultHistoryOutputDraftAPI outputValue =
+                PythonValueConverter.ToApiObject<ResultHistoryOutputDraftAPI>(output, "output", false);
+            string name = _service.ReplaceHistoryOutput(_resultName, oldName, outputValue);
             return this[name];
         }
 
         [PythonAPI("Renames a user-defined result history output using command history. Solver-generated " +
                    "history outputs cannot be renamed.", Arguments = "old_name: str, new_name: str", Returns = "None")]
-        public void rename(string old_name, string new_name)
+        public void rename(object old_name, object new_name)
         {
-            _service.RenameHistoryOutput(_resultName, old_name, new_name);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string newName = PythonValueConverter.ToText(new_name, "new_name", false);
+            _service.RenameHistoryOutput(_resultName, oldName, newName);
         }
 
         [PythonAPI("Validates and duplicates user-defined result history outputs using command history. " +
@@ -494,26 +643,31 @@ namespace APIs.Python
 
         [PythonAPI("Validates and removes fields from a result history output using command history.",
                    Arguments = "history_output_name: str, field_names: list[str]", Returns = "None")]
-        public void remove_fields(string history_output_name, object field_names)
+        public void remove_fields(object history_output_name, object field_names)
         {
-            _service.RemoveHistoryFields(_resultName, history_output_name, field_names);
+            string historyOutputName = PythonValueConverter.ToText(history_output_name, "history_output_name", false);
+            _service.RemoveHistoryFields(_resultName, historyOutputName, field_names);
         }
 
         [PythonAPI("Validates and removes components from a result history-output field using command history.",
                    Arguments = "history_output_name: str, field_name: str, component_names: list[str]",
                    Returns = "None")]
-        public void remove_components(string history_output_name, string field_name, object component_names)
+        public void remove_components(object history_output_name, object field_name, object component_names)
         {
-            _service.RemoveHistoryComponents(_resultName, history_output_name, field_name, component_names);
+            string historyOutputName = PythonValueConverter.ToText(history_output_name, "history_output_name", false);
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", false);
+            _service.RemoveHistoryComponents(_resultName, historyOutputName, fieldName, component_names);
         }
 
         [PythonAPI("Validates and exports all fields and components of the selected result history outputs to CSV " +
                    "using command history.",
                    Arguments = "file_name: str, history_output_names: list[str], delimiter: str = ','",
                    Returns = "None")]
-        public void export_to_csv(string file_name, object history_output_names, string delimiter = ",")
+        public void export_to_csv(object file_name, object history_output_names, object delimiter = null)
         {
-            _service.ExportHistoryOutputsToCsv(_resultName, file_name, history_output_names, delimiter);
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
+            string delimiterText = PythonValueConverter.ToTextOrDefault(delimiter, ",", "delimiter");
+            _service.ExportHistoryOutputsToCsv(_resultName, fileName, history_output_names, delimiterText);
         }
 
         private static void ApplyFromFieldOptions(ResultHistoryOutputFromFieldDraftAPI draft, string complexResultType,

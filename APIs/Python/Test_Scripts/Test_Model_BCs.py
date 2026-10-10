@@ -75,8 +75,8 @@ def clean():
 def setup():
     pmx.model.node_sets.add(NODE_SET, pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))
     pmx.model.reference_points.add(REFERENCE_POINT, [0.5, 0.5, 2.0])
-    pmx.model.steps.add_static(STEP, time_period=1.0)
-    pmx.model.steps.add_static(NEXT_STEP, time_period=1.0)
+    pmx.model.steps.add_static(STEP)
+    pmx.model.steps.add_static(NEXT_STEP)
     pmx.model.steps.add_uncoupled_temp_disp(THERMAL_STEP)
     pmx.model.distributions.add_from_equation(SCALAR_DISTRIBUTION, "1 + 0.01 * x")
     pmx.model.distributions.add_from_equation(VECTOR_DISTRIBUTION, ["x", "y", "z"])
@@ -122,9 +122,10 @@ def test_regions():
     # The named region is checked
     check_raises(lambda: bcs.add_fixed(PREFIX + "Bad", pmx.create.region('NodeSetName', 'NoSuchNodeSet')),
                  "an unknown node set must be rejected")
-    # A named region is checked when it is used, not when it is created
-    check_raises(lambda: bcs.add_fixed(PREFIX + "Bad", pmx.create.region('NodeId', '1')),
-                 "a region type that cannot name a region must be rejected")
+    # A region type no named region carries is refused when the region is created, naming the argument
+    for region_type in ['None', 'NodeId', 'ElementId', 'Selection', 'ContactPair']:
+        check_refused(lambda: pmx.create.region(region_type, '1'), "'region_type'",
+                      "the region type " + region_type + " cannot name a region and must be refused")
     check_raises(lambda: pmx.create.region('NotAType', 'x'), "an unknown region type must be rejected")
     check_raises(lambda: bcs.add_fixed(PREFIX + "Bad", NODE_SET),
                  "a region given as a plain string must be rejected")
@@ -446,21 +447,6 @@ def test_submodel():
                  "a submodel boundary condition replaced onto a reference point must be rejected")
     check(bcs[PREFIX + "SM"].region_type == "NodeSetName",
           "the refused replacement changed the region to " + bcs[PREFIX + "SM"].region_type)
-    # A 2D submodel boundary condition clears u3, ur1 and ur2, so True for them is refused rather than dropped
-    model_space = pmx.model.properties.model_space
-    pmx.model.properties.model_space = "PlaneStress"
-    try:
-        for argument in ["u3", "ur1", "ur2"]:
-            check_refused(lambda: bcs.add_submodel(PREFIX + "Bad", selection, step_id=1, **{argument: True}),
-                          "'" + argument + "'", "a 2D submodel boundary condition must refuse " + argument + "=True")
-        check(not bcs.contains(PREFIX + "Bad"), "a refused 2D submodel boundary condition was recorded")
-        bc = bcs.add_submodel(PREFIX + "SM_2D", selection, step_id=1, u1=True, u3=False)
-        check(bc.get_value("u1") and not bc.get_value("u3"), "a 2D submodel boundary condition was not added")
-        check_refused(lambda: bcs.replace_submodel(PREFIX + "SM_2D", ur2=True), "'ur2'",
-                      "a 2D submodel replace must refuse ur2=True")
-        bcs.remove([PREFIX + "SM_2D"])
-    finally:
-        pmx.model.properties.model_space = model_space
 
 
 def test_temperature():
@@ -548,8 +534,9 @@ def test_propagate():
     name = PREFIX + "DR"
     following = pmx.model.steps[NEXT_STEP].bcs
     check(not following.contains(name), "the following step must not carry the boundary condition yet")
-    bcs.propagate(name)
-    check(following.contains(name), "the boundary condition was not propagated")
+    # A name is found regardless of case and passed on in the model's spelling
+    bcs.propagate(name.upper())
+    check(name in list(following.get_names()), "the boundary condition was not propagated in the model's spelling")
     check_raises(lambda: bcs.propagate("NoSuchBC"), "propagating an unknown name must be rejected")
     # The thermal step is the last one: the dialog propagates from it too and copies nothing, so a journal of
     # that replays

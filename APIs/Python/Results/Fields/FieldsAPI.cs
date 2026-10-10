@@ -34,9 +34,10 @@ namespace APIs.Python
 
 
         // Methods
-        public FieldAPI __getitem__(string fieldName)
+        public FieldAPI __getitem__(object fieldName)
         {
-            return this[fieldName];
+            string fieldNameText = PythonValueConverter.ToText(fieldName, "name", false);
+            return this[fieldNameText];
         }
         public FieldAPI this[string fieldName]
         {
@@ -76,7 +77,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(string fieldName)
+        public bool __contains__(object fieldName)
         {
             return contains(fieldName);
         }
@@ -105,9 +106,10 @@ namespace APIs.Python
 
         [PythonAPI("Returns true if this increment contains the specified field. A user-defined field output is " +
                    "found regardless of case, as the result keys it.", Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return _dataService.GetStoredFieldName(_resultName, _stepId, _incrementId, name) != null;
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return _dataService.GetStoredFieldName(_resultName, _stepId, _incrementId, nameText) != null;
         }
         public override string ToString()
         {

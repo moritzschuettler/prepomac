@@ -86,10 +86,10 @@ namespace APIs.Python.Model
         }
         public void Propagate(string stepName, string name)
         {
-            ResolveItem(stepName, name);
+            string storedName = ResolveItem(stepName, name).Name;
             //
             EnsureCommandsAvailable();
-            ModelGateway.PropagateLoad(stepName, name);
+            ModelGateway.PropagateLoad(stepName, storedName);
         }
         public void Remove(string stepName, string[] names)
         {

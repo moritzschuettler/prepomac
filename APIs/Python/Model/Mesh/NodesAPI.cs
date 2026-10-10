@@ -39,9 +39,11 @@ namespace APIs.Python.Model
                    "The nodes to keep are SmallerID or LargerID.",
                    Arguments = "selection: Selection, tolerance: float = None, nodes_to_keep: str = None",
                    Returns = "None")]
-        public void merge_coincident(SelectionAPI selection, object tolerance = null, string nodes_to_keep = null)
+        public void merge_coincident(object selection, object tolerance = null, object nodes_to_keep = null)
         {
-            _service.MergeCoincidentNodes(selection, tolerance, nodes_to_keep);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            string nodesToKeep = PythonValueConverter.ToText(nodes_to_keep, "nodes_to_keep", true);
+            _service.MergeCoincidentNodes(selectionValue, tolerance, nodesToKeep);
         }
         [PythonAPI("Returns a copied bulk mesh snapshot ordered by ID.", Returns = "NodeData")]
         public NodeDataAPI get_data()

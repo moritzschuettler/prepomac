@@ -342,7 +342,7 @@ def test_contact_pairs():
 
 def test_contact_history_output():
     # This is what the contact history output of 1.8 could not be tested against before
-    step = pmx.model.steps.add_static(PREFIX + "Static", time_period=1.0)
+    step = pmx.model.steps.add_static(PREFIX + "Static")
     output = step.history_outputs.add_contact(PREFIX + "HC", PAIR, ["CDIS", "CSTR"])
     check(output.region_type == "ContactPair", "unexpected region type " + output.region_type)
     check(output.region_name == PAIR, "unexpected region name " + str(output.region_name))

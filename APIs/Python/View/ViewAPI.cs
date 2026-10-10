@@ -111,9 +111,10 @@ namespace APIs.Python
                    "the normal of the current selection, and Vertical puts the vertical axis upright.",
                    Arguments = "orientation: str", Returns = "None",
                    Example = "pmx.view.set_orientation('Isometric')")]
-        public void set_orientation(string orientation)
+        public void set_orientation(object orientation)
         {
-            Resolve().SetStandardView(PythonValueConverter.ToEnum<ViewOrientationEnum>(orientation, "orientation")
+            string orientationText = PythonValueConverter.ToText(orientation, "orientation", false);
+            Resolve().SetStandardView(PythonValueConverter.ToEnum<ViewOrientationEnum>(orientationText, "orientation")
                                                           .ToString());
         }
         [PythonAPI("Zooms the camera so that everything visible fits in the viewport.", Returns = "None")]
@@ -195,12 +196,14 @@ namespace APIs.Python
                    "does. The component that is not given is the first one of the field.",
                    Arguments = "field_name: str, component_name: str = None", Returns = "None",
                    Example = "pmx.view.set_result_field('DISP', 'U3')")]
-        public void set_result_field(string field_name, string component_name = null)
+        public void set_result_field(object field_name, object component_name = null)
         {
-            if (string.IsNullOrEmpty(field_name))
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", true);
+            string componentName = PythonValueConverter.ToText(component_name, "component_name", true);
+            if (string.IsNullOrEmpty(fieldName))
                 throw new PythonAPIException("The argument 'field_name' must not be empty.");
             //
-            Resolve().SetResultFieldData(field_name, component_name);
+            Resolve().SetResultFieldData(fieldName, componentName);
         }
         [PythonAPI("Plots a given increment of the current result. The IDs are the result step and increment " +
                    "IDs, the ones pmx.results.current.steps reports, not model step names.",
@@ -265,10 +268,11 @@ namespace APIs.Python
                    Arguments = "file_name: str = None, transparent_background: bool = False, magnification: int = 1",
                    Returns = "str",
                    Example = "path = pmx.view.save_image('C:/temp/model.png', True, 2)")]
-        public string save_image(string file_name = null, object transparent_background = null,
+        public string save_image(object file_name = null, object transparent_background = null,
                                  object magnification = null)
         {
-            if (file_name != null && file_name.Trim().Length == 0)
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", true);
+            if (fileName != null && fileName.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'file_name' must not be empty.");
             //
             bool transparent = transparent_background != null &&
@@ -278,7 +282,7 @@ namespace APIs.Python
                 throw new PythonAPIException("The argument 'magnification' must be from 1 to " +
                                              MaxMagnification + ".");
             //
-            return Resolve().SaveImage(file_name == null ? null : file_name.Trim(), transparent, scale);
+            return Resolve().SaveImage(fileName == null ? null : fileName.Trim(), transparent, scale);
         }
         [PythonAPI("Pulls the parts of the displayed view apart, the way the exploded view dialog does. The " +
                    "method is Disassembly, which moves each part the way it would be taken off, AssemblyCenter, " +
@@ -299,17 +303,19 @@ namespace APIs.Python
                    Example = "pmx.view.current = 'geometry'\n" +
                              "pmx.view.apply_exploded_view(1, 'AssemblyCenter', 5)\n" +
                              "pmx.view.remove_exploded_view()")]
-        public void apply_exploded_view(object scale_factor = null, string method = null, object magnification = null,
-                                        string axes = null, object step_by_step = null, object tolerance = null,
+        public void apply_exploded_view(object scale_factor = null, object method = null, object magnification = null,
+                                        object axes = null, object step_by_step = null, object tolerance = null,
                                         object center = null)
         {
+            string methodText = PythonValueConverter.ToText(method, "method", true);
+            string axesText = PythonValueConverter.ToText(axes, "axes", true);
             double scaleFactor = scale_factor == null ? 0.5 : PythonValueConverter.ToFiniteDouble(scale_factor,
                                                                                                 "scale_factor");
             if (scaleFactor < 0 || scaleFactor > 1)
                 throw new PythonAPIException("The argument 'scale_factor' must be from 0 to 1.");
             ViewExplodedMethodEnum methodValue =
-                method == null ? ViewExplodedMethodEnum.Disassembly
-                               : PythonValueConverter.ToEnum<ViewExplodedMethodEnum>(method, "method");
+                methodText == null ? ViewExplodedMethodEnum.Disassembly
+                               : PythonValueConverter.ToEnum<ViewExplodedMethodEnum>(methodText, "method");
             string methodName = methodValue.ToString();
             double maxMagnification = ExplodedViewMaxMagnifications[methodValue];
             double magnificationValue = magnification == null ? 2 : PythonValueConverter.ToFiniteDouble(magnification,
@@ -317,8 +323,9 @@ namespace APIs.Python
             if (magnificationValue < 1 || magnificationValue > maxMagnification)
                 throw new PythonAPIException("The argument 'magnification' must be from 1 to " + maxMagnification +
                                              " for the " + methodName + " method.");
-            string axesName = axes == null ? ViewExplodedAxesEnum.XYZ.ToString()
-                                           : PythonValueConverter.ToEnum<ViewExplodedAxesEnum>(axes, "axes").ToString();
+            string axesName = axesText == null
+                ? ViewExplodedAxesEnum.XYZ.ToString()
+                : PythonValueConverter.ToEnum<ViewExplodedAxesEnum>(axesText, "axes").ToString();
             if (methodValue != ViewExplodedMethodEnum.Disassembly && (step_by_step != null || tolerance != null))
                 throw new PythonAPIException("The arguments 'step_by_step' and 'tolerance' are taken only by the " +
                                              "Disassembly method, not by the " + methodName + " method.");

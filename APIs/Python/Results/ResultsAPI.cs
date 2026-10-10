@@ -94,12 +94,13 @@ namespace APIs.Python
                    "because pmx.open opens it.",
                    Arguments = "file_name: str", Returns = "None",
                    Example = "pmx.results.open('Analysis-1.frd')")]
-        public void open(string file_name)
+        public void open(object file_name)
         {
+            string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
             if (_documentService == null)
                 throw new PythonAPIException("Opening a result file is not available in this Python API context.");
             //
-            _documentService.OpenResultFile(file_name);
+            _documentService.OpenResultFile(fileName);
         }
         [PythonAPI("Removes the current result using command history.", Returns = "None")]
         public void remove_current()
@@ -117,9 +118,10 @@ namespace APIs.Python
         }
 
         [PythonAPI("Returns true if a result with the specified name is loaded.", Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return _resolver.ContainsResult(name);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return _resolver.ContainsResult(nameText);
         }
 
         //

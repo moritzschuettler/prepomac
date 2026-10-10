@@ -35,15 +35,17 @@ namespace APIs.Python.Model
                                "thickness: float = None",
                    Returns = "Section",
                    Example = "pmx.model.sections.add_solid('Sec-1', 'Steel', selection)")]
-        public SectionAPI add_solid(string name, string material_name, object region, object thickness = null)
+        public SectionAPI add_solid(object name, object material_name, object region, object thickness = null)
         {
-            _service.ValidateNewName(name, null);
-            string materialName = _service.GetStoredMaterialName(material_name);
-            SolidSection section = new SolidSection(name, materialName, null, RegionTypeEnum.Selection, 1,
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string materialNameText = PythonValueConverter.ToText(material_name, "material_name", false);
+            _service.ValidateNewName(nameText, null);
+            string materialName = _service.GetStoredMaterialName(materialNameText);
+            SolidSection section = new SolidSection(nameText, materialName, null, RegionTypeEnum.Selection, 1,
                                                     _service.GetIsTwoDimensional());
             ApplySolidThickness(section, thickness);
             AddSection(section, region, "elements");
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Adds a shell section using command history. The region is a selection or a named " +
@@ -52,17 +54,19 @@ namespace APIs.Python.Model
                    Arguments = "name: str, material_name: str, region: Selection or Region, " +
                                "thickness: float = 1, offset: float = 0",
                    Returns = "Section")]
-        public SectionAPI add_shell(string name, string material_name, object region, object thickness = null,
+        public SectionAPI add_shell(object name, object material_name, object region, object thickness = null,
                                     object offset = null)
         {
-            _service.ValidateNewName(name, null);
-            string materialName = _service.GetStoredMaterialName(material_name);
-            ShellSection section = new ShellSection(name, materialName, null, RegionTypeEnum.Selection, 1,
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string materialNameText = PythonValueConverter.ToText(material_name, "material_name", false);
+            _service.ValidateNewName(nameText, null);
+            string materialName = _service.GetStoredMaterialName(materialNameText);
+            ShellSection section = new ShellSection(nameText, materialName, null, RegionTypeEnum.Selection, 1,
                                                     _service.GetIsTwoDimensional());
             ApplyThickness(section, thickness);
             ApplyOffset(section.Offset, offset);
             AddSection(section, region, "elements");
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Adds a membrane section using command history. The region is a selection or a named " +
@@ -72,56 +76,63 @@ namespace APIs.Python.Model
                    Arguments = "name: str, material_name: str, region: Selection or Region, " +
                                "thickness: float = 1, offset: float = 0",
                    Returns = "Section")]
-        public SectionAPI add_membrane(string name, string material_name, object region,
+        public SectionAPI add_membrane(object name, object material_name, object region,
                                        object thickness = null, object offset = null)
         {
-            _service.ValidateNewName(name, null);
-            string materialName = _service.GetStoredMaterialName(material_name);
-            MembraneSection section = new MembraneSection(name, materialName, null, RegionTypeEnum.Selection, 1,
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string materialNameText = PythonValueConverter.ToText(material_name, "material_name", false);
+            _service.ValidateNewName(nameText, null);
+            string materialName = _service.GetStoredMaterialName(materialNameText);
+            MembraneSection section = new MembraneSection(nameText, materialName, null, RegionTypeEnum.Selection, 1,
                                                           _service.GetIsTwoDimensional());
             ApplyThickness(section, thickness);
             ApplyOffset(section.Offset, offset);
             AddSection(section, region, "elements");
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Adds a point mass section using command history. The region is a selection or a named " +
                    "region; the selection target is nodes. The mass must be zero or larger.",
                    Arguments = "name: str, region: Selection or Region, mass: float", Returns = "Section")]
-        public SectionAPI add_point_mass(string name, object region, object mass)
+        public SectionAPI add_point_mass(object name, object region, object mass)
         {
-            _service.ValidateNewName(name, null);
-            PointMassSection section = new PointMassSection(name, null, RegionTypeEnum.Selection, 0,
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateNewName(nameText, null);
+            PointMassSection section = new PointMassSection(nameText, null, RegionTypeEnum.Selection, 0,
                                                             _service.GetIsTwoDimensional());
             PythonModelArgumentCheck.SetEquation(section.Mass, ToMass(mass, section.Mass), "mass");
             AddSection(section, region, "nodes");
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Adds a distributed mass section using command history. The region is a selection or a " +
                    "named region; the selection target is surfaces. The mass must be zero or larger.",
                    Arguments = "name: str, region: Selection or Region, mass: float", Returns = "Section")]
-        public SectionAPI add_distributed_mass(string name, object region, object mass)
+        public SectionAPI add_distributed_mass(object name, object region, object mass)
         {
-            _service.ValidateNewName(name, null);
-            DistributedMassSection section = new DistributedMassSection(name, null, RegionTypeEnum.Selection, 0,
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateNewName(nameText, null);
+            DistributedMassSection section = new DistributedMassSection(nameText, null, RegionTypeEnum.Selection, 0,
                                                                         _service.GetIsTwoDimensional());
             PythonModelArgumentCheck.SetEquation(section.Mass, ToMass(mass, section.Mass), "mass");
             AddSection(section, region, "surfaces");
-            return this[name];
+            return this[nameText];
         }
         //
         [PythonAPI("Replaces a solid section, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, material_name: str = None, " +
                                "region: Selection or Region = None, thickness: float = None",
                    Returns = "Section")]
-        public SectionAPI replace_solid(string old_name, string name = null, string material_name = null,
+        public SectionAPI replace_solid(object old_name, object name = null, object material_name = null,
                                         object region = null, object thickness = null)
         {
-            SolidSection section = Clone<SolidSection>(old_name, "solid");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string materialName = PythonValueConverter.ToText(material_name, "material_name", true);
+            SolidSection section = Clone<SolidSection>(oldName, "solid");
             ApplySolidThickness(section, thickness);
             //
-            return Replace(old_name, name, material_name, region, section, "elements");
+            return Replace(oldName, nameText, materialName, region, section, "elements");
         }
 
         [PythonAPI("Replaces a shell section, keeping every value that is not given.",
@@ -129,15 +140,18 @@ namespace APIs.Python.Model
                                "region: Selection or Region = None, thickness: float = None, " +
                                "offset: float = None",
                    Returns = "Section")]
-        public SectionAPI replace_shell(string old_name, string name = null, string material_name = null,
+        public SectionAPI replace_shell(object old_name, object name = null, object material_name = null,
                                         object region = null, object thickness = null, object offset = null)
         {
-            ShellSection section = Clone<ShellSection>(old_name, "shell");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string materialName = PythonValueConverter.ToText(material_name, "material_name", true);
+            ShellSection section = Clone<ShellSection>(oldName, "shell");
             ApplyThickness(section, thickness);
             PythonModelArgumentCheck.SetEquation(section.Offset, ToEquationOrKeep(offset, section.Offset, "offset"),
                                                  "offset");
             //
-            return Replace(old_name, name, material_name, region, section, "elements");
+            return Replace(oldName, nameText, materialName, region, section, "elements");
         }
 
         [PythonAPI("Replaces a membrane section, keeping every value that is not given.",
@@ -145,39 +159,46 @@ namespace APIs.Python.Model
                                "region: Selection or Region = None, thickness: float = None, " +
                                "offset: float = None",
                    Returns = "Section")]
-        public SectionAPI replace_membrane(string old_name, string name = null, string material_name = null,
+        public SectionAPI replace_membrane(object old_name, object name = null, object material_name = null,
                                            object region = null, object thickness = null, object offset = null)
         {
-            MembraneSection section = Clone<MembraneSection>(old_name, "membrane");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string materialName = PythonValueConverter.ToText(material_name, "material_name", true);
+            MembraneSection section = Clone<MembraneSection>(oldName, "membrane");
             ApplyThickness(section, thickness);
             PythonModelArgumentCheck.SetEquation(section.Offset, ToEquationOrKeep(offset, section.Offset, "offset"),
                                                  "offset");
             //
-            return Replace(old_name, name, material_name, region, section, "elements");
+            return Replace(oldName, nameText, materialName, region, section, "elements");
         }
 
         [PythonAPI("Replaces a point mass section, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
                                "mass: float = None", Returns = "Section")]
-        public SectionAPI replace_point_mass(string old_name, string name = null, object region = null,
+        public SectionAPI replace_point_mass(object old_name, object name = null, object region = null,
                                              object mass = null)
         {
-            PointMassSection section = Clone<PointMassSection>(old_name, "point_mass");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            PointMassSection section = Clone<PointMassSection>(oldName, "point_mass");
             if (mass != null) PythonModelArgumentCheck.SetEquation(section.Mass, ToMass(mass, section.Mass), "mass");
             //
-            return Replace(old_name, name, null, region, section, "nodes");
+            return Replace(oldName, nameText, null, region, section, "nodes");
         }
 
         [PythonAPI("Replaces a distributed mass section, keeping every value that is not given.",
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
                                "mass: float = None", Returns = "Section")]
-        public SectionAPI replace_distributed_mass(string old_name, string name = null, object region = null,
+        public SectionAPI replace_distributed_mass(object old_name, object name = null, object region = null,
                                                    object mass = null)
         {
-            DistributedMassSection section = Clone<DistributedMassSection>(old_name, "distributed_mass");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            DistributedMassSection section = Clone<DistributedMassSection>(oldName, "distributed_mass");
             if (mass != null) PythonModelArgumentCheck.SetEquation(section.Mass, ToMass(mass, section.Mass), "mass");
             //
-            return Replace(old_name, name, null, region, section, "surfaces");
+            return Replace(oldName, nameText, null, region, section, "surfaces");
         }
         //
         protected override string[] GetItemNames()

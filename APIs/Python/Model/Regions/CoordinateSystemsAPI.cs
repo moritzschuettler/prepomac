@@ -33,11 +33,14 @@ namespace APIs.Python.Model
                                "name_visible: bool = None",
                    Returns = "CoordinateSystem",
                    Example = "pmx.model.coordinate_systems.add('CS-1', [0,0,0], [1,0,0], [0,1,0])")]
-        public CoordinateSystemAPI add(string name, object origin, object point_on_x, object point_in_xy,
-                                       string coordinate_system_type = null, object name_visible = null)
+        public CoordinateSystemAPI add(object name, object origin, object point_on_x, object point_in_xy,
+                                       object coordinate_system_type = null, object name_visible = null)
         {
-            _service.Add(name, coordinate_system_type, origin, point_on_x, point_in_xy, name_visible);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string coordinateSystemType =
+                PythonValueConverter.ToText(coordinate_system_type, "coordinate_system_type", true);
+            _service.Add(nameText, coordinateSystemType, origin, point_on_x, point_in_xy, name_visible);
+            return this[nameText];
         }
 
         [PythonAPI("Creates a coordinate system whose points come from selected mesh points, using command " +
@@ -54,21 +57,35 @@ namespace APIs.Python.Model
                    Returns = "CoordinateSystem",
                    Example = "pmx.model.coordinate_systems.add_from_selections('CS-1', 'OnPoint', selection, " +
                              "point_on_x=[1, 0, 0], point_in_xy=[0, 1, 0])")]
-        public CoordinateSystemAPI add_from_selections(string name, string origin_created_from = null,
-                                                       SelectionAPI origin_selection = null,
-                                                       string point_on_x_created_from = null,
-                                                       SelectionAPI point_on_x_selection = null,
-                                                       string point_in_xy_created_from = null,
-                                                       SelectionAPI point_in_xy_selection = null,
+        public CoordinateSystemAPI add_from_selections(object name, object origin_created_from = null,
+                                                       object origin_selection = null,
+                                                       object point_on_x_created_from = null,
+                                                       object point_on_x_selection = null,
+                                                       object point_in_xy_created_from = null,
+                                                       object point_in_xy_selection = null,
                                                        object origin = null, object point_on_x = null,
                                                        object point_in_xy = null,
-                                                       string coordinate_system_type = null,
+                                                       object coordinate_system_type = null,
                                                        object name_visible = null)
         {
-            _service.AddFromSelections(name, coordinate_system_type, origin_created_from, origin_selection,
-                                       point_on_x_created_from, point_on_x_selection, point_in_xy_created_from,
-                                       point_in_xy_selection, origin, point_on_x, point_in_xy, name_visible);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string originCreatedFrom = PythonValueConverter.ToText(origin_created_from, "origin_created_from", true);
+            SelectionAPI originSelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(origin_selection, "origin_selection", true);
+            string pointOnXCreatedFrom =
+                PythonValueConverter.ToText(point_on_x_created_from, "point_on_x_created_from", true);
+            SelectionAPI pointOnXSelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(point_on_x_selection, "point_on_x_selection", true);
+            string pointInXyCreatedFrom =
+                PythonValueConverter.ToText(point_in_xy_created_from, "point_in_xy_created_from", true);
+            SelectionAPI pointInXySelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(point_in_xy_selection, "point_in_xy_selection", true);
+            string coordinateSystemType =
+                PythonValueConverter.ToText(coordinate_system_type, "coordinate_system_type", true);
+            _service.AddFromSelections(nameText, coordinateSystemType, originCreatedFrom, originSelection,
+                                       pointOnXCreatedFrom, pointOnXSelection, pointInXyCreatedFrom,
+                                       pointInXySelection, origin, point_on_x, point_in_xy, name_visible);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing coordinate system using command history, keeping every value that is " +
@@ -77,13 +94,17 @@ namespace APIs.Python.Model
                                "point_on_x: list[float] = None, point_in_xy: list[float] = None, " +
                                "coordinate_system_type: str = None, name_visible: bool = None",
                    Returns = "CoordinateSystem")]
-        public CoordinateSystemAPI replace(string old_name, string name = null, object origin = null, object point_on_x = null,
-                                           object point_in_xy = null, string coordinate_system_type = null,
+        public CoordinateSystemAPI replace(object old_name, object name = null, object origin = null, object point_on_x = null,
+                                           object point_in_xy = null, object coordinate_system_type = null,
                                            object name_visible = null)
         {
-            _service.Replace(old_name, name, coordinate_system_type, origin, point_on_x, point_in_xy,
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string coordinateSystemType =
+                PythonValueConverter.ToText(coordinate_system_type, "coordinate_system_type", true);
+            _service.Replace(oldName, nameText, coordinateSystemType, origin, point_on_x, point_in_xy,
                              name_visible);
-            return this[name == null ? old_name : name];
+            return this[nameText == null ? oldName : nameText];
         }
 
         [PythonAPI("Replaces a coordinate system while retaining omitted point definitions. A point is " +
@@ -95,23 +116,38 @@ namespace APIs.Python.Model
                                "point_on_x: list[float] = None, point_in_xy: list[float] = None, " +
                                "coordinate_system_type: str = None, name_visible: bool = None",
                    Returns = "CoordinateSystem")]
-        public CoordinateSystemAPI replace_from_selections(string old_name, string name = null,
-                                                           string origin_created_from = null,
-                                                           SelectionAPI origin_selection = null,
-                                                           string point_on_x_created_from = null,
-                                                           SelectionAPI point_on_x_selection = null,
-                                                           string point_in_xy_created_from = null,
-                                                           SelectionAPI point_in_xy_selection = null,
+        public CoordinateSystemAPI replace_from_selections(object old_name, object name = null,
+                                                           object origin_created_from = null,
+                                                           object origin_selection = null,
+                                                           object point_on_x_created_from = null,
+                                                           object point_on_x_selection = null,
+                                                           object point_in_xy_created_from = null,
+                                                           object point_in_xy_selection = null,
                                                            object origin = null, object point_on_x = null,
                                                            object point_in_xy = null,
-                                                           string coordinate_system_type = null,
+                                                           object coordinate_system_type = null,
                                                            object name_visible = null)
         {
-            _service.ReplaceFromSelections(old_name, name, coordinate_system_type, origin_created_from,
-                                           origin_selection, point_on_x_created_from, point_on_x_selection,
-                                           point_in_xy_created_from, point_in_xy_selection, origin, point_on_x,
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string originCreatedFrom = PythonValueConverter.ToText(origin_created_from, "origin_created_from", true);
+            SelectionAPI originSelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(origin_selection, "origin_selection", true);
+            string pointOnXCreatedFrom =
+                PythonValueConverter.ToText(point_on_x_created_from, "point_on_x_created_from", true);
+            SelectionAPI pointOnXSelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(point_on_x_selection, "point_on_x_selection", true);
+            string pointInXyCreatedFrom =
+                PythonValueConverter.ToText(point_in_xy_created_from, "point_in_xy_created_from", true);
+            SelectionAPI pointInXySelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(point_in_xy_selection, "point_in_xy_selection", true);
+            string coordinateSystemType =
+                PythonValueConverter.ToText(coordinate_system_type, "coordinate_system_type", true);
+            _service.ReplaceFromSelections(oldName, nameText, coordinateSystemType, originCreatedFrom,
+                                           originSelection, pointOnXCreatedFrom, pointOnXSelection,
+                                           pointInXyCreatedFrom, pointInXySelection, origin, point_on_x,
                                            point_in_xy, name_visible);
-            return this[name == null ? old_name : name];
+            return this[nameText == null ? oldName : nameText];
         }
 
         [PythonAPI("Hides the named coordinate systems using command history.",

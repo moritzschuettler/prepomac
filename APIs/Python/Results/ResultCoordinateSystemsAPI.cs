@@ -51,9 +51,10 @@ namespace APIs.Python
         {
             return Count;
         }
-        public ResultCoordinateSystemAPI __getitem__(string name)
+        public ResultCoordinateSystemAPI __getitem__(object name)
         {
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            return this[nameText];
         }
         public ResultCoordinateSystemAPI this[string name]
         {
@@ -81,7 +82,7 @@ namespace APIs.Python
         {
             return GetEnumerator();
         }
-        public bool __contains__(string name)
+        public bool __contains__(object name)
         {
             return contains(name);
         }
@@ -92,15 +93,17 @@ namespace APIs.Python
         }
         [PythonAPI("Returns true if the result mesh contains the result coordinate system. Names are compared " +
                    "without regard to case.", Arguments = "name: str", Returns = "bool")]
-        public bool contains(string name)
+        public bool contains(object name)
         {
-            return name != null && PythonNameComparer.Contains(GetNames(), name);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            return nameText != null && PythonNameComparer.Contains(GetNames(), nameText);
         }
         [PythonAPI("Returns the result coordinate system with the specified name.", Arguments = "name: str",
                    Returns = "CoordinateSystem")]
-        public ResultCoordinateSystemAPI get(string name)
+        public ResultCoordinateSystemAPI get(object name)
         {
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            return this[nameText];
         }
         [PythonAPI("Returns the first result coordinate system.", Returns = "CoordinateSystem")]
         public ResultCoordinateSystemAPI first()
@@ -122,12 +125,15 @@ namespace APIs.Python
                                "name_visible: bool = None",
                    Returns = "CoordinateSystem",
                    Example = "pmx.results.current.mesh.coordinate_systems.add('CS-1', [0,0,0], [1,0,0], [0,1,0])")]
-        public ResultCoordinateSystemAPI add(string name, object origin, object point_on_x, object point_in_xy,
-                                             string coordinate_system_type = null, object name_visible = null)
+        public ResultCoordinateSystemAPI add(object name, object origin, object point_on_x, object point_in_xy,
+                                             object coordinate_system_type = null, object name_visible = null)
         {
-            ValidateName(name, null);
-            CoordinateSystem system = new CoordinateSystem(name, GetIsTwoDimensional());
-            ApplyType(system, coordinate_system_type);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string coordinateSystemType =
+                PythonValueConverter.ToText(coordinate_system_type, "coordinate_system_type", true);
+            ValidateName(nameText, null);
+            CoordinateSystem system = new CoordinateSystem(nameText, GetIsTwoDimensional());
+            ApplyType(system, coordinateSystemType);
             ApplyPointOrCoordinates(system, null, null, origin, 1, true);
             ApplyPointOrCoordinates(system, null, null, point_on_x, 2, true);
             ApplyPointOrCoordinates(system, null, null, point_in_xy, 3, true);
@@ -136,7 +142,7 @@ namespace APIs.Python
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultCoordinateSystem(system);
-            return this[name];
+            return this[nameText];
         }
         [PythonAPI("Adds a result coordinate system whose points may be selected on the result mesh, using " +
                    "command history. A point is given either as coordinates or as a mode and a selection, " +
@@ -149,29 +155,43 @@ namespace APIs.Python
                                "point_in_xy: list[float] = None, coordinate_system_type: str = None, " +
                                "name_visible: bool = None",
                    Returns = "CoordinateSystem")]
-        public ResultCoordinateSystemAPI add_from_selections(string name, string origin_created_from = null,
-                                                             SelectionAPI origin_selection = null,
-                                                             string point_on_x_created_from = null,
-                                                             SelectionAPI point_on_x_selection = null,
-                                                             string point_in_xy_created_from = null,
-                                                             SelectionAPI point_in_xy_selection = null,
+        public ResultCoordinateSystemAPI add_from_selections(object name, object origin_created_from = null,
+                                                             object origin_selection = null,
+                                                             object point_on_x_created_from = null,
+                                                             object point_on_x_selection = null,
+                                                             object point_in_xy_created_from = null,
+                                                             object point_in_xy_selection = null,
                                                              object origin = null, object point_on_x = null,
                                                              object point_in_xy = null,
-                                                             string coordinate_system_type = null,
+                                                             object coordinate_system_type = null,
                                                              object name_visible = null)
         {
-            ValidateName(name, null);
-            CoordinateSystem system = new CoordinateSystem(name, GetIsTwoDimensional());
-            ApplyType(system, coordinate_system_type);
-            ApplyPointOrCoordinates(system, origin_created_from, origin_selection, origin, 1, false);
-            ApplyPointOrCoordinates(system, point_on_x_created_from, point_on_x_selection, point_on_x, 2, false);
-            ApplyPointOrCoordinates(system, point_in_xy_created_from, point_in_xy_selection, point_in_xy, 3, false);
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string originCreatedFrom = PythonValueConverter.ToText(origin_created_from, "origin_created_from", true);
+            SelectionAPI originSelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(origin_selection, "origin_selection", true);
+            string pointOnXCreatedFrom =
+                PythonValueConverter.ToText(point_on_x_created_from, "point_on_x_created_from", true);
+            SelectionAPI pointOnXSelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(point_on_x_selection, "point_on_x_selection", true);
+            string pointInXyCreatedFrom =
+                PythonValueConverter.ToText(point_in_xy_created_from, "point_in_xy_created_from", true);
+            SelectionAPI pointInXySelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(point_in_xy_selection, "point_in_xy_selection", true);
+            string coordinateSystemType =
+                PythonValueConverter.ToText(coordinate_system_type, "coordinate_system_type", true);
+            ValidateName(nameText, null);
+            CoordinateSystem system = new CoordinateSystem(nameText, GetIsTwoDimensional());
+            ApplyType(system, coordinateSystemType);
+            ApplyPointOrCoordinates(system, originCreatedFrom, originSelection, origin, 1, false);
+            ApplyPointOrCoordinates(system, pointOnXCreatedFrom, pointOnXSelection, point_on_x, 2, false);
+            ApplyPointOrCoordinates(system, pointInXyCreatedFrom, pointInXySelection, point_in_xy, 3, false);
             ApplyNameVisible(system, name_visible);
             ValidateAxes(system);
             //
             EnsureCommandsAvailable();
             _commandGateway.AddResultCoordinateSystem(system);
-            return this[name];
+            return this[nameText];
         }
         [PythonAPI("Replaces a result coordinate system using command history. The three points are the " +
                    "whole definition and are always given; the name and the type may be left out.",
@@ -179,15 +199,19 @@ namespace APIs.Python
                                "point_on_x: list[float] = None, point_in_xy: list[float] = None, " +
                                "coordinate_system_type: str = None, name_visible: bool = None",
                    Returns = "CoordinateSystem")]
-        public ResultCoordinateSystemAPI replace(string old_name, string name = null, object origin = null,
+        public ResultCoordinateSystemAPI replace(object old_name, object name = null, object origin = null,
                                                  object point_on_x = null, object point_in_xy = null,
-                                                 string coordinate_system_type = null, object name_visible = null)
+                                                 object coordinate_system_type = null, object name_visible = null)
         {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string coordinateSystemType =
+                PythonValueConverter.ToText(coordinate_system_type, "coordinate_system_type", true);
             if (origin == null || point_on_x == null || point_in_xy == null)
                 throw new PythonAPIException("The arguments 'origin', 'point_on_x' and 'point_in_xy' must all " +
                                              "be given.");
-            CoordinateSystem system = CloneForReplace(old_name, name);
-            ApplyType(system, coordinate_system_type);
+            CoordinateSystem system = CloneForReplace(oldName, nameText);
+            ApplyType(system, coordinateSystemType);
             ApplyPointOrCoordinates(system, null, null, origin, 1, true);
             ApplyPointOrCoordinates(system, null, null, point_on_x, 2, true);
             ApplyPointOrCoordinates(system, null, null, point_in_xy, 3, true);
@@ -195,7 +219,7 @@ namespace APIs.Python
             ValidateAxes(system);
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultCoordinateSystem(ResolveCoordinateSystem(old_name).Name, system);
+            _commandGateway.ReplaceResultCoordinateSystem(ResolveCoordinateSystem(oldName).Name, system);
             return this[system.Name];
         }
         [PythonAPI("Replaces a result coordinate system the way add_from_selections builds one. A result " +
@@ -208,28 +232,43 @@ namespace APIs.Python
                                "point_on_x: list[float] = None, point_in_xy: list[float] = None, " +
                                "coordinate_system_type: str = None, name_visible: bool = None",
                    Returns = "CoordinateSystem")]
-        public ResultCoordinateSystemAPI replace_from_selections(string old_name, string name = null,
-                                                                 string origin_created_from = null,
-                                                                 SelectionAPI origin_selection = null,
-                                                                 string point_on_x_created_from = null,
-                                                                 SelectionAPI point_on_x_selection = null,
-                                                                 string point_in_xy_created_from = null,
-                                                                 SelectionAPI point_in_xy_selection = null,
+        public ResultCoordinateSystemAPI replace_from_selections(object old_name, object name = null,
+                                                                 object origin_created_from = null,
+                                                                 object origin_selection = null,
+                                                                 object point_on_x_created_from = null,
+                                                                 object point_on_x_selection = null,
+                                                                 object point_in_xy_created_from = null,
+                                                                 object point_in_xy_selection = null,
                                                                  object origin = null, object point_on_x = null,
                                                                  object point_in_xy = null,
-                                                                 string coordinate_system_type = null,
+                                                                 object coordinate_system_type = null,
                                                                  object name_visible = null)
         {
-            CoordinateSystem system = CloneForReplace(old_name, name);
-            ApplyType(system, coordinate_system_type);
-            ApplyPointOrCoordinates(system, origin_created_from, origin_selection, origin, 1, true);
-            ApplyPointOrCoordinates(system, point_on_x_created_from, point_on_x_selection, point_on_x, 2, true);
-            ApplyPointOrCoordinates(system, point_in_xy_created_from, point_in_xy_selection, point_in_xy, 3, true);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string originCreatedFrom = PythonValueConverter.ToText(origin_created_from, "origin_created_from", true);
+            SelectionAPI originSelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(origin_selection, "origin_selection", true);
+            string pointOnXCreatedFrom =
+                PythonValueConverter.ToText(point_on_x_created_from, "point_on_x_created_from", true);
+            SelectionAPI pointOnXSelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(point_on_x_selection, "point_on_x_selection", true);
+            string pointInXyCreatedFrom =
+                PythonValueConverter.ToText(point_in_xy_created_from, "point_in_xy_created_from", true);
+            SelectionAPI pointInXySelection =
+                PythonValueConverter.ToApiObject<SelectionAPI>(point_in_xy_selection, "point_in_xy_selection", true);
+            string coordinateSystemType =
+                PythonValueConverter.ToText(coordinate_system_type, "coordinate_system_type", true);
+            CoordinateSystem system = CloneForReplace(oldName, nameText);
+            ApplyType(system, coordinateSystemType);
+            ApplyPointOrCoordinates(system, originCreatedFrom, originSelection, origin, 1, true);
+            ApplyPointOrCoordinates(system, pointOnXCreatedFrom, pointOnXSelection, point_on_x, 2, true);
+            ApplyPointOrCoordinates(system, pointInXyCreatedFrom, pointInXySelection, point_in_xy, 3, true);
             ApplyNameVisible(system, name_visible);
             ValidateAxes(system);
             //
             EnsureCommandsAvailable();
-            _commandGateway.ReplaceResultCoordinateSystem(ResolveCoordinateSystem(old_name).Name, system);
+            _commandGateway.ReplaceResultCoordinateSystem(ResolveCoordinateSystem(oldName).Name, system);
             return this[system.Name];
         }
         [PythonAPI("Duplicates result coordinate systems using command history.",
@@ -242,16 +281,18 @@ namespace APIs.Python
         }
         [PythonAPI("Renames a result coordinate system using command history.",
                    Arguments = "old_name: str, new_name: str", Returns = "None")]
-        public void rename(string old_name, string new_name)
+        public void rename(object old_name, object new_name)
         {
-            CoordinateSystem system = ResolveCoordinateSystem(old_name);
-            PythonNameComparer.ValidateFormat(new_name, "new_name", system.Name);
-            if (string.Equals(system.Name, new_name)) return;
-            if (!PythonNameComparer.AreSame(new_name, system.Name) && PythonNameComparer.Contains(GetNames(), new_name))
-                throw new PythonAPIException("The result coordinate system '" + new_name + "' already exists.");
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string newName = PythonValueConverter.ToText(new_name, "new_name", false);
+            CoordinateSystem system = ResolveCoordinateSystem(oldName);
+            PythonNameComparer.ValidateFormat(newName, "new_name", system.Name);
+            if (string.Equals(system.Name, newName)) return;
+            if (!PythonNameComparer.AreSame(newName, system.Name) && PythonNameComparer.Contains(GetNames(), newName))
+                throw new PythonAPIException("The result coordinate system '" + newName + "' already exists.");
             //
             EnsureCommandsAvailable();
-            _commandGateway.RenameResultItem(system, new_name);
+            _commandGateway.RenameResultItem(system, newName);
         }
         [PythonAPI("Removes result coordinate systems using command history.",
                    Arguments = "names: list[str] or str", Returns = "None")]

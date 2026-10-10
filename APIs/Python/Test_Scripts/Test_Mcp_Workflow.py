@@ -240,7 +240,7 @@ def build_the_model(endpoint):
     # The cube is a single hexahedron: nodes 1 to 4 are the bottom face, 5 to 8 the top one
     endpoint.python("pmx.model.node_sets.add('" + PREFIX + "Bottom', "
                   "pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))")
-    endpoint.python("step = pmx.model.steps.add_static('" + STEP + "', time_period=1.0)" + os.linesep +
+    endpoint.python("step = pmx.model.steps.add_static('" + STEP + "')" + os.linesep +
                   "step.bcs.add_fixed('" + PREFIX + "Fix', "
                   "pmx.create.region('NodeSetName', '" + PREFIX + "Bottom'))" + os.linesep +
                   "step.loads.add_concentrated_force('" + PREFIX + "Force', "

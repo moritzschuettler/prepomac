@@ -32,12 +32,13 @@ namespace APIs.Python.Model
                    Arguments = "name: str, properties: SurfaceInteractionProperty or " +
                                "list[SurfaceInteractionProperty]", Returns = "SurfaceInteraction",
                    Example = "pmx.model.surface_interactions.add('SI-1', pmx.create.friction(0.1))")]
-        public SurfaceInteractionAPI add(string name, object properties)
+        public SurfaceInteractionAPI add(object name, object properties)
         {
-            _service.ValidateName(name, null);
-            _service.Add(_service.Build(name, properties));
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(nameText, null);
+            _service.Add(_service.Build(nameText, properties));
             //
-            return this[name];
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing surface interaction using command history. A value that is not " +
@@ -45,9 +46,11 @@ namespace APIs.Python.Model
                    "given, replace the whole property list.",
                    Arguments = "old_name: str, name: str = None, properties: SurfaceInteractionProperty or " +
                                "list[SurfaceInteractionProperty] = None", Returns = "SurfaceInteraction")]
-        public SurfaceInteractionAPI replace(string old_name, string name = null, object properties = null)
+        public SurfaceInteractionAPI replace(object old_name, object name = null, object properties = null)
         {
-            SurfaceInteraction surfaceInteraction = _service.Replace(old_name, name, properties);
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            SurfaceInteraction surfaceInteraction = _service.Replace(oldName, nameText, properties);
             //
             return this[surfaceInteraction.Name];
         }

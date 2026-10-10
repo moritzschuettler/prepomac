@@ -99,12 +99,13 @@ namespace APIs.Python.Model
                    "argument that sets it, for example temperature or distribution_name; a vector argument " +
                    "such as axis_point returns its components as a list. Use get_value_names to list them.",
                    Arguments = "name: str", Returns = "float, int, bool, str or list[float]")]
-        public object get_value(string name)
+        public object get_value(object name)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
             InitialCondition initialCondition = Resolve();
             return ModelItemValueReader.GetValue(ModelItemValueReader.GetValues(initialCondition,
                                                                                 GetArgumentValueNames(initialCondition)),
-                                                 name, GetItemType(initialCondition) + " initial condition");
+                                                 nameText, GetItemType(initialCondition) + " initial condition");
         }
         [PythonAPI("Returns the expressions the initial condition was entered with, without evaluating them, " +
                    "under the names get_value uses. Only a value entered as an expression is returned, with its " +

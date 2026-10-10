@@ -168,12 +168,13 @@ namespace APIs.Python.Model
                    "UserDefined, and no center_defined_by for a centre picked in the dialog. Use get_value_names " +
                    "to list them.", Arguments = "name: str",
                    Returns = "float, int, bool, str or list[float]")]
-        public object get_value(string name)
+        public object get_value(object name)
         {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
             Constraint constraint = Resolve();
             return ModelItemValueReader.GetValue(ModelItemValueReader.GetValues(constraint,
                                                                                 GetArgumentValueNames(constraint)),
-                                                 name, GetItemType(constraint) + " constraint");
+                                                 nameText, GetItemType(constraint) + " constraint");
         }
 
         [PythonAPI("Returns the expressions the constraint was entered with, without evaluating them, under the " +

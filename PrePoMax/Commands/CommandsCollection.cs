@@ -60,6 +60,7 @@ namespace PrePoMax.Commands
         private bool _postprocessingDeclined;
         [NonSerialized] private int _commandRecordingSuppressionCount;
         [NonSerialized] private int _numOfCommandsExecutedWithoutRecording;
+        [NonSerialized] private int _historyReplayCount;
         [NonSerialized] private string _commandBlockReason;
 
 
@@ -157,6 +158,8 @@ namespace PrePoMax.Commands
             throw new CaeException(actionName + " was refused. " + _commandBlockReason);
         }
         public bool IsCommandRecordingSuppressed { get { return _commandRecordingSuppressionCount > 0; } }
+        // Regenerate, or an undo, executing the commands of the history again
+        public bool IsReplayingHistory { get { return _historyReplayCount > 0; } }
         // Counts the commands run while recording was suppressed, so a caller can tell whether a script changed anything
         public int NumOfCommandsExecutedWithoutRecording { get { return _numOfCommandsExecutedWithoutRecording; } }
         public void BeginCommandRecordingSuppression()
@@ -514,12 +517,14 @@ namespace PrePoMax.Commands
         {
             // The history already holds every command a replayed one executes inside itself
             BeginCommandRecordingSuppression();
+            _historyReplayCount++;
             try
             {
                 ExecuteHistoryCommands(showFileDialog, showMeshDialog, regenerateType, lastSave);
             }
             finally
             {
+                _historyReplayCount--;
                 EndCommandRecordingSuppression();
             }
         }
@@ -902,9 +907,35 @@ namespace PrePoMax.Commands
         {
             if (IsRedoPossible)
             {
-                //_currPositionIndex++;
-                ExecuteCommand(_commands[_currPositionIndex + 1], false);  // also rewrites history
+                Command command = _commands[_currPositionIndex + 1];
+                if (command.IsRecordedAsFailed) RedoCommandRecordedAsFailed(command);
+                else ExecuteCommand(command, false);  // also rewrites history
             }
+        }
+        // The command failed again after making the changes it was recorded with, so the position moves past it
+        // before the error is reported, or the model would hold changes the history offers to redo
+        private void RedoCommandRecordedAsFailed(Command command)
+        {
+            Exception error = null;
+            WriteToOutput(command);
+            try
+            {
+                ExecuteCommandWithTimer(command);
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+            //
+            CheckModelChanged(command);
+            WriteToFile();
+            _currPositionIndex++;
+            OnEnableDisableUndoRedo();
+            //
+            if (error != null)
+                throw new CaeException(error.Message.TrimEnd() + Environment.NewLine + "The command was recorded as " +
+                                       "failed, so the redo keeps it in the command history with the changes it " +
+                                       "made before the error.");
         }
         public void OnEnableDisableUndoRedo()
         {

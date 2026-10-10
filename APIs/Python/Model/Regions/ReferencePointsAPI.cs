@@ -32,11 +32,12 @@ namespace APIs.Python.Model
                    Arguments = "name: str, coordinates: list[float], name_visible: bool = None, " +
                                "color: list[int] or str = None", Returns = "ReferencePoint",
                    Example = "pmx.model.reference_points.add('RP-1', [0, 0, 100])")]
-        public ReferencePointAPI add(string name, object coordinates, object name_visible = null,
+        public ReferencePointAPI add(object name, object coordinates, object name_visible = null,
                                      object color = null)
         {
-            _service.Add(name, coordinates, name_visible, color);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.Add(nameText, coordinates, name_visible, color);
+            return this[nameText];
         }
 
         [PythonAPI("Creates a reference point from selected mesh points using command history. The mode is " +
@@ -46,11 +47,14 @@ namespace APIs.Python.Model
                                "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint",
                    Example = "pmx.model.reference_points.add_from_selection('RP-1', 'CircleCenter', selection)")]
-        public ReferencePointAPI add_from_selection(string name, string created_from, SelectionAPI selection,
+        public ReferencePointAPI add_from_selection(object name, object created_from, object selection,
                                                     object name_visible = null, object color = null)
         {
-            _service.AddFromSelection(name, created_from, selection, name_visible, color);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string createdFrom = PythonValueConverter.ToText(created_from, "created_from", false);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", false);
+            _service.AddFromSelection(nameText, createdFrom, selectionValue, name_visible, color);
+            return this[nameText];
         }
 
         [PythonAPI("Creates a reference point from a named region using command history. The mode is " +
@@ -59,12 +63,16 @@ namespace APIs.Python.Model
                    Arguments = "name: str, created_from: str, region_type: str, region_name: str, " +
                                "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint")]
-        public ReferencePointAPI add_from_region(string name, string created_from, string region_type,
-                                                  string region_name, object name_visible = null,
+        public ReferencePointAPI add_from_region(object name, object created_from, object region_type,
+                                                  object region_name, object name_visible = null,
                                                   object color = null)
         {
-            _service.AddFromRegion(name, created_from, region_type, region_name, name_visible, color);
-            return this[name];
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            string createdFrom = PythonValueConverter.ToText(created_from, "created_from", false);
+            string regionType = PythonValueConverter.ToText(region_type, "region_type", false);
+            string regionName = PythonValueConverter.ToText(region_name, "region_name", false);
+            _service.AddFromRegion(nameText, createdFrom, regionType, regionName, name_visible, color);
+            return this[nameText];
         }
 
         [PythonAPI("Replaces an existing reference point using command history. The coordinates that are " +
@@ -72,24 +80,30 @@ namespace APIs.Python.Model
                    Arguments = "old_name: str, name: str = None, coordinates: list[float] = None, " +
                                "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint")]
-        public ReferencePointAPI replace(string old_name, string name = null, object coordinates = null,
+        public ReferencePointAPI replace(object old_name, object name = null, object coordinates = null,
                                          object name_visible = null, object color = null)
         {
-            _service.Replace(old_name, name, coordinates, name_visible, color);
-            return this[name == null ? old_name : name];
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            _service.Replace(oldName, nameText, coordinates, name_visible, color);
+            return this[nameText == null ? oldName : nameText];
         }
 
         [PythonAPI("Replaces a reference point by mesh points selected the way add_from_selection does.",
                    Arguments = "old_name: str, name: str = None, created_from: str = None, " +
                                "selection: Selection = None, name_visible: bool = None, " +
                                "color: list[int] or str = None", Returns = "ReferencePoint")]
-        public ReferencePointAPI replace_from_selection(string old_name, string name = null,
-                                                        string created_from = null,
-                                                        SelectionAPI selection = null,
+        public ReferencePointAPI replace_from_selection(object old_name, object name = null,
+                                                        object created_from = null,
+                                                        object selection = null,
                                                         object name_visible = null, object color = null)
         {
-            _service.ReplaceFromSelection(old_name, name, created_from, selection, name_visible, color);
-            return this[name == null ? old_name : name];
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string createdFrom = PythonValueConverter.ToText(created_from, "created_from", true);
+            SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
+            _service.ReplaceFromSelection(oldName, nameText, createdFrom, selectionValue, name_visible, color);
+            return this[nameText == null ? oldName : nameText];
         }
 
         [PythonAPI("Replaces a reference point by a named region the way add_from_region does.",
@@ -97,14 +111,19 @@ namespace APIs.Python.Model
                                "region_type: str = None, region_name: str = None, " +
                                "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint")]
-        public ReferencePointAPI replace_from_region(string old_name, string name = null,
-                                                     string created_from = null, string region_type = null,
-                                                     string region_name = null, object name_visible = null,
+        public ReferencePointAPI replace_from_region(object old_name, object name = null,
+                                                     object created_from = null, object region_type = null,
+                                                     object region_name = null, object name_visible = null,
                                                      object color = null)
         {
-            _service.ReplaceFromRegion(old_name, name, created_from, region_type, region_name, name_visible,
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            string createdFrom = PythonValueConverter.ToText(created_from, "created_from", true);
+            string regionType = PythonValueConverter.ToText(region_type, "region_type", true);
+            string regionName = PythonValueConverter.ToText(region_name, "region_name", true);
+            _service.ReplaceFromRegion(oldName, nameText, createdFrom, regionType, regionName, name_visible,
                                        color);
-            return this[name == null ? old_name : name];
+            return this[nameText == null ? oldName : nameText];
         }
 
         [PythonAPI("Hides the named reference points using command history.",

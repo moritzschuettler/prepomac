@@ -328,10 +328,10 @@ def check_reading_tools(endpoint, session):
     #
     topology = json.loads(endpoint.tool("read_topology"))
     check("note" in topology, "the topology must say what its IDs are for: " + str(sorted(topology)))
-    check("model" in topology and "geometry" in topology,
+    check("femodel" in topology and "geometry" in topology and "model" not in topology,
           "the topology must cover both part collections: " + str(sorted(topology)))
-    check(len(topology["model"]) == 1, "the cube is one part: " + str(topology["model"]))
-    part = topology["model"][0]
+    check(len(topology["femodel"]) == 1, "the cube is one part: " + str(topology["femodel"]))
+    part = topology["femodel"][0]
     check(part["face_count"] == 6 and part["edge_count"] == 12 and part["vertex_count"] == 8,
           "the cube topology must be 6 faces, 12 edges and 8 vertices: " + str(part))
     check(len(part["faces"]) == 6 and len(part["edges"]) == 12 and len(part["vertices"]) == 8 and
@@ -347,30 +347,30 @@ def check_reading_tools(endpoint, session):
     name = part["name"]
     topology = json.loads(endpoint.tool("read_topology", {"part_names": [name.upper(), "no_such_part"],
                                                           "limit": 240}))
-    check(len(topology["model"]) == 1 and topology["model"][0]["name"] == name,
-          "a part name must match regardless of case: " + str(topology["model"]))
+    check(len(topology["femodel"]) == 1 and topology["femodel"][0]["name"] == name,
+          "a part name must match regardless of case: " + str(topology["femodel"]))
     check(topology.get("unmatched_part_names") == ["no_such_part"],
           "a name that matched no part must be reported: " + str(topology.get("unmatched_part_names")))
-    check(len(topology["model"][0]["faces"]) <= 240, "the limit must bound the rows of a part")
+    check(len(topology["femodel"][0]["faces"]) <= 240, "the limit must bound the rows of a part")
     print("read_topology: a name in other case matched, an unknown name reported")
     # A padded name is no name: it is never trimmed, so it matches no part and is reported as it was given
     padded = " " + name + " "
     topology = json.loads(endpoint.tool("read_topology", {"part_names": [padded]}))
-    check(topology["model"] == [] and topology["geometry"] == [],
-          "a padded part name must match no part: " + str(topology["model"]) + " " + str(topology["geometry"]))
+    check(topology["femodel"] == [] and topology["geometry"] == [],
+          "a padded part name must match no part: " + str(topology["femodel"]) + " " + str(topology["geometry"]))
     check(topology.get("unmatched_part_names") == [padded],
           "a padded part name must be reported unmatched: " + str(topology.get("unmatched_part_names")))
     # A name carrying a line break or another control character reaches Python escaped, so it is a name
     # that matches nothing rather than a script that does not compile
     broken = name + "\n'] + 1\t\x01"
     topology = json.loads(endpoint.tool("read_topology", {"part_names": [broken]}))
-    check(topology["model"] == [] and topology.get("unmatched_part_names") == [broken],
+    check(topology["femodel"] == [] and topology.get("unmatched_part_names") == [broken],
           "a part name with control characters must be reported unmatched: " + str(topology))
     print("read_topology: a padded name and a name with control characters matched nothing and were reported")
     # The limit caps each kind, and what was left out is said kind by kind; the vertices, which have no
     # size, are listed in index order
     topology = json.loads(endpoint.tool("read_topology", {"part_names": [name], "limit": 2}))
-    part = topology["model"][0]
+    part = topology["femodel"][0]
     check(len(part["faces"]) == 2 and len(part["edges"]) == 2 and len(part["vertices"]) == 2,
           "a limit of 2 must list two of each kind: " + str(part))
     check("Listed 2 of 6 faces and 2 of 12 edges" in part["listed"] and "2 of 8 vertices" in part["listed"],
@@ -592,7 +592,7 @@ def check_null_optional_arguments(endpoint):
     history = json.loads(endpoint.tool("get_history", {"include_journal": None, "limit": None}))
     check("journal" not in history, "a null include_journal must be false: " + str(list(history.keys())))
     topology = json.loads(endpoint.tool("read_topology", {"part_names": None, "limit": None}))
-    check(len(topology["model"]) > 0, "a null part_names must read every part: " + str(topology))
+    check(len(topology["femodel"]) > 0, "a null part_names must read every part: " + str(topology))
     text = endpoint.failing_tool("run_python", {"source": None})
     check("argument source" in text, "a null required argument must be refused by name: " + text)
     text = endpoint.failing_tool("read_topology", {"part_names": []})
@@ -817,7 +817,7 @@ def check_collected_tool_answers(endpoint):
         answer = json.loads(endpoint.tool("read_topology"))
         check(answer.get("running") is True, "a slow read_topology must be answered as running: " + str(answer)[:300])
         topology = json.loads(endpoint.tool("get_call", {"call_id": answer["callId"], "timeout": 30}))
-        check("note" in topology and "model" in topology and "output" not in topology,
+        check("note" in topology and "femodel" in topology and "output" not in topology,
               "get_call must return the topology read_topology would have returned: " + str(sorted(topology)))
         # A failure is the error of the script, as read_model reports it, not the whole answer of the call
         endpoint.tool("run_python", {"source": "mcp_slow_json.fail = True"})
