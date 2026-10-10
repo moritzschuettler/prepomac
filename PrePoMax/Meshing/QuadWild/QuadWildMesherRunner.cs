@@ -18,6 +18,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace PrePoMax
@@ -177,7 +178,7 @@ namespace PrePoMax
             _controller.Form.WriteDataToOutput("Running QuadWild preparation and patch tracing...");
             string argument = QuadWildRuntime.Quote(objFileName) + " 2 " + QuadWildRuntime.Quote(prepConfigFileName) +
                               " " + QuadWildRuntime.Quote(sharpFileName);
-            bool preparationFailed = RunStage(part.Name, "preparation and patch tracing", executable, argument,
+            bool preparationFailed = RunStage(part, "preparation and patch tracing", executable, argument,
                                               workDirectory, tracedFileNames);
             QuadWildRuntime.EnsureNoPatchesErased(preparedObjFileName, tracedObjFileName,
                                                   inputInfo.SeamEdgeCount > 0 ?
@@ -266,7 +267,7 @@ namespace PrePoMax
             argument = QuadWildRuntime.Quote(tracedObjFileName) + " 1 " + QuadWildRuntime.Quote(flowConfigFileName);
             // Both files are required even when only one is imported, so that a stage that died part way
             // through is still recognized by the freshly-written-output check.
-            bool quadGenerationFailed = RunStage(part.Name, "quad generation", patchExecutable, argument,
+            bool quadGenerationFailed = RunStage(part, "quad generation", patchExecutable, argument,
                                                  workDirectory, unsmoothedObjFileName, smoothObjFileName);
             // The sheets of a shell compound are meshed with coincident node copies on their seams: merge them
             bool hasSeams = inputInfo.SeamEdgeCount > 0;
@@ -379,10 +380,10 @@ namespace PrePoMax
             if (mesherType == MesherTypeEnum.Mmg) return "MMG";
             else return mesherType.ToString();
         }
-        private bool RunStage(string jobName, string stageName, string executable, string argument,
+        private bool RunStage(GeometryPart part, string stageName, string executable, string argument,
                               string workDirectory, params string[] expectedFileNames)
         {
-            JobStatus jobStatus = _controller.JobRunner.Run(jobName, executable, argument, workDirectory,
+            JobStatus jobStatus = _controller.JobRunner.Run(part.Name, executable, argument, workDirectory,
                                                              _controller.Form.WriteDataToOutput);
             if (jobStatus != JobStatus.OK)
             {
@@ -393,10 +394,71 @@ namespace PrePoMax
                     _controller.Form.WriteDataToOutput("QuadWild " + stageName + " returned " + jobStatus +
                                                        " after writing its output; validating the output...");
                 else
+                {
+                    string reason = GetFatalError(_controller.JobRunner.ErrorData);
+                    if (reason != null)
+                        throw new CaeException("QuadWild " + stageName + " failed: " + NameSurfacesAtPoints(reason, part));
                     throw new CaeException("QuadWild " + stageName + " failed (" + jobStatus + ").");
+                }
             }
             QuadWildRuntime.EnsureFilesWritten(stageName, expectedFileNames);
             return jobStatus != JobStatus.OK;
+        }
+        // The reason QuadWild gives for refusing, written to its standard error as "fatal error: <reason>"
+        private static string GetFatalError(string errorData)
+        {
+            if (errorData == null) return null;
+            const string prefix = "fatal error: ";
+            string line = errorData.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                                   .LastOrDefault(l => l.StartsWith(prefix));
+            return line == null ? null : line.Substring(prefix.Length).Trim();
+        }
+        // QuadWild knows the model only by coordinates: "at (x, y, z)" in its message becomes the surface of the part
+        // closest to the point, in the form the output window links
+        private string NameSurfacesAtPoints(string message, GeometryPart part)
+        {
+            return Regex.Replace(message, @"at \(([-+0-9.eE]+), ([-+0-9.eE]+), ([-+0-9.eE]+)\)", match =>
+            {
+                double[] point = new double[3];
+                for (int i = 0; i < 3; i++)
+                {
+                    if (!double.TryParse(match.Groups[i + 1].Value, NumberStyles.Float, CultureInfo.InvariantCulture,
+                                         out point[i])) return match.Value;
+                }
+                string partName;
+                int faceId = GetClosestSurfaceId(part, point, out partName);
+                if (faceId < 0) return match.Value;
+                return "on surface " + (faceId + 1) + " of " + partName;
+            });
+        }
+        private int GetClosestSurfaceId(GeometryPart part, double[] point, out string partName)
+        {
+            partName = null;
+            int closestFaceId = -1;
+            double closestDistance = double.MaxValue;
+            foreach (string name in _controller.GetMeshablePartNames(new string[] { part.Name }))
+            {
+                BasePart meshablePart = _controller.Model.Geometry.Parts[name];
+                VisualizationData visualization = meshablePart.Visualization;
+                if (visualization == null || visualization.CellIdsByFace == null) continue;
+                for (int faceId = 0; faceId < visualization.CellIdsByFace.Length; faceId++)
+                {
+                    foreach (int cellId in visualization.CellIdsByFace[faceId])
+                    {
+                        int[] cell = visualization.Cells[cellId];
+                        if (cell.Length != 3) continue;
+                        double[][] triangle = cell.Select(nodeId => _controller.Model.Geometry.Nodes[nodeId].Coor).ToArray();
+                        double distance = Geometry.PointToTriangleDistance(point, triangle);
+                        if (distance < closestDistance)
+                        {
+                            closestDistance = distance;
+                            closestFaceId = faceId;
+                            partName = name;
+                        }
+                    }
+                }
+            }
+            return closestFaceId;
         }
         private static string GetFlowProfileName(QuadWildFlowProfileEnum flowProfile)
         {
