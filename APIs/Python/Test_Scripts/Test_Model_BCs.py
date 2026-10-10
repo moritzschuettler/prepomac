@@ -497,6 +497,44 @@ def test_temperature():
           "the refused replacement changed the region to " + thermal[PREFIX + "T"].region_type)
 
 
+def geometry_face_selection(face):
+    """The selection the dialogs record for a picked face: its geometry IDs, as the journal writes them."""
+    geometry_ids = list(pmx.create.selection_by_ids('femodel', 'geometry', 'surfaces', {1: [face]}).get_ids())
+    check(len(geometry_ids) > 0, "the face resolved to no geometry IDs")
+    return pmx.create.selection_by_ids('femodel', 'geometry', 'geometry', geometry_ids)
+
+
+def test_geometry_regions():
+    # Every boundary condition dialog picks geometry, so its journal hands that selection back, and it must
+    # resolve to the nodes the same face selected by nodes gives
+    face_nodes = sorted(pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [1]}).get_ids())
+    bcs = pmx.model.steps[STEP].bcs
+    thermal = pmx.model.steps[THERMAL_STEP].bcs
+    added = [(bcs, bcs.add_fixed(PREFIX + "Geo_Fix", geometry_face_selection(1))),
+             (bcs, bcs.add_displacement_rotation(PREFIX + "Geo_DR", geometry_face_selection(1), u1=0)),
+             (bcs, bcs.add_submodel(PREFIX + "Geo_SM", geometry_face_selection(1), step_id=1, u1=True)),
+             (thermal, thermal.add_temperature(PREFIX + "Geo_T", geometry_face_selection(1), 100))]
+    for collection, bc in added:
+        check(bc.region_type == "NodeSetName", bc.name + " has the region type " + bc.region_type)
+        node_ids = sorted(pmx.model.node_sets[bc.region_name].get_node_ids())
+        check(node_ids == face_nodes, bc.name + " resolved to the nodes " + str(node_ids) + ", not " +
+              str(face_nodes))
+    # A replace takes the same selection
+    bc = bcs.replace_fixed(PREFIX + "Geo_Fix", region=geometry_face_selection(2))
+    face_2_nodes = sorted(pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [2]}).get_ids())
+    check(sorted(pmx.model.node_sets[bc.region_name].get_node_ids()) == face_2_nodes,
+          "the replaced geometry selection did not resolve to the nodes of the face")
+    # The geometry target adds no region type, so a named region is still checked against the node ones
+    check_refused(lambda: bcs.add_fixed(PREFIX + "Bad", pmx.create.region('ElementSetName', 'AnySet')),
+                  "ElementSetName region was given", "an element set region must be refused")
+    check_refused(lambda: bcs.add_fixed(PREFIX + "Bad", pmx.create.selection_by_ids('femodel', 'elements',
+                                                                                     'elements', [1])),
+                  "'nodes' or 'geometry'", "an element selection must be refused naming the targets")
+    check(not bcs.contains(PREFIX + "Bad"), "a refused boundary condition was recorded")
+    for collection, bc in added:
+        collection.remove(bc.name)
+
+
 def test_collection_verbs():
     bcs = pmx.model.steps[STEP].bcs
     name = PREFIX + "DR"
@@ -571,6 +609,7 @@ def main():
     test_fixed_dofs()
     test_submodel()
     test_temperature()
+    test_geometry_regions()
     test_collection_verbs()
     test_propagate()
     clean()

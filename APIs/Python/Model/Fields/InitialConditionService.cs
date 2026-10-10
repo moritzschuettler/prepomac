@@ -49,9 +49,9 @@ namespace APIs.Python.Model
             //
             return initialCondition;
         }
-        public void ApplyRegion(InitialCondition initialCondition, object region, string target)
+        public void ApplyRegion(InitialCondition initialCondition, object region, string[] targets)
         {
-            RegionApplier.Apply(initialCondition, region, "region", target, SelectionService, ModelResolver);
+            RegionApplier.Apply(initialCondition, region, "region", targets, SelectionService, ModelResolver);
         }
         public string ResolveScalarDistributionName(object distributionName)
         {

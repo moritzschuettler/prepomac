@@ -100,6 +100,16 @@ namespace APIs.Python.Model
         {
             RegionApplier.Apply(item, region, "region", target, _selectionService, _modelResolver);
         }
+        public void ApplyRegion(IMultiRegion item, object region, string[] targets)
+        {
+            RegionApplier.Apply(item, region, "region", targets, _selectionService, _modelResolver);
+        }
+        public void ApplyRegion(IMultiRegion item, object region, string[] selectionTargets,
+                                string[] namedRegionTargets)
+        {
+            RegionApplier.Apply(item, region, "region", selectionTargets, namedRegionTargets, _selectionService,
+                                _modelResolver);
+        }
         // A name is compared without regard to case, and the name the model keys the item by is stored, because
         // the default names are matched exactly wherever the model reads them
         public string ResolveAmplitudeName(object amplitudeName, string argumentName)

@@ -79,8 +79,9 @@ def surface_selection(face):
     return pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [face]})
 
 
-def element_selection(ids):
-    return pmx.create.selection_by_ids('femodel', 'elements', 'elements', ids)
+def part_selection():
+    # The gravity, centrifugal, body flux and result expansion dialogs pick parts
+    return pmx.create.selection_by_ids('femodel', 'parts', 'parts', [pmx.model.parts.first().id])
 
 
 def plain(value):
@@ -144,8 +145,8 @@ def test_load_round_trips():
     loads.add_surface_traction(PREFIX + "ST_P", surface_selection(3), f1=100)
     loads.replace_surface_traction(PREFIX + "ST_P", p2=3.5, distribution_name=VECTOR)
     loads.add_shell_edge_load(PREFIX + "SE", pmx.create.region('SurfaceName', SURFACE), 7.5)
-    loads.add_gravity(PREFIX + "G", element_selection([1]), f3=-9810)
-    loads.add_centrifugal(PREFIX + "C", element_selection([1]), axis_point=[0, 0, 0], axis_direction=[0, 0, 1],
+    loads.add_gravity(PREFIX + "G", part_selection(), f3=-9810)
+    loads.add_centrifugal(PREFIX + "C", part_selection(), axis_point=[0, 0, 0], axis_direction=[0, 0, 1],
                           rotational_speed=100)
     loads.add_pre_tension(PREFIX + "PT_Auto", surface_selection(1), 500)
     loads.add_pre_tension(PREFIX + "PT_Dir", surface_selection(3), 0.5, tension_type="Displacement",
@@ -158,7 +159,7 @@ def test_load_round_trips():
     loads = thermal.loads
     loads.add_concentrated_flux(PREFIX + "CF", node_selection([1]), 5, add_flux=True)
     loads.add_surface_flux(PREFIX + "DF", surface_selection(1), "=2.5")
-    loads.add_body_flux(PREFIX + "BF", element_selection([1]), 1.5)
+    loads.add_body_flux(PREFIX + "BF", part_selection(), 1.5)
     loads.add_film_heat_transfer(PREFIX + "FH", surface_selection(1), 20, 0.05)
     loads.add_radiation_heat_transfer(PREFIX + "RH", surface_selection(1), 20, 0.8)
     loads.add_radiation_heat_transfer(PREFIX + "RH_Cavity", surface_selection(2), 20, 0.8, cavity_radiation=True,
@@ -220,7 +221,7 @@ def test_constraint_round_trips():
     constraints = pmx.model.constraints
     constraints.add_tie(PREFIX + "Tie", surface_selection(1), surface_selection(2), position_tolerance=0.01)
     constraints.add_cyclic_symmetry(PREFIX + "CS", surface_selection(3), surface_selection(4),
-                                    region=element_selection([1]), number_of_graph_sectors=2, axis_point=[0, 0, 0],
+                                    region=part_selection(), number_of_graph_sectors=2, axis_point=[0, 0, 0],
                                     axis_direction=[0, 0, "1"], number_of_sectors=6)
     constraints.add_joint(PREFIX + "Joint", surface_selection(5), surface_selection(6), joint_type="Slider",
                           center=[0.5, 0.5, 0.5], axis_direction=[0, 0, 1], formulation="Springs", stiffness=5e6)

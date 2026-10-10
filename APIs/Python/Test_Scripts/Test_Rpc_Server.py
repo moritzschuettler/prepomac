@@ -437,6 +437,11 @@ def check_screenshot(client):
     # Only a png is accepted
     error = client.error("screenshot", {"file_name": "viewport.jpg"})
     check(error["code"] == INVALID_PARAMS, "another extension must be refused: " + str(error))
+    # A name with a character no file name may hold is refused as an argument, not failed as an internal error
+    error = client.error("screenshot", {"file_name": "view|port.png"})
+    check(error["code"] == INVALID_PARAMS and "file_name" in error["message"] and
+          "Nothing was done" in error["message"], "an invalid file name must be refused: " + str(error))
+    print("screenshot: a file name with an illegal character refused")
     # The two options of the capture dialog are served here as well
     result = client.result("screenshot", {"transparent_background": True, "magnification": 2})
     check(os.path.exists(result["fileName"]), "the transparent file must exist: " + result["fileName"])

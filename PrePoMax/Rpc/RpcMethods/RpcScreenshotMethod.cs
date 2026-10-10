@@ -35,7 +35,7 @@ namespace PrePoMax.Rpc
         {
             string fileName = request.GetString("file_name", null);
             if (fileName == null) fileName = GetTemporaryFileName();
-            else if (Path.GetExtension(fileName).ToLower() != ".png")
+            else if (GetExtension(fileName).ToLower() != ".png")
                 throw new RpcException(RpcErrorCode.InvalidParams, "A screenshot is written as a .png file.");
             else if (!Path.IsPathRooted(fileName)) fileName = Path.Combine(GetTemporaryDirectory(), fileName);
             //
@@ -70,6 +70,19 @@ namespace PrePoMax.Rpc
             writer.WriteValue("isEmpty", length == 0);
             writer.EndObject();
             return writer.ToString();
+        }
+        // A name that is no file is refused before anything is drawn
+        private static string GetExtension(string fileName)
+        {
+            try
+            {
+                return Path.GetExtension(fileName);
+            }
+            catch (ArgumentException exception)
+            {
+                throw new RpcException(RpcErrorCode.InvalidParams, "The argument file_name is not a valid file " +
+                                                                   "name: " + exception.Message + " Nothing was done.");
+            }
         }
         private static string GetTemporaryFileName()
         {

@@ -55,6 +55,22 @@ namespace APIs.Python.Model
             //
             return elementSet;
         }
+        // An element set made by picking parts keeps the part IDs, which stand for every element of those parts
+        public int[] GetElementIds(FeElementSet elementSet)
+        {
+            if (elementSet.Labels == null) return new int[0];
+            if (!elementSet.CreatedFromParts) return elementSet.Labels;
+            //
+            FeMesh mesh = GetMeshOrNull();
+            HashSet<int> elementIds = new HashSet<int>();
+            foreach (int partId in elementSet.Labels)
+            {
+                BasePart part = mesh == null ? null : mesh.GetPartFromId(partId);
+                if (part != null && part.Labels != null) elementIds.UnionWith(part.Labels);
+            }
+            //
+            return elementIds.OrderBy(id => id).ToArray();
+        }
         public void Add(string name, SelectionAPI selection)
         {
             ValidateNewName(name, null);

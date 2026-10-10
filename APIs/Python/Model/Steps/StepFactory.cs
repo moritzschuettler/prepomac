@@ -384,7 +384,7 @@ namespace APIs.Python.Model
         }
         private static double ToDoubleAtLeast(object value, string argumentName, double minimum)
         {
-            double converted = PythonValueConverter.ToDouble(value, argumentName);
+            double converted = PythonValueConverter.ToFiniteDouble(value, argumentName);
             if (!(converted >= minimum))
                 throw new PythonAPIException("The argument '" + argumentName + "' must be at least " + minimum + ".");
             //
@@ -401,7 +401,7 @@ namespace APIs.Python.Model
         }
         private static double ToPositiveDouble(object value, string argumentName)
         {
-            double converted = PythonValueConverter.ToDouble(value, argumentName);
+            double converted = PythonValueConverter.ToFiniteDouble(value, argumentName);
             if (!(converted > 0))
                 throw new PythonAPIException("The argument '" + argumentName + "' must be positive.");
             //

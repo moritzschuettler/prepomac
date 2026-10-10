@@ -139,6 +139,9 @@ namespace APIs.Python.Model
             MeshingParameters partDefaults = _meshGateway.GetPartDefaultMeshingParameters(item.Name,
                                                                                           item.CreationIds);
             if (partDefaults == null) return;
+            // The dialog keeps the view and the size definition it shows when the selection changes
+            partDefaults.AdvancedView = item.AdvancedView;
+            partDefaults.RelativeSize = item.RelativeSize;
             //
             int[] creationIds = item.CreationIds;
             Selection creationData = item.CreationData;
@@ -151,6 +154,7 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             ShellMmg partDefaults = _meshGateway.GetPartDefaultShellMmg(item.Name, item.CreationIds);
             if (partDefaults == null) return;
+            partDefaults.RelativeSize = item.RelativeSize;
             //
             int[] creationIds = item.CreationIds;
             Selection creationData = item.CreationData;

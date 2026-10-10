@@ -114,7 +114,8 @@ namespace APIs.Python.Model
                     throw new PythonAPIException("The contact pair '" + contactPair.Name + "' uses small " +
                                                  "sliding, which the " + methodValue + " method does not " +
                                                  "support. Give small_sliding=False together with the method.");
-                smallSlidingValue = false;
+                // A hidden small sliding the call was not told about is kept unless the method changes with it
+                if (smallSlidingValue == null && methodValue != contactPair.Method) smallSlidingValue = false;
             }
             contactPair.Method = methodValue;
             if (smallSlidingValue.HasValue) contactPair.SmallSliding = smallSlidingValue.Value;

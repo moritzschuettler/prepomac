@@ -68,19 +68,16 @@ namespace PrePoMax.Commands
         public override void ToPython(PythonJournalWriter writer)
         {
             List<string> arguments = new List<string>();
-            // A padded or empty name, which the API refuses, comes from a history older than the dialog's check. The
-            // command keeps no old name to tell whether it changed the name, so a padded one is written trimmed
-            // and an empty one is left out, which keeps the name the model has
-            string name = _newModelName == null ? "" : _newModelName.Trim();
-            if (name != _newModelName)
-            {
-                if (name.Length == 0)
-                    writer.Comment("The recorded model name is empty, which the API refuses, so the name is kept");
-                else
-                    writer.Comment("The recorded model name '" + _newModelName + "' is written without its leading " +
-                                   "and trailing spaces, which the API refuses");
-            }
-            if (name.Length > 0) arguments.Add("name=" + PythonValueFormatter.Text(name));
+            // A padded or empty name is refused by the API. The dialog lets an unchanged padded name through, and
+            // the command keeps no old name to tell whether it changed the name, so either is left out, which keeps
+            // the name the model has; trimming a padded one would rename the model on replay
+            string name = _newModelName == null ? "" : _newModelName;
+            if (name.Length == 0)
+                writer.Comment("The recorded model name is empty, which the API refuses, so the name is kept");
+            else if (name != name.Trim())
+                writer.Comment("The recorded model name '" + name + "' has leading or trailing spaces, which the API " +
+                               "refuses, so it is left out and the replace keeps the name the model has");
+            if (name.Length > 0 && name == name.Trim()) arguments.Add("name=" + PythonValueFormatter.Text(name));
             // The dialog changes the model space between the 2D spaces; a model nothing has set keeps Undefined
             if (_newModelProperties.ModelSpace != ModelSpaceEnum.Undefined)
                 arguments.Add("model_space=" + PythonValueFormatter.Text(_newModelProperties.ModelSpace.ToString()));

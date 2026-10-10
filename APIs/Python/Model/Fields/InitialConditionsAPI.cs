@@ -15,6 +15,8 @@ namespace APIs.Python.Model
     public class InitialConditionsAPI : ModelItemsAPI<InitialCondition, InitialConditionAPI>
     {
         // Variables
+        // The dialog picks geometry, which the controller turns into the nodes it covers
+        private static readonly string[] NodeTargets = new string[] { "nodes", "geometry" };
         private readonly InitialConditionService _service;
 
 
@@ -28,8 +30,9 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds an initial temperature using command history. The region is a selection or a named " +
-                   "region; the selection target is nodes. A distribution scales the temperature over the " +
-                   "region. color is the symbol color, given as [R, G, B], [R, G, B, A] or a color name, as " +
+                   "region; the selection target is geometry, as the dialog picks it, or nodes. A distribution " +
+                   "scales the temperature over the region. color is the symbol color, given as [R, G, B], " +
+                   "[R, G, B, A] or a color name, as " +
                    "every initial condition takes it.",
                    Arguments = "name: str, region: Selection or Region, temperature: float, " +
                                "distribution_name: str = None, color: list[int] or str = None",
@@ -44,7 +47,7 @@ namespace APIs.Python.Model
                 new InitialTemperature(nameText, null, RegionTypeEnum.Selection, 0,
                                        _service.GetIsTwoDimensional());
             PythonModelArgumentCheck.SetEquation(initialCondition.Temperature, temperature, "temperature");
-            _service.ApplyRegion(initialCondition, region, "nodes");
+            _service.ApplyRegion(initialCondition, region, NodeTargets);
             if (distribution_name != null)
                 initialCondition.DistributionName = _service.ResolveScalarDistributionName(distribution_name);
             ApplyColor(initialCondition, color);
@@ -53,7 +56,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds an initial translational velocity using command history. The selection target is " +
-                   "nodes. In a 2D model v3 must be zero.",
+                   "geometry, as the dialog picks it, or nodes. In a 2D model v3 must be zero.",
                    Arguments = "name: str, region: Selection or Region, v1: float, v2: float, v3: float, " +
                                "color: list[int] or str = None",
                    Returns = "InitialCondition")]
@@ -70,14 +73,16 @@ namespace APIs.Python.Model
             PythonModelArgumentCheck.SetEquation(initialCondition.V3,
                 ToInPlane(initialCondition, initialCondition.V3, PythonValueConverter.ToEquationString(v3, "v3"),
                           "v3", null), "v3");
-            _service.ApplyRegion(initialCondition, region, "nodes");
+            _service.ApplyRegion(initialCondition, region, NodeTargets);
             ApplyColor(initialCondition, color);
             _service.Add(initialCondition);
             return this[nameText];
         }
 
         [PythonAPI("Adds an initial angular velocity using command history. The axis is given by a point " +
-                   "and a direction. The region is a selection or a named region; the selection target is nodes. " +
+                   "and a non-zero direction. The region is a selection or a named region; the selection " +
+                   "target is geometry, " +
+                   "as the dialog picks it, or nodes. " +
                    "The rotational_speed is in rad/s and must be zero or larger. In a 2D model the third " +
                    "value of axis_point and the first two of axis_direction must be zero.",
                    Arguments = "name: str, region: Selection or Region, axis_point: list[float], " +
@@ -99,7 +104,7 @@ namespace APIs.Python.Model
             PythonModelArgumentCheck.SetEquation(initialCondition.RotationalSpeed,
                                                  ToRotationalSpeed(initialCondition, rotational_speed),
                                                  "rotational_speed");
-            _service.ApplyRegion(initialCondition, region, "nodes");
+            _service.ApplyRegion(initialCondition, region, NodeTargets);
             ApplyColor(initialCondition, color);
             _service.Add(initialCondition);
             return this[nameText];
@@ -229,7 +234,7 @@ namespace APIs.Python.Model
             string newName = name == null ? item.Name : name;
             _service.ValidateNewName(newName, oldName);
             item.Name = newName;
-            if (region != null) _service.ApplyRegion(item, region, "nodes");
+            if (region != null) _service.ApplyRegion(item, region, NodeTargets);
             ApplyColor(item, color);
         }
         private static void ApplyColor(InitialCondition item, object color)
@@ -256,6 +261,7 @@ namespace APIs.Python.Model
             PythonModelArgumentCheck.SetEquation(item.N2, ToInPlane(item, item.N2, direction[1], "axis_direction",
                                                                     "second"), "axis_direction[1]");
             PythonModelArgumentCheck.SetEquation(item.N3, direction[2], "axis_direction[2]");
+            PythonModelArgumentCheck.CheckNonZeroDirection(new[] { item.N1, item.N2, item.N3 }, "axis_direction");
         }
         // The model sets an out of plane value of a 2D initial condition to zero, so a given one is refused instead
         private static EquationString ToInPlane(InitialCondition item, EquationContainer container,

@@ -24,11 +24,7 @@ namespace APIs.Python.Model
         [PythonAPI("The number of elements in the element set.", Returns = "int")]
         public int count
         {
-            get
-            {
-                int[] labels = _service.ResolveElementSet(_elementSetName).Labels;
-                return labels == null ? 0 : labels.Length;
-            }
+            get { return _service.GetElementIds(_service.ResolveElementSet(_elementSetName)).Length; }
         }
         [PythonAPI("True when the element set resolved during the last regeneration.", Returns = "bool")]
         public bool valid { get { return _service.ResolveElementSet(_elementSetName).Valid; } }
@@ -48,8 +44,7 @@ namespace APIs.Python.Model
         [PythonAPI("Returns the element IDs of the element set.", Returns = "IntList")]
         public IntListAPI get_element_ids()
         {
-            int[] labels = _service.ResolveElementSet(_elementSetName).Labels;
-            return new IntListAPI(labels == null ? new int[0] : labels);
+            return new IntListAPI(_service.GetElementIds(_service.ResolveElementSet(_elementSetName)));
         }
         public override string ToString()
         {

@@ -272,7 +272,9 @@ namespace APIs.Python
         {
             string regionType = PythonValueConverter.ToText(region_type, "region_type", false);
             string nameText = PythonValueConverter.ToText(name, "name", true);
-            RegionTypeEnum parsedRegionType = PythonValueConverter.ToEnum<RegionTypeEnum>(regionType, "region_type");
+            string[] possibleNames = PythonEnumVocabulary.GetNarrowedValues("CreateAPI", "region", "region_type");
+            RegionTypeEnum parsedRegionType = PythonValueConverter.ToEnum<RegionTypeEnum>(regionType, "region_type",
+                                                                                          possibleNames);
             if (System.Array.IndexOf(RegionAPI.NamedRegionTypes, parsedRegionType) < 0)
                 throw new PythonAPIException("The argument 'region_type' must be NodeSetName, ElementSetName, " +
                                              "SurfaceName, ReferencePointName, PartName or MassSection, not " +

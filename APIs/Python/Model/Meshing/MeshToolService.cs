@@ -17,6 +17,10 @@ namespace APIs.Python.Model
     internal class MeshToolService
     {
         // Variables
+        // The remeshing dialog picks elements and the split dialog picks the base part, and the controller also
+        // resolves a geometry selection to both
+        private static readonly string[] RemeshingTargets = new string[] { "elements", "geometry" };
+        private static readonly string[] BasePartTargets = new string[] { "parts", "geometry" };
         private readonly ModelResolver _modelResolver;
         private readonly SelectionService _selectionService;
         private readonly IPythonMeshGateway _meshGateway;
@@ -62,7 +66,7 @@ namespace APIs.Python.Model
                 new RemeshingParameters(null, RegionTypeEnum.Selection, meshingParameters);
             if (hausdorff != null) remeshingParameters.Hausdorff = ToHausdorff(hausdorff);
             // The dialog offers a selection or a named element set, so the operation takes both
-            RegionApplier.Apply(remeshingParameters, region, "region", "geometry", _selectionService,
+            RegionApplier.Apply(remeshingParameters, region, "region", RemeshingTargets, _selectionService,
                                 _modelResolver);
             ValidateRemeshingRegionType(remeshingParameters.RegionType);
             //
@@ -94,7 +98,7 @@ namespace APIs.Python.Model
             // valid on replay, because the preceding history reproduces the same mesh. The dialog offers a
             // named part for the base region and a named surface for the splitter region
             MasterSlaveRegionApplier.ApplyMaster(splitPartMeshData, basePartRegion, "base_part_region",
-                                                 "geometry", _selectionService, _modelResolver);
+                                                 BasePartTargets, _selectionService, _modelResolver);
             MasterSlaveRegionApplier.ApplySlave(splitPartMeshData, splitterSurfaceRegion,
                                                 "splitter_surface_region", "surfaces", _selectionService,
                                                 _modelResolver);

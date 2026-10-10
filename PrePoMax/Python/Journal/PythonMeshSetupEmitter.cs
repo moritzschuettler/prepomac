@@ -104,8 +104,13 @@ namespace PrePoMax.Python.Journal
                 // The 2D algorithm of a sweep may be QuadWild
                 arguments[arguments.FindIndex(argument => argument.StartsWith("algorithm_2d="))] =
                     "algorithm_2d=" + PythonValueFormatter.Text(sweep.SweepAlgorithmMesh2D.ToString());
-                arguments.Add("optimize_first_order_shell=" +
-                              PythonValueFormatter.Text(sweep.OptimizeFirstOrderShell.ToString()));
+                // QuadWild meshes the sources of a sweep in place of the gmsh recombination and optimisation, which
+                // the dialog then hides and the API refuses
+                if (sweep.SourceMesher == SweepSourceMesherEnum.QuadWild)
+                    arguments.RemoveAll(argument => argument.StartsWith("recombine_min_quality=") ||
+                                                    argument.StartsWith("algorithm_recombine="));
+                else arguments.Add("optimize_first_order_shell=" +
+                                   PythonValueFormatter.Text(sweep.OptimizeFirstOrderShell.ToString()));
                 arguments.Add("elements_per_layer=" + PythonValueFormatter.List(sweep.NumOfElementsPerLayer));
                 // An item read from an older file sweeps every cell, a new one uses the symmetry, so the value
                 // is always written
@@ -203,10 +208,16 @@ namespace PrePoMax.Python.Journal
                           PythonValueFormatter.Format(item.TransfiniteFourSided));
             arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));
         }
+        // The dialog sizes the mesh by the factors only with the relative switch on in its advanced view, and
+        // shows only the pair in use, which is the only pair the API takes
         private static void AddMeshingParameterValues(List<string> arguments, MeshingParameters parameters)
         {
-            arguments.Add("max_size=" + PythonValueFormatter.Number(parameters.MaxH));
-            arguments.Add("min_size=" + PythonValueFormatter.Number(parameters.MinH));
+            bool relativeSizeUsed = parameters.RelativeSize && parameters.AdvancedView;
+            if (!relativeSizeUsed)
+            {
+                arguments.Add("max_size=" + PythonValueFormatter.Number(parameters.MaxH));
+                arguments.Add("min_size=" + PythonValueFormatter.Number(parameters.MinH));
+            }
             arguments.Add("fineness=" + PythonValueFormatter.Number(parameters.Fineness));
             arguments.Add("grading=" + PythonValueFormatter.Number(parameters.Grading));
             arguments.Add("elements_per_edge=" + PythonValueFormatter.Number(parameters.ElementsPerEdge));
@@ -214,9 +225,12 @@ namespace PrePoMax.Python.Journal
             arguments.Add("second_order=" + PythonValueFormatter.Format(parameters.SecondOrder));
             arguments.Add("midside_nodes_on_geometry=" +
                           PythonValueFormatter.Format(parameters.MidsideNodesOnGeometry));
-            arguments.Add("relative_size=" + PythonValueFormatter.Format(parameters.RelativeSize));
-            arguments.Add("factor_max=" + PythonValueFormatter.Number(parameters.FactorMax));
-            arguments.Add("factor_min=" + PythonValueFormatter.Number(parameters.FactorMin));
+            arguments.Add("relative_size=" + PythonValueFormatter.Format(relativeSizeUsed));
+            if (relativeSizeUsed)
+            {
+                arguments.Add("factor_max=" + PythonValueFormatter.Number(parameters.FactorMax));
+                arguments.Add("factor_min=" + PythonValueFormatter.Number(parameters.FactorMin));
+            }
             arguments.Add("split_compound_mesh=" + PythonValueFormatter.Format(parameters.SplitCompoundMesh));
             arguments.Add("merge_compound_parts=" +
                           PythonValueFormatter.Format(parameters.MergeCompoundParts));
@@ -225,8 +239,9 @@ namespace PrePoMax.Python.Journal
         private static void AddShellMmgValues(List<string> arguments, ShellMmg shellMmg)
         {
             arguments.Add("relative_size=" + PythonValueFormatter.Format(shellMmg.RelativeSize));
-            arguments.Add("relative_hausdorff=" + PythonValueFormatter.Number(shellMmg.RelativeHausdorff));
-            arguments.Add("hausdorff=" + PythonValueFormatter.Number(shellMmg.Hausdorff));
+            if (shellMmg.RelativeSize)
+                arguments.Add("relative_hausdorff=" + PythonValueFormatter.Number(shellMmg.RelativeHausdorff));
+            else arguments.Add("hausdorff=" + PythonValueFormatter.Number(shellMmg.Hausdorff));
             arguments.Add("keep_model_edges=" + PythonValueFormatter.Format(shellMmg.KeepModelEdges));
         }
     }

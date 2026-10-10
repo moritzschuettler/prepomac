@@ -307,6 +307,36 @@ def test_defined_fields():
     check(list(last.get_names()) == [PREFIX + "DF_Last"], "propagating from the last step changed its fields")
 
 
+def geometry_face_selection(face):
+    """The selection the dialog records for a picked face: its geometry IDs, as the journal writes them."""
+    geometry_ids = list(pmx.create.selection_by_ids('femodel', 'geometry', 'surfaces', {1: [face]}).get_ids())
+    check(len(geometry_ids) > 0, "the face resolved to no geometry IDs")
+    return pmx.create.selection_by_ids('femodel', 'geometry', 'geometry', geometry_ids)
+
+
+def test_defined_field_geometry_regions():
+    # The defined field dialog picks geometry for a temperature by value, so its journal hands that
+    # selection back, and it must resolve to the nodes the same face selected by nodes gives
+    fields = pmx.model.steps[STEP].defined_fields
+    face_nodes = sorted(pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [1]}).get_ids())
+    field = fields.add_temperature(PREFIX + "DF_Geo", geometry_face_selection(1), 100)
+    check(field.region_type == "NodeSetName", "unexpected region type " + field.region_type)
+    node_ids = sorted(pmx.model.node_sets[field.region_name].get_node_ids())
+    check(node_ids == face_nodes, "the geometry selection resolved to the nodes " + str(node_ids) + ", not " +
+          str(face_nodes))
+    field = fields.replace_temperature(PREFIX + "DF_Geo", region=geometry_face_selection(2))
+    face_2_nodes = sorted(pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [2]}).get_ids())
+    check(sorted(pmx.model.node_sets[field.region_name].get_node_ids()) == face_2_nodes,
+          "the replaced geometry selection did not resolve to the nodes of the face")
+    # The geometry target adds no region type, so a named region is still checked against the node ones
+    check_refused(lambda: fields.add_temperature(PREFIX + "Bad", pmx.create.region('ElementSetName', 'AnySet'), 100),
+                  "ElementSetName region was given", "an element set region must be refused")
+    check_refused(lambda: fields.add_temperature(PREFIX + "Bad", element_selection([1]), 100),
+                  "'nodes' or 'geometry'", "an element selection must be refused naming the targets")
+    check(not fields.contains(PREFIX + "Bad"), "a refused defined temperature was recorded")
+    fields.remove(PREFIX + "DF_Geo")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
@@ -314,6 +344,7 @@ def main():
     test_field_outputs()
     test_history_outputs()
     test_defined_fields()
+    test_defined_field_geometry_regions()
     clean()
     print("TEST PASSED")
 

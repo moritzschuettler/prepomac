@@ -134,9 +134,10 @@ namespace PrePoMax.Python.Journal
                                                         JointCenterDefinitionEnum.MasterSurface.ToString() :
                                                         JointCenterDefinitionEnum.Coordinates.ToString()));
                 if (!centerFromMasterSurface) arguments.Add("center=" + Point(joint.X, joint.Y, joint.Z));
-                arguments.Add("axis_defined_by=" + PythonValueFormatter.Text(joint.AxisDefinition.ToString()));
-                if (joint.HasAxis && joint.AxisDefinition == JointDefinitionEnum.UserDefined)
-                    arguments.Add("axis_direction=" + Point(joint.N1, joint.N2, joint.N3));
+                // A Ball or a Weld joint has no axis, which the dialog then hides and the API refuses
+                if (joint.HasAxis)
+                    arguments.Add("axis_defined_by=" + PythonValueFormatter.Text(joint.AxisDefinition.ToString()));
+                if (joint.HasUserDefinedAxis) arguments.Add("axis_direction=" + Point(joint.N1, joint.N2, joint.N3));
                 arguments.Add("formulation=" + PythonValueFormatter.Text(joint.Formulation.ToString()));
                 if (joint.HasSprings)
                 {

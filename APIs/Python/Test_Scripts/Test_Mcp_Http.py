@@ -478,6 +478,22 @@ def check_writing_tools(endpoint):
     check("pmx.model.parameters.add" in history["journal"]["source"],
           "the journal must carry the call: " + history["journal"]["source"])
     print("get_history: " + str(history["commandCount"]) + " commands, journalled")
+    # journal_file writes the journal where the caller names it, as the history method of the pipe does
+    folder = tempfile.mkdtemp(prefix="pmx_mcp_journal_")
+    journal_file = os.path.join(folder, "mcp_journal.py")
+    try:
+        history = json.loads(endpoint.tool("get_history", {"include_journal": True, "journal_file": journal_file}))
+        journal = history["journal"]
+        check(not journal["isInline"] and "source" not in journal,
+              "a journal written to journal_file must not be returned inline: " + str(journal))
+        check(os.path.normcase(os.path.realpath(journal["fileName"])) ==
+              os.path.normcase(os.path.realpath(journal_file)),
+              "the journal must be written to journal_file: " + str(journal))
+        with open(journal_file, encoding="utf-8-sig") as file:
+            check("pmx.model.parameters.add" in file.read(), "the journal file must carry the call")
+        print("get_history: the journal written to " + journal_file)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
 
 
 def check_a_long_call(endpoint):
@@ -660,6 +676,13 @@ def check_screenshot(endpoint):
     view = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.view.current"}))
     check(view["value"] == "femodel", "a refused screenshot must leave the view alone: " + str(view["value"]))
     print("screenshot: a component without a field refused, the view left as it was")
+    # An empty field names nothing to plot either, and is refused naming the argument of the tool
+    text = endpoint.failing_tool("screenshot", {"view": "geometry", "field": ""})
+    check("argument field" in text and "field_name" not in text and "Nothing was done" in text,
+          "an empty field must be refused naming field: " + text)
+    view = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.view.current"}))
+    check(view["value"] == "femodel", "a refused screenshot must leave the view alone: " + str(view["value"]))
+    print("screenshot: an empty field refused, the view left as it was")
     # A view change is not a model change, so it records nothing
     history = json.loads(endpoint.tool("get_history"))
     for command in history["commands"]:

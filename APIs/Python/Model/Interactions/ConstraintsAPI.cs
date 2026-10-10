@@ -21,7 +21,12 @@ namespace APIs.Python.Model
         // Variables
         private const string NodeTarget = "nodes";
         private const string SurfaceTarget = "surfaces";
-        private const string ElementTarget = "elements";
+        // The rigid body dialog picks geometry, which the controller turns into the nodes it covers
+        private static readonly string[] RigidBodyTargets = new string[] { "nodes", "geometry" };
+        // The result expansion dialog picks parts, and the controller marks the element set it makes from them
+        // as made of parts, so a selection targets parts while a named region is an element set or a part
+        private static readonly string[] PartTargets = new string[] { "parts" };
+        private static readonly string[] ElementRegionTargets = new string[] { "elements" };
         private readonly ConstraintService _service;
 
 
@@ -82,9 +87,10 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a cyclic symmetry constraint using command history. The master and the slave " +
                    "region are the two sector faces and their selection target is surfaces. The region is " +
-                   "the result expansion region, its selection target is elements, and it is required " +
+                   "the result expansion region, its selection target is parts, as the dialog picks them, " +
+                   "and it is required " +
                    "when number_of_graph_sectors is larger than 1 and refused otherwise. The axis is given " +
-                   "by a point and a direction. number_of_sectors is at least 2 and number_of_graph_sectors " +
+                   "by a point and a non-zero direction. number_of_sectors is at least 2 and number_of_graph_sectors " +
                    "between 1 and number_of_sectors. Cyclic symmetry is refused in a 2D model. The " +
                    "position_tolerance is taken as add_tie takes it, float('nan') meaning Default. " +
                    "master_color and slave_color color the two surfaces, given as [R, G, B], [R, G, B, A] or a color name.",
@@ -169,8 +175,9 @@ namespace APIs.Python.Model
                    "bodies coupled by equations, or Springs, axial springs from every surface node to nodes on the " +
                    "joint axis tied by equations, which needs no rigid body and solves on shell elements; its " +
                    "stiffness comes from the model unless a stiffness is given. stiffness and " +
-                   "stiffness_defined_by are refused with the RigidBody formulation, axis_direction with a Ball " +
-                   "or Weld joint, which has no axis, and a joint is refused in a 2D model. A center, " +
+                   "stiffness_defined_by are refused with the RigidBody formulation, axis_defined_by and " +
+                   "axis_direction with a Ball or Weld joint, which has no axis, a zero axis_direction, and a " +
+                   "joint in a 2D model. A center, " +
                    "axis_direction or stiffness given together with a definition that does not use it - " +
                    "MasterSurface or FromModel - is refused. master_color and slave_color color the two surfaces, given as " +
                    "[R, G, B], [R, G, B, A] or a color name.",
@@ -227,7 +234,8 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, constraint);
         }
 
-        [PythonAPI("Adds a rigid body constraint using command history. The selection target is nodes. " +
+        [PythonAPI("Adds a rigid body constraint using command history. The selection target is geometry, " +
+                   "as the dialog picks it, or nodes. " +
                    "color is the constraint color, given as [R, G, B], [R, G, B, A] or a color name.",
                    Arguments = "name: str, reference_point_name: str, region: Selection or Region, " +
                                "color: list[int] or str = None",
@@ -240,7 +248,7 @@ namespace APIs.Python.Model
             RigidBody constraint =
                 new RigidBody(nameText, _service.ResolveReferencePointName(reference_point_name), null,
                               RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
-            _service.ApplyRegion(constraint, region, NodeTarget);
+            _service.ApplyRegion(constraint, region, RigidBodyTargets);
             ApplyColor(constraint, color);
             _service.Add(constraint);
             //
@@ -260,7 +268,7 @@ namespace APIs.Python.Model
             RigidBody constraint = _service.CloneForReplace<RigidBody>(oldName, "rigid_body");
             if (reference_point_name != null)
                 constraint.ReferencePointName = _service.ResolveReferencePointName(reference_point_name);
-            if (region != null) _service.ApplyRegion(constraint, region, NodeTarget);
+            if (region != null) _service.ApplyRegion(constraint, region, RigidBodyTargets);
             ApplyColor(constraint, color);
             //
             return Replace(oldName, nameText, constraint);
@@ -582,8 +590,10 @@ namespace APIs.Python.Model
             if (jointType != null)
                 constraint.JointType =
                     PythonValueConverter.ToEnum<JointTypeEnum>(AsString(jointType, "joint_type"), "joint_type");
-            if (axisDirection != null && !constraint.HasAxis)
-                throw new PythonAPIException("The argument 'axis_direction' does not apply to a " + constraint.JointType +
+            if ((axisDirection != null || axisDefinedBy != null) && !constraint.HasAxis)
+                throw new PythonAPIException("The argument '" + (axisDirection != null ? "axis_direction" :
+                                                                 "axis_defined_by") +
+                                             "' does not apply to a " + constraint.JointType +
                                              " joint, which has no axis.");
             // A given stiffness is the user defined one unless the definition says otherwise
             if (stiffness != null)
@@ -647,12 +657,7 @@ namespace APIs.Python.Model
                                              "axis_defined_by='UserDefined' with it, or leave axis_direction out.");
             //
             if (constraint.HasUserDefinedAxis)
-            {
-                double[] axis = constraint.GetAxisDirection();
-                double lengthSquared = axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2];
-                if (double.IsNaN(lengthSquared) || double.IsInfinity(lengthSquared) || lengthSquared <= 1E-24)
-                    throw new PythonAPIException("The argument 'axis_direction' must be non-zero.");
-            }
+                PythonModelArgumentCheck.CheckNonZeroDirection(constraint.GetAxisDirection(), "axis_direction");
         }
         private static string AsString(object value, string argumentName)
         {
@@ -677,6 +682,7 @@ namespace APIs.Python.Model
                 EquationString[] values = PythonValueConverter.ToEquationArray(axisDirection, "axis_direction", 3);
                 PythonModelArgumentCheck.SetEquations(new[] { constraint.N1, constraint.N2, constraint.N3 }, values,
                                                       "axis_direction");
+                PythonModelArgumentCheck.CheckNonZeroDirection(constraint.GetAxisDirection(), "axis_direction");
             }
             int sectors = constraint.NumberOfSectors;
             if (numberOfSectors != null)
@@ -705,7 +711,7 @@ namespace APIs.Python.Model
         {
             if (region == null) return;
             //
-            _service.ApplyRegion(constraint, region, ElementTarget);
+            _service.ApplyRegion(constraint, region, PartTargets, ElementRegionTargets);
         }
         private static void ClearExpansionRegion(CyclicSymmetry constraint)
         {

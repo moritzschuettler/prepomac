@@ -196,6 +196,25 @@ def test_mesh_tool_regions():
     check_raises(lambda: mesh.split_part_mesh_using_surface(
         pmx.create.region('PartName', 'NoSuchPart'), element_selection),
         "splitting must reject an unknown part")
+    # The remeshing dialog picks elements and the split dialog picks the base part, so their journals hand
+    # those selections back. The target is checked before the tool runs, and a remeshing of the solid
+    # elements of the cube finds no shell element to remesh, so it leaves the mesh as it is
+    message = raised_message(lambda: mesh.remesh_elements(
+        pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [101])))
+    check(message is not None and "'elements' or 'geometry'" in message,
+          "a node selection must be refused naming the remeshing targets: " + str(message))
+    message = raised_message(lambda: mesh.remesh_elements(element_selection))
+    check(message is None or "target" not in message,
+          "the element selection the remeshing dialog records was refused: " + str(message))
+    part_selection = pmx.create.selection_by_ids('femodel', 'parts', 'parts', [pmx.model.parts.first().id])
+    message = raised_message(lambda: mesh.split_part_mesh_using_surface(
+        pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [101]), element_selection))
+    check(message is not None and "'parts' or 'geometry'" in message,
+          "a node selection must be refused naming the base part targets: " + str(message))
+    # The base part region is applied first, so a refusal of the splitter region shows it was taken
+    message = raised_message(lambda: mesh.split_part_mesh_using_surface(part_selection, element_selection))
+    check(message is not None and "requires target 'surfaces'" in message,
+          "the part selection the split dialog records was refused: " + str(message))
     # A value the model would refuse, clamp or move is refused naming the argument, before the tool runs
     for call, words in [(lambda: mesh.remesh_elements(element_selection, max_size=1.0, min_size=2.0),
                          ["min_size", "max_size"]),

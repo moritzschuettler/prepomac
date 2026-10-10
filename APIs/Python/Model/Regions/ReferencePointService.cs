@@ -193,8 +193,10 @@ namespace APIs.Python.Model
         }
         private void ApplySelection(FeReferencePoint referencePoint, string createdFrom, SelectionAPI selection)
         {
+            string[] possibleNames = PythonEnumVocabulary.GetNarrowedValues(null, "add_from_selection",
+                                                                            "created_from");
             FeReferencePointCreatedFrom mode =
-                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from");
+                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from", possibleNames);
             if (mode != FeReferencePointCreatedFrom.OnPoint && mode != FeReferencePointCreatedFrom.BetweenTwoPoints &&
                 mode != FeReferencePointCreatedFrom.CircleCenter)
                 throw new PythonAPIException("The argument 'created_from' must be OnPoint, BetweenTwoPoints or " +
@@ -215,14 +217,19 @@ namespace APIs.Python.Model
         private void ApplyRegion(FeReferencePoint referencePoint, string createdFrom, string regionType,
                                  string regionName)
         {
+            string[] possibleNames = PythonEnumVocabulary.GetNarrowedValues(null, "add_from_region",
+                                                                            "created_from");
             FeReferencePointCreatedFrom mode =
-                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from");
+                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from", possibleNames);
             if (mode != FeReferencePointCreatedFrom.CenterOfGravity &&
                 mode != FeReferencePointCreatedFrom.BoundingBoxCenter)
                 throw new PythonAPIException("The argument 'created_from' must be CenterOfGravity or " +
                                              "BoundingBoxCenter when a region is given.");
             // The reference point dialog offers a node set or a surface, so a part is not a region here
-            RegionTypeEnum region = PythonValueConverter.ToEnum<RegionTypeEnum>(regionType, "region_type");
+            string[] regionTypeNames = PythonEnumVocabulary.GetNarrowedValues(null, "add_from_region",
+                                                                              "region_type");
+            RegionTypeEnum region = PythonValueConverter.ToEnum<RegionTypeEnum>(regionType, "region_type",
+                                                                                regionTypeNames);
             if (region != RegionTypeEnum.NodeSetName && region != RegionTypeEnum.SurfaceName)
                 throw new PythonAPIException("The argument 'region_type' must be NodeSetName or SurfaceName.");
             if (regionName == null || regionName.Trim().Length == 0)
@@ -263,8 +270,10 @@ namespace APIs.Python.Model
         // Only the mode is being changed, so the stored selection is reused for the new mode
         private static void ApplyKeptSelection(FeReferencePoint referencePoint, string createdFrom)
         {
+            string[] possibleNames = PythonEnumVocabulary.GetNarrowedValues(null, "add_from_selection",
+                                                                            "created_from");
             FeReferencePointCreatedFrom mode =
-                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from");
+                PythonValueConverter.ToEnum<FeReferencePointCreatedFrom>(createdFrom, "created_from", possibleNames);
             if (mode != FeReferencePointCreatedFrom.OnPoint && mode != FeReferencePointCreatedFrom.BetweenTwoPoints &&
                 mode != FeReferencePointCreatedFrom.CircleCenter)
                 throw new PythonAPIException("The argument 'created_from' must be OnPoint, BetweenTwoPoints or " +

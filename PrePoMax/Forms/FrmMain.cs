@@ -97,8 +97,10 @@ namespace PrePoMax
         private Dictionary<ViewGeometryModelResults, int> _selectedSymbolIndex;
         private Stack<bool[]> _prevMenuStates;
         private bool _closeAfterRegeneration;
-        // Failed jobs whose nonpositive Jacobian element set waits for the running Python to end
-        private HashSet<string> _jobNamesAwaitingNonpositiveJacobianSet = new HashSet<string>();
+        // Failed jobs whose nonpositive Jacobian element set waits for the running Python to end, with the element
+        // ids read when the job ended and the identity of the mesh they belong to, or null when it could not be read
+        private Dictionary<string, Tuple<int[], long?>> _nonpositiveJacobianSetsAwaited =
+            new Dictionary<string, Tuple<int[], long?>>();
         private volatile bool _isNonpositiveJacobianSetAwaited;
         private float _prevScaleFactor;
         private bool _suppressSymbolChanged;
@@ -9506,28 +9508,64 @@ namespace PrePoMax
                 // While the history is replayed or a script recorded as one command runs, the set would be made
                 // by no recorded command
                 if (_controller.IsCommandRecordingSuppressed || _controller.AreCommandsBlocked) return;
-                // Python running on another thread records its own commands, which this one must not interleave, so
-                // the set is made on this thread once that Python has ended
-                if (PythonEngineManager.IsExecuting)
-                {
-                    _jobNamesAwaitingNonpositiveJacobianSet.Add(jobName);
-                    _isNonpositiveJacobianSetAwaited = true;
-                    if (PythonEngineManager.IsExecuting) return;
-                    _jobNamesAwaitingNonpositiveJacobianSet.Remove(jobName);
-                }
                 if (_controller.Model == null || _controller.Model.Mesh == null) return;
                 int[] elementIds = errorElementIds.ToArray();
-                if (_controller.ContainsElementSetOfElements(Globals.NonpositiveJacobian, elementIds)) return;
-                //
-                string elementSetName = _controller.Model.Mesh.ElementSets.GetNextNumberedKey(Globals.NonpositiveJacobian);
-                _controller.AddElementSetCommand(new FeElementSet(elementSetName, elementIds));
-                //
-                WriteDataToOutput("An element set containing elements with nonpositive Jacobian determinant was " +
-                                  "created: " + elementSetName);
+                // Python running on another thread records its own commands, which this one must not interleave, so
+                // the set is made on this thread once that Python has ended, and only if the script left the mesh
+                // the element ids were read against as it was
+                if (PythonEngineManager.IsExecuting)
+                {
+                    _nonpositiveJacobianSetsAwaited[jobName] =
+                        Tuple.Create(elementIds, GetMeshIdentityOrNull(_controller.Model.Mesh));
+                    _isNonpositiveJacobianSetAwaited = true;
+                    if (PythonEngineManager.IsExecuting) return;
+                    _nonpositiveJacobianSetsAwaited.Remove(jobName);
+                }
+                AddNonpositiveJacobianElementSet(elementIds);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
+            }
+        }
+        private void AddNonpositiveJacobianElementSet(int[] elementIds)
+        {
+            if (_controller.ContainsElementSetOfElements(Globals.NonpositiveJacobian, elementIds)) return;
+            //
+            string elementSetName = _controller.Model.Mesh.ElementSets.GetNextNumberedKey(Globals.NonpositiveJacobian);
+            _controller.AddElementSetCommand(new FeElementSet(elementSetName, elementIds));
+            //
+            WriteDataToOutput("An element set containing elements with nonpositive Jacobian determinant was " +
+                              "created: " + elementSetName);
+        }
+        // The node and element counts and a hash of the element ids and their connectivity. A script on another
+        // thread may change the mesh while it is read, so a mesh that cannot be read has no identity
+        private static long? GetMeshIdentityOrNull(FeMesh mesh)
+        {
+            try
+            {
+                unchecked
+                {
+                    long hash = 17;
+                    hash = hash * 31 + mesh.Nodes.Count;
+                    hash = hash * 31 + mesh.Elements.Count;
+                    foreach (var entry in mesh.Elements)
+                    {
+                        long elementHash = entry.Key;
+                        int[] nodeIds = entry.Value.NodeIds;
+                        if (nodeIds != null)
+                        {
+                            foreach (int nodeId in nodeIds) elementHash = elementHash * 31 + nodeId;
+                        }
+                        // The sum does not depend on the order the dictionary enumerates the elements in
+                        hash += elementHash;
+                    }
+                    return hash;
+                }
+            }
+            catch (Exception)
+            {
+                return null;
             }
         }
         private void PythonEngineManager_ExecutionsEnded()
@@ -9545,9 +9583,31 @@ namespace PrePoMax
         {
             if (PythonEngineManager.IsExecuting) return;
             _isNonpositiveJacobianSetAwaited = false;
-            string[] jobNames = _jobNamesAwaitingNonpositiveJacobianSet.ToArray();
-            _jobNamesAwaitingNonpositiveJacobianSet.Clear();
-            foreach (string jobName in jobNames) AddNonpositiveJacobianElementSet(jobName);
+            KeyValuePair<string, Tuple<int[], long?>>[] awaitedSets = _nonpositiveJacobianSetsAwaited.ToArray();
+            _nonpositiveJacobianSetsAwaited.Clear();
+            // Nothing waits for this, so a set that cannot be made is reported in the output, not in a dialog
+            foreach (var entry in awaitedSets)
+            {
+                string notCreated = "The element set containing elements with nonpositive Jacobian determinant of " +
+                                    "the analysis " + entry.Key + " was not created";
+                try
+                {
+                    if (_controller.IsCommandRecordingSuppressed || _controller.AreCommandsBlocked) continue;
+                    if (_controller.Model == null || _controller.Model.Mesh == null) continue;
+                    //
+                    long? meshIdentity = entry.Value.Item2;
+                    if (meshIdentity == null || meshIdentity != GetMeshIdentityOrNull(_controller.Model.Mesh))
+                    {
+                        WriteDataToOutput(notCreated + ", because the mesh changed while a Python script ran.");
+                        continue;
+                    }
+                    AddNonpositiveJacobianElementSet(entry.Value.Item1);
+                }
+                catch (Exception ex)
+                {
+                    WriteDataToOutput(notCreated + ": " + ex.Message);
+                }
+            }
         }
         //
         public AnalysisJob GetDefaultJob()

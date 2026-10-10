@@ -270,7 +270,7 @@ PrePoMax and switch on Tools - Automation Server; do not work around it.
 | `run_python` | Python against the live model, recorded as commands or as one script. A call that outlasts its wait is answered with a `callId`. |
 | `get_call` | The answer of a call that outlasted its wait, collected by its `callId`, shaped the way the tool that started it shapes it - `run_python` and `eval_expression`, and `read_model`, `read_topology`, `run_job` and `get_job`, which run Python too. An answer whose response never reached the client stays collectable. |
 | `cancel_call` | Stops a call that is still running, by its `callId`, at its next Python statement. Answered within a few seconds. |
-| `get_history` | The command history, and the journal of it as a Python script. A journal over 200,000 characters is written to a temporary file and returned as its path. |
+| `get_history` | The command history, and the journal of it as a Python script. A journal over 200,000 characters is written to a temporary file and returned as its path. `journal_file` writes the journal to that `.py` file instead, as the `history` method does: it needs `include_journal`, and a relative name goes under `%TEMP%\PrePoMax`. |
 | `run_job` | Starts an analysis without waiting, so the user keeps the interface, and returns the status it started with. No monitor is opened; one the user opens is a dialog like any other, so the session answers busy until it is closed. |
 | `get_job` | The status of an analysis and whether it is up to date, and its solver output on request. |
 | `screenshot` | A PNG of the viewport, optionally after setting the view, the camera and the plotted result. Returns the path and the picture as an image, up to 4 MB. |
@@ -310,6 +310,8 @@ Four things an agent has no way to work out from the model alone, and where each
   enumeration - the values it accepts. The enumerations come from `PythonEnumVocabulary`, which is
   audited against every `ToEnum` site by `Test_Api_Enum_Vocabulary.py`, so an argument added without
   an entry is reported rather than silently described without its values.
+  A value that is no option at all is refused listing the same values, so a member that accepts
+  only part of an enumeration names only that part.
 - **A collection that does not exist yet.** `describe_api` also takes an API type name - `Loads`,
   `Model.Steps` - so the half of the API that hangs off something the model does not have can still
   be read. Creating a step to see what loads it would offer is a change to the user's model made for
@@ -508,7 +510,7 @@ it. The folder is restricted to the current user, because the token is in it.
 | `wait` | Collects the answer of an `exec` or `eval` that outlasted its wait, by its `call_id`, waiting up to `timeout` seconds; `get_call` over MCP. |
 | `cancel` | Interrupts a running `exec` or `eval`, by its `call_id`; `cancel_call` over MCP. Never waits for the turn, and is served in read only mode. |
 | `history` | The commands - the last `limit` of them, 200 by default, 0 for all, a negative one refused - and the journal with `include_journal`, written to `journal_file` when it is given - a relative one under the temporary folder's `PrePoMax` folder, as `screenshot` places it, and a missing folder it points into created. `journal_file` without `include_journal`, an empty one and one that is not a `.py` file are refused. |
-| `screenshot` | Writes a PNG to `file_name`, or to the temporary folder, and returns the path; `transparent_background` and `magnification` (1 to 4) as in the capture dialog. |
+| `screenshot` | Writes a PNG to `file_name`, or to the temporary folder, and returns the path; `transparent_background` and `magnification` (1 to 4) as in the capture dialog. A `file_name` that is not a valid file name is refused. |
 | `shutdown` | Stops the server; never closes the application. |
 | `exit` | Closes a hidden session; refused for one with a window. `discard_changes` closes it with unsaved changes. |
 
@@ -843,9 +845,9 @@ Reached as `pmx.model.mesh`.
 | `setup_items` | The mesh setup items of the model. |
 | `generate(part_names)` | Meshes the named geometry parts. The call returns when the meshing has finished, and reports every named part with the reason it was not meshed and an empty reason for one that was. A call that meshes nothing at all raises instead, and records no command. |
 | `generate_boundary_layer(selection, thickness)` | Generates a prismatic boundary layer on the selected faces. `thickness` must be a finite value larger than 0. |
-| `remesh_elements(region, ...)` | Remeshes the elements of a region. The region is a selection or an `ElementSetName` region. `max_size` and `min_size` are at least 0, and a `min_size` larger than the `max_size` it ends up with - the one given or the default - is refused naming both; `hausdorff` is larger than 0. |
+| `remesh_elements(region, ...)` | Remeshes the elements of a region. The region is a selection or an `ElementSetName` region; the selection target is `elements`, as the dialog picks them, or `geometry`. `max_size` and `min_size` are at least 0, and a `min_size` larger than the `max_size` it ends up with - the one given or the default - is refused naming both; `hausdorff` is larger than 0. |
 | `thicken_shell_mesh(part_names, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens the shell mesh of the named parts. `thickness` must be larger than 0 and `number_of_layers` at least 1. |
-| `split_part_mesh_using_surface(base_part_region, splitter_surface_region, ...)` | Splits a part mesh with a surface. The base part region is a selection or a `PartName` region, the splitter surface region a selection or a `SurfaceName` region. `max_size` and `min_size` are checked as by `remesh_elements`. |
+| `split_part_mesh_using_surface(base_part_region, splitter_surface_region, ...)` | Splits a part mesh with a surface. The base part region is a selection or a `PartName` region, the splitter surface region a selection or a `SurfaceName` region. The base part selection target is `parts`, as the dialog picks them, or `geometry`, and the splitter surface selection target is `surfaces`. `max_size` and `min_size` are checked as by `remesh_elements`. |
 | `update_nodal_coordinates_from_file(file_name)` | Reads new nodal coordinates from a file. |
 
 The five tools are **one-shot operations**: they run once and are replayed only during a regenerate.
@@ -886,6 +888,14 @@ carries, not by the verdict of the item it replaces.
 `add_meshing_parameters` accepts `relative_size`, `factor_max`, `factor_min`, `max_size`,
 `min_size`, `fineness`, `grading`, `elements_per_edge`, `elements_per_curve`, `second_order`,
 `midside_nodes_on_geometry`, `split_compound_mesh`, `merge_compound_parts` and `merge_cells`.
+`relative_size=True` sizes the mesh by `factor_max` and `factor_min` times the bounding box diagonal of each
+part, and `relative_size=False` by `max_size` and `min_size`. The dialog offers the switch only in its advanced
+view and meshes by the sizes in its basic view, whatever switch it keeps hidden there, so `relative_size=True`
+also turns the advanced view on, and `relative_size` reads back `True` only for an item that is sized by its
+factors. The dialog shows only the pair in use, so the other pair is refused naming `relative_size` - judged on
+the switch the item ends up with, the one given or the one it keeps - and is left out of `get_settings`; a pair
+that is not in use keeps its values for a later switch back. Only Netgen honours the relative sizes: Gmsh, Mmg
+and the limits of a local mesh size always use `max_size` and `min_size`.
 `merge_cells`, `True` by default, meshes each part a split cut as one mesh part; `False` keeps its
 cells as separate, conforming mesh parts, so they can carry different sections. The Netgen settings
 `number_of_optimize_steps_2d`, `number_of_optimize_steps_3d`, `quad_dominated`, `transfinite_three_sided`,
@@ -901,7 +911,8 @@ it is given a new `selection` and no other value, so the sizes follow the geomet
 covers; a replace that also sets a value is the caller's and keeps everything it is not told about.
 This is what the dialog does when the selection changes and nothing was typed into the property
 grid. Only sizes that still equal the part defaults of the item's previous region follow it: sizes
-an earlier call set are kept, the way the dialog keeps the stored values of an item it edits.
+an earlier call set are kept, the way the dialog keeps the stored values of an item it edits. The
+relative switch, and the view that offers it, are kept as they are.
 
 Every `add_*` and `replace_*` of a mesh setup item asks the model whether it can define the item, the way every apply of
 the dialog does, so a value the model refuses - a QuadWild `alpha` outside 0 to 1, for one - is refused by a replace that
@@ -916,18 +927,24 @@ items and their dialog take any finite `transfinite_angle_deg` and `recombine_mi
 transfinite constraint while its corner angles lie between 180 minus the angle and the angle, so 180 or more keeps it
 on every face);
 `hausdorff` and `relative_hausdorff` larger than 0; `thickness` larger than 0 and `number_of_layers` at least 1;
-`quad_wild_alpha` of a sweep from 0 to 1; `singularity_position` and `number_of_search_rounds` at least 0. A minimum is checked
+`quad_wild_alpha` of a sweep from 0 to 1; `singularity_position` and `number_of_search_rounds` at least 0. A value the
+item does not use in the state it ends up with is refused before its range, naming the argument that would make it
+used: the factors or the sizes against `relative_size`, the two Hausdorff distances of a shell MMG item against
+`relative_size`, and the QuadWild or the gmsh source settings of a sweep against `algorithm_2d`. A minimum is checked
 against the maximum the item ends up with - the one given, or the one it keeps or takes from the selected parts - so a
 `min_size` larger than `max_size`, or a `factor_min` larger than `factor_max`, is refused naming both instead of
 dragging the other value along, and `split_compound_mesh` and `merge_compound_parts` cannot both end up `True`.
 `triangulation_mesher` of a QuadWild item is `Gmsh`, `Netgen` or `Mmg`.
 
 `add_shell_mmg` accepts `relative_size`, `relative_hausdorff`, `hausdorff` and `keep_model_edges`.
+`relative_size=True`, the default, uses `relative_hausdorff` times the bounding box diagonal of the part, and
+`relative_size=False` the absolute `hausdorff`. The dialog shows only the distance in use, so the other one is
+refused naming `relative_size` and left out of `get_settings`, and keeps its value for a later switch back.
 Adding this item to an STL shell selects MMG; without an explicit mesher setup item, Netgen is used.
 Like the dialog, it derives `hausdorff` from the size of the selected parts - the bounding box
 diagonal times `relative_hausdorff` - and the arguments of the call are applied on top of that.
 `replace_shell_mmg` rebuilds it from the newly selected parts under the same rule as
-`replace_meshing_parameters`. MMG continues to use the shared maximum/minimum size and element order
+`replace_meshing_parameters`, keeping `relative_size`. MMG continues to use the shared maximum/minimum size and element order
 values from `meshing_parameters`.
 
 Every Gmsh item accepts the settings its dialog shows and no others, so the arguments differ per
@@ -948,7 +965,7 @@ polar face the counts fixed on its sides do not allow is meshed as an ordinary p
 | `tetrahedral_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_solid`, `optimize_high_order` |
 | `shell_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell` |
 | `transfinite_mesh` | `allow_pyramid_elements`, `algorithm_2d`, `algorithm_3d`, `recombine`, `transfinite_angle_deg`, `transfinite_three_sided` (`Polar` caps the five-faced cells with the grid gmsh collapses at one corner and fills them with wedges and hexahedra; `Mapped` meshes the caps as three blocks of quads and, recombined, the cells by hexahedra only) |
-| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell`, `elements_per_layer`, `keep_imprint_edges` (keep the edges carried across a prism to follow an imprint as edges of the mesh; off by default), `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`) |
+| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell`, `elements_per_layer`, `keep_imprint_edges` (keep the edges carried across a prism to follow an imprint as edges of the mesh; off by default), `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`). QuadWild meshes the sources in place of the gmsh recombination and optimisation, so, as in the dialog, the `quad_wild_*` settings are used only with `algorithm_2d='QuadWild'` and `recombine_min_quality`, `algorithm_recombine` and `optimize_first_order_shell` only with a gmsh `algorithm_2d`; the ones the item does not use are refused naming `algorithm_2d` and left out of `get_settings` |
 
 A mesh setup item takes the selection its dialog would have recorded, which is also what a session
 journal replays: a whole part mesher - `meshing_parameters`, `shell_mmg`, `shell_gmsh`,
@@ -1342,7 +1359,7 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | Member | Description |
 | --- | --- |
 | `add_from_equation(name, equation, coordinate_system_name=None)` | One equation string for the magnitude, or three, one per direction. `coordinate_system_name` names the coordinate system `x`, `y` and `z` are measured in; it is `'Global'` by default, matched regardless of case and stored in the model's spelling. |
-| `add_from_file(name, file_name, interpolator_type=None, interpolator_radius=None, scale=None, translate=None, coordinate_system_name=None)` | Reads the distribution from a point cloud file. `coordinate_system_name` is taken as by `add_from_equation`. |
+| `add_from_file(name, file_name, interpolator_type=None, interpolator_radius=None, scale=None, translate=None, coordinate_system_name=None)` | Reads the distribution from a point cloud file. `coordinate_system_name` is taken as by `add_from_equation`. The `ClosestPoint` interpolator, the default, has no radius, which the dialog then hides, so `interpolator_radius` is refused with it - judged on the interpolator the distribution ends up with - and reads back `None`. |
 | `replace_from_equation(old_name, name=None, equation=None, coordinate_system_name=None)` | Replaces an equation distribution. A value that is not given is kept, the coordinate system included; `'Global'` sets it back. A distribution read from a file is refused - a replace never turns one form into the other. An equation that changes a scalar distribution into a vector one, or back, is refused while an initial condition, a boundary condition, a load or a defined field uses it. |
 | `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None, coordinate_system_name=None)` | Replaces a file distribution. A value that is not given is kept, and an equation distribution is refused. A new `file_name` is read again, and a file that changes a scalar distribution into a vector one, or back, is refused while an item uses the distribution, as for `replace_from_equation`. A file that cannot be read is refused naming `file_name`. |
 
@@ -1354,7 +1371,7 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | `equation` | The equation of an equation distribution, in the shape `add_from_equation` takes it: a `str` for a scalar distribution, a `StringList` of three for a vector one, stored with the leading `=`. `None` for a file distribution. |
 | `file_name` | The point cloud file of a file distribution, otherwise `None`. |
 | `interpolator_type` | `ClosestPoint`, `Gauss` or `Shepard` for a file distribution, otherwise `None`. |
-| `interpolator_radius` | The interpolator radius of a file distribution, in model units, otherwise `None`. |
+| `interpolator_radius` | The interpolator radius of a file distribution, in model units, otherwise `None`. A `ClosestPoint` distribution has no radius and reads back `None`, and `get_equations()` leaves it out. |
 | `scale` | The scale factors of a file distribution as a `list[float]` of three, otherwise `None`. |
 | `translate` | The translation of a file distribution in model units as a `list[float]` of three; `None` on an equation distribution. |
 | `coordinate_system_name` | The name of the coordinate system the distribution is defined in, `'Global'` when none is set; the `coordinate_system_name` argument takes it back. |
@@ -1364,9 +1381,9 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 
 | Member | Description |
 | --- | --- |
-| `add_temperature(name, region, temperature, distribution_name=None, color=None)` | Initial temperature. The selection target is `nodes`. A distribution scales the temperature over the region; `'Constant'`, in any case, names none. |
-| `add_translational_velocity(name, region, v1, v2, v3, color=None)` | Initial translational velocity. In a 2D model `v3` must be zero. |
-| `add_angular_velocity(name, region, axis_point, axis_direction, rotational_speed, color=None)` | Initial angular velocity. The `rotational_speed` is in rad/s and must be zero or larger. In a 2D model the third value of `axis_point` and the first two of `axis_direction` must be zero. |
+| `add_temperature(name, region, temperature, distribution_name=None, color=None)` | Initial temperature. The selection target is `geometry`, as the dialog picks it, or `nodes`. A distribution scales the temperature over the region; `'Constant'`, in any case, names none. |
+| `add_translational_velocity(name, region, v1, v2, v3, color=None)` | Initial translational velocity. The selection target is `geometry`, as the dialog picks it, or `nodes`. In a 2D model `v3` must be zero. |
+| `add_angular_velocity(name, region, axis_point, axis_direction, rotational_speed, color=None)` | Initial angular velocity. The selection target is `geometry`, as the dialog picks it, or `nodes`. The `rotational_speed` is in rad/s and must be zero or larger. In a 2D model the third value of `axis_point` and the first two of `axis_direction` must be zero, and an `axis_direction` of zero length is refused. |
 | `replace_temperature(old_name, name=None, region=None, temperature=None, distribution_name=None, color=None)` | Replaces an initial temperature. A value that is not given is kept. |
 | `replace_translational_velocity(old_name, name=None, region=None, v1=None, v2=None, v3=None, color=None)` | Replaces an initial translational velocity. A given value is checked as on the add. |
 | `replace_angular_velocity(old_name, name=None, region=None, axis_point=None, axis_direction=None, rotational_speed=None, color=None)` | Replaces an initial angular velocity. The `rotational_speed` is in rad/s. A given value is checked as on the add. |
@@ -1394,7 +1411,7 @@ pmx.model.initial_conditions.add_temperature('IC-1', nodes, 20)
 
 | Member | Description |
 | --- | --- |
-| `add(name, properties, description=None, temperature_dependent=False)` | Adds a material. The properties are created by `pmx.create`. Set `temperature_dependent=True` to write every row with its temperature. |
+| `add(name, properties, description=None, temperature_dependent=False)` | Adds a material. The properties are created by `pmx.create`. Set `temperature_dependent=True` to write every row with its temperature. A material holds one elastic property and one density, so `density` together with `elastic_with_density`, which holds the density, is refused. |
 | `replace(old_name, name=None, properties=None, description=None, temperature_dependent=None)` | Replaces an existing material. Omitted values are kept. |
 
 `Material` exposes `name`, `description`, `active`, `temperature_dependent`, `property_count`, `get_properties()` and
@@ -1701,9 +1718,9 @@ constraint takes one `color`. Each is a `color` value as described at the top.
 | Member | Selection target | Description |
 | --- | --- | --- |
 | `add_tie(name, master_region, slave_region, position_tolerance=None, adjust=None, master_color=None, slave_color=None)` | surfaces, surfaces | A tie. `position_tolerance` must be zero or larger, or `float('nan')` for `Default`. |
-| `add_cyclic_symmetry(name, master_region, slave_region, region=None, axis_point=None, axis_direction=None, number_of_sectors=None, number_of_graph_sectors=None, check_sector_angle=None, position_tolerance=None, adjust=None, master_color=None, slave_color=None)` | surfaces, surfaces, elements | A cyclic symmetry, refused in a 2D model. `number_of_sectors` is at least 2. |
-| `add_joint(name, master_region, slave_region, joint_type=None, center_defined_by=None, center=None, axis_defined_by=None, axis_direction=None, formulation=None, stiffness_defined_by=None, stiffness=None, master_color=None, slave_color=None)` | surfaces, surfaces | A joint between two surfaces: Hinge, Cylindrical, Slider, Ball or Weld, written as rigid bodies or as springs. Refused in a 2D model. A `center`, `axis_direction` or `stiffness` given together with a definition that does not use it - `center_defined_by='MasterSurface'`, `axis_defined_by='MasterSurface'`, `stiffness_defined_by='FromModel'` - is refused naming both. |
-| `add_rigid_body(name, reference_point_name, region, color=None)` | nodes | A rigid body. |
+| `add_cyclic_symmetry(name, master_region, slave_region, region=None, axis_point=None, axis_direction=None, number_of_sectors=None, number_of_graph_sectors=None, check_sector_angle=None, position_tolerance=None, adjust=None, master_color=None, slave_color=None)` | surfaces, surfaces, parts | A cyclic symmetry, refused in a 2D model. The result expansion `region` is picked as parts, as the dialog picks them, and named as an `ElementSetName` or a `PartName` region. `number_of_sectors` is at least 2. |
+| `add_joint(name, master_region, slave_region, joint_type=None, center_defined_by=None, center=None, axis_defined_by=None, axis_direction=None, formulation=None, stiffness_defined_by=None, stiffness=None, master_color=None, slave_color=None)` | surfaces, surfaces | A joint between two surfaces: Hinge, Cylindrical, Slider, Ball or Weld, written as rigid bodies or as springs. Refused in a 2D model. A `center`, `axis_direction` or `stiffness` given together with a definition that does not use it - `center_defined_by='MasterSurface'`, `axis_defined_by='MasterSurface'`, `stiffness_defined_by='FromModel'` - is refused naming both. A Ball or a Weld joint has no axis, which the dialog then hides, so `axis_defined_by` and `axis_direction` are refused for it and not read back, and an `axis_direction` of zero length is refused. |
+| `add_rigid_body(name, reference_point_name, region, color=None)` | geometry or nodes | A rigid body. The dialog picks geometry. |
 | `add_kinematic_coupling(name, reference_point_name, region, u1=None, u2=None, u3=None, color=None)` | surfaces | A kinematic coupling. In a 2D model `u3=True` is refused. |
 | `add_distributing_coupling(name, reference_point_name, region, u1=None, ..., ur3=None, color=None)` | surfaces | A distributing coupling. In a 2D model `u3`, `ur1` and `ur2` set to `True` are refused. |
 | `add_compression_only(name, region, clearance=None, spring_stiffness=None, tensile_force_at_negative_infinity=None, offset=None, non_linear=None, color=None)` | surfaces | A compression only constraint. `spring_stiffness` and `tensile_force_at_negative_infinity` take `float('nan')` for `Default`. |
@@ -1721,7 +1738,7 @@ for a tie and a joint, `None` for a cyclic symmetry without a result expansion r
 but for a cyclic symmetry), and the values of its own type through `get_value_names()` and `get_value(name)`, named
 like the `replace_*` arguments and nothing else, so `replace_<type>(name, **{k: c.get_value(k) for k in
 c.get_value_names()})` changes nothing. A joint reads back `center` only when `center_defined_by` is `Coordinates`,
-`axis_direction` only when `axis_defined_by` is `UserDefined` on a joint with an axis, `stiffness_defined_by` only
+`axis_defined_by` only on a joint with an axis and `axis_direction` only when it is `UserDefined` there, `stiffness_defined_by` only
 with the `Springs` formulation and `stiffness` only when it is `UserDefined`, and no `center_defined_by` for a centre
 picked in the dialog, because the arguments refuse those. `get_equations()` returns the expressions the values were entered
 with, under the names `get_value` uses, as a `dict[str, str or list]`. Only a value entered as an expression is
@@ -1778,8 +1795,9 @@ no rigid body, solves on shell elements, and is as stiff as its springs. `stiffn
 `FromModel`, where each spring gets 100 times the Young's modulus of the surfaces times the square
 root of the surface area divided by the number of surface nodes, or `UserDefined`; a given `stiffness`
 switches it to `UserDefined` and must be positive. `stiffness` and `stiffness_defined_by` are refused with the
-`RigidBody` formulation, which has no springs, and `axis_direction` with a `Ball` or `Weld` joint, which has no
-axis. The values read back through `get_value` carry the names of the arguments: `joint_type`,
+`RigidBody` formulation, which has no springs, and `axis_defined_by` and `axis_direction` with a `Ball` or `Weld`
+joint, which has no axis - the joint type it ends up with decides. An `axis_direction` of zero length is refused, as
+the dialog refuses it. The values read back through `get_value` carry the names of the arguments: `joint_type`,
 `center_defined_by`, `center` (a list of three), `axis_defined_by`, `axis_direction` (a list of three),
 `formulation`, `stiffness_defined_by` and `stiffness`.
 
@@ -1853,6 +1871,9 @@ request be dropped, and `small_sliding` reads back `False` for them. An `adjustm
 adjustment on, the way the dialog presents the two together; it must be finite and zero or larger, or `float('nan')` for
 the `Default` size the dialog offers, is refused together with `adjust=False`, and reads back as `None` when it is
 `Default`. Because `None` keeps the size on a replace, `float('nan')` is how a replace sets it back to `Default`.
+The dialog hides the size while `adjust` is `False`, so it then reads back as `None` too, and the stored size comes
+back when the adjustment is turned on again. A replace that does not change the method keeps the small sliding the
+pair stores, even where the method does not write it; only a change of method clears it.
 
 ## Steps and step content
 
@@ -1973,7 +1994,7 @@ changes the model.
 ### `BoundaryConditions`
 
 Reached as `step.bcs`. It shares the collection verbs. Every `region` argument is a `Selection` or a
-`Region`, and the selection target is `nodes` for all four types.
+`Region`, and the selection target is `geometry`, as the dialogs pick it, or `nodes` for all four types.
 
 | Member | Description |
 | --- | --- |
@@ -2040,7 +2061,9 @@ command, naming the step type.
 ### `Loads`
 
 Reached as `step.loads`. It shares the collection verbs. Every `region` argument is a `Selection` or
-a `Region`; the selection target follows the load type.
+a `Region`; the selection target follows the load type. A gravity, a centrifugal and a body flux load
+pick parts, as their dialog does, because the selection becomes an element set made of the picked parts;
+named, their region is an `ElementSetName` or a `PartName` region.
 
 | Member | Selection target | Description |
 | --- | --- | --- |
@@ -2051,12 +2074,12 @@ a `Region`; the selection target follows the load type.
 | `add_imported_pressure(name, region, file_name, pressure_time, pressure_variable_name, interpolator_type=None, magnitude_factor=None, geometry_scale_factor=None, ...)` | surfaces | A pressure read from a results file. |
 | `add_surface_traction(name, region, f1=None, f2=None, f3=None, p1=None, p2=None, p3=None, distribution_name=None, ...)` | surfaces | A surface traction. |
 | `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A shell edge load. |
-| `add_gravity(name, region, f1=None, f2=None, f3=None, ...)` | elements | A gravity load. |
-| `add_centrifugal(name, region, axis_point=None, axis_direction=None, rotational_speed=None, ...)` | elements | A centrifugal load. The `rotational_speed` is in rad/s. |
+| `add_gravity(name, region, f1=None, f2=None, f3=None, ...)` | parts | A gravity load. |
+| `add_centrifugal(name, region, axis_point=None, axis_direction=None, rotational_speed=None, ...)` | parts | A centrifugal load. The `rotational_speed` is in rad/s. |
 | `add_pre_tension(name, region, magnitude, direction=None, tension_type=None, ..., auto_direction=None)` | surfaces | A pre-tension load. `tension_type` is `Force` or `Displacement`. |
 | `add_concentrated_flux(name, region, magnitude, add_flux=None, ...)` | nodes | A concentrated flux. |
 | `add_surface_flux(name, region, magnitude, ...)` | surfaces | A surface flux. |
-| `add_body_flux(name, region, magnitude, ...)` | elements | A body flux. |
+| `add_body_flux(name, region, magnitude, ...)` | parts | A body flux. |
 | `add_film_heat_transfer(name, region, sink_temperature, film_coefficient, coefficient_amplitude_name=None, ...)` | surfaces | A film heat transfer load. |
 | `add_radiation_heat_transfer(name, region, sink_temperature, emissivity, cavity_radiation=None, cavity_name=None, emissivity_amplitude_name=None, ...)` | surfaces | A radiation heat transfer load. |
 | `propagate(name)` | | Copies the load to every following step. A following step that does not support the load type is skipped, as the dialog does, so from the last step, or when no following step supports it, nothing changes. |
@@ -2091,6 +2114,9 @@ The details the model imposes:
   `p3`, `m1` and `m2` of a moment, and the third component of a hydrostatic point or direction. An
   axisymmetric model turns a centrifugal load about its y axis, so there `axis_point` must be `[0, 0, 0]`
   and `axis_direction` `[0, 1, 0]` when given. A negative `rotational_speed` is refused.
+- **A direction is not zero.** A given `axis_direction` of a centrifugal load and `direction` of a hydrostatic
+  pressure or a pre-tension load of zero length is refused naming the argument, as the dialog refuses it; so are
+  the `axis_direction` of a cyclic symmetry, a joint and an initial angular velocity.
 - A **pre-tension** load needs a three dimensional model, and computes its direction from the surface
   normal unless a `direction` is given. `auto_direction=True`, the default of an add, cannot be combined with
   `direction`, and `auto_direction=False` needs one. `replace_pre_tension` keeps every value that is not given, takes
@@ -2185,7 +2211,7 @@ method, so the type follows from the method that is used.
 
 | Member | Description |
 | --- | --- |
-| `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A defined temperature given by value. The selection target is `nodes`. |
+| `add_temperature(name, region, temperature, distribution_name=None, amplitude_name=None, color=None)` | A defined temperature given by value. The selection target is `geometry`, as the dialog picks it, or `nodes`. |
 | `add_temperature_from_file(name, file_name, step_id=None, color=None)` | A defined temperature read from a results file. It covers the whole model, so it takes no region, and it is written without an amplitude, so it takes none. `step_id` is at least 1. |
 | `propagate(name)` | Copies the defined field to every following step. A following step that does not support the type is skipped, as the dialog does, so from the last step, or when no following step supports it, nothing changes. |
 | `hide(names)`, `show(names)` | Symbol visibility. |

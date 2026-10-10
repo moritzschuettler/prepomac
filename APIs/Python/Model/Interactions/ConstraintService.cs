@@ -103,6 +103,16 @@ namespace APIs.Python.Model
         {
             RegionApplier.Apply(constraint, region, "region", target, _selectionService, _modelResolver);
         }
+        public void ApplyRegion(IMultiRegion constraint, object region, string[] targets)
+        {
+            RegionApplier.Apply(constraint, region, "region", targets, _selectionService, _modelResolver);
+        }
+        public void ApplyRegion(IMultiRegion constraint, object region, string[] selectionTargets,
+                                string[] namedRegionTargets)
+        {
+            RegionApplier.Apply(constraint, region, "region", selectionTargets, namedRegionTargets,
+                                _selectionService, _modelResolver);
+        }
         public void ApplyMaster(IMasterSlaveMultiRegion constraint, object region, string target)
         {
             MasterSlaveRegionApplier.ApplyMaster(constraint, region, "master_region", target,

@@ -74,8 +74,9 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Flips the orientation of the selected faces using command history. The selection uses " +
-                   "the 'geometry' view and target. Returns the number of faces flipped on every selected " +
-                   "part, so a part that was skipped is visible: it reports zero. Only the faces of CAD " +
+                   "the 'geometry' view and the 'geometry' or 'geometry_surfaces' target. Returns the number " +
+                   "of faces flipped on every selected part, so a part that was skipped is visible: it reports " +
+                   "zero. Only the faces of CAD " +
                    "shell parts can be flipped.",
                    Arguments = "selection: Selection", Returns = "dict[str, int]")]
         public Dictionary<string, int> flip_face_orientations(object selection)
@@ -178,7 +179,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Removes the selected geometry features using command history. The selection uses the " +
-                   "'geometry' view and target. Returns the number of faces each selected part actually " +
+                   "'geometry' view and the 'geometry' or 'geometry_surfaces' target. Returns the number of " +
+                   "faces each selected part actually " +
                    "lost, so a feature the modelling kernel could not close is visible: it reports zero. " +
                    "A blind hole needs its bottom face selected as well as its wall.",
                    Arguments = "selection: Selection", Returns = "dict[str, int]",
@@ -190,7 +192,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Offsets the selected surfaces into new shell parts using command history. The " +
-                   "selection uses the 'geometry' view and target. The surfaces picked on one " +
+                   "selection uses the 'geometry' view and the 'geometry' or 'geometry_surfaces' " +
+                   "target. The surfaces picked on one " +
                    "geometry become one new shell part, sewn together where they touch, and the " +
                    "parts they were taken from are left as they were. A selection spanning three " +
                    "parts gives three, while the surfaces of several sub-parts of one compound give " +
@@ -208,7 +211,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Deletes the selected CAD part faces using command history and leaves the gap open. " +
-                   "The selection uses the 'geometry' view and target. A solid that loses a face becomes " +
+                   "The selection uses the 'geometry' view and the 'geometry' or 'geometry_surfaces' " +
+                   "target. A solid that loses a face becomes " +
                    "a shell part; the part keeps its name and part id either way. When the faces it keeps " +
                    "fall apart into pieces that no longer touch, the largest piece stays the part and every " +
                    "other one becomes a shell part of its own, and a part or a sub-part whose last face is " +
@@ -329,7 +333,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Deletes the selected STL part faces using command history. The selection uses the " +
-                   "'geometry' view and target. Returns the number of elements deleted from every selected " +
+                   "'geometry' view and the 'geometry' or 'geometry_surfaces' target. Returns the number of " +
+                   "elements deleted from every selected " +
                    "part, so a part that was skipped is visible: it reports zero. Only the faces of STL " +
                    "parts can be deleted.",
                    Arguments = "selection: Selection", Returns = "dict[str, int]")]

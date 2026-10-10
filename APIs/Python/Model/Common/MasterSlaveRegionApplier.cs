@@ -20,8 +20,14 @@ namespace APIs.Python.Model
                                        string target, SelectionService selectionService,
                                        ModelResolver modelResolver)
         {
+            ApplyMaster(item, region, argumentName, new string[] { target }, selectionService, modelResolver);
+        }
+        public static void ApplyMaster(IMasterSlaveMultiRegion item, object region, string argumentName,
+                                       string[] targets, SelectionService selectionService,
+                                       ModelResolver modelResolver)
+        {
             MasterSide master = new MasterSide(item);
-            RegionApplier.Apply(master, region, argumentName, target, selectionService, modelResolver);
+            RegionApplier.Apply(master, region, argumentName, targets, selectionService, modelResolver);
         }
         public static void ApplySlave(IMasterSlaveMultiRegion item, object region, string argumentName,
                                       string target, SelectionService selectionService,

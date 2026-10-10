@@ -177,7 +177,11 @@ def test_wrong_kind_arguments():
             (lambda: pmx.create.friction(0.1, stick_slope="10"), "'stick_slope'", "must be a number"),
             (lambda: pmx.create.gap_conductance(conductance="5"), "'conductance'", "must be a number"),
             (lambda: model.parts.find_edges_by_angle(model.parts.first().name, "30"), "'edge_angle_deg'",
-             "must be a number")]:
+             "must be a number"),
+            # A whole number argument refuses a string of a number as well
+            (lambda: model.steps.add_static(PREFIX + "S", incrementation_type="Automatic", max_increments="10"),
+             "'max_increments'", "must be a whole number"),
+            (lambda: pmx.create.damping_ratio(0.02, "1", 5), "'lowest_mode'", "must be a whole number")]:
         message = api_error(function)
         check(message is not None and argument in message and words in message and
               "No method matches" not in message,

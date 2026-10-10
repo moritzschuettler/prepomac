@@ -20,6 +20,8 @@ namespace APIs.Python.Model
     public class BoundaryConditionsAPI : StepItemsAPI<BoundaryCondition, BoundaryConditionAPI>
     {
         // Variables
+        // The dialog picks geometry, which the controller turns into the nodes it covers
+        private static readonly string[] NodeTargets = new string[] { "nodes", "geometry" };
         private readonly BoundaryConditionService _service;
 
 
@@ -32,7 +34,8 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Adds a fixed boundary condition using command history. The selection target is nodes.",
+        [PythonAPI("Adds a fixed boundary condition using command history. The selection target is " +
+                   "geometry, as the dialog picks it, or nodes.",
                    Arguments = "name: str, region: Selection or Region, color: list[int] or str = None",
                    Returns = "BoundaryCondition",
                    Example = "step.bcs.add_fixed('Fix-1', pmx.create.region('NodeSetName', 'Bottom'))")]
@@ -42,7 +45,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             FixedBC boundaryCondition =
                 new FixedBC(nameText, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
-            _service.ApplyRegion(boundaryCondition, region, "nodes");
+            _service.ApplyRegion(boundaryCondition, region, NodeTargets);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             _service.Add(StepName, boundaryCondition);
             //
@@ -58,7 +61,7 @@ namespace APIs.Python.Model
             string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
             string nameText = PythonValueConverter.ToText(name, "name", true);
             FixedBC boundaryCondition = _service.CloneForReplace<FixedBC>(StepName, oldName, "fixed");
-            if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
+            if (region != null) _service.ApplyRegion(boundaryCondition, region, NodeTargets);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             //
             return Replace(oldName, nameText, boundaryCondition);
@@ -75,7 +78,7 @@ namespace APIs.Python.Model
                    "reference point. A two dimensional model has no u3, ur1 and ur2, so it refuses a value for " +
                    "them. The phase_deg applies only in a steady_state_dynamics step, where a boundary " +
                    "condition is complex, and is refused elsewhere; it is at least 0 and below 360 degrees. The " +
-                   "selection target is nodes.",
+                   "selection target is geometry, as the dialog picks it, or nodes.",
                    Arguments = "name: str, region: Selection or Region, u1: float = None, u2: float = None, " +
                                "u3: float = None, ur1: float = None, ur2: float = None, ur3: float = None, " +
                                "distribution_name: str = None, " +
@@ -99,7 +102,7 @@ namespace APIs.Python.Model
             DisplacementRotation boundaryCondition =
                 new DisplacementRotation(nameText, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional(),
                                          _service.GetIsComplex(StepName), 0);
-            _service.ApplyRegion(boundaryCondition, region, "nodes");
+            _service.ApplyRegion(boundaryCondition, region, NodeTargets);
             ApplyDegreesOfFreedom(boundaryCondition, u1, u2, u3, ur1, ur2, ur3);
             FixDegreesOfFreedom(boundaryCondition, fixed_dofs, null, u1, u2, u3, ur1, ur2, ur3);
             if (distribution_name != null)
@@ -136,7 +139,7 @@ namespace APIs.Python.Model
             string nameText = PythonValueConverter.ToText(name, "name", true);
             DisplacementRotation boundaryCondition =
                 _service.CloneForReplace<DisplacementRotation>(StepName, oldName, "displacement_rotation");
-            if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
+            if (region != null) _service.ApplyRegion(boundaryCondition, region, NodeTargets);
             ApplyDegreesOfFreedom(boundaryCondition, u1, u2, u3, ur1, ur2, ur3);
             if (free_dofs != null) FreeDegreesOfFreedom(boundaryCondition, free_dofs, u1, u2, u3, ur1, ur2, ur3);
             FixDegreesOfFreedom(boundaryCondition, fixed_dofs, free_dofs, u1, u2, u3, ur1, ur2, ur3);
@@ -154,7 +157,7 @@ namespace APIs.Python.Model
         [PythonAPI("Adds a submodel boundary condition using command history. The degrees of freedom are " +
                    "read from the global model results of the given step number, which is at least 1. A 2D " +
                    "model has no u3, ur1 and ur2, so True for any of them is refused there. The selection " +
-                   "target is nodes.",
+                   "target is geometry, as the dialog picks it, or nodes.",
                    Arguments = "name: str, region: Selection or Region, step_id: int = None, " +
                                "u1: bool = None, u2: bool = None, u3: bool = None, ur1: bool = None, " +
                                "ur2: bool = None, ur3: bool = None, color: list[int] or str = None",
@@ -168,7 +171,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             SubmodelBC boundaryCondition =
                 new SubmodelBC(nameText, null, RegionTypeEnum.Selection, _service.GetIsTwoDimensional());
-            _service.ApplyRegion(boundaryCondition, region, "nodes");
+            _service.ApplyRegion(boundaryCondition, region, NodeTargets);
             ApplySubmodelValues(boundaryCondition, step_id, u1, u2, u3, ur1, ur2, ur3);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             _service.Add(StepName, boundaryCondition);
@@ -187,7 +190,7 @@ namespace APIs.Python.Model
             string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
             string nameText = PythonValueConverter.ToText(name, "name", true);
             SubmodelBC boundaryCondition = _service.CloneForReplace<SubmodelBC>(StepName, oldName, "submodel");
-            if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
+            if (region != null) _service.ApplyRegion(boundaryCondition, region, NodeTargets);
             ApplySubmodelValues(boundaryCondition, step_id, u1, u2, u3, ur1, ur2, ur3);
             _service.ApplyCommonValues(boundaryCondition, null, color);
             //
@@ -195,7 +198,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a temperature boundary condition using command history. The selection target is " +
-                   "nodes.",
+                   "geometry, as the dialog picks it, or nodes.",
                    Arguments = "name: str, region: Selection or Region, temperature: float, " +
                                "distribution_name: str = None, amplitude_name: str = None, " +
                                "color: list[int] or str = None", Returns = "BoundaryCondition",
@@ -210,7 +213,7 @@ namespace APIs.Python.Model
             TemperatureBC boundaryCondition =
                 new TemperatureBC(nameText, null, RegionTypeEnum.Selection, 0, _service.GetIsTwoDimensional());
             PythonModelArgumentCheck.SetEquation(boundaryCondition.Temperature, temperature, "temperature");
-            _service.ApplyRegion(boundaryCondition, region, "nodes");
+            _service.ApplyRegion(boundaryCondition, region, NodeTargets);
             if (distribution_name != null)
                 boundaryCondition.DistributionName =
                     _service.ResolveScalarDistributionName(distribution_name, "a temperature");
@@ -235,7 +238,7 @@ namespace APIs.Python.Model
             string nameText = PythonValueConverter.ToText(name, "name", true);
             TemperatureBC boundaryCondition =
                 _service.CloneForReplace<TemperatureBC>(StepName, oldName, "temperature");
-            if (region != null) _service.ApplyRegion(boundaryCondition, region, "nodes");
+            if (region != null) _service.ApplyRegion(boundaryCondition, region, NodeTargets);
             if (temperature != null)
                 PythonModelArgumentCheck.SetEquation(boundaryCondition.Temperature, temperature, "temperature");
             if (distribution_name != null)

@@ -36,11 +36,13 @@ def main():
     # diagonal of the part bounding box times the relative factor, rounded to two significant digits.
     # The expectation is derived rather than written down, so that retuning the factor does not make
     # this a false failure; the tolerance is the 5 percent that rounding to two digits can move.
-    settings = mmg.get_settings()
-    hausdorff = settings["hausdorff"]
+    # The item uses the relative distance by default, and reads back only the distance it uses
+    relative_hausdorff = mmg.get_settings()["relative_hausdorff"]
+    hausdorff = items.replace_shell_mmg(mmg.name, relative_size=False).get_settings()["hausdorff"]
+    items.replace_shell_mmg(mmg.name, relative_size=True)
     box = part.get_bounding_box()
     diagonal = ((box[1] - box[0]) ** 2 + (box[3] - box[2]) ** 2 + (box[5] - box[4]) ** 2) ** 0.5
-    expected = diagonal * settings["relative_hausdorff"]
+    expected = diagonal * relative_hausdorff
     check(expected > 0, "the part must have a size: " + str(box))
     check(abs(hausdorff - expected) <= 0.05 * expected,
           "the Hausdorff distance does not follow the size of the part: " + str(hausdorff) +

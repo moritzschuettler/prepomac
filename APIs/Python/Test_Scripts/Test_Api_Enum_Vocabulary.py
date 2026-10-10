@@ -235,6 +235,9 @@ def test_narrowed_values():
     operations = [name for name in PythonEnumVocabulary.GetTypes()["operation"].GetEnumNames() if name != "Invert"]
     for member in ["add_by_ids", "add_by_pick", "add_by_area", "add_by_box", "add_all"]:
         expected[("SelectionAPI", member, "operation")] = operations
+    # A joint centre picked by nodes in the dialog has no argument; a script gives its coordinates
+    for member in ["add_joint", "replace_joint"]:
+        expected[("ConstraintsAPI", member, "center_defined_by")] = ["MasterSurface", "Coordinates"]
     for (declaring, member, argument), values in expected.items():
         described = PythonEnumVocabulary.GetValues(declaring, member, argument)
         check(described is not None and list(described) == values,
@@ -252,6 +255,25 @@ def test_narrowed_values():
     print("the members that accept part of an enumeration list only that part")
 
 
+def test_refusals_list_the_narrowed_values():
+    """An unknown value is refused listing only the values the member accepts, as the schema lists them."""
+    def message_of(function):
+        try:
+            function()
+        except Exception as ex:
+            return str(ex)
+        return None
+    message = message_of(lambda: pmx.create.region("NoSuchType", "Any"))
+    check(message is not None and "'region_type'" in message and "NodeSetName" in message and
+          "Selection" not in message and "NodeId" not in message,
+          "the region_type refusal must list only the named region types: " + str(message))
+    message = message_of(lambda: pmx.create.selection_by_pick("femodel", "nodes", [0, 0, 0], "NoSuchMode"))
+    if message is not None and "'select_by'" in message:
+        check("Widget" not in message and "Surface" in message,
+              "the select_by refusal must not list the modes a pick refuses: " + str(message))
+    print("the refusals of an unknown value list only the values the member accepts")
+
+
 def main():
     check(os.path.isdir(SOURCES), "the API sources must be beside the test scripts: " + SOURCES)
     sites = read_sites()
@@ -264,6 +286,7 @@ def main():
     test_values_are_readable()
     test_property_lookups()
     test_narrowed_values()
+    test_refusals_list_the_narrowed_values()
     print("TEST PASSED")
 
 

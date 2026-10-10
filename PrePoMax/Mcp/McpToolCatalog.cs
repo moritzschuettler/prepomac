@@ -212,6 +212,11 @@ namespace PrePoMax.Mcp
                 "to a file in the temporary folder, and the answer gives its path as journal.fileName.",
                 SessionSchema("\"include_journal\": {\"type\": \"boolean\", \"description\": " +
                               "\"Emit the history as a Python script as well. Defaults to false.\"}, " +
+                              "\"journal_file\": {\"type\": \"string\", \"description\": " +
+                              "\"The .py file to write the journal to instead of returning it inline; the " +
+                              "answer gives its path as journal.fileName. Needs include_journal. A relative " +
+                              "name is placed in the PrePoMax folder of the temporary folder " +
+                              "(%TEMP%\\\\PrePoMax), and a missing folder it points into is created.\"}, " +
                               "\"limit\": {\"type\": \"integer\", \"minimum\": 0, \"description\": " +
                               "\"How many of the most recent commands to list. 0 lists all of them. " +
                               "Defaults to 200.\"}"), true));
@@ -393,6 +398,13 @@ namespace PrePoMax.Mcp
             {
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 parameters.Add("include_journal", JsonReader.GetBool(arguments, "include_journal", false));
+                if (JsonReader.HasItem(arguments, "journal_file"))
+                {
+                    string journalFile = JsonReader.GetString(arguments, "journal_file", null);
+                    if (journalFile == null)
+                        throw new McpException("The argument journal_file must be a file name. Nothing was done.");
+                    parameters.Add("journal_file", journalFile);
+                }
                 if (JsonReader.HasItem(arguments, "limit"))
                     parameters.Add("limit", JsonReader.GetInt(arguments, "limit", 200));
                 return Call(dispatcher, "history", parameters);
@@ -545,6 +557,12 @@ namespace PrePoMax.Mcp
             //
             string field = JsonReader.GetString(arguments, "field", null);
             string component = JsonReader.GetString(arguments, "component", null);
+            if (field != null && field.Trim().Length == 0)
+                throw new McpException("The argument field of screenshot is empty. Name the result field to plot, " +
+                                       "or leave it out. Nothing was done.");
+            if (component != null && component.Trim().Length == 0)
+                throw new McpException("The argument component of screenshot is empty. Name the component of " +
+                                       "the field, or leave it out. Nothing was done.");
             // A component alone names no field to plot, and leaving it out would take a picture of a plot
             // the caller did not ask for
             if (field == null && component != null)

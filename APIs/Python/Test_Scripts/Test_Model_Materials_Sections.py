@@ -153,6 +153,18 @@ def test_materials():
         check(message is not None and "'properties'" in message and "more than once" in message,
               "a repeated material property type must be refused: " + str(message))
     check(len(materials) == count_before_repeated, "a material with a repeated property type was recorded")
+    # The elastic property with density holds the density, which the solver input would otherwise get twice
+    message = raised_message(lambda: materials.add(PREFIX + "Bad", [pmx.create.elastic_with_density(1, 0.3, 1e-9),
+                                                                    pmx.create.density(2e-9)]))
+    check(message is not None and "'properties'" in message and "elastic_with_density" in message and
+          "density" in message, "a density beside elastic_with_density must be refused: " + str(message))
+    message = raised_message(lambda: materials.replace(PREFIX + "Simple", properties=[
+        pmx.create.density(2e-9), pmx.create.elastic_with_density(70000, 0.33, 2.7e-9)]))
+    check(message is not None and "'properties'" in message,
+          "a replace with a density beside elastic_with_density must be refused: " + str(message))
+    check(list(materials[PREFIX + "Simple"].get_property_types()) == ["elastic_with_density"],
+          "a refused replace changed the material")
+    check(len(materials) == count_before_repeated, "a material with two densities was recorded")
     # A material that is not temperature dependent writes only the first row without its temperature, so a
     # property the analysis would cut short is refused rather than recorded
     count_before_rows = len(materials)

@@ -437,9 +437,11 @@ namespace APIs.Python
                 throw new PythonAPIException("The mode and the selection of the point '" + coordinatesArgument +
                                              "' must be given together.");
             //
+            string modeArgument = coordinatesArgument + "_created_from";
+            string[] possibleNames = PythonEnumVocabulary.GetNarrowedValues(null, "add_from_selections",
+                                                                            modeArgument);
             CsPointCreatedFromEnum mode =
-                PythonValueConverter.ToEnum<CsPointCreatedFromEnum>(createdFrom, coordinatesArgument +
-                                                                                 "_created_from");
+                PythonValueConverter.ToEnum<CsPointCreatedFromEnum>(createdFrom, modeArgument, possibleNames);
             if (mode == CsPointCreatedFromEnum.Coordinates)
                 throw new PythonAPIException("The mode of the point '" + coordinatesArgument + "' must be " +
                                              "OnPoint, BetweenTwoPoints or CircleCenter when a selection is given.");

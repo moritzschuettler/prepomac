@@ -186,8 +186,10 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The arguments '" + modeArgument + "' and '" + selectionArgument +
                                              "' must be given together.");
             //
+            string[] possibleNames = PythonEnumVocabulary.GetNarrowedValues(null, "add_from_selections",
+                                                                            modeArgument);
             CsPointCreatedFromEnum mode =
-                PythonValueConverter.ToEnum<CsPointCreatedFromEnum>(createdFrom, modeArgument);
+                PythonValueConverter.ToEnum<CsPointCreatedFromEnum>(createdFrom, modeArgument, possibleNames);
             if (mode == CsPointCreatedFromEnum.Coordinates)
                 throw new PythonAPIException("The argument '" + modeArgument + "' must be OnPoint, " +
                                              "BetweenTwoPoints or CircleCenter when a selection is given.");

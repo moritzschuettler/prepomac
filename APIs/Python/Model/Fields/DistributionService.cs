@@ -220,6 +220,13 @@ namespace APIs.Python.Model
             if (interpolatorType != null)
                 distribution.InterpolatorType =
                     PythonValueConverter.ToEnum<CloudInterpolatorEnum>(interpolatorType, "interpolator_type");
+            // The closest point interpolation has no radius, which the dialog then hides
+            if (interpolatorRadius != null && distribution.InterpolatorType == CloudInterpolatorEnum.ClosestPoint)
+                throw new PythonAPIException("The argument 'interpolator_radius' is not used with " +
+                                             "interpolator_type='ClosestPoint'" +
+                                             (interpolatorType == null ? ", which the distribution keeps," : "") +
+                                             " as it has no radius. Give interpolator_type='Gauss' or 'Shepard' " +
+                                             "to use it.");
             if (interpolatorRadius != null)
                 PythonModelArgumentCheck.SetEquation(distribution.InterpolatorRadius, interpolatorRadius,
                                                      "interpolator_radius");

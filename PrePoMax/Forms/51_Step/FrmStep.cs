@@ -136,6 +136,7 @@ namespace PrePoMax.Forms
             CheckName(_stepToEditName, Step.Name, _stepNames, "step");
             if (Step is FrequencyStep frequencyStep && IsCyclicSymmetryActive(out _))
                 ValidateCyclicSymmetryModes(frequencyStep);
+            if (_stepToEditName == null || _propertyItemChanged) ValidateStepValues(Step);
             // Create
             if (_stepToEditName == null)
             {
@@ -475,6 +476,42 @@ namespace PrePoMax.Forms
             {
                 _controller.Model.CheckCyclicSymmetryCompatibility(cyclicSymmetry, cyclicSymmetry.Name);
                 frequencyStep.CheckCyclicSymmetryModes(cyclicSymmetry.NumberOfSectors, containsAxisNodes);
+            }
+        }
+        // The values the solver input cannot be written with, which the Python API refuses as well, so that the
+        // journal of every step the dialog accepts replays
+        private void ValidateStepValues(Step step)
+        {
+            if (step is BuckleStep buckleStep)
+            {
+                if (!(buckleStep.Accuracy > 0) || double.IsInfinity(buckleStep.Accuracy))
+                    throw new CaeException("The accuracy of the buckle step must be a positive finite number.");
+            }
+            else if (step is ModalDynamicsStep modalDynamicsStep)
+                ValidateModalDamping(modalDynamicsStep.ModalDamping);
+            else if (step is SteadyStateDynamicsStep steadyStateDynamicsStep)
+            {
+                if (!steadyStateDynamicsStep.Harmonic &&
+                    steadyStateDynamicsStep.TimeLower > steadyStateDynamicsStep.TimeUpper)
+                    throw new CaeException("The lower time " + steadyStateDynamicsStep.TimeLower + " exceeds the " +
+                                           "upper time " + steadyStateDynamicsStep.TimeUpper + ".");
+                ValidateModalDamping(steadyStateDynamicsStep.ModalDamping);
+            }
+        }
+        private void ValidateModalDamping(ModalDamping modalDamping)
+        {
+            if (modalDamping == null || modalDamping.DampingType != ModalDampingTypeEnum.Direct) return;
+            //
+            List<CaeJob.DampingRatioAndRange> ranges = modalDamping.DampingRatiosAndRanges;
+            if (ranges == null || ranges.Count == 0)
+                throw new CaeException("The Direct modal damping needs at least one damping ratio and mode range.");
+            for (int i = 0; i < ranges.Count; i++)
+            {
+                if (ranges[i].LowestMode < 1)
+                    throw new CaeException("Damping ratio row " + (i + 1) + ": the lowest mode must be at least 1.");
+                if (ranges[i].HighestMode < ranges[i].LowestMode)
+                    throw new CaeException("Damping ratio row " + (i + 1) + ": the highest mode value must be equal " +
+                                           "or larger than the lowest mode value.");
             }
         }
         private string GetStepName()

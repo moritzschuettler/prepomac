@@ -54,6 +54,18 @@ def element_selection(ids):
     return pmx.create.selection_by_ids('femodel', 'elements', 'elements', ids)
 
 
+def part_selection():
+    # The result expansion region dialog picks parts
+    return pmx.create.selection_by_ids('femodel', 'parts', 'parts', [pmx.model.parts.first().id])
+
+
+def geometry_face_selection(face):
+    """The selection the rigid body dialog records for a picked face: its geometry IDs, as the journal writes them."""
+    geometry_ids = list(pmx.create.selection_by_ids('femodel', 'geometry', 'surfaces', {1: [face]}).get_ids())
+    check(len(geometry_ids) > 0, "the face resolved to no geometry IDs")
+    return pmx.create.selection_by_ids('femodel', 'geometry', 'geometry', geometry_ids)
+
+
 def setup():
     pmx.model.reference_points.add(RP, [0.5, 0.5, 2.0])
 
@@ -102,10 +114,10 @@ def test_cyclic_symmetry():
     # the combination the controller would otherwise discard
     check_raises(lambda: constraints.add_cyclic_symmetry(PREFIX + "Bad", surface_selection(1),
                                                          surface_selection(2),
-                                                         region=element_selection([1])),
+                                                         region=part_selection()),
                  "a result expansion region with one graph sector must be rejected")
     cs = constraints.add_cyclic_symmetry(PREFIX + "CS", surface_selection(1), surface_selection(2),
-                                         region=element_selection([1]), number_of_graph_sectors=2,
+                                         region=part_selection(), number_of_graph_sectors=2,
                                          axis_point=[0, 0, 0],
                                          axis_direction=[0, 0, "1"], number_of_sectors=6)
     check(cs.item_type == "cyclic_symmetry", "unexpected type " + cs.item_type)
@@ -125,9 +137,32 @@ def test_cyclic_symmetry():
     check(cs.get_value("number_of_graph_sectors") == 2, "the graph sector count was not set")
     check(cs.region_type == "ElementSetName",
           "unexpected sector region " + str(cs.region_type))
+    # The picked part becomes an element set made of it, which covers every element of the part
+    element_ids = sorted(pmx.model.element_sets[cs.region_name].get_element_ids())
+    check(element_ids == sorted(pmx.model.parts.first().get_element_ids()),
+          "the result expansion region resolved to the elements " + str(element_ids))
+    # The controller reads the set as part IDs, so an element selection is refused, while the dialog names a
+    # part or an element set
+    message = raised_message(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", region=element_selection([1])))
+    check(message is not None and "requires target 'parts'" in message,
+          "an element selection of the expansion region must be refused naming the target: " + str(message))
+    message = raised_message(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS",
+                                                                         region=pmx.create.region('NodeSetName', 'Any')))
+    check(message is not None and "NodeSetName region was given" in message,
+          "a node set expansion region must be refused: " + str(message))
+    part_name = pmx.model.parts.first().name
+    cs = constraints.replace_cyclic_symmetry(PREFIX + "CS", region=pmx.create.region('PartName', part_name))
+    check(cs.region_type == "PartName" and cs.region_name == part_name, "the part expansion region was not set")
+    cs = constraints.replace_cyclic_symmetry(PREFIX + "CS", region=part_selection())
+    check(cs.region_type == "ElementSetName", "the expansion region was not picked again")
     check_raises(lambda: constraints.add_cyclic_symmetry(PREFIX + "Bad", surface_selection(1),
                                                          surface_selection(2), axis_direction=[0, 1]),
                  "a two value axis direction must be rejected")
+    # An axis of zero length is no axis, which the dialog refuses as well
+    message = raised_message(lambda: constraints.add_cyclic_symmetry(PREFIX + "Bad", surface_selection(1),
+                                                                     surface_selection(2), axis_direction=[0, 0, 0]))
+    check(message is not None and "'axis_direction'" in message and "non-zero" in message,
+          "a zero cyclic symmetry axis must be refused naming the argument: " + str(message))
     # More than one graph sector needs the result expansion region, which the controller would otherwise
     # refuse in its own words
     message = raised_message(lambda: constraints.add_cyclic_symmetry(PREFIX + "Bad", surface_selection(1),
@@ -151,7 +186,7 @@ def test_cyclic_symmetry():
     check(message is not None and "number_of_graph_sectors" in message and "clear_expansion_region" in message,
           "one graph sector with a kept expansion region must be refused: " + str(message))
     check(constraints[PREFIX + "CS"].get_value("number_of_graph_sectors") == 2, "a refused replace changed the count")
-    check_raises(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", region=element_selection([1]),
+    check_raises(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", region=part_selection(),
                                                              clear_expansion_region=True),
                  "a region and clear_expansion_region together must be refused")
     message = raised_message(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", clear_expansion_region=True))
@@ -163,7 +198,7 @@ def test_cyclic_symmetry():
     # Raising the count again needs the region again
     check_raises(lambda: constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=3),
                  "more graph sectors without an expansion region must be refused on a replace")
-    cs = constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=3, region=element_selection([1]))
+    cs = constraints.replace_cyclic_symmetry(PREFIX + "CS", number_of_graph_sectors=3, region=part_selection())
     check(cs.get_value("number_of_graph_sectors") == 3, "the graph sector count was not raised")
     check(cs.region_type == "ElementSetName", "the expansion region was not set again")
     # The model would lower the kept graph sectors to fewer sectors on its own, so the merged pair is refused
@@ -198,9 +233,16 @@ def test_joint():
     check(joint.get_value("axis_defined_by") == "UserDefined", "a given axis is user defined")
     check(list(joint.get_value("axis_direction"))[2] == 2, "the axis direction was not set")
     # A value that is not given survives the replace, and a definition can be switched back explicitly
-    joint = constraints.replace_joint(PREFIX + "J", joint_type="Ball", axis_defined_by="MasterSurface")
-    check(joint.get_value("joint_type") == "Ball", "the joint type was not replaced")
+    joint = constraints.replace_joint(PREFIX + "J", axis_defined_by="MasterSurface")
     check(joint.get_value("axis_defined_by") == "MasterSurface", "the axis definition was not replaced")
+    joint = constraints.replace_joint(PREFIX + "J", joint_type="Ball")
+    check(joint.get_value("joint_type") == "Ball", "the joint type was not replaced")
+    # A ball has no axis, so the dialog hides its definition: it is not read back and it is refused
+    check("axis_defined_by" not in list(joint.get_value_names()),
+          "a ball joint read back an axis definition: " + str(list(joint.get_value_names())))
+    message = raised_message(lambda: constraints.replace_joint(PREFIX + "J", axis_defined_by="UserDefined"))
+    check(message is not None and "'axis_defined_by'" in message,
+          "an axis definition of a ball joint must be refused naming the argument: " + str(message))
     check(joint.get_value("center_defined_by") == "Coordinates", "the centre must survive a replace")
     check(list(joint.get_value("center")) == [0.5, 0.5, 0.5], "the centre must survive a replace")
     # The formulation defaults to rigid bodies; a given stiffness switches the spring stiffness to user defined
@@ -254,6 +296,15 @@ def test_joint():
                                                                axis_direction=[0, 0, 1]))
         check(message is not None and "'axis_direction'" in message,
               "an axis direction for a " + joint_type + " joint must be refused: " + str(message))
+        message = raised_message(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1),
+                                                               surface_selection(2), joint_type=joint_type,
+                                                               axis_defined_by="MasterSurface"))
+        check(message is not None and "'axis_defined_by'" in message,
+              "an axis definition for a " + joint_type + " joint must be refused: " + str(message))
+    message = raised_message(lambda: constraints.add_joint(PREFIX + "Bad", surface_selection(1),
+                                                           surface_selection(2), axis_direction=[0, 0, 0]))
+    check(message is not None and "'axis_direction'" in message and "non-zero" in message,
+          "a zero joint axis must be refused naming the argument: " + str(message))
     # A value given with a definition that does not use it would be stored and never used, so both are named
     for arguments in [{"center": [0, 0, 0], "center_defined_by": "MasterSurface"},
                       {"axis_direction": [0, 0, 1], "axis_defined_by": "MasterSurface"},
@@ -288,6 +339,27 @@ def test_reference_point_constraints():
     check(rb.slave_region_type == "NodeSetName", "unexpected region " + rb.slave_region_type)
     check_raises(lambda: constraints.add_rigid_body(PREFIX + "Bad", "NoSuchRP", node_selection([1])),
                  "an unknown reference point must be rejected")
+    # The rigid body dialog picks geometry, so its journal hands that selection back, and it must resolve to
+    # the nodes the same face selected by nodes gives
+    face_nodes = sorted(pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [1]}).get_ids())
+    rb_geometry = constraints.add_rigid_body(PREFIX + "RB_Geo", RP, geometry_face_selection(1))
+    check(rb_geometry.slave_region_type == "NodeSetName", "unexpected region " + rb_geometry.slave_region_type)
+    node_ids = sorted(pmx.model.node_sets[rb_geometry.slave_region_name].get_node_ids())
+    check(node_ids == face_nodes, "the geometry selection resolved to the nodes " + str(node_ids))
+    rb_geometry = constraints.replace_rigid_body(PREFIX + "RB_Geo", region=geometry_face_selection(2))
+    face_2_nodes = sorted(pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [2]}).get_ids())
+    check(sorted(pmx.model.node_sets[rb_geometry.slave_region_name].get_node_ids()) == face_2_nodes,
+          "the replaced geometry selection did not resolve to the nodes of the face")
+    # The geometry target adds no region type, so a named region is still checked against the node ones
+    message = raised_message(lambda: constraints.add_rigid_body(PREFIX + "Bad", RP,
+                                                                pmx.create.region('ElementSetName', 'Any')))
+    check(message is not None and "ElementSetName region was given" in message,
+          "an element set region must be refused: " + str(message))
+    message = raised_message(lambda: constraints.add_rigid_body(PREFIX + "Bad", RP, element_selection([1])))
+    check(message is not None and "'nodes' or 'geometry'" in message,
+          "an element selection must be refused naming the targets: " + str(message))
+    check(not constraints.contains(PREFIX + "Bad"), "a refused rigid body was recorded")
+    constraints.remove([PREFIX + "RB_Geo"])
     # A kinematic coupling constrains the given degrees of freedom
     kc = constraints.add_kinematic_coupling(PREFIX + "KC", RP, surface_selection(1), u1=True, u2=False)
     check(kc.get_value("u1"), "u1 was not set")

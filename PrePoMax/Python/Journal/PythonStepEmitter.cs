@@ -115,6 +115,9 @@ namespace PrePoMax.Python.Journal
             }
             if (step is BuckleStep buckle)
             {
+                if (!(buckle.Accuracy > 0) || double.IsInfinity(buckle.Accuracy))
+                    throw new NotSupportedException("the accuracy " + buckle.Accuracy + " of the buckle step is not " +
+                                                    "a positive finite number, which the API refuses");
                 arguments.Add("number_of_buckling_factors=" + buckle.NumOfBucklingFactors);
                 arguments.Add("accuracy=" + PythonValueFormatter.Number(buckle.Accuracy));
                 return "buckle";
@@ -130,6 +133,10 @@ namespace PrePoMax.Python.Journal
                 // then: the API refuses them otherwise, and a replace keeps them
                 if (!steadyState.Harmonic)
                 {
+                    if (steadyState.TimeLower > steadyState.TimeUpper)
+                        throw new NotSupportedException("the lower time " + steadyState.TimeLower + " of the steady " +
+                                                        "state dynamics step exceeds its upper time " +
+                                                        steadyState.TimeUpper + ", which the API refuses");
                     arguments.Add("number_of_fourier_terms=" + steadyState.NumFourierTerms);
                     arguments.Add("time_lower=" + PythonValueFormatter.Number(steadyState.TimeLower));
                     arguments.Add("time_upper=" + PythonValueFormatter.Number(steadyState.TimeUpper));
@@ -217,15 +224,25 @@ namespace PrePoMax.Python.Journal
             }
             else if (damping.DampingType == ModalDampingTypeEnum.Constant)
                 arguments.Add("viscous_damping_ratio=" + PythonValueFormatter.Number(damping.ViscousDampingRatio));
-            else if (damping.DampingType == ModalDampingTypeEnum.Direct && damping.DampingRatiosAndRanges != null &&
-                     damping.DampingRatiosAndRanges.Count > 0)
+            else if (damping.DampingType == ModalDampingTypeEnum.Direct)
             {
+                // The solver input of the Direct type is its list of ratios, which the API therefore requires
+                if (damping.DampingRatiosAndRanges == null || damping.DampingRatiosAndRanges.Count == 0)
+                    throw new NotSupportedException("the Direct modal damping of the step has no damping ratios, " +
+                                                    "without which the solver input cannot be written, and the " +
+                                                    "API refuses it");
                 List<string> ratios = new List<string>();
                 foreach (DampingRatioAndRange ratio in damping.DampingRatiosAndRanges)
+                {
+                    if (ratio.LowestMode < 1 || ratio.HighestMode < ratio.LowestMode)
+                        throw new NotSupportedException("the damping ratio of the modes " + ratio.LowestMode + " to " +
+                                                        ratio.HighestMode + " has a lowest mode below 1 or a " +
+                                                        "highest mode below the lowest one, which the API refuses");
                     ratios.Add(PythonJournalWriter.Join("pmx.create.damping_ratio",
                                                         PythonValueFormatter.Number(ratio.DampingRatio),
                                                         PythonValueFormatter.Format(ratio.LowestMode),
                                                         PythonValueFormatter.Format(ratio.HighestMode)));
+                }
                 arguments.Add("damping_ratios=[" + string.Join(", ", ratios) + "]");
             }
             //

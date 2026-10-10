@@ -315,6 +315,19 @@ def test_contact_pairs():
     pair = pairs.replace(PAIR, adjustment_size=0.02)
     pair = pairs.replace(PAIR, adjustment_size=pair.adjustment_size)
     check(abs(pair.adjustment_size - 0.02) < 1e-12, "the adjustment size read back must go back into a replace")
+    # The dialog hides the size while the nodes are not adjusted, so it reads back as None then, and the kept
+    # size is used again once the adjustment is turned back on
+    pair = pairs.replace(PAIR, adjust=False)
+    check(not pair.adjust and pair.adjustment_size is None,
+          "an adjustment size that is not used must read back as None: " + str(pair.adjustment_size))
+    pair = pairs.replace(PAIR, adjust=pair.adjust, adjustment_size=pair.adjustment_size)
+    check(not pair.adjust and pair.adjustment_size is None, "the unused adjustment size did not round trip")
+    pair = pairs.replace(PAIR, adjust=True)
+    check(abs(pair.adjustment_size - 0.02) < 1e-12,
+          "the kept adjustment size must come back with the adjustment: " + str(pair.adjustment_size))
+    # A replace that does not change the method keeps small sliding, which the other methods do not use
+    pair = pairs.replace(PAIR, adjust=False)
+    check(pair.method == "Massless" and not pair.small_sliding, "a replace changed the method or small sliding")
     # The colors of the two surfaces, read back as lists that go back into the arguments
     check(list(pair.master_color) == [255, 255, 0, 255] and list(pair.slave_color) == [255, 255, 0, 255],
           "unexpected default colors " + str(list(pair.master_color)) + ", " + str(list(pair.slave_color)))

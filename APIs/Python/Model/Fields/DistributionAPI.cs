@@ -55,14 +55,16 @@ namespace APIs.Python.Model
                 return distribution == null ? null : distribution.InterpolatorType.ToString();
             }
         }
-        [PythonAPI("The interpolator radius of a distribution read from a file, in model units, or None.",
-                   Returns = "float or None")]
+        [PythonAPI("The interpolator radius of a distribution read from a file, in model units, or None. The " +
+                   "ClosestPoint interpolator has no radius, so it reads back None.", Returns = "float or None")]
         public object interpolator_radius
         {
             get
             {
                 MappedDistribution distribution = Resolve() as MappedDistribution;
-                return distribution == null ? null : (object)distribution.InterpolatorRadius.Value;
+                if (distribution == null || !UsesInterpolatorRadius(distribution)) return null;
+                //
+                return distribution.InterpolatorRadius.Value;
             }
         }
         [PythonAPI("The scale factors of the point cloud of a distribution read from a file, one per " +
@@ -115,6 +117,10 @@ namespace APIs.Python.Model
                                          distribution.GetType().Name + ", which no add_* method of the Python API " +
                                          "makes.");
         }
+        private static bool UsesInterpolatorRadius(MappedDistribution distribution)
+        {
+            return distribution.InterpolatorType != CaeResults.CloudInterpolatorEnum.ClosestPoint;
+        }
         private static object GetEquation(Distribution distribution)
         {
             DistributionFromEquation fromEquation = distribution as DistributionFromEquation;
@@ -137,9 +143,13 @@ namespace APIs.Python.Model
         public Dictionary<string, object> get_equations()
         {
             Distribution distribution = Resolve();
-            if (!(distribution is MappedDistribution)) return new Dictionary<string, object>();
+            MappedDistribution mappedDistribution = distribution as MappedDistribution;
+            if (mappedDistribution == null) return new Dictionary<string, object>();
             //
-            return ModelItemValueReader.GetEquations(distribution, MappedArgumentValueNames);
+            Dictionary<string, object> equations = ModelItemValueReader.GetEquations(distribution,
+                                                                                     MappedArgumentValueNames);
+            if (!UsesInterpolatorRadius(mappedDistribution)) equations.Remove("interpolator_radius");
+            return equations;
         }
         public override string ToString()
         {

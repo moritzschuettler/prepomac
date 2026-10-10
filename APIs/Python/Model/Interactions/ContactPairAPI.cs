@@ -37,13 +37,17 @@ namespace APIs.Python.Model
         }
         [PythonAPI("True when the slave nodes are adjusted onto the master surface.", Returns = "bool")]
         public bool adjust { get { return Resolve().Adjust; } }
-        [PythonAPI("The adjustment size. The Default size the dialog offers reads back as None; the argument " +
-                   "adjustment_size takes float('nan') to set it back to Default.", Returns = "float or None")]
+        [PythonAPI("The adjustment size. It reads back as None while adjust is False, since the size is then " +
+                   "not used, and for the Default size the dialog offers; the argument adjustment_size takes " +
+                   "float('nan') to set it back to Default.", Returns = "float or None")]
         public object adjustment_size
         {
             get
             {
-                double value = Resolve().AdjustmentSize;
+                ContactPair contactPair = Resolve();
+                if (!contactPair.Adjust) return null;
+                //
+                double value = contactPair.AdjustmentSize;
                 return double.IsNaN(value) ? null : (object)value;
             }
         }

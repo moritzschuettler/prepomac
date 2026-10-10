@@ -32,7 +32,8 @@ namespace APIs.Python.Model
                    "material that is not temperature dependent writes only the first row of every property " +
                    "but plastic and no temperature, so a property other than plastic with more than one row " +
                    "or a non-zero temperature is refused, naming temperature_dependent. A second elastic " +
-                   "property is refused.",
+                   "property is refused, and so is a density together with elastic_with_density, which holds " +
+                   "the density.",
                    Arguments = "name: str, properties: MaterialProperty or list[MaterialProperty], " +
                                "description: str = None, temperature_dependent: bool = False",
                    Returns = "Material",

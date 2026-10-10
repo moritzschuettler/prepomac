@@ -125,7 +125,7 @@ namespace APIs.Python.Model
                 if (!joint.IsCenterFromSelection) names.Add("center_defined_by", new string[] { "center_definition" });
                 if (joint.CenterDefinition == JointCenterDefinitionEnum.Coordinates)
                     names.Add("center", new string[] { "x", "y", "z" });
-                names.Add("axis_defined_by", new string[] { "axis_definition" });
+                if (joint.HasAxis) names.Add("axis_defined_by", new string[] { "axis_definition" });
                 if (joint.HasUserDefinedAxis) names.Add("axis_direction", new string[] { "n1", "n2", "n3" });
                 names.Add("formulation", new string[] { "formulation" });
                 if (joint.HasSprings) names.Add("stiffness_defined_by", new string[] { "stiffness_definition" });
@@ -163,7 +163,8 @@ namespace APIs.Python.Model
                    "returns its components as a list. A value the dialog shows as Default, such as an unset " +
                    "position_tolerance or spring_stiffness, reads back as None; the argument takes float('nan') " +
                    "to set it back to Default. A joint reads back center only when center_defined_by is " +
-                   "Coordinates, axis_direction only when axis_defined_by is UserDefined on a joint with an axis, " +
+                   "Coordinates, axis_defined_by only on a joint with an axis, and axis_direction only when it " +
+                   "is UserDefined there, " +
                    "stiffness_defined_by only with the Springs formulation and stiffness only when it is " +
                    "UserDefined, and no center_defined_by for a centre picked in the dialog. Use get_value_names " +
                    "to list them.", Arguments = "name: str",

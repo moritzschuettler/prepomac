@@ -17,6 +17,8 @@ namespace APIs.Python.Model
     public class DefinedFieldsAPI : StepItemsAPI<DefinedField, DefinedFieldAPI>
     {
         // Variables
+        // The dialog picks geometry, which the controller turns into the nodes it covers
+        private static readonly string[] NodeTargets = new string[] { "nodes", "geometry" };
         private readonly DefinedFieldService _service;
 
 
@@ -29,7 +31,8 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Adds a defined temperature using command history. The selection target is nodes.",
+        [PythonAPI("Adds a defined temperature using command history. The selection target is geometry, as " +
+                   "the dialog picks it, or nodes.",
                    Arguments = "name: str, region: Selection or Region, temperature: float, " +
                                "distribution_name: str = None, amplitude_name: str = None, " +
                                "color: list[int] or str = None", Returns = "DefinedField",
@@ -45,7 +48,7 @@ namespace APIs.Python.Model
                 new DefinedTemperature(nameText, null, RegionTypeEnum.Selection, 0);
             definedField.Type = DefinedTemperatureTypeEnum.ByValue;
             PythonModelArgumentCheck.SetEquation(definedField.Temperature, temperature, "temperature");
-            _service.ApplyRegion(definedField, region, "nodes");
+            _service.ApplyRegion(definedField, region, NodeTargets);
             if (distribution_name != null)
                 definedField.DistributionName =
                     _service.ResolveScalarDistributionName(distribution_name, "a temperature");
@@ -76,7 +79,7 @@ namespace APIs.Python.Model
             }
             if (temperature != null)
                 PythonModelArgumentCheck.SetEquation(definedField.Temperature, temperature, "temperature");
-            if (region != null) _service.ApplyRegion(definedField, region, "nodes");
+            if (region != null) _service.ApplyRegion(definedField, region, NodeTargets);
             if (distribution_name != null)
                 definedField.DistributionName =
                     _service.ResolveScalarDistributionName(distribution_name, "a temperature");

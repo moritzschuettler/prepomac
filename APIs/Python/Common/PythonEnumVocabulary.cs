@@ -55,6 +55,16 @@ namespace APIs.Python
             if (GetAllowedValues().TryGetValue(key, out allowedValues)) return allowedValues;
             return Enum.GetNames(GetTypes()[key]);
         }
+        // The values the member accepts when it accepts only some of the enumeration, or null when it accepts
+        // them all or the argument is not enumeration valued
+        public static string[] GetNarrowedValues(string declaringTypeName, string memberName, string argumentName)
+        {
+            string key = GetKey(declaringTypeName, memberName, argumentName);
+            if (key == null) return null;
+            //
+            string[] allowedValues;
+            return GetAllowedValues().TryGetValue(key, out allowedValues) ? allowedValues : null;
+        }
         public static Type GetType(string declaringTypeName, string memberName, string argumentName)
         {
             string key = GetKey(declaringTypeName, memberName, argumentName);
@@ -117,6 +127,9 @@ namespace APIs.Python
             allowedValues.Add("select_by", NamesExcept(vtkSelectBy.Off, vtkSelectBy.Default, vtkSelectBy.Id,
                                                        vtkSelectBy.Widget));
             allowedValues.Add("operation", NamesExcept(vtkSelectOperation.Invert));
+            // The joint centre picked by nodes in the dialog has no argument; a script gives its coordinates
+            allowedValues.Add("center_defined_by", Names(JointCenterDefinitionEnum.MasterSurface,
+                                                         JointCenterDefinitionEnum.Coordinates));
             foreach (string point in new[] { "origin", "point_on_x", "point_in_xy" })
             {
                 allowedValues.Add("add_from_selections." + point + "_created_from", coordinateSystemPointBySelection);

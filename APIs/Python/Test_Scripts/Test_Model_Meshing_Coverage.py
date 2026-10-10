@@ -54,6 +54,32 @@ def test_meshing_parameters(items, selection):
     check(values["max_size"] == 0.25, "the maximum size was not replaced: " + str(values["max_size"]))
     check(values["grading"] == 0.4, "the omitted grading was not kept: " + str(values))
     check(len(items[PREFIX + "Parameters"].get_geometry_ids()) > 0, "the region was lost")
+    # The dialog shows the factors only for a relative size and the sizes only for an absolute one, so only the
+    # pair in use reads back and the other one is refused naming relative_size
+    check(values["relative_size"] is False and "factor_max" not in values and "factor_min" not in values,
+          "absolute meshing parameters read back their factors: " + str(values))
+    for arguments in [{"factor_max": 0.1}, {"factor_min": 0.01}]:
+        argument = list(arguments)[0]
+        message = raised_message(lambda: items.replace_meshing_parameters(PREFIX + "Parameters", **arguments))
+        check(message is not None and "'" + argument + "'" in message and "relative_size" in message,
+              "a factor of absolute meshing parameters must be refused naming relative_size: " + str(message))
+    message = raised_message(lambda: items.replace_meshing_parameters(PREFIX + "Parameters", relative_size=True,
+                                                                      max_size=0.5))
+    check(message is not None and "'max_size'" in message and "relative_size" in message,
+          "a size with relative_size=True must be refused naming relative_size: " + str(message))
+    items.replace_meshing_parameters(PREFIX + "Parameters", relative_size=True, factor_max=0.1, factor_min=0.01)
+    values = settings(items, PREFIX + "Parameters")
+    check(values["relative_size"] is True and values["factor_max"] == 0.1 and values["factor_min"] == 0.01,
+          "relative meshing parameters did not read back their factors: " + str(values))
+    check("max_size" not in values and "min_size" not in values,
+          "relative meshing parameters read back their sizes: " + str(values))
+    items.replace_meshing_parameters(PREFIX + "Parameters", **values)
+    check(settings(items, PREFIX + "Parameters") == values, "the relative settings did not round trip")
+    # Going back to the absolute sizes keeps the sizes that were set
+    items.replace_meshing_parameters(PREFIX + "Parameters", relative_size=False)
+    values = settings(items, PREFIX + "Parameters")
+    check(values["relative_size"] is False and values["max_size"] == 0.25,
+          "the kept sizes did not come back with relative_size=False: " + str(values))
 
 
 def test_netgen_mesh(items, selection, shell_selection):
@@ -110,6 +136,21 @@ def test_shell_mmg(items, selection):
     check(values["relative_size"], "the MMG Hausdorff definition was not stored")
     check(values["relative_hausdorff"] == 0.003, "the MMG Hausdorff factor was not replaced")
     check(values["keep_model_edges"] is False, "the omitted MMG edge setting was not kept")
+    # The dialog shows either the relative or the absolute distance, so the other one is refused and not read
+    check("hausdorff" not in values, "a relative MMG item read back its absolute distance: " + str(values))
+    message = raised_message(lambda: items.replace_shell_mmg(PREFIX + "MMG", hausdorff=0.5))
+    check(message is not None and "'hausdorff'" in message and "relative_size" in message,
+          "an absolute distance of a relative MMG item must be refused naming relative_size: " + str(message))
+    items.replace_shell_mmg(PREFIX + "MMG", relative_size=False, hausdorff=0.5)
+    values = settings(items, PREFIX + "MMG")
+    check(values["hausdorff"] == 0.5 and "relative_hausdorff" not in values,
+          "an absolute MMG item must read back only its absolute distance: " + str(values))
+    message = raised_message(lambda: items.replace_shell_mmg(PREFIX + "MMG", relative_hausdorff=0.004))
+    check(message is not None and "'relative_hausdorff'" in message and "relative_size" in message,
+          "a relative distance of an absolute MMG item must be refused naming relative_size: " + str(message))
+    items.replace_shell_mmg(PREFIX + "MMG", relative_size=True)
+    check(settings(items, PREFIX + "MMG")["relative_hausdorff"] == 0.003,
+          "the kept relative distance did not come back with relative_size=True")
     check(items[PREFIX + "MMG"].mesher_type == "Mmg", "the shell MMG item does not select MMG")
 
 
@@ -158,6 +199,33 @@ def test_derived_arguments(items, selection):
     layers = settings(items, PREFIX + "Sweep")["elements_per_layer"]
     check(type(layers) is list and all(type(count) is int for count in layers),
           "the elements per layer must read back as a list of ints: " + repr(layers))
+    # QuadWild meshes the sources in place of the gmsh recombination and optimisation, so the dialog shows the
+    # settings of one source mesher at a time: the others are refused and not read back
+    values = settings(items, PREFIX + "Sweep")
+    gmsh_algorithm = values["algorithm_2d"]
+    check(not any(name.startswith("quad_wild_") for name in values) and "algorithm_recombine" in values,
+          "a gmsh sweep read back the QuadWild settings: " + str(values))
+    for arguments in [{"quad_wild_alpha": 0.5}, {"quad_wild_smooth": True}, {"quad_wild_flow_profile": "Aligned"}]:
+        argument = list(arguments)[0]
+        message = raised_message(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", **arguments))
+        check(message is not None and "'" + argument + "'" in message and "algorithm_2d" in message,
+              "a QuadWild value of a gmsh sweep must be refused naming algorithm_2d: " + str(message))
+    items.replace_sweep_mesh(PREFIX + "Sweep", algorithm_2d="QuadWild", quad_wild_alpha=0.5)
+    values = settings(items, PREFIX + "Sweep")
+    check(values["quad_wild_alpha"] == 0.5 and "algorithm_recombine" not in values and
+          "recombine_min_quality" not in values and "optimize_first_order_shell" not in values,
+          "a QuadWild sweep must read back only the settings QuadWild uses: " + str(values))
+    for arguments in [{"algorithm_recombine": "Blossom"}, {"recombine_min_quality": 0.2},
+                      {"optimize_first_order_shell": "None"}]:
+        argument = list(arguments)[0]
+        message = raised_message(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", **arguments))
+        check(message is not None and "'" + argument + "'" in message and "algorithm_2d" in message,
+              "a gmsh value of a QuadWild sweep must be refused naming algorithm_2d: " + str(message))
+    items.replace_sweep_mesh(PREFIX + "Sweep", **values)
+    check(settings(items, PREFIX + "Sweep") == values, "the QuadWild sweep settings did not round trip")
+    items.replace_sweep_mesh(PREFIX + "Sweep", algorithm_2d=gmsh_algorithm, algorithm_recombine="Blossom")
+    check(settings(items, PREFIX + "Sweep")["algorithm_recombine"] == "Blossom",
+          "a gmsh value given with a gmsh algorithm_2d was not set")
 
 
 def test_layer_validation(items):
@@ -220,10 +288,11 @@ def test_value_ranges(items, solid_selection, shell_selection):
             "a minimum size above the kept maximum was accepted")
     refused(lambda: replace(name, max_size=1.0, min_size=2.0), ["min_size", "max_size"],
             "a minimum size above the maximum was accepted")
-    refused(lambda: replace(name, factor_max=0.01, factor_min=0.02), ["factor_min", "factor_max"],
-            "a minimum factor above the maximum was accepted")
-    for arguments in [{"max_size": -1.0}, {"min_size": float("nan")}, {"factor_max": 1.5}, {"factor_min": 0},
-                      {"fineness": 0}, {"grading": 1.5}, {"elements_per_edge": 0}, {"elements_per_curve": -1}]:
+    refused(lambda: replace(name, relative_size=True, factor_max=0.01, factor_min=0.02),
+            ["factor_min", "must not be larger than 'factor_max'"], "a minimum factor above the maximum was accepted")
+    for arguments in [{"max_size": -1.0}, {"min_size": float("nan")}, {"factor_max": 1.5, "relative_size": True},
+                      {"factor_min": 0, "relative_size": True}, {"fineness": 0}, {"grading": 1.5},
+                      {"elements_per_edge": 0}, {"elements_per_curve": -1}]:
         argument = list(arguments)[0]
         refused(lambda: replace(name, **arguments), [argument], "the value " + str(arguments) + " was accepted")
     refused(lambda: replace(name, split_compound_mesh=True, merge_compound_parts=True),
@@ -247,7 +316,7 @@ def test_value_ranges(items, solid_selection, shell_selection):
             "a negative number of optimization steps was accepted")
     refused(lambda: items.replace_netgen_mesh(PREFIX + "Netgen", transfinite_angle_deg=180),
             ["transfinite_angle_deg"], "a Netgen transfinite angle of 180 degrees was accepted")
-    refused(lambda: items.replace_shell_mmg(PREFIX + "MMG", hausdorff=0), ["hausdorff"],
+    refused(lambda: items.replace_shell_mmg(PREFIX + "MMG", relative_size=False, hausdorff=0), ["hausdorff"],
             "a zero Hausdorff value was accepted")
     refused(lambda: items.replace_thicken_shell_mesh(PREFIX + "Thicken", thickness=0), ["thickness"],
             "a zero thickness was accepted")
@@ -255,8 +324,8 @@ def test_value_ranges(items, solid_selection, shell_selection):
             "a zero number of layers was accepted")
     refused(lambda: items.add_thicken_shell_mesh(PREFIX + "Bad", shell_selection, float("nan")), ["thickness"],
             "a thickness that is not finite was accepted")
-    refused(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", quad_wild_alpha=1.5), ["quad_wild_alpha"],
-            "a sweep QuadWild alpha above 1 was accepted")
+    refused(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", algorithm_2d="QuadWild", quad_wild_alpha=1.5),
+            ["quad_wild_alpha", "from 0 to 1"], "a sweep QuadWild alpha above 1 was accepted")
     refused(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", number_of_global_smooth_steps=-2),
             ["number_of_global_smooth_steps"], "a negative number of sweep smooth steps was accepted")
     refused(lambda: items.add_sweep_mesh(PREFIX + "Bad", solid_selection, number_of_global_smooth_steps=-1),

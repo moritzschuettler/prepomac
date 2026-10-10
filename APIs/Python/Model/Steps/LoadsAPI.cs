@@ -21,7 +21,10 @@ namespace APIs.Python.Model
         // Variables
         private const string NodeTarget = "nodes";
         private const string SurfaceTarget = "surfaces";
-        private const string ElementTarget = "elements";
+        // The dialog picks parts, and the controller marks the element set it makes from them as made of parts,
+        // so a selection targets parts while a named region is an element set or a part
+        private static readonly string[] PartTargets = new string[] { "parts" };
+        private static readonly string[] ElementRegionTargets = new string[] { "elements" };
         private readonly LoadService _service;
 
 
@@ -153,7 +156,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a hydrostatic pressure using command history. The pressure varies linearly along " +
-                   "the given direction between the two points. Possible cutoff values are None, Positive " +
+                   "the given non-zero direction between the two points. Possible cutoff values are None, Positive " +
                    "and Negative. A two dimensional model refuses a nonzero third component of a point or " +
                    "the direction. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, first_point: list[float] = None, " +
@@ -337,7 +340,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a gravity load using command history. A two dimensional model refuses a nonzero f3. " +
-                   "The selection target is elements.",
+                   "The selection target is parts, as the dialog picks them.",
                    Arguments = "name: str, region: Selection or Region, f1: float = None, f2: float = None, " +
                                "f3: float = None, and the shared load arguments", Returns = "Load",
                    Example = "step.loads.add_gravity('Gravity-1', part_selection, f3=-9810)")]
@@ -349,7 +352,7 @@ namespace APIs.Python.Model
             string nameText = PythonValueConverter.ToText(name, "name", false);
             _service.ValidateName(StepName, nameText, null);
             GravityLoad load = new GravityLoad(nameText, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, ElementTarget);
+            _service.ApplyRegion(load, region, PartTargets, ElementRegionTargets);
             LoadFactory.ApplyGravity(load, f1, f2, f3);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
@@ -366,16 +369,17 @@ namespace APIs.Python.Model
             string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
             string nameText = PythonValueConverter.ToText(name, "name", true);
             GravityLoad load = _service.CloneForReplace<GravityLoad>(StepName, oldName, "gravity");
-            ApplyRegionIfGiven(load, region, ElementTarget);
+            if (region != null) _service.ApplyRegion(load, region, PartTargets, ElementRegionTargets);
             LoadFactory.ApplyGravity(load, f1, f2, f3);
             //
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a centrifugal load using command history. The axis is given by a point and a " +
-                   "direction, and the rotational_speed is in rad/s and must not be negative. An axisymmetric " +
+                   "non-zero direction, and the rotational_speed is in rad/s and must not be negative. An " +
+                   "axisymmetric " +
                    "model turns about its y axis, so there axis_point must be [0, 0, 0] and axis_direction " +
-                   "[0, 1, 0] when given. The selection target is elements.",
+                   "[0, 1, 0] when given. The selection target is parts, as the dialog picks them.",
                    Arguments = "name: str, region: Selection or Region, axis_point: list[float] = None, " +
                                "axis_direction: list[float] = None, rotational_speed: float = None, and the " +
                                "shared load arguments", Returns = "Load")]
@@ -389,7 +393,7 @@ namespace APIs.Python.Model
             // The dialog derives the axisymmetric flag from the model space
             CentrifLoad load = new CentrifLoad(nameText, null, RegionTypeEnum.Selection, TwoD(),
                                                _service.GetIsAxisymmetric(), Complex(), 0);
-            _service.ApplyRegion(load, region, ElementTarget);
+            _service.ApplyRegion(load, region, PartTargets, ElementRegionTargets);
             LoadFactory.ApplyCentrifugal(load, axis_point, axis_direction, rotational_speed);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
@@ -407,14 +411,15 @@ namespace APIs.Python.Model
             string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
             string nameText = PythonValueConverter.ToText(name, "name", true);
             CentrifLoad load = _service.CloneForReplace<CentrifLoad>(StepName, oldName, "centrifugal");
-            ApplyRegionIfGiven(load, region, ElementTarget);
+            if (region != null) _service.ApplyRegion(load, region, PartTargets, ElementRegionTargets);
             LoadFactory.ApplyCentrifugal(load, axis_point, axis_direction, rotational_speed);
             //
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
         [PythonAPI("Adds a pre-tension load using command history. The direction is the surface normal " +
-                   "unless one is given; auto_direction=True, the default, cannot be combined with a direction, " +
+                   "unless a non-zero one is given; auto_direction=True, the default, cannot be combined with a " +
+                   "direction, " +
                    "and auto_direction=False needs one. Possible tension_type values are Force and " +
                    "Displacement. It needs a three dimensional model, and refuses phase_deg, because the solver " +
                    "input carries no phase for it. The selection target is surfaces.",
@@ -527,7 +532,7 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Adds a body flux using command history. The selection target is elements.",
+        [PythonAPI("Adds a body flux using command history. The selection target is parts, as the dialog picks them.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, and the shared " +
                                "load arguments", Returns = "Load")]
         public LoadAPI add_body_flux(object name, object region, object magnitude, object amplitude_name = null,
@@ -538,7 +543,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
             BodyFlux load = new BodyFlux(nameText, null, RegionTypeEnum.Selection, 0, TwoD());
-            _service.ApplyRegion(load, region, ElementTarget);
+            _service.ApplyRegion(load, region, PartTargets, ElementRegionTargets);
             LoadFactory.ApplyBodyFlux(load, magnitude);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
@@ -555,7 +560,7 @@ namespace APIs.Python.Model
             string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
             string nameText = PythonValueConverter.ToText(name, "name", true);
             BodyFlux load = _service.CloneForReplace<BodyFlux>(StepName, oldName, "body_flux");
-            ApplyRegionIfGiven(load, region, ElementTarget);
+            if (region != null) _service.ApplyRegion(load, region, PartTargets, ElementRegionTargets);
             LoadFactory.ApplyBodyFlux(load, magnitude);
             //
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);

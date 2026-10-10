@@ -176,6 +176,25 @@ def test_distributions():
         check(list(mapped.get_equations()["translate"])[0] == "=0.5", "the translate expression did not round trip")
         distributions.remove([PREFIX + "Mapped"])
         distributions.add_from_file(PREFIX + "File", file_name)
+        # The closest point interpolation, the default, has no radius, which the dialog then hides
+        check(distributions[PREFIX + "File"].interpolator_type == "ClosestPoint" and
+              distributions[PREFIX + "File"].interpolator_radius is None,
+              "a closest point distribution must read back no radius")
+        check("interpolator_radius" not in distributions[PREFIX + "File"].get_equations(),
+              "a closest point distribution must not report a radius expression")
+        message = raised_message(lambda: distributions.replace_from_file(PREFIX + "File", interpolator_radius=2))
+        check(message is not None and "'interpolator_radius'" in message and "interpolator_type" in message,
+              "a radius of a closest point distribution must be refused naming interpolator_type: " + str(message))
+        message = raised_message(lambda: distributions.add_from_file(PREFIX + "Bad", file_name,
+                                                                     interpolator_type="ClosestPoint",
+                                                                     interpolator_radius="=2"))
+        check(message is not None and "'interpolator_radius'" in message,
+              "an add with a radius for the closest point must be refused: " + str(message))
+        check(not distributions.contains(PREFIX + "Bad"), "a refused distribution was recorded")
+        mapped = distributions.replace_from_file(PREFIX + "File", interpolator_type="Shepard", interpolator_radius=3)
+        check(mapped.interpolator_radius == 3, "a radius given with the Shepard interpolator was not set")
+        mapped = distributions.replace_from_file(PREFIX + "File", interpolator_type="ClosestPoint")
+        check(mapped.interpolator_radius is None, "the radius of a closest point distribution must read back None")
         # A replace never turns one form into the other, and is refused before anything is recorded
         message = raised_message(lambda: distributions.replace_from_equation(PREFIX + "File", equation="1"))
         check(message is not None and "is made by add_from_file, so replace_from_equation cannot replace it" in
@@ -264,6 +283,16 @@ def test_initial_conditions():
     check(message is not None and "'rotational_speed'" in message,
           "a replace with a negative rotational speed must be refused: " + str(message))
     check(conditions[PREFIX + "Ang"].get_value("rotational_speed") == 10, "a refused replace changed the condition")
+    # An axis of zero length is no axis, which the dialog refuses as well
+    message = raised_message(lambda: conditions.add_angular_velocity(PREFIX + "Bad", selection, [0, 0, 0],
+                                                                     [0, 0, 0], 10))
+    check(message is not None and "'axis_direction'" in message and "non-zero" in message,
+          "a zero axis direction must be refused naming the argument: " + str(message))
+    message = raised_message(lambda: conditions.replace_angular_velocity(PREFIX + "Ang", axis_direction=[0, 0, 0]))
+    check(message is not None and "'axis_direction'" in message,
+          "a replace with a zero axis direction must be refused: " + str(message))
+    check(list(conditions[PREFIX + "Ang"].get_value("axis_direction")) == [0, 0, 1],
+          "a refused replace changed the axis direction")
     check(not conditions.contains(PREFIX + "Bad"), "a refused initial condition was recorded")
     # A replacement that is not given a region keeps the selection, which is converted again because
     # the replacement deletes the internal node set of the old initial condition
@@ -353,6 +382,45 @@ def test_initial_conditions():
           "a two channel color must be refused naming the argument: " + str(message))
     check(not conditions.contains(PREFIX + "Bad"), "a refused initial condition was recorded")
     conditions.remove([PREFIX + "Vel_C"])
+
+
+def geometry_face_selection(face):
+    """The selection the dialog records for a picked face: its geometry IDs, as the journal writes them."""
+    geometry_ids = list(pmx.create.selection_by_ids('femodel', 'geometry', 'surfaces', {1: [face]}).get_ids())
+    check(len(geometry_ids) > 0, "the face resolved to no geometry IDs")
+    return pmx.create.selection_by_ids('femodel', 'geometry', 'geometry', geometry_ids)
+
+
+def test_initial_condition_geometry_regions():
+    # The initial condition dialog picks geometry, so its journal hands that selection back, and it must
+    # resolve to the nodes the same face selected by nodes gives
+    conditions = pmx.model.initial_conditions
+    face_nodes = sorted(pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [1]}).get_ids())
+    added = [conditions.add_temperature(PREFIX + "Geo_T", geometry_face_selection(1), 20),
+             conditions.add_translational_velocity(PREFIX + "Geo_V", geometry_face_selection(1), 1, 0, 0),
+             conditions.add_angular_velocity(PREFIX + "Geo_A", geometry_face_selection(1), [0, 0, 0], [0, 0, 1],
+                                             10)]
+    for condition in added:
+        check(condition.region_type == "NodeSetName",
+              condition.name + " has the region type " + condition.region_type)
+        node_ids = sorted(pmx.model.node_sets[condition.region_name].get_node_ids())
+        check(node_ids == face_nodes, condition.name + " resolved to the nodes " + str(node_ids) + ", not " +
+              str(face_nodes))
+    condition = conditions.replace_temperature(PREFIX + "Geo_T", region=geometry_face_selection(2))
+    face_2_nodes = sorted(pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [2]}).get_ids())
+    check(sorted(pmx.model.node_sets[condition.region_name].get_node_ids()) == face_2_nodes,
+          "the replaced geometry selection did not resolve to the nodes of the face")
+    # The geometry target adds no region type, so a named region is still checked against the node ones
+    message = raised_message(lambda: conditions.add_temperature(PREFIX + "Bad",
+                                                                pmx.create.region('ElementSetName', 'AnySet'), 20))
+    check(message is not None and "ElementSetName region was given" in message,
+          "an element set region must be refused: " + str(message))
+    message = raised_message(lambda: conditions.add_temperature(
+        PREFIX + "Bad", pmx.create.selection_by_ids('femodel', 'elements', 'elements', [1]), 20))
+    check(message is not None and "'nodes' or 'geometry'" in message,
+          "an element selection must be refused naming the targets: " + str(message))
+    check(not conditions.contains(PREFIX + "Bad"), "a refused initial condition was recorded")
+    conditions.remove([condition.name for condition in added])
 
 
 def test_amplitude_shifts():
@@ -448,6 +516,7 @@ def main():
     test_distributions()
     test_distribution_coordinate_system()
     test_initial_conditions()
+    test_initial_condition_geometry_regions()
     test_distribution_reaches_the_deck()
     clean(pmx.model.initial_conditions)
     clean(pmx.model.distributions)

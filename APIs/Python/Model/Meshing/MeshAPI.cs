@@ -56,7 +56,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Remeshes the elements of a region using command history. The region is a selection or " +
-                   "an ElementSetName region, which is what the dialog offers. Every parameter that is not " +
+                   "an ElementSetName region, which is what the dialog offers; the selection target is elements, " +
+                   "as the dialog picks them, or geometry. Every parameter that is not " +
                    "given keeps the application default. max_size and min_size are at least 0, a min_size larger " +
                    "than the max_size it ends up with is refused naming both, and hausdorff is larger than 0.",
                    Arguments = "region: Selection or Region, max_size: float = None, " +
@@ -82,7 +83,8 @@ namespace APIs.Python.Model
         [PythonAPI("Splits a part mesh with a surface using command history. This is a one time operation " +
                    "rather than a model item. The base part region is a selection or a PartName region and " +
                    "the splitter surface region is a selection or a SurfaceName region, which is what the " +
-                   "dialog offers.",
+                   "dialog offers. The base part selection target is parts, as the dialog picks them, or " +
+                   "geometry, and the splitter surface selection target is surfaces.",
                    Arguments = "base_part_region: Selection or Region, " +
                                "splitter_surface_region: Selection or Region, offset: float = None, " +
                                "max_size: float = None, min_size: float = None, hausdorff: float = None, " +

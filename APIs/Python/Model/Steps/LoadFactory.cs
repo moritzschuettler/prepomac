@@ -59,6 +59,7 @@ namespace APIs.Python.Model
                 EquationString[] values = ToVector(direction, "direction");
                 RefuseOutOfPlaneComponent(load, load.N3, values[2], "direction");
                 PythonModelArgumentCheck.SetEquations(new[] { load.N1, load.N2, load.N3 }, values, "direction");
+                PythonModelArgumentCheck.CheckNonZeroDirection(new[] { load.N1, load.N2, load.N3 }, "direction");
             }
             SetEquation(load.FirstPointPressure, firstPointPressure, "first_point_pressure");
             SetEquation(load.SecondPointPressure, secondPointPressure, "second_point_pressure");
@@ -135,6 +136,7 @@ namespace APIs.Python.Model
                 if (load.Axisymmetric)
                     RefuseAxisymmetricAxis(load.N1, values, new double[] { 0, 1, 0 }, "axis_direction");
                 PythonModelArgumentCheck.SetEquations(new[] { load.N1, load.N2, load.N3 }, values, "axis_direction");
+                PythonModelArgumentCheck.CheckNonZeroDirection(new[] { load.N1, load.N2, load.N3 }, "axis_direction");
             }
             if (rotationalSpeed != null)
             {
@@ -177,6 +179,7 @@ namespace APIs.Python.Model
                 RefuseOutOfPlaneComponent(load, load.Z, values[2], "direction");
                 load.AutoComputeDirection = false;
                 PythonModelArgumentCheck.SetEquations(new[] { load.X, load.Y, load.Z }, values, "direction");
+                PythonModelArgumentCheck.CheckNonZeroDirection(new[] { load.X, load.Y, load.Z }, "direction");
             }
             else if (autoDirection != null)
             {

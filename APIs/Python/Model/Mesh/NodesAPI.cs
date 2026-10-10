@@ -36,7 +36,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Merges the coincident nodes of the selected geometry or nodes using command history. " +
-                   "The nodes to keep are SmallerID or LargerID.",
+                   "The selection uses the 'femodel' view and the 'geometry' or 'nodes' target. The nodes to " +
+                   "keep are SmallerID or LargerID.",
                    Arguments = "selection: Selection, tolerance: float = None, nodes_to_keep: str = None",
                    Returns = "None")]
         public void merge_coincident(object selection, object tolerance = null, object nodes_to_keep = null)

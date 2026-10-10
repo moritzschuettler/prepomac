@@ -28,13 +28,22 @@ namespace APIs.Python.Model
         public static void Apply(IMultiRegion item, object region, string argumentName, string[] targets,
                                  SelectionService selectionService, ModelResolver modelResolver)
         {
+            Apply(item, region, argumentName, targets, targets, selectionService, modelResolver);
+        }
+        // A dialog that picks parts for an element set the controller marks as made of parts takes a part
+        // selection only, while it still names an element set or a part, so the two are given apart
+        public static void Apply(IMultiRegion item, object region, string argumentName, string[] selectionTargets,
+                                 string[] namedRegionTargets, SelectionService selectionService,
+                                 ModelResolver modelResolver)
+        {
             if (region == null)
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
             //
             SelectionAPI selection = region as SelectionAPI;
             if (selection != null)
             {
-                SelectionCompilation compilation = selectionService.CompileForView(selection, "femodel", targets);
+                SelectionCompilation compilation = selectionService.CompileForView(selection, "femodel",
+                                                                                   selectionTargets);
                 item.RegionType = RegionTypeEnum.Selection;
                 item.RegionName = null;
                 item.CreationData = compilation.Selection;
@@ -48,7 +57,8 @@ namespace APIs.Python.Model
                                              "by a pmx.create.selection_* function, or a named region created " +
                                              "by pmx.create.region.");
             //
-            string storedRegionName = GetStoredRegionName(named, argumentName, targets, modelResolver, item);
+            string storedRegionName = GetStoredRegionName(named, argumentName, namedRegionTargets, modelResolver,
+                                                          item);
             item.RegionType = named.RegionType;
             item.RegionName = storedRegionName;
             item.CreationData = null;
@@ -130,12 +140,15 @@ namespace APIs.Python.Model
                                          string.Join(", ", names) + " region, but a " + regionType +
                                          " region was given.");
         }
-        // A target the item is not defined on through a named region, such as geometry, is checked by its caller
+        // A geometry selection names no region type of its own, so it adds none to the other targets; a target
+        // the item is not defined on through a named region is checked by its caller
         private static List<RegionTypeEnum> GetAcceptedRegionTypes(string[] targets, IMultiRegion item)
         {
             List<RegionTypeEnum> accepted = new List<RegionTypeEnum>();
             foreach (string target in targets)
             {
+                if (target == "geometry") continue;
+                //
                 if (target == "nodes")
                 {
                     AddOnce(accepted, RegionTypeEnum.NodeSetName);
@@ -152,7 +165,7 @@ namespace APIs.Python.Model
                 else return null;
             }
             //
-            return accepted;
+            return accepted.Count == 0 ? null : accepted;
         }
         private static void AddOnce(List<RegionTypeEnum> regionTypes, RegionTypeEnum regionType)
         {

@@ -60,12 +60,19 @@ namespace APIs.Python.Model
             Dictionary<string, string[]> names = new Dictionary<string, string[]>();
             if (item is MeshingParameters)
             {
-                names.Add("max_size", new string[] { "max_h" });
-                names.Add("min_size", new string[] { "min_h" });
+                // Only the size pair the item uses is read, as the dialog shows only that pair
+                bool relativeSizeUsed = IsRelativeSizeUsed((MeshingParameters)item);
+                if (!relativeSizeUsed)
+                {
+                    names.Add("max_size", new string[] { "max_h" });
+                    names.Add("min_size", new string[] { "min_h" });
+                }
                 ModelItemValueReader.AddArguments(names, "fineness", "grading", "elements_per_edge",
                                                   "elements_per_curve", "second_order", "midside_nodes_on_geometry",
-                                                  "relative_size", "factor_max", "factor_min", "split_compound_mesh",
-                                                  "merge_compound_parts", "merge_cells");
+                                                  "relative_size");
+                if (relativeSizeUsed) ModelItemValueReader.AddArguments(names, "factor_max", "factor_min");
+                ModelItemValueReader.AddArguments(names, "split_compound_mesh", "merge_compound_parts",
+                                                  "merge_cells");
             }
             else if (item is LocalMeshSize)
             {
@@ -75,8 +82,12 @@ namespace APIs.Python.Model
                 else ModelItemValueReader.AddArguments(names, "number_of_elements");
             }
             else if (item is ShellMmg)
-                ModelItemValueReader.AddArguments(names, "relative_size", "relative_hausdorff", "hausdorff",
+            {
+                // Only the distance the item uses is read, as the dialog shows only that one
+                ModelItemValueReader.AddArguments(names, "relative_size",
+                                                  ((ShellMmg)item).RelativeSize ? "relative_hausdorff" : "hausdorff",
                                                   "keep_model_edges");
+            }
             else if (item is ThickenShellMesh)
                 ModelItemValueReader.AddArguments(names, "thickness", "number_of_layers", "offset", "keep_model_edges");
             else if (item is NetgenMesh)
@@ -92,10 +103,21 @@ namespace APIs.Python.Model
                 // The 2D algorithm of a sweep may also be QuadWild, so it is stored apart from the gmsh one
                 names.Add("algorithm_2d", new string[] { "sweep_algorithm_mesh2_d" });
                 names.Add("algorithm_3d", new string[] { "algorithm_mesh3_d" });
-                AddGmshArguments(names, "optimize_first_order_shell");
+                // QuadWild meshes the sources in place of the gmsh recombination and optimisation, so only the
+                // settings of the source mesher in use are read, as the dialog shows only those
+                bool quadWild = ((SweepMesh)item).SourceMesher == SweepSourceMesherEnum.QuadWild;
+                if (quadWild)
+                {
+                    ModelItemValueReader.AddArguments(names, "transfinite_three_sided", "transfinite_four_sided",
+                                                      "transfinite_angle_deg");
+                }
+                else AddGmshArguments(names, "optimize_first_order_shell");
                 names.Add("elements_per_layer", new string[] { "number_of_elements_per_layer" });
-                ModelItemValueReader.AddArguments(names, "keep_imprint_edges", "quad_wild_flow_profile",
-                                                  "quad_wild_alpha", "quad_wild_smooth", "symmetry");
+                ModelItemValueReader.AddArguments(names, "keep_imprint_edges");
+                if (quadWild)
+                    ModelItemValueReader.AddArguments(names, "quad_wild_flow_profile", "quad_wild_alpha",
+                                                      "quad_wild_smooth");
+                ModelItemValueReader.AddArguments(names, "symmetry");
             }
             else if (item is TransfiniteMesh)
             {
@@ -144,8 +166,16 @@ namespace APIs.Python.Model
             TransfiniteMesh transfiniteMesh = item as TransfiniteMesh;
             if (transfiniteMesh != null)
                 values["recombine"] = transfiniteMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
+            // The basic view of the dialog meshes by the absolute sizes whatever relative switch it keeps hidden
+            MeshingParameters meshingParameters = item as MeshingParameters;
+            if (meshingParameters != null) values["relative_size"] = IsRelativeSizeUsed(meshingParameters);
             //
             return values;
+        }
+        // The mesh is sized by the factors only when the relative switch is on in the advanced view of the dialog
+        internal static bool IsRelativeSizeUsed(MeshingParameters item)
+        {
+            return item.RelativeSize && item.AdvancedView;
         }
 
 
@@ -154,7 +184,12 @@ namespace APIs.Python.Model
                    "keeps the application default. max_size and min_size are at least 0, factor_max, factor_min, " +
                    "fineness and grading larger than 0 and at most 1, elements_per_edge and elements_per_curve " +
                    "larger than 0; a minimum larger than the maximum the item ends up with is refused naming both, " +
-                   "and split_compound_mesh and merge_compound_parts cannot both be True.",
+                   "and split_compound_mesh and merge_compound_parts cannot both be True. relative_size=True sizes " +
+                   "the mesh by factor_max and factor_min times the bounding box diagonal of each part, and turns " +
+                   "on the advanced view of the dialog, which offers the switch; relative_size=False sizes it by " +
+                   "max_size and min_size. The pair the item does not use is refused and left out of " +
+                   "get_settings. Only Netgen honours the relative sizes; Gmsh, Mmg and the limits of the local " +
+                   "mesh sizes always use max_size and min_size.",
                    Arguments = "name: str, selection: Selection, " + MeshingParameterArguments,
                    Returns = "MeshSetupItem",
                    Example = "pmx.model.mesh.setup_items.add_meshing_parameters('MP-1', selection, max_size=5.0)")]
@@ -254,7 +289,10 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a shell MMG mesh setup item, which selects MMG for the selected STL shell parts. " +
-                   "hausdorff and relative_hausdorff are larger than 0.",
+                   "hausdorff and relative_hausdorff are larger than 0. relative_size=True uses " +
+                   "relative_hausdorff, relative to the bounding box diagonal, and relative_size=False the " +
+                   "absolute hausdorff; the distance the item does not use is refused and left out of " +
+                   "get_settings.",
                    Arguments = "name: str, selection: Selection, " + ShellMmgArguments,
                    Returns = "MeshSetupItem",
                    Example = "pmx.model.mesh.setup_items.add_shell_mmg('Shell_Mmg-1', selection)")]
@@ -575,7 +613,10 @@ namespace APIs.Python.Model
                    "symmetry Automatic, the default, a compound whose cells are mirror images across the planes " +
                    "it is split on is swept one symmetric piece at a time and the mesh mirrored onto the other " +
                    "cells, a cell of the piece the sweep cannot reach meshed by tetrahedra and mirrored alike; Off sweeps " +
-                   "every cell. quad_wild_alpha lies from 0 to 1, and number_of_global_smooth_steps is 0 or larger.",
+                   "every cell. quad_wild_alpha lies from 0 to 1, and number_of_global_smooth_steps is 0 or larger. " +
+                   "The quad_wild arguments are used only with algorithm_2d 'QuadWild', and recombine_min_quality, " +
+                   "algorithm_recombine and optimize_first_order_shell only with a gmsh algorithm_2d; the ones " +
+                   "the item does not use are refused and left out of get_settings.",
                    Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
                                "algorithm_2d: str = None, algorithm_3d: str = None, " +
                                "recombine_min_quality: float = None, " + GmshRecombineArguments +
@@ -853,6 +894,19 @@ namespace APIs.Python.Model
             // move one limit along with the other
             bool? relative = null;
             if (relativeSize != null) relative = PythonValueConverter.ToBool(relativeSize, "relative_size");
+            // The dialog shows either the factors or the sizes, so the pair it hides is refused
+            bool relativeSizeUsed = relative ?? IsRelativeSizeUsed(item);
+            string kept = relative.HasValue ? "" : ", which the item keeps,";
+            if (relativeSizeUsed && (maxSize != null || minSize != null))
+                throw new PythonAPIException("The argument '" + (maxSize != null ? "max_size" : "min_size") +
+                                             "' is not used with relative_size=True" + kept + " as the mesh is " +
+                                             "then sized by factor_max and factor_min. Give relative_size=False " +
+                                             "to size it by max_size and min_size.");
+            if (!relativeSizeUsed && (factorMax != null || factorMin != null))
+                throw new PythonAPIException("The argument '" + (factorMax != null ? "factor_max" : "factor_min") +
+                                             "' is not used with relative_size=False" + kept + " as the mesh is " +
+                                             "then sized by max_size and min_size. Give relative_size=True to " +
+                                             "size it by factor_max and factor_min.");
             double[] factors = ResolveRange(factorMax, factorMin, item.FactorMax, item.FactorMin, "factor_max",
                                             "factor_min", false);
             double[] sizes = ResolveRange(maxSize, minSize, item.MaxH, item.MinH, "max_size", "min_size", true);
@@ -879,7 +933,13 @@ namespace APIs.Python.Model
                                                                ? "." : ", and the item keeps the other one True; " +
                                                                "pass it as False."));
             //
-            if (relative.HasValue) item.RelativeSize = relative.Value;
+            if (relative.HasValue)
+            {
+                item.RelativeSize = relative.Value;
+                // The dialog offers the relative switch only in its advanced view, and its basic view meshes by
+                // the sizes
+                if (relative.Value) item.AdvancedView = true;
+            }
             if (factors != null)
                 SetOrderedRange(factors[0], factors[1], item.FactorMin, value => item.FactorMax = value,
                                 value => item.FactorMin = value);
@@ -1037,10 +1097,23 @@ namespace APIs.Python.Model
         private static void ApplyShellMmg(ShellMmg item, object relativeSize, object relativeHausdorff,
                                           object hausdorff, object keepModelEdges)
         {
+            bool? relative = null;
+            if (relativeSize != null) relative = PythonValueConverter.ToBool(relativeSize, "relative_size");
             double? relativeValue = ToPositive(relativeHausdorff, "relative_hausdorff");
             double? hausdorffValue = ToPositive(hausdorff, "hausdorff");
+            // The dialog shows either the relative or the absolute distance, so the one it hides is refused
+            bool relativeUsed = relative ?? item.RelativeSize;
+            string kept = relative.HasValue ? "" : ", which the item keeps,";
+            if (relativeUsed && hausdorffValue.HasValue)
+                throw new PythonAPIException("The argument 'hausdorff' is not used with relative_size=True" + kept +
+                                             " as the distance is then relative_hausdorff. Give " +
+                                             "relative_size=False to use hausdorff.");
+            if (!relativeUsed && relativeValue.HasValue)
+                throw new PythonAPIException("The argument 'relative_hausdorff' is not used with " +
+                                             "relative_size=False" + kept + " as the distance is then hausdorff. " +
+                                             "Give relative_size=True to use relative_hausdorff.");
             //
-            if (relativeSize != null) item.RelativeSize = PythonValueConverter.ToBool(relativeSize, "relative_size");
+            if (relative.HasValue) item.RelativeSize = relative.Value;
             if (relativeValue.HasValue) item.RelativeHausdorff = relativeValue.Value;
             if (hausdorffValue.HasValue) item.Hausdorff = hausdorffValue.Value;
             if (keepModelEdges != null)
@@ -1102,6 +1175,19 @@ namespace APIs.Python.Model
             if (algorithm2D != null)
                 item.SweepAlgorithmMesh2D = PythonValueConverter.ToEnum<SweepAlgorithmMesh2DEnum>(algorithm2D,
                                                                                                    "algorithm_2d");
+            // QuadWild meshes the sources in place of the gmsh recombination and optimisation, which the dialog
+            // then hides
+            if (item.SourceMesher == SweepSourceMesherEnum.QuadWild)
+            {
+                string unused = recombineMinQuality != null ? "recombine_min_quality"
+                                : algorithmRecombine != null ? "algorithm_recombine"
+                                : optimizeFirstOrderShell != null ? "optimize_first_order_shell" : null;
+                if (unused != null)
+                    throw new PythonAPIException("The argument '" + unused + "' is not used with algorithm_2d=" +
+                                                 "'QuadWild'" + (algorithm2D == null ? ", which the item keeps," : "") +
+                                                 " as QuadWild meshes the source surfaces. Give a gmsh " +
+                                                 "algorithm_2d to use it.");
+            }
             ApplyAlgorithms(item, null, algorithm3D);
             ApplyRecombination(item, recombineMinQuality, algorithmRecombine, transfiniteThreeSided,
                                transfiniteFourSided);
@@ -1111,6 +1197,16 @@ namespace APIs.Python.Model
         }
         private static void ApplySweepQuadWild(SweepMesh item, string flowProfile, object alpha, object smooth)
         {
+            if (item.SourceMesher != SweepSourceMesherEnum.QuadWild)
+            {
+                string unused = flowProfile != null ? "quad_wild_flow_profile"
+                                : alpha != null ? "quad_wild_alpha" : smooth != null ? "quad_wild_smooth" : null;
+                if (unused != null)
+                    throw new PythonAPIException("The argument '" + unused + "' is used only with algorithm_2d=" +
+                                                 "'QuadWild', but the item meshes the source surfaces with " +
+                                                 item.SweepAlgorithmMesh2D + ". Give algorithm_2d='QuadWild' " +
+                                                 "to use it.");
+            }
             if (flowProfile != null)
                 item.QuadWildFlowProfile = PythonValueConverter.ToEnum<QuadWildFlowProfileEnum>(flowProfile,
                                                                                                  "quad_wild_flow_profile");

@@ -587,6 +587,7 @@ namespace PrePoMax.Forms
             ViewMaterialProperty property;
             MaterialProperty materialProperty;
             int elasticityCount = 0;
+            int densityCount = 0;
             foreach (ListViewItem item in lvAddedProperties.Items)
             {
                 property = (ViewMaterialProperty)item.Tag;
@@ -597,6 +598,11 @@ namespace PrePoMax.Forms
                 {
                     elasticityCount++;
                     if (elasticityCount > 1) throw new CaeException("A material can contain only one elastic property.");
+                }
+                if (property is ViewDensity || property is ViewElasticWithDensity)
+                {
+                    densityCount++;
+                    if (densityCount > 1) throw new CaeException("A material can contain only one density.");
                 }
                 materialProperty = property.GetBase();
                 // Check equations

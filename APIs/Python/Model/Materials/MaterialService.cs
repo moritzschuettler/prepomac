@@ -132,6 +132,7 @@ namespace APIs.Python.Model
             // adds a property type only once
             material.Properties.Clear();
             HashSet<System.Type> propertyTypes = new HashSet<System.Type>();
+            MaterialProperty densityProperty = null;
             foreach (MaterialPropertyAPI property in materialProperties)
             {
                 MaterialProperty propertyCopy = property.GetPropertyCopy();
@@ -139,6 +140,17 @@ namespace APIs.Python.Model
                     throw new PythonAPIException("The argument 'properties' contains the " +
                                                  MaterialPropertyAPI.GetPropertyType(propertyCopy) + " property more " +
                                                  "than once; a material holds one property of each type.");
+                // The elastic property with density is also the density, which the solver input would get twice
+                if (propertyCopy is Density || propertyCopy is ElasticWithDensity)
+                {
+                    if (densityProperty != null)
+                        throw new PythonAPIException("The argument 'properties' contains the " +
+                                                     MaterialPropertyAPI.GetPropertyType(densityProperty) +
+                                                     " and the " + MaterialPropertyAPI.GetPropertyType(propertyCopy) +
+                                                     " property, which both define the density; a material holds " +
+                                                     "one density.");
+                    densityProperty = propertyCopy;
+                }
                 PythonModelArgumentCheck.Apply(() => material.AddProperty(propertyCopy), "properties");
             }
         }

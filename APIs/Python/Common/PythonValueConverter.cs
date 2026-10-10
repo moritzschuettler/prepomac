@@ -74,7 +74,8 @@ namespace APIs.Python
         {
             if (value == null)
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
-            if (value is bool)
+            // A string is not read as a number, as in ToDouble
+            if (value is bool || value is string)
                 throw new PythonAPIException("The argument '" + argumentName + "' must be a whole number.");
             //
             try
@@ -310,7 +311,18 @@ namespace APIs.Python
             //
             return names.ToArray();
         }
+        // An argument the vocabulary narrows for every member that takes it lists only the values it accepts
         public static TEnum ToEnum<TEnum>(string value, string argumentName) where TEnum : struct
+        {
+            string[] possibleNames = null;
+            if (PythonEnumVocabulary.GetType(null, null, argumentName) == typeof(TEnum))
+                possibleNames = PythonEnumVocabulary.GetNarrowedValues(null, null, argumentName);
+            return ToEnum<TEnum>(value, argumentName, possibleNames);
+        }
+        // A member that accepts only some values of the enumeration names only those when it refuses an unknown
+        // value. A known value it does not accept is still parsed, so that the member refuses it with the reason
+        public static TEnum ToEnum<TEnum>(string value, string argumentName, string[] possibleNames)
+            where TEnum : struct
         {
             if (value == null)
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
@@ -324,9 +336,10 @@ namespace APIs.Python
                     return (TEnum)Enum.Parse(typeof(TEnum), name);
             }
             //
+            if (possibleNames == null) possibleNames = Enum.GetNames(typeof(TEnum));
             throw new PythonAPIException("The value '" + value + "' is not supported for the argument '" +
                                          argumentName + "'. Possible values are " +
-                                         string.Join(", ", Enum.GetNames(typeof(TEnum))) + ".");
+                                         string.Join(", ", possibleNames) + ".");
         }
     }
 }

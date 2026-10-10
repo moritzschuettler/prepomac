@@ -108,6 +108,8 @@ namespace UserControls
                     row.Cells[2].Value == null || row.Cells[2].Value.ToString().Trim() == "")
                     throw new CaeException("Row " + rowId.ToString() + " contains empty data. Add missing data or delete entire row.");
                 //
+                if ((int)row.Cells[0].Value < 1)
+                    throw new CaeException("Row " + rowId.ToString() + ": the lowest mode value must be at least 1.");
                 if ((int)row.Cells[1].Value < (int)row.Cells[0].Value)
                     throw new CaeException("Row " + rowId.ToString() + 
                                            ": the highest mode value must be equal or larger than the lowest mode value.");

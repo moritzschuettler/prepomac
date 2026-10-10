@@ -105,8 +105,10 @@ namespace PrePoMax.Python.Journal
                 arguments.Add(writer.Path(fromFile.FileName));
                 arguments.Add("interpolator_type=" +
                               PythonValueFormatter.Text(fromFile.InterpolatorType.ToString()));
-                arguments.Add("interpolator_radius=" +
-                              PythonValueFormatter.Equation(fromFile.InterpolatorRadius));
+                // The closest point interpolation has no radius, which the dialog hides and the API refuses
+                if (fromFile.InterpolatorType != CaeResults.CloudInterpolatorEnum.ClosestPoint)
+                    arguments.Add("interpolator_radius=" +
+                                  PythonValueFormatter.Equation(fromFile.InterpolatorRadius));
                 arguments.Add("scale=" + Point(fromFile.ScaleX, fromFile.ScaleY, fromFile.ScaleZ));
                 arguments.Add("translate=" +
                               Point(fromFile.TranslateX, fromFile.TranslateY, fromFile.TranslateZ));

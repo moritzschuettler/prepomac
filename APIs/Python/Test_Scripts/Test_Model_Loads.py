@@ -83,6 +83,11 @@ def element_selection(ids):
     return pmx.create.selection_by_ids('femodel', 'elements', 'elements', ids)
 
 
+def part_selection():
+    # The gravity, centrifugal and body flux dialogs pick parts
+    return pmx.create.selection_by_ids('femodel', 'parts', 'parts', [pmx.model.parts.first().id])
+
+
 def setup():
     pmx.model.surfaces.add(SURFACE, surface_selection(2))
     pmx.model.steps.add_static(STEP)
@@ -203,6 +208,17 @@ def test_surface_loads():
     check_raises(lambda: loads.add_hydrostatic_pressure(PREFIX + "Bad", surface_selection(1),
                                                         first_point=[0, 0]),
                  "a two value point must be rejected")
+    # A direction of zero length is no direction, which the dialog refuses as well
+    count = len(loads)
+    message = raised_message(lambda: loads.replace_hydrostatic_pressure(PREFIX + "HP", direction=[0, 0, 0]))
+    check(message is not None and "'direction'" in message and "non-zero" in message,
+          "a zero hydrostatic direction must be refused naming the argument: " + str(message))
+    check(loads[PREFIX + "HP"].get_value("direction") == [0, 0, -1], "a refused replace changed the direction")
+    message = raised_message(lambda: loads.add_pre_tension(PREFIX + "Bad", surface_selection(1), 1,
+                                                           direction=[0, 0, 0]))
+    check(message is not None and "'direction'" in message and "non-zero" in message,
+          "a zero pre-tension direction must be refused naming the argument: " + str(message))
+    check(len(loads) == count, "a refused load was recorded")
     # Surface traction: the force components and the force per area components are two independent
     # groups, and the model writes only the one that matches the distribution, so the other is refused
     load = loads.add_surface_traction(PREFIX + "ST", surface_selection(1), f1=100)
@@ -298,11 +314,15 @@ def test_surface_loads():
 
 def test_body_loads():
     loads = pmx.model.steps[STEP].loads
-    load = loads.add_gravity(PREFIX + "G", element_selection([1]), f3=-9810)
+    load = loads.add_gravity(PREFIX + "G", part_selection(), f3=-9810)
     check(load.region_type == "ElementSetName", "unexpected region type " + load.region_type)
+    # The picked part becomes an element set made of it, which covers every element of the part
+    part_element_ids = sorted(pmx.model.parts.first().get_element_ids())
+    element_ids = sorted(pmx.model.element_sets[load.region_name].get_element_ids())
+    check(element_ids == part_element_ids, "the part selection resolved to the elements " + str(element_ids))
     check(load.get_value("f3") == -9810, "the gravity was not set")
     #
-    load = loads.add_centrifugal(PREFIX + "C", element_selection([1]), axis_point=[0, 0, 0],
+    load = loads.add_centrifugal(PREFIX + "C", part_selection(), axis_point=[0, 0, 0],
                                  axis_direction=[0, 0, 1], rotational_speed=100)
     check(load.get_value("rotational_speed") == 100, "the rotational speed was not set")
     check(list(load.get_value("axis_direction")) == [0, 0, 1], "the axis direction was not set")
@@ -310,10 +330,51 @@ def test_body_loads():
     check_refused(lambda: loads.replace_centrifugal(PREFIX + "C", rotational_speed=-1), "'rotational_speed'",
                   "a negative rotational speed must be refused")
     check(loads[PREFIX + "C"].get_value("rotational_speed") == 100, "the refused replace changed the speed")
-    check_raises(lambda: loads.add_centrifugal(PREFIX + "Bad", element_selection([1]),
+    check_raises(lambda: loads.add_centrifugal(PREFIX + "Bad", part_selection(),
                                                axis_direction=[0, 1]),
                  "a two value axis direction must be rejected")
+    # An axis of zero length is no axis, which the dialog refuses as well
+    message = raised_message(lambda: loads.add_centrifugal(PREFIX + "Bad", part_selection(), axis_point=[0, 0, 0],
+                                                           axis_direction=[0, 0, 0], rotational_speed=1))
+    check(message is not None and "'axis_direction'" in message and "non-zero" in message,
+          "a zero centrifugal axis must be refused naming the argument: " + str(message))
+    check(not loads.contains(PREFIX + "Bad"), "a refused centrifugal load was recorded")
+    test_body_load_regions()
     test_mass_section_region()
+
+
+# The element set the controller makes from the selection of a gravity, a centrifugal or a body flux load is
+# marked as made of parts, so an element selection would be read as part IDs; the API takes the part
+# selection the dialog records, and a named element set or part
+def test_body_load_regions():
+    loads = pmx.model.steps[STEP].loads
+    thermal = pmx.model.steps[THERMAL_STEP].loads
+    part = pmx.model.parts.first()
+    part_element_ids = sorted(part.get_element_ids())
+    added = [(loads, loads.add_gravity(PREFIX + "G_Part", part_selection(), f3=-1)),
+             (loads, loads.add_centrifugal(PREFIX + "C_Part", part_selection(), axis_point=[0, 0, 0],
+                                           axis_direction=[0, 0, 1], rotational_speed=1)),
+             (thermal, thermal.add_body_flux(PREFIX + "BF_Part", part_selection(), 1))]
+    for collection, load in added:
+        check(load.region_type == "ElementSetName", load.name + " has the region type " + load.region_type)
+        element_ids = sorted(pmx.model.element_sets[load.region_name].get_element_ids())
+        check(element_ids == part_element_ids, load.name + " resolved to the elements " + str(element_ids))
+    load = loads.replace_gravity(PREFIX + "G_Part", region=part_selection())
+    check(sorted(pmx.model.element_sets[load.region_name].get_element_ids()) == part_element_ids,
+          "the replaced part selection did not resolve to the elements of the part")
+    # A named part or element set is what the dialog offers besides the selection
+    load = loads.replace_gravity(PREFIX + "G_Part", region=pmx.create.region('PartName', part.name))
+    check(load.region_type == "PartName" and load.region_name == part.name, "the part region was not set")
+    for function in [lambda: loads.add_gravity(PREFIX + "Bad", element_selection([1]), f3=-1),
+                     lambda: loads.replace_centrifugal(PREFIX + "C_Part", region=element_selection([1])),
+                     lambda: thermal.add_body_flux(PREFIX + "Bad", element_selection([1]), 1)]:
+        check_refused(function, "requires target 'parts'", "an element selection must be refused naming the target")
+    check_refused(lambda: loads.add_gravity(PREFIX + "Bad", pmx.create.region('NodeSetName', 'AnySet'), f3=-1),
+                  "NodeSetName region was given", "a node set region must be refused")
+    check(not loads.contains(PREFIX + "Bad") and not thermal.contains(PREFIX + "Bad"),
+          "a refused load was recorded")
+    for collection, load in added:
+        collection.remove(load.name)
 
 
 # A gravity and a centrifugal load may act on a mass section instead of a mesh region, which is a
@@ -384,7 +445,7 @@ def test_thermal_loads():
     load = loads.add_surface_flux(PREFIX + "DF", surface_selection(1), 2.5)
     check(load.get_value("magnitude") == 2.5, "the surface flux was not set")
     #
-    load = loads.add_body_flux(PREFIX + "BF", element_selection([1]), 1.5)
+    load = loads.add_body_flux(PREFIX + "BF", part_selection(), 1.5)
     check(load.get_value("magnitude") == 1.5, "the body flux was not set")
     #
     load = loads.add_film_heat_transfer(PREFIX + "FH", surface_selection(1), 20, 0.05)
@@ -444,7 +505,7 @@ def test_invalid_equations():
                   "an equation that does not parse must be refused naming f1")
     check_refused(lambda: loads.add_pressure(PREFIX + "Bad", surface_selection(1), "=undefined_param"),
                   "'magnitude'", "an equation naming an undefined parameter must be refused naming magnitude")
-    check_refused(lambda: loads.add_centrifugal(PREFIX + "Bad", element_selection([1]), axis_point=[0, "=1+", 0],
+    check_refused(lambda: loads.add_centrifugal(PREFIX + "Bad", part_selection(), axis_point=[0, "=1+", 0],
                                                 axis_direction=[0, 0, 1], rotational_speed=1),
                   "'axis_point[1]'", "a vector component that cannot be evaluated must be refused by its index")
     check_refused(lambda: loads.replace_concentrated_force(PREFIX + "F", f2="=undefined_param"), "'f2'",
@@ -465,7 +526,7 @@ def test_required_values():
             (lambda: loads.add_pre_tension(PREFIX + "Bad", surface_selection(1), None), "'magnitude'"),
             (lambda: thermal.add_concentrated_flux(PREFIX + "Bad", node_selection([1]), None), "'magnitude'"),
             (lambda: thermal.add_surface_flux(PREFIX + "Bad", surface_selection(1), None), "'magnitude'"),
-            (lambda: thermal.add_body_flux(PREFIX + "Bad", element_selection([1]), None), "'magnitude'"),
+            (lambda: thermal.add_body_flux(PREFIX + "Bad", part_selection(), None), "'magnitude'"),
             (lambda: thermal.add_film_heat_transfer(PREFIX + "Bad", surface_selection(1), None, 0.05),
              "'sink_temperature'"),
             (lambda: thermal.add_film_heat_transfer(PREFIX + "Bad", surface_selection(1), 20, None),
