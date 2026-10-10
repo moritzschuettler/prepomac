@@ -5949,6 +5949,7 @@ namespace vtkControl
             //
             if (sectionViewActor != null)
             {
+                RemoveColorTableWithoutCellValues(sectionViewActor);
                 UpdateSectionViewActorColor(sectionViewActor);
                 //
                 AddActor(sectionViewActor, vtkRendererLayer.Base);
@@ -5961,11 +5962,20 @@ namespace vtkControl
             if (skinActor != null)
             {
                 skinActor.Name = GetSectionViewActorName(actor.Name);   // numbered after the section actor was added
+                RemoveColorTableWithoutCellValues(skinActor);
                 AddActor(skinActor, vtkRendererLayer.Base);
                 actor.SectionViewSkinActor = skinActor;
                 actor.GeometryHiddenBySectionView = true;
                 ApplySectionViewVisibility(actor);
             }
+        }
+        // A section actor copies the color table of its part, but the cut faces carry no cell values to index it
+        private static void RemoveColorTableWithoutCellValues(vtkMaxActor sectionViewActor)
+        {
+            if (sectionViewActor.ColorTable == null || sectionViewActor.GeometryMapper == null) return;
+            //
+            vtkDataSet faces = sectionViewActor.GeometryMapper.GetInput();
+            if (faces == null || faces.GetCellData().GetScalars() == null) sectionViewActor.ColorTable = null;
         }
         private void AddSectionViewHatch(vtkMaxActor actor, vtkMaxActor sectionViewActor)
         {
