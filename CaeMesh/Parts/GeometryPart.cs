@@ -35,6 +35,16 @@ namespace CaeMesh
         private SweepDetectionData _sweepDetection;
         [NonSerialized]
         private Dictionary<string, SweepDetectionData> _cellsSweepDetections;
+        [NonSerialized]
+        private VisualizationData _smallFeatureVisualization;
+        [NonSerialized]
+        private double[] _smallFeatureEdgeLengths;
+        [NonSerialized]
+        private double[] _smallFeatureFaceAreas;
+        [NonSerialized]
+        private double _smallFeatureSize;
+        [NonSerialized]
+        private int[] _smallFeatureEdgeIds;
 
 
         // Properties
@@ -158,6 +168,26 @@ namespace CaeMesh
         public override BasePart DeepCopy()
         {
             return new GeometryPart(this);
+        }
+        /// <summary>
+        /// The edges of the small features of the part for the given size, found on its visualization and kept until
+        /// the visualization, its lengths or areas, or the size change.
+        /// </summary>
+        public int[] GetSmallFeatureEdgeIds(double size)
+        {
+            VisualizationData vis = Visualization;
+            if (vis == null) return new int[0];
+            if (_smallFeatureEdgeIds == null || _smallFeatureVisualization != vis ||
+                _smallFeatureEdgeLengths != vis.EdgeLengths || _smallFeatureFaceAreas != vis.FaceAreas ||
+                _smallFeatureSize != size)
+            {
+                _smallFeatureEdgeIds = vis.GetSmallFeatureEdgeIds(size);
+                _smallFeatureVisualization = vis;
+                _smallFeatureEdgeLengths = vis.EdgeLengths;
+                _smallFeatureFaceAreas = vis.FaceAreas;
+                _smallFeatureSize = size;
+            }
+            return _smallFeatureEdgeIds;
         }
         //
         public void CADFileDataFromFile(string brepFileName)

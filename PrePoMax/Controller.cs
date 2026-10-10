@@ -45,6 +45,7 @@ namespace PrePoMax
         // Variables                                                                                                                
         private const string _itemLabelsActorName = "Items";
         private const int _selectionDistanceInPixels = 7;   // the setting does not work as expected
+        private const double _smallFeatureSizeFraction = 1E-3;
         //
         [NonSerialized] protected FrmMain _form;
         [NonSerialized] protected SettingsContainer _settings;
@@ -28854,8 +28855,67 @@ namespace PrePoMax
                     {
                         
                     }
+                    // The small features - a sliver a split left, an edge a defeature shortened - drawn in the secondary
+                    // colour, with their vertices, which keep their size on the screen however small the feature is
+                    DrawSmallFeatures(part, color, layer);
                 }
             }
+        }
+        /// <summary>
+        /// Draws the edges of the small features of a highlighted CAD part and their vertices: the edges shorter than
+        /// a thousandth of the diagonal of the part and the edges of the faces narrower than that.
+        /// </summary>
+        private void DrawSmallFeatures(GeometryPart part, Color color, vtkRendererLayer layer)
+        {
+            VisualizationData vis = part.Visualization;
+            if (!part.IsCADPart || vis == null || vis.EdgeCellIdsByEdge == null || vis.EdgeCells == null) return;
+            int[] edgeIds = part.GetSmallFeatureEdgeIds(GetSmallFeatureSize(part));
+            if (edgeIds.Length == 0) return;
+            //
+            List<int[]> edgeCells = new List<int[]>();
+            foreach (var edgeId in edgeIds)
+            {
+                foreach (var cellId in vis.EdgeCellIdsByEdge[edgeId]) edgeCells.Add(vis.EdgeCells[cellId]);
+            }
+            vtkMaxActorData data = new vtkMaxActorData();
+            DisplayedMesh.GetNodesAndCellsForEdges(edgeCells.ToArray(), out data.Geometry.Nodes.Ids,
+                                                   out data.Geometry.Nodes.Coor, out data.Geometry.Cells.CellNodeIds,
+                                                   out data.Geometry.Cells.Types);
+            data.Name = part.Name + "_SmallFeatureEdges";
+            data.Color = color;
+            data.Layer = layer;
+            data.CanHaveElementEdges = true;
+            data.BackfaceCulling = true;
+            data.UseSecondaryHighlightColor = true;
+            ApplyLighting(data);
+            _form.Add3DCells(data);
+            //
+            DrawNodes(part.Name + "_SmallFeatures", vis.GetVertexNodeIdsForEdgeIds(edgeIds).ToArray(), color, layer,
+                      out _, -1, false, true);
+        }
+        /// <summary>
+        /// The size below which a feature of a part is small: a thousandth of its diagonal, taken over the combined
+        /// bounds of the cells of a split part. Measured against the default element size instead, the walls of a
+        /// long thin-walled part and its chamfers were all small; a thousandth of the diagonal, ten times the
+        /// default tolerance of Repair, leaves them and finds the slivers a split or a defeature leaves.
+        /// </summary>
+        private double GetSmallFeatureSize(GeometryPart part)
+        {
+            BoundingBox box = new BoundingBox();
+            foreach (var name in GetMeshingSizePartNames(part.Name)) box.IncludeBox(_model.Geometry.Parts[name].BoundingBox);
+            return _smallFeatureSizeFraction * box.GetDiagonal();
+        }
+        /// <summary>
+        /// Whether a CAD geometry part has small features, or for a compound, whether any of its parts has them.
+        /// </summary>
+        public bool HasSmallFeatures(string partName)
+        {
+            if (_model.Geometry == null || !_model.Geometry.Parts.ContainsKey(partName)) return false;
+            //
+            if (_model.Geometry.Parts[partName] is CompoundGeometryPart compoundPart)
+                return compoundPart.SubPartNames.Any(HasSmallFeatures);
+            if (!(_model.Geometry.Parts[partName] is GeometryPart part) || !part.IsCADPart) return false;
+            return part.GetSmallFeatureEdgeIds(GetSmallFeatureSize(part)).Length > 0;
         }
         public int HighlightModelParts(string[] partNames, bool onlyVisible, bool countOnly)
         {

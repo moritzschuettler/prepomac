@@ -1480,6 +1480,31 @@ namespace CaeMesh
             if (root1 != root2) parent[root2] = root1;
         }
         /// <summary>
+        /// The edges of the small features: every edge shorter than the given size, and every edge of a face narrower
+        /// than it - twice its area over its perimeter, the width of a strip. A feature that small asks the mesh for
+        /// elements far smaller than the rest of it; a sliver a split or a defeature leaves is one.
+        /// </summary>
+        public int[] GetSmallFeatureEdgeIds(double size)
+        {
+            if (_edgeLengths == null || size <= 0) return new int[0];
+            //
+            HashSet<int> edgeIds = new HashSet<int>();
+            for (int i = 0; i < _edgeLengths.Length; i++)
+            {
+                if (_edgeLengths[i] < size) edgeIds.Add(i);
+            }
+            if (_faceAreas != null && _faceEdgeIds != null)
+            {
+                for (int i = 0; i < _faceEdgeIds.Length && i < _faceAreas.Length; i++)
+                {
+                    double perimeter = 0;
+                    foreach (var edgeId in _faceEdgeIds[i]) perimeter += _edgeLengths[edgeId];
+                    if (perimeter > 0 && 2 * _faceAreas[i] / perimeter < size) edgeIds.UnionWith(_faceEdgeIds[i]);
+                }
+            }
+            return edgeIds.OrderBy(id => id).ToArray();
+        }
+        /// <summary>
         /// Whether a face runs around the body as a ring by itself, without a seam: its boundary is two edge loops,
         /// one on the given surfaces and the other on none of them - the end of a tube swept through its wall, a flat
         /// ring between the loop of the inner faces and the loop of the outer ones.

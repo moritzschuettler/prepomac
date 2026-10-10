@@ -397,6 +397,7 @@ namespace PrePoMax
                 _modelTree.CheckPartGroupName = _controller.CheckPartGroupName;
                 _modelTree.GetRelatedGeometryItemNames = _controller.GetRelatedGeometryItemNames;
                 _modelTree.GetPartNamesToMeshFromMeshSetupItems = _controller.GetPartNamesToMeshFromMeshSetupItems;
+                _modelTree.HasSmallFeatures = _controller.HasSmallFeatures;
                 //
                 _modelTree.GeometryMeshResultsEvent += ModelTree_ViewEvent;
                 _modelTree.SelectEvent += ModelTree_SelectEvent;

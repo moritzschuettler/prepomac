@@ -731,6 +731,12 @@ namespace UserControls
             this.ilIcons.Images.SetKeyName(45, "Wire.ico");
             this.ilIcons.Images.SetKeyName(46, "Wire_transparent.ico");
             this.ilIcons.Images.SetKeyName(47, "Unactive.ico");
+            this.ilIcons.Images.SetKeyName(48, "Solid_small_features.ico");
+            this.ilIcons.Images.SetKeyName(49, "Solid_transparent_small_features.ico");
+            this.ilIcons.Images.SetKeyName(50, "Shell_small_features.ico");
+            this.ilIcons.Images.SetKeyName(51, "Shell_transparent_small_features.ico");
+            this.ilIcons.Images.SetKeyName(52, "Compound_small_features.ico");
+            this.ilIcons.Images.SetKeyName(53, "Compound_transparent_small_features.ico");
             // 
             // tcGeometryModelResults
             // 

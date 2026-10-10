@@ -376,6 +376,8 @@ namespace UserControls
         public Func<NamedClass[], string[]> GetRelatedGeometryItemNames;
         // Returns the names of the parts the given mesh setup items are defined on, as they are meshed
         public Func<string[], string[]> GetPartNamesToMeshFromMeshSetupItems;
+        // Returns whether the given geometry part, or a part of the given compound, has small features
+        public Func<string, bool> HasSmallFeatures;
 
 
         // Constructors                                                                                                             
@@ -4633,6 +4635,9 @@ namespace UserControls
                                     if (bp.Color.A == 255) SetNodeImage(node, "Compound.ico");
                                     else SetNodeImage(node, "Compound_transparent.ico");
                                 }
+                                //
+                                if (bp is GeometryPart && HasSmallFeatures != null && HasSmallFeatures(bp.Name))
+                                    SetNodeImage(node, GetSmallFeaturesImageName(node.ImageKey));
                             }
                             else if (node.Tag is Step)
                             {
@@ -4702,7 +4707,27 @@ namespace UserControls
             else
             {
                 cltv.SetNodeForeColor(subPartNode, Color.Black);
-                SetNodeImage(subPartNode, visibleCellNode.ImageKey);
+                string imageName = visibleCellNode.ImageKey;
+                if (HasSmallFeatures != null &&
+                    subPartNode.Nodes.Cast<TreeNode>().Any(cellNode => cellNode.Tag is GeometryPart cell &&
+                                                                       HasSmallFeatures(cell.Name)))
+                    imageName = GetSmallFeaturesImageName(imageName);
+                SetNodeImage(subPartNode, imageName);
+            }
+        }
+        private string GetSmallFeaturesImageName(string imageName)
+        {
+            switch (imageName)
+            {
+                case "Solid.ico":
+                case "Solid_transparent.ico":
+                case "Shell.ico":
+                case "Shell_transparent.ico":
+                case "Compound.ico":
+                case "Compound_transparent.ico":
+                    return imageName.Replace(".ico", "_small_features.ico");
+                default:
+                    return imageName;
             }
         }
         private void SetNodeImage(TreeNode node, string imageName)
