@@ -183,8 +183,13 @@ def test_mesh_tool_regions():
     part_name = pmx.model.parts.get_names()[0]
     #
     check_raises(lambda: mesh.remesh_elements(None), "remeshing must reject a missing region")
-    check_raises(lambda: mesh.remesh_elements(pmx.create.region('NodeSetName', PREFIX + "NS_T")),
-                 "remeshing must reject a node set region")
+    # The refusal names the element set as the only named region remeshing takes, never a part
+    for region in [pmx.create.region('NodeSetName', PREFIX + "NS_T"), pmx.create.region('PartName', part_name)]:
+        message = raised_message(lambda: mesh.remesh_elements(region))
+        accepted = message.split(" but ")[0] if message is not None else ""
+        check("'region'" in accepted and "ElementSetName" in accepted and "PartName" not in accepted,
+              "remeshing must refuse a named region other than an element set, naming only ElementSetName as " +
+              "accepted: " + str(message))
     check_raises(lambda: mesh.remesh_elements(pmx.create.region('ElementSetName', 'NoSuchSet')),
                  "remeshing must reject an unknown element set")
     check_raises(lambda: mesh.split_part_mesh_using_surface(

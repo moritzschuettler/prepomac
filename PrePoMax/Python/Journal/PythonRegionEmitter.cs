@@ -37,6 +37,18 @@ namespace PrePoMax.Python.Journal
             return PythonJournalWriter.Join("pmx.create.region", PythonValueFormatter.Text(regionType.ToString()),
                                             PythonValueFormatter.Text(regionName));
         }
+        // A gravity, a centrifugal and a body flux load and the expansion region of a cyclic symmetry are picked as
+        // parts, which is all the API takes for them, so a selection of another target an older API recorded would
+        // only be refused when the journal replays
+        public static void RefuseSelectionOtherThanParts(Selection creationData, string regionDescription)
+        {
+            if (creationData == null || creationData.Nodes == null || creationData.Nodes.Count == 0) return;
+            if (creationData.SelectItem == vtkSelectItem.Part) return;
+            //
+            throw new NotSupportedException(regionDescription + " was recorded as a selection of " +
+                                            creationData.SelectItem + " items, which only an older API took; the " +
+                                            "API takes the parts the dialog picks, so the selection has no API form");
+        }
         public static bool IsInternal(string regionName)
         {
             return regionName != null && regionName.StartsWith(CaeMesh.Globals.InternalSelectionName);

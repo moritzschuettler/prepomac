@@ -9,7 +9,8 @@
 #Written down once means it can fall behind. This finds every ToEnum and ToFlagsEnum site in
 #APIs/Python, takes the argument name each one validates, and checks that the vocabulary resolves it
 #to the same enumeration. An argument added without an entry is reported here rather than silently
-#described without its values.
+#described without its values. The view, the target and the source of a selection are lower case
+#names rather than enumeration names, and are checked to be listed all the same.
 #
 #  PrePoMax.com --script Test_Api_Enum_Vocabulary.py -g No -x Yes -w <dir>
 #
@@ -274,6 +275,37 @@ def test_refusals_list_the_narrowed_values():
     print("the refusals of an unknown value list only the values the member accepts")
 
 
+def test_selection_names(members):
+    """The view, the target and the source of a selection are lower case names, not enumeration names.
+
+    They are listed for describe_api all the same, keyed by the member, and every key must name an
+    argument the API takes; the names must be the ones the selection service accepts.
+    """
+    names = PythonEnumVocabulary.GetLowerCaseNames()
+    unknown = [key for key in names.keys() if key.split(".")[-1] not in members]
+    check(not unknown, "these selection name entries name an argument the API does not have: " + ", ".join(unknown))
+    targets = ["nodes", "elements", "surfaces", "edges", "parts", "geometry", "geometry_surfaces"]
+    sources = ["nodes", "elements", "vertices", "edges", "surfaces", "parts", "geometry"]
+    expected = {("CreateAPI", "selection_by_ids", "target"): targets,
+                ("CreateAPI", "selection_by_ids", "source"): sources,
+                ("CreateAPI", "selection_by_pick", "target"): targets,
+                ("CreateAPI", "selection_by_box", "view"): ["geometry", "femodel", "results"],
+                ("CreateAPI", "selection_all", "target"): ["nodes", "elements", "surfaces"],
+                ("SelectionAPI", "add_by_ids", "source"): sources}
+    for (declaring, member, argument), values in expected.items():
+        described = PythonEnumVocabulary.GetValues(declaring, member, argument)
+        check(described is not None and list(described) == values,
+              "%s.%s(%s) is described with %s, not %s" %
+              (declaring, member, argument, None if described is None else list(described), values))
+        check(PythonEnumVocabulary.GetType(declaring, member, argument) is None,
+              "%s.%s(%s) is not parsed as an enumeration" % (declaring, member, argument))
+    # The filter source of a result field output keeps its own enumeration
+    filter_sources = list(PythonEnumVocabulary.GetValues("ResultFieldOutputsAPI", "create_median_filter", "source"))
+    check(filter_sources == ["AllNodes", "SurfaceNodes"], "the filter source lost its vocabulary: " +
+          str(filter_sources))
+    print("the view, the target and the source of a selection list the names they accept")
+
+
 def main():
     check(os.path.isdir(SOURCES), "the API sources must be beside the test scripts: " + SOURCES)
     sites = read_sites()
@@ -287,6 +319,7 @@ def main():
     test_property_lookups()
     test_narrowed_values()
     test_refusals_list_the_narrowed_values()
+    test_selection_names(members)
     print("TEST PASSED")
 
 

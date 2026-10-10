@@ -42,12 +42,19 @@ namespace APIs.Python
         // Variables
         private static Dictionary<string, Type> _types;
         private static Dictionary<string, string[]> _allowedValues;
+        private static Dictionary<string, string[]> _lowerCaseNames;
 
 
         // Static methods
         // The values the argument accepts, or null when the argument is not enumeration valued
         public static string[] GetValues(string declaringTypeName, string memberName, string argumentName)
         {
+            string[] lowerCaseNames;
+            if (declaringTypeName != null && memberName != null &&
+                GetLowerCaseNames().TryGetValue(declaringTypeName + "." + memberName + "." + argumentName,
+                                                out lowerCaseNames))
+                return lowerCaseNames;
+            //
             string key = GetKey(declaringTypeName, memberName, argumentName);
             if (key == null) return null;
             //
@@ -139,6 +146,27 @@ namespace APIs.Python
             //
             _allowedValues = allowedValues;
             return _allowedValues;
+        }
+        // The arguments that take one of a few lower case names rather than an enumeration name - the view, the
+        // target and the source of a selection - keyed by the declaring type, the member and the argument. They
+        // are parsed by the selection service, regardless of case, and listed here only for the schema
+        public static Dictionary<string, string[]> GetLowerCaseNames()
+        {
+            if (_lowerCaseNames != null) return _lowerCaseNames;
+            //
+            Dictionary<string, string[]> names = new Dictionary<string, string[]>(StringComparer.Ordinal);
+            foreach (string member in new[] { "selection_by_ids", "selection_by_pick", "selection_by_area",
+                                              "selection_by_box", "selection_all" })
+            {
+                names.Add("CreateAPI." + member + ".view", SelectionService.ViewNames);
+                names.Add("CreateAPI." + member + ".target",
+                          member == "selection_all" ? SelectionService.AllTargetNames : SelectionService.TargetNames);
+            }
+            names.Add("CreateAPI.selection_by_ids.source", SelectionService.SourceNames);
+            names.Add("SelectionAPI.add_by_ids.source", SelectionService.SourceNames);
+            //
+            _lowerCaseNames = names;
+            return _lowerCaseNames;
         }
         private static string[] NamesExcept(params Enum[] excludedValues)
         {

@@ -275,7 +275,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a kinematic coupling constraint using command history. The selection target is " +
-                   "surfaces. In a 2D model u3=True is refused. color is the constraint color, given as " +
+                   "surfaces. At least one of u1, u2 and u3 must stay True. In a 2D model u3=True is refused. " +
+                   "color is the constraint color, given as " +
                    "[R, G, B], [R, G, B, A] or a color name.",
                    Arguments = "name: str, reference_point_name: str, region: Selection or Region, " +
                                "u1: bool = None, u2: bool = None, u3: bool = None, color: list[int] or str = None",
@@ -320,7 +321,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a distributing coupling constraint using command history. The selection target is " +
-                   "surfaces. In a 2D model u3, ur1 and ur2 set to True are refused. " +
+                   "surfaces. At least one of u1, u2, u3, ur1, ur2 and ur3 must stay True. In a 2D model u3, " +
+                   "ur1 and ur2 set to True are refused. " +
                    "color is the constraint color, given as [R, G, B], [R, G, B, A] or a color name.",
                    Arguments = "name: str, reference_point_name: str, region: Selection or Region, " +
                                "u1: bool = None, u2: bool = None, u3: bool = None, ur1: bool = None, " +
@@ -416,7 +418,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a point spring constraint using command history. The selection target is nodes. " +
-                   "A stiffness must be zero or larger, and k3 must be zero in a 2D model. " +
+                   "A stiffness must be zero or larger, at least one must be larger than 0, and k3 must be " +
+                   "zero in a 2D model. " +
                    "color is the constraint color, given as [R, G, B], [R, G, B, A] or a color name.",
                    Arguments = "name: str, region: Selection or Region, k1: float = None, " +
                                "k2: float = None, k3: float = None, color: list[int] or str = None", Returns = "Constraint")]
@@ -453,7 +456,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a surface spring constraint using command history. The selection target is " +
-                   "surfaces. A stiffness must be zero or larger, and k3 must be zero in a 2D model. " +
+                   "surfaces. A stiffness must be zero or larger, at least one must be larger than 0, and k3 " +
+                   "must be zero in a 2D model. " +
                    "color is the constraint color, given as [R, G, B], [R, G, B, A] or a color name.",
                    Arguments = "name: str, region: Selection or Region, k1: float = None, " +
                                "k2: float = None, k3: float = None, stiffness_per_area: bool = None, " +

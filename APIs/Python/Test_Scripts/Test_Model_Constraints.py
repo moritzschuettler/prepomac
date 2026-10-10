@@ -373,6 +373,28 @@ def test_reference_point_constraints():
     check(not dc.get_value("ur2"), "ur2 was not replaced")
     check(not dc.get_value("ur1"), "ur1 must survive a replace")
     check(dc.master_region_name == RP, "the reference point must survive a replace")
+    # The dialog refuses a coupling without a degree of freedom, in these words, and so does the API, judging the
+    # coupling a replace ends with
+    count_before = len(constraints)
+    for function, fragments in [
+            (lambda: constraints.add_kinematic_coupling(PREFIX + "Bad", RP, surface_selection(3), u1=False,
+                                                        u2=False, u3=False),
+             ["At least one kinematic coupling degree of freedom must be coupled", "'u1'"]),
+            (lambda: constraints.replace_kinematic_coupling(PREFIX + "KC", u1=False, u3=False),
+             ["At least one kinematic coupling degree of freedom must be coupled", "'u3'"]),
+            (lambda: constraints.add_distributing_coupling(PREFIX + "Bad", RP, surface_selection(3), u1=False,
+                                                           u2=False, u3=False, ur1=False, ur2=False, ur3=False),
+             ["At least one distributing coupling degree of freedom must be distributed", "'ur3'"]),
+            (lambda: constraints.replace_distributing_coupling(PREFIX + "DC", u1=False, u2=False, u3=False,
+                                                               ur3=False),
+             ["At least one distributing coupling degree of freedom must be distributed", "'u1'"])]:
+        message = raised_message(function)
+        check(message is not None and all(fragment in message for fragment in fragments),
+              "a coupling without a degree of freedom must be refused with " + str(fragments) + ": " + str(message))
+    check(len(constraints) == count_before and not constraints.contains(PREFIX + "Bad"),
+          "a refused coupling was recorded")
+    check(constraints[PREFIX + "KC"].get_value("u1") and constraints[PREFIX + "DC"].get_value("u1"),
+          "a refused replace changed a coupling")
     # A reference point named in another case is stored in the model's spelling, because the controller
     # follows a renamed reference point by comparing the names exactly
     rb = constraints.add_rigid_body(PREFIX + "RB_C", RP.lower(), node_selection([5, 6]))
@@ -431,6 +453,16 @@ def test_springs_and_compression_only():
     message = raised_message(lambda: constraints.add_surface_spring(PREFIX + "Bad", surface_selection(3), k2=-1))
     check(message is not None and "'k2'" in message, "a negative surface spring stiffness must be refused: " +
           str(message))
+    check(not constraints.contains(PREFIX + "Bad"), "a refused spring was added")
+    check(constraints[PREFIX + "PS"].get_value("k1") == 100, "a refused replace changed the spring")
+    # The dialog refuses a spring without a stiffness, in these words, and so does the API, judging the spring a
+    # replace ends with and the value an expression evaluates to
+    for function in [lambda: constraints.add_point_spring(PREFIX + "Bad", node_selection([7]), k1=0),
+                     lambda: constraints.add_surface_spring(PREFIX + "Bad", surface_selection(3), k2="=1 - 1"),
+                     lambda: constraints.replace_point_spring(PREFIX + "PS", k1=0, k2=0, k3=0)]:
+        message = raised_message(function)
+        check(message is not None and "At least one stiffness must be larger than 0" in message and
+              "'k1'" in message, "a spring without a stiffness must be refused naming k1 to k3: " + str(message))
     check(not constraints.contains(PREFIX + "Bad"), "a refused spring was added")
     check(constraints[PREFIX + "PS"].get_value("k1") == 100, "a refused replace changed the spring")
 

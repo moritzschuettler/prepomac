@@ -9596,7 +9596,20 @@ namespace PrePoMax
                     if (_controller.Model == null || _controller.Model.Mesh == null) continue;
                     //
                     long? meshIdentity = entry.Value.Item2;
-                    if (meshIdentity == null || meshIdentity != GetMeshIdentityOrNull(_controller.Model.Mesh))
+                    if (meshIdentity == null)
+                    {
+                        WriteDataToOutput(notCreated + ", because the mesh could not be read when the analysis " +
+                                          "ended, while a Python script was running.");
+                        continue;
+                    }
+                    long? currentMeshIdentity = GetMeshIdentityOrNull(_controller.Model.Mesh);
+                    if (currentMeshIdentity == null)
+                    {
+                        WriteDataToOutput(notCreated + ", because the mesh could not be read after the Python " +
+                                          "script ended.");
+                        continue;
+                    }
+                    if (meshIdentity != currentMeshIdentity)
                     {
                         WriteDataToOutput(notCreated + ", because the mesh changed while a Python script ran.");
                         continue;

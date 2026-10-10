@@ -68,7 +68,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a displacement and rotation boundary condition using command history. A degree of " +
-                   "freedom that is not given is left unconstrained, and a value of 0 fixes it. fixed_dofs names " +
+                   "freedom that is not given is left unconstrained, and a value of 0 fixes it; at least one must " +
+                   "be constrained, as the dialog refuses one that constrains nothing. fixed_dofs names " +
                    "the degrees of freedom the dialog shows as Fixed, which the solver input writes without a " +
                    "value; it takes U1, U2 and U3 in any case, as the dialog fixes no rotation, a degree of " +
                    "freedom it names cannot also be given a value, and fixed ones cannot be combined with valued " +
@@ -118,7 +119,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Replaces an existing displacement and rotation boundary condition using command history. " +
-                   "A degree of freedom that is not given keeps its value; give free_dofs to unconstrain one. " +
+                   "A degree of freedom that is not given keeps its value; give free_dofs to unconstrain one, " +
+                   "but not every one. " +
                    "A degree of freedom named in free_dofs cannot also be given a value or be named in " +
                    "fixed_dofs. Possible free_dofs values are U1, U2, U3, UR1, UR2 and UR3, in any case.",
                    Arguments = "old_name: str, name: str = None, the arguments of " +
@@ -155,7 +157,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a submodel boundary condition using command history. The degrees of freedom are " +
-                   "read from the global model results of the given step number, which is at least 1. A 2D " +
+                   "read from the global model results of the given step number, which is at least 1. At least " +
+                   "one of u1, u2, u3, ur1, ur2 and ur3 must be True, as the dialog refuses none. A 2D " +
                    "model has no u3, ur1 and ur2, so True for any of them is refused there. The selection " +
                    "target is geometry, as the dialog picks it, or nodes.",
                    Arguments = "name: str, region: Selection or Region, step_id: int = None, " +

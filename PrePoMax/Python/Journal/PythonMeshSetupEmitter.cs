@@ -64,13 +64,23 @@ namespace PrePoMax.Python.Journal
             }
             if (item is ShellQuadWild quadWild)
             {
+                // A preview runs no QuadWild, so the settings of the quadrangulation, which the dialog then hides
+                // and the API refuses, are left out
+                bool quadrangulated = !quadWild.Preview;
                 arguments.Add("preview=" + PythonValueFormatter.Format(quadWild.Preview));
-                arguments.Add("smooth=" + PythonValueFormatter.Format(quadWild.Smooth));
-                arguments.Add("alpha=" + PythonValueFormatter.Number(quadWild.Alpha));
+                if (quadrangulated)
+                {
+                    arguments.Add("smooth=" + PythonValueFormatter.Format(quadWild.Smooth));
+                    arguments.Add("alpha=" + PythonValueFormatter.Number(quadWild.Alpha));
+                }
                 arguments.Add("triangulation_mesher=" +
                               PythonValueFormatter.Text(quadWild.TriangulationMesher.ToString()));
-                arguments.Add("flow_profile=" + PythonValueFormatter.Text(quadWild.FlowProfile.ToString()));
-                arguments.Add("boundary_layer=" + PythonValueFormatter.Text(quadWild.BoundaryLayer.ToString()));
+                if (quadrangulated)
+                {
+                    arguments.Add("flow_profile=" + PythonValueFormatter.Text(quadWild.FlowProfile.ToString()));
+                    arguments.Add("boundary_layer=" +
+                                  PythonValueFormatter.Text(quadWild.BoundaryLayer.ToString()));
+                }
                 arguments.Add("keep_files_on_failure=" +
                               PythonValueFormatter.Format(quadWild.KeepFilesOnFailure));
                 arguments.Add("debug_visualization=" +
@@ -86,31 +96,31 @@ namespace PrePoMax.Python.Journal
                                   PythonValueFormatter.Number(quadWild.SingularityPosition));
                 if (replace || quadWild.CountSearch > 0)
                     arguments.Add("number_of_search_rounds=" + PythonValueFormatter.Format(quadWild.CountSearch));
-                if (replace || quadWild.TransfiniteThreeSided != TransfiniteThreeSidedEnum.Mapped)
+                if (quadrangulated && (replace || quadWild.TransfiniteThreeSided != TransfiniteThreeSidedEnum.Mapped))
                     arguments.Add("transfinite_three_sided=" +
                                   PythonValueFormatter.Text(quadWild.TransfiniteThreeSided.ToString()));
-                if (replace || !quadWild.TransfiniteFourSided)
+                if (quadrangulated && (replace || !quadWild.TransfiniteFourSided))
                     arguments.Add("transfinite_four_sided=" +
                                   PythonValueFormatter.Format(quadWild.TransfiniteFourSided));
-                if (replace || quadWild.TransfiniteAngleDeg != 135)
+                bool structured = quadWild.IsTransfiniteThreeSided || quadWild.TransfiniteFourSided;
+                if (quadrangulated && structured && (replace || quadWild.TransfiniteAngleDeg != 135))
                     arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(quadWild.TransfiniteAngleDeg));
                 return "shell_quad_wild";
             }
             if (item is SweepMesh sweep)
             {
+                // Only an item of the API before the dialog stopped offering the setting keeps its imprint edges
+                if (sweep.KeepImprintEdges)
+                    throw new NotSupportedException("a sweep mesh that keeps its imprint edges was made by an " +
+                                                    "older API; the dialog no longer offers the setting and the " +
+                                                    "API no longer takes it");
                 arguments.Add("number_of_global_smooth_steps=" +
                               PythonValueFormatter.Format(sweep.NumberOfGlobalSmoothSteps));
-                AddSolidGmshValues(arguments, sweep);
-                // The 2D algorithm of a sweep may be QuadWild
-                arguments[arguments.FindIndex(argument => argument.StartsWith("algorithm_2d="))] =
-                    "algorithm_2d=" + PythonValueFormatter.Text(sweep.SweepAlgorithmMesh2D.ToString());
-                // QuadWild meshes the sources of a sweep in place of the gmsh recombination and optimisation, which
-                // the dialog then hides and the API refuses
-                if (sweep.SourceMesher == SweepSourceMesherEnum.QuadWild)
-                    arguments.RemoveAll(argument => argument.StartsWith("recombine_min_quality=") ||
-                                                    argument.StartsWith("algorithm_recombine="));
-                else arguments.Add("optimize_first_order_shell=" +
-                                   PythonValueFormatter.Text(sweep.OptimizeFirstOrderShell.ToString()));
+                // The 2D algorithm of a sweep may be QuadWild, and the sweep builds its volume mesh itself
+                arguments.Add("algorithm_2d=" + PythonValueFormatter.Text(sweep.SweepAlgorithmMesh2D.ToString()));
+                AddRecombinationValues(arguments, sweep);
+                arguments.Add("optimize_first_order_shell=" +
+                              PythonValueFormatter.Text(sweep.OptimizeFirstOrderShell.ToString()));
                 arguments.Add("elements_per_layer=" + PythonValueFormatter.List(sweep.NumOfElementsPerLayer));
                 // An item read from an older file sweeps every cell, a new one uses the symmetry, so the value
                 // is always written
@@ -155,7 +165,8 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("quad_dominated=" + PythonValueFormatter.Format(netgenMesh.QuadDominated));
                 arguments.Add("transfinite_three_sided=" + PythonValueFormatter.Text(netgenMesh.TransfiniteThreeSided.ToString()));
                 arguments.Add("transfinite_four_sided=" + PythonValueFormatter.Format(netgenMesh.TransfiniteFourSided));
-                arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(netgenMesh.TransfiniteAngleDeg));
+                if (netgenMesh.IsTransfiniteThreeSided || netgenMesh.TransfiniteFourSided)
+                    arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(netgenMesh.TransfiniteAngleDeg));
                 return "netgen_mesh";
             }
             if (item is TetrahedralGmsh tetrahedralGmsh)
@@ -186,38 +197,37 @@ namespace PrePoMax.Python.Journal
         {
             arguments.Add("algorithm_2d=" + PythonValueFormatter.Text(item.AlgorithmMesh2D.ToString()));
             arguments.Add("algorithm_3d=" + PythonValueFormatter.Text(item.AlgorithmMesh3D.ToString()));
-            arguments.Add("recombine_min_quality=" + PythonValueFormatter.Number(item.RecombineMinQuality));
-            arguments.Add("algorithm_recombine=" +
-                          PythonValueFormatter.Text(item.AlgorithmRecombine.ToString()));
-            arguments.Add("transfinite_three_sided=" +
-                          PythonValueFormatter.Text(item.TransfiniteThreeSided.ToString()));
-            arguments.Add("transfinite_four_sided=" +
-                          PythonValueFormatter.Format(item.TransfiniteFourSided));
-            arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));
+            AddRecombinationValues(arguments, item);
         }
         // A surface item has no three dimensional algorithm of its own
         private static void AddSurfaceGmshValues(List<string> arguments, GmshSetupItem item)
         {
             arguments.Add("algorithm_2d=" + PythonValueFormatter.Text(item.AlgorithmMesh2D.ToString()));
-            arguments.Add("recombine_min_quality=" + PythonValueFormatter.Number(item.RecombineMinQuality));
+            AddRecombinationValues(arguments, item);
+        }
+        // The minimum quality is written only while the item recombines and the angle only while it structures a
+        // face, as the dialog shows them and the API takes them only then
+        private static void AddRecombinationValues(List<string> arguments, GmshSetupItem item)
+        {
+            if (item.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None)
+                arguments.Add("recombine_min_quality=" + PythonValueFormatter.Number(item.RecombineMinQuality));
             arguments.Add("algorithm_recombine=" +
                           PythonValueFormatter.Text(item.AlgorithmRecombine.ToString()));
             arguments.Add("transfinite_three_sided=" +
                           PythonValueFormatter.Text(item.TransfiniteThreeSided.ToString()));
             arguments.Add("transfinite_four_sided=" +
                           PythonValueFormatter.Format(item.TransfiniteFourSided));
-            arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));
+            if (item.IsTransfiniteThreeSided || item.TransfiniteFourSided)
+                arguments.Add("transfinite_angle_deg=" + PythonValueFormatter.Number(item.TransfiniteAngleDeg));
         }
-        // The dialog sizes the mesh by the factors only with the relative switch on in its advanced view, and
-        // shows only the pair in use, which is the only pair the API takes
+        // Gmsh, Mmg and the local mesh size limits use the sizes in either mode, and the dialog sizes the Netgen
+        // mesh by the factors only with the relative switch on in its advanced view, the only state in which the
+        // API takes them
         private static void AddMeshingParameterValues(List<string> arguments, MeshingParameters parameters)
         {
             bool relativeSizeUsed = parameters.RelativeSize && parameters.AdvancedView;
-            if (!relativeSizeUsed)
-            {
-                arguments.Add("max_size=" + PythonValueFormatter.Number(parameters.MaxH));
-                arguments.Add("min_size=" + PythonValueFormatter.Number(parameters.MinH));
-            }
+            arguments.Add("max_size=" + PythonValueFormatter.Number(parameters.MaxH));
+            arguments.Add("min_size=" + PythonValueFormatter.Number(parameters.MinH));
             arguments.Add("fineness=" + PythonValueFormatter.Number(parameters.Fineness));
             arguments.Add("grading=" + PythonValueFormatter.Number(parameters.Grading));
             arguments.Add("elements_per_edge=" + PythonValueFormatter.Number(parameters.ElementsPerEdge));

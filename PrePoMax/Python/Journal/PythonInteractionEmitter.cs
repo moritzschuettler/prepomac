@@ -103,9 +103,14 @@ namespace PrePoMax.Python.Journal
                                            cyclicSymmetry.RegionType != CaeGlobals.RegionTypeEnum.None &&
                                            !string.IsNullOrEmpty(cyclicSymmetry.RegionName));
                 if (cyclicSymmetry.NumberOfGraphSectors >= 2 && hasExpansionRegion)
+                {
+                    PythonRegionEmitter.RefuseSelectionOtherThanParts(cyclicSymmetry.CreationData,
+                                                                      "the expansion region of the cyclic symmetry '" +
+                                                                      cyclicSymmetry.Name + "'");
                     arguments.Add("region=" + PythonRegionEmitter.Emit(writer, cyclicSymmetry.RegionName,
                                                                        cyclicSymmetry.RegionType,
                                                                        cyclicSymmetry.CreationData));
+                }
                 arguments.Add("axis_point=" + Point(cyclicSymmetry.X, cyclicSymmetry.Y, cyclicSymmetry.Z));
                 arguments.Add("axis_direction=" + Point(cyclicSymmetry.N1, cyclicSymmetry.N2,
                                                         cyclicSymmetry.N3));

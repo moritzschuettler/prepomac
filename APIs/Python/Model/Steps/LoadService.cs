@@ -67,6 +67,7 @@ namespace APIs.Python.Model
             // The dialog offers a pre-tension load only for a three dimensional model
             if (load is PreTensionLoad && GetIsTwoDimensional())
                 throw new PythonAPIException("A pre-tension load needs a three dimensional model.");
+            EnsureDefined(load);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddLoad(stepName, load);
@@ -75,6 +76,7 @@ namespace APIs.Python.Model
         {
             string storedName = ResolveItem(stepName, oldName).Name;
             ValidateName(stepName, load.Name, storedName);
+            EnsureDefined(load);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceLoad(stepName, storedName, load);
@@ -110,6 +112,71 @@ namespace APIs.Python.Model
         protected override OrderedDictionary<string, Load> GetItems(Step step)
         {
             return step.Loads;
+        }
+        // The dialog refuses on OK a load without a magnitude, an axis or a direction, in these words, and judges the
+        // load it ends with, so an add and a replace are checked on the final load, its evaluated equations included
+        private static void EnsureDefined(Load load)
+        {
+            string error = GetDefinitionError(load);
+            if (error != null) throw new PythonAPIException(error);
+        }
+        private static string GetDefinitionError(Load load)
+        {
+            if (load is CLoad concentratedForce && concentratedForce.Magnitude.Value == 0)
+                return "At least one force component must not be equal to 0. Give a nonzero 'f1', 'f2' or 'f3'.";
+            if (load is MomentLoad moment && moment.Magnitude.Value == 0)
+                return "At least one moment component must not be equal to 0. Give a nonzero 'm1', 'm2' or 'm3'.";
+            if (load is DLoad pressure && pressure.Magnitude.Value == 0)
+                return "The pressure load magnitude must not be equal to 0. Give a nonzero 'magnitude'.";
+            if (load is HydrostaticPressure hydrostaticPressure)
+                return GetHydrostaticPressureError(hydrostaticPressure);
+            if (load is STLoad surfaceTraction)
+                return GetSurfaceTractionError(surfaceTraction);
+            if (load is ShellEdgeLoad shellEdgeLoad && shellEdgeLoad.Magnitude.Value == 0)
+                return "The shell edge load magnitude must not be equal to 0. Give a nonzero 'magnitude'.";
+            if (load is GravityLoad gravity && gravity.Magnitude.Value == 0)
+                return "At least one gravity load component must not be equal to 0. Give a nonzero 'f1', 'f2' or 'f3'.";
+            if (load is CentrifLoad centrifugal)
+            {
+                if (centrifugal.N1.Value == 0 && centrifugal.N2.Value == 0 && centrifugal.N3.Value == 0)
+                    return "At least one axis direction component must not be equal to 0. Give a nonzero " +
+                           "'axis_direction'.";
+                if (centrifugal.RotationalSpeed2 == 0)
+                    return "Rotational speed must not be equal to 0. Give a nonzero 'rotational_speed'.";
+            }
+            if (load is PreTensionLoad preTension)
+            {
+                if (!preTension.AutoComputeDirection && preTension.X.Value == 0 && preTension.Y.Value == 0 &&
+                    preTension.Z.Value == 0)
+                    return "At least one pre-tension direction component must not be equal to 0. Give a nonzero " +
+                           "'direction'.";
+                if (preTension.Type == PreTensionLoadType.Force && preTension.GetMagnitudeValue() == 0)
+                    return "Pre-tension magnitude must not be equal to 0. Give a nonzero 'magnitude'.";
+            }
+            //
+            return null;
+        }
+        private static string GetHydrostaticPressureError(HydrostaticPressure load)
+        {
+            string error;
+            if (load.IsProperlyDefined(out error)) return null;
+            //
+            if (load.N1.Value == 0 && load.N2.Value == 0 && load.N3.Value == 0)
+                return error + " Give a nonzero 'direction'.";
+            return error + " Give a 'first_point' and a 'second_point' that lie apart along the 'direction'.";
+        }
+        // The dialog writes the group the distribution does not use as zero, so only the used group is judged
+        private static string GetSurfaceTractionError(STLoad load)
+        {
+            bool constant = PythonNameComparer.AreSame(load.DistributionName, Distribution.DefaultDistributionName);
+            if (constant && load.FMagnitude.Value == 0)
+                return "At least one surface traction load component must not be equal to 0. Give a nonzero 'f1', " +
+                       "'f2' or 'f3'.";
+            if (!constant && load.PMagnitude.Value == 0)
+                return "At least one surface traction load component must not be equal to 0. Give a nonzero 'p1', " +
+                       "'p2' or 'p3'.";
+            //
+            return null;
         }
     }
 }

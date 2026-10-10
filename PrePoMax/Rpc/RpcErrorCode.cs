@@ -24,7 +24,6 @@ namespace PrePoMax.Rpc
         public const int InternalError = -32603;
         // The application range
         public const int Busy = -32001;
-        public const int ReadOnly = -32002;
         public const int PromptRefused = -32003;
         public const int ApiError = -32004;
         public const int NotAllowed = -32005;
@@ -39,7 +38,6 @@ namespace PrePoMax.Rpc
             else if (code == InvalidParams) return "InvalidParams";
             else if (code == InternalError) return "InternalError";
             else if (code == Busy) return "Busy";
-            else if (code == ReadOnly) return "ReadOnly";
             else if (code == PromptRefused) return "PromptRefused";
             else if (code == ApiError) return "ApiError";
             else if (code == NotAllowed) return "NotAllowed";

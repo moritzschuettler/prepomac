@@ -173,6 +173,16 @@ def test_displacement_rotation():
     check(len(bcs) == count_before and not bcs.contains(PREFIX + "Bad"),
           "a boundary condition with an invalid equation was recorded")
     check(bcs[name].get_value("u2") == 0, "the refused replace changed u2, got " + str(bcs[name].get_value("u2")))
+    # The dialog refuses a boundary condition that constrains nothing, in these words, and so does the API, judging
+    # the one a replace ends with
+    check_refused(lambda: bcs.add_displacement_rotation(PREFIX + "Bad", selection),
+                  "At least one degree of freedom must be defined for the boundary condition",
+                  "a displacement and rotation without a degree of freedom must be refused")
+    check_refused(lambda: bcs.replace_displacement_rotation(name, free_dofs=["U1", "U2", "U3"]), "'fixed_dofs'",
+                  "a replace that frees every degree of freedom must be refused naming the arguments")
+    check(len(bcs) == count_before and not bcs.contains(PREFIX + "Bad"),
+          "a boundary condition without a degree of freedom was recorded")
+    check(bcs[name].get_value("u3") == 1.5, "the refused replace freed u3")
     # The default names are matched without regard to case
     bc = bcs.replace_displacement_rotation(name, amplitude_name="DEFAULT", coordinate_system_name="global")
     check(bc.amplitude_name == "Default", "unexpected amplitude name " + bc.amplitude_name)
@@ -436,6 +446,14 @@ def test_submodel():
     check_refused(lambda: bcs.replace_submodel(PREFIX + "SM", step_id=0), "'step_id'",
                   "a submodel step below 1 must be refused")
     check(bcs[PREFIX + "SM"].get_value("step_id") == 2, "the refused replace changed the step")
+    # The dialog refuses a submodel boundary condition without a degree of freedom, and so does the API
+    check_refused(lambda: bcs.add_submodel(PREFIX + "Bad", selection, step_id=1),
+                  "At least one degree of freedom must be defined",
+                  "a submodel without a degree of freedom must be refused")
+    check_refused(lambda: bcs.replace_submodel(PREFIX + "SM", u1=False, u2=False, u3=False), "'u1'",
+                  "a submodel replace that drops every degree of freedom must be refused naming the arguments")
+    check(not bcs.contains(PREFIX + "Bad") and bcs[PREFIX + "SM"].get_value("u1"),
+          "a refused submodel boundary condition was recorded")
     # A submodel boundary condition does not accept a reference point region, and the dialog does
     # not offer one for it
     check_raises(lambda: bcs.add_submodel(PREFIX + "Bad",

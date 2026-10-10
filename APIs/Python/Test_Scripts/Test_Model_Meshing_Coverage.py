@@ -54,8 +54,8 @@ def test_meshing_parameters(items, selection):
     check(values["max_size"] == 0.25, "the maximum size was not replaced: " + str(values["max_size"]))
     check(values["grading"] == 0.4, "the omitted grading was not kept: " + str(values))
     check(len(items[PREFIX + "Parameters"].get_geometry_ids()) > 0, "the region was lost")
-    # The dialog shows the factors only for a relative size and the sizes only for an absolute one, so only the
-    # pair in use reads back and the other one is refused naming relative_size
+    # Only a relative Netgen mesh is sized by the factors, so they read back and are taken only with
+    # relative_size=True, and are refused naming relative_size otherwise
     check(values["relative_size"] is False and "factor_max" not in values and "factor_min" not in values,
           "absolute meshing parameters read back their factors: " + str(values))
     for arguments in [{"factor_max": 0.1}, {"factor_min": 0.01}]:
@@ -63,22 +63,21 @@ def test_meshing_parameters(items, selection):
         message = raised_message(lambda: items.replace_meshing_parameters(PREFIX + "Parameters", **arguments))
         check(message is not None and "'" + argument + "'" in message and "relative_size" in message,
               "a factor of absolute meshing parameters must be refused naming relative_size: " + str(message))
-    message = raised_message(lambda: items.replace_meshing_parameters(PREFIX + "Parameters", relative_size=True,
-                                                                      max_size=0.5))
-    check(message is not None and "'max_size'" in message and "relative_size" in message,
-          "a size with relative_size=True must be refused naming relative_size: " + str(message))
-    items.replace_meshing_parameters(PREFIX + "Parameters", relative_size=True, factor_max=0.1, factor_min=0.01)
+    # Gmsh, Mmg and the local mesh size limits use the sizes in either mode, so a relative item takes them and
+    # reads them back as well
+    items.replace_meshing_parameters(PREFIX + "Parameters", relative_size=True, factor_max=0.1, factor_min=0.01,
+                                     max_size=0.3)
     values = settings(items, PREFIX + "Parameters")
     check(values["relative_size"] is True and values["factor_max"] == 0.1 and values["factor_min"] == 0.01,
           "relative meshing parameters did not read back their factors: " + str(values))
-    check("max_size" not in values and "min_size" not in values,
-          "relative meshing parameters read back their sizes: " + str(values))
+    check(values["max_size"] == 0.3 and "min_size" in values,
+          "relative meshing parameters did not take and read back their sizes: " + str(values))
     items.replace_meshing_parameters(PREFIX + "Parameters", **values)
     check(settings(items, PREFIX + "Parameters") == values, "the relative settings did not round trip")
     # Going back to the absolute sizes keeps the sizes that were set
     items.replace_meshing_parameters(PREFIX + "Parameters", relative_size=False)
     values = settings(items, PREFIX + "Parameters")
-    check(values["relative_size"] is False and values["max_size"] == 0.25,
+    check(values["relative_size"] is False and values["max_size"] == 0.3,
           "the kept sizes did not come back with relative_size=False: " + str(values))
 
 
@@ -106,6 +105,19 @@ def test_netgen_mesh(items, selection, shell_selection):
     items.add_netgen_mesh(PREFIX + "NetgenShell", shell_selection, quad_dominated=True)
     check(settings(items, PREFIX + "NetgenShell")["quad_dominated"] is True,
           "the Netgen quad-dominated setting was not stored")
+    # The angle is used, shown and read back only while a face is structured, judged on the values the item ends
+    # up with
+    check("transfinite_angle_deg" not in settings(items, PREFIX + "NetgenShell"),
+          "a Netgen item without structured faces read back its transfinite angle")
+    for name, arguments in [(PREFIX + "NetgenShell", {"transfinite_angle_deg": 120.0}),
+                            (PREFIX + "Netgen", {"transfinite_four_sided": False, "transfinite_angle_deg": 120.0})]:
+        message = raised_message(lambda: items.replace_netgen_mesh(name, **arguments))
+        check(message is not None and "'transfinite_angle_deg'" in message and
+              "transfinite_four_sided" in message,
+              "an unused Netgen transfinite angle must be refused naming the transfinite settings: " + str(message))
+    items.replace_netgen_mesh(PREFIX + "Netgen", transfinite_angle_deg=120.0)
+    check(settings(items, PREFIX + "Netgen")["transfinite_angle_deg"] == 120.0,
+          "the transfinite angle of a Netgen item with structured faces was not set")
 
 
 def test_local_mesh_size(items, selection):
@@ -169,11 +181,38 @@ def test_gmsh_items(items, selection, shell_selection, box_selection):
     values = settings(items, PREFIX + "Tet")
     check(values["algorithm_recombine"] == "Simple", "the omitted recombine algorithm was not kept")
     check(values["transfinite_three_sided"] == "Polar", "the omitted transfinite setting was not kept")
+    # The minimum quality is used, shown and read back only while the item recombines, judged on the
+    # recombination it ends up with
+    items.replace_tetrahedral_gmsh(PREFIX + "Tet", recombine_min_quality=0.3)
+    check(settings(items, PREFIX + "Tet")["recombine_min_quality"] == 0.3,
+          "the minimum quality of a recombining item was not set")
+    message = raised_message(lambda: items.replace_tetrahedral_gmsh(PREFIX + "Tet", algorithm_recombine="None",
+                                                                    recombine_min_quality=0.2))
+    check(message is not None and "'recombine_min_quality'" in message and "algorithm_recombine" in message,
+          "a minimum quality without recombination must be refused naming algorithm_recombine: " + str(message))
+    items.replace_tetrahedral_gmsh(PREFIX + "Tet", algorithm_recombine="None")
+    values = settings(items, PREFIX + "Tet")
+    check("recombine_min_quality" not in values and values["algorithm_recombine"] == "None",
+          "an item without recombination read back its minimum quality: " + str(values))
+    message = raised_message(lambda: items.replace_tetrahedral_gmsh(PREFIX + "Tet", recombine_min_quality=0.2))
+    check(message is not None and "'recombine_min_quality'" in message and "algorithm_recombine" in message,
+          "a minimum quality the item keeps unused must be refused naming algorithm_recombine: " + str(message))
     #
     items.add_shell_gmsh(PREFIX + "Shell", shell_selection, transfinite_angle_deg=120.0)
     items.replace_shell_gmsh(PREFIX + "Shell", algorithm_recombine="Blossom")
-    check(settings(items, PREFIX + "Shell")["transfinite_angle_deg"] == 120.0,
-          "the omitted transfinite angle was not kept")
+    values = settings(items, PREFIX + "Shell")
+    check(values["transfinite_angle_deg"] == 120.0, "the omitted transfinite angle was not kept")
+    # A shell has no volume, so neither the dialog nor the API offers a 3D algorithm
+    check("algorithm_3d" not in values, "a shell item read back a 3D algorithm: " + str(values))
+    message = raised_message(lambda: items.replace_shell_gmsh(PREFIX + "Shell", algorithm_3d="Delaunay"))
+    check(message is not None and "algorithm_3d" in message, "a shell item took a 3D algorithm: " + str(message))
+    # The angle is used, shown and read back only while a face is structured
+    message = raised_message(lambda: items.replace_shell_gmsh(PREFIX + "Shell", transfinite_three_sided="No",
+                                                              transfinite_four_sided=False,
+                                                              transfinite_angle_deg=100.0))
+    check(message is not None and "'transfinite_angle_deg'" in message and "transfinite_three_sided" in message,
+          "an unused transfinite angle must be refused naming the transfinite settings: " + str(message))
+    check(settings(items, PREFIX + "Shell") == values, "a refused replace changed the shell item")
     #
     items.add_transfinite_mesh(PREFIX + "Transfinite", box_selection, recombine=True,
                                allow_pyramid_elements=True)
@@ -199,8 +238,8 @@ def test_derived_arguments(items, selection):
     layers = settings(items, PREFIX + "Sweep")["elements_per_layer"]
     check(type(layers) is list and all(type(count) is int for count in layers),
           "the elements per layer must read back as a list of ints: " + repr(layers))
-    # QuadWild meshes the sources in place of the gmsh recombination and optimisation, so the dialog shows the
-    # settings of one source mesher at a time: the others are refused and not read back
+    # The QuadWild settings are used only while QuadWild meshes the sources: with a gmsh algorithm_2d they are
+    # refused and not read back
     values = settings(items, PREFIX + "Sweep")
     gmsh_algorithm = values["algorithm_2d"]
     check(not any(name.startswith("quad_wild_") for name in values) and "algorithm_recombine" in values,
@@ -210,21 +249,28 @@ def test_derived_arguments(items, selection):
         message = raised_message(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", **arguments))
         check(message is not None and "'" + argument + "'" in message and "algorithm_2d" in message,
               "a QuadWild value of a gmsh sweep must be refused naming algorithm_2d: " + str(message))
-    items.replace_sweep_mesh(PREFIX + "Sweep", algorithm_2d="QuadWild", quad_wild_alpha=0.5)
-    values = settings(items, PREFIX + "Sweep")
-    check(values["quad_wild_alpha"] == 0.5 and "algorithm_recombine" not in values and
-          "recombine_min_quality" not in values and "optimize_first_order_shell" not in values,
-          "a QuadWild sweep must read back only the settings QuadWild uses: " + str(values))
-    for arguments in [{"algorithm_recombine": "Blossom"}, {"recombine_min_quality": 0.2},
-                      {"optimize_first_order_shell": "None"}]:
+    # The sweep builds its volume mesh itself, and the dialog no longer offers the imprint edges, so neither is
+    # an argument
+    check("algorithm_3d" not in values and "keep_imprint_edges" not in values,
+          "a sweep read back a setting it does not take: " + str(values))
+    for arguments in [{"algorithm_3d": "Delaunay"}, {"keep_imprint_edges": True}]:
         argument = list(arguments)[0]
         message = raised_message(lambda: items.replace_sweep_mesh(PREFIX + "Sweep", **arguments))
-        check(message is not None and "'" + argument + "'" in message and "algorithm_2d" in message,
-              "a gmsh value of a QuadWild sweep must be refused naming algorithm_2d: " + str(message))
+        check(message is not None and argument in message, "a sweep took " + argument + ": " + str(message))
+    # gmsh meshes the walls of a sweep whose sources QuadWild meshes, so the recombination and optimisation
+    # stay settings of a QuadWild sweep
+    items.replace_sweep_mesh(PREFIX + "Sweep", algorithm_2d="QuadWild", quad_wild_alpha=0.5,
+                             algorithm_recombine="Blossom", recombine_min_quality=0.2,
+                             optimize_first_order_shell="Laplace2D")
+    values = settings(items, PREFIX + "Sweep")
+    check(values["quad_wild_alpha"] == 0.5 and values["algorithm_recombine"] == "Blossom" and
+          values["recombine_min_quality"] == 0.2 and values["optimize_first_order_shell"] == "Laplace2D",
+          "a QuadWild sweep must take and read back the gmsh recombination and optimisation: " + str(values))
     items.replace_sweep_mesh(PREFIX + "Sweep", **values)
     check(settings(items, PREFIX + "Sweep") == values, "the QuadWild sweep settings did not round trip")
-    items.replace_sweep_mesh(PREFIX + "Sweep", algorithm_2d=gmsh_algorithm, algorithm_recombine="Blossom")
-    check(settings(items, PREFIX + "Sweep")["algorithm_recombine"] == "Blossom",
+    items.replace_sweep_mesh(PREFIX + "Sweep", algorithm_2d=gmsh_algorithm, algorithm_recombine="Simple",
+                             optimize_first_order_shell="None")
+    check(settings(items, PREFIX + "Sweep")["algorithm_recombine"] == "Simple",
           "a gmsh value given with a gmsh algorithm_2d was not set")
 
 
@@ -252,6 +298,34 @@ def test_quad_wild(items, selection):
     message = raised_message(lambda: items.replace_shell_quad_wild(PREFIX + "QuadWild", alpha=1.5))
     check(message is not None and "alpha" in message, "an alpha above 1 was accepted by the replace: " + str(message))
     check(settings(items, PREFIX + "QuadWild")["alpha"] == 0.02, "a refused replace changed the alpha")
+    # A preview shows the triangulation without running QuadWild, so the dialog hides the settings of the
+    # quadrangulation, and they are refused naming preview and not read back while it is on
+    quadrangulation = ["smooth", "alpha", "flow_profile", "boundary_layer", "transfinite_three_sided",
+                       "transfinite_four_sided", "transfinite_angle_deg"]
+    message = raised_message(lambda: items.replace_shell_quad_wild(PREFIX + "QuadWild", preview=True, alpha=0.3))
+    check(message is not None and "'alpha'" in message and "preview" in message,
+          "an alpha of a preview must be refused naming preview: " + str(message))
+    items.replace_shell_quad_wild(PREFIX + "QuadWild", preview=True)
+    values = settings(items, PREFIX + "QuadWild")
+    check(values["preview"] is True and not any(name in values for name in quadrangulation),
+          "a preview read back the settings of the quadrangulation: " + str(values))
+    for arguments in [{"smooth": True}, {"transfinite_angle_deg": 120.0}, {"boundary_layer": "Holes"}]:
+        argument = list(arguments)[0]
+        message = raised_message(lambda: items.replace_shell_quad_wild(PREFIX + "QuadWild", **arguments))
+        check(message is not None and "'" + argument + "'" in message and "preview" in message,
+              "a quadrangulation value the preview keeps unused must be refused naming preview: " + str(message))
+    items.replace_shell_quad_wild(PREFIX + "QuadWild", **values)
+    check(settings(items, PREFIX + "QuadWild") == values, "the preview settings did not round trip")
+    items.replace_shell_quad_wild(PREFIX + "QuadWild", preview=False)
+    values = settings(items, PREFIX + "QuadWild")
+    check(values["alpha"] == 0.02 and values["flow_profile"] == "Aligned",
+          "the settings of the quadrangulation were not kept through a preview: " + str(values))
+    # The angle is used, shown and read back only while a face is structured
+    message = raised_message(lambda: items.replace_shell_quad_wild(PREFIX + "QuadWild", transfinite_three_sided="No",
+                                                                   transfinite_four_sided=False,
+                                                                   transfinite_angle_deg=120.0))
+    check(message is not None and "'transfinite_angle_deg'" in message and "transfinite_four_sided" in message,
+          "an unused QuadWild transfinite angle must be refused naming the transfinite settings: " + str(message))
 
 
 # What get_settings returns goes back into the replace of the item type, every key an argument it takes, and the

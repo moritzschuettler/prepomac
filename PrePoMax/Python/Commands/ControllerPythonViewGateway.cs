@@ -379,7 +379,7 @@ namespace PrePoMax.Python
             if (!System.IO.Directory.Exists(directory)) System.IO.Directory.CreateDirectory(directory);
             return System.IO.Path.Combine(directory, "viewport_" + Guid.NewGuid().ToString("N") + ".png");
         }
-        private static string ToViewName(ViewGeometryModelResults view)
+        public static string ToViewName(ViewGeometryModelResults view)
         {
             if (view == ViewGeometryModelResults.Geometry) return "geometry";
             if (view == ViewGeometryModelResults.Model) return "femodel";

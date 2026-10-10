@@ -24,15 +24,17 @@ namespace APIs.Python.Model
         private readonly ModelResolver _modelResolver;
         private readonly IPythonModelGateway _modelGateway;
         private readonly ResultResolver _resultResolver;
+        private readonly IPythonJobGateway _jobGateway;
 
 
         // Constructors
         public DocumentService(ModelResolver modelResolver, IPythonModelGateway modelGateway,
-                               ResultResolver resultResolver)
+                               ResultResolver resultResolver, IPythonJobGateway jobGateway)
         {
             _modelResolver = modelResolver;
             _modelGateway = modelGateway;
             _resultResolver = resultResolver;
+            _jobGateway = jobGateway;
         }
 
 
@@ -267,9 +269,9 @@ namespace APIs.Python.Model
                                    cyclesIncrement, numOfSmoothingSteps, bdmRemeshing);
             if (globalResultsFileName != null)
             {
-                if (globalResultsFileName.Length > 0 && globalResultsFileName.Trim().Length == 0)
-                    throw new PythonAPIException("The argument 'global_results_file_name' must not be blank; " +
-                                                 "'' clears it.");
+                if (globalResultsFileName.Trim().Length == 0)
+                    throw new PythonAPIException("The argument 'global_results_file_name' must not be empty; a " +
+                                                 "submodel needs an existing global results file.");
                 properties.GlobalResultsFileName = globalResultsFileName;
             }
             if (slipWearResults != null)
@@ -293,6 +295,7 @@ namespace APIs.Python.Model
                                                     clearUndefinedConstants, "stefan_boltzmann");
             properties.NewtonGravity = ToConstant(newtonGravity, properties.NewtonGravity, clearUndefinedConstants,
                                                   "newton_gravity");
+            EnsureDefined(properties);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceModelProperties(name == null ? model.Name : name, properties);
@@ -309,6 +312,7 @@ namespace APIs.Python.Model
             else if (argumentName == "stefan_boltzmann") properties.StefanBoltzmann = constant;
             else if (argumentName == "newton_gravity") properties.NewtonGravity = constant;
             else throw new ArgumentException("The physical constant '" + argumentName + "' is unknown.");
+            EnsureDefined(properties);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceModelProperties(model.Name, properties);
@@ -350,6 +354,7 @@ namespace APIs.Python.Model
             ValidateModelName(name);
             //
             ModelProperties properties = _modelResolver.GetModel().Properties.DeepClone();
+            EnsureDefined(properties);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceModelProperties(name, properties);
@@ -386,6 +391,36 @@ namespace APIs.Python.Model
                 if (values[i] != null)
                     throw new PythonAPIException("The argument '" + argumentNames[i] + "' applies only to a " +
                                                  "SlipWearModel, but the model type is " + modelType + ".");
+            }
+        }
+        // The dialog refuses on OK a submodel whose global results file it cannot find in the work directory and a
+        // slip wear model whose cycles do not divide into increments, in these words, and judges the properties it
+        // ends with
+        private void EnsureDefined(ModelProperties properties)
+        {
+            if (properties.ModelType == ModelType.Submodel)
+            {
+                string fileName = properties.GlobalResultsFileName == null ? "" : properties.GlobalResultsFileName;
+                string workDirectory = _jobGateway == null ? null : _jobGateway.GetWorkDirectory();
+                string fullFileName;
+                try
+                {
+                    fullFileName = Path.Combine(workDirectory == null ? "" : workDirectory, fileName);
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new PythonAPIException("The argument 'global_results_file_name' is invalid: " + ex.Message);
+                }
+                if (!File.Exists(fullFileName))
+                    throw new PythonAPIException("The selected global results file " + fullFileName + " does not " +
+                                                 "exist. Give an existing file in 'global_results_file_name', " +
+                                                 "relative to the work directory or absolute.");
+            }
+            else if (properties.ModelType == ModelType.SlipWearModel &&
+                     properties.NumberOfCycles.Value % properties.CyclesIncrement.Value != 0)
+            {
+                throw new PythonAPIException("The number of slip wear cycles must be a multiple of the cycles " +
+                                             "increment. Give a 'number_of_cycles' that 'cycles_increment' divides.");
             }
         }
         private static bool HasNodes(FeMesh mesh)

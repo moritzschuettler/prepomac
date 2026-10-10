@@ -219,13 +219,12 @@ def test_split_target():
     part, face_id = find_end_face(solids, top=True)
     meshed = mesh_with_sweep(part, solids, part, face_id)
     check(meshed[0].get_face_data().count == 7, "the carried imprint edges must not split the faces of the mesh")
-    # Kept as edges of the mesh, they split the bottom face along the imprint
-    items.add_sweep_mesh(SWEEP_NAME, face_selection(part, face_id), keep_imprint_edges=True)
-    report = pmx.model.mesh.generate(part.name)
-    check(report[part.name] == "", "meshing with kept imprint edges reported: " + report[part.name])
-    meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name]
-    check(meshed[0].get_face_data().count == 8, "the kept imprint edges must split the bottom face of the mesh")
-    items.remove([SWEEP_NAME])
+    # The dialog no longer offers to keep them as edges of the mesh, so neither does the API
+    message = raised_message(lambda: items.add_sweep_mesh(SWEEP_NAME, face_selection(part, face_id),
+                                                          keep_imprint_edges=True))
+    check(message is not None and "keep_imprint_edges" in message,
+          "keeping the imprint edges must be refused as an unknown argument, got: " + str(message))
+    check(not items.contains(SWEEP_NAME), "the refused sweep mesh item was added")
 
 
 def test_wall_rings():

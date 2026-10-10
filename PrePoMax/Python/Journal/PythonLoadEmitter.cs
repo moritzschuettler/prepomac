@@ -32,6 +32,9 @@ namespace PrePoMax.Python.Journal
                                  Load load)
         {
             string collection = PythonStepItemEmitter.GetCollection(stepName, "loads");
+            if (load is GravityLoad || load is CentrifLoad || load is BodyFlux)
+                PythonRegionEmitter.RefuseSelectionOtherThanParts(load.CreationData, "the region of the load '" +
+                                                                                    load.Name + "'");
             string region = PythonRegionEmitter.Emit(writer, load.RegionName, load.RegionType, load.CreationData);
             List<string> arguments = new List<string>();
             if (oldName != null) arguments.Add(PythonValueFormatter.Text(oldName));

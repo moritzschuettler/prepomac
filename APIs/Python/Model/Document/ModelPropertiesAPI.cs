@@ -20,47 +20,50 @@ namespace APIs.Python.Model
         // Properties
         [PythonAPI("The model name. An empty name, or one that starts or ends with a space, is refused.",
                    Returns = "str")]
-        public string name
+        public object name
         {
             get { return _service.GetModelName(); }
-            set { _service.SetModelName(value); }
+            set { _service.SetModelName(ToText(value, "name")); }
         }
         [PythonAPI("The model space: ThreeD, PlaneStress, PlaneStrain or Axisymmetric; Undefined and None are " +
                    "refused. Assigning it sets the model space of a new model, as the new model dialog does, " +
                    "and leaves the element types as they are, so once the model has a geometry or a mesh a " +
                    "defined model space is changed by replace(model_space=...) instead.", Returns = "str")]
-        public string model_space
+        public object model_space
         {
             get { return _service.GetModelSpace(); }
-            set { _service.SetModelSpaceAndUnitSystem(RefuseNone(value, "model_space"), null); }
+            set { _service.SetModelSpaceAndUnitSystem(ToText(value, "model_space"), null); }
         }
         [PythonAPI("The unit system: M_KG_S_C, MM_TON_S_C, M_TON_S_C, IN_LB_S_F or UNIT_LESS; Undefined and " +
                    "None are refused.", Returns = "str")]
-        public string unit_system
+        public object unit_system
         {
             get { return _service.GetUnitSystem(); }
-            set { _service.SetModelSpaceAndUnitSystem(null, RefuseNone(value, "unit_system")); }
+            set { _service.SetModelSpaceAndUnitSystem(null, ToText(value, "unit_system")); }
         }
-        [PythonAPI("The model type: GeneralModel, Submodel or SlipWearModel.", Returns = "str")]
-        public string model_type
+        [PythonAPI("The model type: GeneralModel, Submodel or SlipWearModel. A Submodel needs an existing " +
+                   "global results file and a SlipWearModel a number of cycles its cycle increment divides, so " +
+                   "a change to one of them is made by replace together with those values.", Returns = "str")]
+        public object model_type
         {
             get { return _service.GetModelType(); }
-            set { Update(model_type: RefuseNone(value, "model_type")); }
+            set { Update(model_type: ToText(value, "model_type")); }
         }
-        [PythonAPI("The global results file a submodel reads its boundary values from; '' clears it, as " +
-                   "emptying the field in the dialog does. It is set on a Submodel only, and another model type " +
-                   "reads it as None.", Returns = "str or None")]
-        public string global_results_file_name
+        [PythonAPI("The global results file a submodel reads its boundary values from. It must name an existing " +
+                   "file, absolute or relative to the work directory, as the dialog refuses one it cannot find. " +
+                   "It is set on a Submodel only, and another model type reads it as None.",
+                   Returns = "str or None")]
+        public object global_results_file_name
         {
             get { return _service.GetGlobalResultsFileName(); }
-            set { Update(global_results_file_name: RefuseNone(value, "global_results_file_name")); }
+            set { Update(global_results_file_name: ToText(value, "global_results_file_name")); }
         }
         [PythonAPI("The results a slip wear model keeps: All, LastIncrementOfEachStep or LastIncrement. It is " +
                    "set on a SlipWearModel only, and another model type reads it as None.", Returns = "str or None")]
-        public string slip_wear_results
+        public object slip_wear_results
         {
             get { return _service.GetSlipWearResults(); }
-            set { Update(slip_wear_results: RefuseNone(value, "slip_wear_results")); }
+            set { Update(slip_wear_results: ToText(value, "slip_wear_results")); }
         }
         [PythonAPI("The number of slip wear cycles, a whole number evaluated from the value or equation it was " +
                    "entered with; get_equations() returns the equation. It takes a whole number or an equation " +
@@ -135,6 +138,9 @@ namespace APIs.Python.Model
                    "value is refused rather than raised to the minimum. A value the model type does not use - " +
                    "global_results_file_name on a model that is not a Submodel, or a slip wear value on one " +
                    "that is not a SlipWearModel - is refused, judged by the model_type the call ends with. " +
+                   "As the dialog does, it refuses a Submodel without an existing global results file, looked " +
+                   "up in the work directory when the name is relative, and a SlipWearModel whose " +
+                   "cycles_increment does not divide its number_of_cycles. " +
                    "model_space changes the model space between the 2D spaces PlaneStress, PlaneStrain and " +
                    "Axisymmetric and updates the element types of the mesh, as the dialog does; a change " +
                    "between 2D and ThreeD, and Undefined, are refused.",
@@ -190,6 +196,12 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The property '" + propertyName + "' cannot be set to None.");
             //
             return value;
+        }
+        // A property typed as a .NET string would let pythonnet refuse a value of another type with a TypeError that
+        // names no property, so the value is taken as an object and converted here
+        private static string ToText(object value, string propertyName)
+        {
+            return PythonValueConverter.ToText(RefuseNone(value, propertyName), propertyName, false);
         }
         private void Update(string model_type = null, string global_results_file_name = null,
                             string slip_wear_results = null, object number_of_cycles = null,

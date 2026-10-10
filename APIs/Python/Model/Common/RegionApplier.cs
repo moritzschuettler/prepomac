@@ -160,6 +160,7 @@ namespace APIs.Python.Model
                     AddOnce(accepted, RegionTypeEnum.ElementSetName);
                     if (!(item is ElementHistoryOutput)) AddOnce(accepted, RegionTypeEnum.PartName);
                 }
+                else if (target == "element_sets") AddOnce(accepted, RegionTypeEnum.ElementSetName);
                 else if (target == "parts") AddOnce(accepted, RegionTypeEnum.PartName);
                 else if (target == "surfaces") AddOnce(accepted, RegionTypeEnum.SurfaceName);
                 else return null;

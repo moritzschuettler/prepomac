@@ -515,6 +515,60 @@ def test_invalid_equations():
     check(loads[PREFIX + "F"].get_value("f2") == 0, "the refused replace changed f2")
 
 
+# The dialog refuses on OK a load that would do nothing, and the API refuses it in the dialog's words, naming the
+# arguments, before anything is recorded; it judges the load an add or a replace ends with and the value an
+# expression evaluates to
+def test_values_the_dialog_refuses():
+    loads = pmx.model.steps[STEP].loads
+    count_before = len(loads)
+    for function, fragments in [
+            (lambda: loads.add_concentrated_force(PREFIX + "Bad", node_selection([1])),
+             ["At least one force component must not be equal to 0", "'f1'"]),
+            (lambda: loads.add_concentrated_force(PREFIX + "Bad", node_selection([1]), f2="=2 - 2"),
+             ["At least one force component", "'f3'"]),
+            (lambda: loads.add_moment(PREFIX + "Bad", node_selection([1]), m3=0),
+             ["At least one moment component must not be equal to 0", "'m1'"]),
+            (lambda: loads.add_pressure(PREFIX + "Bad", surface_selection(1), 0),
+             ["The pressure load magnitude must not be equal to 0", "'magnitude'"]),
+            (lambda: loads.add_pressure(PREFIX + "Bad", surface_selection(1), "=1 - 1"),
+             ["The pressure load magnitude", "'magnitude'"]),
+            (lambda: loads.add_hydrostatic_pressure(PREFIX + "Bad", surface_selection(1), second_point=[0, 0, 1]),
+             ["The pressure direction is not properly defined", "'direction'"]),
+            (lambda: loads.add_hydrostatic_pressure(PREFIX + "Bad", surface_selection(1), first_point=[0, 0, 0],
+                                                    second_point=[1, 0, 0], direction=[0, 0, -1]),
+             ["must not be on a plane perpendicular", "'first_point'"]),
+            (lambda: loads.add_surface_traction(PREFIX + "Bad", surface_selection(1)),
+             ["At least one surface traction load component must not be equal to 0", "'f1'"]),
+            (lambda: loads.add_surface_traction(PREFIX + "Bad", surface_selection(1),
+                                                distribution_name=SCALAR_DISTRIBUTION),
+             ["At least one surface traction load component", "'p1'"]),
+            (lambda: loads.add_shell_edge_load(PREFIX + "Bad", surface_selection(1), 0),
+             ["The shell edge load magnitude must not be equal to 0", "'magnitude'"]),
+            (lambda: loads.add_gravity(PREFIX + "Bad", part_selection()),
+             ["At least one gravity load component must not be equal to 0", "'f1'"]),
+            (lambda: loads.add_centrifugal(PREFIX + "Bad", part_selection(), rotational_speed=10),
+             ["At least one axis direction component must not be equal to 0", "'axis_direction'"]),
+            (lambda: loads.add_centrifugal(PREFIX + "Bad", part_selection(), axis_direction=[0, 0, 1]),
+             ["Rotational speed must not be equal to 0", "'rotational_speed'"]),
+            (lambda: loads.add_pre_tension(PREFIX + "Bad", surface_selection(1), 0),
+             ["Pre-tension magnitude must not be equal to 0", "'magnitude'"]),
+            # A replace is judged on the load it ends with
+            (lambda: loads.replace_concentrated_force(PREFIX + "F", f1=0, f3="=0"),
+             ["At least one force component", "'f1'"]),
+            (lambda: loads.replace_centrifugal(PREFIX + "C", rotational_speed=0),
+             ["Rotational speed must not be equal to 0", "'rotational_speed'"])]:
+        message = raised_message(function)
+        check(message is not None and all(fragment in message for fragment in fragments),
+              "a load the dialog refuses must be refused with " + str(fragments) + ": " + str(message))
+    check(len(loads) == count_before and not loads.contains(PREFIX + "Bad"), "a refused load was recorded")
+    check(loads[PREFIX + "F"].get_value("f3") == -1000, "a refused replace changed the force")
+    check(loads[PREFIX + "C"].get_value("rotational_speed") == 100, "a refused replace changed the speed")
+    # The dialog takes a pre-tension displacement of 0, so the API does as well
+    load = loads.add_pre_tension(PREFIX + "PT_Zero", surface_selection(1), 0, tension_type="Displacement")
+    check(load.get_value("magnitude") == 0, "a pre-tension displacement of 0 must be accepted")
+    loads.remove([PREFIX + "PT_Zero"])
+
+
 def test_required_values():
     loads = pmx.model.steps[STEP].loads
     thermal = pmx.model.steps[THERMAL_STEP].loads
@@ -693,6 +747,7 @@ def main():
         os.remove(file_name)
     test_thermal_loads()
     test_invalid_equations()
+    test_values_the_dialog_refuses()
     test_required_values()
     test_load_coordinate_system()
     test_collection_verbs()

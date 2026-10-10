@@ -166,18 +166,9 @@ namespace PrePoMax.Forms
         }
         public override void UpdateVisibility()
         {
-            // QuadWild takes the place of the gmsh options for the surfaces: the recombination and the optimisation. The
-            // transfinite faces are the same for both
-            bool quadWild = _sweepMesh.SourceMesher == SweepSourceMesherEnum.QuadWild;
-            _dctd.GetProperty(nameof(AlgorithmRecombine)).SetIsBrowsable(!quadWild);
-            _dctd.GetProperty(nameof(OptimizeFirstOrderShell)).SetIsBrowsable(!quadWild);
-            //
             base.UpdateVisibility();
             //
-            if (quadWild)
-            {
-                _dctd.GetProperty(nameof(RecombineMinQuality)).SetIsBrowsable(false);
-            }
+            bool quadWild = _sweepMesh.SourceMesher == SweepSourceMesherEnum.QuadWild;
             _dctd.GetProperty(nameof(QuadWildFlowProfile)).SetIsBrowsable(quadWild);
             _dctd.GetProperty(nameof(QuadWildAlpha)).SetIsBrowsable(quadWild);
             _dctd.GetProperty(nameof(QuadWildSmooth)).SetIsBrowsable(quadWild);

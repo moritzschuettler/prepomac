@@ -28,7 +28,8 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a solid section using command history. The region is a selection or a named " +
-                   "region; the selection target is elements. The thickness is used only in a 2D model, so " +
+                   "region; the selection target is elements or parts, as the dialog picks them. The " +
+                   "thickness is used only in a 2D model, so " +
                    "it is refused in a 3D one; it must be larger than 0, and a 2D section that is not given " +
                    "one gets 1.",
                    Arguments = "name: str, material_name: str, region: Selection or Region, " +
@@ -49,7 +50,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a shell section using command history. The region is a selection or a named " +
-                   "region; the selection target is elements. The offset of the shell mid surface from " +
+                   "region; the selection target is elements or parts. The offset of the shell mid surface from " +
                    "the selected geometry is given in shell thicknesses. The thickness must be larger than 0.",
                    Arguments = "name: str, material_name: str, region: Selection or Region, " +
                                "thickness: float = 1, offset: float = 0",
@@ -70,7 +71,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a membrane section using command history. The region is a selection or a named " +
-                   "region; the selection target is elements. The offset of the membrane mid surface from " +
+                   "region; the selection target is elements or parts. The offset of the membrane mid surface " +
+                   "from " +
                    "the selected geometry is given in membrane thicknesses. The thickness must be larger " +
                    "than 0.",
                    Arguments = "name: str, material_name: str, region: Selection or Region, " +

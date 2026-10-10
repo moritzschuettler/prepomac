@@ -9,6 +9,7 @@
 
 using CaeGlobals;
 using CaeModel;
+using PrePoMax.Python;
 using System;
 using System.Globalization;
 
@@ -122,7 +123,8 @@ namespace PrePoMax.Rpc
             string fileName = server.ModelFileName;
             writer.WriteValue("fileName", fileName == null ? "" : fileName);
             writer.WriteValue("hasUnsavedChanges", controller.ModelChanged);
-            writer.WriteValue("currentView", controller.CurrentView.ToString());
+            // The view is named the way pmx.view.current names it, so the answer goes back into it
+            writer.WriteValue("currentView", ControllerPythonViewGateway.ToViewName(controller.CurrentView));
             if (model != null && model.Properties != null)
                 writer.WriteValue("modelSpace", model.Properties.ModelSpace.ToString());
             if (model != null && model.UnitSystem != null)

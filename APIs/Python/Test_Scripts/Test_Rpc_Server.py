@@ -133,7 +133,8 @@ def check_status(client):
     check(result["busyReason"] == "", "an idle application must give no reason: " + result["busyReason"])
     model = result["model"]
     check(model["isOpen"], "a model must be open even when no file was given")
-    check(model["currentView"] in ("Geometry", "Model", "Results"), "unexpected view: " + model["currentView"])
+    # The view is named as pmx.view.current names it, so the answer goes back into it
+    check(model["currentView"] in ("geometry", "femodel", "results"), "unexpected view: " + model["currentView"])
     check(model["commandCount"] >= 0, "the command count must be reported")
     check(len(model["unitSystem"]) > 0, "the unit system must be reported")
     print("status: " + str(result["connectionCount"]) + " connection(s), read only " + str(result["isReadOnly"]))

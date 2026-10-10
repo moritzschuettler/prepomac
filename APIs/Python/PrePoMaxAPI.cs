@@ -60,7 +60,7 @@ namespace APIs.Python
             ResultFieldOutputService resultFieldOutputService = new ResultFieldOutputService(_resolver, commandGateway);
             ResultHistoryOutputService resultHistoryOutputService =
                 new ResultHistoryOutputService(_resolver, selectionService, commandGateway);
-            _documentService = new DocumentService(_modelResolver, modelGateway, _resolver);
+            _documentService = new DocumentService(_modelResolver, modelGateway, _resolver, jobGateway);
             ParameterService parameterService = new ParameterService(_modelResolver, modelGateway);
             RegionServices regionServices = new RegionServices(_modelResolver, selectionService, modelGateway);
             MaterialService materialService = new MaterialService(_modelResolver, modelGateway);

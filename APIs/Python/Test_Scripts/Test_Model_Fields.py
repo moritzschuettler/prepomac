@@ -293,6 +293,22 @@ def test_initial_conditions():
           "a replace with a zero axis direction must be refused: " + str(message))
     check(list(conditions[PREFIX + "Ang"].get_value("axis_direction")) == [0, 0, 1],
           "a refused replace changed the axis direction")
+    # The dialog refuses a velocity that is zero, in these words, and so does the API, naming the arguments; it
+    # judges the condition a replace ends with and the value an expression evaluates to
+    for function, fragments in [
+            (lambda: conditions.add_translational_velocity(PREFIX + "Bad", selection, 0, "=0", 0),
+             ["At least one velocity component must not be equal to 0", "'v1'"]),
+            (lambda: conditions.replace_translational_velocity(PREFIX + "Vel", v1=0),
+             ["At least one velocity component must not be equal to 0", "'v3'"]),
+            (lambda: conditions.add_angular_velocity(PREFIX + "Bad", selection, [0, 0, 0], [0, 0, 1], 0),
+             ["Rotational speed must not be equal to 0", "'rotational_speed'"]),
+            (lambda: conditions.replace_angular_velocity(PREFIX + "Ang", rotational_speed="=10 - 10"),
+             ["Rotational speed must not be equal to 0", "'rotational_speed'"])]:
+        message = raised_message(function)
+        check(message is not None and all(fragment in message for fragment in fragments),
+              "a zero velocity must be refused with " + str(fragments) + ": " + str(message))
+    check(conditions[PREFIX + "Vel"].get_value("v1") == 1, "a refused replace changed the velocity")
+    check(conditions[PREFIX + "Ang"].get_value("rotational_speed") == 10, "a refused replace changed the speed")
     check(not conditions.contains(PREFIX + "Bad"), "a refused initial condition was recorded")
     # A replacement that is not given a region keeps the selection, which is converted again because
     # the replacement deletes the internal node set of the old initial condition

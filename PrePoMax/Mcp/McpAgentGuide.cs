@@ -182,6 +182,10 @@ it has run, and it goes on to the end and records its commands as usual.
   reason and usually the accepted values. Read it and fix the call rather than trying variations.
   An error that carries a .NET stack trace (`   at ...` lines) is a fault of PrePoMax, not of your
   call: report it to the user.
+- **PromptRefused.** The call reached a question PrePoMax asks the user - a confirmation such as
+  Continue? or Save changes? - which an unattended call cannot answer, so it stopped there; what it
+  did before the question stays. The refusal quotes the question. Change the call so the question
+  does not arise, or ask the user to make that step.
 - **Nothing answers on the address.** PrePoMax is closed, or its automation server is off. Ask the
   user to open it and switch on Tools - Automation Server. Retrying will not help.
 

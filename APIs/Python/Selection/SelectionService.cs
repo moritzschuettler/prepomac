@@ -18,6 +18,12 @@ namespace APIs.Python
     internal class SelectionService
     {
         // Variables
+        public static readonly string[] ViewNames = new string[] { "geometry", "femodel", "results" };
+        public static readonly string[] TargetNames = new string[] { "nodes", "elements", "surfaces", "edges", "parts",
+                                                                     "geometry", "geometry_surfaces" };
+        public static readonly string[] AllTargetNames = new string[] { "nodes", "elements", "surfaces" };
+        public static readonly string[] SourceNames = new string[] { "nodes", "elements", "vertices", "edges",
+                                                                     "surfaces", "parts", "geometry" };
         private readonly IMeshResolver _meshResolver;
         private readonly IPythonSelectionGateway _selectionGateway;
 
@@ -262,7 +268,7 @@ namespace APIs.Python
         private static void ValidateAllTarget(SelectionAPI selection)
         {
             if (selection == null) throw new PythonAPIException("The selection must not be None.");
-            if (selection.target != "nodes" && selection.target != "elements" && selection.target != "surfaces")
+            if (Array.IndexOf(AllTargetNames, selection.target) < 0)
                 throw new PythonAPIException("Select all and invert support nodes, elements and surfaces only.");
         }
         private static vtkSelectOperation? ParseOperation(string operation)
@@ -638,17 +644,15 @@ namespace APIs.Python
         // the view, and passed on in the spelling the rest of the selection compares against
         private static string ValidateView(string view)
         {
-            return ValidateName(view, "view", new string[] { "geometry", "femodel", "results" });
+            return ValidateName(view, "view", ViewNames);
         }
         private static string ValidateTarget(string target)
         {
-            return ValidateName(target, "target", new string[] { "nodes", "elements", "surfaces", "edges", "parts",
-                                                                 "geometry", "geometry_surfaces" });
+            return ValidateName(target, "target", TargetNames);
         }
         private static string ValidateSource(string source)
         {
-            return ValidateName(source, "source", new string[] { "nodes", "elements", "vertices", "edges", "surfaces",
-                                                                 "parts", "geometry" });
+            return ValidateName(source, "source", SourceNames);
         }
         private static string ValidateName(string value, string argumentName, string[] names)
         {

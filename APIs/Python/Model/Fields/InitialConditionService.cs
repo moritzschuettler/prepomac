@@ -76,6 +76,8 @@ namespace APIs.Python.Model
         }
         public void Add(InitialCondition initialCondition)
         {
+            EnsureDefined(initialCondition);
+            //
             EnsureCommandsAvailable();
             ModelGateway.AddInitialCondition(initialCondition);
         }
@@ -98,6 +100,7 @@ namespace APIs.Python.Model
         public void Replace(string oldName, InitialCondition initialCondition)
         {
             string storedName = ResolveInitialCondition(oldName).Name;
+            EnsureDefined(initialCondition);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceInitialCondition(storedName, initialCondition);
@@ -139,6 +142,24 @@ namespace APIs.Python.Model
         protected override string[] GetItemNames()
         {
             return GetNames();
+        }
+        // The dialog refuses on OK a velocity that is zero, in these words, and judges the item it ends with, so an
+        // add and a replace are checked on the final item, its evaluated equations included
+        private static void EnsureDefined(InitialCondition initialCondition)
+        {
+            if (initialCondition is InitialTranslationalVelocity translational &&
+                translational.Magnitude.Value == 0)
+                throw new PythonAPIException("At least one velocity component must not be equal to 0. Give a " +
+                                             "nonzero 'v1', 'v2' or 'v3'.");
+            if (initialCondition is InitialAngularVelocity angular)
+            {
+                if (angular.N1.Value == 0 && angular.N2.Value == 0 && angular.N3.Value == 0)
+                    throw new PythonAPIException("At least one axis direction component must not be equal to 0. " +
+                                                 "Give a nonzero 'axis_direction'.");
+                if (angular.RotationalSpeed2 == 0)
+                    throw new PythonAPIException("Rotational speed must not be equal to 0. Give a nonzero " +
+                                                 "'rotational_speed'.");
+            }
         }
     }
 }

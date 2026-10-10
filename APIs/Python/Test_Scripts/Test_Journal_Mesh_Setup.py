@@ -1,7 +1,8 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks that the journal of the Gmsh mesh setup items and of the heat transfer steps replays: a windowless
+#Checks that the journal of the Gmsh mesh setup items, of relative meshing parameters and of the heat transfer
+#steps replays: a windowless
 #session opened on the model records the items one command each over its MCP endpoint, and this session,
 #which starts from an empty model as the journal does, runs the journal and must end up with the same values.
 #
@@ -34,6 +35,7 @@ TETRAHEDRAL = PREFIX + "Tet"
 TRANSFINITE = PREFIX + "Transfinite"
 TRANSFINITE_OFF = PREFIX + "Transfinite_Off"
 SWEEP = PREFIX + "Sweep"
+PARAMETERS = PREFIX + "Parameters"
 HEAT_TRANSFER = PREFIX + "Heat_Transfer"
 UNCOUPLED = PREFIX + "Uncoupled"
 COUPLED = PREFIX + "Coupled"
@@ -51,18 +53,25 @@ items.add_transfinite_mesh('%(transfinite_off)s', box_selection, recombine=False
 items.add_sweep_mesh('%(sweep)s', pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces',
                                                              {box.id: [5]}),
                      transfinite_four_sided=True, transfinite_angle_deg=100.0)
+items.replace_sweep_mesh('%(sweep)s', algorithm_2d='QuadWild', algorithm_recombine='Blossom',
+                         recombine_min_quality=0.3, optimize_first_order_shell='Laplace2D')
+items.add_meshing_parameters('%(parameters)s', cylinder_selection, relative_size=True, factor_max=0.2,
+                             factor_min=0.02, max_size=7.0, min_size=0.5)
 steps = pmx.model.steps
 steps.add_heat_transfer('%(heat_transfer)s')
 steps.add_uncoupled_temp_disp('%(uncoupled)s', deltmx=5.0)
 steps.add_coupled_temp_disp('%(coupled)s', deltmx=2.5)
 steps.replace_coupled_temp_disp('%(coupled)s', deltmx=float('inf'))
 """ % {"tetrahedral": TETRAHEDRAL, "transfinite": TRANSFINITE, "transfinite_off": TRANSFINITE_OFF,
-       "sweep": SWEEP, "heat_transfer": HEAT_TRANSFER, "uncoupled": UNCOUPLED, "coupled": COUPLED}
+       "sweep": SWEEP, "parameters": PARAMETERS, "heat_transfer": HEAT_TRANSFER, "uncoupled": UNCOUPLED,
+       "coupled": COUPLED}
 CHECKED = [(TETRAHEDRAL, ["algorithm_recombine", "recombine_min_quality", "transfinite_four_sided",
                           "transfinite_angle_deg", "optimize_high_order"]),
            (TRANSFINITE, ["recombine", "transfinite_angle_deg"]),
            (TRANSFINITE_OFF, ["recombine"]),
-           (SWEEP, ["transfinite_four_sided", "transfinite_angle_deg"])]
+           (SWEEP, ["algorithm_2d", "algorithm_recombine", "recombine_min_quality", "optimize_first_order_shell",
+                    "transfinite_four_sided", "transfinite_angle_deg"]),
+           (PARAMETERS, ["relative_size", "factor_max", "factor_min", "max_size", "min_size"])]
 STEPS = {HEAT_TRANSFER: "inf", UNCOUPLED: "5.0", COUPLED: "inf"}
 
 
@@ -208,6 +217,13 @@ def main():
           "the tetrahedral item did not take its transfinite angle: " + str(recorded[TETRAHEDRAL]))
     check(recorded[TRANSFINITE_OFF]["recombine"] == "False",
           "the transfinite item did not take recombine=False: " + str(recorded[TRANSFINITE_OFF]))
+    # gmsh meshes the walls of a QuadWild sweep, so its recombination and optimisation are written and replayed
+    check(recorded[SWEEP]["algorithm_2d"] == "QuadWild" and recorded[SWEEP]["recombine_min_quality"] == "0.3" and
+          recorded[SWEEP]["optimize_first_order_shell"] == "Laplace2D",
+          "the QuadWild sweep did not take its gmsh settings: " + str(recorded[SWEEP]))
+    # The sizes are used by Gmsh and Mmg in the relative mode as well, so they are written alongside the factors
+    check(recorded[PARAMETERS]["relative_size"] == "True" and recorded[PARAMETERS]["max_size"] == "7.0",
+          "the relative meshing parameters did not take their sizes: " + str(recorded[PARAMETERS]))
     for name, deltmx in STEPS.items():
         check(recorded[name] == deltmx, name + " recorded deltmx " + recorded[name] + ", expected " + deltmx)
     for name in [name for name, _ in CHECKED] + list(STEPS):

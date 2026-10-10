@@ -42,33 +42,34 @@ namespace APIs.Python
         // Properties
         [PythonAPI("The displayed tree: 'geometry', 'femodel' or 'results'. Setting it is what the tabs above " +
                    "the model tree do.", Returns = "str")]
-        public string current
+        public object current
         {
             get { return Resolve().GetCurrentView(); }
-            set { Resolve().SetCurrentView(ValidateOneOf(value, Views, "current")); }
+            set { Resolve().SetCurrentView(ValidateOneOf(ToText(value, "current"), Views, "current")); }
         }
         [PythonAPI("How the results are plotted: Undeformed, Deformed, ColorContours, VectorPlot or TensorPlot.",
                    Returns = "str")]
-        public string result_type
+        public object result_type
         {
             get { return Resolve().GetResultType(); }
             set
             {
-                Resolve().SetResultType(PythonValueConverter.ToEnum<ViewResultTypeEnum>(value, "result_type")
-                                                            .ToString());
+                Resolve().SetResultType(PythonValueConverter.ToEnum<ViewResultTypeEnum>(ToText(value, "result_type"),
+                                                                                         "result_type").ToString());
             }
         }
         [PythonAPI("How much the plotted result is deformed, as the results toolbar sets it: Undeformed, " +
                    "TrueScale, Automatic - which fits the largest displacement to a quarter of the model size - " +
                    "its multiples Automatic025, Automatic05, Automatic2 and Automatic5, or UserDefined, which " +
                    "uses deformation_factor. Setting it needs an open result.", Returns = "str")]
-        public string deformation_type
+        public object deformation_type
         {
             get { return Resolve().GetDeformationType(); }
             set
             {
                 DeformationScaleFactorTypeEnum type =
-                    PythonValueConverter.ToEnum<DeformationScaleFactorTypeEnum>(value, "deformation_type");
+                    PythonValueConverter.ToEnum<DeformationScaleFactorTypeEnum>(ToText(value, "deformation_type"),
+                                                                                "deformation_type");
                 Resolve().SetDeformationType(type.ToString());
             }
         }
@@ -81,13 +82,14 @@ namespace APIs.Python
         }
         [PythonAPI("The undeformed model drawn behind a ColorContours, VectorPlot or TensorPlot result: None, " +
                    "WireframeBody or SolidBody. Setting it needs an open result.", Returns = "str")]
-        public string undeformed_model
+        public object undeformed_model
         {
             get { return Resolve().GetUndeformedModelType(); }
             set
             {
                 UndeformedModelTypeEnum type =
-                    PythonValueConverter.ToEnum<UndeformedModelTypeEnum>(value, "undeformed_model");
+                    PythonValueConverter.ToEnum<UndeformedModelTypeEnum>(ToText(value, "undeformed_model"),
+                                                                         "undeformed_model");
                 Resolve().SetUndeformedModelType(type.ToString());
             }
         }
@@ -367,6 +369,12 @@ namespace APIs.Python
                 throw new PythonAPIException("The view is not available in this Python API context.");
             //
             return _gateway;
+        }
+        // A property typed as a .NET string would let pythonnet refuse a value of another type with a TypeError that
+        // names no property, so the value is taken as an object and converted here
+        private static string ToText(object value, string propertyName)
+        {
+            return PythonValueConverter.ToText(value, propertyName, false);
         }
         private static string ValidateOneOf(string value, string[] allowed, string argumentName)
         {

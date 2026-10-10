@@ -22,8 +22,8 @@
 #freedom, values taken back to Default, and a material whose values are expressions. One more carries
 #Element and Node surfaces, a contact adjustment size taken back to Default and the colors the
 #constraint, contact pair and initial condition dialogs set. One more carries a
-#recorded script that binds selection_1, which must not change the journal lines after it, and a global
-#results file name cleared with '' as the dialog clears it. A recorded script that fails part way must be
+#recorded script that binds selection_1, which must not change the journal lines after it, and the global
+#results file of a submodel, which must exist, so a cleared one is refused. A recorded script that fails part way must be
 #recorded with what it changed before the error and its journal must run it to that error and go on, a
 #sys.exit() included, while
 #one that fails before changing anything records nothing. Two model checks of elements without a section
@@ -1019,43 +1019,53 @@ def read_script_states(client):
 
 
 def check_journal_of_script_and_properties(client):
-    """A recorded script that binds a name the journal uses must not change the lines after it, and a global results
-    file name cleared as the dialog clears it must come back from the journal."""
-    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
-    result = client.result("exec", {"source": model + os.linesep +
-                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
-    check(not result["failed"], "the new model must be built: " + result["error"])
-    first_node = "pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])"
-    result = client.result("exec", {"source": "pmx.model.node_sets.add('script_before', " + first_node + ")"})
-    check(not result["failed"], "the first node set must be added: " + result["error"])
-    # The script binds selection_1, the name the journal gives the selection of the first node set
-    script = os.linesep.join(["selection_1 = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [2, 3])",
-                              "pmx.model.node_sets.add('script_inside', selection_1)"])
-    result = client.result("exec", {"source": script, "record": "script"})
-    check(not result["failed"], "the recorded script must not fail: " + result["error"])
-    source = os.linesep.join(["pmx.model.node_sets.add('script_after', " + first_node + ")",
-                              "pmx.model.properties.replace(model_type='Submodel', "
-                              "global_results_file_name='global.frd')",
-                              "pmx.model.properties.replace(global_results_file_name='')"])
-    result = client.result("exec", {"source": source})
-    check(not result["failed"], "the node set and the cleared file name must be accepted: " + result["error"])
-    recorded = read_script_states(client)
-    check(recorded == [[1], [2, 3], [1], ""], "the recorded states are not the ones built: " + str(recorded))
-    result = client.result("history", {"include_journal": True})
-    journal = result["journal"]
-    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
-    journal_source = journal["source"]
-    for expected in ["selection_1 = pmx.create.selection_by_ids", "compile(_recorded_script_source",
-                     "global_results_file_name=''"]:
-        check(expected in journal_source, expected + " is missing from the journal:" + os.linesep + journal_source)
-    result = client.result("exec", {"source": model})
-    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
-    result = client.result("exec", {"source": journal_source})
-    check(not result["failed"], "the journal of the script must replay: " + result["error"] + os.linesep +
-          journal_source)
-    replayed = read_script_states(client)
-    check(replayed == recorded, "the replayed states differ: " + str(replayed) + " against " + str(recorded))
-    print("journal: a recorded script and a cleared global results file replay to " + str(replayed))
+    """A recorded script that binds a name the journal uses must not change the lines after it, and the global
+    results file of a submodel must come back from the journal. The dialog takes a submodel only with a file it
+    finds, so a cleared file name is refused rather than recorded."""
+    global_file = os.path.join(tempfile.gettempdir(), "rpc_global_results.frd")
+    open(global_file, "w").close()
+    try:
+        model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+        result = client.result("exec", {"source": model + os.linesep +
+                                                  "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+        check(not result["failed"], "the new model must be built: " + result["error"])
+        first_node = "pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])"
+        result = client.result("exec", {"source": "pmx.model.node_sets.add('script_before', " + first_node + ")"})
+        check(not result["failed"], "the first node set must be added: " + result["error"])
+        # The script binds selection_1, the name the journal gives the selection of the first node set
+        script = os.linesep.join(["selection_1 = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [2, 3])",
+                                  "pmx.model.node_sets.add('script_inside', selection_1)"])
+        result = client.result("exec", {"source": script, "record": "script"})
+        check(not result["failed"], "the recorded script must not fail: " + result["error"])
+        source = os.linesep.join(["pmx.model.node_sets.add('script_after', " + first_node + ")",
+                                  "pmx.model.properties.replace(model_type='Submodel', "
+                                  "global_results_file_name=r'" + global_file + "')"])
+        result = client.result("exec", {"source": source})
+        check(not result["failed"], "the node set and the submodel file must be accepted: " + result["error"])
+        result = client.result("exec", {"source": "pmx.model.properties.replace(global_results_file_name='')"})
+        check(result["failed"] and "'global_results_file_name'" in result["error"],
+              "a cleared global results file of a submodel must be refused: " + str(result["error"]))
+        recorded = read_script_states(client)
+        check(recorded == [[1], [2, 3], [1], global_file], "the recorded states are not the ones built: " +
+              str(recorded))
+        result = client.result("history", {"include_journal": True})
+        journal = result["journal"]
+        check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+        journal_source = journal["source"]
+        for expected in ["selection_1 = pmx.create.selection_by_ids", "compile(_recorded_script_source",
+                         "model_type='Submodel'"]:
+            check(expected in journal_source,
+                  expected + " is missing from the journal:" + os.linesep + journal_source)
+        result = client.result("exec", {"source": model})
+        check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+        result = client.result("exec", {"source": journal_source})
+        check(not result["failed"], "the journal of the script must replay: " + result["error"] + os.linesep +
+              journal_source)
+        replayed = read_script_states(client)
+        check(replayed == recorded, "the replayed states differ: " + str(replayed) + " against " + str(recorded))
+        print("journal: a recorded script and a submodel's global results file replay to " + str(replayed))
+    finally:
+        os.remove(global_file)
 
 
 def read_failed_script_states(client):

@@ -65,7 +65,8 @@ namespace PrePoMax.Mcp
                 NoArguments, true));
             tools.Add(new McpTool("get_status", "Read the session state",
                 "Reports what PrePoMax is doing right now: whether it is idle or busy and why, the open model file, " +
-                "the current view, the model space (model.modelSpace), the unit system (model.unitSystem), " +
+                "the current view (model.currentView: 'geometry', 'femodel' or 'results', as pmx.view.current " +
+                "names it), the model space (model.modelSpace), the unit system (model.unitSystem), " +
                 "how many commands are in the history, " +
                 "whether the server is in read only mode, whether Regenerate is replaying the history " +
                 "(isRegenerating) or a recorded script keeps what runs out of the history " +
@@ -209,17 +210,20 @@ namespace PrePoMax.Mcp
                 "written as the Python script a user would have written. The journal is the best way to learn what " +
                 "the user did by hand - it names the exact API calls - and the best way to hand the session back " +
                 "as a script. A journal longer than 200,000 characters is not returned inline: it is written " +
-                "to a file in the temporary folder, and the answer gives its path as journal.fileName.",
+                "to a file in the temporary folder, and the answer gives its path as journal.fileName. It " +
+                "changes neither the model nor the view, but it writes files: journal_file overwrites a file " +
+                "that already exists under that name, so it is not read only.",
                 SessionSchema("\"include_journal\": {\"type\": \"boolean\", \"description\": " +
                               "\"Emit the history as a Python script as well. Defaults to false.\"}, " +
                               "\"journal_file\": {\"type\": \"string\", \"description\": " +
                               "\"The .py file to write the journal to instead of returning it inline; the " +
-                              "answer gives its path as journal.fileName. Needs include_journal. A relative " +
+                              "answer gives its path as journal.fileName. Needs include_journal. A file that " +
+                              "already exists under the name is overwritten. A relative " +
                               "name is placed in the PrePoMax folder of the temporary folder " +
                               "(%TEMP%\\\\PrePoMax), and a missing folder it points into is created.\"}, " +
                               "\"limit\": {\"type\": \"integer\", \"minimum\": 0, \"description\": " +
                               "\"How many of the most recent commands to list. 0 lists all of them. " +
-                              "Defaults to 200.\"}"), true));
+                              "Defaults to 200.\"}"), false));
             tools.Add(new McpTool("run_job", "Run an analysis",
                 "Writes the solver input file and starts the analysis, without waiting for it, and returns the " +
                 "status it started with. The solver runs while the user keeps working; no monitor is opened " +

@@ -51,6 +51,12 @@ def test_properties():
             check(message is not None and "'name'" in message,
                   "the model name " + repr(bad_name) + " must be refused naming it: " + str(message))
     check(pmx.model.name == "PyTest_Model", "a refused model name changed the name")
+    # A value that is not a string is refused naming the property, rather than with a TypeError of pythonnet
+    for name in ["name", "model_space", "unit_system", "model_type", "global_results_file_name", "slip_wear_results"]:
+        message = raised_message(lambda: setattr(pmx.model.properties, name, 5))
+        check(message is not None and "'" + name + "'" in message and "must be a string" in message,
+              "a number assigned to " + name + " must be refused naming it: " + str(message))
+    check(pmx.model.name == "PyTest_Model", "a refused assignment changed the model name")
     #
     check_raises(lambda: setattr(pmx.model.properties, "unit_system", "NOT_A_UNIT_SYSTEM"),
                  "an unknown unit system must be rejected")
@@ -86,6 +92,17 @@ def test_properties():
     pmx.model.properties.replace(model_type="SlipWearModel", number_of_cycles="=1 + 3", cycles_increment=1)
     check(pmx.model.properties.model_type == "SlipWearModel" and pmx.model.properties.number_of_cycles == 4,
           "a slip wear value given with the model type was not accepted")
+    # The dialog refuses cycles the increment does not divide, in these words, and so does the API, judging the
+    # properties the call ends with and the value an expression evaluates to
+    for arguments in [{"cycles_increment": 3}, {"number_of_cycles": "=2 + 3", "cycles_increment": 2}]:
+        message = raised_message(lambda: pmx.model.properties.replace(**arguments))
+        check(message is not None and "must be a multiple of the cycles increment" in message and
+              "'cycles_increment'" in message, "cycles the increment does not divide must be refused: " + str(message))
+    message = raised_message(lambda: setattr(pmx.model.properties, "cycles_increment", 3))
+    check(message is not None and "must be a multiple of the cycles increment" in message,
+          "an assigned increment that does not divide the cycles must be refused: " + str(message))
+    check(pmx.model.properties.number_of_cycles == 4 and pmx.model.properties.cycles_increment == 1,
+          "a refused replace changed the slip wear cycles")
     # The model raises a count below its minimum to the minimum, so the value is refused naming the argument
     counts = [pmx.model.properties.number_of_cycles, pmx.model.properties.cycles_increment,
               pmx.model.properties.number_of_smoothing_steps]
@@ -159,12 +176,28 @@ def test_model_space_and_unused_values():
     check(all(value is None for value in values.values()),
           "a general model must read the submodel and slip wear values as None: " + str(values))
     properties.replace(**values)
-    properties.replace(model_type="Submodel", global_results_file_name="global.frd")
-    check(properties.global_results_file_name == "global.frd" and properties.number_of_cycles is None,
-          "a submodel must read its file and no slip wear value: " + str(properties.global_results_file_name))
-    properties.replace(model_type="SlipWearModel")
-    check(properties.global_results_file_name is None and isinstance(properties.number_of_cycles, int) and
-          isinstance(properties.bdm_remeshing, bool), "a slip wear model must read its values and no file")
+    # The dialog refuses a submodel whose global results file it cannot find, in these words, and so does the API
+    file_name = os.path.join(tempfile.gettempdir(), "pytest_global.frd")
+    open(file_name, "w").close()
+    try:
+        for function, fragment in [
+                (lambda: properties.replace(model_type="Submodel", global_results_file_name=file_name + ".missing"),
+                 "does not exist"),
+                (lambda: properties.replace(model_type="Submodel"), "does not exist"),
+                (lambda: setattr(properties, "model_type", "Submodel"), "does not exist"),
+                (lambda: properties.replace(model_type="Submodel", global_results_file_name=""), "must not be empty")]:
+            message = raised_message(function)
+            check(message is not None and fragment in message and "'global_results_file_name'" in message,
+                  "a submodel without an existing global results file must be refused: " + str(message))
+        check(properties.model_type == "GeneralModel", "a refused replace changed the model type")
+        properties.replace(model_type="Submodel", global_results_file_name=file_name)
+        check(properties.global_results_file_name == file_name and properties.number_of_cycles is None,
+              "a submodel must read its file and no slip wear value: " + str(properties.global_results_file_name))
+        properties.replace(model_type="SlipWearModel")
+        check(properties.global_results_file_name is None and isinstance(properties.number_of_cycles, int) and
+              isinstance(properties.bdm_remeshing, bool), "a slip wear model must read its values and no file")
+    finally:
+        os.remove(file_name)
     properties.model_type = model_type
 
 

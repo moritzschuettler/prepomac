@@ -37,7 +37,8 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("Adds a concentrated force using command history. A two dimensional model refuses a nonzero " +
+        [PythonAPI("Adds a concentrated force using command history. At least one of f1, f2 and f3 must be " +
+                   "nonzero, as the dialog refuses a zero force. A two dimensional model refuses a nonzero " +
                    "f3. The phase_deg applies only in a steady_state_dynamics step, where a load is complex, " +
                    "and is refused elsewhere; it is at least 0 and below 360 degrees. Only a concentrated " +
                    "force and a surface traction take a coordinate_system_name other than Global; the other " +
@@ -79,8 +80,8 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Adds a moment using command history. A two dimensional model refuses a nonzero m1 or m2. " +
-                   "The selection target is nodes.",
+        [PythonAPI("Adds a moment using command history. At least one of m1, m2 and m3 must be nonzero. A two " +
+                   "dimensional model refuses a nonzero m1 or m2. The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, m1: float = None, " +
                                "m2: float = None, m3: float = None, and the shared load arguments",
                    Returns = "Load")]
@@ -115,7 +116,8 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Adds a pressure using command history. The selection target is surfaces.",
+        [PythonAPI("Adds a pressure using command history. A magnitude of 0 is refused. The selection target is " +
+                   "surfaces.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, " +
                                "distribution_name: str = None, and the shared load arguments",
                    Returns = "Load", Example = "step.loads.add_pressure('Pressure-1', selection, 2.5)")]
@@ -156,9 +158,11 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a hydrostatic pressure using command history. The pressure varies linearly along " +
-                   "the given non-zero direction between the two points. Possible cutoff values are None, Positive " +
-                   "and Negative. A two dimensional model refuses a nonzero third component of a point or " +
-                   "the direction. The selection target is surfaces.",
+                   "the given non-zero direction between the two points. The direction has no usable default, " +
+                   "so it must be given, and the two points must lie apart along it, as the dialog refuses " +
+                   "otherwise. Possible cutoff values are None, Positive and Negative. A two dimensional " +
+                   "model refuses a nonzero third component of a point or the direction. The selection target " +
+                   "is surfaces.",
                    Arguments = "name: str, region: Selection or Region, first_point: list[float] = None, " +
                                "second_point: list[float] = None, direction: list[float] = None, " +
                                "first_point_pressure: float = None, second_point_pressure: float = None, " +
@@ -259,7 +263,8 @@ namespace APIs.Python.Model
         [PythonAPI("Adds a surface traction using command history. Give the force components f1 to f3 " +
                    "without a distribution, or the force per area components p1 to p3 together with a " +
                    "distribution; the model writes only the group that matches the distribution, so the other " +
-                   "group is refused, on a replace for the distribution the load carries after the call. A two " +
+                   "group is refused, on a replace for the distribution the load carries after the call, and " +
+                   "the group it writes must have a nonzero component. A two " +
                    "dimensional model refuses a nonzero f3 or p3. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, f1: float = None, f2: float = None, " +
                                "f3: float = None, p1: float = None, p2: float = None, p3: float = None, " +
@@ -304,7 +309,8 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Adds a shell edge load using command history. The selection target is surfaces.",
+        [PythonAPI("Adds a shell edge load using command history. A magnitude of 0 is refused. The selection " +
+                   "target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, and the shared " +
                                "load arguments", Returns = "Load")]
         public LoadAPI add_shell_edge_load(object name, object region, object magnitude,
@@ -339,8 +345,9 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Adds a gravity load using command history. A two dimensional model refuses a nonzero f3. " +
-                   "The selection target is parts, as the dialog picks them.",
+        [PythonAPI("Adds a gravity load using command history. At least one of f1, f2 and f3 must be nonzero. " +
+                   "A two dimensional model refuses a nonzero f3. The selection target is parts, as the dialog " +
+                   "picks them.",
                    Arguments = "name: str, region: Selection or Region, f1: float = None, f2: float = None, " +
                                "f3: float = None, and the shared load arguments", Returns = "Load",
                    Example = "step.loads.add_gravity('Gravity-1', part_selection, f3=-9810)")]
@@ -376,10 +383,11 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a centrifugal load using command history. The axis is given by a point and a " +
-                   "non-zero direction, and the rotational_speed is in rad/s and must not be negative. An " +
-                   "axisymmetric " +
-                   "model turns about its y axis, so there axis_point must be [0, 0, 0] and axis_direction " +
-                   "[0, 1, 0] when given. The selection target is parts, as the dialog picks them.",
+                   "non-zero direction, and the rotational_speed is in rad/s and must be larger than 0. Neither " +
+                   "has a usable default, so a model that is not axisymmetric needs axis_direction and every " +
+                   "model needs rotational_speed, as the dialog refuses a zero axis and a zero speed. An " +
+                   "axisymmetric model turns about its y axis, so there axis_point must be [0, 0, 0] and " +
+                   "axis_direction [0, 1, 0] when given. The selection target is parts, as the dialog picks them.",
                    Arguments = "name: str, region: Selection or Region, axis_point: list[float] = None, " +
                                "axis_direction: list[float] = None, rotational_speed: float = None, and the " +
                                "shared load arguments", Returns = "Load")]
@@ -421,8 +429,9 @@ namespace APIs.Python.Model
                    "unless a non-zero one is given; auto_direction=True, the default, cannot be combined with a " +
                    "direction, " +
                    "and auto_direction=False needs one. Possible tension_type values are Force and " +
-                   "Displacement. It needs a three dimensional model, and refuses phase_deg, because the solver " +
-                   "input carries no phase for it. The selection target is surfaces.",
+                   "Displacement; a Force of 0 is refused, as the dialog refuses it. It needs a three " +
+                   "dimensional model, and refuses phase_deg, because the solver input carries no phase for it. " +
+                   "The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, " +
                                "direction: list[float] = None, tension_type: str = None, and the shared load " +
                                "arguments, then auto_direction: bool = None", Returns = "Load")]

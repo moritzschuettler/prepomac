@@ -35,6 +35,16 @@ def test_the_view_is_the_results_view():
     check(pmx.view.current == "femodel", "the view must be settable: " + pmx.view.current)
     pmx.view.current = "results"
     check_raises(lambda: setattr(pmx.view, "current", "nosuchview"), "an unknown view must be rejected")
+    # A value that is not a string is refused naming the property, rather than with a TypeError of pythonnet
+    for name in ["current", "result_type", "deformation_type", "undeformed_model"]:
+        try:
+            setattr(pmx.view, name, 5)
+            message = None
+        except Exception as ex:
+            message = str(ex)
+        check(message is not None and "'" + name + "'" in message and "must be a string" in message,
+              "a number assigned to pmx.view." + name + " must be refused naming it: " + str(message))
+    check(pmx.view.current == "results", "a refused assignment changed the view")
 
 
 def test_the_plotted_field():

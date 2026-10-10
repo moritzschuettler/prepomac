@@ -20,6 +20,8 @@ namespace APIs.Python.Model
         // The remeshing dialog picks elements and the split dialog picks the base part, and the controller also
         // resolves a geometry selection to both
         private static readonly string[] RemeshingTargets = new string[] { "elements", "geometry" };
+        // Remeshing acts on elements, so the dialog names an element set and never a part
+        private static readonly string[] RemeshingNamedRegionTargets = new string[] { "element_sets" };
         private static readonly string[] BasePartTargets = new string[] { "parts", "geometry" };
         private readonly ModelResolver _modelResolver;
         private readonly SelectionService _selectionService;
@@ -66,9 +68,8 @@ namespace APIs.Python.Model
                 new RemeshingParameters(null, RegionTypeEnum.Selection, meshingParameters);
             if (hausdorff != null) remeshingParameters.Hausdorff = ToHausdorff(hausdorff);
             // The dialog offers a selection or a named element set, so the operation takes both
-            RegionApplier.Apply(remeshingParameters, region, "region", RemeshingTargets, _selectionService,
-                                _modelResolver);
-            ValidateRemeshingRegionType(remeshingParameters.RegionType);
+            RegionApplier.Apply(remeshingParameters, region, "region", RemeshingTargets,
+                                RemeshingNamedRegionTargets, _selectionService, _modelResolver);
             //
             _meshGateway.RemeshElements(remeshingParameters);
         }
@@ -152,14 +153,6 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument 'hausdorff' must be larger than 0, but " + number +
                                              " was given.");
             return number;
-        }
-        // Remeshing acts on elements, so the dialog offers only a selection or an element set
-        private static void ValidateRemeshingRegionType(RegionTypeEnum regionType)
-        {
-            if (regionType != RegionTypeEnum.Selection && regionType != RegionTypeEnum.ElementSetName)
-                throw new PythonAPIException("The argument 'region' must be a selection or an " +
-                                             "ElementSetName region, but a " + regionType + " region was " +
-                                             "given.");
         }
         private static void ValidateSplitRegionType(RegionTypeEnum regionType, string argumentName,
                                                     RegionTypeEnum namedType)

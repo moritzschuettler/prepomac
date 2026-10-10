@@ -84,6 +84,7 @@ namespace APIs.Python.Model
                                              "condition is not supported by the step '" + stepName + "', " +
                                              "which is a " + StepAPI.GetItemType(step) + " step.");
             EnsureReferencePointRegionSupported(boundaryCondition);
+            EnsureDefined(boundaryCondition);
             //
             EnsureCommandsAvailable();
             ModelGateway.AddBoundaryCondition(stepName, boundaryCondition);
@@ -93,6 +94,7 @@ namespace APIs.Python.Model
             string storedName = ResolveItem(stepName, oldName).Name;
             ValidateName(stepName, boundaryCondition.Name, storedName);
             EnsureReferencePointRegionSupported(boundaryCondition);
+            EnsureDefined(boundaryCondition);
             //
             EnsureCommandsAvailable();
             ModelGateway.ReplaceBoundaryCondition(stepName, storedName, boundaryCondition);
@@ -109,6 +111,23 @@ namespace APIs.Python.Model
         private static bool IsReferencePointRegionSupported(BoundaryCondition boundaryCondition)
         {
             return boundaryCondition is FixedBC || boundaryCondition is DisplacementRotation;
+        }
+        // The dialog refuses on OK a boundary condition that constrains nothing, in these words, and judges the one it
+        // ends with, so a replace that frees every degree of freedom is refused as an add without one is
+        private static void EnsureDefined(BoundaryCondition boundaryCondition)
+        {
+            string error;
+            if (boundaryCondition is DisplacementRotation displacementRotation &&
+                !displacementRotation.IsProperlyDefined(out error))
+            {
+                if (displacementRotation.GetConstrainedDirections().Length == 0)
+                    error += " Give a value to one of u1, u2, u3, ur1, ur2 and ur3, or name one in 'fixed_dofs'.";
+                throw new PythonAPIException(error);
+            }
+            if (boundaryCondition is SubmodelBC submodel && submodel.GetConstrainedDirections().Length == 0)
+                throw new PythonAPIException("At least one degree of freedom must be defined for the boundary " +
+                                             "condition. Give True to one of 'u1', 'u2', 'u3', 'ur1', 'ur2' and " +
+                                             "'ur3'.");
         }
         public void Duplicate(string stepName, string[] names)
         {

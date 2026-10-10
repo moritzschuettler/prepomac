@@ -125,6 +125,8 @@ namespace APIs.Python.Model
         }
         public void Add(Constraint constraint)
         {
+            EnsureDefined(constraint);
+            //
             EnsureCommandsAvailable();
             _modelGateway.AddConstraint(constraint);
         }
@@ -132,6 +134,7 @@ namespace APIs.Python.Model
         {
             string storedName = ResolveConstraint(oldName).Name;
             ValidateName(constraint.Name, storedName);
+            EnsureDefined(constraint);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceConstraint(storedName, constraint);
@@ -191,6 +194,21 @@ namespace APIs.Python.Model
             }
         }
         //
+        // The dialog refuses on OK a spring without a stiffness and a coupling without a degree of freedom, in these
+        // words, and judges the constraint it ends with, so an add and a replace are checked on the final one
+        private static void EnsureDefined(Constraint constraint)
+        {
+            if (constraint is SpringConstraint spring && spring.GetSpringStiffnessValues().Length == 0)
+                throw new PythonAPIException("At least one stiffness must be larger than 0. Give a nonzero 'k1', " +
+                                             "'k2' or 'k3'.");
+            if (constraint is KinematicCoupling kinematic && !kinematic.U1 && !kinematic.U2 && !kinematic.U3)
+                throw new PythonAPIException("At least one kinematic coupling degree of freedom must be coupled. " +
+                                             "Give True to 'u1', 'u2' or 'u3'.");
+            if (constraint is DistributingCoupling distributing && !distributing.U1 && !distributing.U2 &&
+                !distributing.U3 && !distributing.UR1 && !distributing.UR2 && !distributing.UR3)
+                throw new PythonAPIException("At least one distributing coupling degree of freedom must be " +
+                                             "distributed. Give True to 'u1', 'u2', 'u3', 'ur1', 'ur2' or 'ur3'.");
+        }
         private void EnsureCommandsAvailable()
         {
             if (_modelGateway == null)

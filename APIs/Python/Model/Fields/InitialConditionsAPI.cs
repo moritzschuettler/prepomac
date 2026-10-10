@@ -56,7 +56,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds an initial translational velocity using command history. The selection target is " +
-                   "geometry, as the dialog picks it, or nodes. In a 2D model v3 must be zero.",
+                   "geometry, as the dialog picks it, or nodes. At least one of v1, v2 and v3 must be nonzero, " +
+                   "and in a 2D model v3 must be zero.",
                    Arguments = "name: str, region: Selection or Region, v1: float, v2: float, v3: float, " +
                                "color: list[int] or str = None",
                    Returns = "InitialCondition")]
@@ -83,7 +84,7 @@ namespace APIs.Python.Model
                    "and a non-zero direction. The region is a selection or a named region; the selection " +
                    "target is geometry, " +
                    "as the dialog picks it, or nodes. " +
-                   "The rotational_speed is in rad/s and must be zero or larger. In a 2D model the third " +
+                   "The rotational_speed is in rad/s and must be larger than 0. In a 2D model the third " +
                    "value of axis_point and the first two of axis_direction must be zero.",
                    Arguments = "name: str, region: Selection or Region, axis_point: list[float], " +
                                "axis_direction: list[float], rotational_speed: float, color: list[int] or str = None",
@@ -280,7 +281,7 @@ namespace APIs.Python.Model
         {
             EquationString equation = PythonValueConverter.ToEquationString(rotationalSpeed, "rotational_speed");
             if (PythonModelArgumentCheck.Evaluate(item.RotationalSpeed, equation, "rotational_speed") < 0)
-                throw new PythonAPIException("The argument 'rotational_speed' must be zero or larger.");
+                throw new PythonAPIException("The argument 'rotational_speed' must not be negative.");
             //
             return equation;
         }

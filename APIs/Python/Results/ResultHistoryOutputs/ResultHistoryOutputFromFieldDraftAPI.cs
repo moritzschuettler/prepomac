@@ -32,12 +32,13 @@ namespace APIs.Python
         public StringListAPI component_names { get { return new StringListAPI(_componentNames); } }
         [PythonAPI("The complex result representation: Real, Imaginary, Magnitude, Phase, RealAtAngle, Max, " +
                    "AngleAtMax, Min or AngleAtMin.", Returns = "str")]
-        public string complex_result_type
+        public object complex_result_type
         {
             get { return _complexResultType.ToString(); }
             set
             {
-                _complexResultType = PythonValueConverter.ToEnum<ComplexResultTypeEnum>(value, "complex_result_type");
+                string text = PythonValueConverter.ToText(value, "complex_result_type", false);
+                _complexResultType = PythonValueConverter.ToEnum<ComplexResultTypeEnum>(text, "complex_result_type");
             }
         }
         [PythonAPI("The complex result angle in degrees.", Returns = "float")]
@@ -65,13 +66,14 @@ namespace APIs.Python
             set { _harmonic = PythonValueConverter.ToBool(value, "harmonic"); }
         }
         [PythonAPI("Node coordinate output: Off, Undeformed or Deformed.", Returns = "str")]
-        public string output_node_coordinates
+        public object output_node_coordinates
         {
             get { return _outputNodeCoordinates.ToString(); }
             set
             {
-                _outputNodeCoordinates =
-                    PythonValueConverter.ToEnum<OutputNodeCoordinatesEnum>(value, "output_node_coordinates");
+                string text = PythonValueConverter.ToText(value, "output_node_coordinates", false);
+                _outputNodeCoordinates = PythonValueConverter.ToEnum<OutputNodeCoordinatesEnum>(text,
+                                                                                                "output_node_coordinates");
             }
         }
 

@@ -8,6 +8,9 @@
 #
 #Expected process exit code 0.
 
+import os
+import tempfile
+
 PREFIX = "PyTest_Def_"
 
 
@@ -89,9 +92,15 @@ def test_initial_condition_replacement():
 def test_model_properties():
     properties = pmx.model.properties
     original_type = properties.model_type
-    properties.replace(model_type="Submodel", global_results_file_name="global.frd")
+    # The dialog takes a submodel only with a global results file it finds
+    file_name = os.path.join(tempfile.gettempdir(), PREFIX + "global.frd")
+    open(file_name, "w").close()
+    try:
+        properties.replace(model_type="Submodel", global_results_file_name=file_name)
+    finally:
+        os.remove(file_name)
     check(properties.model_type == "Submodel", "the model type was not replaced")
-    check(properties.global_results_file_name == "global.frd", "the submodel file name was not replaced")
+    check(properties.global_results_file_name == file_name, "the submodel file name was not replaced")
     #
     properties.replace(model_type="SlipWearModel", number_of_cycles=10, cycles_increment=2,
                        number_of_smoothing_steps=3, bdm_remeshing=True, slip_wear_results="All")
