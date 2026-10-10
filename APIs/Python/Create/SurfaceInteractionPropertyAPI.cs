@@ -18,7 +18,7 @@ namespace APIs.Python
     // A surface interaction property made by pmx.create or read back from a surface interaction. Its values are
     // reported under the names of the pmx.create arguments, so that
     // pmx.create.<property_type>(**property.get_values()) makes the same property again.
-    public class SurfaceInteractionPropertyAPI : BaseAPI
+    public class SurfaceInteractionPropertyAPI : DetachedPartAPI
     {
         // Variables
         private static readonly Dictionary<Type, string> PropertyTypes = new Dictionary<Type, string>
@@ -68,25 +68,12 @@ namespace APIs.Python
             //
             return new NumericArrayAPI(values);
         }
-        private static string FormatValue(object value)
-        {
-            if (value == null) return "None";
-            if (value is string) return StringListAPI.ToDisplayString((string)value);
-            if (value is double) return PythonValueConverter.ToRoundTripString((double)value);
-            //
-            return value.ToString();
-        }
 
 
         // Methods
-        [PythonAPI("Returns the values of the property under the names of the pmx.create arguments that set " +
-                   "them, in the form those arguments take them; a value left at its default reads back as " +
-                   "None. A surface behavior reports only the values its pressure_overclosure_type uses. " +
-                   "Passing the result back as keyword arguments to the pmx.create method named by " +
-                   "property_type makes the same property.",
-                   Returns = "dict[str, float, str, NumericArray or None]",
-                   Example = "pmx.create.friction(**interaction.get_properties()[0].get_values())")]
-        public Dictionary<string, object> get_values()
+        // A value left at its default reads back as None, and a surface behavior reports only the values its
+        // pressure_overclosure_type uses
+        protected override Dictionary<string, object> GetValues()
         {
             Dictionary<string, object> values = new Dictionary<string, object>();
             if (_property is Friction friction)
@@ -117,29 +104,17 @@ namespace APIs.Python
             //
             return values;
         }
-
-        [PythonAPI("Returns the names get_values reports for this property.", Returns = "StringList")]
-        public StringListAPI get_value_names()
+        protected override string GetTypeName()
         {
-            return new StringListAPI(get_values().Keys);
+            return "SurfaceInteractionProperty";
         }
-
-        [PythonAPI("Returns one value of the property by the name of the pmx.create argument that sets it. Use " +
-                   "get_value_names to list them.", Arguments = "name: str",
-                   Returns = "float, str, NumericArray or None")]
-        public object get_value(object name)
+        protected override string GetMakerName()
         {
-            string nameText = PythonValueConverter.ToText(name, "name", true);
-            if (nameText == null) throw new PythonAPIException("The argument 'name' must not be empty.");
-            //
-            Dictionary<string, object> values = get_values();
-            object value;
-            if (!values.TryGetValue(nameText.Trim(), out value))
-                throw new PythonAPIException("The value '" + nameText + "' is not defined for a " +
-                                             GetPropertyType(_property) + " surface interaction property. " +
-                                             "Possible values are " + string.Join(", ", values.Keys) + ".");
-            //
-            return value;
+            return GetPropertyType(_property);
+        }
+        protected override string GetPartDescription()
+        {
+            return GetPropertyType(_property) + " surface interaction property";
         }
         internal SurfaceInteractionProperty GetPropertyCopy()
         {
@@ -148,7 +123,7 @@ namespace APIs.Python
         public override string ToString()
         {
             return "SurfaceInteractionProperty(type=" + GetPropertyType(_property) +
-                   string.Concat(get_values().Select(entry => ", " + entry.Key + "=" + FormatValue(entry.Value))) +
+                   string.Concat(GetValues().Select(entry => ", " + entry.Key + "=" + FormatValue(entry.Value))) +
                    ")";
         }
     }

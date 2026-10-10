@@ -100,6 +100,11 @@ def test_surface_interactions():
                      pmx.create.gap_conductance(conductance_table=[[5, 0, 20], [4, 10, 20]]))
     check_raises(lambda: pmx.create.gap_conductance(conductance_table=[[5, 0]]),
                  "a gap conductance row must contain three values")
+    # A constant conductance is a finite number, never a string of one
+    for refused in [float('nan'), float('inf'), "5"]:
+        message = raised_message(lambda: pmx.create.gap_conductance(conductance=refused))
+        check(message is not None and "'conductance'" in message,
+              "a conductance of " + repr(refused) + " must be refused naming the argument: " + str(message))
     check_raises(lambda: pmx.create.surface_behavior('NotAType'),
                  "an unknown pressure overclosure type must be rejected")
     check_raises(lambda: interactions.add(PREFIX + "Bad", "not a property"),
@@ -166,6 +171,9 @@ def test_surface_interaction_properties():
     check(plain_values(pmx.create.gap_conductance(conductance=5)) == {"conductance": 5},
           "a constant gap conductance must read back as conductance")
     check_raises(lambda: properties[0].get_value("no_such_value"), "an unknown value name was accepted")
+    message = raised_message(lambda: properties[0].get_value("coefficient "))
+    check(message is not None and "friction surface interaction property" in message,
+          "a padded value name must not be trimmed: " + str(message))
     # A surface behavior reports only the values its type writes, and refuses the others
     check(plain_values(pmx.create.surface_behavior('Hard')) == {"pressure_overclosure_type": "Hard"},
           "a hard surface behavior must report no values: " + str(plain_values(pmx.create.surface_behavior('Hard'))))
@@ -293,6 +301,9 @@ def test_contact_pairs():
     message = raised_message(lambda: pairs.replace(PAIR, adjustment_size=-0.1))
     check(message is not None and "'adjustment_size'" in message,
           "a negative adjustment size must be refused naming the argument: " + str(message))
+    message = raised_message(lambda: pairs.replace(PAIR, adjustment_size=float('inf')))
+    check(message is not None and "'adjustment_size'" in message,
+          "an infinite adjustment size must be refused naming the argument: " + str(message))
     message = raised_message(lambda: pairs.replace(PAIR, adjust=False, adjustment_size=0.1))
     check(message is not None and "'adjustment_size'" in message,
           "an adjustment size with adjust=False must be refused: " + str(message))

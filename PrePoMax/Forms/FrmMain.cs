@@ -97,6 +97,9 @@ namespace PrePoMax
         private Dictionary<ViewGeometryModelResults, int> _selectedSymbolIndex;
         private Stack<bool[]> _prevMenuStates;
         private bool _closeAfterRegeneration;
+        // Failed jobs whose nonpositive Jacobian element set waits for the running Python to end
+        private HashSet<string> _jobNamesAwaitingNonpositiveJacobianSet = new HashSet<string>();
+        private volatile bool _isNonpositiveJacobianSetAwaited;
         private float _prevScaleFactor;
         private bool _suppressSymbolChanged;
         private bool _suppressColorByChanged;
@@ -301,6 +304,7 @@ namespace PrePoMax
                 MessageBoxes.PromptRecorder = report.AddPrompt;
                 AutoClosingMessageBox.PromptRecorder = report.AddPrompt;
             }
+            PythonEngineManager.ExecutionsEnded += PythonEngineManager_ExecutionsEnded;
         }
         protected override bool ShowWithoutActivation { get { return _hideWindow; } }
         protected override CreateParams CreateParams
@@ -9501,8 +9505,15 @@ namespace PrePoMax
                 // While the history is replayed or a script recorded as one command runs, the set would be made
                 // by no recorded command
                 if (_controller.IsCommandRecordingSuppressed || _controller.AreCommandsBlocked) return;
-                // Python running on another thread records its own commands, which this one must not interleave
-                if (PythonEngineManager.IsExecuting) return;
+                // Python running on another thread records its own commands, which this one must not interleave, so
+                // the set is made on this thread once that Python has ended
+                if (PythonEngineManager.IsExecuting)
+                {
+                    _jobNamesAwaitingNonpositiveJacobianSet.Add(jobName);
+                    _isNonpositiveJacobianSetAwaited = true;
+                    if (PythonEngineManager.IsExecuting) return;
+                    _jobNamesAwaitingNonpositiveJacobianSet.Remove(jobName);
+                }
                 if (_controller.Model == null || _controller.Model.Mesh == null) return;
                 int[] elementIds = errorElementIds.ToArray();
                 if (_controller.ContainsElementSetOfElements(Globals.NonpositiveJacobian, elementIds)) return;
@@ -9517,6 +9528,25 @@ namespace PrePoMax
             {
                 ExceptionTools.Show(this, ex);
             }
+        }
+        private void PythonEngineManager_ExecutionsEnded()
+        {
+            if (!_isNonpositiveJacobianSetAwaited || IsDisposed || !IsHandleCreated) return;
+            try
+            {
+                BeginInvoke((MethodInvoker)AddAwaitedNonpositiveJacobianElementSets);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+        private void AddAwaitedNonpositiveJacobianElementSets()
+        {
+            if (PythonEngineManager.IsExecuting) return;
+            _isNonpositiveJacobianSetAwaited = false;
+            string[] jobNames = _jobNamesAwaitingNonpositiveJacobianSet.ToArray();
+            _jobNamesAwaitingNonpositiveJacobianSet.Clear();
+            foreach (string jobName in jobNames) AddNonpositiveJacobianElementSet(jobName);
         }
         //
         public AnalysisJob GetDefaultJob()

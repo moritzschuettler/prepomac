@@ -57,7 +57,8 @@ namespace APIs.Python
         {
             if (value == null)
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
-            if (value is bool)
+            // A string is not read as a number: no equation is evaluated here, and '10' is text in Python
+            if (value is bool || value is string)
                 throw new PythonAPIException("The argument '" + argumentName + "' must be a number.");
             //
             try
@@ -66,7 +67,7 @@ namespace APIs.Python
             }
             catch (Exception)
             {
-                throw new PythonAPIException("The argument '" + argumentName + "' must be a number or an equation string.");
+                throw new PythonAPIException("The argument '" + argumentName + "' must be a number.");
             }
         }
         public static int ToInt(object value, string argumentName)

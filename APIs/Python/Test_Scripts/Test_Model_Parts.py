@@ -175,6 +175,16 @@ def test_model_parts():
     check_raises(lambda: parts.set_color(name, [300, 0, 0]), "an out of range channel must be rejected")
     check_raises(lambda: parts.set_color(name, "NotAColour"), "an unknown color name must be rejected")
     check_raises(lambda: parts.translate("NoSuchPart", [1, 2, 3]), "an unknown part must be rejected")
+    # The edge angle lies from 0 to 90 degrees, as the find edges dialog limits it
+    parts.find_edges_by_angle(name, 30)
+    for angle in [90.5, -1, float('nan'), float('inf')]:
+        try:
+            parts.find_edges_by_angle(name, angle)
+        except Exception as exception:
+            check("'edge_angle_deg'" in str(exception),
+                  "the refused edge angle " + str(angle) + " must name the argument: " + str(exception))
+        else:
+            raise Exception("TEST FAILED: the edge angle " + str(angle) + " must be rejected")
 
 
 def test_geometry_parts():

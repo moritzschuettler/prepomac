@@ -33,7 +33,7 @@ namespace APIs.Python.Model
             _service.Merge(_service.ResolveNames(part_names));
         }
 
-        [PythonAPI("Recomputes the part edges from the angle between the neighbouring faces.",
+        [PythonAPI("Recomputes the part edges from the angle between the neighbouring faces, in degrees from 0 to 90.",
                    Arguments = "part_names: list[str] or str, edge_angle_deg: float", Returns = "None")]
         public void find_edges_by_angle(object part_names, object edge_angle_deg)
         {

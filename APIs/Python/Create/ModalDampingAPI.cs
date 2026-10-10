@@ -46,12 +46,17 @@ namespace APIs.Python
         {
             Dictionary<string, object> values = new Dictionary<string, object>();
             values["damping_type"] = _modalDamping.DampingType.ToString();
-            values["alpha"] = _modalDamping.Alpha;
-            values["beta"] = _modalDamping.Beta;
-            values["viscous_damping_ratio"] = _modalDamping.ViscousDampingRatio;
+            // A value the damping type does not use is kept hidden, as the dialog hides it, and would be refused back
+            ModalDampingTypeEnum type = _modalDamping.DampingType;
+            bool rayleigh = type == ModalDampingTypeEnum.Rayleigh;
+            values["alpha"] = rayleigh ? (object)_modalDamping.Alpha : null;
+            values["beta"] = rayleigh ? (object)_modalDamping.Beta : null;
+            values["viscous_damping_ratio"] =
+                type == ModalDampingTypeEnum.Constant ? (object)_modalDamping.ViscousDampingRatio : null;
             // The maker refuses an empty list of ratios, so a modal damping without them reads back None
             List<DampingRatioAndRange> ranges = _modalDamping.DampingRatiosAndRanges;
-            if (ranges == null || ranges.Count == 0) values["damping_ratios"] = null;
+            if (type != ModalDampingTypeEnum.Direct || ranges == null || ranges.Count == 0)
+                values["damping_ratios"] = null;
             else
             {
                 object[] dampingRatios = new object[ranges.Count];

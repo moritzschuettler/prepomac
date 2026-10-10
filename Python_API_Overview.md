@@ -68,7 +68,8 @@ The root object available in the Python console is `pmx`.
   shortest text that reads back as the same double, so nothing is lost on the way in; the model itself then keeps a
   plain number to 15 significant digits, as it does for a value typed in a dialog. An equation
   the application cannot evaluate - `'=1+'`, `'=undefined_param'` - is refused naming the argument, a component of a
-  point or a vector as `point[1]`, before anything is recorded.
+  point or a vector as `point[1]`, before anything is recorded. A value the dialog takes as a plain number takes a
+  number only: a string, even `'10'`, is refused as `must be a number`, because no equation is evaluated there.
 - A keyword argument a method does not take is refused with a `TypeError`, as Python refuses one for a function of
   its own, and nothing is recorded: `add() got an unexpected keyword argument 'descripton'. Did you mean
   'description'?`. So is a keyword naming an argument already given by position.
@@ -261,9 +262,9 @@ PrePoMax and switch on Tools - Automation Server; do not work around it.
 | --- | --- |
 | `get_guide` | How to drive a session, served by the application so it matches the version. The first thing to read. |
 | `list_sessions` | The running instances whose server is on, each with the address it answers on and the model file it has open, marking the one that answered. |
-| `get_status` | Idle or busy and why, the open model, the view, the unit system (`model.unitSystem`), the command count, read only, whether Regenerate is replaying the history (`isRegenerating`) or a recorded script keeps what runs out of the history (`isCommandRecordingSuppressed`), and under `calls` the long calls still running or waiting to be collected. A window that does not answer is reported as busy. |
+| `get_status` | Idle or busy and why, the open model, the view, the model space (`model.modelSpace`), the unit system (`model.unitSystem`), the command count, read only, whether Regenerate is replaying the history (`isRegenerating`) or a recorded script keeps what runs out of the history (`isCommandRecordingSuppressed`), and under `calls` the long calls still running or waiting to be collected. A window that does not answer is reported as busy. |
 | `describe_api` | The `[PythonAPI]` schema of `pmx`, of any path under it, or of an API type by name, read off the API itself. |
-| `read_model` | A JSON snapshot of the model: properties, the parts with their mesh state (meshed or not, node and element count), collections, mesh setup items, how many user keywords and keyword edits there are, steps with their content, analyses with their status. |
+| `read_model` | A JSON snapshot of the model: properties, the parts with their mesh state (meshed or not, node and element count), collections, mesh setup items, how many user keywords and keyword edits there are, the parameters with their equation, value and description (`parameters_detail`), steps with their content, analyses with their status. |
 | `read_topology` | The faces, edges and vertices of the parts, each with the ID a selection takes, its size, its centroid and its normal - faces largest first, edges longest first, vertices in index order, at most `limit` of each per part and 240 rows in the whole answer. The parts are listed under `geometry` and `femodel`, the words the views use. Part names match regardless of case and are not trimmed; a name that matches no part, a padded one included, is reported. Leaving `part_names` out reads every part; an empty list is refused. |
 | `eval_expression` | One expression, with its value as JSON when it has one. |
 | `run_python` | Python against the live model, recorded as commands or as one script. A call that outlasts its wait is answered with a `callId`. |
@@ -506,7 +507,7 @@ it. The folder is restricted to the current user, because the token is in it.
 | `exec` | Runs `source`; `record` is `commands` or `script`, regardless of case, and `timeout` is the wait in seconds. |
 | `wait` | Collects the answer of an `exec` or `eval` that outlasted its wait, by its `call_id`, waiting up to `timeout` seconds; `get_call` over MCP. |
 | `cancel` | Interrupts a running `exec` or `eval`, by its `call_id`; `cancel_call` over MCP. Never waits for the turn, and is served in read only mode. |
-| `history` | The commands - the last `limit` of them, 200 by default, 0 for all, a negative one refused - and the journal with `include_journal`, written to `journal_file` when it is given - a relative one under the temporary folder's `PrePoMax` folder, as `screenshot` places it. `journal_file` without `include_journal` is refused. |
+| `history` | The commands - the last `limit` of them, 200 by default, 0 for all, a negative one refused - and the journal with `include_journal`, written to `journal_file` when it is given - a relative one under the temporary folder's `PrePoMax` folder, as `screenshot` places it, and a missing folder it points into created. `journal_file` without `include_journal`, an empty one and one that is not a `.py` file are refused. |
 | `screenshot` | Writes a PNG to `file_name`, or to the temporary folder, and returns the path; `transparent_background` and `magnification` (1 to 4) as in the capture dialog. |
 | `shutdown` | Stops the server; never closes the application. |
 | `exit` | Closes a hidden session; refused for one with a window. `discard_changes` closes it with unsaved changes. |
@@ -1195,7 +1196,7 @@ removed = pmx.model.geometry.parts.repair('Solid-1', tolerance=0.01)
 added = pmx.model.geometry.parts.split_periodic_faces('Solid-1')   # the faces each part gained
 ```
 
-`ModelParts` adds `merge` and `find_edges_by_angle`. Both collections take `find_edges_by_angle(part_names, edge_angle_deg)`, with the angle in degrees.
+`ModelParts` adds `merge` and `find_edges_by_angle`. Both collections take `find_edges_by_angle(part_names, edge_angle_deg)`, with the angle in degrees, finite and from 0 to 90 as the dialog limits it; any other angle is refused naming `edge_angle_deg`.
 
 ```python
 pmx.model.parts.translate('Solid-1', [0, 0, 10])
@@ -1801,7 +1802,7 @@ The three properties are made by `pmx.create`:
 | Member | Description |
 | --- | --- |
 | `friction(coefficient, stick_slope=None)` | Friction. Both values must be larger than 0. |
-| `gap_conductance(conductance=None, conductance_table=None)` | Gap conductance. Give one or the other: a value for a constant one, or rows of `[conductance, pressure, temperature]` for a tabular one. |
+| `gap_conductance(conductance=None, conductance_table=None)` | Gap conductance. Give one or the other: a finite number for a constant one, or rows of `[conductance, pressure, temperature]` for a tabular one. |
 | `surface_behavior(pressure_overclosure_type=None, c0=None, p0=None, k=None, s_inf=None, pressure_overclosure=None)` | Surface behavior. The type is `Hard`, `Linear`, `Exponential`, `Tabular` or `Tied`. Each type takes only the values it writes - `Hard` none, `Linear` `k`, `s_inf` and `c0`, `Exponential` `c0` and `p0`, `Tabular` `pressure_overclosure`, `Tied` `k` - and refuses the others; `c0`, `p0`, `k` and `s_inf` must be larger than 0. |
 
 Each maker returns a `SurfaceInteractionProperty`:
@@ -1847,7 +1848,7 @@ Contact pairs may mix methods; the analysis warns before a run. **Small sliding 
 `NodeToSurface` only** - the model clears it for `SurfaceToSurface` and leaves it unwritten for `Mortar`
 and `Massless`, so the API refuses `small_sliding=True` with any other method instead of letting the
 request be dropped, and `small_sliding` reads back `False` for them. An `adjustment_size` turns the
-adjustment on, the way the dialog presents the two together; it must be zero or larger, or `float('nan')` for
+adjustment on, the way the dialog presents the two together; it must be finite and zero or larger, or `float('nan')` for
 the `Default` size the dialog offers, is refused together with `adjust=False`, and reads back as `None` when it is
 `Default`. Because `None` keeps the size on a replace, `float('nan')` is how a replace sets it back to `Default`.
 
@@ -1887,18 +1888,18 @@ Reached as `pmx.model.steps`. It shares the collection verbs, including `activat
 
 | Member | Description |
 | --- | --- |
-| `add_static(name, time_period=None, initial_time_increment=None, min_time_increment=None, max_time_increment=None, ...)` | A static step. A new one has the incrementation type `Default`, which uses no time values: `time_period`, `initial_time_increment` and `max_increments` take `incrementation_type` `Automatic` or `Direct`, and `min_time_increment` and `max_time_increment` take `Automatic`, as the dialog shows them. A value the incrementation type the call ends with does not use is refused naming it, and `get_value` and `max_increments` read it as `None`. The time period and the increments are positive; neither the initial nor the minimum increment may exceed the time period. An initial increment above the maximum one is kept as given, as the dialog does. |
+| `add_static(name, time_period=None, initial_time_increment=None, min_time_increment=None, max_time_increment=None, ...)` | A static step. A new one has the incrementation type `Default`, which uses no time values: `time_period`, `initial_time_increment` and `max_increments` take `incrementation_type` `Automatic` or `Direct`, and `min_time_increment` and `max_time_increment` take `Automatic`, as the dialog shows them. A value the incrementation type the call ends with does not use is refused naming it, and `get_value` and `max_increments` read it as `None`. It uses every other shared argument. The time period and the increments are positive; neither the initial increment nor, under `Automatic`, the minimum one may exceed the time period, and a shorter period shortens a minimum increment the type does not use, as the dialog does. An initial increment above the maximum one is kept as given, as the dialog does. |
 | `add_slip_wear(name, ...)` | A slip wear step. It takes the arguments of `add_static`. |
-| `add_boundary_displacement(name, ...)` | A boundary displacement step, which follows a slip wear step. |
-| `add_frequency(name, number_of_frequencies=None, lower_frequency=None, upper_frequency=None, storage=None, cyclic_symmetry_mode_min=None, cyclic_symmetry_mode_max=None, ...)` | A frequency step. `number_of_frequencies` is at least 1, the limits are not negative and the lower one is below the upper one, unless the upper one is 0, which means no upper limit. `float('nan')` leaves a limit unset, which is how a replace clears one, and `get_value` reads an unset limit as `None`. The modes are not negative with the minimum not above the maximum; `float('nan')` leaves a mode unset, and `get_value` reads an unset mode as `None`. With an active cyclic symmetry the modes are checked against its number of sectors, as the dialog does. |
-| `add_complex_frequency(name, number_of_frequencies=None, ...)` | A complex frequency step. `number_of_frequencies` is at least 1. |
-| `add_buckle(name, number_of_buckling_factors=None, accuracy=None, ...)` | A buckle step. `number_of_buckling_factors` is at least 1. |
-| `add_modal_dynamics(name, steady_state=None, relative_error=None, modal_damping=None, ...)` | A modal dynamics step. `relative_error` is between 0 and 1. It also takes the arguments of `add_static`, but uses its initial increment always, `time_period` unless it is a steady state step, `relative_error` only then, and no `min_time_increment` or `max_time_increment`; a value it does not use is refused, and `get_value` reads it as `None`. |
-| `add_steady_state_dynamics(name, harmonic=None, lower_frequency=None, upper_frequency=None, number_of_data_points=None, bias=None, number_of_fourier_terms=None, time_lower=None, time_upper=None, modal_damping=None, ...)` | A steady state dynamics step. The lower frequency does not exceed the upper one, `number_of_data_points` is at least 2, or `float('nan')` to leave it unset, which `get_value` reads as `None`, `bias` at least 1 and `number_of_fourier_terms` at least 1. |
-| `add_dynamic(name, alpha=None, solution_procedure=None, relative_to_absolute=None, damping=None, ...)` | A dynamic step. `alpha` is between -1/3 and 0. It also takes the arguments of `add_static`. |
-| `add_heat_transfer(name, steady_state=None, deltmx=None, ...)` | A heat transfer step. `deltmx` limits the temperature change in an increment and must be positive; `float('inf')`, the default, does not limit it. It also takes the arguments of `add_static`. |
-| `add_uncoupled_temp_disp(name, ...)` | An uncoupled temperature displacement step. It takes the arguments of `add_heat_transfer`. |
-| `add_coupled_temp_disp(name, ...)` | A coupled temperature displacement step. It takes the arguments of `add_heat_transfer`. |
+| `add_boundary_displacement(name, ...)` | A boundary displacement step, which follows a slip wear step. It is not written to the solver input, which takes only its boundary conditions, so it uses none of the shared arguments: `max_increments` is refused and reads `None`, and every other one is accepted only as the value the step carries. |
+| `add_frequency(name, number_of_frequencies=None, lower_frequency=None, upper_frequency=None, storage=None, cyclic_symmetry_mode_min=None, cyclic_symmetry_mode_max=None, ...)` | A frequency step. `number_of_frequencies` is at least 1, the limits are not negative and the lower one is below the upper one, unless the upper one is 0, which means no upper limit. `float('nan')` leaves a limit unset, which is how a replace clears one, and `get_value` reads an unset limit as `None`. The modes are not negative with the minimum not above the maximum; `float('nan')` leaves a mode unset, and `get_value` reads an unset mode as `None`. With an active cyclic symmetry the modes are checked against its number of sectors, as the dialog does. Of the shared arguments it uses `nlgeom`, `solver_type`, `output_frequency`, `perturbation` and `run_analysis`: `max_increments` is refused and reads `None`, and `incrementation_type` is accepted only as `Default`, as the dialog keeps it. |
+| `add_complex_frequency(name, number_of_frequencies=None, ...)` | A complex frequency step. `number_of_frequencies` is at least 1. Of the shared arguments it uses `nlgeom`, `output_frequency`, `perturbation` and `run_analysis`: `max_increments` is refused and reads `None`, `incrementation_type` is accepted only as `Default`, and `solver_type`, which the solver input of this step does not carry, only as the value the step carries. |
+| `add_buckle(name, number_of_buckling_factors=None, accuracy=None, ...)` | A buckle step. `number_of_buckling_factors` is at least 1 and `accuracy` finite and positive. Of the shared arguments it uses `nlgeom`, `solver_type`, `output_frequency`, `perturbation` and `run_analysis`: `max_increments` is refused and reads `None`, and `incrementation_type` is accepted only as `Default`. |
+| `add_modal_dynamics(name, steady_state=None, relative_error=None, modal_damping=None, ...)` | A modal dynamics step. `relative_error` is between 0 and 1. It also takes the arguments of `add_static`, but uses its initial increment always, `time_period` unless it is a steady state step, `relative_error` only then, and no `min_time_increment` or `max_time_increment`; a value it does not use is refused, and `get_value` reads it as `None`. A steady state step raises the time period it does not use to the initial increment, so the initial increment is kept as given. The step always has the incrementation type `Automatic`, as the dialog keeps it, so `incrementation_type` is accepted only as `Automatic` and `max_increments` is always used; it uses every other shared argument. |
+| `add_steady_state_dynamics(name, harmonic=None, lower_frequency=None, upper_frequency=None, number_of_data_points=None, bias=None, number_of_fourier_terms=None, time_lower=None, time_upper=None, modal_damping=None, ...)` | A steady state dynamics step. The frequencies and the times are finite, the lower frequency does not exceed the upper one and `time_lower` not `time_upper`, also on a replace with the value the step keeps, `number_of_data_points` is at least 2, `bias` at least 1 and `number_of_fourier_terms` at least 1. `number_of_fourier_terms`, `time_lower` and `time_upper` are used only for nonharmonic loading, `harmonic=False`, as the dialog shows them; a harmonic step refuses them and `get_value` reads them as `None`. Of the shared arguments it uses `nlgeom`, `solver_type`, `output_frequency`, `perturbation` and `run_analysis`: `max_increments` is refused and reads `None`, and `incrementation_type` is accepted only as `Default`. |
+| `add_dynamic(name, alpha=None, solution_procedure=None, relative_to_absolute=None, damping=None, ...)` | A dynamic step. `alpha` is between -1/3 and 0. It also takes the arguments of `add_static`, and uses them and the shared ones as `add_static` does. |
+| `add_heat_transfer(name, steady_state=None, deltmx=None, ...)` | A heat transfer step. `deltmx` limits the temperature change in an increment and must be positive; `float('inf')`, the default, does not limit it. It also takes the arguments of `add_static` and uses them as `add_static` does, and every shared argument but `nlgeom`, which its dialog does not show and which is accepted only as False or the value the step carries. |
+| `add_uncoupled_temp_disp(name, ...)` | An uncoupled temperature displacement step. It takes the arguments of `add_heat_transfer`, and uses `nlgeom` as well. |
+| `add_coupled_temp_disp(name, ...)` | A coupled temperature displacement step. It takes the arguments of `add_heat_transfer`, and uses `nlgeom` as well. |
 | `move(names, target_index)` | Moves the named steps. The index is **zero based** and is evaluated after the moved steps have been removed. A step named twice is refused. |
 
 Every `add_*` has a matching `replace_*` that takes `old_name` first and `name` second, and every
@@ -1906,10 +1907,10 @@ Every `add_*` has a matching `replace_*` that takes `old_name` first and `name` 
 
 | Shared argument | Description |
 | --- | --- |
-| `nlgeom` | Accounts for the geometric nonlinearity. |
-| `max_increments` | The maximum number of increments, at least 1. A step of the `add_static` arguments uses it under the incrementation type `Automatic` or `Direct` only, and refuses it under `Default`. |
-| `incrementation_type` | `Default`, `Automatic` or `Direct`. |
-| `solver_type` | `Default`, `PaStiX`, `Pardiso`, `Spooles`, `IterativeScaling` or `IterativeCholesky`. A new step starts from the solver type in the application settings. |
+| `nlgeom` | Accounts for the geometric nonlinearity. A heat transfer and a boundary displacement step do not use it. |
+| `max_increments` | The maximum number of increments, at least 1. A step of the `add_static` arguments uses it under the incrementation type `Automatic` or `Direct` only, and refuses it under `Default`; a frequency, complex frequency, buckle, steady state dynamics or boundary displacement step never uses it. |
+| `incrementation_type` | `Default`, `Automatic` or `Direct`. Only a step of the `add_static` arguments other than a modal dynamics step uses it; the other types accept only the type their dialog keeps, `Automatic` for a modal dynamics step and `Default` for the rest, or the value the step carries. |
+| `solver_type` | `Default`, `PaStiX`, `Pardiso`, `Spooles`, `IterativeScaling` or `IterativeCholesky`. A new step starts from the solver type in the application settings. A complex frequency step does not use it. |
 | `output_frequency` | The results output frequency, at least 0, or `float('nan')` to leave it unset, as a new step has it; `None` keeps it on a replace, and the step property reads an unset one as `None`. |
 | `perturbation` | Makes the step a perturbation step. The model rejects it for a step type that does not support one. |
 | `run_analysis` | False solves nothing and only checks the model. |
@@ -1935,14 +1936,14 @@ also has a contact one, 3 in all, and a boundary displacement step has none.
 | `name`, `item_type` | The step name and the type, named after the `add_*` method that makes it without `add_`: `static`, `slip_wear`, `boundary_displacement`, `frequency`, `complex_frequency`, `buckle`, `modal_dynamics`, `steady_state_dynamics`, `dynamic`, `heat_transfer`, `uncoupled_temp_disp` or `coupled_temp_disp`. |
 | `active` | True when the step is written to the solver input file. |
 | `nlgeom`, `perturbation`, `run_analysis` | The shared solution flags. |
-| `max_increments`, `incrementation_type`, `solver_type`, `output_frequency` | The shared solution values. `max_increments` is `None` for a step of the `add_static` arguments whose incrementation type is `Default`. |
+| `max_increments`, `incrementation_type`, `solver_type`, `output_frequency` | The shared solution values. `max_increments` is `None` where the solver input does not carry it: for a step of the `add_static` arguments whose incrementation type is `Default`, and for a frequency, complex frequency, buckle, steady state dynamics or boundary displacement step. |
 | `bcs` | The boundary conditions of the step. |
 | `loads` | The loads of the step. |
 | `field_outputs` | The field outputs of the step. |
 | `history_outputs` | The history outputs of the step. |
 | `defined_fields` | The defined fields of the step. |
 | `get_value_names()` | The names of the values specific to this step type, the `replace_*` arguments that set them and nothing else. |
-| `get_value(name)` | One value specific to this step type, for example `time_period` or `number_of_frequencies`; an unset frequency limit, cyclic symmetry mode or number of data points is `None`, and so is a time value or `relative_error` the step does not use. |
+| `get_value(name)` | One value specific to this step type, for example `time_period` or `number_of_frequencies`; an unset frequency limit or cyclic symmetry mode is `None`, and so is a value the step does not use: a time value or `relative_error`, and the Fourier terms and time range of a harmonic steady state dynamics step. |
 | `get_control_types()` | The types of the step control parameters, named after the `pmx.create` maker that makes each: `time_incrementation_control`, `field_control`, `contact_control` or `reset_control`. |
 | `get_controls()` | Detached copies of the step control parameters, the `StepControlParameter` parts `pmx.create` makes, as a plain list that goes back into `set_controls`. |
 | `set_controls(parameters)` | Replaces the step control parameters. They are made by `pmx.create`. |
@@ -2236,9 +2237,9 @@ only makes the detached **parts** that those methods take as arguments, and reco
 | `split_tool_plane_by_point_and_normal(point=None, normal=None, splitter=None, offset=0)` | A plane given by a point and a normal. |
 | `split_tool_extend_face(faces, offset=0)` | The surfaces of the selected faces, continued past their boundaries. |
 | `split_tool_extrude_edges(edges, direction=None, direction_selection=None, length=None, both_directions=True)` | The selected edges swept along a direction. |
-| `damping(damping_type=None, alpha=None, beta=None)` | Rayleigh damping for a dynamic step, a `Damping` part. `alpha` and `beta` must be finite. |
-| `modal_damping(damping_type=None, alpha=None, beta=None, viscous_damping_ratio=None, damping_ratios=None)` | Modal damping for a modal dynamics or steady state dynamics step, a `ModalDamping` part. The real values must be finite. |
-| `damping_ratio(damping_ratio, lowest_mode, highest_mode)` | A viscous damping ratio for a mode range, used by the `Direct` modal damping type, a `DampingRatio` part. The ratio must be finite. |
+| `damping(damping_type=None, alpha=None, beta=None)` | Rayleigh damping for a dynamic step, a `Damping` part. `damping_type` is `Off`, the default, or `Rayleigh`. `alpha` and `beta` must be finite, and only the `Rayleigh` type takes them. A value the type does not use reads back as `None`. |
+| `modal_damping(damping_type=None, alpha=None, beta=None, viscous_damping_ratio=None, damping_ratios=None)` | Modal damping for a modal dynamics or steady state dynamics step, a `ModalDamping` part. `damping_type` is `Off`, the default, `Constant`, `Direct` or `Rayleigh`, and each type takes only the values it uses: `alpha` and `beta` the `Rayleigh` type, `viscous_damping_ratio` the `Constant` type and `damping_ratios` the `Direct` type, which needs them. The real values must be finite. A value the type does not use reads back as `None`. |
+| `damping_ratio(damping_ratio, lowest_mode, highest_mode)` | A viscous damping ratio for a mode range, used by the `Direct` modal damping type, a `DampingRatio` part. The ratio must be finite, `lowest_mode` at least 1 and `highest_mode` at least `lowest_mode`. |
 | `time_incrementation_control(...)` | A time incrementation step control parameter, a `StepControlParameter` part. |
 | `field_control(...)` | A field step control parameter, a `StepControlParameter` part. |
 | `contact_control(...)` | A contact step control parameter, a `StepControlParameter` part. |
@@ -2266,12 +2267,13 @@ The damping parts, the step control parameters and the environment variable are 
 `DampingRatio`, the four `*_control` makers a `StepControlParameter`, and `environment_variable` an
 `EnvironmentVariable`. They are also what `step.get_value('damping')`, `step.get_value('modal_damping')`,
 `step.get_controls()` and `job.environment_variables` return, as copies, so changing nothing in the model.
-None of them hands out the .NET model object; each one reads back under the argument names of its maker,
-the way a `MaterialProperty` does:
+None of them hands out the .NET model object; each one reads back under the argument names of its maker.
+A `MaterialProperty` and a `SurfaceInteractionProperty` are detached parts too, with the same three members.
+`get_value` finds a value by its exact name: a padded name is no name and is not trimmed.
 
 | Member | Description |
 | --- | --- |
-| `get_values()` | The values under the argument names of the `pmx.create` maker, as a `dict`, so that the maker given them back as keyword arguments makes the same part - `pmx.create.damping(**d.get_values())`. An option is its PascalCase name, a value that is not set (`is_value`, `ij`, `it`, `ds`, `dh`, `wg`, `q0a`, `qua` left at their defaults, `damping_ratios` of a modal damping without ratios) is `None`, and the damping ratios of a modal damping are a plain list of `DampingRatio` parts. A reset control has no values. |
+| `get_values()` | The values under the argument names of the `pmx.create` maker, as a `dict`, so that the maker given them back as keyword arguments makes the same part - `pmx.create.damping(**d.get_values())`. An option is its PascalCase name, a value that is not set (`is_value`, `ij`, `it`, `ds`, `dh`, `wg`, `q0a`, `qua` left at their defaults, `damping_ratios` of a modal damping without ratios, a damping value its damping type does not use) is `None`, and the damping ratios of a modal damping are a plain list of `DampingRatio` parts. A reset control has no values. |
 | `get_value(name)` | One value, by the maker's argument name. |
 | `get_value_names()` | The names `get_values()` reports, as a `StringList`. |
 | `control_type` | `StepControlParameter` only: the maker that made it, `time_incrementation_control`, `field_control`, `contact_control` or `reset_control`, so `getattr(pmx.create, c.control_type)(**c.get_values())` rebuilds it. |
@@ -2600,7 +2602,9 @@ The `view` is `'geometry'`, `'femodel'` or `'results'`, in any case, and reads b
 
 `select_by` is `Node`, `Element`, `Edge`, `Surface`, `EdgeAngle`, `SurfaceAngle`, `Part`, `Geometry`,
 `GeometryVertex`, `GeometryEdge`, `GeometrySurface`, `GeometryEdgeAngle`, `GeometrySurfaceAngle` or
-`GeometryPart`. The four angle based modes need an `angle_deg`, in degrees.
+`GeometryPart`. The four angle based modes need an `angle_deg`, in degrees, finite and from 0 to 180, the range
+of the angle between two faces; the selection dialog keeps the angle it records in the same range, and a journal
+writes a larger angle from an older history as 180, which selects the same items.
 
 ```python
 top = pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.5, 1.0], 'Surface')

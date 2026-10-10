@@ -46,6 +46,7 @@ namespace PrePoMax.Rpc
             if (journalFile != null && !includeJournal)
                 throw new RpcException(RpcErrorCode.InvalidParams, "The argument journal_file is only used with " +
                                                                    "include_journal set to true.");
+            if (journalFile != null) AssertJournalFileName(journalFile);
             //
             JsonWriter writer = new JsonWriter();
             writer.BeginObject();
@@ -83,7 +84,7 @@ namespace PrePoMax.Rpc
             foreach (string refusal in report.Refusals) writer.WriteValue(refusal);
             writer.EndArray();
             //
-            string text = ReadAndRemove(fileName, requestedFile == null);
+            string text = requestedFile == null ? ReadAndRemove(fileName) : null;
             if (requestedFile != null || text == null || text.Length > InlineJournalLimit)
             {
                 // A journal too long to carry in an answer is left where the caller can read it
@@ -103,16 +104,40 @@ namespace PrePoMax.Rpc
             if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
             return Path.Combine(directory, "journal_" + Guid.NewGuid().ToString("N") + ".py");
         }
-        // A relative name is placed where a screenshot is, not in whatever folder the process started in
+        // A name that is no file, or not a Python one, is refused before the journal is written anywhere
+        private static void AssertJournalFileName(string journalFile)
+        {
+            if (journalFile.Trim().Length == 0)
+                throw new RpcException(RpcErrorCode.InvalidParams, "The argument journal_file is empty. Name the .py " +
+                                                                   "file to write the journal to, or leave it out " +
+                                                                   "to have the journal returned inline. Nothing " +
+                                                                   "was done.");
+            string extension;
+            try
+            {
+                extension = Path.GetExtension(journalFile);
+            }
+            catch (ArgumentException exception)
+            {
+                throw new RpcException(RpcErrorCode.InvalidParams, "The argument journal_file is not a valid file " +
+                                                                   "name: " + exception.Message + " Nothing was done.");
+            }
+            if (extension == null || extension.ToLower() != ".py")
+                throw new RpcException(RpcErrorCode.InvalidParams, "The argument journal_file must name a .py file, " +
+                                                                   "because the journal is a Python script. " +
+                                                                   "Nothing was done.");
+        }
+        // A relative name is placed where a screenshot is, not in whatever folder the process started in, and
+        // a folder the name points into is created when it is missing, the way a screenshot's is
         private static string GetRequestedFileName(string requestedFile)
         {
-            if (Path.IsPathRooted(requestedFile)) return requestedFile;
-            //
-            string fileName = Path.Combine(GetTemporaryDirectory(), requestedFile);
+            string fileName = Path.IsPathRooted(requestedFile) ? requestedFile
+                                                               : Path.Combine(GetTemporaryDirectory(), requestedFile);
             string directory = Path.GetDirectoryName(fileName);
             try
             {
-                if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+                if (directory != null && directory.Length > 0 && !Directory.Exists(directory))
+                    Directory.CreateDirectory(directory);
             }
             catch (Exception exception)
             {
@@ -126,13 +151,13 @@ namespace PrePoMax.Rpc
         {
             return Path.Combine(Path.GetTempPath(), "PrePoMax");
         }
-        private static string ReadAndRemove(string fileName, bool remove)
+        private static string ReadAndRemove(string fileName)
         {
             try
             {
                 if (!File.Exists(fileName)) return null;
                 string text = File.ReadAllText(fileName);
-                if (remove && text.Length <= InlineJournalLimit) File.Delete(fileName);
+                if (text.Length <= InlineJournalLimit) File.Delete(fileName);
                 return text;
             }
             catch (Exception)

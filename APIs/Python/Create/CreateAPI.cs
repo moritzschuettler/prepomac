@@ -410,8 +410,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a Rayleigh damping part for a dynamic step. Possible damping_type values are " +
-                   "Off and Rayleigh. alpha and beta must be finite. The part reads its values back with " +
-                   "get_values, under these argument names.",
+                   "Off, the default, and Rayleigh. alpha and beta must be finite, and only the Rayleigh type " +
+                   "uses them, as the dialog shows them: the Off type refuses them. The part reads its values " +
+                   "back with get_values, under these argument names, a value its type does not use as None.",
                    Arguments = "damping_type: str = None, alpha: float = None, beta: float = None",
                    Returns = "Damping", Example = "pmx.create.damping('Rayleigh', alpha=0.1, beta=0.001)")]
         public DampingAPI damping(object damping_type = null, object alpha = null, object beta = null)
@@ -421,9 +422,12 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a modal damping part for a modal dynamics or steady state dynamics step. " +
-                   "Possible damping_type values are Off, Constant, Direct and Rayleigh. The damping ratios " +
-                   "are used by the Direct type. alpha, beta and viscous_damping_ratio must be finite. The part " +
-                   "reads its values back with get_values, under these argument names.",
+                   "Possible damping_type values are Off, the default, Constant, Direct and Rayleigh. Each type " +
+                   "takes only the values it uses, as the dialog shows them, and refuses the others: alpha and " +
+                   "beta the Rayleigh type, viscous_damping_ratio the Constant type, and damping_ratios the " +
+                   "Direct type, which needs them. alpha, beta and viscous_damping_ratio must be finite. The " +
+                   "part reads its values back with get_values, under these argument names, a value its type " +
+                   "does not use as None.",
                    Arguments = "damping_type: str = None, alpha: float = None, beta: float = None, " +
                                "viscous_damping_ratio: float = None, damping_ratios: DampingRatio or " +
                                "list[DampingRatio] = None", Returns = "ModalDamping",
@@ -437,8 +441,8 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a viscous damping ratio for a mode range, used by the Direct modal damping type. " +
-                   "The damping ratio must be finite. The part reads its values back with get_values, under " +
-                   "these argument names.",
+                   "The damping ratio must be finite, lowest_mode at least 1 and highest_mode at least " +
+                   "lowest_mode. The part reads its values back with get_values, under these argument names.",
                    Arguments = "damping_ratio: float, lowest_mode: int, highest_mode: int",
                    Returns = "DampingRatio", Example = "pmx.create.damping_ratio(0.02, 1, 10)")]
         public DampingRatioAPI damping_ratio(object damping_ratio, object lowest_mode, object highest_mode)

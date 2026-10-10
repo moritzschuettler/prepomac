@@ -411,6 +411,11 @@ def check_describing_a_type(endpoint):
     parameters = dict((parameter["name"], parameter) for parameter in static["parameters"])
     check("Automatic" in parameters["incrementation_type"]["values"],
           "an enumeration valued argument must list its values: " + str(parameters["incrementation_type"]))
+    # The default is the value token of the Arguments text, not the range documented after it
+    heat = [member for member in step["members"] if member["name"] == "add_heat_transfer"][0]
+    parameters = dict((parameter["name"], parameter) for parameter in heat["parameters"])
+    check(parameters["deltmx"]["default"] == "None",
+          "a default left out as None must read None: " + str(parameters["deltmx"]))
     print("describe_api: Loads and Model.Steps described by name, with values and defaults")
     #
     # The model and the results sides both own Nodes, so the bare name is refused with the candidates
@@ -580,7 +585,29 @@ def check_undelivered_answers(endpoint):
     # An answer that reached its client is not kept
     endpoint.tool("run_python", {"source": "print('delivered')", "timeout": 30})
     check(json.loads(endpoint.tool("get_status"))["calls"] == [], "a delivered answer must not be kept")
-    print("undelivered answers: a dropped and a cancelled request were collected with get_call")
+    # A read_model that finished within its wait, but whose client was gone, is collected as read_model answers
+    result = json.loads(endpoint.tool("run_python", {"source": SLOW_JSON}))
+    check(not result["failed"], "the slow json must be installed: " + result["error"])
+    try:
+        send_and_drop(endpoint, {"jsonrpc": "2.0", "id": "dropped-2", "method": "tools/call",
+                                 "params": {"name": "read_model", "arguments": {}}}, 1.0)
+        call_id = find_finished_call(endpoint)
+        model = json.loads(endpoint.tool("get_call", {"call_id": call_id, "timeout": 30}))
+        check("properties" in model and "parts" in model and "output" not in model,
+              "get_call must return the snapshot an undelivered read_model would have returned: " +
+              str(sorted(model))[:300])
+        # And its failure is the error of the script, as read_model reports it
+        endpoint.tool("run_python", {"source": "mcp_slow_json.fail = True"})
+        send_and_drop(endpoint, {"jsonrpc": "2.0", "id": "dropped-3", "method": "tools/call",
+                                 "params": {"name": "read_model", "arguments": {}}}, 1.0)
+        call_id = find_finished_call(endpoint)
+        text = endpoint.failing_tool("get_call", {"call_id": call_id, "timeout": 30})
+        check("mcp slow json failed" in text and not text.lstrip().startswith("{"),
+              "the collected failure of an undelivered read_model must be its script error: " + text[:300])
+    finally:
+        endpoint.tool("run_python", {"source": "sys.modules['json'] = mcp_real_json"})
+    print("undelivered answers: a dropped and a cancelled request were collected with get_call, a dropped " +
+          "read_model as its snapshot and its failure as its error")
 
 
 def check_null_optional_arguments(endpoint):

@@ -118,7 +118,7 @@ namespace APIs.Python.Model
             if (name == null) throw new PythonAPIException("The argument 'name' must not be empty.");
             //
             object value;
-            if (!values.TryGetValue(name.Trim(), out value))
+            if (!values.TryGetValue(name, out value))
                 throw new PythonAPIException("The value '" + name + "' is not defined for a " + itemDescription +
                                              ". Possible values are " + string.Join(", ", values.Keys) + ".");
             //

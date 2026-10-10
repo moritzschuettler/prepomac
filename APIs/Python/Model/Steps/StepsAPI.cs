@@ -35,10 +35,12 @@ namespace APIs.Python.Model
                    "which uses no time values: time_period, initial_time_increment and max_increments take " +
                    "incrementation_type Automatic or Direct, and min_time_increment and max_time_increment " +
                    "Automatic, as the dialog shows them; a value the type the call ends with does not use is " +
-                   "refused, and get_value and max_increments read it as None. " +
-                   "The time period and the increments are positive, " +
-                   "and neither the initial nor the minimum increment may exceed the time period; on a " +
-                   "replace this holds for the values the step keeps as well. An initial increment above the " +
+                   "refused, and get_value and max_increments read it as None. It uses every other shared " +
+                   "argument. The time period and the increments are positive, " +
+                   "and neither the initial increment nor, under Automatic, the minimum one may exceed the time " +
+                   "period; on a replace this holds for the values the step keeps as well, and a shorter period " +
+                   "shortens a minimum increment the type does not use, as the dialog does. An initial increment " +
+                   "above the " +
                    "maximum one is kept as given, as the dialog does. max_increments is at least 1 and " +
                    "output_frequency at least 0, or float('nan') to leave it unset; the step property reads an " +
                    "unset one as None. " +
@@ -134,7 +136,10 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, step);
         }
 
-        [PythonAPI("Adds a boundary displacement step using command history. It follows a slip wear step.",
+        [PythonAPI("Adds a boundary displacement step using command history. It follows a slip wear step. The " +
+                   "step is not written to the solver input, which takes only its boundary conditions, so it " +
+                   "uses none of the shared arguments: max_increments is refused and reads None, and every other " +
+                   "one is accepted only as the value the step carries.",
                    Arguments = "name: str, nlgeom: bool = None, max_increments: int = None, " +
                                "incrementation_type: str = None, solver_type: str = None, " +
                                "output_frequency: int = None, perturbation: bool = None, " +
@@ -181,7 +186,10 @@ namespace APIs.Python.Model
                    "symmetry modes are not negative, the minimum not above the maximum; on a replace this " +
                    "holds for the values the step keeps as well. float('nan') leaves a mode unset, and get_value " +
                    "reads an unset mode as None. With an active cyclic symmetry the modes are " +
-                   "checked against its number of sectors, as the dialog does.",
+                   "checked against its number of sectors, as the dialog does. Of the shared arguments it uses " +
+                   "nlgeom, solver_type, output_frequency, perturbation and run_analysis: max_increments is " +
+                   "refused and reads None, and incrementation_type is accepted only as Default, as the dialog " +
+                   "keeps it.",
                    Arguments = "name: str, number_of_frequencies: int = None, lower_frequency: float = None, " +
                                "upper_frequency: float = None, storage: bool = None, " +
                                "cyclic_symmetry_mode_min: int = None, cyclic_symmetry_mode_max: int = None, " +
@@ -234,7 +242,10 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a complex frequency step using command history. It follows a frequency step. " +
-                   "number_of_frequencies is at least 1.",
+                   "number_of_frequencies is at least 1. Of the shared arguments it uses nlgeom, " +
+                   "output_frequency, perturbation and run_analysis: max_increments is refused and reads None, " +
+                   "incrementation_type is accepted only as Default, and solver_type, which the solver input of " +
+                   "this step does not carry, only as the value the step carries.",
                    Arguments = "name: str, number_of_frequencies: int = None, and the shared step arguments",
                    Returns = "Step")]
         public StepAPI add_complex_frequency(object name, object number_of_frequencies = null, object nlgeom = null,
@@ -275,7 +286,10 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, step);
         }
 
-        [PythonAPI("Adds a buckle step using command history. number_of_buckling_factors is at least 1.",
+        [PythonAPI("Adds a buckle step using command history. number_of_buckling_factors is at least 1 and " +
+                   "accuracy finite and positive. Of the shared arguments it uses nlgeom, solver_type, " +
+                   "output_frequency, perturbation and run_analysis: max_increments is refused and reads None, " +
+                   "and incrementation_type is accepted only as Default, as the dialog keeps it.",
                    Arguments = "name: str, number_of_buckling_factors: int = None, accuracy: float = None, " +
                                "and the shared step arguments", Returns = "Step")]
         public StepAPI add_buckle(object name, object number_of_buckling_factors = null, object accuracy = null,
@@ -319,7 +333,10 @@ namespace APIs.Python.Model
                    "pmx.create.modal_damping, and relative_error is between 0 and 1. The step uses its initial " +
                    "increment always, time_period unless it is a steady state step, relative_error only then, and " +
                    "no min_time_increment or max_time_increment; a value it does not use is refused, and " +
-                   "get_value reads it as None.",
+                   "get_value reads it as None. A steady state step raises the time period it does not use to " +
+                   "the initial increment, so the initial increment is kept as given. The step always has the " +
+                   "incrementation type Automatic, as the dialog keeps it, so incrementation_type is accepted " +
+                   "only as Automatic and max_increments is always used; it uses every other shared argument.",
                    Arguments = "name: str, steady_state: bool = None, relative_error: float = None, " +
                                "modal_damping: ModalDamping = None, the arguments of add_static, and the " +
                                "shared step arguments", Returns = "Step")]
@@ -369,10 +386,14 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a steady state dynamics step using command history. The modal damping is created " +
-                   "by pmx.create.modal_damping. The lower frequency does not exceed the upper one, also on a " +
-                   "replace with the value the step keeps, number_of_data_points is at least 2, or float('nan') " +
-                   "to leave it unset, which get_value reads as None, bias at least 1 " +
-                   "and number_of_fourier_terms at least 1.",
+                   "by pmx.create.modal_damping. The frequencies and the times are finite, the lower frequency " +
+                   "does not exceed the upper one and the lower time not the upper one, also on a replace with " +
+                   "the value the step keeps, number_of_data_points is at least 2, bias at least 1 and " +
+                   "number_of_fourier_terms at least 1. number_of_fourier_terms, time_lower and time_upper are " +
+                   "used only for nonharmonic loading, harmonic=False, as the dialog shows them; a harmonic step " +
+                   "refuses them and get_value reads them as None. Of the shared arguments it uses nlgeom, " +
+                   "solver_type, output_frequency, perturbation and run_analysis: max_increments is refused and " +
+                   "reads None, and incrementation_type is accepted only as Default, as the dialog keeps it.",
                    Arguments = "name: str, harmonic: bool = None, lower_frequency: float = None, " +
                                "upper_frequency: float = None, number_of_data_points: int = None, " +
                                "bias: float = None, number_of_fourier_terms: int = None, time_lower: float = None, " +
@@ -429,7 +450,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a dynamic step using command history. The damping is created by pmx.create.damping, " +
-                   "and alpha is between -1/3 and 0.",
+                   "and alpha is between -1/3 and 0. It takes the arguments of add_static and uses them, and the " +
+                   "shared ones, as add_static does.",
                    Arguments = "name: str, alpha: float = None, solution_procedure: str = None, " +
                                "relative_to_absolute: bool = None, damping: Damping = None, the arguments of " +
                                "add_static, and the shared step arguments", Returns = "Step")]
@@ -479,7 +501,9 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, step);
         }
 
-        [PythonAPI("Adds a heat transfer step using command history.",
+        [PythonAPI("Adds a heat transfer step using command history. It uses the arguments of add_static as " +
+                   "add_static does, and every shared argument but nlgeom, which its dialog does not show and " +
+                   "which is accepted only as False or the value the step carries.",
                    Arguments = "name: str, steady_state: bool = None, deltmx: float = None (positive; float('inf'), " +
                                "the default, does not limit the temperature change), the arguments of add_static, " +
                                "and the shared step arguments", Returns = "Step")]
@@ -528,7 +552,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds an uncoupled temperature displacement step using command history. It takes the " +
-                   "arguments of add_heat_transfer.",
+                   "arguments of add_heat_transfer, and uses nlgeom as well.",
                    Arguments = "name: str, and the arguments of add_heat_transfer", Returns = "Step")]
         public StepAPI add_uncoupled_temp_disp(object name, object steady_state = null, object deltmx = null,
                                                object time_period = null, object initial_time_increment = null,
@@ -578,7 +602,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a coupled temperature displacement step using command history. It takes the " +
-                   "arguments of add_heat_transfer.",
+                   "arguments of add_heat_transfer, and uses nlgeom as well.",
                    Arguments = "name: str, and the arguments of add_heat_transfer", Returns = "Step")]
         public StepAPI add_coupled_temp_disp(object name, object steady_state = null, object deltmx = null,
                                              object time_period = null, object initial_time_increment = null,
@@ -685,7 +709,7 @@ namespace APIs.Python.Model
         {
             StepFactory.ApplyCommonValues(step, common);
             StepFactory.ApplyStaticValues(step, timePeriod, initialTimeIncrement, minTimeIncrement,
-                                          maxTimeIncrement, common.MaxIncrements, replace);
+                                          maxTimeIncrement, replace);
         }
         private StepAPI Replace(string oldName, string name, Step step)
         {

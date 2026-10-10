@@ -201,7 +201,7 @@ def test_refused_values():
                 (lambda: steps.add_modal_dynamics(bad, steady_state=True, relative_error=2.0), "'relative_error'"),
                 (lambda: steps.add_steady_state_dynamics(bad, number_of_data_points=1), "'number_of_data_points'"),
                 (lambda: steps.add_steady_state_dynamics(bad, bias=0.5), "'bias'"),
-                (lambda: steps.add_steady_state_dynamics(bad, number_of_fourier_terms=0),
+                (lambda: steps.add_steady_state_dynamics(bad, harmonic=False, number_of_fourier_terms=0),
                  "'number_of_fourier_terms'"),
                 (lambda: steps.add_steady_state_dynamics(bad, lower_frequency=50.0, upper_frequency=10.0),
                  "'lower_frequency'"),
@@ -256,10 +256,10 @@ def test_refused_values():
     step = steps.replace_static(unset, output_frequency=float('nan'))
     check(step.output_frequency is None, "float('nan') must unset the output frequency")
     steps.remove([unset])
-    steady = PREFIX + "SSD_Unset"
-    step = steps.add_steady_state_dynamics(steady, number_of_data_points=float('nan'))
-    check(step.get_value("number_of_data_points") is None, "an unset number of data points must read back as None")
-    steps.remove([steady])
+    # The solver input always carries the number of data points and the dialog cannot unset it, so neither can the API
+    check_refused(lambda: steps.add_steady_state_dynamics(PREFIX + "SSD_Unset", number_of_data_points=float('nan')),
+                  "'number_of_data_points'", "an unset number of data points must be refused")
+    check(not steps.contains(PREFIX + "SSD_Unset"), "a refused steady state dynamics step was recorded")
     # An initial increment above the maximum one is stored as given, as the dialog does, and a replace that
     # sets the maximum, which would shorten it, keeps it
     initial = PREFIX + "S_Initial"
@@ -444,11 +444,26 @@ def test_thermal_and_wear_types():
     # A boundary displacement step follows a slip wear step
     step = steps.add_slip_wear(PREFIX + "SW1")
     check(step.item_type == "slip_wear", "unexpected step type " + step.item_type)
-    step = steps.add_boundary_displacement(PREFIX + "BD1", max_increments=20)
+    step = steps.add_boundary_displacement(PREFIX + "BD1")
     check(step.item_type == "boundary_displacement", "unexpected step type " + step.item_type)
-    check(step.max_increments == 20, "max_increments was not set on the boundary displacement step")
+    check(step.max_increments is None, "a boundary displacement step, which is not written, must read max_increments "
+          "as None, got " + repr(step.max_increments))
     check_raises(lambda: steps.add_boundary_displacement(PREFIX + "Bad", perturbation=True),
                  "a perturbation boundary displacement step must be rejected")
+    # The step is not written to the solver input, so it uses none of the shared values; the value it carries goes
+    # back in
+    other_solver = "Spooles" if step.solver_type != "Spooles" else "Pardiso"
+    for argument, value in [("max_increments", 20), ("nlgeom", True), ("incrementation_type", "Automatic"),
+                            ("solver_type", other_solver), ("output_frequency", 2), ("run_analysis", False)]:
+        check_refused(lambda: steps.add_boundary_displacement(PREFIX + "Bad", **{argument: value}),
+                      "'" + argument + "'", "a boundary displacement step must refuse " + argument)
+        check_refused(lambda: steps.replace_boundary_displacement(PREFIX + "BD1", **{argument: value}),
+                      "'" + argument + "'", "a boundary displacement replace must refuse " + argument)
+    step = steps.replace_boundary_displacement(PREFIX + "BD1", nlgeom=step.nlgeom, solver_type=step.solver_type,
+                                               incrementation_type=step.incrementation_type,
+                                               run_analysis=step.run_analysis, perturbation=step.perturbation)
+    check(step.solver_type != other_solver and step.run_analysis, "a kept value changed the boundary displacement step")
+    check(not steps.contains(PREFIX + "Bad"), "a refused boundary displacement step was recorded")
     # These step types derive from another one in the model, yet a replace still only edits the exact type
     refused_replaces = [(steps.replace_static, PREFIX + "HT1", "heat_transfer"),
                         (steps.replace_static, PREFIX + "D1", "dynamic"),
@@ -518,6 +533,114 @@ def test_incrementation_type_values():
           step.max_increments == 40, "the hidden values were not kept")
     # The Default step stays for the read back round trip
     steps.replace_static(hidden, incrementation_type="Default")
+
+
+# A value the solver input of the step type does not carry, which its dialog does not show, is refused naming the
+# argument before anything is recorded; the value the step carries, which the step reads back, goes back in
+def test_unused_values():
+    steps = pmx.model.steps
+    bad = PREFIX + "Bad"
+    count_before = len(steps)
+    other_solver = "Spooles" if steps[PREFIX + "CF1"].solver_type != "Spooles" else "Pardiso"
+    refusals = [(lambda: steps.add_frequency(bad, max_increments=10), "'max_increments'"),
+                (lambda: steps.add_frequency(bad, incrementation_type="Automatic"), "'incrementation_type'"),
+                (lambda: steps.add_complex_frequency(bad, max_increments=10), "'max_increments'"),
+                (lambda: steps.add_complex_frequency(bad, solver_type=other_solver), "'solver_type'"),
+                (lambda: steps.add_buckle(bad, max_increments=10), "'max_increments'"),
+                (lambda: steps.add_buckle(bad, incrementation_type="Direct"), "'incrementation_type'"),
+                (lambda: steps.add_steady_state_dynamics(bad, max_increments=10), "'max_increments'"),
+                (lambda: steps.add_steady_state_dynamics(bad, incrementation_type="Automatic"),
+                 "'incrementation_type'"),
+                (lambda: steps.add_heat_transfer(bad, nlgeom=True), "'nlgeom'"),
+                (lambda: steps.add_modal_dynamics(bad, incrementation_type="Default"), "'incrementation_type'"),
+                (lambda: steps.add_modal_dynamics(bad, incrementation_type="Direct"), "'incrementation_type'"),
+                # A harmonic steady state dynamics step writes no Fourier terms and no time range
+                (lambda: steps.add_steady_state_dynamics(bad, number_of_fourier_terms=5), "'number_of_fourier_terms'"),
+                (lambda: steps.add_steady_state_dynamics(bad, time_lower=0.0), "'time_lower'"),
+                (lambda: steps.add_steady_state_dynamics(bad, harmonic=True, time_upper=1.0), "'time_upper'"),
+                # The values the solver input carries are finite and in their range
+                (lambda: steps.add_steady_state_dynamics(bad, upper_frequency=float("inf")), "'upper_frequency'"),
+                (lambda: steps.add_steady_state_dynamics(bad, lower_frequency=float("nan")), "'lower_frequency'"),
+                (lambda: steps.add_steady_state_dynamics(bad, harmonic=False, time_lower=float("nan")),
+                 "'time_lower'"),
+                (lambda: steps.add_steady_state_dynamics(bad, harmonic=False, time_lower=2.0, time_upper=1.0),
+                 "'time_lower'"),
+                (lambda: steps.add_buckle(bad, accuracy=0), "'accuracy'"),
+                (lambda: steps.add_buckle(bad, accuracy=-0.01), "'accuracy'"),
+                (lambda: steps.add_buckle(bad, accuracy=float("nan")), "'accuracy'"),
+                (lambda: steps.add_buckle(bad, accuracy=float("inf")), "'accuracy'"),
+                # A damping takes only the values its type uses, as the dialog shows them
+                (lambda: steps.add_dynamic(bad, damping=pmx.create.damping("Off", alpha=0.1)), "'alpha'"),
+                (lambda: pmx.create.damping(beta=0.1), "'beta'"),
+                (lambda: pmx.create.modal_damping("Direct"), "'damping_ratios'"),
+                (lambda: pmx.create.modal_damping(viscous_damping_ratio=0.02), "'viscous_damping_ratio'"),
+                (lambda: pmx.create.modal_damping("Constant", alpha=0.1), "'alpha'"),
+                (lambda: pmx.create.modal_damping("Direct", beta=0.1,
+                                                  damping_ratios=[pmx.create.damping_ratio(0.02, 1, 5)]), "'beta'"),
+                (lambda: pmx.create.modal_damping("Rayleigh", viscous_damping_ratio=0.02), "'viscous_damping_ratio'"),
+                (lambda: pmx.create.modal_damping("Constant", damping_ratios=[pmx.create.damping_ratio(0.02, 1, 5)]),
+                 "'damping_ratios'"),
+                (lambda: pmx.create.damping_ratio(0.02, 0, 5), "'lowest_mode'"),
+                (lambda: pmx.create.damping_ratio(0.02, 6, 5), "'highest_mode'")]
+    for function, fragment in refusals:
+        check_refused(function, fragment, "a value of " + fragment + " the step does not use must be refused")
+    check(len(steps) == count_before and not steps.contains(bad), "a refused step was recorded")
+    # A replace checks against the values the step keeps
+    check_refused(lambda: steps.replace_steady_state_dynamics(PREFIX + "SSD1", time_lower=3.0), "'time_lower'",
+                  "a lower time above the stored upper one must be refused")
+    check_refused(lambda: steps.replace_frequency(PREFIX + "F1", max_increments=10), "'max_increments'",
+                  "a frequency replace must refuse max_increments")
+    # What the step reads back goes back in, and changes nothing
+    step = steps.replace_frequency(PREFIX + "F1", incrementation_type=steps[PREFIX + "F1"].incrementation_type)
+    check(step.incrementation_type == "Default" and step.max_increments is None,
+          "a frequency step must keep the Default type and read max_increments as None")
+    step = steps.replace_complex_frequency(PREFIX + "CF1", solver_type=steps[PREFIX + "CF1"].solver_type)
+    check(step.solver_type != other_solver, "the kept solver type of a complex frequency step changed")
+    step = steps.replace_heat_transfer(PREFIX + "HT1", nlgeom=False)
+    check(not step.nlgeom, "nlgeom=False must be accepted by a heat transfer step")
+    check(steps[PREFIX + "SSD2"].get_value("time_lower") is None and
+          steps[PREFIX + "SSD2"].get_value("number_of_fourier_terms") is None,
+          "a harmonic steady state dynamics step must read its Fourier terms and time range as None")
+    check(steps[PREFIX + "SSD1"].get_value("time_upper") == 2.0, "a nonharmonic step must read its time range")
+    # A part reads back as None a value its damping type does not use, so its values go back into the maker
+    check(pmx.create.damping("Off").get_values() == {"damping_type": "Off", "alpha": None, "beta": None},
+          "an Off damping must read alpha and beta as None: " + repr(pmx.create.damping("Off").get_values()))
+    constant = pmx.create.modal_damping("Constant", viscous_damping_ratio=0.02)
+    values = constant.get_values()
+    check(values["alpha"] is None and values["beta"] is None and values["damping_ratios"] is None and
+          values["viscous_damping_ratio"] == 0.02, "a Constant modal damping read back unused values: " + repr(values))
+    check(repr(pmx.create.modal_damping(**values)) == repr(constant), "the modal damping values did not go back in")
+    # A modal dynamics step after a frequency step keeps the Automatic type its dialog gives it, so its maximum
+    # number of increments is written and read back, and takes a new value
+    steps.add_frequency(PREFIX + "F_Before_MD")
+    after = PREFIX + "MD_After_F"
+    step = steps.add_modal_dynamics(after, max_increments=500, time_period=2.0, initial_time_increment=0.1,
+                                    incrementation_type="Automatic")
+    check(step.incrementation_type == "Automatic" and step.max_increments == 500,
+          "a modal dynamics step after a frequency step must keep its maximum number of increments: " +
+          repr(step.max_increments))
+    step = steps.replace_modal_dynamics(after, max_increments=600)
+    check(step.max_increments == 600, "the maximum number of increments of a modal dynamics step was not replaced")
+    # A steady state modal dynamics step does not use its time period, which is raised to keep a long initial
+    # increment as given rather than shortened or refused
+    steady = PREFIX + "MD_Steady_Long"
+    step = steps.add_modal_dynamics(steady, steady_state=True, initial_time_increment=5.0)
+    check(step.get_value("initial_time_increment") == 5.0 and step.get_value("time_period") is None,
+          "a steady state modal dynamics step did not keep a long initial increment: " +
+          repr(step.get_value("initial_time_increment")))
+    step = steps.replace_modal_dynamics(steady, initial_time_increment=8.0)
+    check(step.get_value("initial_time_increment") == 8.0, "a replace did not keep a long initial increment")
+    # A step that does not use its minimum increment takes a period below it, which shortens it as the dialog does
+    direct = PREFIX + "S_Direct_Short"
+    steps.add_static(direct, time_period=1.0, initial_time_increment=1e-7, incrementation_type="Direct")
+    step = steps.replace_static(direct, time_period=1e-6)
+    check(step.get_value("time_period") == 1e-6, "a Direct step did not take a period below its hidden minimum")
+    check_refused(lambda: steps.replace_static(direct, time_period=1e-8), "'initial_time_increment'",
+                  "a period below the initial increment a Direct step uses must still be refused")
+    short = PREFIX + "MD_Short"
+    steps.add_modal_dynamics(short, time_period=1.0, initial_time_increment=1e-7)
+    step = steps.replace_modal_dynamics(short, time_period=1e-6)
+    check(step.get_value("time_period") == 1e-6, "a modal dynamics step did not take a period below its hidden minimum")
 
 
 def test_controls():
@@ -625,6 +748,7 @@ def main():
     test_refused_values()
     test_thermal_and_wear_types()
     test_incrementation_type_values()
+    test_unused_values()
     test_read_back_round_trip()
     test_controls()
     test_move()

@@ -33,7 +33,7 @@ namespace APIs.Python.Model
                    "SurfaceToSurface, Mortar and Massless; pairs may mix methods, which the analysis warns " +
                    "about. Small sliding is written for NodeToSurface only, so small_sliding=True is " +
                    "rejected together with any other method rather than silently dropped. An " +
-                   "adjustment_size turns the adjustment on; it must be zero or larger, or float('nan') for " +
+                   "adjustment_size turns the adjustment on; it must be finite and zero or larger, or float('nan') for " +
                    "the Default size the dialog offers, which reads back as None, and it is refused together " +
                    "with adjust=False. The selection target is surfaces for both sides. master_color and " +
                    "slave_color are the colors of the two surfaces, given as [R, G, B], [R, G, B, A] or a " +

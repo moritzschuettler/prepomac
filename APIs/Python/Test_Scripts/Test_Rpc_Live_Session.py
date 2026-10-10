@@ -10,7 +10,11 @@
 #states the dialogs can store and the API once refused: step controls left at their unset defaults, an
 #initial increment above the maximum one, frequency limits that are unset or have no upper limit, a
 #propagation into or from steps that do not take the item, a defined temperature with an amplitude read
-#from a file, complex phases, and a radiation load whose cavity radiation was turned off. A fourth carries
+#from a file, complex phases, and a radiation load whose cavity radiation was turned off. A step journal
+#writes only the values each step type uses - the increments of a modal dynamics step after a frequency
+#step, a steady state initial increment above the hidden period, a Direct period below the hidden minimum,
+#the time range only for nonharmonic loading, the damping values of the damping type - and replays to the
+#same deck. A fourth carries
 #successive tree layout changes - nested groups, every group removed, ungrouped items reordered - physical
 #constants made undefined and a deactivated part; pmx.open and pmx.results.open each refuse the file the
 #other one opens. Another carries the values only the dialogs set before the API took them: a vector
@@ -606,6 +610,116 @@ def check_journal_of_model_states(client):
         os.remove(temperature_file)
         os.rmdir(os.path.dirname(temperature_file))
     print("journal: the states the dialogs store replay to " + str(replayed))
+
+
+def read_step_values(client):
+    steps = "pmx.model.steps"
+    expressions = [steps + "['step_md_after'].max_increments",
+                   steps + "['step_md_after'].incrementation_type",
+                   "repr(" + steps + "['step_md_after'].get_value('modal_damping'))",
+                   steps + "['step_md_steady'].get_value('initial_time_increment')",
+                   steps + "['step_md_steady'].get_value('time_period')",
+                   "repr(" + steps + "['step_md_steady'].get_value('modal_damping'))",
+                   steps + "['step_direct'].get_value('time_period')",
+                   steps + "['step_harmonic'].get_value('time_lower')",
+                   "repr(" + steps + "['step_harmonic'].get_value('modal_damping'))",
+                   steps + "['step_nonharmonic'].get_value('time_upper')",
+                   steps + "['step_nonharmonic'].get_value('number_of_data_points')",
+                   "repr(" + steps + "['step_dynamic'].get_value('damping'))",
+                   "repr(" + steps + "['step_dynamic_off'].get_value('damping'))",
+                   steps + "['step_frequency'].max_increments",
+                   steps + "['step_heat'].nlgeom"]
+    value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
+    check(not value["failed"], "the step values must be readable: " + value["error"])
+    return value["value"]
+
+
+def journal_call(journal_source, marker):
+    """The text of the journal call that starts with the marker, up to the next step call, without the white space
+    the journal wraps a long call with."""
+    compact = re.sub(r"\s+", "", journal_source)
+    start = compact.find(marker)
+    check(start >= 0, marker + " is missing from the journal:" + os.linesep + journal_source)
+    end = compact.find("pmx.model.steps.", start + len(marker))
+    return compact[start:] if end < 0 else compact[start:end]
+
+
+def check_journal_of_step_values(client):
+    """A step journal writes the values each step type uses and no other, and replays to the same deck."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    source = os.linesep.join([
+        # A modal dynamics step after a frequency step keeps the Automatic type, so its increments are written
+        "pmx.model.steps.add_frequency('step_frequency')",
+        "pmx.model.steps.add_modal_dynamics('step_md_after', max_increments=500, time_period=2.0, "
+        "initial_time_increment=0.1, modal_damping=pmx.create.modal_damping('Rayleigh', 0.1, 0.001))",
+        # A steady state step keeps an initial increment above the time period it does not use
+        "pmx.model.steps.add_modal_dynamics('step_md_steady', steady_state=True, initial_time_increment=5.0, "
+        "modal_damping=pmx.create.modal_damping('Direct', damping_ratios=[pmx.create.damping_ratio(0.02, 1, 5)]))",
+        # A Direct step takes a period below the minimum increment it does not use
+        "pmx.model.steps.add_static('step_direct', time_period=1.0, initial_time_increment=1e-7, "
+        "incrementation_type='Direct')",
+        "pmx.model.steps.replace_static('step_direct', time_period=1e-6)",
+        "pmx.model.steps.add_steady_state_dynamics('step_harmonic', "
+        "modal_damping=pmx.create.modal_damping('Constant', viscous_damping_ratio=0.02))",
+        "pmx.model.steps.add_steady_state_dynamics('step_nonharmonic', harmonic=False, number_of_data_points=12, "
+        "number_of_fourier_terms=8, time_lower=0.5, time_upper=2.0)",
+        "pmx.model.steps.add_dynamic('step_dynamic', damping=pmx.create.damping('Rayleigh', 0.1, 0.001))",
+        "pmx.model.steps.add_dynamic('step_dynamic_off', damping=pmx.create.damping('Off'))",
+        "pmx.model.steps.add_heat_transfer('step_heat')"])
+    directory = tempfile.mkdtemp(prefix="rpc_step_values_")
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the step values must be accepted: " + result["error"])
+    recorded = read_step_values(client)
+    check(recorded[0] == 500 and recorded[1] == "Automatic",
+          "a modal dynamics step after a frequency step lost its increments: " + str(recorded))
+    check(recorded[3] == 5.0 and recorded[4] is None,
+          "a steady state modal dynamics step did not keep its initial increment: " + str(recorded))
+    check(recorded[6] == 1e-6, "a Direct step did not take a short period: " + str(recorded))
+    check(recorded[7] is None and recorded[9] == 2.0 and recorded[10] == 12,
+          "the time range must read back only for nonharmonic loading: " + str(recorded))
+    check(recorded[13] is None and recorded[14] is False,
+          "a frequency step must read max_increments as None, a heat transfer step nlgeom as False: " +
+          str(recorded))
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    check(journal["isInline"], "a short journal must come back inline")
+    journal_source = journal["source"]
+    # Each step writes only the values its type uses, which are the values its dialog shows
+    expectations = [("add_frequency('step_frequency'", [], ["max_increments=", "incrementation_type="]),
+                    ("add_modal_dynamics('step_md_after'", ["max_increments=500", "'Rayleigh',0.1,0.001"],
+                     ["incrementation_type=", "viscous_damping_ratio=", "min_time_increment="]),
+                    ("add_modal_dynamics('step_md_steady'", ["initial_time_increment=5", "damping_ratios="],
+                     ["time_period=", "viscous_damping_ratio="]),
+                    ("add_steady_state_dynamics('step_harmonic'", ["viscous_damping_ratio="],
+                     ["time_lower=", "time_upper=", "number_of_fourier_terms=", "max_increments=",
+                      "incrementation_type=", "damping_ratios="]),
+                    ("add_steady_state_dynamics('step_nonharmonic'",
+                     ["number_of_data_points=12", "number_of_fourier_terms=8", "time_upper=2"], []),
+                    ("add_dynamic('step_dynamic_off'", ["damping('Off')"], []),
+                    ("add_heat_transfer('step_heat'", [], ["nlgeom="])]
+    for marker, expected_texts, unexpected_texts in expectations:
+        call = journal_call(journal_source, marker)
+        for expected in expected_texts:
+            check(expected in call, expected + " is missing from the journal call:" + os.linesep + call)
+        for unexpected in unexpected_texts:
+            check(unexpected not in call, unexpected + " must be left out of the journal call:" + os.linesep + call)
+    recorded_deck = export_deck(client, os.path.join(directory, "recorded.inp"))
+    # The journal replayed on a new model rebuilds the same steps and the same deck
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal of the step values must replay: " + result["error"] + os.linesep +
+          journal_source)
+    replayed = read_step_values(client)
+    check(replayed == recorded, "the replayed step values differ: " + str(replayed) + " against " + str(recorded))
+    replayed_deck = export_deck(client, os.path.join(directory, "replayed.inp"))
+    check(replayed_deck == recorded_deck, "the replayed steps write another deck: " +
+          first_difference(recorded_deck, replayed_deck))
+    print("journal: the step values replay to " + str(replayed))
 
 
 def read_layout_states(client):
@@ -1450,6 +1564,7 @@ def main():
         check_journal_of_replaces(client)
         check_journal_of_jobs(client)
         check_journal_of_model_states(client)
+        check_journal_of_step_values(client)
         check_journal_of_dialog_values(client)
         check_journal_of_dialog_appearance(client)
         check_journal_of_script_and_properties(client)

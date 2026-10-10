@@ -44,6 +44,7 @@ namespace PrePoMax.Rpc
         private int _blockCount;
         [ThreadStatic] private static string _echoNote;
         [ThreadStatic] private static List<RpcRunningCall> _undeliveredCalls;
+        [ThreadStatic] private static int _lastStartedCallId;
 
 
         // Properties                                                                                                               
@@ -51,6 +52,10 @@ namespace PrePoMax.Rpc
         // What the Python panel shows in place of the source of the call this thread runs, or null. Only
         // an in process caller can set it, for a script of its own, so nothing an agent sends is hidden
         public static string CurrentEchoNote { get { return _echoNote; } }
+        // The id of the call the latest Invoke on this thread started, or 0 when it started none. It is known
+        // whether that call finished within its wait or not, so an answer can be tied to its call although the
+        // finished answer carries no id and may yet be collected with get_call when its delivery fails
+        public static int LastStartedCallId { get { return _lastStartedCallId; } }
 
 
         // Constructor                                                                                                              
@@ -101,6 +106,7 @@ namespace PrePoMax.Rpc
             // window stays the user's, so a dialog is shown on the window and the call waits for a human at
             // the keyboard - and it waits holding the turn below, which is how one call that could not
             // finish stopped every later one
+            _lastStartedCallId = 0;
             bool wasNonInteractive = MessageBoxes.IsNonInteractiveThread;
             MessageBoxes.IsNonInteractiveThread = true;
             try
@@ -186,6 +192,7 @@ namespace PrePoMax.Rpc
                 _turn.Release();
                 throw;
             }
+            _lastStartedCallId = call.Id;
             return CollectWithin(call, callWaitMilliseconds);
         }
         private string ExecuteOnCallThread(RpcRequest request)

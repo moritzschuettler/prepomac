@@ -71,6 +71,15 @@ def test_pick_arguments():
     # An angle based mode cannot do without an angle
     check_raises(lambda: pmx.create.selection_by_pick('femodel', 'nodes', [0, 0, 0], 'SurfaceAngle'),
                  "an angle based pick without an angle must be rejected")
+    # The angle between two faces lies from 0 to 180 degrees, which the dialog keeps the angle to as well
+    pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.5, 1.0], 'SurfaceAngle', angle_deg=180)
+    for angle in [180.5, -1, float('nan'), float('inf')]:
+        try:
+            pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.5, 1.0], 'SurfaceAngle', angle_deg=angle)
+        except Exception as exception:
+            check("angle_deg" in str(exception), "the refusal must name angle_deg: " + str(exception))
+        else:
+            raise Exception("TEST FAILED: the pick angle " + str(angle) + " must be rejected")
     check_raises(lambda: pmx.create.selection_by_pick('femodel', 'nodes', [0, 0], 'Surface'),
                  "a two value point must be rejected")
 

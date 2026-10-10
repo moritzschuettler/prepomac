@@ -188,13 +188,14 @@ namespace PrePoMax.Rpc
             return value.ToString();
         }
         // A text argument with a default arrives as object, which C# gives no default but null, so the default the
-        // member applies when the argument is left out is the one its Arguments text documents
+        // member applies when the argument is left out is the one its Arguments text documents. Only the value
+        // token is taken: free text after it, such as the range of a value left out as None, is not the default
         private static string GetDocumentedDefault(string parameterName, string arguments)
         {
             if (string.IsNullOrEmpty(arguments)) return null;
             //
             Match match = Regex.Match(arguments, @"(?:^|,)\s*" + Regex.Escape(parameterName) +
-                                                 @"\s*:[^=,]*=\s*('[^']*'|""[^""]*""|[^,]+)");
+                                                 @"\s*:[^=,]*=\s*('[^']*'|""[^""]*""|\[[^\]]*\]|[^\s,(]+)");
             if (!match.Success) return null;
             //
             string value = match.Groups[1].Value.Trim();

@@ -19,11 +19,16 @@ namespace APIs.Python
     internal static class StepPartFactory
     {
         // Methods
+        // The solver input carries only the values the damping type uses, and the dialog shows only those, so a
+        // value of another type is refused
         public static Damping CreateDamping(string dampingType, object alpha, object beta)
         {
             Damping damping = new Damping();
             if (dampingType != null)
                 damping.DampingType = PythonValueConverter.ToEnum<DampingTypeEnum>(dampingType, "damping_type");
+            bool rayleigh = damping.DampingType == DampingTypeEnum.Rayleigh;
+            EnsureDampingTypeUses(rayleigh, alpha, "alpha", "Rayleigh");
+            EnsureDampingTypeUses(rayleigh, beta, "beta", "Rayleigh");
             if (alpha != null) damping.Alpha = PythonValueConverter.ToFiniteDouble(alpha, "alpha");
             if (beta != null) damping.Beta = PythonValueConverter.ToFiniteDouble(beta, "beta");
             //
@@ -36,6 +41,17 @@ namespace APIs.Python
             if (dampingType != null)
                 modalDamping.DampingType =
                     PythonValueConverter.ToEnum<ModalDampingTypeEnum>(dampingType, "damping_type");
+            ModalDampingTypeEnum type = modalDamping.DampingType;
+            EnsureDampingTypeUses(type == ModalDampingTypeEnum.Rayleigh, alpha, "alpha", "Rayleigh");
+            EnsureDampingTypeUses(type == ModalDampingTypeEnum.Rayleigh, beta, "beta", "Rayleigh");
+            EnsureDampingTypeUses(type == ModalDampingTypeEnum.Constant, viscousDampingRatio,
+                                  "viscous_damping_ratio", "Constant");
+            EnsureDampingTypeUses(type == ModalDampingTypeEnum.Direct, dampingRatios, "damping_ratios", "Direct");
+            // The solver input of the Direct type is its list of ratios, without which it cannot be written
+            if (type == ModalDampingTypeEnum.Direct && dampingRatios == null)
+                throw new PythonAPIException("The Direct modal damping type needs the argument 'damping_ratios', " +
+                                             "the ratios of the mode ranges made by pmx.create.damping_ratio.");
+            //
             if (alpha != null) modalDamping.Alpha = PythonValueConverter.ToFiniteDouble(alpha, "alpha");
             if (beta != null) modalDamping.Beta = PythonValueConverter.ToFiniteDouble(beta, "beta");
             if (viscousDampingRatio != null)
@@ -58,9 +74,14 @@ namespace APIs.Python
         public static DampingRatioAndRange CreateDampingRatio(object dampingRatio, object lowestMode,
                                                               object highestMode)
         {
-            return new DampingRatioAndRange(PythonValueConverter.ToFiniteDouble(dampingRatio, "damping_ratio"),
-                                            PythonValueConverter.ToInt(lowestMode, "lowest_mode"),
-                                            PythonValueConverter.ToInt(highestMode, "highest_mode"));
+            double ratio = PythonValueConverter.ToFiniteDouble(dampingRatio, "damping_ratio");
+            int lowest = ToIntAtLeast(1, lowestMode, "lowest_mode");
+            int highest = PythonValueConverter.ToInt(highestMode, "highest_mode");
+            if (highest < lowest)
+                throw new PythonAPIException("The argument 'highest_mode' must be at least 'lowest_mode', which is " +
+                                             lowest + ".");
+            //
+            return new DampingRatioAndRange(ratio, lowest, highest);
         }
         public static TimeIncrementationStepControlParameter CreateTimeIncrementationControl(
             object i0, object ir, object ip, object ic, object il, object ig, object iS, object ia, object ij,
@@ -119,6 +140,15 @@ namespace APIs.Python
             return new ResetStepControlParameter();
         }
         //
+        private static void EnsureDampingTypeUses(bool used, object value, string argumentName,
+                                                  string dampingTypeName)
+        {
+            if (value == null || used) return;
+            //
+            throw new PythonAPIException("The argument '" + argumentName + "' is not used: only the " +
+                                         dampingTypeName + " damping type uses it. Give damping_type='" +
+                                         dampingTypeName + "' with it, or leave it out.");
+        }
         // The parameter setters clamp a value outside their range, so a value the caller gave is refused instead
         private static int ToIntAtLeast(int minimum, object value, string argumentName)
         {

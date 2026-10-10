@@ -117,6 +117,12 @@ namespace PrePoMax.Python
         public static bool IsExecuting { get { lock (_executionLock) return _executions.Count > 0; } }
 
 
+        // Events
+        // Raised when the last running Python has ended, on its thread and with the GIL held, so a handler must not
+        // wait for anything - it posts its work to the thread that does it
+        public static event Action ExecutionsEnded;
+
+
         // Methods
         // The engine is started by whichever thread asks first - the user interface thread when the Python
         // panel opens, an automation call thread otherwise - so the start is locked. It is never retried
@@ -248,13 +254,17 @@ namespace PrePoMax.Python
             if (call != null) call.DetachExecution(execution);
             //
             bool isInterruptDelivered;
+            bool areAllEnded;
             lock (_executionLock)
             {
                 _executions.Remove(execution.ManagedThreadId);
                 execution.IsEnded = true;
                 isInterruptDelivered = execution.IsInterruptDelivered;
+                areAllEnded = _executions.Count == 0;
                 Monitor.PulseAll(_executionLock);
             }
+            Action executionsEnded = ExecutionsEnded;
+            if (areAllEnded && executionsEnded != null) executionsEnded();
             if (isInterruptDelivered)
             {
                 try

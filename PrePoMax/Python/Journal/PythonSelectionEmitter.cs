@@ -165,8 +165,14 @@ namespace PrePoMax.Python.Journal
                               node.SelectBy == vtkSelectBy.GeometryEdgeAngle ||
                               node.SelectBy == vtkSelectBy.GeometrySurfaceAngle;
             if (!needsAngle) return null;
+            // The angle between two faces is at most 180 degrees, so a larger recorded angle selects what 180 does.
+            // Below 0 or not a number the pick kept only the picked item, which no angle the API accepts reproduces
+            if (double.IsNaN(node.Angle) || node.Angle < 0)
+                throw new NotSupportedException("the recorded " + node.SelectBy + " pick angle " +
+                                                node.Angle.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                                                " is outside 0 - 180 degrees, which angle_deg requires");
             //
-            return "angle_deg=" + PythonValueFormatter.Number(node.Angle);
+            return "angle_deg=" + PythonValueFormatter.Number(Math.Min(node.Angle, 180));
         }
         private static string GetDirection(SelectionNodeMouse node)
         {

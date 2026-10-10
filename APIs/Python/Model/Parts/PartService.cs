@@ -313,6 +313,15 @@ namespace APIs.Python.Model
         {
             return numberOfCopies == 0 ? -1 : numberOfCopies;
         }
+        // The find edges dialog limits the angle between neighbouring faces to 0 - 90 degrees
+        protected static double ToEdgeAngle(object edgeAngle)
+        {
+            double angle = PythonValueConverter.ToFiniteDouble(edgeAngle, "edge_angle_deg");
+            if (angle < 0 || angle > 90)
+                throw new PythonAPIException("The argument 'edge_angle_deg' must be between 0 and 90 degrees.");
+            //
+            return angle;
+        }
         private double[] ToDirection(object value, string argumentName)
         {
             double[] direction = ToVector(value, argumentName);

@@ -344,7 +344,7 @@ namespace PrePoMax
         //
         private void tbAngle_KeyUp(object sender, KeyEventArgs e)
         {
-            if (sender is UserControls.UnitAwareTextBox uatb) _controller.SetSelectAngle(uatb.Value);
+            if (sender is UserControls.UnitAwareTextBox uatb) SetSelectionAngle(uatb);
         }
 
         // Methods                                                                                                                
@@ -475,11 +475,21 @@ namespace PrePoMax
             }
         }
         //
+        // A pick records the angle, and the angle between two faces lies from 0 to 180 degrees, so a value that
+        // is not a number keeps the last angle and one outside that range is set to its nearest end
         private void SetSelectionAngle(UserControls.UnitAwareTextBox uatbAngle)
         {
             try
             {
-                _controller.SetSelectAngle(uatbAngle.Value);
+                double angle = uatbAngle.Value;
+                if (double.IsNaN(angle)) return;
+                if (angle < 0 || angle > 180)
+                {
+                    angle = Math.Max(0, Math.Min(180, angle));
+                    if (uatbAngle.UnitConverter != null) uatbAngle.Text = uatbAngle.UnitConverter.ConvertToString(angle);
+                    else uatbAngle.Text = angle.ToString();
+                }
+                _controller.SetSelectAngle(angle);
             }
             catch
             { }

@@ -44,8 +44,10 @@ namespace APIs.Python
         {
             Dictionary<string, object> values = new Dictionary<string, object>();
             values["damping_type"] = _damping.DampingType.ToString();
-            values["alpha"] = _damping.Alpha;
-            values["beta"] = _damping.Beta;
+            // A value the damping type does not use is kept hidden, as the dialog hides it, and would be refused back
+            bool rayleigh = _damping.DampingType == DampingTypeEnum.Rayleigh;
+            values["alpha"] = rayleigh ? (object)_damping.Alpha : null;
+            values["beta"] = rayleigh ? (object)_damping.Beta : null;
             //
             return values;
         }

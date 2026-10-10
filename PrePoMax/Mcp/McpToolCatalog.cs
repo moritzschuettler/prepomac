@@ -65,7 +65,8 @@ namespace PrePoMax.Mcp
                 NoArguments, true));
             tools.Add(new McpTool("get_status", "Read the session state",
                 "Reports what PrePoMax is doing right now: whether it is idle or busy and why, the open model file, " +
-                "the current view, the unit system (model.unitSystem), how many commands are in the history, " +
+                "the current view, the model space (model.modelSpace), the unit system (model.unitSystem), " +
+                "how many commands are in the history, " +
                 "whether the server is in read only mode, whether Regenerate is replaying the history " +
                 "(isRegenerating) or a recorded script keeps what runs out of the history " +
                 "(isCommandRecordingSuppressed), and under calls the long calls still running or waiting " +
@@ -103,7 +104,8 @@ namespace PrePoMax.Mcp
                 "limit per part, and the whole answer lists no more than " + TopologyRowBudget + " rows " +
                 "together, so on an assembly the first parts are detailed and the rest say to ask for them by " +
                 "name. " +
-                "Read the remainder of one part through get_face_data and get_edge_data on it. Part names are " +
+                "Read the remainder of one part through get_face_data, get_edge_data and get_vertex_data on " +
+                "it. Part names are " +
                 "compared regardless of case but never trimmed, and a name that matches no part - a padded one " +
                 "included - is reported under unmatched_part_names.",
                 SessionSchema("\"part_names\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}, " +
@@ -418,7 +420,13 @@ namespace PrePoMax.Mcp
                 // The view is set up through the API, so the picture is taken of what the same calls
                 // would have produced from run_python and the endpoint grows no primitive for it
                 string setUp = GetViewSource(arguments);
-                if (setUp.Length > 0) Call(dispatcher, "exec", ExecArguments(setUp));
+                if (setUp.Length > 0)
+                {
+                    // A set-up that outlasted its wait still holds the turn, so the picture would only be
+                    // refused as busy: the caller is given the call to collect instead
+                    string setUpAnswer = Call(dispatcher, "exec", ExecArguments(setUp));
+                    if (IsRunning(setUpAnswer)) return Shape(dispatcher, setUpAnswer, GetViewSetUpAnswer);
+                }
                 //
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 string fileName = JsonReader.GetString(arguments, "file_name", null);
@@ -451,6 +459,22 @@ namespace PrePoMax.Mcp
             writer.EndObject();
             return writer.ToString();
         }
+        // The view a screenshot set up before its picture, when the set-up outlasted its wait and was collected
+        // later: the picture was never taken, so the answer says so beside what the set-up did
+        private static string GetViewSetUpAnswer(string answer)
+        {
+            if (IsFailed(answer)) throw new McpException(answer);
+            //
+            JsonWriter writer = new JsonWriter();
+            writer.BeginObject();
+            writer.WriteValue("isPictureTaken", false);
+            writer.WriteValue("note", "The view of the screenshot is set up, but the set-up outlasted its wait, " +
+                                      "so no picture was taken. Call screenshot again, without the view arguments, " +
+                                      "to take it.");
+            writer.WriteRawValue("viewSetUp", answer);
+            writer.EndObject();
+            return writer.ToString();
+        }
         // The snapshot is what the script printed, so it is returned as it was printed rather than
         // wrapped in the answer of the call that ran it. The script is the catalog's own and the same
         // every time, so the Python panel shows a one line note for it instead of the whole source
@@ -467,30 +491,32 @@ namespace PrePoMax.Mcp
                 throw new McpException(JsonReader.GetString(document, "error", "The script failed."));
             return JsonReader.GetString(document, "output", "");
         }
-        // A tool that shapes the answer of the call it started shapes it whenever it arrives: at once, or - for
-        // a call that outlasted its wait and was answered with running - when get_call collects it
+        // A tool that shapes the answer of the call it started shapes it whenever it arrives: at once, or when
+        // get_call collects it - for a call that outlasted its wait and was answered with running, and for one
+        // that finished within it but whose response never reached the client. So the shape is kept for every
+        // call the tool started, by the id the dispatcher started it under, the very Invoke that answered
+        // here, on this thread
         private static string Shape(RpcDispatcher dispatcher, string answer, Func<string, string> shape)
         {
-            if (!IsRunning(answer)) return shape(answer);
-            //
-            object document;
-            string error;
-            if (JsonReader.TryParse(answer, out document, out error))
+            int callId = RpcDispatcher.LastStartedCallId;
+            if (callId > 0)
             {
-                int callId = JsonReader.GetInt(document, "callId", 0);
-                if (callId > 0)
+                lock (_shapedCalls)
                 {
-                    lock (_shapedCalls)
+                    // A call its dispatcher no longer holds was delivered or given up, and cannot be collected
+                    _shapedCalls.RemoveAll(delegate (Tuple<RpcDispatcher, int, Func<string, string>> entry)
                     {
-                        _shapedCalls.Add(Tuple.Create(dispatcher, callId, shape));
-                        if (_shapedCalls.Count > MaximumShapedCalls) _shapedCalls.RemoveAt(0);
-                    }
+                        return entry.Item1.FindCall(entry.Item2) == null;
+                    });
+                    _shapedCalls.Add(Tuple.Create(dispatcher, callId, shape));
+                    if (_shapedCalls.Count > MaximumShapedCalls) _shapedCalls.RemoveAt(0);
                 }
             }
+            if (!IsRunning(answer)) return shape(answer);
             return answer;
         }
         // Kept after an answer was collected, because one whose response did not reach the client stays
-        // collectable; the list is bounded instead
+        // collectable; the list is bounded and loses the calls their dispatcher gave up instead
         private static Func<string, string> FindShape(RpcDispatcher dispatcher, int callId)
         {
             lock (_shapedCalls)

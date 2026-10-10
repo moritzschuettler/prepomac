@@ -404,6 +404,27 @@ def check_history(client):
           file_name)
     os.remove(file_name)
     print("history: a journal_file without include_journal refused, a relative one placed in " + file_name)
+    # An absolute journal file in a folder that does not exist yet is written, the folder created
+    folder = os.path.join(os.path.dirname(file_name), "rpc_journal_" + str(os.getpid()), "new")
+    absolute_name = os.path.join(folder, "rpc_journal.py")
+    check(not os.path.exists(folder), "the journal folder must not exist before the check: " + folder)
+    result = client.result("history", {"include_journal": True, "journal_file": absolute_name})
+    journal = result["journal"]
+    check(not journal["isInline"] and os.path.normcase(journal["fileName"]) == os.path.normcase(absolute_name) and
+          os.path.exists(absolute_name), "an absolute journal_file in a new folder must be written there: " +
+          str(journal))
+    os.remove(absolute_name)
+    os.rmdir(folder)
+    os.rmdir(os.path.dirname(folder))
+    # An empty name and a name that is not a Python file are refused, naming the argument, and nothing is written
+    for journal_file in ("", "   ", "rpc_journal.txt", "rpc_journal"):
+        error = client.error("history", {"include_journal": True, "journal_file": journal_file})
+        check(error["code"] == INVALID_PARAMS and "journal_file" in error["message"],
+              "journal_file " + repr(journal_file) + " must be refused naming journal_file: " + str(error))
+        check(journal_file.strip() == "" or
+              not os.path.exists(os.path.join(os.path.dirname(file_name), journal_file)),
+              "a refused journal_file must not be written: " + journal_file)
+    print("history: an absolute journal_file in a new folder written, an empty and a non .py one refused")
 
 
 def check_screenshot(client):

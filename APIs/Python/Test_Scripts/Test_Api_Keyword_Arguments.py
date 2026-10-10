@@ -172,7 +172,12 @@ def test_wrong_kind_arguments():
             (lambda: model.steps.add_static(None), "'name'", "None"),
             (lambda: model.steps.rename(PREFIX + "Missing", 5), "'new_name'", "string"),
             (lambda: model.node_sets.contains(5), "'name'", "string"),
-            (lambda: 5 in model.node_sets, "'name'", "string")]:
+            (lambda: 5 in model.node_sets, "'name'", "string"),
+            # A plain number argument evaluates no equation, so a string, even of a number, is refused
+            (lambda: pmx.create.friction(0.1, stick_slope="10"), "'stick_slope'", "must be a number"),
+            (lambda: pmx.create.gap_conductance(conductance="5"), "'conductance'", "must be a number"),
+            (lambda: model.parts.find_edges_by_angle(model.parts.first().name, "30"), "'edge_angle_deg'",
+             "must be a number")]:
         message = api_error(function)
         check(message is not None and argument in message and words in message and
               "No method matches" not in message,

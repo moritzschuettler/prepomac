@@ -141,6 +141,8 @@ def test_displacement_rotation():
     check(bc.get_value("u3") == 1.5, "u3 was not set, got " + str(bc.get_value("u3")))
     # A degree of freedom that is not given is left unconstrained
     check(bc.get_value("ur1") is None, "ur1 must be unconstrained, got " + str(bc.get_value("ur1")))
+    # A padded name is no name, so the value is not found under it
+    check_raises(lambda: bc.get_value(" u1"), "a padded value name must not be trimmed")
     # The colour reads back as red, green, blue and alpha
     check(list(bc.color) == [255, 0, 0, 255], "the color was not set, got " + str(list(bc.color)))
     check(type(bc.color) is list, "the color must read back as a plain list: " + repr(bc.color))

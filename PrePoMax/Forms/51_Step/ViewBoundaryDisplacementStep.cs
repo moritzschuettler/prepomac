@@ -53,6 +53,7 @@ namespace PrePoMax
             base.UpdateVisibility();
             //
             _dctd.GetProperty(nameof(SolverType)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(OutputFrequency)).SetIsBrowsable(false);
         }
 
     }

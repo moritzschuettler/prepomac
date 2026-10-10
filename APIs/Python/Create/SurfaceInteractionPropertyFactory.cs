@@ -40,7 +40,7 @@ namespace APIs.Python
                 gapConductance.GapConductanceType = GapConductanceEnum.Constant;
                 gapConductance.ConductnancePressureTemp = new double[][]
                 {
-                    new double[] { PythonValueConverter.ToDouble(conductance, "conductance"), 0, 0 }
+                    new double[] { PythonValueConverter.ToFiniteDouble(conductance, "conductance"), 0, 0 }
                 };
             }
             else

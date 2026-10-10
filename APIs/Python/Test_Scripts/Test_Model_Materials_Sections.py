@@ -289,6 +289,13 @@ def test_material_properties():
     check("youngs_modulus=210000" in repr(list(materials[PREFIX + "Steel"].get_properties())[0]),
           "the property does not print its values")
     check_raises(lambda: expansion.get_value("no_such_value"), "an unknown value name was accepted")
+    # A padded name is no name, so the value is not found under it
+    message = raised_message(lambda: expansion.get_value(" zero_temperature"))
+    check(message is not None and "thermal_expansion material property" in message,
+          "a padded value name must not be trimmed: " + str(message))
+    # The property values read back as their own names, the same way every detached part does
+    check(sorted(expansion.get_value_names()) == sorted(expansion.get_values().keys()),
+          "get_value_names must list the get_values names: " + str(list(expansion.get_value_names())))
     # The values are the keyword arguments of the maker, and the properties go straight back into a replace
     for name in [PREFIX + "Steel", PREFIX + "Temp", PREFIX + "Engineering", PREFIX + "Kinematic",
                  PREFIX + "Expansion", PREFIX + "Lamina", PREFIX + "Renamed", PREFIX + "Thermal"]:

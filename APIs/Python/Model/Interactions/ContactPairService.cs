@@ -129,9 +129,9 @@ namespace APIs.Python.Model
                                                  "nodes are adjusted. Leave it out together with adjust=False.");
                 // The dialog offers the size as Default, stored as NaN, and None keeps the value on a replace,
                 // so float('nan') is how a script asks for Default
-                if (!double.IsNaN(size) && !(size >= 0))
-                    throw new PythonAPIException("The argument 'adjustment_size' must be zero or larger, or " +
-                                                 "float('nan') for Default.");
+                if (!double.IsNaN(size) && !(size >= 0 && !double.IsInfinity(size)))
+                    throw new PythonAPIException("The argument 'adjustment_size' must be finite and zero or larger, " +
+                                                 "or float('nan') for Default.");
                 // An adjustment size implies the adjustment, the way the dialog presents the two
                 contactPair.AdjustmentSize = size;
                 contactPair.Adjust = true;

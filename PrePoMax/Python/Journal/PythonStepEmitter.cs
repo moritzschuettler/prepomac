@@ -124,11 +124,16 @@ namespace PrePoMax.Python.Journal
                 arguments.Add("harmonic=" + PythonValueFormatter.Format(steadyState.Harmonic));
                 arguments.Add("lower_frequency=" + PythonValueFormatter.Number(steadyState.LowerFrequency));
                 arguments.Add("upper_frequency=" + PythonValueFormatter.Number(steadyState.UpperFrequency));
-                arguments.Add("number_of_data_points=" + GetUnsetCount(steadyState.NumDataPoints));
+                arguments.Add("number_of_data_points=" + PythonValueFormatter.Format(steadyState.NumDataPoints));
                 arguments.Add("bias=" + PythonValueFormatter.Number(steadyState.Bias));
-                arguments.Add("number_of_fourier_terms=" + steadyState.NumFourierTerms);
-                arguments.Add("time_lower=" + PythonValueFormatter.Number(steadyState.TimeLower));
-                arguments.Add("time_upper=" + PythonValueFormatter.Number(steadyState.TimeUpper));
+                // Only nonharmonic loading uses the Fourier terms and the time range, which the dialog shows only
+                // then: the API refuses them otherwise, and a replace keeps them
+                if (!steadyState.Harmonic)
+                {
+                    arguments.Add("number_of_fourier_terms=" + steadyState.NumFourierTerms);
+                    arguments.Add("time_lower=" + PythonValueFormatter.Number(steadyState.TimeLower));
+                    arguments.Add("time_upper=" + PythonValueFormatter.Number(steadyState.TimeUpper));
+                }
                 arguments.Add("modal_damping=" + GetModalDamping(steadyState.ModalDamping));
                 return "steady_state_dynamics";
             }
@@ -166,23 +171,37 @@ namespace PrePoMax.Python.Journal
         {
             return count == int.MinValue ? "float('nan')" : PythonValueFormatter.Format(count);
         }
+        // Only the shared values the step type uses: the API refuses the others, and a replace keeps them. A boundary
+        // displacement step is not written to the solver input, so it uses none. A heat transfer step does not
+        // show Nlgeom, only a step of the add_static arguments shows the incrementation and writes the maximum
+        // number of increments unless the type is Default, a modal dynamics step always has the Automatic type,
+        // and a complex frequency step writes no solver
         private static void AddCommonValues(List<string> arguments, Step step)
         {
-            arguments.Add("nlgeom=" + PythonValueFormatter.Format(step.Nlgeom));
-            if (!(step is StaticStep) || step.IncrementationType != IncrementationTypeEnum.Default)
+            if (step is BoundaryDisplacementStep) return;
+            //
+            if (step.GetType() != typeof(HeatTransferStep))
+                arguments.Add("nlgeom=" + PythonValueFormatter.Format(step.Nlgeom));
+            if (step is StaticStep && step.IncrementationType != IncrementationTypeEnum.Default)
                 arguments.Add("max_increments=" + step.MaxIncrements);
-            arguments.Add("incrementation_type=" + PythonValueFormatter.Text(step.IncrementationType.ToString()));
-            arguments.Add("solver_type=" + PythonValueFormatter.Text(step.SolverType.ToString()));
+            if (step is StaticStep && !(step is ModalDynamicsStep))
+                arguments.Add("incrementation_type=" + PythonValueFormatter.Text(step.IncrementationType.ToString()));
+            if (!(step is ComplexFrequencyStep))
+                arguments.Add("solver_type=" + PythonValueFormatter.Text(step.SolverType.ToString()));
             arguments.Add("output_frequency=" + GetUnsetCount(step.OutputFrequency));
             arguments.Add("perturbation=" + PythonValueFormatter.Format(step.Perturbation));
             arguments.Add("run_analysis=" + PythonValueFormatter.Format(step.RunAnalysis));
         }
+        // Only the values the damping type uses, which are the values the dialog shows: the maker refuses the others
         private static string GetDamping(Damping damping)
         {
             if (damping == null) return "None";
             //
-            return PythonJournalWriter.Join("pmx.create.damping",
-                                            PythonValueFormatter.Text(damping.DampingType.ToString()),
+            string dampingType = PythonValueFormatter.Text(damping.DampingType.ToString());
+            if (damping.DampingType != DampingTypeEnum.Rayleigh)
+                return PythonJournalWriter.Join("pmx.create.damping", dampingType);
+            //
+            return PythonJournalWriter.Join("pmx.create.damping", dampingType,
                                             PythonValueFormatter.Number(damping.Alpha),
                                             PythonValueFormatter.Number(damping.Beta));
         }
@@ -190,12 +209,16 @@ namespace PrePoMax.Python.Journal
         {
             if (damping == null) return "None";
             //
-            List<string> arguments = new List<string> {
-                PythonValueFormatter.Text(damping.DampingType.ToString()),
-                PythonValueFormatter.Number(damping.Alpha),
-                PythonValueFormatter.Number(damping.Beta),
-                "viscous_damping_ratio=" + PythonValueFormatter.Number(damping.ViscousDampingRatio) };
-            if (damping.DampingRatiosAndRanges != null && damping.DampingRatiosAndRanges.Count > 0)
+            List<string> arguments = new List<string> { PythonValueFormatter.Text(damping.DampingType.ToString()) };
+            if (damping.DampingType == ModalDampingTypeEnum.Rayleigh)
+            {
+                arguments.Add(PythonValueFormatter.Number(damping.Alpha));
+                arguments.Add(PythonValueFormatter.Number(damping.Beta));
+            }
+            else if (damping.DampingType == ModalDampingTypeEnum.Constant)
+                arguments.Add("viscous_damping_ratio=" + PythonValueFormatter.Number(damping.ViscousDampingRatio));
+            else if (damping.DampingType == ModalDampingTypeEnum.Direct && damping.DampingRatiosAndRanges != null &&
+                     damping.DampingRatiosAndRanges.Count > 0)
             {
                 List<string> ratios = new List<string>();
                 foreach (DampingRatioAndRange ratio in damping.DampingRatiosAndRanges)

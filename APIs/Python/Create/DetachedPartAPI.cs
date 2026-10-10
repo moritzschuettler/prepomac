@@ -21,9 +21,11 @@ namespace APIs.Python
         // Methods
         [PythonAPI("Returns the values of the part under the names of the pmx.create arguments that set them, in " +
                    "the form those arguments take them. A value that is not set is None, which the maker takes as " +
-                   "its default. Passing the result back as keyword arguments to the pmx.create method that made " +
+                   "its default. A value entered as an expression is returned as that expression, with its " +
+                   "leading equals sign, and a table as a NumericArray, or as a list of rows when it holds an " +
+                   "expression. Passing the result back as keyword arguments to the pmx.create method that made " +
                    "the part makes the same part.",
-                   Returns = "dict[str, float, int, bool, str, list or None]",
+                   Returns = "dict[str, float, int, bool, str, list, NumericArray or None]",
                    Example = "pmx.create.damping(**step.get_value('damping').get_values())")]
         public Dictionary<string, object> get_values()
         {
@@ -38,7 +40,7 @@ namespace APIs.Python
 
         [PythonAPI("Returns one value of the part by the name of the pmx.create argument that sets it. Use " +
                    "get_value_names to list them.", Arguments = "name: str",
-                   Returns = "float, int, bool, str, list or None")]
+                   Returns = "float, int, bool, str, list, NumericArray or None")]
         public object get_value(object name)
         {
             string nameText = PythonValueConverter.ToText(name, "name", true);
@@ -47,8 +49,9 @@ namespace APIs.Python
             Dictionary<string, object> values = GetValues();
             object value;
             if (!values.TryGetValue(nameText, out value))
-                throw new PythonAPIException("The value '" + nameText + "' is not defined for a " + GetMakerName() +
-                                             " part. Possible values are " + string.Join(", ", values.Keys) + ".");
+                throw new PythonAPIException("The value '" + nameText + "' is not defined for a " +
+                                             GetPartDescription() + ". Possible values are " +
+                                             string.Join(", ", values.Keys) + ".");
             //
             return value;
         }
@@ -61,6 +64,10 @@ namespace APIs.Python
         protected abstract string GetTypeName();
         protected abstract string GetMakerName();
         protected abstract Dictionary<string, object> GetValues();
+        protected virtual string GetPartDescription()
+        {
+            return GetMakerName() + " part";
+        }
         //
         protected static object FromUnset(double value)
         {
@@ -74,7 +81,7 @@ namespace APIs.Python
             //
             return value;
         }
-        private static string FormatValue(object value)
+        protected static string FormatValue(object value)
         {
             if (value == null) return "None";
             if (value is string) return StringListAPI.ToDisplayString((string)value);

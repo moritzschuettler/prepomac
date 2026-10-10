@@ -50,16 +50,16 @@ namespace APIs.Python.Model
         public bool perturbation { get { return _service.ResolveStep(_stepName).Perturbation; } }
         [PythonAPI("True when the step is solved, false when the model is only checked.", Returns = "bool")]
         public bool run_analysis { get { return _service.ResolveStep(_stepName).RunAnalysis; } }
-        [PythonAPI("The maximum number of increments, or None for a step of the add_static arguments whose " +
-                   "incrementation type is Default, which does not use it.", Returns = "int or None")]
+        [PythonAPI("The maximum number of increments, or None where the solver input does not carry it: for a " +
+                   "step of the add_static arguments whose incrementation type is Default, and for a frequency, " +
+                   "complex frequency, buckle, steady state dynamics or boundary displacement step.",
+                   Returns = "int or None")]
         public object max_increments
         {
             get
             {
                 Step step = _service.ResolveStep(_stepName);
-                StaticStep staticStep = step as StaticStep;
-                if (staticStep != null && StepFactory.GetUnusedValueReason(staticStep, "max_increments") != null)
-                    return null;
+                if (StepFactory.GetUnusedValueReason(step, "max_increments") != null) return null;
                 //
                 return step.MaxIncrements;
             }
@@ -159,9 +159,10 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Returns a value that is specific to this step type by the name of the add_* argument that " +
-                   "sets it, for example time_period. Use get_value_names to list them. A frequency limit, a " +
-                   "cyclic symmetry mode or a number of data points that is not set is None, and so is a time " +
-                   "value or relative_error the step does not use, which add_static describes. A damping or " +
+                   "sets it, for example time_period. Use get_value_names to list them. A frequency limit or a " +
+                   "cyclic symmetry mode that is not set is None, and so is a value the step does not use: a " +
+                   "time value or relative_error, which add_static and add_modal_dynamics describe, and the " +
+                   "Fourier terms and time range of a harmonic steady state dynamics step. A damping or " +
                    "modal_damping is returned as a copy of the part pmx.create makes, which the argument takes " +
                    "back.", Arguments = "name: str",
                    Returns = "float, int, bool, str, Damping, ModalDamping or None")]
@@ -173,9 +174,7 @@ namespace APIs.Python.Model
                                                                                         GetArgumentValueNames(step)),
                                                          nameText, GetItemType(step) + " step");
             // A value the step does not use is kept hidden, as the dialog hides it, and would be refused back
-            StaticStep staticStep = step as StaticStep;
-            if (staticStep != null && StepFactory.GetUnusedValueReason(staticStep, nameText.Trim()) != null)
-                return null;
+            if (StepFactory.GetUnusedValueReason(step, nameText) != null) return null;
             // A frequency limit that is not set is stored as NaN, and a count as the smallest integer
             if (value is double number && double.IsNaN(number)) return null;
             if (value is int count) return FromUnsetInt(count);
