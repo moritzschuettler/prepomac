@@ -47,6 +47,10 @@ def test_nodes_and_elements():
     pmx.model.elements.renumber(201)
     check(pmx.model.elements.count == element_count, "renumbering changed the element count")
     check(min(pmx.model.parts.first().get_element_ids()) == 201, "the elements were not renumbered")
+    # The Merge Coincident Nodes dialog picks nodes, and its journal names that target
+    nodes = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', list(pmx.model.parts.first().get_node_ids()))
+    pmx.model.nodes.merge_coincident(nodes)
+    check(pmx.model.nodes.count == node_count, "a mesh without coincident nodes must keep its nodes")
     #
     check_raises(lambda: pmx.model.nodes.renumber(0), "a start ID of zero must be rejected")
     check_raises(lambda: pmx.model.elements.renumber(-1), "a negative start ID must be rejected")

@@ -69,7 +69,7 @@ namespace APIs.Python.Model
         }
         public Dictionary<string, int> FlipFaceOrientations(SelectionAPI selection)
         {
-            GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
+            GeometrySelection geometrySelection = BuildFaceSelection(selection);
             EnsureCommandsAvailable();
             return MeshGateway.FlipFaceOrientations(geometrySelection);
         }
@@ -194,27 +194,26 @@ namespace APIs.Python.Model
         }
         public Dictionary<string, int> Defeature(SelectionAPI selection)
         {
-            GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
+            GeometrySelection geometrySelection = BuildFaceSelection(selection);
             EnsureCommandsAvailable();
             return MeshGateway.Defeature(geometrySelection);
         }
         public string[] OffsetFace(SelectionAPI selection, object offset)
         {
-            GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
+            GeometrySelection geometrySelection = BuildFaceSelection(selection);
             double offsetValue = offset == null ? 0 : PythonValueConverter.ToFiniteDouble(offset, "offset");
             EnsureCommandsAvailable();
             return MeshGateway.OffsetFace(geometrySelection, offsetValue);
         }
         public Dictionary<string, int> DeleteCadFaces(SelectionAPI selection)
         {
-            GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
+            GeometrySelection geometrySelection = BuildFaceSelection(selection);
             EnsureCommandsAvailable();
             return MeshGateway.DeleteCadPartFaces(geometrySelection);
         }
         public Dictionary<string, int> FuseFaces(SelectionAPI selection)
         {
-            GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection", "geometry",
-                                                                         "geometry_surfaces");
+            GeometrySelection geometrySelection = BuildFaceSelection(selection);
             EnsureCommandsAvailable();
             return MeshGateway.FuseFaces(geometrySelection);
         }
@@ -241,6 +240,12 @@ namespace APIs.Python.Model
                 previews.Add(entry.Key, new RepairPreviewAPI(entry.Key, entry.Value.Refused, entry.Value.Edges,
                                                              entry.Value.Points));
             return previews;
+        }
+        // The face dialogs pick geometry surfaces, so that is what their journal names; any geometry naming the
+        // same faces is taken as well
+        private GeometrySelection BuildFaceSelection(SelectionAPI selection)
+        {
+            return BuildGeometrySelection(selection, "selection", "geometry", "geometry_surfaces");
         }
         // The stored spelling of a name, compared the way the model compares names, or null
         private static string FindName(IEnumerable<string> names, string name)
@@ -292,7 +297,7 @@ namespace APIs.Python.Model
         }
         public Dictionary<string, int> DeleteStlFaces(SelectionAPI selection)
         {
-            GeometrySelection geometrySelection = BuildGeometrySelection(selection, "selection");
+            GeometrySelection geometrySelection = BuildFaceSelection(selection);
             EnsureCommandsAvailable();
             return MeshGateway.DeleteStlPartFaces(geometrySelection);
         }

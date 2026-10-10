@@ -88,7 +88,9 @@ namespace APIs.Python.Model
             if (selection == null) throw new PythonAPIException("The argument 'selection' must not be None.");
             //
             MergeCoincidentNodes mergeCoincidentNodes = new MergeCoincidentNodes();
-            SelectionCompilation compilation = _selectionService.CompileForView(selection, "femodel", "geometry");
+            // The dialog picks nodes, so that is what its journal names
+            SelectionCompilation compilation = _selectionService.CompileForView(selection, "femodel",
+                                                                                new string[] { "geometry", "nodes" });
             mergeCoincidentNodes.GeometryIds = compilation.Ids;
             mergeCoincidentNodes.CreationData = compilation.Selection;
             if (tolerance != null)

@@ -987,7 +987,7 @@ not the read-only result mesh of the same name under `pmx.results`.
 | --- | --- |
 | `nodes.count`, `elements.count` | The node and element counts of the model mesh. |
 | `nodes.renumber(start_id)` | Renumbers the nodes using command history. |
-| `nodes.merge_coincident(selection, tolerance=None, nodes_to_keep=None)` | Merges the coincident nodes of the selected geometry. `nodes_to_keep` is `SmallerID` or `LargerID`. |
+| `nodes.merge_coincident(selection, tolerance=None, nodes_to_keep=None)` | Merges the coincident nodes of the selected geometry. The selection is made in the `femodel` view with the `geometry` target, or the `nodes` target the dialog picks. `nodes_to_keep` is `SmallerID` or `LargerID`. |
 | `elements.renumber(start_id)` | Renumbers the elements using command history. |
 
 ### Part collections
@@ -1016,8 +1016,10 @@ Every `part_names` argument accepts a single name or a list of names.
 `delete_cad_faces`, `fuse_faces`, `repair`, `repair_preview`, `split_periodic_faces`, `flip_stl_normals` and
 `delete_stl_faces`. The selection based methods take a
 selection built in the `geometry` view, with the `geometry` target except for the two splits: `split_solid` takes the
-`parts` target and `split_face` the `geometry_surfaces` target, which is what the two dialogs pick. `fuse_faces` takes
-either.
+`parts` target and `split_face` the `geometry_surfaces` target, which is what the two dialogs pick. The face
+operations - `defeature`, `offset_face`, `flip_face_orientations`, `delete_cad_faces`, `fuse_faces` and
+`delete_stl_faces` - take either `geometry` or `geometry_surfaces`, the target their dialogs pick and the journal
+writes.
 
 Each of `defeature`, `flip_face_orientations`, `delete_cad_faces` and `delete_stl_faces` reports what
 it did to every part it was asked about, as a `dict[str, int]`, and a part it could not touch reports

@@ -35,7 +35,7 @@ namespace APIs.Python.Model
             _service.RenumberNodes(PythonValueConverter.ToInt(start_id, "start_id"));
         }
 
-        [PythonAPI("Merges the coincident nodes of the selected geometry using command history. " +
+        [PythonAPI("Merges the coincident nodes of the selected geometry or nodes using command history. " +
                    "The nodes to keep are SmallerID or LargerID.",
                    Arguments = "selection: Selection, tolerance: float = None, nodes_to_keep: str = None",
                    Returns = "None")]

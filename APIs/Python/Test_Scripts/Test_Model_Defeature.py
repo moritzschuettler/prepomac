@@ -9,6 +9,11 @@
 #Its two siblings - flipping a face orientation and deleting an STL face - each act on one kind of
 #part only and leave every other kind alone, so they report the same way.
 #
+#The face dialogs pick geometry surfaces, and a journal of them writes the 'geometry_surfaces' target,
+#so every face operation must take that target as well as 'geometry' or a recorded session does not
+#replay. The through hole is removed with such a selection, and the other face operations are called
+#with one.
+#
 #blind_holes.brep is a 60 x 40 x 20 box with two blind holes drilled from the top face and one hole
 #that goes all the way through.
 #
@@ -39,6 +44,12 @@ def faces(part):
 
 def selection(part, rows):
     return pmx.create.selection_by_ids('geometry', 'geometry', 'surfaces',
+                                       {part.id: [row["id"] for row in rows]})
+
+
+# What the Defeature, Offset Face, Flip Face Orientation and Delete Faces dialogs record
+def dialog_selection(part, rows):
+    return pmx.create.selection_by_ids('geometry', 'geometry_surfaces', 'surfaces',
                                        {part.id: [row["id"] for row in rows]})
 
 
@@ -79,6 +90,21 @@ def test_siblings():
     # A .NET dictionary reaches Python without get(), so the key is asked for and then read
     check(box.name not in nothing or nothing[box.name] == 0,
           "a CAD part has no STL face to delete: " + str(dict(nothing)))
+    #
+    deleted = pmx.model.geometry.parts.delete_stl_faces(dialog_selection(stl, [{"id": 2}]))
+    check(deleted[stl.name] > 0, "an STL face picked as the dialog picks it must be deleted: " + str(dict(deleted)))
+
+
+# Every other face operation takes the target its dialog records
+def test_dialog_target():
+    box = pmx.model.geometry.parts.first()
+    flipped = pmx.model.geometry.parts.flip_face_orientations(dialog_selection(box, [{"id": 1}]))
+    check(box.name in flipped, "the flip report must name the part: " + str(dict(flipped)))
+    names = list(pmx.model.geometry.parts.offset_face(dialog_selection(box, [{"id": 1}]), 1.0))
+    check(len(names) == 1, "an offset of a face picked as the dialog picks it must add one part: " + str(names))
+    box = pmx.model.geometry.parts.first()
+    deleted = pmx.model.geometry.parts.delete_cad_faces(dialog_selection(box, [{"id": 1}]))
+    check(deleted[box.name] == 1, "a face picked as the dialog picks it must be deleted: " + str(dict(deleted)))
 
 
 def main():
@@ -98,8 +124,8 @@ def main():
     # A through hole has no bottom face to miss, so its wall alone is enough
     part = pmx.model.geometry.parts.first()
     rows = faces(part)
-    removed = pmx.model.geometry.parts.defeature(selection(part, walls_of_through_holes(rows)))
-    check(removed[part.name] > 0, "a through hole must be removed: " + str(removed))
+    removed = pmx.model.geometry.parts.defeature(dialog_selection(part, walls_of_through_holes(rows)))
+    check(removed[part.name] > 0, "a through hole picked as the dialog picks it must be removed: " + str(removed))
     # A blind hole closes once its cap is selected together with its wall. Every cylinder left is a
     # blind hole wall
     part = pmx.model.geometry.parts.first()
@@ -114,6 +140,7 @@ def main():
           " - " + str(after) + " against " + str(removed))
     check(after == 6, "the box must be left with its six faces: " + str(after))
     test_siblings()
+    test_dialog_target()
     print("TEST PASSED")
 
 
