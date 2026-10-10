@@ -28,10 +28,12 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds a surface interaction using command history. The properties are created by " +
-                   "pmx.create.",
+                   "pmx.create. As the dialog does, the properties must hold a surface behavior, and a Tied " +
+                   "surface behavior also a friction, which gives the stick slope.",
                    Arguments = "name: str, properties: SurfaceInteractionProperty or " +
                                "list[SurfaceInteractionProperty]", Returns = "SurfaceInteraction",
-                   Example = "pmx.model.surface_interactions.add('SI-1', pmx.create.friction(0.1))")]
+                   Example = "pmx.model.surface_interactions.add('SI-1', [pmx.create.surface_behavior('Hard'), " +
+                             "pmx.create.friction(0.1)])")]
         public SurfaceInteractionAPI add(object name, object properties)
         {
             string nameText = PythonValueConverter.ToText(name, "name", false);
@@ -43,7 +45,7 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces an existing surface interaction using command history. A value that is not " +
                    "given keeps the value the surface interaction already carries; the properties, when " +
-                   "given, replace the whole property list.",
+                   "given, replace the whole property list and are refused as on add.",
                    Arguments = "old_name: str, name: str = None, properties: SurfaceInteractionProperty or " +
                                "list[SurfaceInteractionProperty] = None", Returns = "SurfaceInteraction")]
         public SurfaceInteractionAPI replace(object old_name, object name = null, object properties = null)

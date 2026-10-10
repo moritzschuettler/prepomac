@@ -109,11 +109,11 @@ namespace PrePoMax.Python.Journal
             }
             if (item is SweepMesh sweep)
             {
-                // Only an item of the API before the dialog stopped offering the setting keeps its imprint edges
+                // Only an item made before the dialog stopped offering the setting keeps its imprint edges
                 if (sweep.KeepImprintEdges)
                     throw new NotSupportedException("a sweep mesh that keeps its imprint edges was made by an " +
-                                                    "older API; the dialog no longer offers the setting and the " +
-                                                    "API no longer takes it");
+                                                    "older version of PrePoMax; the dialog no longer offers the " +
+                                                    "setting and the API no longer takes it");
                 arguments.Add("number_of_global_smooth_steps=" +
                               PythonValueFormatter.Format(sweep.NumberOfGlobalSmoothSteps));
                 // The 2D algorithm of a sweep may be QuadWild, and the sweep builds its volume mesh itself
@@ -228,13 +228,13 @@ namespace PrePoMax.Python.Journal
             bool relativeSizeUsed = parameters.RelativeSize && parameters.AdvancedView;
             arguments.Add("max_size=" + PythonValueFormatter.Number(parameters.MaxH));
             arguments.Add("min_size=" + PythonValueFormatter.Number(parameters.MinH));
-            arguments.Add("fineness=" + PythonValueFormatter.Number(parameters.Fineness));
             arguments.Add("grading=" + PythonValueFormatter.Number(parameters.Grading));
             arguments.Add("elements_per_edge=" + PythonValueFormatter.Number(parameters.ElementsPerEdge));
             arguments.Add("elements_per_curve=" + PythonValueFormatter.Number(parameters.ElementsPerCurve));
             arguments.Add("second_order=" + PythonValueFormatter.Format(parameters.SecondOrder));
-            arguments.Add("midside_nodes_on_geometry=" +
-                          PythonValueFormatter.Format(parameters.MidsideNodesOnGeometry));
+            if (parameters.SecondOrder)
+                arguments.Add("midside_nodes_on_geometry=" +
+                              PythonValueFormatter.Format(parameters.MidsideNodesOnGeometry));
             arguments.Add("relative_size=" + PythonValueFormatter.Format(relativeSizeUsed));
             if (relativeSizeUsed)
             {

@@ -683,6 +683,14 @@ def check_screenshot(endpoint):
     view = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.view.current"}))
     check(view["value"] == "femodel", "a refused screenshot must leave the view alone: " + str(view["value"]))
     print("screenshot: an empty field refused, the view left as it was")
+    # A picture that cannot be written is refused before the view is set up for it
+    for file_name in ["mcp_refused.jpg", "mcp_<refused>.png"]:
+        text = endpoint.failing_tool("screenshot", {"view": "geometry", "file_name": file_name})
+        check("argument file_name" in text and "Nothing was done" in text,
+              "the file name " + file_name + " must be refused naming file_name: " + text)
+        view = json.loads(endpoint.tool("eval_expression", {"expression": "pmx.view.current"}))
+        check(view["value"] == "femodel", "a refused screenshot must leave the view alone: " + str(view["value"]))
+    print("screenshot: a file name that is no .png file refused, the view left as it was")
     # A view change is not a model change, so it records nothing
     history = json.loads(endpoint.tool("get_history"))
     for command in history["commands"]:

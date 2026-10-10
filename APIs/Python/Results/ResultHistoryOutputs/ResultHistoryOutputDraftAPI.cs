@@ -29,16 +29,16 @@ namespace APIs.Python
                    Returns = "Selection, Region, NodeSet, ElementSet, Surface, or None")]
         public object region { get { return _region; } }
         [PythonAPI("The optional first history-output filter.", Returns = "HistoryOutputFilter or None")]
-        public ResultHistoryOutputFilterAPI filter1
+        public object filter1
         {
             get { return _filter1; }
-            set { _filter1 = value; }
+            set { _filter1 = PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(value, "filter1", true); }
         }
         [PythonAPI("The optional second history-output filter.", Returns = "HistoryOutputFilter or None")]
-        public ResultHistoryOutputFilterAPI filter2
+        public object filter2
         {
             get { return _filter2; }
-            set { _filter2 = value; }
+            set { _filter2 = PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(value, "filter2", true); }
         }
 
 

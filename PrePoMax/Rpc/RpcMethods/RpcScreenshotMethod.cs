@@ -34,16 +34,13 @@ namespace PrePoMax.Rpc
         public static string Execute(RpcRequest request, RpcServer server)
         {
             string fileName = request.GetString("file_name", null);
-            if (fileName == null) fileName = GetTemporaryFileName();
-            else if (GetExtension(fileName).ToLower() != ".png")
-                throw new RpcException(RpcErrorCode.InvalidParams, "A screenshot is written as a .png file.");
-            else if (!Path.IsPathRooted(fileName)) fileName = Path.Combine(GetTemporaryDirectory(), fileName);
-            //
             bool transparentBackground = request.GetBool("transparent_background", false);
             int magnification = request.GetInt("magnification", 1);
-            if (magnification < 1 || magnification > MaxMagnification)
-                throw new RpcException(RpcErrorCode.InvalidParams, "The magnification must be from 1 to " +
-                                                                    MaxMagnification + ".");
+            string error = GetArgumentError(fileName, magnification);
+            if (error != null) throw new RpcException(RpcErrorCode.InvalidParams, error);
+            //
+            if (fileName == null) fileName = GetTemporaryFileName();
+            else if (!Path.IsPathRooted(fileName)) fileName = Path.Combine(GetTemporaryDirectory(), fileName);
             //
             string directory = Path.GetDirectoryName(fileName);
             if (directory != null && directory.Length > 0 && !Directory.Exists(directory))
@@ -71,18 +68,29 @@ namespace PrePoMax.Rpc
             writer.EndObject();
             return writer.ToString();
         }
-        // A name that is no file is refused before anything is drawn
-        private static string GetExtension(string fileName)
+        // A name that is no file, or a magnification the capture dialog does not offer, is refused before anything
+        // is drawn; the MCP endpoint asks the same before it sets the view up for the picture
+        public static string GetArgumentError(string fileName, int magnification)
         {
-            try
+            if (fileName != null)
             {
-                return Path.GetExtension(fileName);
+                string extension;
+                try
+                {
+                    extension = Path.GetExtension(fileName);
+                }
+                catch (ArgumentException exception)
+                {
+                    return "The argument file_name is not a valid file name: " + exception.Message +
+                           " Nothing was done.";
+                }
+                if (extension.ToLower() != ".png")
+                    return "The argument file_name must name a .png file, as a screenshot is written as one. " +
+                           "Nothing was done.";
             }
-            catch (ArgumentException exception)
-            {
-                throw new RpcException(RpcErrorCode.InvalidParams, "The argument file_name is not a valid file " +
-                                                                   "name: " + exception.Message + " Nothing was done.");
-            }
+            if (magnification < 1 || magnification > MaxMagnification)
+                return "The argument magnification must be from 1 to " + MaxMagnification + ". Nothing was done.";
+            return null;
         }
         private static string GetTemporaryFileName()
         {

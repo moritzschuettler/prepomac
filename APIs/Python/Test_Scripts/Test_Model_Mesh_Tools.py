@@ -232,6 +232,19 @@ def test_mesh_tool_regions():
         message = raised_message(call)
         check(message is not None and all(word in message for word in words),
               "the refusal must name " + str(words) + ": " + str(message))
+    # The dialogs refuse a part the tool cannot act on: the thicken shell dialog a part that is not a shell,
+    # the split dialog a base part that is not a tetrahedral solid. The cube is a hexahedral solid
+    surface_selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
+                                                    {pmx.model.parts.first().id: [1]})
+    for call, words in [(lambda: mesh.thicken_shell_mesh(part_name, 1.0), ["shell parts", "'part_names'"]),
+                        (lambda: mesh.split_part_mesh_using_surface(pmx.create.region('PartName', part_name),
+                                                                    surface_selection),
+                         ["tetrahedral", "'base_part_region'"]),
+                        (lambda: mesh.split_part_mesh_using_surface(part_selection, surface_selection),
+                         ["tetrahedral", "'base_part_region'"])]:
+        message = raised_message(call)
+        check(message is not None and all(word in message for word in words),
+              "the refusal must name " + str(words) + ": " + str(message))
     #
     check(pmx.model.nodes.count == node_count, "a refused mesh tool changed the node count")
     check(pmx.model.elements.count == element_count, "a refused mesh tool changed the element count")

@@ -134,6 +134,27 @@ namespace APIs.Python.Model
                                                  "property of each type.");
                 surfaceInteraction.AddProperty(propertyCopy);
             }
+            EnsureDefined(surfaceInteraction);
+        }
+        // The dialog refuses on OK an interaction without a surface behavior and a tied one without friction, in
+        // these words
+        private static void EnsureDefined(SurfaceInteraction surfaceInteraction)
+        {
+            SurfaceBehavior surfaceBehavior = null;
+            Friction friction = null;
+            foreach (SurfaceInteractionProperty property in surfaceInteraction.Properties)
+            {
+                if (property is SurfaceBehavior) surfaceBehavior = (SurfaceBehavior)property;
+                else if (property is Friction) friction = (Friction)property;
+            }
+            if (surfaceBehavior == null)
+                throw new PythonAPIException("Surface interaction must define a surface behavior. Add a " +
+                                             "pmx.create.surface_behavior(...) to 'properties'.");
+            if (surfaceBehavior.PressureOverclosureType == PressureOverclosureEnum.Tied && friction == null)
+                throw new PythonAPIException("A tied contact requires a stick slope definition using the friction " +
+                                             "interaction model. The value of the friction coefficient is " +
+                                             "irrelevant for tied contact. Add a pmx.create.friction(...) to " +
+                                             "'properties'.");
         }
         private void EnsureCommandsAvailable()
         {

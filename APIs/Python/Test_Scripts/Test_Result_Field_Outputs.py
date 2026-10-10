@@ -126,6 +126,15 @@ try:
         based_on="AllElements",
         item_limits={"All elements": 250.0}
     )
+    # A filter is set through the converter of the API, so a value of another type is refused naming the property
+    for filter_name in ["filter1", "filter2"]:
+        try:
+            setattr(replacement, filter_name, "Median")
+            message = None
+        except Exception as ex:
+            message = str(ex)
+        check(message is not None and "'" + filter_name + "'" in message and "FieldOutputFilter" in message,
+              "a draft filter that is not a filter must be refused naming " + filter_name + ": " + str(message))
     replacement.filter1 = field_outputs.create_average_filter(
         source="SurfaceNodes",
         number_of_layers=2,

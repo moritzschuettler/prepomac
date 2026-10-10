@@ -27,6 +27,34 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def work_directory():
+    """The work directory of the settings, which a new analysis inherits."""
+    name = PREFIX + "WorkDirectory"
+    job = pmx.jobs.add(name)
+    try:
+        return job.work_directory
+    finally:
+        pmx.jobs.remove(name)
+
+
+def import_shell_part():
+    """Imports a single triangle as a shell part beside the solid cube, and returns its name."""
+    names_before = set(pmx.model.parts.get_names())
+    directory = tempfile.mkdtemp(prefix="pytest_shell_")
+    file_name = os.path.join(directory, "triangle.obj")
+    with open(file_name, "w") as writer:
+        writer.write("v 0 0 20\nv 10 0 20\nv 0 10 20\nf 1 2 3\n")
+    try:
+        pmx.import_file(file_name)
+    finally:
+        os.remove(file_name)
+        os.rmdir(directory)
+    names = [name for name in pmx.model.parts.get_names() if name not in names_before]
+    check(len(names) == 1 and pmx.model.parts[names[0]].part_type == "Shell",
+          "the triangle must be imported as one shell part: " + str(names))
+    return names[0]
+
+
 def clean():
     # The parameter goes last, because an equation that still names it cannot be evaluated without it
     for collection in [pmx.model.initial_conditions, pmx.model.sections, pmx.model.materials,
@@ -92,13 +120,14 @@ def test_initial_condition_replacement():
 def test_model_properties():
     properties = pmx.model.properties
     original_type = properties.model_type
-    # The dialog takes a submodel only with a global results file it finds
-    file_name = os.path.join(tempfile.gettempdir(), PREFIX + "global.frd")
-    open(file_name, "w").close()
+    # The dialog takes a submodel only with a global results file it finds in the work directory
+    file_name = PREFIX + "global.frd"
+    full_file_name = os.path.join(work_directory(), file_name)
+    open(full_file_name, "w").close()
     try:
         properties.replace(model_type="Submodel", global_results_file_name=file_name)
     finally:
-        os.remove(file_name)
+        os.remove(full_file_name)
     check(properties.model_type == "Submodel", "the model type was not replaced")
     check(properties.global_results_file_name == file_name, "the submodel file name was not replaced")
     #
@@ -146,15 +175,18 @@ def test_creation_equations():
     # A creation carries the expression a replacement can, so the model parameter survives both ways
     if not pmx.model.parameters.contains(PREFIX + "length"):
         pmx.model.parameters.add(PREFIX + "length", 0.2)
-    part_selection = pmx.create.selection_by_ids('femodel', 'elements', 'parts',
-                                                 [pmx.model.parts.first().id])
     region = pmx.create.region('NodeSetName', PREFIX + "Nodes")
-    #
+    # The dialog takes a shell section on shell elements only, so it goes on an imported triangle
+    shell_part_name = import_shell_part()
+    part_selection = pmx.create.selection_by_ids('femodel', 'elements', 'parts',
+                                                 [pmx.model.parts[shell_part_name].id])
     pmx.model.sections.add_shell(PREFIX + "Shell", PREFIX + "Steel", part_selection,
                                  thickness=PREFIX + "length")
     equations = pmx.model.sections[PREFIX + "Shell"].get_equations()
     check(equations["thickness"] == "=" + PREFIX + "length",
           "the shell thickness expression was not stored: " + str(equations))
+    pmx.model.sections.remove([PREFIX + "Shell"])
+    pmx.model.parts.remove([shell_part_name])
     #
     pmx.model.sections.add_point_mass(PREFIX + "Mass", region, PREFIX + "length")
     check(pmx.model.sections[PREFIX + "Mass"].get_equations()["mass"] == "=" + PREFIX + "length",

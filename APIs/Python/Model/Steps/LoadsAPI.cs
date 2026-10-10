@@ -208,10 +208,11 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
-        [PythonAPI("Adds an imported pressure using command history. The pressure is read from a results " +
-                   "file and interpolated onto the surface, so the time and the variable name must name a " +
-                   "field that the file contains: the model reads the file on every model check. The " +
-                   "selection target is surfaces.",
+        [PythonAPI("Adds an imported pressure using command history. The pressure is read from an OpenFOAM " +
+                   "case, named by its .foam file, and interpolated onto the surface; the model reads the case " +
+                   "on every model check. As the dialog does, it refuses a case without results, a " +
+                   "pressure_time the case does not hold and a pressure_variable_name that is not a scalar " +
+                   "field of that time. The selection target is surfaces.",
                    Arguments = "name: str, region: Selection or Region, file_name: str, " +
                                "pressure_time: str, pressure_variable_name: str, " +
                                "interpolator_type: str = None, magnitude_factor: float = None, " +

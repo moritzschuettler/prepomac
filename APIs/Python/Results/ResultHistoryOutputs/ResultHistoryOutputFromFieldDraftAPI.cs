@@ -31,7 +31,8 @@ namespace APIs.Python
         [PythonAPI("The selected field component names.", Returns = "StringList")]
         public StringListAPI component_names { get { return new StringListAPI(_componentNames); } }
         [PythonAPI("The complex result representation: Real, Imaginary, Magnitude, Phase, RealAtAngle, Max, " +
-                   "AngleAtMax, Min or AngleAtMin.", Returns = "str")]
+                   "AngleAtMax, Min or AngleAtMin. A result without complex results takes only Real, checked " +
+                   "when the draft is added.", Returns = "str")]
         public object complex_result_type
         {
             get { return _complexResultType.ToString(); }
@@ -41,7 +42,8 @@ namespace APIs.Python
                 _complexResultType = PythonValueConverter.ToEnum<ComplexResultTypeEnum>(text, "complex_result_type");
             }
         }
-        [PythonAPI("The complex result angle in degrees.", Returns = "float")]
+        [PythonAPI("The complex result angle in degrees, used only with complex_result_type RealAtAngle, so " +
+                   "a nonzero angle is refused otherwise when the draft is added.", Returns = "float")]
         public object complex_angle_deg
         {
             get { return _complexAngleDeg; }
@@ -59,7 +61,9 @@ namespace APIs.Python
             get { return _incrementId; }
             set { _incrementId = value == null ? (int?)null : PythonValueConverter.ToInt(value, "increment_id"); }
         }
-        [PythonAPI("Whether harmonic oscillations are included.", Returns = "bool")]
+        [PythonAPI("Whether harmonic oscillations are included. True is taken only for complex results with " +
+                   "complex_result_type Real and a single step_id and increment_id, checked when the draft is " +
+                   "added.", Returns = "bool")]
         public object harmonic
         {
             get { return _harmonic; }

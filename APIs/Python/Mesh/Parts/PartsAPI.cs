@@ -118,12 +118,13 @@ namespace APIs.Python
             _commandGateway.ShowResultParts(partNames);
         }
         [PythonAPI("Sets the color of result parts using command history. The color is [R, G, B] or " +
-                   "[R, G, B, A] with channels from 0 to 255, or a .NET color name such as 'Red'.",
+                   "[R, G, B, A] with channels from 0 to 255, or a .NET color name such as 'Red'. As in the " +
+                   "dialog, an alpha below 25 is refused, so a part never becomes invisible.",
                    Arguments = "part_names: list[str] or str, color: list[int] or str", Returns = "None")]
         public void set_color(object part_names, object color)
         {
             string[] names = ResolvePartNames(part_names);
-            System.Drawing.Color value = PythonColorConverter.ToColor(color, "color");
+            System.Drawing.Color value = PythonColorConverter.ToPartColor(color, "color");
             EnsureCommandsAvailable();
             _commandGateway.SetResultPartColor(names, value);
         }
@@ -136,12 +137,12 @@ namespace APIs.Python
             _commandGateway.ResetResultPartColor(names);
         }
         [PythonAPI("Sets the opacity of result parts using command history: the alpha channel of their color, " +
-                   "as an integer from 0 for fully transparent to 255 for opaque.",
+                   "as an integer from 25, the most transparent value the dialog allows, to 255 for opaque.",
                    Arguments = "part_names: list[str] or str, opacity: int", Returns = "None")]
         public void set_opacity(object part_names, object opacity)
         {
             string[] names = ResolvePartNames(part_names);
-            byte alpha = PythonColorConverter.ToAlpha(opacity, "opacity");
+            byte alpha = PythonColorConverter.ToPartAlpha(opacity, "opacity");
             EnsureCommandsAvailable();
             _commandGateway.SetResultPartTransparency(names, alpha);
         }
@@ -163,7 +164,7 @@ namespace APIs.Python
             _commandGateway.MergeResultParts(names);
         }
         [PythonAPI("Replaces the properties of a result part using command history. A property that is not " +
-                   "given is kept.",
+                   "given is kept. A color with an alpha below 25 is refused, as in the dialog.",
                    Arguments = "old_name: str, name: str = None, color: list[int] or str = None",
                    Returns = "None")]
         public void replace_properties(object old_name, object name = null, object color = null)
@@ -180,7 +181,7 @@ namespace APIs.Python
                 ValidateNewPartName(nameText, storedOldName);
                 properties.Name = nameText;
             }
-            if (color != null) properties.Color = PythonColorConverter.ToColor(color, "color");
+            if (color != null) properties.Color = PythonColorConverter.ToPartColor(color, "color");
             _commandGateway.ReplaceResultPartProperties(storedOldName, properties);
         }
         [PythonAPI("Renames a result part using command history.", Arguments = "old_name: str, new_name: str",

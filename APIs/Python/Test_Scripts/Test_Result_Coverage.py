@@ -165,6 +165,13 @@ def test_part_commands():
     # A name that does not exist is refused before the command is recorded
     check_raises(lambda: parts.hide("__missing_part__"), "a missing part name was accepted")
     check_raises(lambda: parts.set_opacity(name, 300), "an out of range opacity was accepted")
+    # The result part dialogs raise an alpha below 25 to 25, so the API refuses it naming the argument
+    for call, argument in [(lambda: parts.set_opacity(name, 10), "'opacity'"),
+                           (lambda: parts.set_color(name, [10, 20, 30, 0]), "'color'"),
+                           (lambda: parts.replace_properties(name, color=[10, 20, 30, 24]), "'color'")]:
+        message = raised_message(call)
+        check(message is not None and argument in message and "25" in message,
+              "an alpha below 25 must be refused naming " + argument + ": " + str(message))
     check_raises(lambda: parts.set_opacity(name, 12.5), "a fractional opacity was accepted")
     check(not hasattr(parts, "set_transparency"), "set_transparency was renamed to set_opacity")
 

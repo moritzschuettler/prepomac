@@ -82,7 +82,7 @@ namespace APIs.Python.Model
         }
         public void SetColor(string[] partNames, object color)
         {
-            Color colorValue = PythonColorConverter.ToColor(color, "color");
+            Color colorValue = PythonColorConverter.ToPartColor(color, "color");
             EnsureCommandsAvailable();
             SetColorForParts(partNames, colorValue);
         }
@@ -93,7 +93,7 @@ namespace APIs.Python.Model
         }
         public void SetOpacity(string[] partNames, object opacity)
         {
-            byte alpha = PythonColorConverter.ToAlpha(opacity, "opacity");
+            byte alpha = PythonColorConverter.ToPartAlpha(opacity, "opacity");
             EnsureCommandsAvailable();
             SetTransparencyForParts(partNames, alpha);
         }
@@ -166,7 +166,8 @@ namespace APIs.Python.Model
                 typeof(PartProperties).GetProperty("Name").SetValue(boxed, name, null);
             }
             if (color != null)
-                typeof(PartProperties).GetField("Color").SetValue(boxed, PythonColorConverter.ToColor(color, "color"));
+                typeof(PartProperties).GetField("Color").SetValue(boxed,
+                                                                  PythonColorConverter.ToPartColor(color, "color"));
             if (elementTypes != null)
             {
                 OrderedDictionary<string, string> values =

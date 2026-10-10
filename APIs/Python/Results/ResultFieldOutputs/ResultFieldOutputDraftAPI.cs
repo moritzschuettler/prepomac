@@ -23,16 +23,16 @@ namespace APIs.Python
         [PythonAPI("The field output name.", Returns = "str")]
         public string name { get { return _name; } }
         [PythonAPI("The optional first field-output filter.", Returns = "FieldOutputFilter or None")]
-        public ResultFieldOutputFilterAPI filter1
+        public object filter1
         {
             get { return _filter1; }
-            set { _filter1 = value; }
+            set { _filter1 = PythonValueConverter.ToApiObject<ResultFieldOutputFilterAPI>(value, "filter1", true); }
         }
         [PythonAPI("The optional second field-output filter.", Returns = "FieldOutputFilter or None")]
-        public ResultFieldOutputFilterAPI filter2
+        public object filter2
         {
             get { return _filter2; }
-            set { _filter2 = value; }
+            set { _filter2 = PythonValueConverter.ToApiObject<ResultFieldOutputFilterAPI>(value, "filter2", true); }
         }
 
 

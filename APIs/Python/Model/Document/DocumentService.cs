@@ -261,6 +261,7 @@ namespace APIs.Python.Model
         {
             FeModel model = _modelResolver.GetModel();
             ModelProperties properties = model.Properties.DeepClone();
+            ModelType oldModelType = properties.ModelType;
             if (name != null) ValidateModelName(name);
             if (modelSpace != null) properties.ModelSpace = ToReplacedModelSpace(properties.ModelSpace, modelSpace);
             if (modelType != null)
@@ -269,9 +270,7 @@ namespace APIs.Python.Model
                                    cyclesIncrement, numOfSmoothingSteps, bdmRemeshing);
             if (globalResultsFileName != null)
             {
-                if (globalResultsFileName.Trim().Length == 0)
-                    throw new PythonAPIException("The argument 'global_results_file_name' must not be empty; a " +
-                                                 "submodel needs an existing global results file.");
+                ValidateGlobalResultsFileName(globalResultsFileName);
                 properties.GlobalResultsFileName = globalResultsFileName;
             }
             if (slipWearResults != null)
@@ -295,7 +294,10 @@ namespace APIs.Python.Model
                                                     clearUndefinedConstants, "stefan_boltzmann");
             properties.NewtonGravity = ToConstant(newtonGravity, properties.NewtonGravity, clearUndefinedConstants,
                                                   "newton_gravity");
-            EnsureDefined(properties);
+            bool givesGlobalResultsFile = globalResultsFileName != null ||
+                                          (properties.ModelType == ModelType.Submodel &&
+                                           oldModelType != ModelType.Submodel);
+            EnsureDefined(properties, givesGlobalResultsFile);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceModelProperties(name == null ? model.Name : name, properties);
@@ -312,7 +314,7 @@ namespace APIs.Python.Model
             else if (argumentName == "stefan_boltzmann") properties.StefanBoltzmann = constant;
             else if (argumentName == "newton_gravity") properties.NewtonGravity = constant;
             else throw new ArgumentException("The physical constant '" + argumentName + "' is unknown.");
-            EnsureDefined(properties);
+            EnsureDefined(properties, false);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceModelProperties(model.Name, properties);
@@ -354,7 +356,7 @@ namespace APIs.Python.Model
             ValidateModelName(name);
             //
             ModelProperties properties = _modelResolver.GetModel().Properties.DeepClone();
-            EnsureDefined(properties);
+            EnsureDefined(properties, false);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceModelProperties(name, properties);
@@ -393,13 +395,32 @@ namespace APIs.Python.Model
                                                  "SlipWearModel, but the model type is " + modelType + ".");
             }
         }
+        // The dialog stores the global results file name without its path and refuses, in these words, a name it
+        // cannot write into the input file
+        private static void ValidateGlobalResultsFileName(string globalResultsFileName)
+        {
+            if (globalResultsFileName.Length == 0)
+                throw new PythonAPIException("The argument 'global_results_file_name' must not be empty; a " +
+                                             "submodel needs an existing global results file.");
+            if (globalResultsFileName.Contains(" ") || globalResultsFileName.Contains(":") ||
+                globalResultsFileName.Contains("\\") || globalResultsFileName.Contains("/") ||
+                globalResultsFileName.ToUTF8() != globalResultsFileName)
+                throw new PythonAPIException("Enter the global results file name (.frd) without path. The results " +
+                                             "file name must not contain any special characters. Give in " +
+                                             "'global_results_file_name' the name of a file in the work directory: '" +
+                                             globalResultsFileName + "'.");
+        }
         // The dialog refuses on OK a submodel whose global results file it cannot find in the work directory and a
         // slip wear model whose cycles do not divide into increments, in these words, and judges the properties it
-        // ends with
-        private void EnsureDefined(ModelProperties properties)
+        // ends with. A setter or a rename has no dialog OK and keeps the stored file name, so the file is looked up
+        // only when the call gives it or makes the model a submodel; a replayed journal then does not depend on the
+        // work directory it runs in
+        private void EnsureDefined(ModelProperties properties, bool checkGlobalResultsFile)
         {
             if (properties.ModelType == ModelType.Submodel)
             {
+                if (!checkGlobalResultsFile) return;
+                //
                 string fileName = properties.GlobalResultsFileName == null ? "" : properties.GlobalResultsFileName;
                 string workDirectory = _jobGateway == null ? null : _jobGateway.GetWorkDirectory();
                 string fullFileName;
@@ -413,8 +434,8 @@ namespace APIs.Python.Model
                 }
                 if (!File.Exists(fullFileName))
                     throw new PythonAPIException("The selected global results file " + fullFileName + " does not " +
-                                                 "exist. Give an existing file in 'global_results_file_name', " +
-                                                 "relative to the work directory or absolute.");
+                                                 "exist. Give in 'global_results_file_name' the name of a file in " +
+                                                 "the work directory.");
             }
             else if (properties.ModelType == ModelType.SlipWearModel &&
                      properties.NumberOfCycles.Value % properties.CyclesIncrement.Value != 0)

@@ -270,7 +270,10 @@ namespace APIs.Python
 
         [PythonAPI("Creates a From Field history output and adds it to the current result, in one call. " +
                    "It takes the arguments of create_history_output_from_field, the options of its draft and " +
-                   "the optional filters. An option that is not given keeps the default of the draft.",
+                   "the optional filters. An option that is not given keeps the default of the draft. As in the " +
+                   "dialog, complex_result_type other than Real needs complex results, complex_angle_deg is " +
+                   "taken only with RealAtAngle, and harmonic=True only for complex results with Real and a " +
+                   "single step_id and increment_id.",
                    Arguments = "name: str, field_name: str, component_names: list[str], " +
                                "region: Selection or Region or NodeSet or Surface, complex_result_type: str = None, " +
                                "complex_angle_deg: float = None, step_id: int = None, increment_id: int = None, " +

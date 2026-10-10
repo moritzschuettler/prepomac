@@ -401,7 +401,8 @@ def check_journal_of_replaces(client):
         "loads.add_pre_tension('journal_pt', pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', "
         "{1: [1]}), 500, direction=[0, 0, 1])",
         "loads.replace_pre_tension('journal_pt', auto_direction=True)",
-        "pmx.model.surface_interactions.add('journal_si', pmx.create.friction(0.1))",
+        "pmx.model.surface_interactions.add('journal_si', [pmx.create.surface_behavior('Hard'), "
+        "pmx.create.friction(0.1)])",
         "pmx.model.contact_pairs.add('journal_cp', 'journal_si', pmx.create.selection_by_ids('femodel', "
         "'surfaces', 'surfaces', {1: [1]}), pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', "
         "{1: [2]}), method='NodeToSurface', small_sliding=True)",
@@ -961,7 +962,8 @@ def check_journal_of_dialog_appearance(client):
         "pmx.model.surfaces.add('look_back', face(2), surface_type='Node')",
         "pmx.model.surfaces.replace('look_back', surface_type='Element')",
         # An adjustment size taken back to the Default the dialog offers, and the colors of the two surfaces
-        "pmx.model.surface_interactions.add('look_si', pmx.create.friction(0.1))",
+        "pmx.model.surface_interactions.add('look_si', [pmx.create.surface_behavior('Hard'), "
+        "pmx.create.friction(0.1)])",
         "pmx.model.contact_pairs.add('look_pair', 'look_si', face(3), face(4), adjustment_size=0.01, "
         "master_color=[10, 20, 30], slave_color='Red')",
         "pmx.model.contact_pairs.replace('look_pair', adjustment_size=float('nan'), master_color='Yellow')",
@@ -1018,12 +1020,27 @@ def read_script_states(client):
     return value["value"]
 
 
+def read_work_directory(client):
+    """The work directory of the session's settings, which a new analysis inherits."""
+    name = "rpc_work_directory"
+    result = client.result("exec", {"source": "pmx.jobs.add('" + name + "')"})
+    check(not result["failed"], "the probe analysis must be added: " + result["error"])
+    value = client.result("eval", {"expression": "pmx.jobs['" + name + "'].work_directory"})
+    check(not value["failed"], "the work directory must be readable: " + value["error"])
+    result = client.result("exec", {"source": "pmx.jobs.remove('" + name + "')"})
+    check(not result["failed"], "the probe analysis must be removed: " + result["error"])
+    return value["value"]
+
+
 def check_journal_of_script_and_properties(client):
     """A recorded script that binds a name the journal uses must not change the lines after it, and the global
     results file of a submodel must come back from the journal. The dialog takes a submodel only with a file it
-    finds, so a cleared file name is refused rather than recorded."""
-    global_file = os.path.join(tempfile.gettempdir(), "rpc_global_results.frd")
-    open(global_file, "w").close()
+    finds in the work directory, named without its path, so a cleared file name and a path are refused rather than
+    recorded."""
+    work_directory = read_work_directory(client)
+    global_file = "rpc_global_results.frd"
+    full_global_file = os.path.join(work_directory, global_file)
+    open(full_global_file, "w").close()
     try:
         model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
         result = client.result("exec", {"source": model + os.linesep +
@@ -1039,12 +1056,14 @@ def check_journal_of_script_and_properties(client):
         check(not result["failed"], "the recorded script must not fail: " + result["error"])
         source = os.linesep.join(["pmx.model.node_sets.add('script_after', " + first_node + ")",
                                   "pmx.model.properties.replace(model_type='Submodel', "
-                                  "global_results_file_name=r'" + global_file + "')"])
+                                  "global_results_file_name='" + global_file + "')"])
         result = client.result("exec", {"source": source})
         check(not result["failed"], "the node set and the submodel file must be accepted: " + result["error"])
-        result = client.result("exec", {"source": "pmx.model.properties.replace(global_results_file_name='')"})
-        check(result["failed"] and "'global_results_file_name'" in result["error"],
-              "a cleared global results file of a submodel must be refused: " + str(result["error"]))
+        for value in ["''", "r'" + full_global_file + "'"]:
+            result = client.result("exec", {"source": "pmx.model.properties.replace(global_results_file_name=" +
+                                                      value + ")"})
+            check(result["failed"] and "'global_results_file_name'" in result["error"],
+                  "the global results file " + value + " of a submodel must be refused: " + str(result["error"]))
         recorded = read_script_states(client)
         check(recorded == [[1], [2, 3], [1], global_file], "the recorded states are not the ones built: " +
               str(recorded))
@@ -1065,7 +1084,7 @@ def check_journal_of_script_and_properties(client):
         check(replayed == recorded, "the replayed states differ: " + str(replayed) + " against " + str(recorded))
         print("journal: a recorded script and a submodel's global results file replay to " + str(replayed))
     finally:
-        os.remove(global_file)
+        os.remove(full_global_file)
 
 
 def read_failed_script_states(client):

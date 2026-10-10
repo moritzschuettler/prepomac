@@ -79,10 +79,36 @@ def test_meshing_parameters(items, selection):
     values = settings(items, PREFIX + "Parameters")
     check(values["relative_size"] is False and values["max_size"] == 0.3,
           "the kept sizes did not come back with relative_size=False: " + str(values))
+    # The midside node switch is used only for second order elements, as the dialog shows it, so it is read back
+    # and taken only then; the fineness is written for no mesher and the dialog does not show it
+    items.replace_meshing_parameters(PREFIX + "Parameters", second_order=True, midside_nodes_on_geometry=True)
+    values = settings(items, PREFIX + "Parameters")
+    check(values["midside_nodes_on_geometry"] is True, "the midside node switch was not set: " + str(values))
+    check("fineness" not in values, "the fineness must not be read back: " + str(values))
+    items.replace_meshing_parameters(PREFIX + "Parameters", second_order=False)
+    values = settings(items, PREFIX + "Parameters")
+    check("midside_nodes_on_geometry" not in values,
+          "first order meshing parameters read back the midside node switch: " + str(values))
+    items.replace_meshing_parameters(PREFIX + "Parameters", **values)
+    check(settings(items, PREFIX + "Parameters") == values, "the first order settings did not round trip")
+    for call, words in [(lambda: items.replace_meshing_parameters(PREFIX + "Parameters",
+                                                                  midside_nodes_on_geometry=False),
+                         ["'midside_nodes_on_geometry'", "second_order=True"]),
+                        (lambda: items.replace_meshing_parameters(PREFIX + "Parameters", second_order=False,
+                                                                  midside_nodes_on_geometry=True),
+                         ["'midside_nodes_on_geometry'", "second_order=False"]),
+                        (lambda: items.replace_meshing_parameters(PREFIX + "Parameters", fineness=0.5),
+                         ["fineness"])]:
+        message = raised_message(call)
+        check(message is not None and all(word in message for word in words),
+              "the refusal must name " + str(words) + ": " + str(message))
+    check(settings(items, PREFIX + "Parameters") == values, "a refused replace changed the meshing parameters")
+    items.replace_meshing_parameters(PREFIX + "Parameters", second_order=True)
 
 
 def test_netgen_mesh(items, selection, shell_selection):
-    items.add_netgen_mesh(PREFIX + "Netgen", selection, number_of_optimize_steps_2d=4, transfinite_four_sided=True)
+    items.add_netgen_mesh(PREFIX + "Netgen", selection, number_of_optimize_steps_2d=4, transfinite_three_sided="No",
+                          transfinite_four_sided=True)
     items.replace_netgen_mesh(PREFIX + "Netgen", number_of_optimize_steps_3d=5)
     values = settings(items, PREFIX + "Netgen")
     check(values["number_of_optimize_steps_3d"] == 5, "the Netgen 3-D optimization steps were not replaced")
@@ -103,8 +129,12 @@ def test_netgen_mesh(items, selection, shell_selection):
     check(len(items) == count, "a mixed case replace changed the number of mesh setup items")
     # The item meshes shell parts as well as solid ones
     items.add_netgen_mesh(PREFIX + "NetgenShell", shell_selection, quad_dominated=True)
-    check(settings(items, PREFIX + "NetgenShell")["quad_dominated"] is True,
-          "the Netgen quad-dominated setting was not stored")
+    values = settings(items, PREFIX + "NetgenShell")
+    check(values["quad_dominated"] is True, "the Netgen quad-dominated setting was not stored")
+    # A new item structures the 3-sided and the 4-sided faces
+    check(values["transfinite_three_sided"] == "Mapped" and values["transfinite_four_sided"] is True,
+          "a new Netgen item must structure the 3-sided and 4-sided faces: " + str(values))
+    items.replace_netgen_mesh(PREFIX + "NetgenShell", transfinite_three_sided="No", transfinite_four_sided=False)
     # The angle is used, shown and read back only while a face is structured, judged on the values the item ends
     # up with
     check("transfinite_angle_deg" not in settings(items, PREFIX + "NetgenShell"),
@@ -365,7 +395,7 @@ def test_value_ranges(items, solid_selection, shell_selection):
     refused(lambda: replace(name, relative_size=True, factor_max=0.01, factor_min=0.02),
             ["factor_min", "must not be larger than 'factor_max'"], "a minimum factor above the maximum was accepted")
     for arguments in [{"max_size": -1.0}, {"min_size": float("nan")}, {"factor_max": 1.5, "relative_size": True},
-                      {"factor_min": 0, "relative_size": True}, {"fineness": 0}, {"grading": 1.5},
+                      {"factor_min": 0, "relative_size": True}, {"grading": 1.5},
                       {"elements_per_edge": 0}, {"elements_per_curve": -1}]:
         argument = list(arguments)[0]
         refused(lambda: replace(name, **arguments), [argument], "the value " + str(arguments) + " was accepted")

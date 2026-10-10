@@ -18,11 +18,10 @@ namespace APIs.Python.Model
         // Variables
         // The Gmsh settings the property grid offers, split the way the mesher types share them
         private const string MeshingParameterArguments =
-            "max_size: float = None, min_size: float = None, fineness: float = None, grading: float = None, " +
-            "elements_per_edge: float = None, elements_per_curve: float = None, second_order: bool = None, " +
-            "midside_nodes_on_geometry: bool = None, relative_size: bool = None, factor_max: float = None, " +
-            "factor_min: float = None, split_compound_mesh: bool = None, merge_compound_parts: bool = None, " +
-            "merge_cells: bool = None";
+            "max_size: float = None, min_size: float = None, grading: float = None, elements_per_edge: float = None, " +
+            "elements_per_curve: float = None, second_order: bool = None, midside_nodes_on_geometry: bool = None, " +
+            "relative_size: bool = None, factor_max: float = None, factor_min: float = None, " +
+            "split_compound_mesh: bool = None, merge_compound_parts: bool = None, merge_cells: bool = None";
         private const string NetgenMeshArguments =
             "number_of_optimize_steps_2d: int = None, number_of_optimize_steps_3d: int = None, " +
             "quad_dominated: bool = None, transfinite_three_sided: str = None, transfinite_four_sided: bool = None, " +
@@ -72,9 +71,11 @@ namespace APIs.Python.Model
                 bool relativeSizeUsed = IsRelativeSizeUsed((MeshingParameters)item);
                 names.Add("max_size", new string[] { "max_h" });
                 names.Add("min_size", new string[] { "min_h" });
-                ModelItemValueReader.AddArguments(names, "fineness", "grading", "elements_per_edge",
-                                                  "elements_per_curve", "second_order", "midside_nodes_on_geometry",
-                                                  "relative_size");
+                ModelItemValueReader.AddArguments(names, "grading", "elements_per_edge", "elements_per_curve",
+                                                  "second_order");
+                if (((MeshingParameters)item).SecondOrder)
+                    ModelItemValueReader.AddArguments(names, "midside_nodes_on_geometry");
+                ModelItemValueReader.AddArguments(names, "relative_size");
                 if (relativeSizeUsed) ModelItemValueReader.AddArguments(names, "factor_max", "factor_min");
                 ModelItemValueReader.AddArguments(names, "split_compound_mesh", "merge_compound_parts",
                                                   "merge_cells");
@@ -202,21 +203,23 @@ namespace APIs.Python.Model
 
         // Methods
         [PythonAPI("Adds meshing parameters for the selected geometry. Every parameter that is not given " +
-                   "keeps the application default. max_size and min_size are at least 0, factor_max, factor_min, " +
-                   "fineness and grading larger than 0 and at most 1, elements_per_edge and elements_per_curve " +
+                   "keeps the application default. max_size and min_size are at least 0, factor_max, factor_min " +
+                   "and grading larger than 0 and at most 1, elements_per_edge and elements_per_curve " +
                    "larger than 0; a minimum larger than the maximum the item ends up with is refused naming both, " +
                    "and split_compound_mesh and merge_compound_parts cannot both be True. relative_size=True sizes " +
                    "the Netgen mesh by factor_max and factor_min times the bounding box diagonal of each part, and " +
                    "turns on the advanced view of the dialog, which offers the switch; relative_size=False sizes " +
                    "it by max_size and min_size. The factors are refused with relative_size=False and left out " +
                    "of get_settings then. Gmsh, Mmg and the limits of the local mesh sizes always use max_size " +
-                   "and min_size, so those two are taken and read back in either mode.",
+                   "and min_size, so those two are taken and read back in either mode. midside_nodes_on_geometry " +
+                   "is used only with second_order=True, as the dialog shows it, so it is refused and left out " +
+                   "of get_settings otherwise.",
                    Arguments = "name: str, selection: Selection, " + MeshingParameterArguments,
                    Returns = "MeshSetupItem",
                    Example = "pmx.model.mesh.setup_items.add_meshing_parameters('MP-1', selection, max_size=5.0)")]
         public MeshSetupItemAPI add_meshing_parameters(object name, object selection, object max_size = null,
-                                                       object min_size = null, object fineness = null,
-                                                       object grading = null, object elements_per_edge = null,
+                                                       object min_size = null, object grading = null,
+                                                       object elements_per_edge = null,
                                                        object elements_per_curve = null, object second_order = null,
                                                        object midside_nodes_on_geometry = null,
                                                        object relative_size = null, object factor_max = null,
@@ -231,7 +234,7 @@ namespace APIs.Python.Model
             MeshingParameters item = _service.CreateDefaultMeshingParameters(nameText);
             _service.PrepareItem(item, nameText, selectionValue);
             _service.ApplyPartDefaults(item);
-            ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
+            ApplyMeshingParameters(item, max_size, min_size, grading, elements_per_edge,
                                    elements_per_curve, second_order, midside_nodes_on_geometry,
                                    relative_size, factor_max, factor_min, split_compound_mesh,
                                    merge_compound_parts, merge_cells);
@@ -248,8 +251,8 @@ namespace APIs.Python.Model
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI replace_meshing_parameters(object old_name, object name = null,
                                                            object selection = null, object max_size = null,
-                                                           object min_size = null, object fineness = null,
-                                                           object grading = null, object elements_per_edge = null,
+                                                           object min_size = null, object grading = null,
+                                                           object elements_per_edge = null,
                                                            object elements_per_curve = null,
                                                            object second_order = null,
                                                            object midside_nodes_on_geometry = null,
@@ -263,11 +266,11 @@ namespace APIs.Python.Model
             string nameText = PythonValueConverter.ToText(name, "name", true);
             SelectionAPI selectionValue = PythonValueConverter.ToApiObject<SelectionAPI>(selection, "selection", true);
             MeshingParameters item = _service.CloneItem<MeshingParameters>(oldName);
-            bool valuesGiven = IsAnyGiven(max_size, min_size, fineness, grading, elements_per_edge,
+            bool valuesGiven = IsAnyGiven(max_size, min_size, grading, elements_per_edge,
                                           elements_per_curve, second_order, midside_nodes_on_geometry,
                                           relative_size, factor_max, factor_min, split_compound_mesh,
                                           merge_compound_parts, merge_cells);
-            ApplyMeshingParameters(item, max_size, min_size, fineness, grading, elements_per_edge,
+            ApplyMeshingParameters(item, max_size, min_size, grading, elements_per_edge,
                                    elements_per_curve, second_order, midside_nodes_on_geometry,
                                    relative_size, factor_max, factor_min, split_compound_mesh,
                                    merge_compound_parts, merge_cells);
@@ -907,7 +910,7 @@ namespace APIs.Python.Model
             }
         }
         private static void ApplyMeshingParameters(MeshingParameters item, object maxSize, object minSize,
-                                                   object fineness, object grading, object elementsPerEdge,
+                                                   object grading, object elementsPerEdge,
                                                    object elementsPerCurve, object secondOrder,
                                                    object midsideNodesOnGeometry, object relativeSize,
                                                    object factorMax, object factorMin, object splitCompoundMesh,
@@ -928,7 +931,6 @@ namespace APIs.Python.Model
             double[] factors = ResolveRange(factorMax, factorMin, item.FactorMax, item.FactorMin, "factor_max",
                                             "factor_min", false);
             double[] sizes = ResolveRange(maxSize, minSize, item.MaxH, item.MinH, "max_size", "min_size", true);
-            double? finenessValue = ToFraction(fineness, "fineness");
             double? gradingValue = ToFraction(grading, "grading");
             double? edgeCount = ToPositive(elementsPerEdge, "elements_per_edge");
             double? curveCount = ToPositive(elementsPerCurve, "elements_per_curve");
@@ -937,6 +939,12 @@ namespace APIs.Python.Model
             bool? midside = null;
             if (midsideNodesOnGeometry != null)
                 midside = PythonValueConverter.ToBool(midsideNodesOnGeometry, "midside_nodes_on_geometry");
+            // The dialog shows the switch only for second order elements, and the meshers use it only then
+            if (midside.HasValue && !(second ?? item.SecondOrder))
+                throw new PythonAPIException("The argument 'midside_nodes_on_geometry' is used only for second " +
+                                             "order elements, so it cannot be given with second_order=False" +
+                                             (second.HasValue ? "." : ", which the item keeps. Give " +
+                                                                      "second_order=True as well."));
             bool split = splitCompoundMesh != null
                          ? PythonValueConverter.ToBool(splitCompoundMesh, "split_compound_mesh") : item.SplitCompoundMesh;
             bool merge = mergeCompoundParts != null
@@ -963,7 +971,6 @@ namespace APIs.Python.Model
                                 value => item.FactorMin = value);
             if (sizes != null)
                 SetOrderedRange(sizes[0], sizes[1], item.MinH, value => item.MaxH = value, value => item.MinH = value);
-            if (finenessValue.HasValue) item.Fineness = finenessValue.Value;
             if (gradingValue.HasValue) item.Grading = gradingValue.Value;
             if (edgeCount.HasValue) item.ElementsPerEdge = edgeCount.Value;
             if (curveCount.HasValue) item.ElementsPerCurve = curveCount.Value;

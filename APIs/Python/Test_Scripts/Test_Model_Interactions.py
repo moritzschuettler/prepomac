@@ -50,11 +50,25 @@ def surface_selection(face):
 def test_surface_interactions():
     interactions = pmx.model.surface_interactions
     count_before = len(interactions)
+    # The dialog refuses an interaction without a surface behavior and a tied one without friction, in these
+    # words, and so does the API, before anything is recorded
+    for properties, fragment in [
+            (pmx.create.friction(0.1), "Surface interaction must define a surface behavior."),
+            ([pmx.create.gap_conductance(conductance=5)], "Surface interaction must define a surface behavior."),
+            (pmx.create.surface_behavior('Tied', k=500), "A tied contact requires a stick slope definition")]:
+        message = raised_message(lambda: interactions.add(PREFIX + "Bad", properties))
+        check(message is not None and fragment in message and "'properties'" in message,
+              "an interaction the dialog refuses must be refused: " + str(message))
+    check(len(interactions) == count_before, "a refused surface interaction was recorded")
+    tied = interactions.add(PREFIX + "SI_Tied", [pmx.create.surface_behavior('Tied', k=500),
+                                                 pmx.create.friction(0.1, stick_slope=500)])
+    check(tied.property_count == 2, "a tied interaction with friction must be accepted")
+    interactions.remove([PREFIX + "SI_Tied"])
     # A single property does not have to be wrapped in a list
-    interaction = interactions.add(INTERACTION, pmx.create.friction(0.1))
+    interaction = interactions.add(INTERACTION, pmx.create.surface_behavior('Hard'))
     check(len(interactions) == count_before + 1, "the surface interaction was not added")
     check(interaction.property_count == 1, "unexpected property count")
-    check(list(interaction.get_property_types()) == ["friction"],
+    check(list(interaction.get_property_types()) == ["surface_behavior"],
           "unexpected property types " + str(list(interaction.get_property_types())))
     # A surface interaction is composed of properties, the same way a material is
     interaction = interactions.replace(INTERACTION, INTERACTION,
@@ -67,9 +81,14 @@ def test_surface_interactions():
     interaction = interactions.replace(INTERACTION, INTERACTION + "_K")
     check(interaction.name == INTERACTION + "_K", "the surface interaction was not renamed by the replace")
     check(interaction.property_count == 2, "a rename alone must keep the properties")
-    interaction = interactions.replace(INTERACTION + "_K", properties=pmx.create.friction(0.3))
+    interaction = interactions.replace(INTERACTION + "_K", properties=pmx.create.surface_behavior('Hard'))
     check(interaction.name == INTERACTION + "_K", "a replace of the properties alone must keep the name")
-    check(list(interaction.get_property_types()) == ["friction"], "the properties were not replaced")
+    check(list(interaction.get_property_types()) == ["surface_behavior"], "the properties were not replaced")
+    message = raised_message(lambda: interactions.replace(INTERACTION + "_K", properties=pmx.create.friction(0.3)))
+    check(message is not None and "must define a surface behavior" in message and "'properties'" in message,
+          "a replace without a surface behavior must be refused: " + str(message))
+    check(list(interactions[INTERACTION + "_K"].get_property_types()) == ["surface_behavior"],
+          "a refused replace changed the properties")
     interaction = interactions.replace(INTERACTION + "_K", INTERACTION,
                                        [pmx.create.friction(0.2, stick_slope=1000),
                                         pmx.create.surface_behavior('Linear', k=2000)])
@@ -79,7 +98,7 @@ def test_surface_interactions():
     # A name the model could not take is refused before anything is recorded, naming the argument
     count_before_refusals = len(interactions)
     for bad_name in [PREFIX + "Bad Name", PREFIX + "Bad#", " " + PREFIX + "Spaced", "123"]:
-        message = raised_message(lambda: interactions.add(bad_name, pmx.create.friction(0.1)))
+        message = raised_message(lambda: interactions.add(bad_name, pmx.create.surface_behavior('Hard')))
         check(message is not None and "'name'" in message,
               "the name " + repr(bad_name) + " must be refused naming the argument: " + str(message))
     check(len(interactions) == count_before_refusals, "a refused add was recorded")
@@ -95,9 +114,11 @@ def test_surface_interactions():
                  "a gap conductance without a value must be rejected")
     check_raises(lambda: pmx.create.gap_conductance(conductance=5, conductance_table=[[5, 0, 0]]),
                  "a gap conductance with both forms must be rejected")
-    interactions.add(PREFIX + "SI_Gap", pmx.create.gap_conductance(conductance=5))
+    interactions.add(PREFIX + "SI_Gap", [pmx.create.surface_behavior('Hard'),
+                                         pmx.create.gap_conductance(conductance=5)])
     interactions.add(PREFIX + "SI_Gap_T",
-                     pmx.create.gap_conductance(conductance_table=[[5, 0, 20], [4, 10, 20]]))
+                     [pmx.create.surface_behavior('Hard'),
+                      pmx.create.gap_conductance(conductance_table=[[5, 0, 20], [4, 10, 20]])])
     check_raises(lambda: pmx.create.gap_conductance(conductance_table=[[5, 0]]),
                  "a gap conductance row must contain three values")
     # A constant conductance is a finite number, never a string of one
@@ -109,7 +130,7 @@ def test_surface_interactions():
                  "an unknown pressure overclosure type must be rejected")
     check_raises(lambda: interactions.add(PREFIX + "Bad", "not a property"),
                  "a property given as a string must be rejected")
-    check_raises(lambda: interactions.add(INTERACTION, pmx.create.friction(0.1)),
+    check_raises(lambda: interactions.add(INTERACTION, pmx.create.surface_behavior('Hard')),
                  "a duplicate name must be rejected")
     # The dialog adds a property type once, so a repeated one is refused naming the argument
     count_before_repeated = len(interactions)
@@ -214,13 +235,13 @@ def test_surface_interaction_properties():
     # A replace without a name keeps the interaction under its own spelling, whatever spelling old_name has
     count = len(interactions)
     for spelling in [extended.lower(), extended.upper()]:
-        interaction = interactions.replace(spelling, properties=pmx.create.friction(0.3))
+        interaction = interactions.replace(spelling, properties=pmx.create.surface_behavior('Linear', k=3000))
         check(interaction.name == extended and extended in list(interactions.get_names()),
               "a replace of '" + spelling + "' changed the stored spelling: " + str(list(interactions.get_names())))
     check(len(interactions) == count, "a mixed case replace changed the number of surface interactions")
     interactions.remove([extended])
     # A read back property is a copy, so changing the surface interaction does not change it
-    interactions.replace(name, properties=pmx.create.friction(0.5))
+    interactions.replace(name, properties=[pmx.create.friction(0.5), pmx.create.surface_behavior('Hard')])
     check(plain_values(properties[0])["coefficient"] == 0.2, "a read back property followed the model")
     interactions.remove([name])
 

@@ -736,13 +736,13 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable; `Undefined` and `None` are refused. Assigning it sets the model space of a new model, as the new model dialog does, and leaves the element types as they are, so once the model has a geometry or a mesh a defined model space is changed by `replace(model_space=...)`, which updates them. |
 | `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable; `Undefined` and `None` are refused. |
 | `model_type` | `GeneralModel`, `Submodel` or `SlipWearModel`. Writable. A `Submodel` needs an existing global results file and a `SlipWearModel` cycles its increment divides, so a change to one of them is made by `replace(...)` together with those values. |
-| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable on a `Submodel`; it must name an existing file, absolute or relative to the work directory, as the dialog refuses one it cannot find, so it cannot be cleared. Another model type reads it as `None`. |
+| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable on a `Submodel`; as the dialog does, it takes a file name without path, with no space, `:`, `\`, `/` or non UTF-8 character, and the file must exist in the work directory, so it cannot be cleared. Another model type reads it as `None`. |
 | `slip_wear_results` | Which results a slip wear model keeps. Writable on a `SlipWearModel`; another model type reads it as `None`. |
 | `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable on a `SlipWearModel` with an `int` or a `str` equation, as `replace(...)` takes them, and `get_equations()` returns the equation. Another model type reads them as `None`. |
 | `get_equations()` | The expressions those three values were entered with, without evaluating them, as a `dict[str, str]`, on a `SlipWearModel`; another model type returns an empty `dict`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and the property of the same name returns it. |
 | `bdm_remeshing` | Whether a slip wear model uses BDM remeshing. Writable on a `SlipWearModel`; another model type reads it as `None`. |
 | `absolute_zero`, `stefan_boltzmann`, `newton_gravity` | The physical constants as a `float`, or `None` while they are undefined. Writable; assigning `None` makes that constant undefined. |
-| `replace(name=None, model_space=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. `model_space` changes the model space between `PlaneStress`, `PlaneStrain` and `Axisymmetric` and updates the element types of the mesh, as the dialog does; a change between a 2D space and `ThreeD`, and `Undefined`, are refused. `number_of_cycles`, `cycles_increment` and `number_of_smoothing_steps` take an `int` or a `str` equation, rounded to a whole number. `number_of_cycles` and `cycles_increment` must be 1 or larger and `number_of_smoothing_steps` 0 or larger; a smaller value is refused naming the argument rather than raised to the minimum. A value the model type does not use - `global_results_file_name` on a model that is not a `Submodel`, `slip_wear_results`, `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` or `bdm_remeshing` on one that is not a `SlipWearModel` - is refused naming it, judged by the `model_type` the call ends with, so `replace(model_type='SlipWearModel', number_of_cycles=10)` is accepted. As the dialog does, the properties a call ends with are refused when a `Submodel` has no existing global results file - looked up in the work directory when the name is relative - or a `SlipWearModel` has a `number_of_cycles` its `cycles_increment` does not divide; an assignment to any property, a new name and a physical constant included, is judged on the properties it leaves in the same way. |
+| `replace(name=None, model_space=None, model_type=None, ..., clear_undefined_constants=False)` | Replaces several properties in one command. A value that is not given is kept. `model_space` changes the model space between `PlaneStress`, `PlaneStrain` and `Axisymmetric` and updates the element types of the mesh, as the dialog does; a change between a 2D space and `ThreeD`, and `Undefined`, are refused. `number_of_cycles`, `cycles_increment` and `number_of_smoothing_steps` take an `int` or a `str` equation, rounded to a whole number. `number_of_cycles` and `cycles_increment` must be 1 or larger and `number_of_smoothing_steps` 0 or larger; a smaller value is refused naming the argument rather than raised to the minimum. A value the model type does not use - `global_results_file_name` on a model that is not a `Submodel`, `slip_wear_results`, `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` or `bdm_remeshing` on one that is not a `SlipWearModel` - is refused naming it, judged by the `model_type` the call ends with, so `replace(model_type='SlipWearModel', number_of_cycles=10)` is accepted. As the dialog does, the properties a call ends with are refused when a `SlipWearModel` has a `number_of_cycles` its `cycles_increment` does not divide, or when a `Submodel` has no global results file in the work directory; the file is looked up only when the call gives `global_results_file_name` or makes the model a `Submodel`, so a physical constant or a new name set on a submodel, and a replayed journal, do not depend on the work directory. An assignment to any property, a new name and a physical constant included, is judged on the properties it leaves in the same way. |
 
 A physical constant that has never been given reads back as `None`. Because a value that is not given
 is kept, clearing one is an explicit request: `replace(clear_undefined_constants=True)` makes every
@@ -844,10 +844,10 @@ Reached as `pmx.model.mesh`.
 | --- | --- |
 | `setup_items` | The mesh setup items of the model. |
 | `generate(part_names)` | Meshes the named geometry parts. The call returns when the meshing has finished, and reports every named part with the reason it was not meshed and an empty reason for one that was. A call that meshes nothing at all raises instead, and records no command. |
-| `generate_boundary_layer(selection, thickness)` | Generates a prismatic boundary layer on the selected faces. `thickness` must be a finite value larger than 0. |
+| `generate_boundary_layer(selection, thickness)` | Generates a prismatic boundary layer on the selected faces. `thickness` must be a finite value larger than 0. As in the dialog, the model is in 3D model space. |
 | `remesh_elements(region, ...)` | Remeshes the elements of a region. The region is a selection or an `ElementSetName` region; the selection target is `elements`, as the dialog picks them, or `geometry`. `max_size` and `min_size` are at least 0, and a `min_size` larger than the `max_size` it ends up with - the one given or the default - is refused naming both; `hausdorff` is larger than 0. |
-| `thicken_shell_mesh(part_names, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens the shell mesh of the named parts. `thickness` must be larger than 0 and `number_of_layers` at least 1. |
-| `split_part_mesh_using_surface(base_part_region, splitter_surface_region, ...)` | Splits a part mesh with a surface. The base part region is a selection or a `PartName` region, the splitter surface region a selection or a `SurfaceName` region. The base part selection target is `parts`, as the dialog picks them, or `geometry`, and the splitter surface selection target is `surfaces`. `max_size` and `min_size` are checked as by `remesh_elements`. |
+| `thicken_shell_mesh(part_names, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens the shell mesh of the named parts. `thickness` must be larger than 0 and `number_of_layers` at least 1. As in the dialog, the model is in 3D model space and every named part is a manifold, consistently oriented shell part. |
+| `split_part_mesh_using_surface(base_part_region, splitter_surface_region, ...)` | Splits a part mesh with a surface. The base part region is a selection or a `PartName` region, the splitter surface region a selection or a `SurfaceName` region. The base part selection target is `parts`, as the dialog picks them, or `geometry`, and the splitter surface selection target is `surfaces`. `max_size` and `min_size` are checked as by `remesh_elements`. As in the dialog, the base part is a solid part meshed with tetrahedra only. |
 | `update_nodal_coordinates_from_file(file_name)` | Reads new nodal coordinates from a file. |
 
 The five tools are **one-shot operations**: they run once and are replayed only during a regenerate.
@@ -886,7 +886,7 @@ replace points it at geometry it can be defined on: a replacement is judged by t
 carries, not by the verdict of the item it replaces.
 
 `add_meshing_parameters` accepts `relative_size`, `factor_max`, `factor_min`, `max_size`,
-`min_size`, `fineness`, `grading`, `elements_per_edge`, `elements_per_curve`, `second_order`,
+`min_size`, `grading`, `elements_per_edge`, `elements_per_curve`, `second_order`,
 `midside_nodes_on_geometry`, `split_compound_mesh`, `merge_compound_parts` and `merge_cells`.
 `relative_size=True` sizes the Netgen mesh by `factor_max` and `factor_min` times the bounding box diagonal of
 each part, and `relative_size=False` by `max_size` and `min_size`. The dialog offers the switch only in its
@@ -896,16 +896,20 @@ is sized by its factors. Only Netgen honours the relative sizes: Gmsh, Mmg and t
 always use `max_size` and `min_size`, so those two are taken and read back by `get_settings` in either mode. The
 factors are used only with `relative_size=True`, so with `False` they are refused naming `relative_size` - judged
 on the switch the item ends up with, the one given or the one it keeps - and left out of `get_settings`; they keep
-their values for a later switch back.
+their values for a later switch back. `midside_nodes_on_geometry` is used only for second order elements, and the
+dialog shows it only then, so it is refused with `second_order=False` - the one given or the one the item keeps - and
+left out of `get_settings` and the journal. The Netgen fineness is written for no mesher and the dialog does not
+show it, so the API does not take it.
 `merge_cells`, `True` by default, meshes each part a split cut as one mesh part; `False` keeps its
 cells as separate, conforming mesh parts, so they can carry different sections. The Netgen settings
 `number_of_optimize_steps_2d`, `number_of_optimize_steps_3d`, `quad_dominated`, `transfinite_three_sided`,
 `transfinite_four_sided` and `transfinite_angle_deg` belong to `add_netgen_mesh`. `transfinite_three_sided`
-(`No` by default, `Mapped` or `Polar`) and `transfinite_four_sided` (off by default) mesh the 3-sided and the
+(`Mapped` by default, `Polar` or `No`) and `transfinite_four_sided` (on by default) mesh the 3-sided and the
 4-sided faces every mesher structures as structured grids - a 3-sided face as three blocks of quads around one
 inner node, or with `Polar` the grid collapsed at one corner with triangles there - with quads when `quad_dominated` is set and triangles otherwise. Opposite sides are balanced to the coarser count, a number of elements set on an
 edge as a number is kept (one an element size gives is not), and the meshing is refused when the set numbers cannot
-agree.
+agree. A compound is structured on the faces of its solids; a face two solids share is one face. An item read from
+a file written before a setting existed has it off.
 Like the dialog, it derives `max_size` and `min_size` from the size of the selected parts, and the
 arguments of the call are applied on top of those. `replace_meshing_parameters` does the same when
 it is given a new `selection` and no other value, so the sizes follow the geometry the item now
@@ -920,8 +924,8 @@ the dialog does, so a value the model refuses - a QuadWild `alpha` outside 0 to 
 changes only that value, and nothing is recorded.
 
 Before that, every value is checked against the range the model holds it to, and a value outside it is refused naming
-the argument rather than clamped, moved or passed on: `max_size` and `min_size` at least 0; `factor_max`, `factor_min`,
-`fineness` and `grading` larger than 0 and at most 1; `elements_per_edge` and `elements_per_curve` larger than 0;
+the argument rather than clamped, moved or passed on: `max_size` and `min_size` at least 0; `factor_max`, `factor_min`
+and `grading` larger than 0 and at most 1; `elements_per_edge` and `elements_per_curve` larger than 0;
 `element_size` larger than 0 and `number_of_elements` at least 1; `number_of_optimize_steps_2d` and `number_of_optimize_steps_3d`
 at least 0; the Netgen `transfinite_angle_deg` between 0 and 180, both excluded, and the QuadWild one from 90 to 180 (the Gmsh
 items and their dialog take any finite `transfinite_angle_deg` and `recombine_min_quality`: a face keeps its
@@ -965,7 +969,7 @@ corner collapsed is the one whose other two corners lie closest to a right angle
 the one between the two sides closest in length, so the axis of a pie cut from a cylinder. `Mapped` is three blocks
 of quads around one inner node, `No` a free mesh. An item read from a file written while the setting was a switch
 has `Polar` where it was on. The Netgen and QuadWild items and the meshing parameters take the same three values
-(`No` the default of a Netgen item and of the meshing parameters, `Mapped` of a QuadWild item), and collapse the same
+(`No` the default of the meshing parameters, `Mapped` of a Netgen and a QuadWild item), and collapse the same
 corner; one read from a file written while the setting was a switch has `Mapped` where it was on, the grid they made
 then. QuadWild gives the side across from the collapsed corner an even number of elements, as its quads need; a
 polar face the counts fixed on its sides do not allow is meshed as an ordinary patch.
@@ -1025,9 +1029,9 @@ Every `part_names` argument accepts a single name or a list of names.
 | Member | Description |
 | --- | --- |
 | `hide(part_names)`, `show(part_names)` | Part visibility. |
-| `set_color(part_names, color)` | The color is `[R, G, B]`, `[R, G, B, A]`, or a color name such as `'Green'`. |
+| `set_color(part_names, color)` | The color is `[R, G, B]`, `[R, G, B, A]`, or a color name such as `'Green'`. An alpha below 25 is refused naming `color`: the dialog raises it to 25, so a part never becomes invisible. |
 | `reset_color(part_names)` | Restores the default color. |
-| `set_opacity(part_names, opacity)` | The alpha channel of the part color as an integer: 0 is fully transparent, 255 is opaque. Geometry, model and result parts take it alike. |
+| `set_opacity(part_names, opacity)` | The alpha channel of the part color as an integer from 25, the most transparent value the dialog allows, to 255 for opaque; a lower value is refused. Geometry, model and result parts take it alike. |
 | `translate(part_names, translate_vector, number_of_copies=0)` | Translates the parts. |
 | `rotate(part_names, rotate_center, rotate_axis, rotate_angle_deg, number_of_copies=0)` | Rotates the parts about an axis; the angle is in degrees and right handed about the axis. |
 | `mirror(part_names, mirror_point, mirror_direction, copy=False)` | Mirrors the parts over the plane through the point with the direction as its normal. |
@@ -1035,7 +1039,7 @@ Every `part_names` argument accepts a single name or a list of names.
 | `get_element_type_names()` | The names of the 14 element type slots a part carries, for example `linear_tetra`. |
 | `get_element_types(part_name)` | The element type of every slot of a part, as a `dict[str, str]` of slot name to element type name, for example `{'linear_tetra': 'C3D4'}` - the form `set_element_type` and `replace_properties` take. The part type is not a slot, and only the element kinds the part contains are listed. |
 | `set_element_type(part_names, element_type, value)` | Sets one element type slot using command history. A value that names no element type of the slot is refused, and so is `None`. An element kind the part does not contain is refused with an error naming the kinds it has. |
-| `replace_properties(old_name, name=None, color=None, element_types=None)` | Replaces the name, the colour and the element type slots in one call. The element types are a map of the slot name to its value, the way `get_element_types` names them. A value that is not given is kept. An element kind the part does not contain is refused, naming the kinds it has, and so is the value `None`. |
+| `replace_properties(old_name, name=None, color=None, element_types=None)` | Replaces the name, the colour and the element type slots in one call. The element types are a map of the slot name to its value, the way `get_element_types` names them. A value that is not given is kept. An element kind the part does not contain is refused, naming the kinds it has, and so is the value `None`. A color with an alpha below 25 is refused, as by `set_color`. |
 
 `GeometryParts` adds `add_compound`, `regenerate_compound`, `swap_geometries`,
 `convert_shell_to_solid`, `convert_solid_to_shell`, `find_edges_by_angle`, `flip_face_orientations`,
@@ -1485,6 +1489,12 @@ A `thickness` must be larger than 0 and a `mass` zero or larger, on an add and o
 `material_name` of a solid, shell or membrane section is required on an add, so `None` is refused there;
 on a replace, `None` keeps the material.
 
+As the dialog does, the region must suit the section type, judged on an add and on the section a replace ends
+with; otherwise the call is refused with `The section type and the section region are not compatible.` and a hint
+naming `region`. In a 3D model a solid section needs solid parts or solid elements, and a shell or a membrane
+section shell parts or shell elements. In a 2D model a solid section needs the parts of the 2D mesh or their
+elements, and a shell, a membrane or a point mass section is taken on a selection only, never on a named region.
+
 A replacement is typed: replacing a solid section as a shell section is refused rather than silently
 turning it into one, with `The section 'X' is made by add_solid, so replace_shell cannot replace it.`
 
@@ -1818,8 +1828,8 @@ Reached as `pmx.model.surface_interactions`. A surface interaction is composed o
 
 | Member | Description |
 | --- | --- |
-| `add(name, properties)` | Adds a surface interaction. One property, or a list of them, each type at most once; a repeated type is refused naming `properties`. |
-| `replace(old_name, name=None, properties=None)` | Replaces a surface interaction. A value that is not given is kept; `properties`, when given, replaces the whole property list. |
+| `add(name, properties)` | Adds a surface interaction. One property, or a list of them, each type at most once; a repeated type is refused naming `properties`. As the dialog does, the properties must hold a `surface_behavior` - otherwise `Surface interaction must define a surface behavior.` - and a `Tied` surface behavior also a `friction`, which gives the stick slope. |
+| `replace(old_name, name=None, properties=None)` | Replaces a surface interaction. A value that is not given is kept; `properties`, when given, replaces the whole property list and is refused as on `add`. |
 
 `SurfaceInteraction` exposes `name`, `property_count`, `get_properties()` and `get_property_types()`, which names every
 property after the `pmx.create` maker that makes it: `friction`, `gap_conductance` or `surface_behavior`.
@@ -2084,7 +2094,7 @@ named, their region is an `ElementSetName` or a `PartName` region.
 | `add_moment(name, region, m1=None, m2=None, m3=None, ...)` | nodes | A moment. |
 | `add_pressure(name, region, magnitude, distribution_name=None, ...)` | surfaces | A pressure. |
 | `add_hydrostatic_pressure(name, region, first_point=None, second_point=None, direction=None, first_point_pressure=None, second_point_pressure=None, cutoff=None, ...)` | surfaces | A hydrostatic pressure. `cutoff` is `None`, `Positive` or `Negative`. The default `direction` is zero, so a direction must be given, and the two points must lie apart along it. |
-| `add_imported_pressure(name, region, file_name, pressure_time, pressure_variable_name, interpolator_type=None, magnitude_factor=None, geometry_scale_factor=None, ...)` | surfaces | A pressure read from a results file. |
+| `add_imported_pressure(name, region, file_name, pressure_time, pressure_variable_name, interpolator_type=None, magnitude_factor=None, geometry_scale_factor=None, ...)` | surfaces | A pressure read from an OpenFOAM case, named by its `.foam` file, and interpolated onto the surface. As the dialog does, a case without results, a `pressure_time` the case does not hold and a `pressure_variable_name` that is not a scalar field of that time are refused, on an add and on the load a replace ends with. |
 | `add_surface_traction(name, region, f1=None, f2=None, f3=None, p1=None, p2=None, p3=None, distribution_name=None, ...)` | surfaces | A surface traction. |
 | `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A shell edge load. |
 | `add_gravity(name, region, f1=None, f2=None, f3=None, ...)` | parts | A gravity load. |
@@ -3354,10 +3364,10 @@ Collection of mesh parts.
 | `last()` | Returns the last mesh part. |
 | `contains(name)` | Checks whether the part exists. |
 | `hide(part_names)`, `show(part_names)` | Result part visibility. A name or a list of names, in any case. |
-| `set_color(part_names, color)`, `reset_color(part_names)` | The result part colour. |
-| `set_opacity(part_names, opacity)` | The alpha channel of the result part color, from 0 for fully transparent to 255 for opaque. |
+| `set_color(part_names, color)`, `reset_color(part_names)` | The result part colour. An alpha below 25 is refused, as in the dialog. |
+| `set_opacity(part_names, opacity)` | The alpha channel of the result part color, from 25, the most transparent value the dialog allows, to 255 for opaque. |
 | `set_representation(part_names, result_representation)` | Turns the result representation on or off. |
-| `replace_properties(old_name, name=None, color=None)` | Replaces the part properties. A property that is not given is kept. |
+| `replace_properties(old_name, name=None, color=None)` | Replaces the part properties. A property that is not given is kept. A color with an alpha below 25 is refused. |
 | `rename(old_name, new_name)` | Renames a result part using command history. Only a part the result was read with can be renamed; use `replace_properties` for any other. |
 | `merge(part_names)` | Merges result parts into one. |
 | `remove(names)` | Removes result parts. |
@@ -3696,7 +3706,11 @@ A source of `add_from_merged_histories`, `add_from_extracted_entry` and `add_xy`
 list of three names, as for the drafts; the names are matched regardless of case and stored in the spelling of
 the result. `add_from_field` and `replace_from_field` take the same `region` as the draft and
 also take the options of the From Field draft - `complex_result_type`, `complex_angle_deg`, `step_id`, `increment_id`,
-`harmonic` and `output_node_coordinates` - and an option that is not given keeps the default of the draft. The draft form is kept here as well, because a
+`harmonic` and `output_node_coordinates` - and an option that is not given keeps the default of the draft. The
+dialog shows `complex_result_type` only for a result with complex results, `complex_angle_deg` only at `RealAtAngle`
+and `harmonic` only for complex results at `Real` with a single `step_id` and `increment_id`, so the definition that
+is added - by these calls or from a draft - is refused naming the option outside that state: a type other than
+`Real`, a nonzero angle, or `harmonic=True`. The draft form is kept here as well, because a
 history output draft carries a lot of state and is sometimes easier to build in steps.
 
 ### `HistoryOutputFilter`
@@ -3793,7 +3807,7 @@ if history_output.is_user_defined and history_output.item_type == "from_field":
 | `region_type` | `"Selection"`, `"NodeSetName"`, or `"SurfaceName"`. |
 | `region_name` | Region name, or `None` when the region is a selection. |
 | `complex_result_type` | `"Real"`, `"Imaginary"`, `"Magnitude"`, `"Phase"`, `"RealAtAngle"`, `"Max"`, `"AngleAtMax"`, `"Min"` or `"AngleAtMin"`. |
-| `complex_angle_deg` | Complex result angle in degrees. |
+| `complex_angle_deg` | Complex result angle in degrees, or `None` when `complex_result_type` is not `"RealAtAngle"`, the only type that uses it. |
 | `step_id` | Result step ID, or `None` when all steps are used. |
 | `increment_id` | Result increment ID, or `None` when all increments are used. |
 | `harmonic` | Whether harmonic oscillations are included. |
@@ -4106,9 +4120,28 @@ tree surfaces, `Test_Selection_Correctness.py` and `Test_Selection_Pick.py` the 
 the recorded pick, `Test_Job_Correctness.py` the analysis settings and the timeout, and
 `Test_Result_Coverage.py` with `Test_Result_Regions_Coverage.py` the result editing commands.
 
-`Audit_API_Coverage.py` is the offline structural check: it reports an `add_*` without its matching
-`replace_*`, and a controller command no gateway calls. `test_runner_offline.py` checks the runner
-itself with `python -m unittest test_runner_offline`, launching no PrePoMax process.
+`Run_Tests.py` runs the offline checks first, before any script that needs PrePoMax: every `Audit_*.py` script
+and the unit tests of the runner. They launch no PrePoMax process, take about a second, count as tests of the run,
+and a filter selects them by name like any other test.
+
+`Audit_API_Coverage.py` is the offline structural check. It fails on an `add_*` without its matching `replace_*`
+(except the ones made once from other items: `add_compound`, `add_group` and `add_from_quality`), a controller
+`*Command` method no gateway calls (except the lifecycle commands and aliases it lists), a command class under
+`PrePoMax/Commands` without a `ToPython` override, and a lower case name a journal emitter or a command's
+`ToPython` writes that is not a member of the API - a renamed or misspelled member - unless it is one of the
+verb prefixes, selection words and argument names it lists. It prints each count and the exceptions it allowed;
+`--json <file>` also writes the findings.
+
+`Audit_API_Documentation.py` checks this overview and the `[PythonAPI]` metadata against the C# members. The
+`Arguments` string of every member must name the C# parameters in their order, with the same optional-ness; a
+string that ends in `and the arguments of add_x` or `and the shared ... arguments` is checked for the arguments
+it names, and the `add_x` it refers to must exist. A `Returns` of `str`, `int`, `float`, `bool` or `None` must
+agree with the C# return type, both ways. Every signature row of the overview must name a member of the type its
+section documents, with only arguments that member takes; a row it cannot place is listed rather than failed.
+It exits with 0 only when nothing drifted.
+
+`test_runner_offline.py` checks the runner itself with `python -m unittest test_runner_offline`, launching no
+PrePoMax process.
 
 ## Notes for documentation generation
 

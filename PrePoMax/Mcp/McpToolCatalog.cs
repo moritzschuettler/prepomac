@@ -434,7 +434,12 @@ namespace PrePoMax.Mcp
             if (name == "screenshot")
             {
                 // The view is set up through the API, so the picture is taken of what the same calls
-                // would have produced from run_python and the endpoint grows no primitive for it
+                // would have produced from run_python and the endpoint grows no primitive for it. The picture
+                // is checked first, so a refused one leaves the view of the user as it was
+                string fileName = JsonReader.GetString(arguments, "file_name", null);
+                int magnification = JsonReader.GetInt(arguments, "magnification", 1);
+                string error = RpcScreenshotMethod.GetArgumentError(fileName, magnification);
+                if (error != null) throw new McpException(error);
                 string setUp = GetViewSource(arguments);
                 if (setUp.Length > 0)
                 {
@@ -445,10 +450,9 @@ namespace PrePoMax.Mcp
                 }
                 //
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
-                string fileName = JsonReader.GetString(arguments, "file_name", null);
                 if (fileName != null) parameters.Add("file_name", fileName);
                 parameters.Add("transparent_background", JsonReader.GetBool(arguments, "transparent_background", false));
-                parameters.Add("magnification", JsonReader.GetInt(arguments, "magnification", 1));
+                parameters.Add("magnification", magnification);
                 return Call(dispatcher, "screenshot", parameters);
             }
             if (name == "exit_session")

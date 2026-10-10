@@ -147,9 +147,8 @@ namespace PrePoMax
                 {
                     if (int.TryParse(value, out int incrementId)) _historyOutput.StepIncrementId = incrementId;
                     else throw new NotSupportedException();
-                    //
-                    UpdateVisibility();
                 }
+                UpdateVisibility();
             }
         }
         //
@@ -252,6 +251,7 @@ namespace PrePoMax
                 DynamicCustomTypeDescriptor.PopulateProperty(nameof(StepIncrementId), incrementIds);
                 if (!incrementIds.Contains(StepIncrementId)) StepIncrementId = incrementIds[0];
             }
+            else if (StepId == ResultHistoryOutputFromField.AllSteps) _historyOutput.StepIncrementId = -1;
             //
             UpdateVisibility();
         }
@@ -264,8 +264,9 @@ namespace PrePoMax
             visible = StepId != ResultHistoryOutputFromField.AllSteps;
             dctd.GetProperty(nameof(StepIncrementId)).SetIsBrowsable(visible);
             visible = _complexVisible && ComplexResultType == ComplexResultTypeEnum.Real &&
-                      visible && StepIncrementId != ResultHistoryOutputFromField.AllSteps;
+                      visible && StepIncrementId != ResultHistoryOutputFromField.AllIncrements;
             dctd.GetProperty(nameof(Harmonic)).SetIsBrowsable(visible);
+            if (!visible) _historyOutput.Harmonic = false;
         }
     }
 

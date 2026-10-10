@@ -90,13 +90,17 @@ namespace PrePoMax.Python.Journal
                 if (fromField.ComplexResultType != ComplexResultTypeEnum.Real)
                     arguments.Add("complex_result_type=" +
                                   PythonValueFormatter.Text(fromField.ComplexResultType.ToString()));
-                if (fromField.ComplexAngleDeg != 0)
+                // The dialog shows the angle only at RealAtAngle and the harmonic switch only for the real part of
+                // one increment, and the API takes them only then
+                if (fromField.ComplexResultType == ComplexResultTypeEnum.RealAtAngle && fromField.ComplexAngleDeg != 0)
                     arguments.Add("complex_angle_deg=" + PythonValueFormatter.Number(fromField.ComplexAngleDeg));
                 if (fromField.StepId != -1)
                     arguments.Add("step_id=" + PythonValueFormatter.Format(fromField.StepId));
                 if (fromField.StepIncrementId != -1)
                     arguments.Add("increment_id=" + PythonValueFormatter.Format(fromField.StepIncrementId));
-                if (fromField.Harmonic) arguments.Add("harmonic=" + PythonValueFormatter.Format(true));
+                if (fromField.Harmonic && fromField.ComplexResultType == ComplexResultTypeEnum.Real &&
+                    fromField.StepId != -1 && fromField.StepIncrementId != -1)
+                    arguments.Add("harmonic=" + PythonValueFormatter.Format(true));
                 if (fromField.OutputNodeCoordinates != OutputNodeCoordinatesEnum.Off)
                     arguments.Add("output_node_coordinates=" +
                                   PythonValueFormatter.Text(fromField.OutputNodeCoordinates.ToString()));

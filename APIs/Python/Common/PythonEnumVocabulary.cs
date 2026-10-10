@@ -164,6 +164,11 @@ namespace APIs.Python
             }
             names.Add("CreateAPI.selection_by_ids.source", SelectionService.SourceNames);
             names.Add("SelectionAPI.add_by_ids.source", SelectionService.SourceNames);
+            // The displayed tree and the tree a group operation acts on are named by the same three views
+            names.Add("ViewAPI.current.current", SelectionService.ViewNames);
+            foreach (string member in new[] { "get_item_types", "add_group", "rename_group", "remove_groups",
+                                              "move_items", "move_group", "get_layout", "set_layout" })
+                names.Add("TreeAPI." + member + ".view", SelectionService.ViewNames);
             //
             _lowerCaseNames = names;
             return _lowerCaseNames;

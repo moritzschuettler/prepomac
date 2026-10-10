@@ -354,6 +354,25 @@ namespace APIs.Python
                     throw new PythonAPIException("Increment ID " + output.StepIncrementId +
                                                  " does not exist in result step " + output.StepId + ".");
             }
+            ValidateFromFieldComplexOptions(result, output);
+        }
+        // The dialog shows the complex result type only for complex results, the angle only at RealAtAngle and the
+        // harmonic switch only for the real part of one complex increment
+        private static void ValidateFromFieldComplexOptions(FeResults result, ResultHistoryOutputFromField output)
+        {
+            bool complex = result.ContainsComplexResults();
+            if (!complex && output.ComplexResultType != ComplexResultTypeEnum.Real)
+                throw new PythonAPIException("The argument 'complex_result_type' is used only for complex results, " +
+                                             "and the current result has none, so it cannot be " +
+                                             output.ComplexResultType + ".");
+            if (output.ComplexResultType != ComplexResultTypeEnum.RealAtAngle && output.ComplexAngleDeg != 0)
+                throw new PythonAPIException("The argument 'complex_angle_deg' is used only with " +
+                                             "complex_result_type='RealAtAngle', but '" + output.ComplexResultType +
+                                             "' was given.");
+            if (output.Harmonic && !(complex && output.ComplexResultType == ComplexResultTypeEnum.Real &&
+                                     output.StepId != -1 && output.StepIncrementId != -1))
+                throw new PythonAPIException("The argument 'harmonic' is used only for complex results with " +
+                                             "complex_result_type='Real' and a single step_id and increment_id.");
         }
         private static void ValidateFromEquation(FeResults result, ResultHistoryOutputFromEquation output,
                                                  string replacedName)

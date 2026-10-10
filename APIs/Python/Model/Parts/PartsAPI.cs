@@ -43,7 +43,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Sets the color of the named parts. The color is [R, G, B] or [R, G, B, A] with channels " +
-                   "from 0 to 255, or a .NET color name such as 'Red'.",
+                   "from 0 to 255, or a .NET color name such as 'Red'. As in the dialog, an alpha below 25 is " +
+                   "refused, so a part never becomes invisible.",
                    Arguments = "part_names: list[str] or str, color: list[int] or str", Returns = "None",
                    Example = "parts.set_color('Solid-1', [255, 0, 0])")]
         public void set_color(object part_names, object color)
@@ -59,7 +60,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Sets the opacity of the named parts, the alpha channel of their color, as an integer from " +
-                   "0 for fully transparent to 255 for opaque.",
+                   "25, the most transparent value the dialog allows, to 255 for opaque.",
                    Arguments = "part_names: list[str] or str, opacity: int", Returns = "None",
                    Example = "parts.set_opacity('Solid-1', 128)")]
         public void set_opacity(object part_names, object opacity)
@@ -69,7 +70,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces the properties of a part using command history. A property that is not given " +
                    "is kept. The element types are a map of the element type name to its value, the way " +
-                   "get_element_types names them. An element kind the part does not contain is refused.",
+                   "get_element_types names them. An element kind the part does not contain is refused, and so " +
+                   "is a color with an alpha below 25.",
                    Arguments = "old_name: str, name: str = None, color: list[int] or str = None, " +
                                "element_types: dict[str, str] = None", Returns = "None",
                    Example = "parts.replace_properties('Solid-1', name='Bracket', " +

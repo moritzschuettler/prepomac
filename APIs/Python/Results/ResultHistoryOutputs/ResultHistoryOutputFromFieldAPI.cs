@@ -25,8 +25,17 @@ namespace APIs.Python
         [PythonAPI("The complex result representation: Real, Imaginary, Magnitude, Phase, RealAtAngle, Max, " +
                    "AngleAtMax, Min or AngleAtMin.", Returns = "str")]
         public string complex_result_type { get { return ResolveFromField().ComplexResultType.ToString(); } }
-        [PythonAPI("The complex result angle in degrees.", Returns = "float")]
-        public double complex_angle_deg { get { return ResolveFromField().ComplexAngleDeg; } }
+        [PythonAPI("The complex result angle in degrees, or None when complex_result_type is not RealAtAngle, " +
+                   "the only type that uses it.", Returns = "float or None")]
+        public double? complex_angle_deg
+        {
+            get
+            {
+                ResultHistoryOutputFromField historyOutput = ResolveFromField();
+                if (historyOutput.ComplexResultType != ComplexResultTypeEnum.RealAtAngle) return null;
+                return historyOutput.ComplexAngleDeg;
+            }
+        }
         [PythonAPI("The result step ID, or None when all steps are used.", Returns = "int or None")]
         public int? step_id
         {

@@ -34,6 +34,16 @@ def raised_message(function):
     return None
 
 
+def work_directory():
+    """The work directory of the settings, which a new analysis inherits."""
+    name = "PyTest_WorkDirectory"
+    job = pmx.jobs.add(name)
+    try:
+        return job.work_directory
+    finally:
+        pmx.jobs.remove(name)
+
+
 def test_properties():
     check(pmx.model.is_open(), "a model must be open")
     check(pmx.model.properties.unit_system == "MM_TON_S_C",
@@ -176,28 +186,48 @@ def test_model_space_and_unused_values():
     check(all(value is None for value in values.values()),
           "a general model must read the submodel and slip wear values as None: " + str(values))
     properties.replace(**values)
-    # The dialog refuses a submodel whose global results file it cannot find, in these words, and so does the API
-    file_name = os.path.join(tempfile.gettempdir(), "pytest_global.frd")
-    open(file_name, "w").close()
+    # The dialog refuses a submodel whose global results file it cannot find in the work directory, and a file name
+    # with a path or a special character, in these words, and so does the API
+    file_name = "pytest_global.frd"
+    full_file_name = os.path.join(work_directory(), file_name)
+    open(full_file_name, "w").close()
     try:
         for function, fragment in [
                 (lambda: properties.replace(model_type="Submodel", global_results_file_name=file_name + ".missing"),
                  "does not exist"),
                 (lambda: properties.replace(model_type="Submodel"), "does not exist"),
                 (lambda: setattr(properties, "model_type", "Submodel"), "does not exist"),
-                (lambda: properties.replace(model_type="Submodel", global_results_file_name=""), "must not be empty")]:
+                (lambda: properties.replace(model_type="Submodel", global_results_file_name=""), "must not be empty"),
+                (lambda: properties.replace(model_type="Submodel", global_results_file_name=full_file_name),
+                 "without path"),
+                (lambda: properties.replace(model_type="Submodel", global_results_file_name="sub/" + file_name),
+                 "without path"),
+                (lambda: properties.replace(model_type="Submodel", global_results_file_name="pytest global.frd"),
+                 "special characters")]:
             message = raised_message(function)
             check(message is not None and fragment in message and "'global_results_file_name'" in message,
-                  "a submodel without an existing global results file must be refused: " + str(message))
+                  "a submodel without a global results file in the work directory must be refused: " + str(message))
         check(properties.model_type == "GeneralModel", "a refused replace changed the model type")
         properties.replace(model_type="Submodel", global_results_file_name=file_name)
         check(properties.global_results_file_name == file_name and properties.number_of_cycles is None,
               "a submodel must read its file and no slip wear value: " + str(properties.global_results_file_name))
-        properties.replace(model_type="SlipWearModel")
-        check(properties.global_results_file_name is None and isinstance(properties.number_of_cycles, int) and
-              isinstance(properties.bdm_remeshing, bool), "a slip wear model must read its values and no file")
     finally:
-        os.remove(file_name)
+        os.remove(full_file_name)
+    # A setter, a rename and a replace that neither gives the file nor makes the model a submodel have no dialog OK,
+    # so they do not look the stored file up again, and a replayed journal does not depend on the work directory
+    properties.absolute_zero = -273.15
+    properties.absolute_zero = None
+    model_name = pmx.model.name
+    properties.name = model_name + "_Submodel"
+    properties.name = model_name
+    properties.replace(model_type="Submodel")
+    check(properties.global_results_file_name == file_name, "a replace without the file changed the stored file")
+    message = raised_message(lambda: properties.replace(global_results_file_name=file_name))
+    check(message is not None and "does not exist" in message and "'global_results_file_name'" in message,
+          "a given global results file must be looked up in the work directory: " + str(message))
+    properties.replace(model_type="SlipWearModel")
+    check(properties.global_results_file_name is None and isinstance(properties.number_of_cycles, int) and
+          isinstance(properties.bdm_remeshing, bool), "a slip wear model must read its values and no file")
     properties.model_type = model_type
 
 

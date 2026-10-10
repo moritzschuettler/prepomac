@@ -608,6 +608,19 @@ try:
     def set_old_complex_result_type():
         options_draft.complex_result_type = "angle"
     check_raises(set_old_complex_result_type, "the old complex_result_type spelling was accepted")
+    # A filter is set through the converter of the API, so a value of another type is refused naming the property
+    for filter_name in ["filter1", "filter2"]:
+        try:
+            setattr(options_draft, filter_name, "Maximum")
+            message = None
+        except Exception as ex:
+            message = str(ex)
+        check(message is not None and "'" + filter_name + "'" in message and "HistoryOutputFilter" in message,
+              "a draft filter that is not a filter must be refused naming " + filter_name + ": " + str(message))
+    options_draft.filter1 = history_outputs.create_maximum_filter()
+    check(options_draft.filter1.type == "Maximum", "the draft filter was not set")
+    options_draft.filter1 = None
+    check(options_draft.filter1 is None, "the draft filter was not cleared")
     # The one call form takes the options of the draft, which is the form the session journal writes
     options_output = history_outputs.add_from_field(FROM_FIELD_OPTIONS_NAME, "DISP", [disp_component],
                                                     node_selection, step_id=step.id, increment_id=increment.id,
@@ -622,6 +635,32 @@ try:
                                                         [disp_component], node_selection,
                                                         increment_id=increment.id),
                  "an increment without a step was accepted")
+    check(not history_outputs.contains(FROM_FIELD_OPTIONS_NAME + "_bad"), "a refused From Field output was added")
+    # The dialog shows the complex type only for complex results, the angle only at RealAtAngle and the harmonic
+    # switch only for the real part of one complex increment, and the static cube result has no complex results
+    for options, argument in [({"complex_result_type": "Magnitude"}, "'complex_result_type'"),
+                              ({"complex_angle_deg": 30}, "'complex_angle_deg'"),
+                              ({"step_id": step.id, "increment_id": increment.id, "harmonic": True}, "'harmonic'")]:
+        try:
+            history_outputs.add_from_field(FROM_FIELD_OPTIONS_NAME + "_bad", "DISP", [disp_component],
+                                           node_selection, **options)
+            message = None
+        except Exception as ex:
+            message = str(ex)
+        check(message is not None and argument in message,
+              "the option %s outside the state the dialog shows it in must be refused naming %s: %s"
+              % (options, argument, message))
+    angle_draft = history_outputs.create_history_output_from_field(
+        name=FROM_FIELD_OPTIONS_NAME + "_bad", field_name="DISP", component_names=[disp_component],
+        region=node_selection)
+    angle_draft.complex_angle_deg = 45
+    try:
+        history_outputs.add(angle_draft)
+        message = None
+    except Exception as ex:
+        message = str(ex)
+    check(message is not None and "'complex_angle_deg'" in message,
+          "a draft with an angle its complex result type does not use was added: " + str(message))
     check(not history_outputs.contains(FROM_FIELD_OPTIONS_NAME + "_bad"), "a refused From Field output was added")
     # A result replace re-specifies the whole definition, so an option it is not given returns to its default
     options_output = history_outputs.replace_from_field(FROM_FIELD_OPTIONS_NAME, FROM_FIELD_OPTIONS_NAME, "DISP",

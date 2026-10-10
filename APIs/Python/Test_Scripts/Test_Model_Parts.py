@@ -21,6 +21,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def test_part_reading(parts, label):
     check(len(parts) > 0, "no " + label + " found")
     name = parts.get_names()[0]
@@ -99,11 +108,21 @@ def test_model_parts():
     parts.set_color(name, color)
     check(parts[name].color == color, "the color did not survive a round trip: " + repr(parts[name].color))
     parts.reset_color(name)
-    # The opacity is the alpha channel of the color: 0 is fully transparent, 255 opaque
+    # The opacity is the alpha channel of the color, from 25, the lowest the dialog allows, to 255 for opaque
     parts.set_opacity(name, 128)
     check(parts[name].color[3] == 128, "the opacity was not set")
-    parts.set_opacity(name, 0)
-    check(parts[name].color[3] == 0, "an opacity of 0 must be fully transparent")
+    parts.set_opacity(name, 25)
+    check(parts[name].color[3] == 25, "an opacity of 25 must be accepted")
+    # The dialogs raise a lower alpha to 25, so the API refuses it naming the argument and changes nothing
+    for call, argument in [(lambda: parts.set_opacity(name, 0), "'opacity'"),
+                           (lambda: parts.set_opacity(name, 24), "'opacity'"),
+                           (lambda: parts.set_color(name, [255, 0, 0, 10]), "'color'"),
+                           (lambda: parts.set_color(name, "Transparent"), "'color'"),
+                           (lambda: parts.replace_properties(name, color=[1, 2, 3, 0]), "'color'")]:
+        message = raised_message(call)
+        check(message is not None and argument in message and "25" in message,
+              "an alpha below 25 must be refused naming " + argument + ": " + str(message))
+    check(parts[name].color[3] == 25, "a refused alpha changed the part color")
     parts.set_opacity(name, 255)
     check(parts[name].color[3] == 255, "an opacity of 255 must be opaque")
     check(not hasattr(parts, "set_transparency"), "set_transparency was renamed to set_opacity")

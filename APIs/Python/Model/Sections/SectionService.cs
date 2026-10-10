@@ -8,7 +8,9 @@
 // Contributors:
 
 using CaeGlobals;
+using CaeMesh;
 using CaeModel;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace APIs.Python.Model
@@ -90,12 +92,15 @@ namespace APIs.Python.Model
         }
         public void Add(Section section)
         {
+            EnsureCompatibleRegion(section);
+            //
             EnsureCommandsAvailable();
             _modelGateway.AddSection(section);
         }
         public void Replace(string oldName, Section section)
         {
             string storedName = ResolveSection(oldName).Name;
+            EnsureCompatibleRegion(section);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceSection(storedName, section);
@@ -126,6 +131,121 @@ namespace APIs.Python.Model
             //
             EnsureCommandsAvailable();
             _modelGateway.RenameModelItem(item, newName, null);
+        }
+        // The dialog refuses on OK a section whose type does not suit the elements of its region, in these words,
+        // and judges the section it ends with
+        private void EnsureCompatibleRegion(Section section)
+        {
+            if (IsRegionCompatible(section)) return;
+            //
+            string hint;
+            bool twoD = GetIsTwoDimensional();
+            if (_modelResolver.GetModel().Properties.ModelSpace == ModelSpaceEnum.Undefined)
+                hint = "The model space is undefined; set pmx.model.properties.model_space first.";
+            else if (section is SolidSection && twoD)
+                hint = "Give in 'region' the parts of the 2D mesh or their elements.";
+            else if (section is SolidSection)
+                hint = "Give in 'region' solid parts or solid elements.";
+            else if ((section is ShellSection || section is MembraneSection) && !twoD)
+                hint = "Give in 'region' shell parts or shell elements.";
+            else
+                hint = "In a 2D model the dialog takes this section on a selection only, so give a selection in " +
+                       "'region'.";
+            throw new PythonAPIException("The section type and the section region are not compatible. " + hint);
+        }
+        private bool IsRegionCompatible(Section section)
+        {
+            FeModel model = _modelResolver.GetModel();
+            FeMesh mesh = model.Mesh;
+            ModelSpaceEnum modelSpace = model.Properties.ModelSpace;
+            bool solid = section is SolidSection;
+            bool shell = section is ShellSection || section is MembraneSection;
+            if (mesh == null) return false;
+            // 3D
+            if (modelSpace == ModelSpaceEnum.ThreeD)
+            {
+                if (section.RegionType == RegionTypeEnum.PartName)
+                {
+                    BasePart part;
+                    if (!mesh.Parts.TryGetValue(section.RegionName, out part)) return false;
+                    return (solid && part.PartType == PartType.Solid) || (shell && part.PartType == PartType.Shell);
+                }
+                if (section.RegionType == RegionTypeEnum.ElementSetName)
+                {
+                    FeElementSet elementSet;
+                    if (!mesh.ElementSets.TryGetValue(section.RegionName, out elementSet)) return false;
+                    return (solid && AreAllElementsOfType<FeElement3D>(mesh, elementSet.Labels)) ||
+                           (shell && AreAllElementsOfType<FeElement2D>(mesh, elementSet.Labels));
+                }
+                if (section.RegionType == RegionTypeEnum.Selection)
+                {
+                    foreach (BasePart part in GetSelectedParts(mesh, section))
+                    {
+                        if (solid && part.PartType != PartType.Solid) return false;
+                        if (shell && part.PartType != PartType.Shell) return false;
+                    }
+                    return true;
+                }
+                return section.RegionType == RegionTypeEnum.NodeSetName ||
+                       section.RegionType == RegionTypeEnum.SurfaceName ||
+                       section.RegionType == RegionTypeEnum.ReferencePointName;
+            }
+            // 2D
+            if (modelSpace.IsTwoD())
+            {
+                if (section.RegionType == RegionTypeEnum.PartName)
+                {
+                    BasePart part;
+                    if (!mesh.Parts.TryGetValue(section.RegionName, out part)) return false;
+                    return solid && part.PartType == PartType.Shell;
+                }
+                if (section.RegionType == RegionTypeEnum.ElementSetName)
+                {
+                    FeElementSet elementSet;
+                    if (!mesh.ElementSets.TryGetValue(section.RegionName, out elementSet)) return false;
+                    return solid && AreAllElementsOfType<FeElement2D>(mesh, elementSet.Labels);
+                }
+                if (section.RegionType == RegionTypeEnum.Selection)
+                {
+                    foreach (BasePart part in GetSelectedParts(mesh, section))
+                    {
+                        if (solid && part.PartType != PartType.Shell) return false;
+                    }
+                    return true;
+                }
+                return section.RegionType == RegionTypeEnum.SurfaceName;
+            }
+            //
+            return false;
+        }
+        // A part selection carries part or geometry ids and an element selection element ids
+        private static HashSet<BasePart> GetSelectedParts(FeMesh mesh, Section section)
+        {
+            HashSet<BasePart> parts = new HashSet<BasePart>();
+            if (section.CreationIds == null) return parts;
+            //
+            bool partIds = section.CreationData != null && section.CreationData.SelectItem == vtkSelectItem.Part;
+            bool elementIds = section is SolidSection || section is ShellSection || section is MembraneSection;
+            BasePart part;
+            FeElement element;
+            foreach (int id in section.CreationIds)
+            {
+                part = null;
+                if (partIds) part = mesh.GetPartFromId(FeMesh.GetItemTypePartIdsFromGeometryId(id)[2]);
+                else if (elementIds && mesh.Elements.TryGetValue(id, out element))
+                    part = mesh.GetPartFromId(element.PartId);
+                if (part != null) parts.Add(part);
+            }
+            return parts;
+        }
+        private static bool AreAllElementsOfType<TElement>(FeMesh mesh, int[] elementIds) where TElement : FeElement
+        {
+            FeElement element;
+            foreach (int elementId in elementIds)
+            {
+                if (!mesh.Elements.TryGetValue(elementId, out element) || !(element is TElement)) return false;
+            }
+            return true;
         }
         private void EnsureCommandsAvailable()
         {

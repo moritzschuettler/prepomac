@@ -47,7 +47,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Creates a boundary layer on the selected geometry using command history. thickness is " +
-                   "larger than 0.",
+                   "larger than 0. As in the dialog, the model is in 3D model space.",
                    Arguments = "selection: Selection, thickness: float", Returns = "None")]
         public void generate_boundary_layer(object selection, object thickness)
         {
@@ -69,7 +69,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Thickens the shell mesh of the named parts using command history. thickness is larger " +
-                   "than 0 and number_of_layers at least 1.",
+                   "than 0 and number_of_layers at least 1. As in the dialog, the model is in 3D model space " +
+                   "and every named part is a manifold, consistently oriented shell part.",
                    Arguments = "part_names: list[str] or str, thickness: float, number_of_layers: int = 1, " +
                                "offset: float = 0, keep_model_edges: bool = False", Returns = "None")]
         public void thicken_shell_mesh(object part_names, object thickness, object number_of_layers = null,
@@ -84,7 +85,8 @@ namespace APIs.Python.Model
                    "rather than a model item. The base part region is a selection or a PartName region and " +
                    "the splitter surface region is a selection or a SurfaceName region, which is what the " +
                    "dialog offers. The base part selection target is parts, as the dialog picks them, or " +
-                   "geometry, and the splitter surface selection target is surfaces.",
+                   "geometry, and the splitter surface selection target is surfaces. As in the dialog, the " +
+                   "base part is a solid part meshed with tetrahedra only.",
                    Arguments = "base_part_region: Selection or Region, " +
                                "splitter_surface_region: Selection or Region, offset: float = None, " +
                                "max_size: float = None, min_size: float = None, hausdorff: float = None, " +

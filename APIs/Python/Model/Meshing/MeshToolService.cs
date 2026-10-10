@@ -9,8 +9,11 @@
 
 using CaeGlobals;
 using CaeMesh;
+using CaeModel;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace APIs.Python.Model
 {
@@ -42,6 +45,7 @@ namespace APIs.Python.Model
         public void CreateBoundaryLayer(SelectionAPI selection, object thickness)
         {
             if (selection == null) throw new PythonAPIException("The argument 'selection' must not be None.");
+            RefuseNonThreeDModel("Boundary layer creation is possible only for 3D solid meshes.");
             double thicknessValue = MeshSetupItemsAPI.ToThickness(thickness);
             //
             SelectionCompilation compilation = _selectionService.CompileForView(selection, "femodel", "geometry");
@@ -81,10 +85,13 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument 'part_names' must not be empty.");
             //
             PythonNameComparer.RefuseRepeated(names, "part_names");
-            names = PythonModelArgumentCheck.ToStoredPartNames(_modelResolver.GetModel().Mesh, names, "model");
+            RefuseNonThreeDModel("Solid mesh creation is possible only in 3D model space.");
+            FeMesh mesh = _modelResolver.GetModel().Mesh;
+            names = PythonModelArgumentCheck.ToStoredPartNames(mesh, names, "model");
             double thicknessValue = MeshSetupItemsAPI.ToThickness(thickness);
             int layers = MeshSetupItemsAPI.ToNumberOfLayers(numberOfLayers);
             double offsetValue = offset == null ? 0 : PythonValueConverter.ToFiniteDouble(offset, "offset");
+            foreach (string name in names) RefuseThickenShellPart(mesh.Parts[name]);
             //
             EnsureCommandsAvailable();
             _meshGateway.ThickenShellMesh(names, thicknessValue, layers, offsetValue, keepModelEdges);
@@ -107,6 +114,7 @@ namespace APIs.Python.Model
                                     RegionTypeEnum.PartName);
             ValidateSplitRegionType(splitPartMeshData.SlaveRegionType, "splitter_surface_region",
                                     RegionTypeEnum.SurfaceName);
+            RefuseSplitBasePart(splitPartMeshData);
             if (offset != null) splitPartMeshData.Offset = PythonValueConverter.ToFiniteDouble(offset, "offset");
             double[] sizes = MeshSetupItemsAPI.ResolveRange(maxSize, minSize, splitPartMeshData.MaxH,
                                                             splitPartMeshData.MinH, "max_size", "min_size", true);
@@ -145,6 +153,58 @@ namespace APIs.Python.Model
         {
             if (_meshGateway == null)
                 throw new PythonAPIException("Model changes are not available in this Python API context.");
+        }
+        private void RefuseNonThreeDModel(string message)
+        {
+            if (_modelResolver.GetModel().Properties.ModelSpace != ModelSpaceEnum.ThreeD)
+                throw new PythonAPIException(message);
+        }
+        private static void RefuseThickenShellPart(BasePart part)
+        {
+            if (part.PartType != PartType.Shell)
+                throw new PythonAPIException("The thicken shell feature can only be used on shell parts. The " +
+                                             "argument 'part_names' names the part '" + part.Name + "', which " +
+                                             "is a " + part.PartType + " part.");
+            if (part.Visualization.IsNonManifold())
+                throw new PythonAPIException("The thicken shell feature can only be used on manifold shell " +
+                                             "parts. The argument 'part_names' names the non-manifold part '" +
+                                             part.Name + "'.");
+            string orientationError = FeMesh.GetThickenShellMeshOrientationError(part);
+            if (orientationError != null)
+                throw new PythonAPIException(orientationError + " The argument 'part_names' names it.");
+        }
+        private void RefuseSplitBasePart(SplitPartMeshData splitPartMeshData)
+        {
+            FeMesh mesh = _modelResolver.GetModel().Mesh;
+            List<BasePart> baseParts = new List<BasePart>();
+            BasePart part;
+            if (splitPartMeshData.BasePartRegionType == RegionTypeEnum.Selection)
+            {
+                foreach (int geometryId in splitPartMeshData.BasePartCreationIds ?? new int[0])
+                {
+                    part = mesh.GetPartFromGeometryId(geometryId);
+                    if (part == null) continue;
+                    if (part.PartType != PartType.Solid)
+                        throw new PythonAPIException("The base part region can only contain a solid part. The " +
+                                                     "argument 'base_part_region' selects the " + part.PartType +
+                                                     " part '" + part.Name + "'.");
+                    baseParts.Add(part);
+                }
+            }
+            else if (mesh.Parts.TryGetValue(splitPartMeshData.BasePartRegionName, out part))
+            {
+                baseParts.Add(part);
+            }
+            //
+            HashSet<Type> tetraTypes = new HashSet<Type>() { typeof(LinearTetraElement),
+                                                             typeof(ParabolicTetraElement) };
+            foreach (BasePart basePart in baseParts)
+            {
+                if (basePart.ElementTypes == null || basePart.ElementTypes.Any(type => !tetraTypes.Contains(type)))
+                    throw new PythonAPIException("The base part region can only contain tetrahedral mesh " +
+                                                 "elements. The argument 'base_part_region' names the part '" +
+                                                 basePart.Name + "', which contains other elements.");
+            }
         }
         private static double ToHausdorff(object value)
         {

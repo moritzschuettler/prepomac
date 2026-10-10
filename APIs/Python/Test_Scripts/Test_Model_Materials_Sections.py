@@ -381,11 +381,32 @@ def test_parametric_materials():
     parameters.remove([young, zero])
 
 
+def import_shell_part():
+    """Imports a single triangle as a shell part beside the solid cube, and returns its name and element ID."""
+    names_before = set(pmx.model.parts.get_names())
+    file_name = os.path.join(tempfile.mkdtemp(prefix="pytest_shell_"), "triangle.obj")
+    with open(file_name, "w") as writer:
+        writer.write("v 0 0 20\nv 10 0 20\nv 0 10 20\nf 1 2 3\n")
+    try:
+        pmx.import_file(file_name)
+    finally:
+        os.remove(file_name)
+        os.rmdir(os.path.dirname(file_name))
+    names = [name for name in pmx.model.parts.get_names() if name not in names_before]
+    check(len(names) == 1, "the triangle must be imported as one part: " + str(names))
+    part = pmx.model.parts[names[0]]
+    check(part.part_type == "Shell", "the triangle must be a shell part, it is " + part.part_type)
+    return part.name, list(part.get_element_ids())[0]
+
+
 def test_sections(material_name):
     sections = pmx.model.sections
     count_before = len(sections)
     element_selection = pmx.create.selection_by_ids('femodel', 'elements', 'elements', [1])
     node_selection = pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])
+    shell_part_name, shell_element_id = import_shell_part()
+    shell_selection = pmx.create.selection_by_ids('femodel', 'elements', 'elements', [shell_element_id])
+    solid_part_name = [name for name in pmx.model.parts.get_names() if name != shell_part_name][0]
     #
     section = sections.add_solid(PREFIX + "Solid", material_name, element_selection)
     check(sections.contains(PREFIX + "Solid"), "the solid section was not added")
@@ -459,11 +480,28 @@ def test_sections(material_name):
     check_raises(lambda: sections.add_solid(PREFIX + "Bad", material_name,
                                             pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1])),
                  "a node selection must be rejected for an element region")
+    # The dialog refuses a section whose type does not suit the elements of its region, in these words, and so
+    # does the API, for a selection and for a named region alike
+    count_before_refusals = len(sections)
+    for function in [lambda: sections.add_shell(PREFIX + "Bad", material_name, element_selection),
+                     lambda: sections.add_membrane(PREFIX + "Bad", material_name, element_selection),
+                     lambda: sections.add_solid(PREFIX + "Bad", material_name, shell_selection),
+                     lambda: sections.add_shell(PREFIX + "Bad", material_name,
+                                                pmx.create.region('PartName', solid_part_name)),
+                     lambda: sections.add_solid(PREFIX + "Bad", material_name,
+                                                pmx.create.region('PartName', shell_part_name)),
+                     lambda: sections.add_solid(PREFIX + "Bad", material_name,
+                                                pmx.create.selection_by_ids('femodel', 'parts', 'parts',
+                                                                            [pmx.model.parts[shell_part_name].id]))]:
+        message = raised_message(function)
+        check(message is not None and "The section type and the section region are not compatible." in message and
+              "'region'" in message, "a section on elements of the other kind must be refused: " + str(message))
+    check(len(sections) == count_before_refusals, "a section on an incompatible region was recorded")
     # A shell and a membrane section carry an offset of the mid surface, in thicknesses
-    shell = sections.add_shell(PREFIX + "Shell", material_name, element_selection, thickness=2, offset=0.5)
+    shell = sections.add_shell(PREFIX + "Shell", material_name, shell_selection, thickness=2, offset=0.5)
     check(shell.offset == 0.5, "the shell offset was not stored, it is " + str(shell.offset))
     check(len(shell.get_equations()) == 0, "plain values were read back as equations: " + str(shell.get_equations()))
-    membrane = sections.add_membrane(PREFIX + "Membrane", material_name, element_selection, 1.5, -0.25)
+    membrane = sections.add_membrane(PREFIX + "Membrane", material_name, shell_selection, 1.5, -0.25)
     check(membrane.offset == -0.25, "the membrane offset was not stored")
     check(membrane.mass is None, "a membrane section must have no mass")
     # A replacement keeps an offset it is not given and changes one it is
@@ -473,8 +511,14 @@ def test_sections(material_name):
     # The selection based region is converted again rather than left at the deleted internal set
     check(shell.region_type == "ElementSetName" and pmx.model.element_sets.contains(shell.region_name),
           "the replacement lost the shell region: " + str(shell.region_name))
-    check(list(pmx.model.element_sets[shell.region_name].get_element_ids()) == [1],
+    check(list(pmx.model.element_sets[shell.region_name].get_element_ids()) == [shell_element_id],
           "the shell region no longer resolves to the selected element")
+    # A replace is judged on the section it ends with
+    message = raised_message(lambda: sections.replace_shell(PREFIX + "Shell", region=element_selection))
+    check(message is not None and "not compatible" in message and "'region'" in message,
+          "a replace onto solid elements must be refused: " + str(message))
+    check(list(pmx.model.element_sets[sections[PREFIX + "Shell"].region_name].get_element_ids()) ==
+          [shell_element_id], "a refused replace changed the shell region")
     shell = sections.replace_shell(PREFIX + "Shell", offset="-0.25 * 2")
     check(shell.offset == -0.5, "the replacement did not change the shell offset")
     check(shell.get_equations()["offset"].replace(" ", "") == "=-0.25*2",
@@ -483,7 +527,7 @@ def test_sections(material_name):
     # section writes no thickness, so one given there is refused
     count_before_refusals = len(sections)
     for function in [lambda: sections.add_solid(PREFIX + "Bad", material_name, element_selection, thickness=2),
-                     lambda: sections.add_shell(PREFIX + "Bad", material_name, element_selection, thickness=0),
+                     lambda: sections.add_shell(PREFIX + "Bad", material_name, shell_selection, thickness=0),
                      lambda: sections.add_point_mass(PREFIX + "Bad", node_selection, -0.5)]:
         message = raised_message(function)
         check(message is not None and ("'thickness'" in message or "'mass'" in message),
@@ -521,11 +565,12 @@ def test_sections(material_name):
               "a replace of another section type must be refused: " + str(message))
     check(sections[PREFIX + "Mass"].item_type == "point_mass", "a refused replace changed the section type")
     # A default offset stays zero rather than becoming undefined
-    plain = sections.add_shell(PREFIX + "Shell_D", material_name, element_selection)
+    plain = sections.add_shell(PREFIX + "Shell_D", material_name, shell_selection)
     check(plain.offset == 0, "an omitted offset must stay zero")
     # Collection verbs
     sections.rename(PREFIX + "Mass", PREFIX + "Mass_R")
     check(sections.contains(PREFIX + "Mass_R"), "the section was not renamed")
+    return shell_part_name
 
 
 def main():
@@ -533,10 +578,11 @@ def main():
     material_name = test_materials()
     test_material_properties()
     test_parametric_materials()
-    test_sections(material_name)
+    shell_part_name = test_sections(material_name)
     # A section references a material, so the sections go first
     clean(pmx.model.sections)
     clean(pmx.model.materials)
+    pmx.model.parts.remove([shell_part_name])
     print("TEST PASSED")
 
 

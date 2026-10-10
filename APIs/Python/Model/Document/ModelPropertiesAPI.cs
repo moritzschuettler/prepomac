@@ -49,9 +49,10 @@ namespace APIs.Python.Model
             get { return _service.GetModelType(); }
             set { Update(model_type: ToText(value, "model_type")); }
         }
-        [PythonAPI("The global results file a submodel reads its boundary values from. It must name an existing " +
-                   "file, absolute or relative to the work directory, as the dialog refuses one it cannot find. " +
-                   "It is set on a Submodel only, and another model type reads it as None.",
+        [PythonAPI("The global results file a submodel reads its boundary values from. As the dialog does, it " +
+                   "takes a file name without path, with no space, colon, slash or non UTF-8 character, and the " +
+                   "file must exist in the work directory. It is set on a Submodel only, and another model type " +
+                   "reads it as None.",
                    Returns = "str or None")]
         public object global_results_file_name
         {
@@ -138,9 +139,11 @@ namespace APIs.Python.Model
                    "value is refused rather than raised to the minimum. A value the model type does not use - " +
                    "global_results_file_name on a model that is not a Submodel, or a slip wear value on one " +
                    "that is not a SlipWearModel - is refused, judged by the model_type the call ends with. " +
-                   "As the dialog does, it refuses a Submodel without an existing global results file, looked " +
-                   "up in the work directory when the name is relative, and a SlipWearModel whose " +
-                   "cycles_increment does not divide its number_of_cycles. " +
+                   "global_results_file_name is a file name without path, with no space, colon, slash or non " +
+                   "UTF-8 character, as the dialog takes it. As the dialog does, it refuses a SlipWearModel " +
+                   "whose cycles_increment does not divide its number_of_cycles, and a Submodel whose global " +
+                   "results file is not in the work directory, looked up when the call gives " +
+                   "global_results_file_name or makes the model a Submodel. " +
                    "model_space changes the model space between the 2D spaces PlaneStress, PlaneStrain and " +
                    "Axisymmetric and updates the element types of the mesh, as the dialog does; a change " +
                    "between 2D and ThreeD, and Undefined, are refused.",

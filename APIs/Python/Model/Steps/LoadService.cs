@@ -10,6 +10,8 @@
 using CaeGlobals;
 using CaeMesh;
 using CaeModel;
+using CaeResults;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -130,6 +132,8 @@ namespace APIs.Python.Model
                 return "The pressure load magnitude must not be equal to 0. Give a nonzero 'magnitude'.";
             if (load is HydrostaticPressure hydrostaticPressure)
                 return GetHydrostaticPressureError(hydrostaticPressure);
+            if (load is ImportedPressure importedPressure)
+                return GetImportedPressureError(importedPressure);
             if (load is STLoad surfaceTraction)
                 return GetSurfaceTractionError(surfaceTraction);
             if (load is ShellEdgeLoad shellEdgeLoad && shellEdgeLoad.Magnitude.Value == 0)
@@ -164,6 +168,27 @@ namespace APIs.Python.Model
             if (load.N1.Value == 0 && load.N2.Value == 0 && load.N3.Value == 0)
                 return error + " Give a nonzero 'direction'.";
             return error + " Give a 'first_point' and a 'second_point' that lie apart along the 'direction'.";
+        }
+        // The dialog refuses an imported pressure whose OpenFOAM case does not hold the field it names
+        private static string GetImportedPressureError(ImportedPressure load)
+        {
+            string error;
+            if (load.IsProperlyDefined(out error)) return null;
+            //
+            Dictionary<string, string[]> timeVariableNames =
+                OpenFoamFileReader.GetTimeResultScalarVariableNames(load.FileName);
+            string[] variableNames;
+            if (timeVariableNames.Count == 0)
+                return error + " Give in 'file_name' the .foam file of an OpenFOAM case whose time folders hold " +
+                       "the results.";
+            if (!timeVariableNames.TryGetValue(load.PressureTime, out variableNames))
+                return error + " Give in 'pressure_time' one of the times of the case: " +
+                       string.Join(", ", timeVariableNames.Keys) + ".";
+            if (variableNames.Length == 0)
+                return error + " The time " + load.PressureTime + " holds no scalar field, so give another " +
+                       "'pressure_time'.";
+            return error + " Give in 'pressure_variable_name' one of the scalar fields of time " + load.PressureTime +
+                   ": " + string.Join(", ", variableNames) + ".";
         }
         // The dialog writes the group the distribution does not use as zero, so only the used group is judged
         private static string GetSurfaceTractionError(STLoad load)

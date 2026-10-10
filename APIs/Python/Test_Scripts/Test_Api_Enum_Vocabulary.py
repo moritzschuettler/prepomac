@@ -23,6 +23,7 @@ import sys
 
 import clr
 from APIs.Python import PythonEnumVocabulary
+from APIs.Python.Model import TreeAPI
 
 # APIs/Python, two folders above this script
 SOURCES = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))
@@ -299,6 +300,20 @@ def test_selection_names(members):
               (declaring, member, argument, None if described is None else list(described), values))
         check(PythonEnumVocabulary.GetType(declaring, member, argument) is None,
               "%s.%s(%s) is not parsed as an enumeration" % (declaring, member, argument))
+    # The displayed tree and every model tree operation take the same three views
+    views = ["geometry", "femodel", "results"]
+    described = PythonEnumVocabulary.GetValues("ViewAPI", "current", "current")
+    check(described is not None and list(described) == views,
+          "pmx.view.current is described with %s" % (None if described is None else list(described)))
+    tree_members = set()
+    for method in clr.GetClrType(TreeAPI).GetMethods():
+        if any(parameter.Name == "view" for parameter in method.GetParameters()):
+            tree_members.add(method.Name)
+    check(len(tree_members) >= 8, "the tree members with a view argument were not found: " + str(tree_members))
+    for member in sorted(tree_members):
+        described = PythonEnumVocabulary.GetValues("TreeAPI", member, "view")
+        check(described is not None and list(described) == views,
+              "TreeAPI.%s(view) is described with %s" % (member, None if described is None else list(described)))
     # The filter source of a result field output keeps its own enumeration
     filter_sources = list(PythonEnumVocabulary.GetValues("ResultFieldOutputsAPI", "create_median_filter", "source"))
     check(filter_sources == ["AllNodes", "SurfaceNodes"], "the filter source lost its vocabulary: " +

@@ -9,6 +9,7 @@
 #Expected process exit code 0.
 
 import os
+import shutil
 import tempfile
 
 PREFIX = "PyTest_"
@@ -411,20 +412,45 @@ def test_mass_section_region():
                  "a pressure must not accept a mass section region")
 
 
-def test_imported_pressure(file_name):
-    # Only the argument checks are covered here. An imported pressure that reaches the model is read
-    # from its results file on every model check, so the accepting path needs a real .frd file.
+def write_open_foam_case(directory, with_field):
+    """An OpenFOAM case with no mesh: the .foam file and, when asked, the scalar field p at time 1, which is
+    all the dialog looks at before it accepts the load."""
+    os.makedirs(directory)
+    case_file = os.path.join(directory, "case.foam")
+    open(case_file, "w").close()
+    if with_field:
+        time_directory = os.path.join(directory, "1")
+        os.mkdir(time_directory)
+        with open(os.path.join(time_directory, "p"), "w") as writer:
+            writer.write("FoamFile\n{\n    version 2.0;\n    format ascii;\n    class volScalarField;\n"
+                         "    object p;\n}\n")
+    return case_file
+
+
+def test_imported_pressure(directory):
+    # Only the refusals are covered here. An imported pressure that reaches the model is read from its OpenFOAM
+    # case on every model check, and the repository holds no OpenFOAM case with a mesh.
     loads = pmx.model.steps[STEP].loads
+    empty_case = write_open_foam_case(os.path.join(directory, "empty"), False)
+    case = write_open_foam_case(os.path.join(directory, "case"), True)
     check_raises(lambda: loads.add_imported_pressure(PREFIX + "Bad", surface_selection(1),
-                                                     "no_such_file.frd", "1", "PRESSURE"),
+                                                     "no_such_file.foam", "1", "p"),
                  "a missing pressure file must be rejected")
-    check_raises(lambda: loads.add_imported_pressure(PREFIX + "Bad", surface_selection(1), file_name,
-                                                     "1", "PRESSURE",
-                                                     interpolator_type="NotAnInterpolator"),
+    check_raises(lambda: loads.add_imported_pressure(PREFIX + "Bad", surface_selection(1), case,
+                                                     "1", "p", interpolator_type="NotAnInterpolator"),
                  "an unknown interpolator type must be rejected")
-    check_raises(lambda: loads.add_imported_pressure(PREFIX + "Bad", surface_selection(1), file_name,
-                                                     None, "PRESSURE"),
+    check_raises(lambda: loads.add_imported_pressure(PREFIX + "Bad", surface_selection(1), case,
+                                                     None, "p"),
                  "an imported pressure without a time must be rejected")
+    # The dialog refuses a case that does not hold the field, in these words, and so does the API
+    for file_name, time, variable, fragment, argument in [
+            (empty_case, "1", "p", "does not contain results.", "'file_name'"),
+            (case, "2", "p", "does not contain results for time: 2.", "'pressure_time'"),
+            (case, "1", "PRESSURE", "does not contain results for variable: PRESSURE.", "'pressure_variable_name'")]:
+        message = raised_message(lambda: loads.add_imported_pressure(PREFIX + "Bad", surface_selection(1),
+                                                                     file_name, time, variable))
+        check(message is not None and fragment in message and argument in message,
+              "an imported pressure the case does not hold must be refused naming " + argument + ": " + str(message))
     check(not loads.contains(PREFIX + "Bad"), "a refused load must not reach the model")
 
 
@@ -738,13 +764,11 @@ def main():
     test_concentrated()
     test_surface_loads()
     test_body_loads()
-    # Any existing file proves the path check; the file is only read when the load is previewed
-    file_name = os.path.join(tempfile.gettempdir(), "pytest_pressure.frd")
-    open(file_name, "w").close()
+    directory = tempfile.mkdtemp(prefix="pytest_pressure_")
     try:
-        test_imported_pressure(file_name)
+        test_imported_pressure(directory)
     finally:
-        os.remove(file_name)
+        shutil.rmtree(directory)
     test_thermal_loads()
     test_invalid_equations()
     test_values_the_dialog_refuses()

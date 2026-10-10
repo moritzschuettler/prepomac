@@ -14,6 +14,10 @@ namespace APIs.Python
     // A color reaches the API as a list of three or four channel values, or as a color name
     internal static class PythonColorConverter
     {
+        // Variables
+        public const int MinimumPartAlpha = 25;
+
+
         // Methods
         public static Color ToColor(object color, string argumentName)
         {
@@ -52,6 +56,26 @@ namespace APIs.Python
             if (value < 0 || value > 255)
                 throw new PythonAPIException("The argument '" + argumentName + "' must be between 0 and 255.");
             //
+            return (byte)value;
+        }
+        public static Color ToPartColor(object color, string argumentName)
+        {
+            Color value = ToColor(color, argumentName);
+            if (value.A < MinimumPartAlpha)
+                throw new PythonAPIException("The alpha channel of the argument '" + argumentName + "' must be " +
+                                             "between " + MinimumPartAlpha + " and 255, but " + value.A + " was " +
+                                             "given. The part color dialog raises a lower alpha to " +
+                                             MinimumPartAlpha + ", so a part never becomes invisible.");
+            return value;
+        }
+        public static byte ToPartAlpha(object opacity, string argumentName)
+        {
+            int value = PythonValueConverter.ToInt(opacity, argumentName);
+            if (value < MinimumPartAlpha || value > 255)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be between " +
+                                             MinimumPartAlpha + " and 255, but " + value + " was given. The " +
+                                             "transparency dialog raises a lower value to " + MinimumPartAlpha +
+                                             ", so a part never becomes invisible.");
             return (byte)value;
         }
         //
