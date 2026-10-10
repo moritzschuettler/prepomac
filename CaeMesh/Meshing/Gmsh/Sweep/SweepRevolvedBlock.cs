@@ -401,11 +401,15 @@ namespace CaeMesh.Sweep
             return new Tuple<int, int>(2, GetWallId(point, angle));
         }
         /// <summary>
-        /// The wall a point at the given angle lies on: the one spanning the angle whose surface passes through it.
+        /// The wall a point at the given angle lies on: the one spanning the angle whose surface passes through it. The
+        /// closest point is found on the surface a wall is cut from, untrimmed, so walls cut from one surface - a
+        /// cylinder split along its height into a strip a fraction of a millimetre high and the rest - all pass through
+        /// the point, and the one the point lies inside is taken.
         /// </summary>
         private int GetWallId(double[] point, double angle)
         {
             int wallId = -1;
+            bool bestInside = false;
             double bestDistance = double.MaxValue;
             foreach (var entry in _wallSpans)
             {
@@ -415,8 +419,10 @@ namespace CaeMesh.Sweep
                 double[] parametric;
                 Gmsh.Model.GetClosestPoint(2, entry.Key, point, out closest, out parametric);
                 double distance = Distance(closest, point);
-                if (distance < bestDistance)
+                bool inside = distance <= 100 * _tolerance && Gmsh.Model.IsInside(2, entry.Key, point, false) > 0;
+                if ((inside && !bestInside) || (inside == bestInside && distance < bestDistance))
                 {
+                    bestInside = inside;
                     bestDistance = distance;
                     wallId = entry.Key;
                 }
