@@ -137,13 +137,16 @@ namespace CaeMesh.Sweep
                 double[] parametricCoord;
                 Gmsh.Model.GetClosestPoint(2, entry.Key, input, out closestCoord, out parametricCoord);
                 if (closestCoord.Length != 3 * count || parametricCoord.Length != 2 * count) continue;
-                // Accept a move only if it does not make the elements around the node worse
+                // Accept a move only if it does not make the elements around the node worse. gmsh projects onto the
+                // surface a face is cut from, unbounded, so a node of a target split into faces of one plane could
+                // slide onto the face beside its own and keep the parameters of its own; it stays inside its face
                 for (int i = 0; i < count; i++)
                 {
                     int k = map[i];
                     candidate[0] = closestCoord[3 * i];
                     candidate[1] = closestCoord[3 * i + 1];
                     candidate[2] = closestCoord[3 * i + 2];
+                    if (surfaceGroups.Count > 1 && Gmsh.Model.IsInside(2, entry.Key, candidate, false) <= 0) continue;
                     if (TryMove(data, buffers, layer, interior[k], flip, candidate))
                     {
                         projection.ParametricCoords[2 * k] = parametricCoord[2 * i];

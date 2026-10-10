@@ -1388,7 +1388,6 @@ namespace CaeMesh
         {
             int count = 0;
             double[] closestCoor;
-            double[] parametricCoor;
             foreach (var entry in vertexCoors)
             {
                 double[] carried = new double[] { entry.Value[0] + translation[0], entry.Value[1] + translation[1],
@@ -1397,8 +1396,8 @@ namespace CaeMesh
                 bool onEdge = false;
                 foreach (var edgeId in otherEdgeIds)
                 {
-                    Gmsh.Model.GetClosestPoint(1, edgeId, carried, out closestCoor, out parametricCoor);
-                    if (closestCoor.Length < 3 || GetDistance(carried, closestCoor) > tolerance) continue;
+                    closestCoor = GetClosestPointOnEdge(edgeId, carried);
+                    if (closestCoor == null || GetDistance(carried, closestCoor) > tolerance) continue;
                     onEdge = true;
                     break;
                 }
@@ -1521,9 +1520,8 @@ namespace CaeMesh
                     double distance = double.PositiveInfinity;
                     foreach (var edgeId in rims[1])
                     {
-                        double[] closest;
-                        Gmsh.Model.GetClosestPoint(1, edgeId, start, out closest, out _);
-                        if (closest.Length < 3 || GetDistance(start, closest) >= distance) continue;
+                        double[] closest = GetClosestPointOnEdge(edgeId, start);
+                        if (closest == null || GetDistance(start, closest) >= distance) continue;
                         distance = GetDistance(start, closest);
                         end = closest;
                     }
@@ -1541,7 +1539,7 @@ namespace CaeMesh
                     {
                         double[] point = new double[3];
                         for (int c = 0; c < 3; c++) point[c] = start[c] + fraction * across[c];
-                        onSurface &= IsPointOnSurface(wallId, point);
+                        onSurface &= IsPointInsideSurface(wallId, point);
                     }
                     if (!StandsAcrossLoop(across, vertexId, rims[0]) || !onSurface)
                         throw new CaeException("Sweep: the side Surface " + wallId + " is closed along one seam, its " +
@@ -1590,7 +1588,7 @@ namespace CaeMesh
                 {
                     double[] point = new double[3];
                     for (int c = 0; c < 3; c++) point[c] = sourceCoors[i][c] + fraction * across[c];
-                    onSurface &= IsPointOnSurface(wallId, point);
+                    onSurface &= IsPointInsideSurface(wallId, point);
                 }
                 if (onSurface) candidates.Add(new int[] { i, j });
             }
@@ -2115,16 +2113,49 @@ namespace CaeMesh
             Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out curveIds);
             foreach (var curveId in curveIds)
             {
-                Gmsh.Model.GetClosestPoint(1, curveId, coor, out closestCoor, out _);
-                if (closestCoor.Length >= 3 && GetDistance(coor, closestCoor) <= clearance) return false;
+                closestCoor = GetClosestPointOnEdge(Math.Abs(curveId), coor);
+                if (closestCoor != null && GetDistance(coor, closestCoor) <= clearance) return false;
             }
             return true;
         }
+        /// <summary>
+        /// Whether a point lies on the surface a face is cut from. gmsh projects onto that surface unbounded, so a
+        /// point beyond the face - in its plane, or on the rest of the cylinder it is a strip of - is on it too.
+        /// </summary>
         private static bool IsPointOnSurface(int surfaceId, double[] coor)
         {
             double[] closestCoor;
             Gmsh.Model.GetClosestPoint(2, surfaceId, coor, out closestCoor, out _);
             return closestCoor.Length >= 3 && GetDistance(coor, closestCoor) <= 1E-6 * GetModelDiagonal();
+        }
+        /// <summary>
+        /// Whether a point lies on a face itself, within its boundary.
+        /// </summary>
+        private static bool IsPointInsideSurface(int surfaceId, double[] coor)
+        {
+            return IsPointOnSurface(surfaceId, coor) && Gmsh.Model.IsInside(2, surfaceId, coor, false) > 0;
+        }
+        /// <summary>
+        /// The point of an edge nearest the given one, or null. gmsh projects onto the curve the edge is cut from,
+        /// unbounded, so a projection past an end of the edge is taken back to the vertex at that end.
+        /// </summary>
+        private static double[] GetClosestPointOnEdge(int edgeId, double[] coor)
+        {
+            double[] closest;
+            double[] parameters;
+            double[] min;
+            double[] max;
+            Gmsh.Model.GetClosestPoint(1, edgeId, coor, out closest, out _);
+            if (closest.Length < 3) return null;
+            Gmsh.Model.GetParametrization(1, edgeId, closest, out parameters);
+            Gmsh.Model.GetParametrizationBounds(1, edgeId, out min, out max);
+            double margin = 1E-9 * Math.Max(1, Math.Abs(max[0] - min[0]));
+            if (parameters.Length > 0 && parameters[0] >= min[0] - margin && parameters[0] <= max[0] + margin)
+                return closest;
+            //
+            int[] vertexIds;
+            Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+            return vertexIds.Select(GetVertexCoor).OrderBy(vertexCoor => GetDistance(vertexCoor, coor)).FirstOrDefault();
         }
         /// <summary>
         /// Reads the faces of a block back after a fragmentation: every current face that came from one of the
@@ -2209,7 +2240,6 @@ namespace CaeMesh
             bool onEdge;
             double distance;
             double[] closestCoor;
-            double[] parametricCoor;
             double[] carried = new double[samples.Length];
             int bestEdgeId = -1;
             double bestDistance = double.MaxValue;
@@ -2223,15 +2253,12 @@ namespace CaeMesh
                 {
                     for (int k = 0; k < 3; k++) carried[i + k] = samples[i + k] + entry.Value[k] - targetSignature[k];
                 }
-                Gmsh.Model.GetClosestPoint(1, entry.Key, carried, out closestCoor, out parametricCoor);
-                if (closestCoor.Length != carried.Length) continue;
-                //
                 onEdge = true;
                 for (int i = 0; i < carried.Length && onEdge; i += 3)
                 {
-                    onEdge = Math.Sqrt(Math.Pow(closestCoor[i] - carried[i], 2) +
-                                       Math.Pow(closestCoor[i + 1] - carried[i + 1], 2) +
-                                       Math.Pow(closestCoor[i + 2] - carried[i + 2], 2)) <= tolerance;
+                    double[] sample = new double[] { carried[i], carried[i + 1], carried[i + 2] };
+                    closestCoor = GetClosestPointOnEdge(entry.Key, sample);
+                    onEdge = closestCoor != null && GetDistance(sample, closestCoor) <= tolerance;
                 }
                 if (!onEdge) continue;
                 //
