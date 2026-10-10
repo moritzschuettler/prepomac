@@ -65,7 +65,9 @@ for a compound and writes the solids that were kept, each opened solid as a shel
 the list of which solids were opened. Its `BREP_FUSE_FACES` makes the named faces one across the edges
 they share where they lie on one surface and bound the same solids, and joins the edges at the vertices of
 the edges it took out, which is what Fuse Faces runs; `BREP_REPAIR` sews, fixes, removes small faces and
-edges, fuses faces and joins edges on the whole shape as its options say, and refuses a result with other
+edges, fuses faces and joins edges on the whole shape as its options say - closing the wire gaps the removed
+edges leave only when the shape is invalid without it, since closing them on a valid shape reorients faces far
+from any small edge - and refuses a result with other
 solids or one that is no longer valid, which is what Repair runs. `BREP_REPAIR_PREVIEW` repairs the same way and
 writes only what the repair would take away - the removed and sewn edges as polylines and the removed vertices
 as points - which is what the Repair dialog previews. Its `BREP_OFFSET_FACES`
