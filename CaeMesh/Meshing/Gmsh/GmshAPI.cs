@@ -4282,6 +4282,27 @@ namespace CaeMesh
             {
                 foreach (var edgeId in chains[c].EdgeIds) edgeIdChainIndex[edgeId] = c;
             }
+            // The vertices the pinned sweep lines run between. A wall whose sides are split at them - the end wall of
+            // a bent plate at the tangency lines of its bend - has to carry each piece's count to the piece opposite,
+            // or the grid column from the split on one side misses the end of the pinned line on the other, and the
+            // elements between the column and the line fold
+            int[] wallSideVertexIds;
+            HashSet<int> pinnedVertexIds = new HashSet<int>();
+            if (_sweepBlocks != null)
+            {
+                foreach (var block in _sweepBlocks)
+                {
+                    if (block.ImprintEdgeCopyIds == null) continue;
+                    foreach (var entry in block.ImprintEdgeCopyIds)
+                    {
+                        foreach (var edgeId in new int[] { entry.Key, entry.Value })
+                        {
+                            Gmsh.Model.GetAdjacencies(1, edgeId, out _, out wallSideVertexIds);
+                            pinnedVertexIds.UnionWith(wallSideVertexIds);
+                        }
+                    }
+                }
+            }
             HashSet<int> wallEdgeIds = new HashSet<int>();
             foreach (var wall in walls)
             {
@@ -4290,13 +4311,19 @@ namespace CaeMesh
                 {
                     problem.AddEqualSums("Surface " + wall.SurfaceId + " across the sweep", IntervalRowTierEnum.Hard,
                                          wall.SourceEdgeIds, wall.TargetEdgeIds, wall.SurfaceId);
-                    int[][] segments = GetOppositeSegments(wall.SourceEdgeIds, wall.TargetEdgeIds);
+                    bool splitAtPinnedLine = wall.SourceEdgeIds.Concat(wall.TargetEdgeIds).Any(edgeId =>
+                    {
+                        Gmsh.Model.GetAdjacencies(1, edgeId, out _, out wallSideVertexIds);
+                        return wallSideVertexIds.Any(pinnedVertexIds.Contains);
+                    });
+                    int[][] segments = GetOppositeSegments(wall.SourceEdgeIds, wall.TargetEdgeIds, splitAtPinnedLine);
                     if (segments != null)
                     {
+                        IntervalRowTierEnum segmentTier = splitAtPinnedLine ? IntervalRowTierEnum.Hard
+                                                                            : IntervalRowTierEnum.Preferred;
                         for (int i = 0; i < segments[0].Length; i++)
-                            problem.AddEqualSums("Surface " + wall.SurfaceId + " segment " + (i + 1),
-                                                 IntervalRowTierEnum.Preferred, new int[] { segments[0][i] },
-                                                 new int[] { segments[1][i] });
+                            problem.AddEqualSums("Surface " + wall.SurfaceId + " segment " + (i + 1), segmentTier,
+                                                 new int[] { segments[0][i] }, new int[] { segments[1][i] });
                     }
                 }
                 int[][] sides = wall.DirectionEdgeIds.GroupBy(edgeId => edgeIdChainIndex.TryGetValue(edgeId, out int c) ? c : -edgeId)
@@ -5163,9 +5190,11 @@ namespace CaeMesh
         }
         /// <summary>
         /// The edges of the two sides of a wall paired across it, in order, when both are chains of as many edges whose
-        /// joints lie at the same fraction of their lengths; null otherwise, and for sides of one edge.
+        /// joints lie at the same fraction of their lengths; null otherwise, and for sides of one edge. Joints that end
+        /// pinned sweep lines pair in order whatever fractions they lie at: the end wall of a bent plate has its outer
+        /// side longer than its inner one by the difference of the two arcs of the bend.
         /// </summary>
-        private static int[][] GetOppositeSegments(int[] sideEdgeIds1, int[] sideEdgeIds2)
+        private static int[][] GetOppositeSegments(int[] sideEdgeIds1, int[] sideEdgeIds2, bool pairInOrder = false)
         {
             if (sideEdgeIds1.Length < 2 || sideEdgeIds1.Length != sideEdgeIds2.Length) return null;
             int[] vertexIds1;
@@ -5193,7 +5222,7 @@ namespace CaeMesh
             {
                 sum1 += lengths1[i];
                 sum2 += lengths2[i];
-                if (Math.Abs(sum1 / total1 - sum2 / total2) > 0.05) return null;
+                if (!pairInOrder && Math.Abs(sum1 / total1 - sum2 / total2) > 0.05) return null;
             }
             return new int[][] { chain1, chain2 };
         }
