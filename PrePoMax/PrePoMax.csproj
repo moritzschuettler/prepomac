@@ -1510,9 +1510,9 @@ IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licen
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\LGPL-2.1-pthreads-win32.txt" "$(TargetDir)Meshers\Netgen\LGPL-2.1-pthreads-win32.txt"
 IF EXIST "$(TargetDir)Meshers\Netgen\NetGenMesher.exe" copy "$(SolutionDir)Licenses\netgen\ZLIB-LICENSE.txt" "$(TargetDir)Meshers\Netgen\ZLIB-LICENSE.txt"
 
-rem The agent skill travels with the application, so a client project copies it from next to PrePoMax.exe
-IF NOT EXIST "$(TargetDir)AgentSkill\prepomax\" mkdir "$(TargetDir)AgentSkill\prepomax\"
-copy "$(SolutionDir)AgentSkill\prepomax\SKILL.md" "$(TargetDir)AgentSkill\prepomax\SKILL.md"
+rem The agent skill travels with the application, so a client project copies it from the Python help folder
+IF NOT EXIST "$(TargetDir)Help\Python\" mkdir "$(TargetDir)Help\Python\"
+copy "$(SolutionDir)AgentSkill\prepomax\SKILL.md" "$(TargetDir)Help\Python\SKILL.md"
 
 IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
 

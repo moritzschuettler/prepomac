@@ -406,12 +406,12 @@ steel modulus in `MM_TON_S_C` and wrong by a factor of a million in `M_KG_S_C`.
 
 ### A skill for a client project
 
-`AgentSkill\prepomax\SKILL.md`, which the build puts next to `PrePoMax.exe` (in the repository it
-is `AgentSkill/prepomax/SKILL.md`), is a Claude Code skill that tells an agent to read `get_guide`
+`Help\Python\SKILL.md`, which the build puts next to this overview (in the repository it is
+`AgentSkill/prepomax/SKILL.md`), is a Claude Code skill that tells an agent to read `get_guide`
 first and names the handful of habits that are specific to this application. It is short on purpose:
 the guide and the schema are served by the application and cannot drift, and a skill that repeated
-them would. Copy the `prepomax` folder to `<project>/.claude/skills/prepomax/` to have it in one
-project, or to `~/.claude/skills/prepomax/` to have it in all of them.
+them would. Copy it to `<project>/.claude/skills/prepomax/SKILL.md` to have it in one project, or to
+`~/.claude/skills/prepomax/SKILL.md` to have it in all of them.
 
 ### What an agent may and may not do
 

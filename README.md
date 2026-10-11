@@ -102,10 +102,10 @@ project's own instructions, so that it asks rather than working around it.
 The application serves the agent its own guide: **`get_guide`** is how the work is ordered, what a
 number without a unit means, how to find the face that was meant, and what to do when a call is
 refused. It travels with the version, so there is nothing to keep in step on the client side.
-`AgentSkill\prepomax\SKILL.md`, next to `PrePoMax.exe` (and in [AgentSkill/](AgentSkill/) in this
-repository), is a Claude Code skill that points an agent at it. Copy the `prepomax` folder to
-`<project>/.claude/skills/prepomax/` to have it in one project, or to `~/.claude/skills/prepomax/` to
-have it in all of them.
+`Help\Python\SKILL.md`, in the installation folder (and in [AgentSkill/prepomax/](AgentSkill/prepomax/)
+in this repository), is a Claude Code skill that points an agent at it. Copy it to
+`<project>/.claude/skills/prepomax/SKILL.md` to have it in one project, or to
+`~/.claude/skills/prepomax/SKILL.md` to have it in all of them.
 
 `Python_API_Overview.md`, section *Agent integration*, documents the tools, the security gates, the
 port, and the pipe the same server also keeps for a client that speaks its protocol directly.

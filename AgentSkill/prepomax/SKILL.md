@@ -20,7 +20,8 @@ names the habits.
 ## The habits that matter
 
 - **Read before you write.** `get_status`, then `read_model`. `read_topology` when you have to
-  select geometry. Then `describe_api` for the exact call.
+  select geometry. Then `describe_api` for the exact call. To learn what the user did by hand, ask
+  `get_history` for the journal: it names the exact API calls.
 - **Look the call up.** `describe_api` is read off the API itself, reports the accepted values and
   the defaults of every argument, and also takes an API type name such as `Loads` when the
   collection does not exist yet, or a type name followed by a member path such as `Result.mesh`
@@ -57,8 +58,12 @@ names the habits.
 - **Nothing answers on the address** means PrePoMax is closed or its automation server is off. Ask
   the user to open it and switch on **Tools - Automation Server**. Retrying will not help, and there
   is nothing for you to start: the endpoint is served by the application itself.
+- **The wrong model answers** when the user has more than one PrePoMax open. `list_sessions` names
+  the URL of each; tell the user which one to point the client at rather than reaching it yourself.
 
 ## Their session, not yours
 
 Do not save over their file and do not close their application. Say what you changed and that
 **Edit - Edit History** lists it and **Edit - Regenerate History** rebuilds the model without it.
+Only a session without a window - one started with `-g No` for you to work in - is yours to close,
+with `exit_session` once its work is saved.
