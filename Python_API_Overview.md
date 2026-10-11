@@ -2098,6 +2098,7 @@ command, naming the step type.
 | `name`, `step_name` | The boundary condition name and the step it belongs to. |
 | `item_type` | `fixed`, `displacement_rotation`, `submodel` or `temperature`, named after the `add_*` method. |
 | `active`, `visible` | Item state. |
+| `valid` | False when the region, distribution, amplitude, coordinate system or an equation the boundary condition refers to no longer resolves, for example after the distribution it names was removed; the model tree marks it invalid. |
 | `region_type`, `region_name` | The region the boundary condition is applied to. |
 | `amplitude_name`, `coordinate_system_name` | The names the boundary condition refers to. |
 | `color` | The symbol color as a plain list `[R, G, B, A]`. |

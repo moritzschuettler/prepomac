@@ -41,6 +41,9 @@ namespace APIs.Python.Model
         public bool active { get { return Resolve().Active; } }
         [PythonAPI("True when the boundary condition symbols are drawn.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
+        [PythonAPI("True when the boundary condition resolved during the last regeneration: its region, " +
+                   "distribution, amplitude, coordinate system and equations.", Returns = "bool")]
+        public bool valid { get { return Resolve().Valid; } }
         [PythonAPI("The region type, for example Selection or NodeSetName.", Returns = "str")]
         public string region_type { get { return Resolve().RegionType.ToString(); } }
         [PythonAPI("The name of the region the boundary condition is applied to.", Returns = "str")]
