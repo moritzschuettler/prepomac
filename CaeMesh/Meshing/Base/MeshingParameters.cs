@@ -219,7 +219,9 @@ namespace CaeMesh
         public MeshingParameters(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
-            _mergeCells = true;
+            // Compatibility for the values added since a file was written, which it does not carry
+            SetDefaultValues();
+            //
             foreach (SerializationEntry entry in info)
             {
                 switch (entry.Name)
@@ -294,7 +296,11 @@ namespace CaeMesh
         public override void Reset()
         {
             base.Reset();
-            // Defaults
+            //
+            SetDefaultValues();
+        }
+        private void SetDefaultValues()
+        {
             _advancedView = false;
             _defaultSizeIsRelative = false;
             _relativeSize = false;
