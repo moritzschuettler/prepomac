@@ -132,9 +132,9 @@ namespace UserControls
             this.tsmiAddToNewPlot = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceCompoundPart = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiCompoundPart = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiSwapPartGeometries = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiGroupSplitCells = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiFuseBodies = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSwapPartGeometries = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceMesh = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiPreviewEdgeMesh = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCreateMesh = new System.Windows.Forms.ToolStripMenuItem();
@@ -238,7 +238,7 @@ namespace UserControls
             this.tsmiSwapMasterSlave,
             this.tsmiMergeByMasterSlave});
             this.cmsTree.Name = "cmsTree";
-            this.cmsTree.Size = new System.Drawing.Size(212, 476);
+            this.cmsTree.Size = new System.Drawing.Size(212, 570);
             this.cmsTree.Closed += new System.Windows.Forms.ToolStripDropDownClosedEventHandler(this.cmsTree_Closed);
             // 
             // tsmiCreate
@@ -325,13 +325,6 @@ namespace UserControls
             this.tsmiCompoundPart.Text = "Create Compound Part";
             this.tsmiCompoundPart.Click += new System.EventHandler(this.tsmiCompoundPart_Click);
             // 
-            // tsmiSwapPartGeometries
-            // 
-            this.tsmiSwapPartGeometries.Name = "tsmiSwapPartGeometries";
-            this.tsmiSwapPartGeometries.Size = new System.Drawing.Size(211, 22);
-            this.tsmiSwapPartGeometries.Text = "Swap Part Geometries";
-            this.tsmiSwapPartGeometries.Click += new System.EventHandler(this.tsmiSwapPartGeometries_Click);
-            // 
             // tsmiGroupSplitCells
             // 
             this.tsmiGroupSplitCells.Name = "tsmiGroupSplitCells";
@@ -345,6 +338,13 @@ namespace UserControls
             this.tsmiFuseBodies.Size = new System.Drawing.Size(211, 22);
             this.tsmiFuseBodies.Text = "Fuse Bodies";
             this.tsmiFuseBodies.Click += new System.EventHandler(this.tsmiFuseBodies_Click);
+            // 
+            // tsmiSwapPartGeometries
+            // 
+            this.tsmiSwapPartGeometries.Name = "tsmiSwapPartGeometries";
+            this.tsmiSwapPartGeometries.Size = new System.Drawing.Size(211, 22);
+            this.tsmiSwapPartGeometries.Text = "Swap Part Geometries";
+            this.tsmiSwapPartGeometries.Click += new System.EventHandler(this.tsmiSwapPartGeometries_Click);
             // 
             // tsmiSpaceMesh
             // 
@@ -724,19 +724,19 @@ namespace UserControls
             this.ilIcons.Images.SetKeyName(38, "Folder.ico");
             this.ilIcons.Images.SetKeyName(39, "Compound.ico");
             this.ilIcons.Images.SetKeyName(40, "Compound_transparent.ico");
-            this.ilIcons.Images.SetKeyName(41, "Solid.ico");
-            this.ilIcons.Images.SetKeyName(42, "Solid_transparent.ico");
-            this.ilIcons.Images.SetKeyName(43, "Shell.ico");
-            this.ilIcons.Images.SetKeyName(44, "Shell_transparent.ico");
-            this.ilIcons.Images.SetKeyName(45, "Wire.ico");
-            this.ilIcons.Images.SetKeyName(46, "Wire_transparent.ico");
-            this.ilIcons.Images.SetKeyName(47, "Unactive.ico");
-            this.ilIcons.Images.SetKeyName(48, "Solid_small_features.ico");
-            this.ilIcons.Images.SetKeyName(49, "Solid_transparent_small_features.ico");
-            this.ilIcons.Images.SetKeyName(50, "Shell_small_features.ico");
-            this.ilIcons.Images.SetKeyName(51, "Shell_transparent_small_features.ico");
-            this.ilIcons.Images.SetKeyName(52, "Compound_small_features.ico");
-            this.ilIcons.Images.SetKeyName(53, "Compound_transparent_small_features.ico");
+            this.ilIcons.Images.SetKeyName(41, "Compound_small_features.ico");
+            this.ilIcons.Images.SetKeyName(42, "Compound_transparent_small_features.ico");
+            this.ilIcons.Images.SetKeyName(43, "Solid.ico");
+            this.ilIcons.Images.SetKeyName(44, "Solid_transparent.ico");
+            this.ilIcons.Images.SetKeyName(45, "Solid_small_features.ico");
+            this.ilIcons.Images.SetKeyName(46, "Solid_transparent_small_features.ico");
+            this.ilIcons.Images.SetKeyName(47, "Shell.ico");
+            this.ilIcons.Images.SetKeyName(48, "Shell_transparent.ico");
+            this.ilIcons.Images.SetKeyName(49, "Shell_small_features.ico");
+            this.ilIcons.Images.SetKeyName(50, "Shell_transparent_small_features.ico");
+            this.ilIcons.Images.SetKeyName(51, "Wire.ico");
+            this.ilIcons.Images.SetKeyName(52, "Wire_transparent.ico");
+            this.ilIcons.Images.SetKeyName(53, "Unactive.ico");
             // 
             // tcGeometryModelResults
             // 
@@ -846,6 +846,7 @@ namespace UserControls
             this.cltvGeometry.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
             treeNode10,
             treeNode11});
+            this.cltvGeometry.RelatedColor = System.Drawing.Color.FromArgb(((int)(((byte)(235)))), ((int)(((byte)(223)))), ((int)(((byte)(235)))));
             this.cltvGeometry.SelectedImageIndex = 0;
             this.cltvGeometry.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.cltvGeometry.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelect;
@@ -1009,6 +1010,7 @@ namespace UserControls
             this.cltvModel.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
             treeNode30,
             treeNode31});
+            this.cltvModel.RelatedColor = System.Drawing.Color.FromArgb(((int)(((byte)(235)))), ((int)(((byte)(223)))), ((int)(((byte)(235)))));
             this.cltvModel.SelectedImageIndex = 0;
             this.cltvModel.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.cltvModel.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelect;
@@ -1134,6 +1136,7 @@ namespace UserControls
             this.cltvResults.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
             treeNode40,
             treeNode43});
+            this.cltvResults.RelatedColor = System.Drawing.Color.FromArgb(((int)(((byte)(235)))), ((int)(((byte)(223)))), ((int)(((byte)(235)))));
             this.cltvResults.SelectedImageIndex = 0;
             this.cltvResults.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.cltvResults.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelect;
