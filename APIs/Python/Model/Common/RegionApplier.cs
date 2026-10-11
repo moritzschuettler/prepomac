@@ -124,7 +124,7 @@ namespace APIs.Python.Model
         // item that names it is kept by its dialog, so only the sets the application names itself are refused
         private static void RefuseInternal(NamedClass stored, RegionTypeEnum regionType, string argumentName)
         {
-            if (!stored.Internal || !stored.Name.StartsWith(CaeMesh.Globals.InternalName)) return;
+            if (!stored.Internal || !stored.Name.StartsWith(CaeMesh.Globals.InternalName, System.StringComparison.Ordinal)) return;
             //
             throw new PythonAPIException("The argument '" + argumentName + "' names the " + regionType + " region '" +
                                          stored.Name + "', which is internal: it belongs to the model item that " +

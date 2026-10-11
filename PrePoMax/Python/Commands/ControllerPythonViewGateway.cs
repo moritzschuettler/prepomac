@@ -155,10 +155,14 @@ namespace PrePoMax.Python
         public void AddTextAnnotation(string name, string text, double[] anchorPoint)
         {
             RequireAnnotationView();
-            if (AnnotationContainer.IsAnnotationNameReserved(name))
-                throw new PythonAPIException("The name '" + name + "' is reserved for an annotation of the application.");
-            if (_controller.Annotations.GetCurrentAnnotation(name) != null)
-                throw new PythonAPIException("An annotation named '" + name + "' already exists in the displayed view.");
+            string reservedName = FindReservedAnnotationName(name);
+            if (reservedName != null)
+                throw new PythonAPIException("The name '" + name + "' is reserved for the annotation " + reservedName +
+                                             " of the application.");
+            string existingName = FindAnnotationName(name);
+            if (existingName != null)
+                throw new PythonAPIException("An annotation named '" + existingName + "' already exists in the " +
+                                             "displayed view.");
             //
             try
             {
@@ -188,17 +192,20 @@ namespace PrePoMax.Python
         public void RemoveAnnotations(string[] names)
         {
             RequireAnnotationView();
+            List<string> storedNames = new List<string>();
             foreach (string name in names)
             {
-                if (AnnotationContainer.IsAnnotationNameReserved(name))
+                if (FindReservedAnnotationName(name) != null)
                     throw new PythonAPIException("The annotation '" + name + "' belongs to the application and cannot " +
                                                  "be removed.");
-                if (_controller.Annotations.GetCurrentAnnotation(name) == null)
+                string storedName = FindAnnotationName(name);
+                if (storedName == null)
                     throw new PythonAPIException("The displayed view has no annotation named '" + name + "'. Its " +
                                                  "annotations are " + JoinNames(GetAnnotationNames()) + ".");
+                if (!storedNames.Contains(storedName)) storedNames.Add(storedName);
             }
             //
-            foreach (string name in names) _controller.Annotations.RemoveCurrentArrowAnnotation(name);
+            foreach (string storedName in storedNames) _controller.Annotations.RemoveCurrentArrowAnnotation(storedName);
         }
         public bool[] GetMinMaxAnnotations()
         {
@@ -216,11 +223,32 @@ namespace PrePoMax.Python
                 _controller.Settings = settings;
             });
         }
+        // The toolbar changes the plot type only while the results view is displayed, and the plotted
+        // component decides between a vector and a tensor plot, so a type that would not be shown is refused
         public void SetResultType(string resultType)
         {
             RequireResults();
-            ResolveForm().SetViewResultsType((ViewResultsTypeEnum)Enum.Parse(typeof(ViewResultsTypeEnum),
-                                                                            resultType, true));
+            if (_controller.CurrentView != ViewGeometryModelResults.Results)
+                throw new PythonAPIException("The argument 'result_type' belongs to the results view, so it must be " +
+                                             "displayed: pmx.view.current = 'results'.");
+            //
+            ViewResultsTypeEnum type = (ViewResultsTypeEnum)Enum.Parse(typeof(ViewResultsTypeEnum), resultType, true);
+            if (type == ViewResultsTypeEnum.VectorPlot || type == ViewResultsTypeEnum.TensorPlot)
+            {
+                FieldData fieldData = _controller.CurrentFieldData;
+                ViewResultsTypeEnum drawnAs = _controller.CurrentResult.IsTensorPlotComponent(fieldData)
+                                              ? ViewResultsTypeEnum.TensorPlot : ViewResultsTypeEnum.VectorPlot;
+                if (type != drawnAs)
+                {
+                    string plotted = fieldData == null ? "nothing" : "the component " + fieldData.Component +
+                                                                     " of the field " + fieldData.Name;
+                    throw new PythonAPIException("The argument 'result_type' " + type + " cannot draw " + plotted +
+                                                 ", which is drawn as a " + drawnAs + ". The plotted component picks " +
+                                                 "VectorPlot or TensorPlot; set the field first with " +
+                                                 "pmx.view.set_result_field.");
+                }
+            }
+            ResolveForm().SetViewResultsType(type);
         }
         public bool GetResultFieldData(out string fieldName, out string componentName, out int stepId,
                                        out int incrementId)
@@ -267,15 +295,45 @@ namespace PrePoMax.Python
             //
             ResolveForm().SetStepAndIncrementIds(stepId, incrementId);
         }
+        // A relative name is placed where the screenshot tool of the automation server places it, so the
+        // same name means the same file whichever front door asked for it
         public string SaveImage(string fileName, bool transparentBackground, int magnification)
         {
-            string path = fileName == null ? GetTemporaryFileName() : fileName;
-            if (System.IO.Path.GetExtension(path).ToLower() != ".png")
-                throw new PythonAPIException("A viewport image is written as a .png file.");
+            string path;
+            string extension;
+            string directory;
+            try
+            {
+                if (fileName == null) path = GetTemporaryFileName();
+                else if (System.IO.Path.IsPathRooted(fileName)) path = fileName;
+                else path = System.IO.Path.Combine(GetTemporaryDirectory(), fileName);
+                System.IO.Path.GetFullPath(path);
+                extension = System.IO.Path.GetExtension(path);
+                directory = System.IO.Path.GetDirectoryName(path);
+            }
+            catch (Exception exception) when (IsPathException(exception))
+            {
+                throw new PythonAPIException("The argument 'file_name' is not a valid file name: '" + fileName + "'. " +
+                                             exception.Message);
+            }
+            if (extension.ToLower() != ".png")
+                throw new PythonAPIException("The argument 'file_name' must name a .png file, as a viewport image is " +
+                                             "written as one.");
             //
-            string directory = System.IO.Path.GetDirectoryName(path);
             if (directory != null && directory.Length > 0 && !System.IO.Directory.Exists(directory))
-                throw new PythonAPIException("The directory " + directory + " does not exist.");
+            {
+                try
+                {
+                    System.IO.Directory.CreateDirectory(directory);
+                }
+                catch (Exception exception) when (IsPathException(exception) || exception is System.IO.IOException ||
+                                                  exception is UnauthorizedAccessException)
+                {
+                    throw new PythonAPIException("The argument 'file_name' names the directory " + directory +
+                                                 ", which does not exist and could not be created: " +
+                                                 exception.Message);
+                }
+            }
             //
             ResolveForm().SaveAutomationScreenshot(path, transparentBackground, magnification);
             return path;
@@ -345,6 +403,27 @@ namespace PrePoMax.Python
             //
             return mesh;
         }
+        private string FindAnnotationName(string name)
+        {
+            foreach (string existingName in _controller.Annotations.GetCurrentAnnotationNames())
+            {
+                if (string.Equals(existingName, name, StringComparison.OrdinalIgnoreCase)) return existingName;
+            }
+            //
+            return null;
+        }
+        private static string FindReservedAnnotationName(string name)
+        {
+            string[] reservedNames = new string[] { AnnotationContainer.MeasureAnnotationName,
+                                                    AnnotationContainer.MinAnnotationName,
+                                                    AnnotationContainer.MaxAnnotationName };
+            foreach (string reservedName in reservedNames)
+            {
+                if (string.Equals(reservedName, name, StringComparison.OrdinalIgnoreCase)) return reservedName;
+            }
+            //
+            return null;
+        }
         private static string JoinNames(string[] names)
         {
             if (names == null || names.Length == 0) return "none";
@@ -375,9 +454,16 @@ namespace PrePoMax.Python
         }
         private static string GetTemporaryFileName()
         {
-            string directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "PrePoMax");
-            if (!System.IO.Directory.Exists(directory)) System.IO.Directory.CreateDirectory(directory);
-            return System.IO.Path.Combine(directory, "viewport_" + Guid.NewGuid().ToString("N") + ".png");
+            return System.IO.Path.Combine(GetTemporaryDirectory(), "viewport_" + Guid.NewGuid().ToString("N") + ".png");
+        }
+        private static string GetTemporaryDirectory()
+        {
+            return System.IO.Path.Combine(System.IO.Path.GetTempPath(), "PrePoMax");
+        }
+        private static bool IsPathException(Exception exception)
+        {
+            return exception is ArgumentException || exception is NotSupportedException ||
+                   exception is System.IO.PathTooLongException || exception is System.Security.SecurityException;
         }
         public static string ToViewName(ViewGeometryModelResults view)
         {

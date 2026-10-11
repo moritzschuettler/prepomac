@@ -32,10 +32,8 @@ namespace PrePoMax.Python.Journal
         {
             // An older API set a part color below the alpha the dialog and replace_properties allow; leaving the
             // color out would keep the color the part has on replay, so the call cannot be written
-            if (properties.Color.A < MinimumPartAlpha)
-                throw new NotSupportedException("the color of the part '" + properties.Name + "' has an alpha of " +
-                                                properties.Color.A + ", and replace_properties refuses an alpha " +
-                                                "below " + MinimumPartAlpha);
+            RefuseAlphaBelowMinimum(properties.Color.A, "the color of the part '" + properties.Name + "'",
+                                    "replace_properties");
             List<string> arguments = new List<string> { PythonValueFormatter.Text(oldPartName),
                                                         "name=" + PythonValueFormatter.Text(properties.Name),
                                                         "color=" +
@@ -44,6 +42,13 @@ namespace PrePoMax.Python.Journal
             //
             writer.Statement(writer.Call(collection, "replace_properties", arguments.ToArray()));
             writer.CountEmittedCommand();
+        }
+        // The part color and transparency dialogs raise a lower alpha to the minimum, so only an older API wrote one
+        public static void RefuseAlphaBelowMinimum(int alpha, string what, string member)
+        {
+            if (alpha < MinimumPartAlpha)
+                throw new NotSupportedException(what + " has an alpha of " + alpha + ", and " + member +
+                                                " refuses an alpha below " + MinimumPartAlpha);
         }
         private static string GetElementTypes(PartProperties properties)
         {

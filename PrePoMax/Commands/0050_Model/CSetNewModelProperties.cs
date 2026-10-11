@@ -51,12 +51,13 @@ namespace PrePoMax.Commands
         }
 
         // The dialog sets both at once while the API carries one property each, so this is the single
-        // place where one recorded command becomes two
+        // place where one recorded command becomes two. The API changes a defined unit system of a model that holds
+        // something only while the model space is undefined, so the unit system is set first
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Assign("pmx.model.properties.model_space", PythonValueFormatter.Text(_modelSpace.ToString()));
             writer.Assign("pmx.model.properties.unit_system",
                           PythonValueFormatter.Text(_unitSystemType.ToString()));
+            writer.Assign("pmx.model.properties.model_space", PythonValueFormatter.Text(_modelSpace.ToString()));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

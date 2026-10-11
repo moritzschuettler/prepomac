@@ -504,7 +504,8 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a detached solver environment variable, including its enabled state. It reads its " +
-                   "values back as name, value and active, and with get_values.",
+                   "values back as name, value and active, and with get_values. As in the settings dialog, " +
+                   "neither the name nor the value may be blank, and both are kept as typed.",
                    Arguments = "name: str, value: str, active: bool = True", Returns = "EnvironmentVariable")]
         public EnvironmentVariableAPI environment_variable(object name, object value, object active = null)
         {

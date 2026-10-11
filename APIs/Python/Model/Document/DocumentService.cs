@@ -21,6 +21,9 @@ namespace APIs.Python.Model
     internal class DocumentService
     {
         // Variables
+        private static readonly string[] ImportFileExtensions = new string[] { ".stp", ".step", ".igs", ".iges", ".brep",
+                                                                               ".stl", ".unv", ".vol", ".inp", ".mesh",
+                                                                               ".obj", ".pmp" };
         private readonly ModelResolver _modelResolver;
         private readonly IPythonModelGateway _modelGateway;
         private readonly ResultResolver _resultResolver;
@@ -81,11 +84,29 @@ namespace APIs.Python.Model
         {
             return extension == ".frd" || extension == ".dat" || extension == ".odb" || extension == ".foam";
         }
+        // The import dialog asks for the model space and the unit system of a model that has none before it imports,
+        // which a script cannot answer, and imports a file of any other type than .inp whole although only its
+        // materials were asked for
         public void ImportFile(string fileName, bool onlyMaterials)
         {
             string fullFileName = ResolveExistingFileName(fileName, "file_name");
-            //
+            string extension = Path.GetExtension(fullFileName).ToLowerInvariant();
+            if (Array.IndexOf(ImportFileExtensions, extension) < 0)
+                throw new PythonAPIException("The argument 'file_name' must name a file of a type the import " +
+                                             "takes: " + string.Join(", ", ImportFileExtensions) + ", but '" +
+                                             fileName + "' was given.");
+            if (onlyMaterials && extension != ".inp")
+                throw new PythonAPIException("The argument 'only_materials' applies only to an .inp file, but '" +
+                                             fileName + "' was given.");
             EnsureCommandsAvailable();
+            FeModel model = _modelResolver.GetModel();
+            if (model.Properties.ModelSpace == ModelSpaceEnum.Undefined ||
+                model.UnitSystem.UnitSystemType == UnitSystemType.Undefined)
+                throw new PythonAPIException("There is no model to import into. First create a new model. Create " +
+                                             "it with pmx.new_model(model_space, unit_system), or set " +
+                                             "pmx.model.properties.model_space and unit_system.");
+            if (extension == ".pmp") ParameterService.CheckParametersFile(model, fullFileName);
+            //
             _modelGateway.ImportFile(fullFileName, onlyMaterials);
         }
         public void SaveToPmx(string fileName)
@@ -180,8 +201,8 @@ namespace APIs.Python.Model
         }
         // A value the model type does not use is hidden by the dialog and refused by its setter, so it reads None.
         // Regenerate with file dialogs and a batch regeneration store a full path, which the setter refuses, so a
-        // path in the work directory reads as the name the setter takes; a path anywhere else names a file no
-        // setter can, and reads as it is stored
+        // path in the work directory reads as the name the setter takes; a path anywhere else, or one whose file
+        // name the setter would refuse, names a file no setter can, and reads as it is stored
         public string GetGlobalResultsFileName()
         {
             ModelProperties properties = _modelResolver.GetModel().Properties;
@@ -197,8 +218,10 @@ namespace APIs.Python.Model
                 char[] separators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
                 string fileDirectory = Path.GetFullPath(Path.GetDirectoryName(fileName)).TrimEnd(separators);
                 string fullWorkDirectory = Path.GetFullPath(workDirectory).TrimEnd(separators);
-                if (string.Equals(fileDirectory, fullWorkDirectory, StringComparison.OrdinalIgnoreCase))
-                    return Path.GetFileName(fileName);
+                string bareFileName = Path.GetFileName(fileName);
+                if (string.Equals(fileDirectory, fullWorkDirectory, StringComparison.OrdinalIgnoreCase) &&
+                    bareFileName.Length > 0 && IsGlobalResultsFileNameWithoutPath(bareFileName))
+                    return bareFileName;
             }
             catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException ||
                                        ex is PathTooLongException)
@@ -352,7 +375,9 @@ namespace APIs.Python.Model
         }
         // The model space of a new model, set as the new model dialog sets it, which leaves the element types of an
         // existing mesh as they are; the dialog asks for it only while the model space or the unit system is
-        // undefined, so a defined model space of a model with a geometry or a mesh is changed by the replace
+        // undefined, so a defined model space of a model with a geometry or a mesh is changed by the replace. The
+        // values of a model are numbers in its unit system, which no dialog converts, so a defined unit system is
+        // changed only while the model holds nothing or its model space is undefined, when the dialog asks for both
         public void SetModelSpaceAndUnitSystem(string modelSpace, string unitSystem)
         {
             FeModel model = _modelResolver.GetModel();
@@ -364,8 +389,21 @@ namespace APIs.Python.Model
                                              "this model already has a geometry or a mesh. Change it with " +
                                              "pmx.model.properties.replace(model_space=...), which updates the " +
                                              "element types.");
+            if (modelSpace != null && modelSpaceValue.IsTwoD() &&
+                (IsNotInXyPlane(model.Geometry) || IsNotInXyPlane(model.Mesh)))
+                throw new PythonAPIException("Use of the 2D model space is not possible. The geometry or the mesh " +
+                                             "do not contain 2D geometry in x-y plane. The property 'model_space' " +
+                                             "takes " + modelSpaceValue + " only for a model in the x-y plane.");
             UnitSystemType unitSystemValue = unitSystem == null ? model.UnitSystem.UnitSystemType
                                                                 : ToUnitSystem(unitSystem);
+            UnitSystemType currentUnitSystem = model.UnitSystem.UnitSystemType;
+            if (unitSystemValue != currentUnitSystem && currentUnitSystem != UnitSystemType.Undefined &&
+                current != ModelSpaceEnum.Undefined && HasContent(model))
+                throw new PythonAPIException("The property 'unit_system' sets the unit system of a new model, and " +
+                                             "this model already holds a geometry, a mesh or model items, whose " +
+                                             "values would be read in " + unitSystemValue + " instead of " +
+                                             currentUnitSystem + " without being converted. Start a model in that unit " +
+                                             "system with pmx.new_model(model_space, unit_system) instead.");
             //
             EnsureCommandsAvailable();
             _modelGateway.SetNewModelProperties(modelSpaceValue, unitSystemValue);
@@ -425,13 +463,17 @@ namespace APIs.Python.Model
             if (globalResultsFileName.Length == 0)
                 throw new PythonAPIException("The argument 'global_results_file_name' must not be empty; a " +
                                              "submodel needs an existing global results file.");
-            if (globalResultsFileName.Contains(" ") || globalResultsFileName.Contains(":") ||
-                globalResultsFileName.Contains("\\") || globalResultsFileName.Contains("/") ||
-                globalResultsFileName.ToUTF8() != globalResultsFileName)
+            if (!IsGlobalResultsFileNameWithoutPath(globalResultsFileName))
                 throw new PythonAPIException("Enter the global results file name (.frd) without path. The results " +
                                              "file name must not contain any special characters. Give in " +
                                              "'global_results_file_name' the name of a file in the work directory: '" +
                                              globalResultsFileName + "'.");
+        }
+        private static bool IsGlobalResultsFileNameWithoutPath(string globalResultsFileName)
+        {
+            return !globalResultsFileName.Contains(" ") && !globalResultsFileName.Contains(":") &&
+                   !globalResultsFileName.Contains("\\") && !globalResultsFileName.Contains("/") &&
+                   globalResultsFileName.ToUTF8() == globalResultsFileName;
         }
         // The dialog refuses on OK a submodel whose global results file it cannot find in the work directory and a
         // slip wear model whose cycles do not divide into increments, in these words, and judges the properties it
@@ -470,6 +512,17 @@ namespace APIs.Python.Model
         private static bool HasNodes(FeMesh mesh)
         {
             return mesh != null && mesh.Nodes.Count > 0;
+        }
+        private static bool IsNotInXyPlane(FeMesh mesh)
+        {
+            return HasNodes(mesh) && !mesh.BoundingBox.Is2D();
+        }
+        private static bool HasContent(FeModel model)
+        {
+            return HasNodes(model.Geometry) || HasNodes(model.Mesh) || model.Materials.Count > 0 ||
+                   model.Sections.Count > 0 || model.Constraints.Count > 0 || model.SurfaceInteractions.Count > 0 ||
+                   model.ContactPairs.Count > 0 || model.Distributions.Count > 0 || model.Amplitudes.Count > 0 ||
+                   model.InitialConditions.Count > 0 || model.StepCollection.StepsList.Count > 0;
         }
         // The dialog changes the model space only within the 2D spaces or within 3D, because the element types
         // of the mesh follow it

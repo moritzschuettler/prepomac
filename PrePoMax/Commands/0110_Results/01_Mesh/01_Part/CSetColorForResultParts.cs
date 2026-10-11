@@ -47,6 +47,7 @@ namespace PrePoMax.Commands
 
         public override void ToPython(PythonJournalWriter writer)
         {
+            PythonPartPropertiesEmitter.RefuseAlphaBelowMinimum(_color.A, "the color set for the parts", "set_color");
             writer.Statement(writer.Call(PythonResultEmitter.Parts, "set_color", PythonValueFormatter.List(_partNames),
                                          PythonValueFormatter.Channels(_color)));
             writer.CountEmittedCommand();

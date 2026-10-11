@@ -29,6 +29,18 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def check_refused(function, words, message):
+    try:
+        function()
+    except Exception as ex:
+        text = str(ex)
+        for word in words:
+            check(word in text, message + " - the refusal must say '" + word + "': " + text)
+        check("   at " not in text, message + " - a .NET exception leaked: " + text)
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
 def test_the_view_is_the_results_view():
     check(pmx.view.current == "results", "a result file opens in the results view: " + pmx.view.current)
     pmx.view.current = "femodel"
@@ -99,6 +111,21 @@ def test_the_plot_type():
     pmx.view.result_type = "colorcontours"
     check(pmx.view.result_type == "ColorContours", "the plot type must be taken regardless of case: " +
           pmx.view.result_type)
+    # The plotted component picks a vector or a tensor plot, so the other one is refused rather than replaced
+    pmx.view.set_result_field("DISP", "U3")
+    pmx.view.result_type = "VectorPlot"
+    check(pmx.view.result_type == "VectorPlot", "a displacement must be drawn as a vector plot: " +
+          pmx.view.result_type)
+    check_refused(lambda: setattr(pmx.view, "result_type", "TensorPlot"), ["'result_type'", "VectorPlot"],
+                  "a tensor plot of a displacement was accepted")
+    check(pmx.view.result_type == "VectorPlot", "a refused plot type changed the plot: " + pmx.view.result_type)
+    # The toolbar changes the plot type only in the results view, which another view must not pretend to
+    pmx.view.result_type = "ColorContours"
+    pmx.view.current = "femodel"
+    check_refused(lambda: setattr(pmx.view, "result_type", "Deformed"), ["results view"],
+                  "a plot type set outside the results view was accepted")
+    pmx.view.current = "results"
+    check(pmx.view.result_type == "ColorContours", "a refused plot type changed the plot: " + pmx.view.result_type)
 
 
 # The PNG header says everything this has to check: the size after the signature and the IHDR
@@ -131,6 +158,16 @@ def test_the_picture():
     check(os.path.exists(named), "the named image must exist: " + named)
     os.remove(named)
     check_raises(lambda: pmx.view.save_image("picture.jpg"), "only a .png may be written")
+    # A relative name lands where the screenshot tool of the automation server puts it, not in the
+    # working directory of the process
+    relative = pmx.view.save_image("PyTest_Relative.png")
+    expected = os.path.join(os.environ["TEMP"], "PrePoMax", "PyTest_Relative.png")
+    check(os.path.exists(relative), "the relative image must exist: " + relative)
+    # TEMP may hold the short form of the same folder, so the files are compared, not the spellings
+    check(os.path.exists(expected) and os.path.samefile(relative, expected),
+          "a relative name must be placed in the PrePoMax temporary folder: " + relative)
+    os.remove(relative)
+    check_refused(lambda: pmx.view.save_image("bad|name.png"), ["'file_name'"], "an invalid file name was accepted")
     pmx.view.set_parameters(camera)
 
 
@@ -179,6 +216,11 @@ def test_the_deformation():
           "the deformation factor must be set: " + str(pmx.view.deformation_factor))
     check_raises(lambda: setattr(pmx.view, "deformation_type", "Huge"), "an unknown deformation type must be rejected")
     check_raises(lambda: setattr(pmx.view, "deformation_factor", "big"), "a deformation factor must be a number")
+    # The factor is kept as a single precision float, so a value it cannot hold is refused rather than made infinite
+    check_refused(lambda: setattr(pmx.view, "deformation_factor", 1e39), ["'deformation_factor'"],
+                  "a deformation factor beyond the float range was accepted")
+    check(abs(float(pmx.view.deformation_factor) - 2.5) < 1e-6,
+          "a refused deformation factor changed it: " + str(pmx.view.deformation_factor))
     pmx.view.deformation_type = "Automatic"
     # The undeformed model is drawn behind a contour plot only; a plot that would discard it refuses it
     pmx.view.result_type = "ColorContours"
@@ -269,6 +311,14 @@ def test_the_annotations():
     check(node_name != element_name, "the generated names must differ: " + node_name)
     check_raises(lambda: annotations.add_text("PyTest_Label", "again", [0.0, 0.0, 0.0]), "a taken name must be rejected")
     check_raises(lambda: annotations.add_text("Min_Annotation", "mine", [0.0, 0.0, 0.0]), "a reserved name must be rejected")
+    # Names are compared regardless of case, as model names are
+    check_refused(lambda: annotations.add_text("pytest_label", "again", [0.0, 0.0, 0.0]), ["PyTest_Label"],
+                  "a taken name in another case must be rejected")
+    check_refused(lambda: annotations.add_text("max_annotation", "mine", [0.0, 0.0, 0.0]), ["reserved"],
+                  "a reserved name in another case must be rejected")
+    check_refused(lambda: annotations.remove("MIN_ANNOTATION"), ["application"],
+                  "a reserved annotation in another case cannot be removed")
+    check_raises(lambda: annotations.remove(" PyTest_Label"), "a padded name must find nothing")
     check_raises(lambda: annotations.add_text("PyTest_Short", "short", [0.0, 0.0]), "a short anchor must be rejected")
     check_raises(lambda: annotations.add_node(999), "an unknown node must be rejected")
     check_raises(lambda: annotations.add_element(999), "an unknown element must be rejected")
@@ -289,7 +339,7 @@ def test_the_annotations():
     check(os.path.exists(path), "the annotated image must exist: " + path)
     os.remove(path)
     #
-    annotations.remove(["PyTest_Label", node_name, element_name])
+    annotations.remove(["PYTEST_LABEL", node_name, element_name])
     check(sorted(annotations.get_names()) == names_before,
           "the removed annotations must be gone: " + str(list(annotations.get_names())))
 

@@ -168,7 +168,22 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The parameters file '" + fullFileName + "' does not exist.");
             //
             EnsureCommandsAvailable();
+            CheckParametersFile(_modelResolver.GetModel(), fullFileName);
             _modelGateway.ImportParameters(fullFileName);
+        }
+        // The file is read into a collection of its own the way the import reads it, so a file the import refuses
+        // is refused naming it before anything is recorded
+        public static void CheckParametersFile(FeModel model, string fullFileName)
+        {
+            try
+            {
+                new EquationParameterCollection().ImportFromFile(fullFileName, false, model.GetPropertyParameters());
+            }
+            catch (Exception ex) when (ex is CaeException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                throw new PythonAPIException("The parameters file '" + fullFileName + "' cannot be imported: " +
+                                             ex.Message);
+            }
         }
         public void ExportToFile(string fileName)
         {

@@ -74,7 +74,9 @@ namespace APIs.Python.Model
             //
             return PythonListConverter.ToPythonList(entries);
         }
-        [PythonAPI("Inserts or replaces one user CalculiX keyword at a generated keyword index path.",
+        [PythonAPI("Inserts or replaces one user CalculiX keyword at a generated keyword index path. As the " +
+                   "editor does, a new keyword inside a deactivated generated keyword is refused; one the model " +
+                   "already holds at that index path may be replaced.",
                    Arguments = "indices: list[int], data: str", Returns = "None",
                    Example = "pmx.model.keywords.set_user_keyword([3, 1], '*NO ANALYSIS')")]
         public void set_user_keyword(object indices, object data)
@@ -82,9 +84,9 @@ namespace APIs.Python.Model
             string dataText = PythonValueConverter.ToText(data, "data", true);
             int[] path = ToIndices(indices, "indices");
             if (string.IsNullOrEmpty(dataText)) throw new PythonAPIException("The argument 'data' must not be empty.");
-            ValidateUserKeywordPath(path);
-            //
             OrderedDictionary<int[], CalculixUserKeyword> keywords = GetUserKeywords();
+            ValidateUserKeywordPath(path, keywords);
+            //
             RemoveAt(keywords, path);
             keywords.Add(path, new CalculixUserKeyword(dataText));
             //
@@ -102,13 +104,16 @@ namespace APIs.Python.Model
             //
             SetUserKeywords(keywords);
         }
-        [PythonAPI("Replaces every user CalculiX keyword by the given index path and text pairs.",
+        [PythonAPI("Replaces every user CalculiX keyword by the given index path and text pairs. As the editor " +
+                   "does, an index path inside a deactivated generated keyword is refused unless the model already " +
+                   "holds a user keyword there, which the editor keeps.",
                    Arguments = "keywords: list[tuple[list[int], str]]", Returns = "None",
                    Example = "pmx.model.keywords.replace_user_keywords([([3, 1], '*NO ANALYSIS')])")]
         public void replace_user_keywords(object keywords)
         {
             List<KeyValuePair<int[], string>> pairs = ToKeywordPairs(keywords, "keywords");
-            foreach (KeyValuePair<int[], string> pair in pairs) ValidateUserKeywordPath(pair.Key);
+            OrderedDictionary<int[], CalculixUserKeyword> existing = GetUserKeywords();
+            foreach (KeyValuePair<int[], string> pair in pairs) ValidateUserKeywordPath(pair.Key, existing);
             OrderedDictionary<int[], CalculixUserKeyword> replacement =
                 new OrderedDictionary<int[], CalculixUserKeyword>("Keywords");
             foreach (KeyValuePair<int[], string> pair in pairs)
@@ -254,17 +259,39 @@ namespace APIs.Python.Model
         // A user keyword names an insertion position rather than a keyword, so the last index may be
         // the count of the keywords it is inserted among. A position that does not exist is refused
         // here, because the dialog can only insert at one that does; a position that later disappears
-        // is suppressed on export instead, which is the state IsSuppressed reports.
-        private void ValidateUserKeywordPath(int[] path)
+        // is suppressed on export instead, which is the state IsSuppressed reports. The dialog adds no
+        // keyword to a deactivated keyword, but keeps one it already holds there, so only a new one is refused.
+        private void ValidateUserKeywordPath(int[] path, OrderedDictionary<int[], CalculixUserKeyword> existing)
         {
             List<CalculixKeyword> keywords = GetModelKeywords();
+            int[] deactivatedPath = null;
             for (int i = 0; i < path.Length - 1; i++)
             {
                 if (keywords == null || path[i] >= keywords.Count) throw NoInsertionPosition(path);
+                if (deactivatedPath == null && keywords[path[i]] is CalDeactivated)
+                {
+                    deactivatedPath = new int[i + 1];
+                    Array.Copy(path, deactivatedPath, i + 1);
+                }
                 keywords = keywords[path[i]].Keywords;
             }
             int insertionIndex = path[path.Length - 1];
             if (keywords == null || insertionIndex > keywords.Count) throw NoInsertionPosition(path);
+            //
+            if (deactivatedPath != null && !ContainsPath(existing, path))
+                throw new PythonAPIException("Cannot add user keyword to a deactivated keyword. The generated " +
+                                             "keyword at the index path [" + string.Join(", ", deactivatedPath) +
+                                             "] is deactivated, so the index path [" + string.Join(", ", path) +
+                                             "] takes no new user keyword.");
+        }
+        private static bool ContainsPath(OrderedDictionary<int[], CalculixUserKeyword> keywords, int[] path)
+        {
+            foreach (int[] key in keywords.Keys)
+            {
+                if (SamePath(key, path)) return true;
+            }
+            //
+            return false;
         }
         private static PythonAPIException NoInsertionPosition(int[] path)
         {

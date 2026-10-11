@@ -86,6 +86,40 @@ def test_user_keywords(generated):
     check(keywords.count == 0, "a refused user keyword changed the editor state")
 
 
+def material_keyword_path(material_name):
+    for entry in pmx.model.keywords.get_model_keywords():
+        if material_name in entry.data:
+            return list(entry.indices)
+    raise Exception("TEST FAILED: the material " + material_name + " generated no keyword")
+
+
+def test_user_keywords_in_deactivated_keyword():
+    keywords = pmx.model.keywords
+    material_name = PREFIX + "Steel"
+    pmx.model.materials.add(material_name, [pmx.create.density(7.85e-9)])
+    try:
+        # A user keyword the editor already holds inside a keyword that is then deactivated is kept, so the
+        # editor writes it again, and the API takes it back
+        kept_path = material_keyword_path(material_name) + [0]
+        keywords.set_user_keyword(kept_path, USER_KEYWORD)
+        pmx.model.materials.deactivate([material_name])
+        deactivated_path = material_keyword_path(material_name)
+        check(deactivated_path + [0] == kept_path, "the deactivated material moved in the keyword tree")
+        keywords.replace_user_keywords([(kept_path, USER_KEYWORD)])
+        keywords.set_user_keyword(kept_path, USER_KEYWORD)
+        keywords.remove_user_keyword(kept_path)
+        # The editor adds no keyword to a deactivated keyword, so neither does the API
+        for call in [lambda: keywords.set_user_keyword(kept_path, USER_KEYWORD),
+                     lambda: keywords.replace_user_keywords([(kept_path, USER_KEYWORD)])]:
+            check_refused(call, "Cannot add user keyword to a deactivated keyword",
+                          "a user keyword inside a deactivated keyword must be refused")
+            check_refused(call, str(deactivated_path).replace("[", "").replace("]", ""),
+                          "the refusal must name the index path of the deactivated keyword")
+        check(keywords.count == 0, "a refused user keyword changed the editor state")
+    finally:
+        pmx.model.materials.remove([material_name])
+
+
 def test_overrides(generated):
     keywords = pmx.model.keywords
     path = list(generated[0].indices)
@@ -334,6 +368,7 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     generated = test_generated_keywords()
     test_user_keywords(generated)
+    test_user_keywords_in_deactivated_keyword()
     test_overrides(generated)
     test_tree()
     test_tree_views()

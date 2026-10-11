@@ -47,8 +47,11 @@ namespace APIs.Python
             get { return Resolve().GetCurrentView(); }
             set { Resolve().SetCurrentView(ValidateOneOf(ToText(value, "current"), Views, "current")); }
         }
-        [PythonAPI("How the results are plotted: Undeformed, Deformed, ColorContours, VectorPlot or TensorPlot.",
-                   Returns = "str")]
+        [PythonAPI("How the results are plotted: Undeformed, Deformed, ColorContours, VectorPlot or TensorPlot. " +
+                   "Setting it needs an open result in the displayed results view. The plotted component picks " +
+                   "VectorPlot or TensorPlot - a tensor component is drawn as a TensorPlot, any other as a " +
+                   "VectorPlot - so the other one of the two is refused, and the type follows a later change of " +
+                   "the plotted field.", Returns = "str")]
         public object result_type
         {
             get { return Resolve().GetResultType(); }
@@ -74,11 +77,21 @@ namespace APIs.Python
             }
         }
         [PythonAPI("The deformation scale factor the UserDefined deformation_type uses. It is kept when another " +
-                   "type is set, the way the toolbar keeps it. Setting it needs an open result.", Returns = "float")]
+                   "type is set, the way the toolbar keeps it. It is stored as a single precision float, so a " +
+                   "value beyond about 3.4e38 is refused. Setting it needs an open result.", Returns = "float")]
         public object deformation_factor
         {
             get { return Resolve().GetDeformationFactor(); }
-            set { Resolve().SetDeformationFactor(PythonValueConverter.ToFiniteDouble(value, "deformation_factor")); }
+            set
+            {
+                double factor = PythonValueConverter.ToFiniteDouble(value, "deformation_factor");
+                if (float.IsInfinity((float)factor))
+                    throw new PythonAPIException("The argument 'deformation_factor' must be within the range of a " +
+                                                 "single precision float, about 3.4e38: " +
+                                                 factor.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                                                 ".");
+                Resolve().SetDeformationFactor(factor);
+            }
         }
         [PythonAPI("The undeformed model drawn behind a ColorContours, VectorPlot or TensorPlot result: None, " +
                    "WireframeBody or SolidBody. Setting it needs an open result.", Returns = "str")]
@@ -211,7 +224,8 @@ namespace APIs.Python
         [PythonAPI("Plots a given increment of the current result. The IDs are the result step and increment " +
                    "IDs, the ones pmx.results.current.steps reports, not model step names.",
                    Arguments = "step_id: int, increment_id: int", Returns = "None",
-                   Example = "pmx.view.set_result_increment(1, -1)")]
+                   Example = "step = pmx.results.current.steps.last()\n" +
+                             "pmx.view.set_result_increment(step.id, step.increments.last().id)")]
         public void set_result_increment(object step_id, object increment_id)
         {
             int stepId = PythonValueConverter.ToInt(step_id, "step_id");
@@ -262,7 +276,9 @@ namespace APIs.Python
             Resolve().ResetLegendRange();
         }
         [PythonAPI("Writes a PNG of the viewport as it looks right now and returns the path. A file name that " +
-                   "is not given means a file in the temporary folder. A transparent background leaves out the " +
+                   "is not given means a new file in the PrePoMax folder of the temporary folder, and a relative " +
+                   "one is placed in that folder too, as the screenshot tool of the automation server places it; " +
+                   "a missing directory is created. A transparent background leaves out the " +
                    "background the viewport shows, so the picture can be put on a page of any color; the model, " +
                    "the legend and the labels keep their own colors. The magnification renders the picture that " +
                    "many times larger than the viewport, from 1 to 4, for a picture that is going to be printed. " +

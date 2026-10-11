@@ -69,9 +69,9 @@ namespace APIs.Python
                    "FailedWithResults.", Returns = "str")]
         public string status { get { return Resolve().JobStatus.ToString(); } }
         [PythonAPI("The name of the results file the analysis writes.", Returns = "str")]
-        public string results_file_name { get { return Resolve().ResultsFileName; } }
+        public string results_file_name { get { return _service.GetResultsFileName(Resolve()); } }
         [PythonAPI("True when the analysis results match the current model.", Returns = "bool")]
-        public bool is_up_to_date { get { return Resolve().IsUpToDate; } }
+        public bool is_up_to_date { get { return _service.IsUpToDate(Resolve()); } }
 
 
         // Constructors
@@ -102,7 +102,8 @@ namespace APIs.Python
             return _service.Run(_jobName, true, wait, timeout);
         }
 
-        [PythonAPI("Kills a running analysis.", Returns = "None")]
+        [PythonAPI("Kills a running analysis. An analysis that is not running is refused, as the user interface " +
+                   "refuses it, and so is any kill in read only automation mode.", Returns = "None")]
         public void kill()
         {
             _service.Kill(_jobName);

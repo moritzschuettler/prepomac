@@ -28,14 +28,18 @@ namespace APIs.Python.Model
         [PythonAPI("The model space: ThreeD, PlaneStress, PlaneStrain or Axisymmetric; Undefined and None are " +
                    "refused. Assigning it sets the model space of a new model, as the new model dialog does, " +
                    "and leaves the element types as they are, so once the model has a geometry or a mesh a " +
-                   "defined model space is changed by replace(model_space=...) instead.", Returns = "str")]
+                   "defined model space is changed by replace(model_space=...) instead. As the dialog does, a 2D " +
+                   "space is refused when the geometry or the mesh is not in the x-y plane.", Returns = "str")]
         public object model_space
         {
             get { return _service.GetModelSpace(); }
             set { _service.SetModelSpaceAndUnitSystem(ToText(value, "model_space"), null); }
         }
         [PythonAPI("The unit system: M_KG_S_C, MM_TON_S_C, M_TON_S_C, IN_LB_S_F or UNIT_LESS; Undefined and " +
-                   "None are refused.", Returns = "str")]
+                   "None are refused. Assigning it sets the unit system of a new model, as the new model dialog " +
+                   "does, and converts no value, so a defined unit system is changed only while the model has " +
+                   "no geometry, mesh or model item, or its model space is undefined; otherwise it is refused " +
+                   "and a model in another unit system is started by pmx.new_model.", Returns = "str")]
         public object unit_system
         {
             get { return _service.GetUnitSystem(); }
@@ -53,8 +57,10 @@ namespace APIs.Python.Model
                    "takes a file name without path, with no space, colon, slash or non UTF-8 character, and the " +
                    "file must exist in the work directory. It is set on a Submodel only, and another model type " +
                    "reads it as None. Regenerate with file dialogs and a batch regeneration store a full path: " +
-                   "one in the work directory reads as its bare file name, and one anywhere else reads as the " +
-                   "full path, which the setter refuses.",
+                   "one in the work directory whose file name the setter takes reads as that bare file name; " +
+                   "one anywhere else, or one whose file name has a character the setter refuses, reads as the " +
+                   "full path. The setter refuses the value read back only when it is such a full path, or when " +
+                   "the file it names is no longer in the work directory.",
                    Returns = "str or None")]
         public object global_results_file_name
         {

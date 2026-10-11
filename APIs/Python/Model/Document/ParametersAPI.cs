@@ -65,7 +65,8 @@ namespace APIs.Python.Model
             _service.SetAll(names, values, descriptions);
         }
 
-        [PythonAPI("Imports the parameters from a .pmp file using command history.",
+        [PythonAPI("Imports the parameters from a .pmp file using command history. A file with a line the import " +
+                   "cannot read or evaluate is refused naming the file and the line, before anything is recorded.",
                    Arguments = "file_name: str", Returns = "None")]
         public void import_from_file(object file_name)
         {

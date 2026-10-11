@@ -51,7 +51,7 @@ namespace APIs.Python
                    "IDs they sit on. The scan happens in the application, so a peak is read without " +
                    "transferring the values it was found in.", Arguments = "component_name: str",
                    Returns = "FieldExtremes",
-                   Example = "peak = increment.fields['S'].get_extremes('Mises')\n" +
+                   Example = "peak = increment.fields['STRESS'].get_extremes('MISES')\n" +
                              "print(peak.max_value, peak.unit, peak.max_node_id)")]
         public FieldExtremesAPI get_extremes(object component_name)
         {

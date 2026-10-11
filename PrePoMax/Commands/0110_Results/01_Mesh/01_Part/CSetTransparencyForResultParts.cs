@@ -47,6 +47,7 @@ namespace PrePoMax.Commands
 
         public override void ToPython(PythonJournalWriter writer)
         {
+            PythonPartPropertiesEmitter.RefuseAlphaBelowMinimum(_alpha, "the transparency set for the parts", "set_opacity");
             writer.Statement(writer.Call(PythonResultEmitter.Parts, "set_opacity", PythonValueFormatter.List(_partNames),
                                          PythonValueFormatter.Format(_alpha)));
             writer.CountEmittedCommand();

@@ -651,7 +651,7 @@ model item.
 | --- | --- |
 | `pmx.new_model(model_space, unit_system)` | Creates a new empty model. `Undefined` is refused for either argument. **Console only.** |
 | `pmx.open(file_name)` | Opens a .pmx or .pmh model file, which replaces the command history; a .pmh history is regenerated whole, as **File - Open** regenerates it. A result file is refused and named to `pmx.results.open`. **Console only.** |
-| `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. |
+| `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. It takes the types the import dialog takes - `.stp`, `.step`, `.igs`, `.iges`, `.brep`, `.stl`, `.unv`, `.vol`, `.inp`, `.mesh`, `.obj` and `.pmp` - and refuses another naming `file_name`; `only_materials=True` imports the materials of an `.inp` file and is refused for another type. As the dialog does, it refuses with "There is no model to import into. First create a new model." while the model space or the unit system is undefined: create the model with `pmx.new_model`, or set `model_space` and `unit_system` first. A `.pmp` file is refused as `parameters.import_from_file` refuses it. |
 | `pmx.save(file_name)` | Saves the model to a .pmx file. |
 | `pmx.export_to_calculix(file_name)` | Exports a CalculiX .inp file. |
 | `pmx.export_to_abaqus(file_name)` | Exports an Abaqus .inp file. |
@@ -733,10 +733,10 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | Member | Description |
 | --- | --- |
 | `name` | The model name. Writable; an empty name, or one that starts or ends with a space, is refused. |
-| `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable; `Undefined` and `None` are refused. Assigning it sets the model space of a new model, as the new model dialog does, and leaves the element types as they are, so once the model has a geometry or a mesh a defined model space is changed by `replace(model_space=...)`, which updates them. |
-| `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable; `Undefined` and `None` are refused. |
+| `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable; `Undefined` and `None` are refused. Assigning it sets the model space of a new model, as the new model dialog does, and leaves the element types as they are, so once the model has a geometry or a mesh a defined model space is changed by `replace(model_space=...)`, which updates them. As the dialog does, a 2D space is refused when the geometry or the mesh is not in the x-y plane. |
+| `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable; `Undefined` and `None` are refused. Assigning it sets the unit system of a new model, as the new model dialog does, and converts no value, so a defined unit system is changed only while the model has no geometry, mesh or model item, or its model space is undefined - the states in which the dialog asks for it; otherwise it is refused, and a model in another unit system is started with `pmx.new_model`. A journal therefore sets `unit_system` before `model_space`. |
 | `model_type` | `GeneralModel`, `Submodel` or `SlipWearModel`. Writable. A `Submodel` needs an existing global results file and a `SlipWearModel` cycles its increment divides, so a change to one of them is made by `replace(...)` together with those values. |
-| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable on a `Submodel`; as the dialog does, it takes a file name without path, with no space, `:`, `\`, `/` or non UTF-8 character, and the file must exist in the work directory, so it cannot be cleared. Another model type reads it as `None`. Regenerate with file dialogs and a batch regeneration store a full path: one in the work directory reads as its bare file name, which goes back into the setter, and one anywhere else reads as the full path, which no setter takes and the journal reports as not emitted. |
+| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable on a `Submodel`; as the dialog does, it takes a file name without path, with no space, `:`, `\`, `/` or non UTF-8 character, and the file must exist in the work directory, so it cannot be cleared. Another model type reads it as `None`. Regenerate with file dialogs and a batch regeneration store a full path: one in the work directory whose file name the setter takes reads as that bare file name, which goes back into the setter; one anywhere else, or one whose file name has a character the setter refuses, reads as the full path, which no setter takes and the journal reports as not emitted. The value read back is refused by the setter only in that case, or when its file is no longer in the work directory. |
 | `slip_wear_results` | Which results a slip wear model keeps. Writable on a `SlipWearModel`; another model type reads it as `None`. |
 | `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable on a `SlipWearModel` with an `int` or a `str` equation, as `replace(...)` takes them, and `get_equations()` returns the equation. Another model type reads them as `None`. |
 | `get_equations()` | The expressions those three values were entered with, without evaluating them, as a `dict[str, str]`, on a `SlipWearModel`; another model type returns an empty `dict`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and the property of the same name returns it. |
@@ -762,7 +762,7 @@ pmx.model.properties.absolute_zero = -273.15
 | `add(name, value, description=None)` | Adds a parameter. The value is a number or an equation string. |
 | `replace(old_name, name=None, value=None, description=None)` | Replaces a parameter. A value that is not given is kept. A new name or value that would leave another parameter unable to be evaluated is refused naming that parameter, as the parameter editor refuses such a table; `rename` and `remove` refuse the same way, and removing a parameter together with every one that uses it is allowed. `set_all` changes the parameters together. |
 | `set_all(names, values, descriptions=None)` | Replaces the whole table. The lists give the parameters in the order they are shown. |
-| `import_from_file(file_name)` | Imports the parameters from a .pmp file. |
+| `import_from_file(file_name)` | Imports the parameters from a .pmp file. A file with a line the import cannot read or evaluate is refused naming the file and the line, before anything is recorded. |
 | `export_to_file(file_name)` | Exports the parameters to a .pmp file. |
 
 ```python
@@ -1031,9 +1031,9 @@ Every `part_names` argument accepts a single name or a list of names.
 | Member | Description |
 | --- | --- |
 | `hide(part_names)`, `show(part_names)` | Part visibility. |
-| `set_color(part_names, color)` | The color is `[R, G, B]`, `[R, G, B, A]`, or a color name such as `'Green'`. An alpha below 25 is refused naming `color`: the dialog raises it to 25, so a part never becomes invisible. |
+| `set_color(part_names, color)` | The color is `[R, G, B]`, `[R, G, B, A]`, or a color name such as `'Green'`. An alpha below 25 is refused naming `color`: the dialog raises it to 25, so a part never becomes invisible. A color an older API set below it is reported by the journal as not emitted. |
 | `reset_color(part_names)` | Restores the default color. |
-| `set_opacity(part_names, opacity)` | The alpha channel of the part color as an integer from 25, the most transparent value the dialog allows, to 255 for opaque; a lower value is refused. Geometry, model and result parts take it alike. |
+| `set_opacity(part_names, opacity)` | The alpha channel of the part color as an integer from 25, the most transparent value the dialog allows, to 255 for opaque; a lower value is refused, and one an older API set is reported by the journal as not emitted. Geometry, model and result parts take it alike. |
 | `translate(part_names, translate_vector, number_of_copies=0)` | Translates the parts. |
 | `rotate(part_names, rotate_center, rotate_axis, rotate_angle_deg, number_of_copies=0)` | Rotates the parts about an axis; the angle is in degrees and right handed about the axis. |
 | `mirror(part_names, mirror_point, mirror_direction, copy=False)` | Mirrors the parts over the plane through the point with the direction as its normal. |
@@ -1657,9 +1657,9 @@ edits the keyword the user would click.
 | `get_model_keywords()` | The generated keywords, as a plain Python list, each with the index path that addresses it and its complete text. |
 | `get_user_keywords()` | The user keywords, as a plain Python list, each with the index path it is inserted at. |
 | `get_overrides()` | The user edits of the generated keywords, as a plain Python list, each with its `indices` (an `IntList`), `data`, `disabled`, `suppressed` and `original_signature`. |
-| `set_user_keyword(indices, data)` | Inserts or replaces one user keyword. The index path names an insertion position, so its last index may be the number of keywords it is inserted among. |
+| `set_user_keyword(indices, data)` | Inserts or replaces one user keyword. The index path names an insertion position, so its last index may be the number of keywords it is inserted among. As the editor does, a new keyword inside a deactivated generated keyword is refused with "Cannot add user keyword to a deactivated keyword.", naming the index paths; a keyword the model already holds there, which the editor keeps, may be replaced. |
 | `remove_user_keyword(indices)` | Removes one user keyword. |
-| `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. |
+| `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. An index path inside a deactivated generated keyword is refused as by `set_user_keyword`, unless the model already holds a user keyword there. |
 | `set_override(indices, data=None, disabled=None)` | Edits one generated keyword. The text replaces it and `disabled` writes it as a comment. A value that is not given is kept. |
 | `remove_override(indices)`, `clear_overrides()` | Removes the user edits. `clear_overrides()` is refused when there are no overrides. |
 
@@ -2313,7 +2313,7 @@ only makes the detached **parts** that those methods take as arguments, and reco
 | `field_control(...)` | A field step control parameter, a `StepControlParameter` part. |
 | `contact_control(...)` | A contact step control parameter, a `StepControlParameter` part. |
 | `reset_control()` | A reset step control parameter, which restores the CalculiX defaults, a `StepControlParameter` part. |
-| `environment_variable(name, value, active=True)` | A solver environment variable for `pmx.jobs.add` and `replace`, an `EnvironmentVariable` part. |
+| `environment_variable(name, value, active=True)` | A solver environment variable for `pmx.jobs.add` and `replace`, an `EnvironmentVariable` part. As in the settings dialog, neither the name nor the value may be blank, and both are kept as typed. |
 
 A tabular property takes either the values of a single row, or a list of rows whose **last value is
 always the temperature**. `plastic`, `elastic_engineering_constants` and `elastic_lamina` always
@@ -2430,9 +2430,9 @@ analysis added without arguments is the one the dialog would offer.
 
 | Member | Description |
 | --- | --- |
-| `add(name, fem_solver=None, executable=None, argument=None, work_directory=None, compatibility_mode=None, number_of_cpus=None, environment_variables=None)` | Adds an analysis. `fem_solver` is `Calculix`, `Abaqus` or `FEMaster`. |
+| `add(name, fem_solver=None, executable=None, argument=None, work_directory=None, compatibility_mode=None, number_of_cpus=None, environment_variables=None)` | Adds an analysis. `fem_solver` is `Calculix`, `Abaqus` or `FEMaster`. A given `executable` or `work_directory` that is no valid path is refused naming it. |
 | `replace(old_name, name=None, ..., inherit_executable=None, inherit_work_directory=None, inherit_number_of_cpus=None, inherit_environment_variables=None)` | Replaces an analysis. A value that is not given is kept. An `argument` edited away from the solver default survives a new name or solver; otherwise it follows them, so renaming `Job-1` to `Job-2` makes the argument `Job-2` and `fem_solver='Abaqus'` makes it `job=Job-2`. A given `argument` always wins. `rename` treats the argument the same way, so an edited argument survives it too. |
-| `open_results(name)` | Opens the results of the analysis. They become the current result of `pmx.results`. |
+| `open_results(name)` | Opens the results of the analysis. They become the current result of `pmx.results`. A running analysis and a missing results file are refused. A results file modified after the analysis finished raises the question the application asks, which an unattended run refuses as a prompt. |
 
 `len(pmx.jobs)` and `contains(name)` also work where there is no job gateway, and report no analyses; every command
 that changes or runs an analysis is refused there.
@@ -2464,7 +2464,7 @@ pmx.jobs.replace('Job-1', inherit_number_of_cpus=True)
 | `is_up_to_date` | True when the results match the current model. |
 | `run(wait=True, timeout=None)` | Writes the solver input file and runs the analysis. Returns the status. The timeout is in seconds and needs `wait`; it kills the solver and leaves the analysis with the status `TimedOut`. A preparation the application refuses raises instead of returning a stale status. |
 | `check_model(wait=True, timeout=None)` | The same, but only checks the model without solving it. |
-| `kill()` | Kills a running analysis. Refused in read-only automation mode. |
+| `kill()` | Kills a running analysis. An analysis that is not running is refused, as the application refuses it, and so is any kill in read-only automation mode. |
 | `get_output()` | Everything the solver wrote to its output. |
 
 ```python
@@ -2503,7 +2503,7 @@ moved the view should put it back itself rather than expecting replay to.
 | Member | Description |
 | --- | --- |
 | `current` | The displayed tree: `'geometry'`, `'femodel'` or `'results'`. Settable. |
-| `result_type` | How the results are plotted: `Undeformed`, `Deformed`, `ColorContours`, `VectorPlot` or `TensorPlot`, in any case. Settable. |
+| `result_type` | How the results are plotted: `Undeformed`, `Deformed`, `ColorContours`, `VectorPlot` or `TensorPlot`, in any case. Settable; setting it needs an open result in the displayed results view. The plotted component picks between the last two - a tensor component is drawn as a `TensorPlot`, any other as a `VectorPlot` - so the other one of the two is refused, and the type follows a later `set_result_field`. |
 | `set_orientation(orientation)` | Points the camera along a standard direction: `Front`, `Back`, `Top`, `Bottom`, `Left`, `Right`, `Isometric`, `IsometricNegative`, `Normal` or `Vertical`, in any case. |
 | `get_orientation_names()` | The orientation names `set_orientation` accepts. |
 | `zoom_to_fit()` | Fits everything visible in the viewport. |
@@ -2512,14 +2512,14 @@ moved the view should put it back itself rather than expecting replay to.
 | `rotate(azimuth_deg, elevation_deg=0, roll_deg=0)` | Turns the camera about the model by angles in degrees: `azimuth_deg` about the vertical axis of the view, `elevation_deg` about its horizontal axis, `roll_deg` about the viewing direction. |
 | `look_at(point, parallel_scale=None)` | Moves the camera so that it looks at a point in model coordinates, keeping the viewing direction and the view up. The parallel scale is half the viewport height in model units; one that is not given keeps the zoom. |
 | `set_result_field(field_name, component_name=None)` | Plots a field component of the current result. The component that is not given is the first one of the field. |
-| `set_result_increment(step_id, increment_id)` | Plots a given increment. The IDs are result IDs, the ones `pmx.results.current.steps` reports. |
+| `set_result_increment(step_id, increment_id)` | Plots a given increment. The IDs are result IDs, the ones `pmx.results.current.steps` reports: `step = pmx.results.current.steps.last()` then `pmx.view.set_result_increment(step.id, step.increments.last().id)`. An increment the result does not have is refused. |
 | `get_result_field()` | What is plotted now, as a `dict` of `field_name`, `component_name`, `step_id` (`int`) and `increment_id` (`int`), the values `set_result_field` and `set_result_increment` take; `None` when no result field is plotted. |
 | `deformation_type` | How much the plotted result is deformed, as the results toolbar sets it: `Undeformed`, `TrueScale`, `Automatic`, its multiples `Automatic025`, `Automatic05`, `Automatic2`, `Automatic5`, or `UserDefined`. Settable; setting it needs an open result. |
-| `deformation_factor` | The scale factor the `UserDefined` deformation type uses. It is kept when another type is set, the way the toolbar keeps it. Settable; setting it needs an open result. |
+| `deformation_factor` | The scale factor the `UserDefined` deformation type uses. It is kept when another type is set, the way the toolbar keeps it. Settable; setting it needs an open result. It is stored as a single precision float, so a value beyond about 3.4e38 is refused. |
 | `undeformed_model` | The undeformed model drawn behind a `ColorContours`, `VectorPlot` or `TensorPlot` result: `None`, `WireframeBody` or `SolidBody`. Settable; setting it needs an open result, and is refused for the `Undeformed` and `Deformed` plots, which would discard it. |
 | `set_legend_range(min_value, max_value)` | Fixes the color legend range of the plotted field component, so pictures of different increments or models share one color scale. Kept per field component while the result is open, the way the legend settings keep it. Needs an open result in the results view. |
 | `reset_legend_range()` | Puts the legend of the plotted field component back to the automatic range. |
-| `save_image(file_name=None, transparent_background=False, magnification=1)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a file in the temporary folder. A transparent background leaves out the background the viewport shows, so the picture can be put on a page of any color; the model, the legend and the labels keep their own colors. The magnification, 1 to 4, renders the picture that many times larger than the viewport, for one that is going to be printed - only the model is drawn larger, the legend, the scale bar and the triad keep the size they have on screen. |
+| `save_image(file_name=None, transparent_background=False, magnification=1)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a new file in the `PrePoMax` folder of the temporary folder, and a relative one is placed in that folder too, as the `screenshot` tool of the automation server places it; a missing directory is created, and a name that is no valid path or no `.png` is refused naming `file_name`. A transparent background leaves out the background the viewport shows, so the picture can be put on a page of any color; the model, the legend and the labels keep their own colors. The magnification, 1 to 4, renders the picture that many times larger than the viewport, for one that is going to be printed - only the model is drawn larger, the legend, the scale bar and the triad keep the size they have on screen. |
 | `apply_exploded_view(scale_factor=0.5, method='Disassembly', magnification=2, axes='XYZ', step_by_step=None, tolerance=None, center=None)` | Pulls the parts of the displayed view apart, the way the exploded view dialog does. `method` is `Disassembly`, `AssemblyCenter` or `CenterPoint`, in any case, and `CenterPoint` needs `center`. The scale factor, 0 to 1, is the position of the dialog's slider; the magnification is 1 to 10 for `Disassembly`, 25 for `AssemblyCenter` and 1000 for `CenterPoint`. `axes` limits the movement to the coordinate axes `XYZ`, `X`, `Y`, `Z`, `XY`, `XZ` or `YZ`, in any case. A compound part moves as one body. `step_by_step`, off when not given, and `tolerance`, where 0 - the value when not given - means one thousandth of the assembly diagonal, are taken only by `Disassembly`, and `center` only by `CenterPoint`; another method refuses them rather than ignoring them. A value out of range is refused, not clamped, and so is a NaN or an infinity, a coordinate of `center` included. |
 | `remove_exploded_view()` | Puts the parts of the displayed view back, the way the dialog's Disable button does. Nothing happens when no exploded view is applied. |
 | `exploded_view_active` | True when the displayed view is pulled apart by an exploded view. |
@@ -2528,6 +2528,10 @@ moved the view should put it back itself rather than expecting replay to.
 Part visibility is not here: `hide` and `show` on the part collections are model changes and go
 through the command history like any other. An exploded view is view state like the camera: each of
 the three views keeps its own, and meshing always runs without it.
+
+The results transformations (symmetry and patterns), the section view and the animation are view
+state too, and are left out of the API on purpose: a script that wants a picture of them sets them
+up in the application first.
 
 ```python
 camera = pmx.view.get_parameters()
@@ -2549,7 +2553,8 @@ pmx.view.set_parameters(camera)
 picture carries. They are view state, not model changes: each of the three views keeps its own set,
 the results view keeps one set per result, and they are saved in the `.pmx` without going through the
 command history, the same as a label placed by a query in the application. The names
-`Min_Annotation`, `Max_Annotation` and `Measure_Annotation` are reserved.
+`Min_Annotation`, `Max_Annotation` and `Measure_Annotation` are reserved. Names are compared
+regardless of case, as model names are, and an annotation keeps the spelling it was added with.
 
 | Member | Description |
 | --- | --- |

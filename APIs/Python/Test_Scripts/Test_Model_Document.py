@@ -177,6 +177,11 @@ def test_model_space_and_unused_values():
         check(message is not None and "'" + argument + "'" in message,
               "None must be refused for " + argument + ": " + str(message))
     check(properties.unit_system == "MM_TON_S_C", "a refused assignment changed the unit system")
+    # The unit system of a model that holds something is not converted by any dialog, so it is not changed either
+    message = raised_message(lambda: setattr(properties, "unit_system", "M_KG_S_C"))
+    check(message is not None and "'unit_system'" in message and "pmx.new_model" in message,
+          "a new unit system for a meshed model must be refused naming it: " + str(message))
+    check(properties.unit_system == "MM_TON_S_C", "a refused unit system changed the model")
     # A value the model type does not use reads back as None, which goes back into the replace as not given
     model_type = properties.model_type
     properties.model_type = "GeneralModel"
@@ -393,6 +398,32 @@ def test_export():
                  "a zero edge thickness ratio must be rejected")
 
 
+def test_import_refusals():
+    part_names = list(pmx.model.parts.get_names())
+    # The import takes the file types of its dialog, and the materials only of an .inp file
+    for extension, only_materials, argument in [(".xyz", False, "'file_name'"), (".stl", True, "'only_materials'")]:
+        file_name = os.path.join(tempfile.gettempdir(), "pytest_import" + extension)
+        open(file_name, "w").close()
+        try:
+            message = raised_message(lambda: pmx.import_file(file_name, only_materials=only_materials))
+            check(message is not None and argument in message,
+                  "an import of a " + extension + " file must be refused naming " + argument + ": " + str(message))
+        finally:
+            os.remove(file_name)
+    # A parameters file the import cannot read is refused naming it, rather than with an exception of the model
+    file_name = os.path.join(tempfile.gettempdir(), "pytest_bad_parameters.pmp")
+    with open(file_name, "w") as file:
+        file.write("pytest_bad_line")
+    try:
+        for call in [lambda: pmx.model.parameters.import_from_file(file_name), lambda: pmx.import_file(file_name)]:
+            message = raised_message(call)
+            check(message is not None and "pytest_bad_parameters.pmp" in message and "Line 1" in message,
+                  "a parameters file that cannot be read must be refused naming it: " + str(message))
+    finally:
+        os.remove(file_name)
+    check(list(pmx.model.parts.get_names()) == part_names, "a refused import changed the model")
+
+
 def test_open_is_refused_in_a_script():
     # Opening replaces the command history, which the running script is part of
     check_raises(lambda: pmx.open("any.pmx"), "open must be refused inside a recorded script")
@@ -409,6 +440,7 @@ def main():
     test_parameter_refusals()
     test_parameters_set_all()
     test_export()
+    test_import_refusals()
     test_open_is_refused_in_a_script()
     print("TEST PASSED")
 

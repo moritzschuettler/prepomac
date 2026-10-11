@@ -123,7 +123,11 @@ namespace APIs.Python
             _documentService.OpenFile(fileName);
         }
 
-        [PythonAPI("Imports a geometry or mesh file into the current model using command history.",
+        [PythonAPI("Imports a geometry or mesh file into the current model using command history. The import " +
+                   "takes .stp, .step, .igs, .iges, .brep, .stl, .unv, .vol, .inp, .mesh, .obj and .pmp files; " +
+                   "only_materials imports the materials of an .inp file and is refused for another type. A model " +
+                   "whose model space or unit system is undefined is refused, as the dialog refuses to import " +
+                   "without a model: create one with new_model, or set both model properties first.",
                    Arguments = "file_name: str, only_materials: bool = False", Returns = "None")]
         public void import_file(object file_name, object only_materials = null)
         {

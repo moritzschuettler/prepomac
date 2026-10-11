@@ -37,8 +37,9 @@ namespace APIs.Python
             return new StringListAPI(names == null ? new string[0] : names);
         }
         [PythonAPI("Adds a text label with an arrow pointing at a point given in model coordinates. The name " +
-                   "must be free and without leading or trailing spaces; Min_Annotation, Max_Annotation and " +
-                   "Measure_Annotation are reserved. Returns the name it was given.",
+                   "must be free, compared regardless of case, and without leading or trailing spaces; " +
+                   "Min_Annotation, Max_Annotation and Measure_Annotation are reserved in any case. Returns the " +
+                   "name it was given.",
                    Arguments = "name: str, text: str, anchor_point: list[float]", Returns = "str",
                    Example = "name = pmx.view.annotations.add_text('Load', 'Pressure 2 MPa', [0, 0, 10])")]
         public string add_text(object name, object text, object anchor_point)
@@ -76,7 +77,8 @@ namespace APIs.Python
         {
             return Resolve().AddElementAnnotation(PythonValueConverter.ToInt(element_id, "element_id"));
         }
-        [PythonAPI("Removes the named annotations of the displayed view. A single name or a list of names.",
+        [PythonAPI("Removes the named annotations of the displayed view. A single name or a list of names, " +
+                   "compared regardless of case.",
                    Arguments = "names: list[str] or str", Returns = "None",
                    Example = "pmx.view.annotations.remove(['Load', 'R_Annotation-1'])")]
         public void remove(object names)

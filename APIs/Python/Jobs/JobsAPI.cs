@@ -30,7 +30,7 @@ namespace APIs.Python
 
         // Methods
         [PythonAPI("Adds an analysis using command history. The solver executable and the work directory " +
-                   "come from the application settings unless they are given.",
+                   "come from the application settings unless they are given; a given one must be a valid path.",
                    Arguments = "name: str, fem_solver: str = None, executable: str = None, " +
                                "argument: str = None, work_directory: str = None, " +
                                "compatibility_mode: bool = None, number_of_cpus: int = None, " +
@@ -75,7 +75,9 @@ namespace APIs.Python
         }
 
         [PythonAPI("Opens the results of the named analysis using command history. The results become the " +
-                   "current result of pmx.results.", Arguments = "name: str", Returns = "None",
+                   "current result of pmx.results. A running analysis and a missing results file are refused. " +
+                   "A results file modified after the analysis finished raises the question the user interface " +
+                   "asks, which an unattended run refuses as a prompt.", Arguments = "name: str", Returns = "None",
                    Example = "pmx.jobs.open_results('Job-1')")]
         public void open_results(object name)
         {

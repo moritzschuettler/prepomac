@@ -11,6 +11,7 @@ using CaeGlobals;
 using CaeJob;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace APIs.Python
@@ -57,9 +58,9 @@ namespace APIs.Python
                                                                      "fem_solver");
             // A new analysis starts from the solver executable and the work directory of the settings,
             // the same way the dialog does
-            string executableName = executable != null ? AsString(executable, "executable")
+            string executableName = executable != null ? AsPath(executable, "executable")
                                                        : _jobGateway.GetSolverExecutable(solver);
-            string workDirectoryName = workDirectory != null ? AsString(workDirectory, "work_directory")
+            string workDirectoryName = workDirectory != null ? AsPath(workDirectory, "work_directory")
                                                              : _jobGateway.GetWorkDirectory();
             // The argument names the input file the solver is given, and defaults to the analysis name
             string argumentValue = argument != null ? AsString(argument, "argument") : name;
@@ -98,12 +99,12 @@ namespace APIs.Python
             else job.Argument = AnalysisJob.GetDefaultArgument(job.FEMSolver, job.Name);
             if (executable != null)
             {
-                job.Executable = AsString(executable, "executable");
+                job.Executable = AsPath(executable, "executable");
                 job.ExecutableOverridden = true;
             }
             if (workDirectory != null)
             {
-                job.WorkDirectory = AsString(workDirectory, "work_directory");
+                job.WorkDirectory = AsPath(workDirectory, "work_directory");
                 job.WorkDirectoryOverridden = true;
             }
             if (compatibilityMode != null)
@@ -158,12 +159,16 @@ namespace APIs.Python
         }
         internal static void ValidateEnvironmentVariable(string name, string value)
         {
-            if (string.IsNullOrWhiteSpace(name) || name.IndexOf('=') >= 0 || name.IndexOf('\0') >= 0)
-                throw new PythonAPIException("An environment variable name must not be empty and must contain " +
-                                             "neither an equals sign nor a NUL character.");
-            if (value == null || value.IndexOf('\0') >= 0)
-                throw new PythonAPIException("An environment variable value must be a string without a NUL " +
-                                             "character.");
+            if (string.IsNullOrWhiteSpace(name))
+                throw new PythonAPIException("The argument 'name' of an environment variable must not be empty.");
+            if (name.IndexOf('=') >= 0 || name.IndexOf('\0') >= 0)
+                throw new PythonAPIException("The argument 'name' of an environment variable must contain neither " +
+                                             "an equals sign nor a NUL character.");
+            if (string.IsNullOrWhiteSpace(value))
+                throw new PythonAPIException("The argument 'value' of an environment variable must not be empty.");
+            if (value.IndexOf('\0') >= 0)
+                throw new PythonAPIException("The argument 'value' of an environment variable must not contain a " +
+                                             "NUL character.");
         }
         public void Add(AnalysisJob job)
         {
@@ -234,9 +239,35 @@ namespace APIs.Python
         public void OpenResults(string name)
         {
             EnsureCommandsAvailable();
-            string storedName = ResolveJob(name).Name;
+            AnalysisJob job = ResolveJob(name);
+            if (job.JobStatus == JobStatus.Running || job.JobStatus == JobStatus.InQueue)
+                throw new PythonAPIException("The analysis '" + job.Name + "' is still running. Open its results " +
+                                             "once it has finished.");
+            string resultsFileName = GetResultsFileName(job);
+            if (!File.Exists(resultsFileName))
+                throw new PythonAPIException("The results file of the analysis '" + job.Name + "' does not exist: " +
+                                             resultsFileName);
             //
-            _jobGateway.OpenResults(storedName);
+            _jobGateway.OpenResults(job.Name);
+        }
+        public string GetResultsFileName(AnalysisJob job)
+        {
+            try
+            {
+                string resultsFileName = job.ResultsFileName;
+                Path.GetFullPath(resultsFileName);
+                return resultsFileName;
+            }
+            catch (Exception exception) when (IsPathException(exception))
+            {
+                throw new PythonAPIException("The work directory of the analysis '" + job.Name + "' is not a valid " +
+                                             "path: " + exception.Message);
+            }
+        }
+        public bool IsUpToDate(AnalysisJob job)
+        {
+            GetResultsFileName(job);
+            return job.IsUpToDate;
         }
         public void ValidateName(string name, string allowedExistingName)
         {
@@ -258,6 +289,26 @@ namespace APIs.Python
                 throw new PythonAPIException("The argument '" + argumentName + "' must be a string.");
             //
             return text;
+        }
+        private static string AsPath(object value, string argumentName)
+        {
+            string path = AsString(value, argumentName);
+            try
+            {
+                Path.GetFullPath(path);
+            }
+            catch (Exception exception) when (IsPathException(exception))
+            {
+                throw new PythonAPIException("The argument '" + argumentName + "' is not a valid path: '" + path +
+                                             "'. " + exception.Message);
+            }
+            //
+            return path;
+        }
+        private static bool IsPathException(Exception exception)
+        {
+            return exception is ArgumentException || exception is NotSupportedException ||
+                   exception is PathTooLongException || exception is System.Security.SecurityException;
         }
         private void EnsureCommandsAvailable()
         {

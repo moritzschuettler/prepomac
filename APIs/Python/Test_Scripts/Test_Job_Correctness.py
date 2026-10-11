@@ -4,13 +4,16 @@
 #Checks the analysis settings contract: an explicit value survives the application settings, a
 #replacement keeps what it is not told about, an inherit switch restores the application default,
 #a timeout reports the same status through the return value and the analysis itself, and an argument
-#that is the solver default follows a new name or solver while an edited one is kept.
+#that is the solver default follows a new name or solver while an edited one is kept. It also checks
+#the refusals: an invalid path, a blank environment variable, a kill of an analysis that is
+#not running, and opening the results of a running analysis or a missing results file.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Job_Correctness.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
 import os
 import tempfile
+import time
 
 PREFIX = "PyTest_Job_"
 # A shell that simply waits is a solver that never finishes, which is what a timeout needs
@@ -176,6 +179,76 @@ def test_timeout():
     check(job.status == "TimedOut", "the analysis kept the status " + job.status)
 
 
+def check_refused(function, words, message):
+    try:
+        function()
+    except Exception as ex:
+        text = str(ex)
+        for word in words:
+            check(word in text, message + " - the refusal must say '" + word + "': " + text)
+        check("   at " not in text, message + " - a .NET exception leaked: " + text)
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
+def test_invalid_paths():
+    # A path the file system cannot hold is refused naming the argument, before anything is recorded,
+    # so the read-backs that build file names from it never meet it
+    name = PREFIX + "BadPath"
+    check_refused(lambda: pmx.jobs.add(name, work_directory="C:\\bad<|>directory"), ["'work_directory'"],
+                  "an invalid work directory was accepted")
+    check_refused(lambda: pmx.jobs.add(name, work_directory=""), ["'work_directory'"],
+                  "an empty work directory was accepted")
+    check_refused(lambda: pmx.jobs.add(name, executable="bad|solver.exe"), ["'executable'"],
+                  "an invalid executable was accepted")
+    check(not pmx.jobs.contains(name), "a refused analysis was recorded")
+    explicit = pmx.jobs[PREFIX + "Explicit"]
+    work_directory = explicit.work_directory
+    check_refused(lambda: pmx.jobs.replace(PREFIX + "Explicit", work_directory="C:\\bad<|>directory"),
+                  ["'work_directory'"], "a replace with an invalid work directory was accepted")
+    check(explicit.work_directory == work_directory, "a refused replace changed the work directory")
+    check(explicit.results_file_name.startswith(work_directory), "the results file name must still read back")
+
+
+def test_environment_variable_refusals():
+    check_refused(lambda: pmx.create.environment_variable("PMX_A", ""), ["'value'"], "an empty value was accepted")
+    check_refused(lambda: pmx.create.environment_variable("PMX_A", "   "), ["'value'"], "a blank value was accepted")
+    check_refused(lambda: pmx.create.environment_variable("   ", "one"), ["'name'"], "a blank name was accepted")
+    # The settings dialog stores a name and a value as typed, so a journal of either replays
+    check(pmx.create.environment_variable(" PMX_A ", "one").name == " PMX_A ",
+          "a name is the user's text and must be kept as given")
+    check(pmx.create.environment_variable("PMX_A", " padded value ").value == " padded value ",
+          "a value is the user's text and must be kept as given")
+
+
+def test_kill_and_open_results_refusals():
+    job = pmx.jobs[PREFIX + "Explicit"]
+    # The sleeping solver writes no results, and a stale file of an earlier run must not answer for it
+    results_file_name = job.results_file_name
+    if os.path.isfile(results_file_name):
+        os.remove(results_file_name)
+    # The user interface refuses to kill an analysis that is not running, and the API must not mark it Killed
+    status = job.status
+    check(status != "Running", "the analysis must have stopped: " + status)
+    check_refused(lambda: job.kill(), ["not running"], "killing an analysis that is not running was accepted")
+    check(job.status == status, "a refused kill changed the status to " + job.status)
+    check_refused(lambda: pmx.jobs.open_results(PREFIX + "Explicit"), ["does not exist"],
+                  "opening a missing results file was accepted")
+    # A running analysis is killed, and its results are not opened while it runs
+    job.run(wait=False)
+    for _ in range(50):
+        if job.status == "Running":
+            break
+        time.sleep(0.1)
+    check(job.status == "Running", "the analysis that was not waited for must run: " + job.status)
+    check_refused(lambda: pmx.jobs.open_results(PREFIX + "Explicit"), ["still running"],
+                  "opening the results of a running analysis was accepted")
+    # The status turns Running before the solver process is started, so the kill waits for the process
+    time.sleep(1.0)
+    job.kill()
+    check(job.status == "Killed", "the killed analysis has the status " + job.status)
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
@@ -187,6 +260,9 @@ def main():
     test_rejected_arguments()
     test_custom_work_directory(tempfile.gettempdir())
     test_timeout()
+    test_invalid_paths()
+    test_environment_variable_refusals()
+    test_kill_and_open_results_refusals()
     clean()
     print("TEST PASSED")
 
