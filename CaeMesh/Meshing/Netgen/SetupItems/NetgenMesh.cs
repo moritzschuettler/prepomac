@@ -89,9 +89,6 @@ namespace CaeMesh
         {
             // Compatibility for the Tetrahedral Netgen item, which carried no values
             SetDefaultValues();
-            // An item written before a setting existed meshed without structured faces
-            _transfiniteThreeSided = TransfiniteThreeSidedEnum.No;
-            _transfiniteFourSided = false;
             //
             foreach (SerializationEntry entry in info)
             {
@@ -137,8 +134,8 @@ namespace CaeMesh
             _optimizeSteps2D = 3;
             _optimizeSteps3D = 3;
             _quadDominated = false;
-            _transfiniteThreeSided = TransfiniteThreeSidedEnum.Mapped;
-            _transfiniteFourSided = true;
+            _transfiniteThreeSided = TransfiniteThreeSidedEnum.No;
+            _transfiniteFourSided = false;
             _transfiniteAngleDeg = 135;
         }
         public void CopyFrom(NetgenMesh netgenMesh)

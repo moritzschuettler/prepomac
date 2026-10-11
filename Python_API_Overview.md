@@ -894,7 +894,7 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_local_mesh_size(name, selection, element_size=None, number_of_elements=None)` | A local mesh size. Exactly one of the two values is given. |
 | `add_shell_mmg(name, selection, ...)` | An MMG shell mesh item. It selects MMG for STL shell parts and defines its geometry approximation. |
 | `add_thicken_shell_mesh(name, selection, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens a shell mesh. |
-| `add_netgen_mesh(name, selection, number_of_optimize_steps_2d=None, number_of_optimize_steps_3d=None, quad_dominated=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone, and it structures the 3-sided and 4-sided faces by default (`transfinite_three_sided='Mapped'`, `transfinite_four_sided=True`). It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
+| `add_netgen_mesh(name, selection, number_of_optimize_steps_2d=None, number_of_optimize_steps_3d=None, quad_dominated=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone; it meshes the 3-sided and 4-sided faces free by default (`transfinite_three_sided='No'`, `transfinite_four_sided=False`). It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
 | `add_tetrahedral_gmsh(name, selection, ...)` | A Gmsh tetrahedral mesh item. |
 | `add_shell_gmsh(name, selection, ...)` | A Gmsh shell mesh item. |
 | `add_transfinite_mesh(name, selection, allow_pyramid_elements=False, ...)` | A Gmsh transfinite mesh item. |
@@ -931,14 +931,13 @@ ignores it and the dialog does not show it, so the API does not take it.
 cells as separate, conforming mesh parts, so they can carry different sections. The Netgen settings
 `number_of_optimize_steps_2d`, `number_of_optimize_steps_3d`, `quad_dominated`, `transfinite_three_sided`,
 `transfinite_four_sided` and `transfinite_angle_deg` belong to `add_netgen_mesh`. `transfinite_three_sided`
-(`Mapped` by default, `Polar` or `No`) and `transfinite_four_sided` (on by default) mesh the 3-sided and the
+(`No` by default, `Mapped` or `Polar`) and `transfinite_four_sided` (off by default) mesh the 3-sided and the
 4-sided faces every mesher structures as structured grids - a 3-sided face as three blocks of quads around one
 inner node, or with `Polar` the grid collapsed at one corner with triangles there - with quads when `quad_dominated` is set and triangles otherwise. Opposite sides are balanced to the coarser count where the counts are close: an edge
 that borders a face meshed free keeps at least 0.8 of the count its mesh size asks for, and the sides it is
 balanced with are raised to it instead. A number of elements set on an edge as a number is kept (one an element
 size gives is not) - the lowest counts give way to it - and the meshing is refused when the set numbers cannot
-agree. A compound is structured on the faces of its solids; a face two solids share is one face. An item read from
-a file written before a setting existed has it off.
+agree. A compound is structured on the faces of its solids; a face two solids share is one face.
 Like the dialog, it derives `max_size` and `min_size` from the size of the selected parts, and the
 arguments of the call are applied on top of those. `replace_meshing_parameters` does the same when
 it is given a new `selection` and no other value, so the sizes follow the geometry the item now
@@ -998,7 +997,7 @@ corner collapsed is the one whose other two corners lie closest to a right angle
 the one between the two sides closest in length, so the axis of a pie cut from a cylinder. `Mapped` is three blocks
 of quads around one inner node, `No` a free mesh. An item read from a file written while the setting was a switch
 has `Polar` where it was on. The Netgen and QuadWild items and the meshing parameters take the same three values
-(`No` the default of the meshing parameters, `Mapped` of a Netgen and a QuadWild item), and collapse the same
+(`No` the default of a Netgen item and of the meshing parameters, `Mapped` of a QuadWild item), and collapse the same
 corner; one read from a file written while the setting was a switch has `Mapped` where it was on, the grid they made
 then. QuadWild gives the side across from the collapsed corner an even number of elements, as its quads need; a
 polar face the counts fixed on its sides do not allow is meshed as an ordinary patch.

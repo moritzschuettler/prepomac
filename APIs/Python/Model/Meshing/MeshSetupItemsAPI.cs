@@ -399,8 +399,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Adds a Netgen mesh item for the selected solid or shell parts. The mesh size comes " +
                    "from the meshing parameters; the item carries the settings that apply to Netgen alone. " +
-                   "The 3-sided and 4-sided faces are structured unless told otherwise: transfinite_three_sided " +
-                   "is 'Mapped' and transfinite_four_sided True by default. " +
+                   "The 3-sided and 4-sided faces are meshed free unless told otherwise: transfinite_three_sided " +
+                   "is 'No' and transfinite_four_sided False by default. " +
                    "number_of_optimize_steps_2d and number_of_optimize_steps_3d are at least 0, and " +
                    "transfinite_angle_deg lies between 0 and 180, both excluded. transfinite_angle_deg is used " +
                    "only while transfinite_three_sided is not 'No' or transfinite_four_sided is True; judged on " +

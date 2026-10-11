@@ -131,10 +131,9 @@ def test_netgen_mesh(items, selection, shell_selection):
     items.add_netgen_mesh(PREFIX + "NetgenShell", shell_selection, quad_dominated=True)
     values = settings(items, PREFIX + "NetgenShell")
     check(values["quad_dominated"] is True, "the Netgen quad-dominated setting was not stored")
-    # A new item structures the 3-sided and the 4-sided faces
-    check(values["transfinite_three_sided"] == "Mapped" and values["transfinite_four_sided"] is True,
-          "a new Netgen item must structure the 3-sided and 4-sided faces: " + str(values))
-    items.replace_netgen_mesh(PREFIX + "NetgenShell", transfinite_three_sided="No", transfinite_four_sided=False)
+    # A new item meshes the 3-sided and the 4-sided faces free
+    check(values["transfinite_three_sided"] == "No" and values["transfinite_four_sided"] is False,
+          "a new Netgen item must mesh the 3-sided and 4-sided faces free: " + str(values))
     # The angle is used, shown and read back only while a face is structured, judged on the values the item ends
     # up with
     check("transfinite_angle_deg" not in settings(items, PREFIX + "NetgenShell"),
