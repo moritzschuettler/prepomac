@@ -21,7 +21,7 @@ namespace vtkControl
         public const float WidgetBorderLineWidth = 2.0f;
         public const double SurfaceFillOpacity = 0.15;
         //
-        public static Color BorderColor { get { return SystemColors.Highlight; } }
+        public static Color BorderColor { get { return Color.RoyalBlue; } }
         public static Color FillColor { get { return Color.LightSkyBlue; } }
         //
         private const int NumOfCorners = 4;
