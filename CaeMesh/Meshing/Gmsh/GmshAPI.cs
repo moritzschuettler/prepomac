@@ -233,10 +233,11 @@ namespace CaeMesh
                     // 3D meshing algorithm
                     Gmsh.Option.SetNumber("Mesh.Algorithm3D", (int)gsi.AlgorithmMesh3D);
                     // Recombine algorithm
-                    bool recombine = gsi.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
+                    GmshAlgorithmRecombineEnum algorithmRecombine = GetAlgorithmRecombine(gsi);
+                    bool recombine = algorithmRecombine != GmshAlgorithmRecombineEnum.None;
                     if (recombine)
                     {
-                        Gmsh.Option.SetNumber("Mesh.RecombinationAlgorithm", (int)gsi.AlgorithmRecombine);
+                        Gmsh.Option.SetNumber("Mesh.RecombinationAlgorithm", (int)algorithmRecombine);
                         Gmsh.Option.SetNumber("Mesh.RecombineMinimumQuality", gsi.RecombineMinQuality);
                     }
                     // Transfinite
@@ -250,7 +251,7 @@ namespace CaeMesh
                     else if (_isOCC && (gsi.IsTransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
                         SetTransfiniteSurfaces(gsi.IsTransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume,
-                                               gsi.TransfiniteAngleDeg, recombine, gsi.AlgorithmRecombine);
+                                               gsi.TransfiniteAngleDeg, recombine, algorithmRecombine);
                     // Optimization On/Off
                     int optimize = 1;
                     if (gsi.OptimizeFirstOrderShell == GmshOptimizeFirstOrderShellEnum.None &&
@@ -349,6 +350,18 @@ namespace CaeMesh
                 sweepMesh.AlgorithmMesh2D == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad)
                 return GmshAlgorithmMesh2DEnum.FrontalDelaunay;
             return gmshSetupItem.AlgorithmMesh2D;
+        }
+        /// <summary>
+        /// The recombination the item is meshed with. A sweep whose sources QuadWild meshes has no recombination of
+        /// its own to choose - the dialog hides it - and recombines what gmsh meshes for it, the sources QuadWild leaves
+        /// to gmsh and the structured grids, with the simple algorithm: a Blossom recombination chosen while gmsh meshed
+        /// the sources stayed in the item, hidden, and the sweep failed with it.
+        /// </summary>
+        private static GmshAlgorithmRecombineEnum GetAlgorithmRecombine(GmshSetupItem gmshSetupItem)
+        {
+            if (gmshSetupItem is SweepMesh sweepMesh && sweepMesh.SourceMesher == SweepSourceMesherEnum.QuadWild)
+                return GmshAlgorithmRecombineEnum.Simple;
+            return gmshSetupItem.AlgorithmRecombine;
         }
         private void SetMeshSizes(GmshSetupItem gmshSetupItem)
         {
@@ -736,7 +749,7 @@ namespace CaeMesh
         {
             if (sweepMesh == null) throw new NotSupportedException();
             //
-            bool recombine = sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
+            bool recombine = GetAlgorithmRecombine(sweepMesh) != GmshAlgorithmRecombineEnum.None;
             _sweepRecombine = recombine;
             // Get surface item ids
             Dictionary<int, int[]> surfaceIdEdgeIds;
@@ -764,7 +777,7 @@ namespace CaeMesh
                     {
                         if (_quadWildSourceIds.Contains(sourceSurfaceId)) continue;
                         Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
-                        if (IsFullQuad(sweepMesh.AlgorithmRecombine)) _fullQuadSourceIds.Add(sourceSurfaceId);
+                        if (IsFullQuad(GetAlgorithmRecombine(sweepMesh))) _fullQuadSourceIds.Add(sourceSurfaceId);
                     }
                 }
                 // A revolved block has no walls of the sweep between two ends: it builds them itself
@@ -826,7 +839,7 @@ namespace CaeMesh
                     foreach (var sourceSurfaceId in block.SourceSurfaceIds)
                     {
                         Gmsh.Model.Mesh.SetRecombine(2, sourceSurfaceId);
-                        if (IsFullQuad(sweepMesh.AlgorithmRecombine)) _fullQuadSourceIds.Add(sourceSurfaceId);
+                        if (IsFullQuad(GetAlgorithmRecombine(sweepMesh))) _fullQuadSourceIds.Add(sourceSurfaceId);
                     }
                 }
                 // The second attempt measures the edges as the other algorithm meshes them. The counts of the
@@ -2628,7 +2641,7 @@ namespace CaeMesh
             foreach (var face in _structuredSourceFaces.Values)
             {
                 if (face.NumberOfSides == 3 && !IsPolar(face))
-                    GmshThreeBlockMesher.Mesh(face, sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None);
+                    GmshThreeBlockMesher.Mesh(face, GetAlgorithmRecombine(sweepMesh) != GmshAlgorithmRecombineEnum.None);
             }
             // Remove the volumes and the target surface meshes. A target shared with the next block is
             // rebuilt by the sweep of this block and read back as the source of the next one.
@@ -3131,7 +3144,7 @@ namespace CaeMesh
                                                 "SweepQuadWild");
             Directory.CreateDirectory(workDirectory);
             Action<string> writeOutput = message => _writeOutput?.Invoke(NameGmshEntities(message));
-            bool recombine = sweepMesh.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
+            bool recombine = GetAlgorithmRecombine(sweepMesh) != GmshAlgorithmRecombineEnum.None;
             //
             Dictionary<int, int> pinnedEdgeIdNumElements = new Dictionary<int, int>(_gmshData.EdgeIdNumElements);
             _userPinnedEdgeIds = new HashSet<int>(pinnedEdgeIdNumElements.Keys);
