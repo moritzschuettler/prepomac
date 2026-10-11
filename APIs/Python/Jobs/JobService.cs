@@ -191,6 +191,7 @@ namespace APIs.Python
         public void Remove(string[] names)
         {
             EnsureCommandsAvailable();
+            foreach (string name in names) EnsureNotRunning(ResolveJob(name), "removed");
             _jobGateway.RemoveJobs(names);
         }
         public void Rename(NamedClass item, string newName)
@@ -198,6 +199,7 @@ namespace APIs.Python
             ValidateName(newName, item.Name);
             //
             EnsureCommandsAvailable();
+            EnsureNotRunning(ResolveJob(item.Name), "renamed");
             // A renamed analysis is given the default argument of its new name, while a replace keeps an argument
             // the user edited, so an edited argument is renamed the way a replace renames it
             AnalysisJob job = item as AnalysisJob;
@@ -225,8 +227,16 @@ namespace APIs.Python
             if (job.JobStatus == JobStatus.Running || job.JobStatus == JobStatus.InQueue)
                 throw new PythonAPIException("The analysis is already running.");
             int milliseconds = timeoutSeconds == 0 ? 0 : Math.Max(1, (int)Math.Ceiling(timeoutSeconds * 1000));
+            int numOfMessagesBefore = MessageBoxes.GetReportedMessages().Length;
             if (!_jobGateway.PrepareAndRunJob(job.Name, onlyCheckModel, runSynchronous, milliseconds))
-                throw new PythonAPIException("The analysis was not started because model preparation was refused.");
+            {
+                // The preparation says why in a message box, which a call of the automation server is answered
+                // instead of being shown
+                string[] messages = MessageBoxes.GetReportedMessages().Skip(numOfMessagesBefore).ToArray();
+                string reason = messages.Length == 0 ? "" : " " + string.Join(" ", messages);
+                throw new PythonAPIException("The analysis was not started because model preparation was refused." +
+                                             reason);
+            }
             return job.JobStatus.ToString();
         }
         public void Kill(string name)
@@ -309,6 +319,24 @@ namespace APIs.Python
         {
             return exception is ArgumentException || exception is NotSupportedException ||
                    exception is PathTooLongException || exception is System.Security.SecurityException;
+        }
+        private static bool IsRunning(AnalysisJob job)
+        {
+            return job.JobStatus == JobStatus.Running || job.JobStatus == JobStatus.InQueue;
+        }
+        private static void EnsureNotRunning(AnalysisJob job, string participle)
+        {
+            if (IsRunning(job))
+                throw new PythonAPIException("The analysis '" + job.Name + "' is running and cannot be " + participle +
+                                             ". Wait for it to finish or kill it first.");
+        }
+        internal static void EnsureNoAnalysisRunning(IPythonJobGateway jobGateway, string operation)
+        {
+            if (jobGateway == null) return;
+            AnalysisJob runningJob = jobGateway.GetAllJobs().FirstOrDefault(IsRunning);
+            if (runningJob != null)
+                throw new PythonAPIException(operation + " is refused while the analysis '" + runningJob.Name +
+                                             "' is running. Wait for it to finish or kill it first.");
         }
         private void EnsureCommandsAvailable()
         {

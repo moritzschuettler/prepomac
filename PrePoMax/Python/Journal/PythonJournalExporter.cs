@@ -89,7 +89,7 @@ namespace PrePoMax.Python.Journal
             //
             report = new PythonJournalReport(fileName, commandCount, writer.EmittedCommandCount, writer.Refusals);
             //
-            string header = GetHeader(fileName, sourceDescription, report);
+            string header = GetHeader(fileName, sourceDescription, report, writer.WritesToWorkDirectory);
             int headerLineCount = GetLineCount(header);
             //
             commandFirstLineNumbers = new int[writer.CommandFirstLineIndices.Count];
@@ -140,7 +140,8 @@ namespace PrePoMax.Python.Journal
             }
             return count;
         }
-        private static string GetHeader(string fileName, string sourceDescription, PythonJournalReport report)
+        private static string GetHeader(string fileName, string sourceDescription, PythonJournalReport report,
+                                        bool writesToWorkDirectory)
         {
             string scriptName = fileName == null ? "journal.py" : Path.GetFileName(fileName);
             StringBuilder header = new StringBuilder();
@@ -153,6 +154,14 @@ namespace PrePoMax.Python.Journal
             header.AppendLine("# " + report.CommandCount + " commands, " + report.RefusedCommandCount + " not emitted");
             header.AppendLine("#");
             header.AppendLine("#   PrePoMax.com --script " + scriptName + " -g No -x Yes -w <work directory>");
+            if (writesToWorkDirectory)
+            {
+                header.AppendLine("#");
+                header.AppendLine("# The files the session saved or exported are written to the work directory of the replay,");
+                header.AppendLine("# pmx.work_directory, under their names, never where the session wrote them.");
+                header.AppendLine();
+                header.AppendLine("import os");
+            }
             header.AppendLine();
             //
             return header.ToString();

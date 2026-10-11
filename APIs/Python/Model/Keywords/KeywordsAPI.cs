@@ -115,8 +115,10 @@ namespace APIs.Python.Model
         }
         [PythonAPI("Replaces every user CalculiX keyword by the given index path and text pairs. Each index path " +
                    "is a position in the generated keyword tree with the preceding pairs already inserted, and " +
-                   "may be given once. As the editor does, an index path inside a deactivated keyword is refused " +
-                   "unless the model already holds a user keyword there, which the editor keeps.",
+                   "may be given once. As the editor does, an index path inside a deactivated keyword or one that " +
+                   "names no insertion position is refused unless the model already holds a user keyword there, " +
+                   "which the editor keeps and the solver input file leaves out. Such a kept keyword is found by " +
+                   "its place among the generated keywords, and two of them may share an index path.",
                    Arguments = "keywords: list[tuple[list[int], str]]", Returns = "None",
                    Example = "pmx.model.keywords.replace_user_keywords([([3, 1], '*NO ANALYSIS')])")]
         public void replace_user_keywords(object keywords)
@@ -126,12 +128,25 @@ namespace APIs.Python.Model
             OrderedDictionary<int[], CalculixUserKeyword> replacement =
                 new OrderedDictionary<int[], CalculixUserKeyword>("Keywords");
             List<CalculixKeyword> mergedKeywords = GetModelKeywords();
+            List<int[]> heldGeneratedPaths = null;
             foreach (KeyValuePair<int[], string> pair in pairs)
             {
-                if (FindPath(replacement, pair.Key) != null)
+                bool heldByModel = FindPath(existing, pair.Key) != null;
+                bool active = CalculixFileWriter.GetUserKeywordStatus(mergedKeywords, pair.Key) ==
+                              CalculixFileWriter.UserKeywordStatus.Active;
+                if (!heldByModel && !active)
+                {
+                    if (heldGeneratedPaths == null)
+                        heldGeneratedPaths = GetInactiveGeneratedPaths(existing, GetModelKeywords());
+                    int[] generatedPath = GetGeneratedPath(mergedKeywords, pair.Key);
+                    heldByModel = heldGeneratedPaths.Exists(path => SamePath(path, generatedPath));
+                }
+                // The editor writes each inactive keyword at its place in the tree it shows, where two of them
+                // may share one
+                if (FindPath(replacement, pair.Key) != null && (active || !heldByModel))
                     throw new PythonAPIException("The argument 'keywords' names the index path [" +
                                                  string.Join(", ", pair.Key) + "] more than once.");
-                ValidateUserKeywordPath(pair.Key, "keywords", mergedKeywords, FindPath(existing, pair.Key) != null);
+                ValidateUserKeywordPath(pair.Key, "keywords", mergedKeywords, heldByModel);
                 CalculixFileWriter.AddUserKeywordByIndices(mergedKeywords, pair.Key, new CalculixUserKeyword(""));
                 replacement.Add(pair.Key, new CalculixUserKeyword(pair.Value));
             }
@@ -276,21 +291,67 @@ namespace APIs.Python.Model
         // the tree the editor shows. A position that does not exist is refused here, because the dialog
         // can only insert at one that does; a position that later disappears is suppressed on export
         // instead, which is the state IsSuppressed reports. The dialog adds no keyword to a deactivated
-        // keyword, but keeps one it already holds there, so only a new one is refused.
+        // keyword, but keeps one it already holds there, and keeps one whose position no longer exists, which the
+        // writer skips as it skips a suppressed one, so only a new one is refused.
         private static void ValidateUserKeywordPath(int[] path, string argumentName,
                                                     List<CalculixKeyword> mergedKeywords, bool heldByModel)
         {
+            if (heldByModel) return;
             CalculixFileWriter.UserKeywordStatus status =
                 CalculixFileWriter.GetUserKeywordStatus(mergedKeywords, path);
             if (status == CalculixFileWriter.UserKeywordStatus.Conflict)
                 throw new PythonAPIException("The argument '" + argumentName + "' names the index path [" +
                                              string.Join(", ", path) + "], which is no keyword insertion position.");
-            if (status == CalculixFileWriter.UserKeywordStatus.Suppressed && !heldByModel)
+            if (status == CalculixFileWriter.UserKeywordStatus.Suppressed)
                 throw new PythonAPIException("Cannot add user keyword to a deactivated keyword. The keyword at " +
                                              "the index path [" + string.Join(", ", GetDeactivatedPath(mergedKeywords,
                                              path)) + "] is deactivated, so the index path [" +
                                              string.Join(", ", path) + "] in the argument '" + argumentName +
                                              "' takes no new user keyword.");
+        }
+        // The index path among the generated keywords alone, which the user keywords inserted before it do not
+        // change, so a keyword the editor rewrote at its place in a tree with other user keywords is still found;
+        // null for a path that runs through a user keyword
+        private static int[] GetGeneratedPath(List<CalculixKeyword> mergedKeywords, int[] path)
+        {
+            int[] generatedPath = new int[path.Length];
+            List<CalculixKeyword> keywords = mergedKeywords;
+            for (int i = 0; i < path.Length; i++)
+            {
+                if (path[i] < 0) return null;
+                if (keywords == null)
+                {
+                    generatedPath[i] = path[i];
+                    continue;
+                }
+                int numOfUserKeywords = 0;
+                for (int j = 0; j < Math.Min(path[i], keywords.Count); j++)
+                {
+                    if (keywords[j] is CalculixUserKeyword) numOfUserKeywords++;
+                }
+                generatedPath[i] = path[i] - numOfUserKeywords;
+                //
+                if (i == path.Length - 1) break;
+                else if (path[i] >= keywords.Count) keywords = null;
+                else if (keywords[path[i]] is CalculixUserKeyword) return null;
+                else keywords = keywords[path[i]].Keywords;
+            }
+            //
+            return generatedPath;
+        }
+        private static List<int[]> GetInactiveGeneratedPaths(OrderedDictionary<int[], CalculixUserKeyword> userKeywords,
+                                                             List<CalculixKeyword> modelKeywords)
+        {
+            List<int[]> generatedPaths = new List<int[]>();
+            foreach (int[] path in userKeywords.Keys)
+            {
+                if (CalculixFileWriter.AddUserKeywordByIndices(modelKeywords, path, new CalculixUserKeyword("")))
+                    continue;
+                int[] generatedPath = GetGeneratedPath(modelKeywords, path);
+                if (generatedPath != null) generatedPaths.Add(generatedPath);
+            }
+            //
+            return generatedPaths;
         }
         private static int[] GetDeactivatedPath(List<CalculixKeyword> keywords, int[] path)
         {

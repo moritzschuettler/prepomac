@@ -42,13 +42,16 @@ namespace APIs.Python
                     using (PyObject builtins = Py.Import("builtins"))
                     using (PyObject listFunction = builtins.GetAttr("list"))
                     using (PyObject items = listFunction.Invoke(value))
+                    using (PyObject pythonTrue = true.ToPython())
+                    using (PyObject pythonFalse = false.ToPython())
                     {
                         long count = items.Length();
                         for (int i = 0; i < count; i++)
                         {
                             using (PyObject item = items.GetItem(i))
                             {
-                                converted.Add(ToWholeNumber(item, argumentName));
+                                converted.Add(ToWholeNumberWithGIL(item, pythonTrue.Handle, pythonFalse.Handle,
+                                                                   argumentName));
                             }
                         }
                     }
@@ -75,15 +78,37 @@ namespace APIs.Python
         // taken, a fraction, a bool, a string and a number outside 32 bits are refused
         private static int ToWholeNumber(PyObject item, string argumentName)
         {
+            using (Py.GIL())
+            using (PyObject pythonTrue = true.ToPython())
+            using (PyObject pythonFalse = false.ToPython())
+            {
+                return ToWholeNumberWithGIL(item, pythonTrue.Handle, pythonFalse.Handle, argumentName);
+            }
+        }
+        // True and False are the only bools, so a bool is told by its handle, and an int or a float is read
+        // without asking its type for its name
+        private static int ToWholeNumberWithGIL(PyObject item, IntPtr trueHandle, IntPtr falseHandle,
+                                                string argumentName)
+        {
             double number;
             try
             {
-                using (Py.GIL())
-                using (PyObject type = item.GetPythonType())
-                using (PyObject typeName = type.GetAttr("__name__"))
+                if (item.Handle == trueHandle || item.Handle == falseHandle) throw NotWholeNumbers(argumentName);
+                if (PyInt.IsIntType(item))
                 {
-                    if (item.IsNone() || typeName.As<string>() == "bool" || PyString.IsStringType(item))
-                        throw NotWholeNumbers(argumentName);
+                    long wholeNumber = item.As<long>();
+                    if (wholeNumber < int.MinValue || wholeNumber > int.MaxValue) throw NotWholeNumbers(argumentName);
+                    return (int)wholeNumber;
+                }
+                if (PyFloat.IsFloatType(item)) number = item.As<double>();
+                else
+                {
+                    if (item.IsNone() || PyString.IsStringType(item)) throw NotWholeNumbers(argumentName);
+                    using (PyObject type = item.GetPythonType())
+                    using (PyObject typeName = type.GetAttr("__name__"))
+                    {
+                        if (typeName.As<string>() == "bool") throw NotWholeNumbers(argumentName);
+                    }
                     number = item.As<double>();
                 }
             }

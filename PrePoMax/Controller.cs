@@ -497,6 +497,10 @@ namespace PrePoMax
         {
             return _commands.Commands;
         }
+        public List<Command> GetActiveCommands()
+        {
+            return _commands.GetActiveCommands();
+        }
         public List<string> GetCommandCollectionErrors()
         {
             return _commands.Errors;
@@ -19885,7 +19889,9 @@ namespace PrePoMax
         private void JobStatusChanged(string jobName, JobStatus jobStatus)
         {
             _form.UpdateAnalysisProgress(jobName, jobStatus);
-            _form.UpdateTreeNode(ViewGeometryModelResults.Model, jobName, _jobs[jobName], null, true);
+            AnalysisJob job;
+            if (_jobs.TryGetValue(jobName, out job))
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, jobName, job, null, true);
         }
         //
         public void KillJob(string jobName)

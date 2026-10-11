@@ -55,7 +55,7 @@ namespace PrePoMax.Commands
         public override void ToPython(PythonJournalWriter writer)
         {
             writer.Statement(writer.Call("pmx.results.history_outputs", "export_to_csv",
-                                         writer.Path(Tools.GetGlobalPath(_properties.FileName)),
+                                         writer.OutputPath(_properties.FileName),
                                          PythonValueFormatter.List(_properties.HistoryOutputNames),
                                          "delimiter=" + PythonValueFormatter.Text(_properties.Delimiter)));
             writer.CountEmittedCommand();

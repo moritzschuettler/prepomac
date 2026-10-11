@@ -186,6 +186,9 @@ it has run, and it goes on to the end and records its commands as usual.
   Continue? or Save changes? - which an unattended call cannot answer, so it stopped there; what it
   did before the question stays. The refusal quotes the question. Change the call so the question
   does not arise, or ask the user to make that step.
+- **`messages`.** An error or a warning PrePoMax would show in a box with only an OK button is not
+  shown; its text comes back in the answer's `messages`, present only when there is one, and goes to
+  the output window. Read it: it is often the only reason given, such as why an analysis did not start.
 - **Nothing answers on the address.** PrePoMax is closed, or its automation server is off. Ask the
   user to open it and switch on Tools - Automation Server. Retrying will not help.
 
@@ -194,6 +197,7 @@ it has run, and it goes on to the end and records its commands as usual.
 - Do not save over the user's file and do not close their application. `exit_session` closes only a
   session without a window - one started with `-g No` for you to work in - and is refused for one the
   user has open; save with `pmx.save(file_name)` first, or pass `discard_changes` to drop the changes.
+  It is refused while an analysis runs, naming it: wait for `get_job` to report it finished, or kill it.
 - Do not invent a member name. `describe_api` is cheap and the API refuses what it does not know.
 - Do not use `eval_expression` to change the model. It reports a command it recorded as a warning,
   which means you asked the wrong tool.
@@ -206,6 +210,8 @@ Everything you recorded is in **Edit - Edit History**, which lists it, removes i
 **Edit - Regenerate History** rebuilds the model without it. Say so when you tell the user what you changed.
 A call that opens a `.pmx` or starts a new model replaces the history; its answer says `historyReplaced`, and
 `recordedCommands` lists only what the call made, not the history the opened file brings.
+`get_history`, its journal and the command count of `get_status` leave out what the user undid; a call
+that records after an undo drops the undone commands, as a user's next action does.
 ";
     }
 }

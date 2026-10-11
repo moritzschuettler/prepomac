@@ -211,7 +211,7 @@ namespace PrePoMax
             {
                 string source = _cmdOptions.FileName != null ? _cmdOptions.FileName : _cmdOptions.RegenerationFileName;
                 PythonJournalReport journalReport =
-                    PythonJournalExporter.Export(controller.GetCommands(), _cmdOptions.JournalFileName, source,
+                    PythonJournalExporter.Export(controller.GetActiveCommands(), _cmdOptions.JournalFileName, source,
                                                  controller.Settings.General.NumOfSplitFaces,
                                                  controller.Settings.GetWorkDirectory());
                 Console.WriteLine(journalReport.GetSummary());

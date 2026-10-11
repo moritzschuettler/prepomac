@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using CaeGlobals;
@@ -62,12 +63,21 @@ namespace PrePoMax.Commands
         [NonSerialized] private int _numOfCommandsExecutedWithoutRecording;
         [NonSerialized] private int _historyReplayCount;
         [NonSerialized] private string _commandBlockReason;
+        [NonSerialized] private bool _isAddingExistingCommands;
+        // Per session, so that a caller can tell what happened during its call by comparing two readings. A history
+        // that is replaced is a new collection, which is why neither counter belongs to one
+        private static long _lastSequenceNumber = 0;
+        private static int _historyGeneration = 0;
 
 
         // Properties                                                                                                               
         public int Count { get { return _commands.Count(); } }
         public int CurrPositionIndex { get { return _currPositionIndex; } }
         public List<Command> Commands { get { return _commands; } }
+        // The sequence number of the command this session recorded last; a command recorded later has a larger one
+        public static long LastSequenceNumber { get { return Interlocked.Read(ref _lastSequenceNumber); } }
+        // Changes each time the history is replaced: a new model, an opened file, an edited or cleared history
+        public static int HistoryGeneration { get { return Volatile.Read(ref _historyGeneration); } }
         // The last command the model was built by, which is the one an undo takes back
         public Command LastExecutedCommand
         {
@@ -100,6 +110,8 @@ namespace PrePoMax.Commands
             _errors = null;
             _postprocessingDeclined = false;
             _commandRecordingSuppressionCount = 0;
+            _isAddingExistingCommands = false;
+            OnHistoryReplaced();
             //
             WriteToFile();
         }
@@ -180,23 +192,32 @@ namespace PrePoMax.Commands
             //
             if (commands != null && commands.Count > 0)
             {
-                foreach (var command in commands)
+                // The commands come from a history file or from this history, so they are not recorded anew
+                _isAddingExistingCommands = true;
+                try
                 {
-                    try
+                    foreach (var command in commands)
                     {
-                        if (command is CSaveToPmx) { }  // skip save commands
-                        else if (command is CClear)
+                        try
                         {
-                            Clear(false);    // remove all previous commands
-                            result &= AddAndExecute(command, true);
+                            if (command is CSaveToPmx) { }  // skip save commands
+                            else if (command is CClear)
+                            {
+                                Clear(false);    // remove all previous commands
+                                result &= AddAndExecute(command, true);
+                            }
+                            else result &= AddAndExecute(command, true);
                         }
-                        else result &= AddAndExecute(command, true);
+                        catch (Exception ex)
+                        {
+                            result = false;
+                            _errors.Add(command.Name + ": " + ex.Message);
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        result = false;
-                        _errors.Add(command.Name + ": " + ex.Message);
-                    }
+                }
+                finally
+                {
+                    _isAddingExistingCommands = false;
                 }
                 // Report Errors
                 if (_errors.Count != 0)
@@ -261,6 +282,7 @@ namespace PrePoMax.Commands
         {
             _currPositionIndex = -1;
             _commands.Clear();
+            OnHistoryReplaced();
             //
             foreach (Command command in commands)
             {
@@ -292,7 +314,11 @@ namespace PrePoMax.Commands
                 else
                 {
                     // Add command
-                    if (addCommand) AddCommand(command);
+                    if (addCommand)
+                    {
+                        AddCommand(command);
+                        if (!_isAddingExistingCommands) SetNextSequenceNumber(command);
+                    }
                     // Check model changed
                     CheckModelChanged(command);
                     // Write to file
@@ -324,10 +350,26 @@ namespace PrePoMax.Commands
             if (_commandRecordingSuppressionCount > 0) return;
             //
             AddCommand(command);
+            SetNextSequenceNumber(command);
             CheckModelChanged(command);
             WriteToFile();
             _currPositionIndex++;
             OnEnableDisableUndoRedo();
+        }
+        private static void SetNextSequenceNumber(Command command)
+        {
+            command.SequenceNumber = Interlocked.Increment(ref _lastSequenceNumber);
+        }
+        private static void OnHistoryReplaced()
+        {
+            Interlocked.Increment(ref _historyGeneration);
+        }
+        // The commands the model is built by: the history up to the current position, without the commands an undo
+        // took back, which only a redo brings back
+        public List<Command> GetActiveCommands()
+        {
+            int count = Math.Max(0, Math.Min(_currPositionIndex + 1, _commands.Count));
+            return _commands.GetRange(0, count);
         }
         private bool ExecuteCommandWithoutRecording(Command command, bool executeSynchronous = false)
         {
@@ -860,6 +902,7 @@ namespace PrePoMax.Commands
         {
             _currPositionIndex = -1;
             _commands.Clear();
+            OnHistoryReplaced();
             _previousView = ViewGeometryModelResults.Geometry;
             if (setErrorsToNull) _errors = null;
             // Write to file
@@ -997,6 +1040,7 @@ namespace PrePoMax.Commands
         {
             ReadFromFile(fileName, out _commands);
             _currPositionIndex = _commands.Count - 1;
+            OnHistoryReplaced();
         }
         public static void ReadFromFile(string fileName, out List<Command> commands)
         {

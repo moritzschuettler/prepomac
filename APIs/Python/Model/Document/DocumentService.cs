@@ -643,6 +643,7 @@ namespace APIs.Python.Model
         }
         private void EnsureModelCanBeReplaced(string operation)
         {
+            JobService.EnsureNoAnalysisRunning(_jobGateway, operation);
             // Replacing the model rebuilds the command collection, which the running script belongs to
             if (_modelGateway.IsInsideRecordedScript())
                 throw new PythonAPIException(operation + " replaces the command history and is not available inside " +

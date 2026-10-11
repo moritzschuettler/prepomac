@@ -56,7 +56,7 @@ namespace PrePoMax.Commands
         public override void ToPython(PythonJournalWriter writer)
         {
             writer.Statement(writer.Call("pmx.results.field_outputs", "export_to_csv",
-                                         writer.Path(Tools.GetGlobalPath(_fileName)),
+                                         writer.OutputPath(_fileName),
                                          PythonValueFormatter.Text(_fieldData.Name),
                                          PythonValueFormatter.Format(_fieldData.StepId),
                                          PythonValueFormatter.Format(_fieldData.StepIncrementId)));

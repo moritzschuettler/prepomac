@@ -27,11 +27,14 @@ namespace PrePoMax.Commands
         protected DateTime _dateCreated;
         protected TimeSpan _timeSpan;
         [OptionalField] private bool _periodicFacesSplitOnlyOnRequest;
+        [NonSerialized] private long _sequenceNumber;
 
         // Properties                                                                                                               
         public string Name { get { return _name; } }
-        public DateTime DateCreated { get { return _dateCreated; } }
         public TimeSpan TimeSpan { get { return _timeSpan; } set { _timeSpan = value; } }
+        // The order in which this session recorded the command, or 0 for one it did not record, such as a command
+        // of an opened file
+        public long SequenceNumber { get { return _sequenceNumber; } set { _sequenceNumber = value; } }
         /// <summary>
         /// A command made before Split Periodic Faces became a command of its own was executed while CAD import and
         /// every geometry operation split the periodic faces, and it has to be regenerated the same way.

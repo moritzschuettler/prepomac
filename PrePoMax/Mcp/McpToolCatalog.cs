@@ -92,7 +92,9 @@ namespace PrePoMax.Mcp
                 "state - whether each one is meshed, with its node and element count - the item names of every " +
                 "collection, the mesh setup items, how many user keywords and keyword edits there are, the " +
                 "parameters with their equation, value and " +
-                "description, the steps with what they contain, and the analyses with their status. Nothing is " +
+                "description, the steps with what they contain, and the analyses with their status and " +
+                "is_up_to_date, which is false when the results file was modified after the run - not when the " +
+                "model changed. Nothing is " +
                 "changed. This is the cheapest way to see what is in the model before deciding what to do to it.",
                 SessionSchema(null), true));
             tools.Add(new McpTool("read_topology", "Read the part geometry",
@@ -235,8 +237,9 @@ namespace PrePoMax.Mcp
                               "\"The name of the analysis to run.\"}", "\"name\""), false));
             tools.Add(new McpTool("get_job", "Read an analysis status",
                 "Reports the status of an analysis - None, InQueue, Running, OK, Killed, TimedOut, Failed or " +
-                "FailedWithResults - and isUpToDate, which is false when the model changed after the run, and " +
-                "on request everything the solver wrote to its output.",
+                "FailedWithResults - and isUpToDate, which is false when the results file was modified after the " +
+                "run or the analysis has not finished one; it does not say whether the model changed since. On " +
+                "request it also returns everything the solver wrote to its output.",
                 SessionSchema("\"name\": {\"type\": \"string\", \"description\": " +
                               "\"The name of the analysis.\"}, " +
                               "\"include_output\": {\"type\": \"boolean\", \"description\": " +
@@ -281,7 +284,9 @@ namespace PrePoMax.Mcp
                 "and the automation server, which nobody is looking at and which has no other way to end. A " +
                 "session open on the user's desktop is refused: the user closes their own application. The " +
                 "model is not saved; one with unsaved changes is refused unless discard_changes is true, so " +
-                "save it with pmx.save(file_name) first when the work should be kept.",
+                "save it with pmx.save(file_name) first when the work should be kept. While an analysis is " +
+                "running it is refused, naming the analysis, whatever discard_changes says: wait for it or " +
+                "kill it first.",
                 SessionSchema("\"discard_changes\": {\"type\": \"boolean\", \"description\": " +
                               "\"Close although the model has unsaved changes, which are lost. Defaults to " +
                               "false.\"}"), false));

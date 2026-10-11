@@ -59,7 +59,7 @@ namespace PrePoMax.Commands
             string format = null;
             if (!ExportFormatTools.TryGetMeshFormat(fileName, out inferredFormat) || inferredFormat != _format)
                 format = "format=" + PythonValueFormatter.Format(_format.ToString());
-            writer.Statement(writer.Call("pmx", "export_mesh", PythonValueFormatter.List(_partNames), writer.Path(fileName),
+            writer.Statement(writer.Call("pmx", "export_mesh", PythonValueFormatter.List(_partNames), writer.OutputPath(fileName),
                                          format));
             writer.CountEmittedCommand();
         }

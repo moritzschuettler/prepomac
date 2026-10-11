@@ -44,12 +44,10 @@ namespace PrePoMax.Commands
 
         public override void ToPython(PythonJournalWriter writer)
         {
-            if (_defaultName == null) writer.Unsupported(this, "the default analysis has no recorded name");
-            else
-            {
-                writer.Statement(writer.Call("pmx.jobs", "add", PythonValueFormatter.Text(_defaultName)));
-                writer.CountEmittedCommand();
-            }
+            // An analysis already existed, so the command added none and the replay has nothing to do
+            if (_defaultName == null) writer.Comment(Name + ": an analysis already existed, so none was added");
+            else writer.Statement(writer.Call("pmx.jobs", "add", PythonValueFormatter.Text(_defaultName)));
+            writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {

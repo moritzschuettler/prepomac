@@ -2088,7 +2088,7 @@ namespace PrePoMax
                     if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
                     {
                         SetStateWorking(Globals.ExportingText);
-                        WriteSessionJournal(_controller.GetCommands(), saveFileDialog.FileName,
+                        WriteSessionJournal(_controller.GetActiveCommands(), saveFileDialog.FileName,
                                             _controller.OpenedFileName);
                     }
                 }

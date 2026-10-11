@@ -129,7 +129,7 @@ namespace PrePoMax.Rpc
                 writer.WriteValue("modelSpace", model.Properties.ModelSpace.ToString());
             if (model != null && model.UnitSystem != null)
                 writer.WriteValue("unitSystem", model.UnitSystem.UnitSystemType.ToString());
-            writer.WriteValue("commandCount", controller.GetCommands() == null ? 0 : controller.GetCommands().Count);
+            writer.WriteValue("commandCount", controller.GetActiveCommands().Count);
             writer.EndObject();
         }
     }

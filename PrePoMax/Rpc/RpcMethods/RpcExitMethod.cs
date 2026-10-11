@@ -8,7 +8,9 @@
 // Contributors:
 
 using CaeGlobals;
+using CaeJob;
 using System;
+using System.Linq;
 
 namespace PrePoMax.Rpc
 {
@@ -36,6 +38,15 @@ namespace PrePoMax.Rpc
             // closing" is no. So an agent that has not saved is told rather than losing the work
             Controller controller = server.Controller;
             bool discard = request.GetBool("discard_changes", false);
+            AnalysisJob runningJob = controller == null ? null :
+                                     controller.GetAllJobs().FirstOrDefault(job => job.JobStatus == JobStatus.Running ||
+                                                                                   job.JobStatus == JobStatus.InQueue);
+            if (runningJob != null)
+            {
+                throw new RpcException(RpcErrorCode.NotAllowed, "The analysis '" + runningJob.Name + "' is running " +
+                                       "and closing kills it. Wait for it to finish, or kill it with pmx.jobs['" +
+                                       runningJob.Name + "'].kill(), before exit_session (exit on the pipe).");
+            }
             if (!discard && controller != null && controller.ModelChanged)
             {
                 throw new RpcException(RpcErrorCode.InvalidParams, "The model has unsaved changes and closing " +

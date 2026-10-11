@@ -35,7 +35,9 @@ namespace PrePoMax.Rpc
             //
             server.Form.PrepareAutomationPythonEngine();
             DateTime started = DateTime.Now;
-            List<Command> commandsBefore = RpcExecMethod.GetCommandsSnapshot(controller);
+            long sequenceNumberBefore = CommandsCollection.LastSequenceNumber;
+            int historyGenerationBefore = CommandsCollection.HistoryGeneration;
+            MessageBoxes.ClearReportedMessages();
             PythonEvalResult result;
             if (RpcExecMethod.IsCancelledBeforeStart())
             {
@@ -44,10 +46,13 @@ namespace PrePoMax.Rpc
             }
             else result = PythonEngineManager.Evaluate(expression);
             double elapsed = (DateTime.Now - started).TotalSeconds;
-            List<Command> recorded = RpcExecMethod.GetRecordedCommands(controller, commandsBefore, started);
-            bool historyReplaced = RpcExecMethod.IsHistoryReplaced(controller, commandsBefore);
+            List<Command> recorded = RpcExecMethod.GetRecordedCommands(controller, sequenceNumberBefore);
+            bool historyReplaced = RpcExecMethod.IsHistoryReplaced(historyGenerationBefore);
+            string[] messages = MessageBoxes.GetReportedMessages();
+            MessageBoxes.ClearReportedMessages();
             //
             server.Form.EchoAutomationExecution("Automation server - eval", expression, result.Output, result.Error);
+            RpcExecMethod.WriteMessagesToOutput(server, messages);
             //
             JsonWriter writer = new JsonWriter();
             writer.BeginObject();
@@ -61,6 +66,7 @@ namespace PrePoMax.Rpc
             writer.WriteValue("error", result.Error);
             writer.WriteValue("failed", !string.IsNullOrEmpty(result.Error));
             writer.WriteValue("elapsed", elapsed);
+            RpcExecMethod.WriteMessages(writer, messages);
             RpcExecMethod.WriteRecordedCommands(writer, recorded, historyReplaced);
             if (recorded.Count > 0 || historyReplaced)
             {

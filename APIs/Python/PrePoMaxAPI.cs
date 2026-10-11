@@ -24,6 +24,7 @@ namespace APIs.Python
         private readonly CreateAPI _create;
         private readonly JobsAPI _jobs;
         private readonly ViewAPI _view;
+        private readonly IPythonJobGateway _jobGateway;
 
 
         // Properties
@@ -41,6 +42,10 @@ namespace APIs.Python
         [PythonAPI("What the application shows - the displayed tree, the camera, the plotted result - and a " +
                    "picture of it. None of it is a model change, so none of it is recorded.", Returns = "View")]
         public ViewAPI view { get { return _view; } }
+        [PythonAPI("The work directory of the session: the one -w or the settings give, where an analysis " +
+                   "without a work directory of its own runs and where a replayed journal writes the files its " +
+                   "session saved or exported. Read only.", Returns = "str")]
+        public string work_directory { get { return _jobGateway == null ? null : _jobGateway.GetWorkDirectory(); } }
 
 
         // Constructors
@@ -99,12 +104,14 @@ namespace APIs.Python
             _create = new CreateAPI(selectionService);
             _jobs = new JobsAPI(new JobService(jobGateway));
             _view = new ViewAPI(viewGateway);
+            _jobGateway = jobGateway;
         }
 
 
         // Methods
         [PythonAPI("Creates a new empty model. Not available inside a recorded script, because it replaces " +
-                   "the command history. Undefined is refused for either argument.",
+                   "the command history. Refused while an analysis is running, naming it. Undefined is refused " +
+                   "for either argument.",
                    Arguments = "model_space: str, unit_system: str", Returns = "None",
                    Example = "pmx.new_model('ThreeD', 'MM_TON_S_C')")]
         public void new_model(object model_space, object unit_system)
@@ -115,7 +122,8 @@ namespace APIs.Python
         }
 
         [PythonAPI("Opens a .pmx or .pmh model file. Not available inside a recorded script, because it " +
-                   "replaces the command history. A result file is opened by pmx.results.open.",
+                   "replaces the command history. Refused while an analysis is running, naming it. A result file " +
+                   "is opened by pmx.results.open.",
                    Arguments = "file_name: str", Returns = "None")]
         public void open(object file_name)
         {

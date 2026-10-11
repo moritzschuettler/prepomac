@@ -34,8 +34,8 @@ namespace PrePoMax.Rpc
         {
             Controller controller = server.Controller;
             if (controller == null) throw new RpcException(RpcErrorCode.InternalError, "There is no open model.");
-            //
-            List<Command> commands = controller.GetCommands();
+            // An undone command is not part of the model, so neither the list nor the journal has it
+            List<Command> commands = controller.GetActiveCommands();
             if (commands == null) commands = new List<Command>();
             int limit = request.GetInt("limit", DefaultLimit);
             if (limit < 0)

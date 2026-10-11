@@ -129,8 +129,11 @@ namespace PrePoMax.Forms
                     //
                     if (saveFileDialog.ShowDialog() == DialogResult.OK)
                     {
-                        // The dialog may hold a reordered or shortened history, so what is shown is emitted
-                        List<Command> commands = _viewCommands != null ? Commands : _controller.GetCommands();
+                        // The dialog may hold a reordered or shortened history, so what is shown is emitted. An
+                        // unedited history is shown with the commands an undo took back, which the model is not
+                        // built by, so the journal leaves them out as Regenerate does
+                        List<Command> commands = _viewCommands == null || IsShowingPreparedHistory() ?
+                                                 _controller.GetActiveCommands() : Commands;
                         PythonJournalReport report =
                             PythonJournalExporter.Export(commands, saveFileDialog.FileName, _controller.OpenedFileName,
                                                          _controller.Settings.General.NumOfSplitFaces,
@@ -378,6 +381,17 @@ namespace PrePoMax.Forms
                 if (!ReferenceEquals(commands[i], _preparedCommands[i])) return true;
             }
             return false;
+        }
+        private bool IsShowingPreparedHistory()
+        {
+            if (_viewCommands == null || _preparedCommands == null || _viewCommands.Count != _preparedCommands.Count)
+                return false;
+            //
+            for (int i = 0; i < _viewCommands.Count; i++)
+            {
+                if (!ReferenceEquals(_viewCommands[i].Command, _preparedCommands[i])) return false;
+            }
+            return !IsHistoryChangedSincePrepare();
         }
         private void OpenPmh(string fileName)
         {

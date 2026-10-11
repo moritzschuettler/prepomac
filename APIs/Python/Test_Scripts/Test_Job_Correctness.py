@@ -6,7 +6,8 @@
 #a timeout reports the same status through the return value and the analysis itself, and an argument
 #that is the solver default follows a new name or solver while an edited one is kept. It also checks
 #the refusals: an invalid path, a blank environment variable, a kill of an analysis that is
-#not running, and opening the results of a running analysis or a missing results file.
+#not running, opening the results of a running analysis or a missing results file, and removing or
+#renaming a running analysis or replacing the model while it runs.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Job_Correctness.py -g No -x Yes -w <dir>
 #
@@ -243,6 +244,26 @@ def test_kill_and_open_results_refusals():
     check(job.status == "Running", "the analysis that was not waited for must run: " + job.status)
     check_refused(lambda: pmx.jobs.open_results(PREFIX + "Explicit"), ["still running"],
                   "opening the results of a running analysis was accepted")
+    # Its completion reports to the analysis by name, so a running analysis is neither removed nor renamed,
+    # and the model it reports to is neither replaced by a new one nor by an opened file
+    running_name = "'" + PREFIX + "Explicit'"
+    check_refused(lambda: pmx.jobs.remove(PREFIX + "Explicit"), [running_name, "running"],
+                  "removing a running analysis was accepted")
+    check_refused(lambda: pmx.jobs.rename(PREFIX + "Explicit", PREFIX + "Renamed"), [running_name, "running"],
+                  "renaming a running analysis was accepted")
+    check(pmx.jobs.contains(PREFIX + "Explicit") and not pmx.jobs.contains(PREFIX + "Renamed"),
+          "a refused remove or rename changed the analyses")
+    check_refused(lambda: pmx.new_model('ThreeD', 'MM_TON_S_C'), [running_name, "running"],
+                  "a new model was accepted while an analysis runs")
+    model_file_name = os.path.join(tempfile.gettempdir(), PREFIX + "Unopened.pmx")
+    with open(model_file_name, "w") as model_file:
+        model_file.write("")
+    try:
+        check_refused(lambda: pmx.open(model_file_name), [running_name, "running"],
+                      "opening a model file was accepted while an analysis runs")
+    finally:
+        os.remove(model_file_name)
+    check(pmx.jobs.contains(PREFIX + "Explicit"), "a refused new model or open replaced the model")
     # The status turns Running before the solver process is started, so the kill waits for the process
     time.sleep(1.0)
     job.kill()

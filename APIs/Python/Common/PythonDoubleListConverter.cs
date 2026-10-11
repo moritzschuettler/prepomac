@@ -84,18 +84,26 @@ namespace APIs.Python
                     using (PyObject builtins = Py.Import("builtins"))
                     using (PyObject listFunction = builtins.GetAttr("list"))
                     using (PyObject items = listFunction.Invoke(value))
+                    using (PyObject pythonTrue = true.ToPython())
+                    using (PyObject pythonFalse = false.ToPython())
                     {
                         long count = items.Length();
                         for (int i = 0; i < count; i++)
                         {
                             using (PyObject item = items.GetItem(i))
                             {
-                                if (PyString.IsStringType(item)) throw InvalidNumber(argumentName);
-                                // A bool converts to 1 or 0, which is never what a script meant
-                                using (PyObject type = item.GetPythonType())
-                                using (PyObject typeName = type.GetAttr("__name__"))
+                                // A bool converts to 1 or 0, which is never what a script meant. True and False
+                                // are the only bools, so an int or a float is read without asking for its type name
+                                if (item.Handle == pythonTrue.Handle || item.Handle == pythonFalse.Handle)
+                                    throw InvalidNumber(argumentName);
+                                if (!PyFloat.IsFloatType(item) && !PyInt.IsIntType(item))
                                 {
-                                    if (typeName.As<string>() == "bool") throw InvalidNumber(argumentName);
+                                    if (PyString.IsStringType(item)) throw InvalidNumber(argumentName);
+                                    using (PyObject type = item.GetPythonType())
+                                    using (PyObject typeName = type.GetAttr("__name__"))
+                                    {
+                                        if (typeName.As<string>() == "bool") throw InvalidNumber(argumentName);
+                                    }
                                 }
                                 try
                                 {

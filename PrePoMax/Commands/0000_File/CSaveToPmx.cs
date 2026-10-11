@@ -87,7 +87,7 @@ namespace PrePoMax.Commands
         }
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx", "save", writer.Path(Tools.GetGlobalPath(_fileName))));
+            writer.Statement(writer.Call("pmx", "save", writer.OutputPath(_fileName)));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

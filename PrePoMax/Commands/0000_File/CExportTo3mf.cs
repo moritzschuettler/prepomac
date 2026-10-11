@@ -50,7 +50,7 @@ namespace PrePoMax.Commands
         public override void ToPython(PythonJournalWriter writer)
         {
             writer.Statement(writer.Call("pmx", "export_to_3mf",
-                                         writer.Path(Tools.GetGlobalPath(_export3mfFileProperties.FileName)),
+                                         writer.OutputPath(_export3mfFileProperties.FileName),
                                          "edge_thickness_ratio=" +
                                          PythonValueFormatter.Number(_export3mfFileProperties.EdgeThicknessRatio)));
             writer.CountEmittedCommand();

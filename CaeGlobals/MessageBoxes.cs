@@ -43,6 +43,24 @@ namespace CaeGlobals
             get { return _isNonInteractiveThread; }
             set { _isNonInteractiveThread = value; }
         }
+        // The reports a marked thread was answered with instead of a box, so the call that ran there can hand
+        // them to its caller - a refusal is otherwise said only in a box nobody sees
+        [ThreadStatic] private static List<string> _reportedMessages;
+        public static void ClearReportedMessages()
+        {
+            _reportedMessages = null;
+        }
+        public static string[] GetReportedMessages()
+        {
+            return _reportedMessages == null ? new string[0] : _reportedMessages.ToArray();
+        }
+        private static void CollectReportedMessage(string text, string caption, MessageBoxButtons buttons)
+        {
+            if (!_isNonInteractiveThread || buttons != MessageBoxButtons.OK) return;
+            //
+            if (_reportedMessages == null) _reportedMessages = new List<string>();
+            _reportedMessages.Add(string.IsNullOrEmpty(caption) ? text : caption + ": " + text);
+        }
         // Base
         public static DialogResult Show(string text)
         {
@@ -62,11 +80,13 @@ namespace CaeGlobals
             // Read on the calling thread, because the marked thread is the one that asked and the hop below
             // lands on the user interface thread, which is never marked
             MessageBoxModeEnum mode = GetEffectiveMode();
+            CollectReportedMessage(text, caption, buttons);
             InvokeIfRequired(() => result = ShowCrossThread(text, caption, buttons, icon, mode));
             return result;
         }
         public static DialogResult ShowCrossThread(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
+            CollectReportedMessage(text, caption, buttons);
             return ShowCrossThread(text, caption, buttons, icon, GetEffectiveMode());
         }
         private static MessageBoxModeEnum GetEffectiveMode()

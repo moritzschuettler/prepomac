@@ -42,7 +42,9 @@ namespace PrePoMax.Rpc
             //
             server.Form.PrepareAutomationPythonEngine();
             DateTime started = DateTime.Now;
-            List<Command> commandsBefore = GetCommandsSnapshot(controller);
+            long sequenceNumberBefore = CommandsCollection.LastSequenceNumber;
+            int historyGenerationBefore = CommandsCollection.HistoryGeneration;
+            MessageBoxes.ClearReportedMessages();
             PythonEngineResult result;
             if (IsCancelledBeforeStart())
             {
@@ -52,10 +54,13 @@ namespace PrePoMax.Rpc
             else if (recordMode == "script") result = controller.RunPythonScriptCommand(source);
             else result = controller.ExecutePythonWithKeywordStateReport(() => PythonEngineManager.ExecuteScript(source));
             double elapsed = (DateTime.Now - started).TotalSeconds;
-            List<Command> recorded = GetRecordedCommands(controller, commandsBefore, started);
-            bool historyReplaced = IsHistoryReplaced(controller, commandsBefore);
+            List<Command> recorded = GetRecordedCommands(controller, sequenceNumberBefore);
+            bool historyReplaced = IsHistoryReplaced(historyGenerationBefore);
+            string[] messages = MessageBoxes.GetReportedMessages();
+            MessageBoxes.ClearReportedMessages();
             //
             server.Form.EchoAutomationExecution("Automation server - exec", source, result.Output, result.Error);
+            WriteMessagesToOutput(server, messages);
             //
             JsonWriter writer = new JsonWriter();
             writer.BeginObject();
@@ -64,6 +69,7 @@ namespace PrePoMax.Rpc
             writer.WriteValue("error", result.Error == null ? "" : result.Error);
             writer.WriteValue("failed", !string.IsNullOrEmpty(result.Error));
             writer.WriteValue("elapsed", elapsed);
+            WriteMessages(writer, messages);
             WriteRecordedCommands(writer, recorded, historyReplaced);
             WriteCancellation(writer, !string.IsNullOrEmpty(result.Error));
             writer.EndObject();
@@ -98,48 +104,51 @@ namespace PrePoMax.Rpc
                                              "completed normally.");
             }
         }
-        public static List<Command> GetCommandsSnapshot(Controller controller)
-        {
-            List<Command> commands = controller.GetCommands();
-            return commands == null ? new List<Command>() : new List<Command>(commands);
-        }
         // The commands the call added to the history, in the order they were recorded. This is what
         // makes an agent's work visible as ordinary user actions: the user can delete any of them in
         // the command history editor and regenerate.
         //
-        // A call that opens a .pmx or starts a new model replaces the history, so a command is the
-        // call's when it was not in the history before and was made after the call started; the
-        // history an opened file brings was made before.
+        // A command is the call's when this session recorded it after the call started, which the
+        // sequence number every recorded command is given says whatever the call did to the history:
+        // the history an opened file brings was not recorded by this session, and a command the call
+        // records after an undo replaces the undone ones without being taken for a new history.
         //
         // Each one is reported as its class name and as the line the command history editor shows,
         // which names the item. A call that writes several items is otherwise a list of types that
         // says how many things happened but not to what
-        public static List<Command> GetRecordedCommands(Controller controller, List<Command> commandsBefore,
-                                                        DateTime started)
+        public static List<Command> GetRecordedCommands(Controller controller, long sequenceNumberBefore)
         {
             List<Command> recorded = new List<Command>();
             List<Command> commands = controller.GetCommands();
             if (commands == null) return recorded;
             //
-            HashSet<Command> previousCommands = new HashSet<Command>(commandsBefore);
             foreach (Command command in commands)
             {
-                if (command != null && !previousCommands.Contains(command) && command.DateCreated >= started)
-                    recorded.Add(command);
+                if (command != null && command.SequenceNumber > sequenceNumberBefore) recorded.Add(command);
             }
             return recorded;
         }
-        public static bool IsHistoryReplaced(Controller controller, List<Command> commandsBefore)
+        // A new model, an opened file or a cleared history replaces the history, and only that
+        public static bool IsHistoryReplaced(int historyGenerationBefore)
         {
-            List<Command> commands = controller.GetCommands();
-            if (commands == null) return commandsBefore.Count > 0;
-            if (commands.Count < commandsBefore.Count) return true;
+            return CommandsCollection.HistoryGeneration != historyGenerationBefore;
+        }
+        // The reports the call was answered with instead of a message box, which would otherwise reach
+        // only the output of a session with no window
+        public static void WriteMessages(JsonWriter writer, string[] messages)
+        {
+            if (messages == null || messages.Length == 0) return;
             //
-            for (int i = 0; i < commandsBefore.Count; i++)
-            {
-                if (!ReferenceEquals(commands[i], commandsBefore[i])) return true;
-            }
-            return false;
+            writer.BeginArray("messages");
+            foreach (string message in messages) writer.WriteValue(message);
+            writer.EndArray();
+        }
+        // A session with no window already writes every message box to its output
+        public static void WriteMessagesToOutput(RpcServer server, string[] messages)
+        {
+            if (messages == null || messages.Length == 0 || MessageBoxes.WriteDataToOutput != null) return;
+            //
+            foreach (string message in messages) server.Form.WriteDataToOutput(message);
         }
         // Said only of a call that replaced the history, so the answer of every other call is unchanged
         public static void WriteRecordedCommands(JsonWriter writer, List<Command> recorded, bool historyReplaced)

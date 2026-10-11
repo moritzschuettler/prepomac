@@ -50,7 +50,7 @@ namespace PrePoMax.Commands
 
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx.model.parameters", "export_to_file", writer.Path(Tools.GetGlobalPath(_fileName))));
+            writer.Statement(writer.Call("pmx.model.parameters", "export_to_file", writer.OutputPath(_fileName)));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

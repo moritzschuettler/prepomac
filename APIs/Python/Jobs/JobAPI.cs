@@ -70,7 +70,9 @@ namespace APIs.Python
         public string status { get { return Resolve().JobStatus.ToString(); } }
         [PythonAPI("The name of the results file the analysis writes.", Returns = "str")]
         public string results_file_name { get { return _service.GetResultsFileName(Resolve()); } }
-        [PythonAPI("True when the analysis results match the current model.", Returns = "bool")]
+        [PythonAPI("True when the results file was not modified after the analysis last finished, so it holds " +
+                   "the results of that run. False before the analysis has finished a run. It does not say " +
+                   "whether the model changed since the run.", Returns = "bool")]
         public bool is_up_to_date { get { return _service.IsUpToDate(Resolve()); } }
 
 

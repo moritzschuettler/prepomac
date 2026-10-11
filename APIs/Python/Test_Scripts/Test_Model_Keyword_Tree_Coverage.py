@@ -120,6 +120,55 @@ def test_user_keywords_in_deactivated_keyword():
         pmx.model.materials.remove([material_name])
 
 
+def test_kept_inactive_user_keywords():
+    keywords = pmx.model.keywords
+    shrinking_name = PREFIX + "Shrinking"
+    deactivated_name = PREFIX + "KeptDeactivated"
+    pmx.model.materials.add(shrinking_name, [pmx.create.density(7.85e-9), pmx.create.elastic(210000, 0.3)])
+    pmx.model.materials.add(deactivated_name, [pmx.create.density(7.85e-9)])
+    try:
+        # A material with one property fewer leaves the keyword after its last property at no insertion
+        # position; the model keeps it, the solver input file leaves it out, and the editor writes it again
+        conflict_path = material_keyword_path(shrinking_name) + [2]
+        keywords.set_user_keyword(conflict_path, USER_KEYWORD)
+        pmx.model.materials.replace(shrinking_name, properties=[pmx.create.density(7.85e-9)])
+        check(keywords.count == 1, "the user keyword whose position disappeared was not kept")
+        keywords.replace_user_keywords([(conflict_path, USER_KEYWORD)])
+        keywords.set_user_keyword(conflict_path, USER_KEYWORD + "\n** kept")
+        entries = keywords.get_user_keywords()
+        check(len(entries) == 1 and list(entries[0].indices) == conflict_path and
+              entries[0].data.endswith("** kept"), "the kept user keyword at no insertion position was not replaced")
+        # A new keyword at no insertion position is still refused
+        beyond_path = material_keyword_path(shrinking_name) + [5]
+        check_refused(lambda: keywords.set_user_keyword(beyond_path, USER_KEYWORD), "no keyword insertion position",
+                      "a new user keyword at no insertion position must be refused")
+        check_refused(lambda: keywords.replace_user_keywords([(conflict_path, USER_KEYWORD),
+                                                              (beyond_path, USER_KEYWORD)]),
+                      "no keyword insertion position", "a new replacement pair at no insertion position must be "
+                      "refused")
+        check(keywords.count == 1, "a refused user keyword changed the editor state")
+        clear_user_keywords()
+        # The editor writes a kept keyword after the visible ones, at its place in the tree they make, so a
+        # user keyword inserted before its deactivated keyword moves its index path
+        kept_path = material_keyword_path(deactivated_name) + [0]
+        keywords.set_user_keyword(kept_path, USER_KEYWORD)
+        pmx.model.materials.deactivate([deactivated_name])
+        keywords.set_user_keyword([0], USER_KEYWORD)
+        moved_path = [kept_path[0] + 1] + kept_path[1:]
+        keywords.replace_user_keywords([([0], USER_KEYWORD), (moved_path, USER_KEYWORD)])
+        entries = keywords.get_user_keywords()
+        check(len(entries) == 2 and list(entries[1].indices) == moved_path,
+              "the kept user keyword written after the visible one was not taken back")
+        check_refused(lambda: keywords.replace_user_keywords([([0], USER_KEYWORD),
+                                                              (moved_path[:-1] + [1], USER_KEYWORD)]),
+                      "Cannot add user keyword to a deactivated keyword",
+                      "a new user keyword beside the kept one in the deactivated keyword must be refused")
+        check(keywords.count == 2, "a refused replacement changed the editor state")
+    finally:
+        clear_user_keywords()
+        pmx.model.materials.remove([shrinking_name, deactivated_name])
+
+
 def clear_user_keywords():
     keywords = pmx.model.keywords
     for entry in reversed(keywords.get_user_keywords()):
@@ -418,6 +467,7 @@ def main():
     test_user_keywords(generated)
     test_user_keywords_in_deactivated_keyword()
     test_user_keyword_paths_in_merged_tree()
+    test_kept_inactive_user_keywords()
     test_overrides(generated)
     test_tree()
     test_tree_views()

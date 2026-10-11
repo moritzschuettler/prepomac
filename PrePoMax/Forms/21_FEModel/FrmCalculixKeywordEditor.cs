@@ -37,6 +37,7 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private List<CalculixKeyword> _keywords;
         private OrderedDictionary<int[], CalculixUserKeyword> _userKeywords;
+        private List<int[]> _suppressedUserKeywordGeneratedPaths;
         private List<CalculixKeywordOverride> _keywordOverrides;
         private const string HiddenDataPlaceholder = "... hidden data ...";
         private const string DotsImageKey = "Dots.ico";
@@ -383,16 +384,28 @@ namespace PrePoMax.Forms
                 return;
             }
             var newUserKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User CalculiX keywords");
-            // First add suppressed keywords
-            if (_userKeywords != null && _userKeywords.Count > 0)
-            {
-                foreach (var entry in _userKeywords)
-                {
-                    if (entry.Value.IsSuppressed) newUserKeywords.Add(entry.Key, entry.Value);
-                }
-            }
             // Add keywords from the tree - except suppressed keywords which are not visible
             FindUserKeywords(cltvKeywordsTree.Nodes[0], ref newUserKeywords);
+            // A suppressed keyword inserts nothing, so it follows the visible ones and keeps its place among the
+            // generated keywords in the tree they are inserted into
+            if (_userKeywords != null && _userKeywords.Count > 0)
+            {
+                int suppressedCount = 0;
+                foreach (var entry in _userKeywords)
+                {
+                    if (!entry.Value.IsSuppressed) continue;
+                    //
+                    int[] generatedPath = null;
+                    if (_suppressedUserKeywordGeneratedPaths != null &&
+                        suppressedCount < _suppressedUserKeywordGeneratedPaths.Count)
+                        generatedPath = _suppressedUserKeywordGeneratedPaths[suppressedCount];
+                    suppressedCount++;
+                    //
+                    int[] indices = generatedPath == null ? entry.Key :
+                                    GetTreePath(cltvKeywordsTree.Nodes[0], generatedPath);
+                    newUserKeywords.Add(indices, entry.Value);
+                }
+            }
             //
             _userKeywords = newUserKeywords;
             //
@@ -443,10 +456,13 @@ namespace PrePoMax.Forms
                 AddKeywordToTreeNode(_keywords[i], node.Nodes[index], new int[] { i });
             }
             // Add user keywords
+            _suppressedUserKeywordGeneratedPaths = new List<int[]>();
             if (_userKeywords != null)
             {
                 foreach (var entry in _userKeywords)
                 {
+                    if (entry.Value.IsSuppressed)
+                        _suppressedUserKeywordGeneratedPaths.Add(GetGeneratedPath(node, entry.Key));
                     AddUserKeywordToTreeByIndex(node, entry.Key, entry.Value.DeepClone());
                 }
             }
@@ -573,6 +589,63 @@ namespace PrePoMax.Forms
             AddUserKeywordToTreeNode(keyword, child);
             //
             node.Expand();
+        }
+        // The index path among the generated keywords alone, which the user keywords inserted before it do not
+        // change; null for a path that runs through a user keyword
+        private static int[] GetGeneratedPath(TreeNode rootNode, int[] indices)
+        {
+            int[] generatedPath = new int[indices.Length];
+            TreeNodeCollection nodes = rootNode.Nodes;
+            for (int i = 0; i < indices.Length; i++)
+            {
+                if (indices[i] < 0) return null;
+                if (nodes == null)
+                {
+                    generatedPath[i] = indices[i];
+                    continue;
+                }
+                int numOfUserNodes = 0;
+                for (int j = 0; j < Math.Min(indices[i], nodes.Count); j++)
+                {
+                    if (IsUserKeywordNode(nodes[j])) numOfUserNodes++;
+                }
+                generatedPath[i] = indices[i] - numOfUserNodes;
+                //
+                if (i == indices.Length - 1) break;
+                else if (indices[i] >= nodes.Count) nodes = null;
+                else if (IsUserKeywordNode(nodes[indices[i]])) return null;
+                else nodes = nodes[indices[i]].Nodes;
+            }
+            return generatedPath;
+        }
+        private static int[] GetTreePath(TreeNode rootNode, int[] generatedPath)
+        {
+            int[] indices = new int[generatedPath.Length];
+            TreeNodeCollection nodes = rootNode.Nodes;
+            for (int i = 0; i < generatedPath.Length; i++)
+            {
+                if (nodes == null)
+                {
+                    indices[i] = generatedPath[i];
+                    continue;
+                }
+                int index = 0;
+                int numOfGeneratedNodes = 0;
+                while (index < nodes.Count &&
+                       (IsUserKeywordNode(nodes[index]) || numOfGeneratedNodes < generatedPath[i]))
+                {
+                    if (!IsUserKeywordNode(nodes[index])) numOfGeneratedNodes++;
+                    index++;
+                }
+                indices[i] = index + generatedPath[i] - numOfGeneratedNodes;
+                //
+                if (i < generatedPath.Length - 1) nodes = index < nodes.Count ? nodes[index].Nodes : null;
+            }
+            return indices;
+        }
+        private static bool IsUserKeywordNode(TreeNode node)
+        {
+            return node.Tag is KeywordAtNode kn && kn.Keyword is CalculixUserKeyword;
         }
         private void AddUserKeywordToTreeNode(CalculixKeyword keyword, TreeNode node)
         {

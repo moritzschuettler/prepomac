@@ -29,6 +29,7 @@ namespace PrePoMax.Python.Journal
         private int _lineIndex;
         private int _numOfLegacySplitFaces;
         private string _workDirectory;
+        private bool _writesToWorkDirectory;
 
 
         // Properties                                                                                                               
@@ -36,6 +37,9 @@ namespace PrePoMax.Python.Journal
         // The work directory of the session the journal is written in, which a replay is run in with -w, so that a
         // command holding a file name a regeneration rooted there can write the name the API takes
         public string WorkDirectory { get { return _workDirectory; } set { _workDirectory = value; } }
+        // True once a file the session saved or exported is written into the work directory of the replay, which
+        // the header then says and imports os for
+        public bool WritesToWorkDirectory { get { return _writesToWorkDirectory; } }
         public List<string> Refusals { get { return _refusals; } }
         public int EmittedCommandCount { get { return _emittedCommandCount; } }
         // The position of the command being emitted, so that one which only makes sense at the start of
@@ -65,6 +69,7 @@ namespace PrePoMax.Python.Journal
             _lineIndex = 0;
             _numOfLegacySplitFaces = 1;
             _workDirectory = null;
+            _writesToWorkDirectory = false;
         }
 
 
@@ -114,6 +119,14 @@ namespace PrePoMax.Python.Journal
         public string Path(string value)
         {
             return PythonValueFormatter.Path(value);
+        }
+        // A file the session saved or exported is written by the replay under its name in the work directory of
+        // the replay, as a batch regeneration writes it, so a replay never overwrites the file the session wrote
+        public string OutputPath(string fileName)
+        {
+            _writesToWorkDirectory = true;
+            return "os.path.join(pmx.work_directory, " +
+                   PythonValueFormatter.Path(System.IO.Path.GetFileName(fileName)) + ")";
         }
         public string Call(string target, string method, params string[] arguments)
         {

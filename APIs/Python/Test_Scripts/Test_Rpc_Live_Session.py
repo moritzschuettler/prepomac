@@ -29,6 +29,10 @@
 #one that fails before changing anything records nothing. Two model checks of elements without a section
 #must leave one Missing_section set, and so must their journal.
 #
+#A command undone the way Edit - Undo does it is left out of the history, its journal and the command
+#count, and the next call records its own command without reporting a replaced history. A warning box a
+#call meets is answered and its text handed back in messages.
+#
 #And it checks a call that outlasts the request timeout. A session started with --rpcTimeout 5 is sent
 #Python that sleeps longer than that: the caller must be answered that the call is still running, with
 #an id, while the call runs to the end and records its command; wait must hand its answer over once,
@@ -364,6 +368,68 @@ def check_history(client):
     result = client.result("history", {"limit": 2})
     check(len(result["commands"]) == 2, "a limit must be honoured: " + str(result["commands"]))
     check(result["firstIndex"] == result["commandCount"] - 2, "a limit must return the tail: " + str(result))
+
+
+# Undoes the last command the way Edit - Undo does, which no API member does
+UNDO_LAST_COMMAND = os.linesep.join([
+    "from System import Array, Enum, Object",
+    "from System.Windows.Forms import Application",
+    "undo_form = [form for form in Application.OpenForms if form.GetType().Name == 'FrmMain'][0]",
+    "undo_controller = undo_form.Controller",
+    "undo_type = undo_controller.GetType().Assembly.GetType('PrePoMax.Commands.RegenerateTypeEnum')",
+    "undo_controller.GetType().GetMethod('UndoHistory').Invoke(undo_controller, "
+    "Array[Object]([Enum.Parse(undo_type, 'All')]))"])
+
+
+def check_undo_in_history(client):
+    """An undone command is not part of the model, so neither the history nor its journal may carry it."""
+    for name in ("undo_kept", "undo_dropped"):
+        result = client.result("exec", {"source": "pmx.model.parameters.add('" + name + "', 1.0)"})
+        check(not result["failed"], "adding " + name + " must not fail: " + result["error"])
+    before = client.result("status")["model"]["commandCount"]
+    result = client.result("exec", {"source": UNDO_LAST_COMMAND})
+    check(not result["failed"], "the undo must run: " + result["error"])
+    check(result["recordedCommands"] == [] and "historyReplaced" not in result,
+          "an undo records nothing and replaces no history: " + str(result))
+    value = client.result("eval", {"expression": "pmx.model.parameters.get_names()"})
+    check("undo_kept" in value["value"] and "undo_dropped" not in value["value"],
+          "the undo must take back only the last parameter: " + str(value["value"]))
+    check(client.result("status")["model"]["commandCount"] == before - 1,
+          "the command count must leave out the undone command")
+    result = client.result("history", {"limit": 0, "include_journal": True})
+    check(result["commandCount"] == before - 1, "the history must leave out the undone command: " + str(result["commandCount"]))
+    descriptions = [command["description"] for command in result["commands"]]
+    check(not any("undo_dropped" in description for description in descriptions),
+          "the undone command must not be listed: " + str(descriptions[-3:]))
+    journal = result["journal"]
+    source = journal["source"] if journal["isInline"] else open(journal["fileName"]).read()
+    check("undo_kept" in source and "undo_dropped" not in source,
+          "the journal must carry the kept command and not the undone one")
+    check(journal["emittedCommandCount"] == result["commandCount"], "every command must be emitted: " + str(journal))
+    # The next command drops the undone one, which does not make the history a new one
+    result = client.result("exec", {"source": "pmx.model.parameters.add('undo_after', 1.0)"})
+    check(not result["failed"], "adding a parameter after the undo must not fail: " + result["error"])
+    check("historyReplaced" not in result, "a command after an undo replaces no history: " + str(result))
+    check([entry["type"] for entry in result["recordedCommands"]] == ["CAddParameter"] and
+          "undo_after" in result["recordedCommands"][0]["description"],
+          "the call must list only its own command: " + str(result["recordedCommands"]))
+    check(client.result("status")["model"]["commandCount"] == before,
+          "the new command must take the place of the undone one")
+    print("undo: the undone command left out of the history, its journal and the command count")
+
+
+def check_reported_messages(client):
+    """A report box is answered for the call and its text handed back in messages."""
+    source = os.linesep.join(["import clr",
+                              "clr.AddReference('CaeGlobals')",
+                              "from CaeGlobals import MessageBoxes",
+                              "MessageBoxes.ShowWarning('live message probe')"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the warning must not fail the call: " + result["error"])
+    check(result.get("messages") == ["Warning: live message probe"], "the warning must be returned: " + str(result))
+    result = client.result("exec", {"source": "message_probe = 1"})
+    check("messages" not in result, "a call without a message box must have no messages: " + str(result))
+    print("messages: a warning box was returned to the caller")
 
 
 def check_recording_across_open(client, directory):
@@ -1610,6 +1676,9 @@ def main():
         check_cancel_before_python(client)
         check_cancel_reaching_start(client)
         check_argument_types(client)
+        # Before check_recording records a script, so the undo replays no script inside the call that undoes
+        check_undo_in_history(client)
+        check_reported_messages(client)
         check_recording(client)
         check_history(client)
         check_recording_across_open(client, session.directory)

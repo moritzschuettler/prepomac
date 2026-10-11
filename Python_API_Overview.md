@@ -115,8 +115,15 @@ document describes: what it writes is what a user would have written.
 | Where | What it does |
 | --- | --- |
 | **File - Export - Python session journal \*.py** | Writes the journal of the open model's history. |
-| **Edit - Edit History**, then **File - Save As Python** in its *Edit Commands* dialog | Writes the journal of the history shown in the dialog, including a reordered or shortened one. |
+| **Edit - Edit History**, then **File - Save As Python** in its *Edit Commands* dialog | Writes the journal of the history shown in the dialog, including a reordered or shortened one; an unedited history is written without the commands an undo took back, which the dialog still lists. |
 | `--journal <file.py>` | Writes the journal when a batch run ends, on a failing run too. |
+
+A journal is the history the model is built by: a command an undo took back is left out, as Regenerate
+leaves it out, until a redo brings it back. A file the session saved or exported - `pmx.save`, the
+`export_*` calls - is written by the replay under its name into the replay's own work directory,
+`os.path.join(pmx.work_directory, 'model.pmx')`, as a batch regeneration writes it, so a replay never
+overwrites the file the session wrote; the header says so and imports `os`. An analysis the history
+added by default where one already existed is written as a comment.
 
 A journal names the file the session started from in its header rather than opening it, because
 replacing the model rebuilds the command collection a running script belongs to. Replay it with the
@@ -279,9 +286,9 @@ PrePoMax and switch on Tools - Automation Server; do not work around it.
 | `cancel_call` | Stops a call that is still running, by its `callId`, at its next Python statement. Answered within a few seconds. |
 | `get_history` | The command history, and the journal of it as a Python script. A journal over 200,000 characters is written to a temporary file and returned as its path. `journal_file` writes the journal to that `.py` file instead, as the `history` method does: it needs `include_journal`, and a relative name goes under `%TEMP%\PrePoMax`. |
 | `run_job` | Starts an analysis without waiting, so the user keeps the interface, and returns the status it started with. No monitor is opened; one the user opens is a dialog like any other, so the session answers busy until it is closed. |
-| `get_job` | The status of an analysis and whether it is up to date, and its solver output on request. |
+| `get_job` | The status of an analysis and `isUpToDate` - whether its results file is unchanged since the run, not whether the model is - and its solver output on request. |
 | `screenshot` | A PNG of the viewport, optionally after setting the view, the camera and the plotted result. Returns the path and the picture as an image, up to 4 MB. |
-| `exit_session` | Closes a session without a window (`-g No`); refused for one the user has open. `discard_changes` closes it with unsaved changes. |
+| `exit_session` | Closes a session without a window (`-g No`); refused for one the user has open, and while an analysis runs, naming it. `discard_changes` closes it with unsaved changes. |
 
 The surface is deliberately small. The model surface is the Python API, which the agent writes
 through `run_python` and learns through `describe_api`, so there is no tool per API member - far too
@@ -338,7 +345,15 @@ the command class and the line the command history editor shows, which names the
 that wrote several things is not just a list of types. `get_history` carries the same description.
 A call that opens a `.pmx` or starts a new model replaces the history: its answer then says
 `historyReplaced` with a `historyMessage`, and `recordedCommands` lists only the commands the call
-made, never the history the opened file brings.
+made, never the history the opened file brings. A command is the call's because the session recorded
+it during the call, not because of the time it carries, and a call that records after an undo drops
+the undone commands without replacing the history. `get_history`, its journal and the command count of
+`get_status` hold the commands the model is built by, never the ones an undo took back.
+
+**A message box is an answer, not a dialog.** A report the application would show in a box with only
+an OK button - an error, a warning - is answered for the call instead. The texts come back in
+`messages`, present only when there were any, and are written to the output window; `run_job` and
+`pmx.jobs[...].run()` add them to the refusal of an analysis whose model preparation was refused.
 
 **Units are not converted.** A plain number is a value in the model's unit system, which `get_status`
 reports as `model.unitSystem`. The instructions say so, because nothing else will: 210000 is a correct
@@ -520,7 +535,7 @@ it. The folder is restricted to the current user, because the token is in it.
 | `exec` | Runs `source`; `record` is `commands` or `script`, regardless of case, and `timeout` is the wait in seconds. |
 | `wait` | Collects the answer of an `exec` or `eval` that outlasted its wait, by its `call_id`, waiting up to `timeout` seconds; `get_call` over MCP. |
 | `cancel` | Interrupts a running `exec` or `eval`, by its `call_id`; `cancel_call` over MCP. Never waits for the turn, and is served in read only mode. |
-| `history` | The commands - the last `limit` of them, 200 by default, 0 for all, a negative one refused - and the journal with `include_journal`, written to `journal_file` when it is given - a relative one under the temporary folder's `PrePoMax` folder, as `screenshot` places it, and a missing folder it points into created. `journal_file` without `include_journal`, an empty one and one that is not a `.py` file are refused. |
+| `history` | The commands the model is built by, without those an undo took back (the last `limit` of them, 200 by default, 0 for all, a negative one refused), and the journal with `include_journal`, written to `journal_file` when it is given - a relative one under the temporary folder's `PrePoMax` folder, as `screenshot` places it, and a missing folder it points into created. `journal_file` without `include_journal`, an empty one and one that is not a `.py` file are refused. |
 | `screenshot` | Writes a PNG to `file_name`, or to the temporary folder, and returns the path; `transparent_background` and `magnification` (1 to 4) as in the capture dialog. A `file_name` that is not a valid file name is refused. |
 | `shutdown` | Stops the server; never closes the application. |
 | `exit` | Closes a hidden session; refused for one with a window. `discard_changes` closes it with unsaved changes. |
@@ -659,10 +674,11 @@ model item.
 
 | Member | Description |
 | --- | --- |
-| `pmx.new_model(model_space, unit_system)` | Creates a new empty model. `Undefined` is refused for either argument. **Console only.** |
-| `pmx.open(file_name)` | Opens a .pmx or .pmh model file, which replaces the command history; a .pmh history is regenerated whole, as **File - Open** regenerates it. A result file is refused and named to `pmx.results.open`. **Console only.** |
+| `pmx.new_model(model_space, unit_system)` | Creates a new empty model. `Undefined` is refused for either argument, and so is the call while an analysis is running. **Console only.** |
+| `pmx.open(file_name)` | Opens a .pmx or .pmh model file, which replaces the command history; a .pmh history is regenerated whole, as **File - Open** regenerates it. A result file is refused and named to `pmx.results.open`, and so is the call while an analysis is running. **Console only.** |
 | `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. It takes the types the import dialog takes - `.stp`, `.step`, `.igs`, `.iges`, `.brep`, `.stl`, `.unv`, `.vol`, `.inp`, `.mesh`, `.obj` and `.pmp` - and refuses another naming `file_name`; `only_materials=True` imports the materials of an `.inp` file and is refused for another type. As the dialog does, it refuses with "There is no model to import into. First create a new model." while the model space or the unit system is undefined: create the model with `pmx.new_model`, or set `model_space` and `unit_system` first. A `.pmp` file is refused as `parameters.import_from_file` refuses it. |
 | `pmx.save(file_name)` | Saves the model to a .pmx file. |
+| `pmx.work_directory` | The session's work directory (-w or the settings), read only; a replayed journal writes the files its session saved or exported here. |
 | `pmx.export_to_calculix(file_name)` | Exports a CalculiX .inp file. |
 | `pmx.export_to_abaqus(file_name)` | Exports an Abaqus .inp file. |
 | `pmx.export_to_3mf(file_name, edge_thickness_ratio=1)` | Exports the model to a 3MF file. `edge_thickness_ratio` must be finite and larger than zero. |
@@ -696,7 +712,8 @@ filters STEP parts, STEP assembly, BREP parts and BREP assembly.
 
 `new_model` and `open` replace the command history, which a recorded script is itself part of, so both
 raise inside a recorded script. Open the file with the `-f` command line switch instead, or call them
-from the Python console.
+from the Python console. Both are also refused, naming the analysis, while an analysis is running,
+because the running solver reports back to the model they would discard.
 
 To save a scripted session so that it can be regenerated, use the `--save` command line switch rather
 than `pmx.save`. The save then happens after the script command is recorded, so the saved history
@@ -1668,9 +1685,9 @@ the editor tree shows, so a script edits the keyword the user would click.
 | `get_model_keywords()` | The generated keywords, as a plain Python list, each with the index path that addresses it and its complete text. |
 | `get_user_keywords()` | The user keywords, as a plain Python list, each with the index path it is inserted at. |
 | `get_overrides()` | The user edits of the generated keywords, as a plain Python list, each with its `indices` (an `IntList`), `data`, `disabled`, `suppressed` and `original_signature`. |
-| `set_user_keyword(indices, data)` | Inserts or replaces one user keyword. The index path names an insertion position in the tree with every user keyword already inserted, so its last index may be the number of keywords it is inserted among. A keyword at an index path the model already holds is replaced in place. As the editor does, a new keyword inside a deactivated keyword is refused with "Cannot add user keyword to a deactivated keyword.", naming the index paths; a keyword the model already holds there, which the editor keeps, may be replaced. |
+| `set_user_keyword(indices, data)` | Inserts or replaces one user keyword. The index path names an insertion position in the tree with every user keyword already inserted, so its last index may be the number of keywords it is inserted among. A keyword at an index path the model already holds is replaced in place. As the editor does, a new keyword inside a deactivated keyword is refused with "Cannot add user keyword to a deactivated keyword.", naming the index paths, and so is one at an index path that names no insertion position; a keyword the model already holds at either, which the editor keeps and the solver input file leaves out, may be replaced. |
 | `remove_user_keyword(indices)` | Removes one user keyword. |
-| `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. Each index path is a position in the tree with the preceding pairs already inserted, and an index path given twice is refused. An index path inside a deactivated keyword is refused as by `set_user_keyword`, unless the model already holds a user keyword there. |
+| `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. Each index path is a position in the tree with the preceding pairs already inserted, and an index path given twice is refused. An index path inside a deactivated keyword, or one that names no insertion position, is refused as by `set_user_keyword`, unless the model already holds a user keyword there. Such a kept keyword is matched by its place among the generated keywords, since the editor writes it after the visible ones at its place in the tree they make, and two kept keywords may share an index path. |
 | `set_override(indices, data=None, disabled=None)` | Edits one generated keyword. The text replaces it and `disabled` writes it as a comment. A value that is not given is kept. |
 | `remove_override(indices)`, `clear_overrides()` | Removes the user edits. `clear_overrides()` is refused when there are no overrides. |
 
@@ -2448,6 +2465,9 @@ analysis added without arguments is the one the dialog would offer.
 | `replace(old_name, name=None, ..., inherit_executable=None, inherit_work_directory=None, inherit_number_of_cpus=None, inherit_environment_variables=None)` | Replaces an analysis. A value that is not given is kept. An `argument` edited away from the solver default survives a new name or solver; otherwise it follows them, so renaming `Job-1` to `Job-2` makes the argument `Job-2` and `fem_solver='Abaqus'` makes it `job=Job-2`. A given `argument` always wins. `rename` treats the argument the same way, so an edited argument survives it too. |
 | `open_results(name)` | Opens the results of the analysis. They become the current result of `pmx.results`. A running analysis and a missing results file are refused. A results file modified after the analysis finished raises the question the application asks, which an unattended run refuses as a prompt. |
 
+A running analysis - `Running` or `InQueue` - cannot be removed, renamed or replaced; the refusal names
+it. Wait for it to finish or `kill()` it first.
+
 `len(pmx.jobs)` and `contains(name)` also work where there is no job gateway, and report no analyses; every command
 that changes or runs an analysis is refused there.
 
@@ -2475,8 +2495,8 @@ pmx.jobs.replace('Job-1', inherit_number_of_cpus=True)
 | `inherit_executable`, `inherit_work_directory`, `inherit_number_of_cpus`, `inherit_environment_variables` | True when the value follows the application settings, False when the analysis overrides it. They go back into the `inherit_*` arguments of `replace`, so a copy of an analysis gives an inherited value back as `inherit_*=True` rather than as the value, which would turn it into an override. |
 | `status` | The status of the last run: `None`, `InQueue`, `Running`, `OK`, `Killed`, `TimedOut`, `Failed` or `FailedWithResults`. |
 | `results_file_name` | The name of the results file the analysis writes. |
-| `is_up_to_date` | True when the results match the current model. |
-| `run(wait=True, timeout=None)` | Writes the solver input file and runs the analysis. Returns the status. The timeout is in seconds and needs `wait`; it kills the solver and leaves the analysis with the status `TimedOut`. A preparation the application refuses raises instead of returning a stale status. |
+| `is_up_to_date` | True when the results file was not modified after the analysis last finished, so it holds the results of that run. False before the analysis has finished a run. It does not say whether the model changed since the run. |
+| `run(wait=True, timeout=None)` | Writes the solver input file and runs the analysis. Returns the status. The timeout is in seconds and needs `wait`; it kills the solver and leaves the analysis with the status `TimedOut`. A preparation the application refuses raises instead of returning a stale status; in a call of the automation server the error ends with the texts of the error and warning boxes the preparation was answered. |
 | `check_model(wait=True, timeout=None)` | The same, but only checks the model without solving it. |
 | `kill()` | Kills a running analysis. An analysis that is not running is refused, as the application refuses it, and so is any kill in read-only automation mode. |
 | `get_output()` | Everything the solver wrote to its output. |
