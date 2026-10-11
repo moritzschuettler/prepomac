@@ -210,6 +210,7 @@ namespace APIs.Python.Model
         {
             double[] vector = ToVector(translateVector, "translate_vector");
             ValidateNumberOfCopies(numberOfCopies);
+            EnsureTransformable(partNames, "translate");
             EnsureCommandsAvailable();
             TranslateParts(partNames, vector, ToCommandNumberOfCopies(numberOfCopies));
         }
@@ -220,6 +221,7 @@ namespace APIs.Python.Model
             double[] axis = ToDirection(rotateAxis, "rotate_axis");
             double angleDeg = PythonValueConverter.ToFiniteDouble(rotateAngle, "rotate_angle_deg");
             ValidateNumberOfCopies(numberOfCopies);
+            EnsureTransformable(partNames, "rotate");
             EnsureCommandsAvailable();
             RotateParts(partNames, center, axis, angleDeg * Math.PI / 180, ToCommandNumberOfCopies(numberOfCopies));
         }
@@ -227,6 +229,7 @@ namespace APIs.Python.Model
         {
             double[] point = ToVector(mirrorPoint, "mirror_point");
             double[] direction = ToDirection(mirrorDirection, "mirror_direction");
+            EnsureTransformable(partNames, "mirror");
             EnsureCommandsAvailable();
             MirrorParts(partNames, point, direction, copy);
         }
@@ -234,6 +237,7 @@ namespace APIs.Python.Model
         {
             double[] center = ToVector(scaleCenter, "scale_center");
             double[] factors = ToVector(scaleFactors, "scale_factors");
+            EnsureTransformable(partNames, "scale");
             EnsureCommandsAvailable();
             ScaleParts(partNames, center, factors, copy);
         }
@@ -303,6 +307,10 @@ namespace APIs.Python.Model
         protected abstract void MirrorParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection,
                                             bool copy);
         protected abstract void ScaleParts(string[] partNames, double[] scaleCenter, double[] scaleFactors, bool copy);
+        // A transform the application refuses only after it was recorded is refused here instead
+        protected virtual void EnsureTransformable(string[] partNames, string transformName)
+        {
+        }
         //
         private static void ValidateNumberOfCopies(int numberOfCopies)
         {

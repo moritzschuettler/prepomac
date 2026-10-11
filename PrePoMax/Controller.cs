@@ -116,6 +116,7 @@ namespace PrePoMax
         [NonSerialized] private Dictionary<string, KeyValuePair<string, SweepMesh>> _defaultSweepMeshes;
         [NonSerialized] private int _openedPmxVersion;
         [NonSerialized] private bool _defaultMeshTypesDisabled;
+        [NonSerialized] private int _recordedScriptRerunCount;
         protected FeResults _results;   // Compatibility v1.3.3
         protected ResultsCollection _allResults;
         [NonSerialized] protected FeResults _wearResults;
@@ -181,6 +182,9 @@ namespace PrePoMax
         }
         public bool IsCommandRecordingSuppressed { get { return _commands.IsCommandRecordingSuppressed; } }
         public bool IsReplayingHistory { get { return _commands.IsReplayingHistory; } }
+        // A recorded script running again - Regenerate, Undo, Redo, Edit History or a batch regeneration - rather than
+        // on the run that recorded it
+        public bool IsRerunningRecordedScript { get { return _recordedScriptRerunCount > 0; } }
         public bool AreCommandsBlocked { get { return _commands.AreCommandsBlocked; } }
         public void RefuseWhenCommandsBlocked(string actionName)
         {
@@ -19984,9 +19988,11 @@ namespace PrePoMax
             //
             return comm.ExecutionResult;
         }
-        public PythonEngineResult RunPythonScript(string script, string fileName = null, string[] arguments = null)
+        public PythonEngineResult RunPythonScript(string script, string fileName = null, string[] arguments = null,
+                                                  bool isRerun = false)
         {
             _commands.BeginCommandRecordingSuppression();
+            if (isRerun) _recordedScriptRerunCount++;
             try
             {
                 return ExecutePythonWithKeywordStateReport(
@@ -19994,6 +20000,7 @@ namespace PrePoMax
             }
             finally
             {
+                if (isRerun) _recordedScriptRerunCount--;
                 _commands.EndCommandRecordingSuppression();
             }
         }
@@ -20023,7 +20030,9 @@ namespace PrePoMax
         {
             _form.SetCurrentResults(resultsName);
         }
-        public void RunHistoryPostprocessing()
+        // A caller that cannot ask - a script or an automation call with nobody to answer - gives the answer to the
+        // Ask setting, decided before it opened the results, so the question never fails a recorded open
+        public void RunHistoryPostprocessing(bool? answerToAsk = null)
         {
             bool postprocessCommandsExist = false;
             bool runPostprocessing = _settings.General.RunHistoryPostprocessing == RunPostProcessingEnum.Yes;
@@ -20033,8 +20042,12 @@ namespace PrePoMax
                 postprocessCommandsExist = _commands.GetNumberOfPostprocessCommands() > 0;
                 //
                 if (_settings.General.RunHistoryPostprocessing == RunPostProcessingEnum.Ask && postprocessCommandsExist)
-                    runPostprocessing = MessageBoxes.ShowQuestionYesNo("Postprocessing",
-                                                                      "Run postprocessing commands?") == DialogResult.Yes;
+                {
+                    if (answerToAsk.HasValue) runPostprocessing = answerToAsk.Value;
+                    else runPostprocessing = MessageBoxes.ShowQuestionYesNo("Postprocessing",
+                                                                           "Run postprocessing commands?") ==
+                                             DialogResult.Yes;
+                }
             }
             //
             if (runPostprocessing)

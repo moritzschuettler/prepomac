@@ -23,15 +23,17 @@ namespace APIs.Python
         private readonly ResultResolver _resolver;
         private readonly SelectionService _selectionService;
         private readonly IPythonCommandGateway _commandGateway;
+        private readonly PythonFileNameResolver _fileNameResolver;
 
 
         // Constructors
         public ResultHistoryOutputService(ResultResolver resolver, SelectionService selectionService,
-                                          IPythonCommandGateway commandGateway)
+                                          IPythonCommandGateway commandGateway, PythonFileNameResolver fileNameResolver)
         {
             _resolver = resolver;
             _selectionService = selectionService;
             _commandGateway = commandGateway;
+            _fileNameResolver = fileNameResolver;
         }
 
 
@@ -238,15 +240,7 @@ namespace APIs.Python
             ValidateRequiredString(delimiter, "delimiter");
             string[] names = PythonStringListConverter.ToStringArray(historyOutputNames, "history_output_names");
             ValidateStringList(names, "history_output_names");
-            string fullFileName;
-            try
-            {
-                fullFileName = Path.GetFullPath(fileName);
-            }
-            catch (Exception ex)
-            {
-                throw new PythonAPIException("The argument 'file_name' is invalid: " + ex.Message);
-            }
+            string fullFileName = _fileNameResolver.GetFullFileName(fileName, "file_name");
             string directoryName = Path.GetDirectoryName(fullFileName);
             if (!Directory.Exists(directoryName))
                 throw new PythonAPIException("The export directory '" + directoryName + "' does not exist.");

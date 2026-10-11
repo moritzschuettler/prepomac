@@ -218,7 +218,9 @@ namespace PrePoMax.Mcp
                 "changes neither the model nor the view, but it writes files: journal_file overwrites a file " +
                 "that already exists under that name, also in read only mode, which protects only the command " +
                 "history. A journal holds the whole history, so it is replayed on an empty model - pmx.new_model " +
-                "first - through run_python with record='commands', which records each call it makes; a recorded " +
+                "first, which the user's session refuses while its model has unsaved changes: save first, or " +
+                "pass discard_changes=True after asking the user - through run_python with record='commands', " +
+                "which records each call it makes; a recorded " +
                 "script inside it is flattened into those calls. The guide says more.",
                 SessionSchema("\"include_journal\": {\"type\": \"boolean\", \"description\": " +
                               "\"Emit the history as a Python script as well. Defaults to false.\"}, " +
@@ -242,7 +244,7 @@ namespace PrePoMax.Mcp
                               "\"The name of the analysis to run.\"}", "\"name\""), false));
             tools.Add(new McpTool("get_job", "Read an analysis status",
                 "Reports the status of an analysis - None, InQueue, Running, OK, Killed, TimedOut, Failed or " +
-                "FailedWithResults - and isUpToDate, which is false when the results file was modified after the " +
+                "FailedWithResults - and is_up_to_date, which is false when the results file was modified after the " +
                 "run or the analysis has not finished one; it does not say whether the model changed since. On " +
                 "request it also returns everything the solver wrote to its output.",
                 SessionSchema("\"name\": {\"type\": \"string\", \"description\": " +
@@ -435,7 +437,7 @@ namespace PrePoMax.Mcp
                 string jobName = RequireString(arguments, "name");
                 bool includeOutput = JsonReader.GetBool(arguments, "include_output", false);
                 string job = "pmx.jobs[" + Quote(jobName) + "]";
-                string expression = "{'status': " + job + ".status, 'isUpToDate': " + job + ".is_up_to_date" +
+                string expression = "{'status': " + job + ".status, 'is_up_to_date': " + job + ".is_up_to_date" +
                                     (includeOutput ? ", 'output': " + job + ".get_output()" : "") + "}";
                 Dictionary<string, object> parameters = new Dictionary<string, object>();
                 parameters.Add("expression", expression);

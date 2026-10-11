@@ -20,15 +20,20 @@ namespace APIs.Python.Model
 {
     internal class DistributionService : FieldItemService
     {
+        // Variables
+        private readonly PythonFileNameResolver _fileNameResolver;
+
+
         // Properties
         protected override string ItemTypeName { get { return "distribution"; } }
 
 
         // Constructors
         public DistributionService(ModelResolver modelResolver, SelectionService selectionService,
-                                   IPythonModelGateway modelGateway)
+                                   IPythonModelGateway modelGateway, PythonFileNameResolver fileNameResolver)
             : base(modelResolver, selectionService, modelGateway)
         {
+            _fileNameResolver = fileNameResolver;
         }
 
 
@@ -244,25 +249,14 @@ namespace APIs.Python.Model
             }
         }
         // Setting the file name imports the file, which decides whether the distribution is a scalar or a vector
-        private static void ImportFile(DistributionFromFile distribution, string fileName)
+        private void ImportFile(DistributionFromFile distribution, string fileName)
         {
             string fullFileName = ResolveDistributionFileName(fileName);
             PythonModelArgumentCheck.Apply(() => distribution.FileName = fullFileName, "file_name");
         }
-        private static string ResolveDistributionFileName(string fileName)
+        private string ResolveDistributionFileName(string fileName)
         {
-            if (fileName == null || fileName.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'file_name' must not be empty.");
-            //
-            string fullFileName;
-            try
-            {
-                fullFileName = Path.GetFullPath(fileName);
-            }
-            catch (Exception ex)
-            {
-                throw new PythonAPIException("The argument 'file_name' is invalid: " + ex.Message);
-            }
+            string fullFileName = _fileNameResolver.GetFullFileName(fileName, "file_name");
             if (!File.Exists(fullFileName))
                 throw new PythonAPIException("The distribution file '" + fullFileName + "' does not exist.");
             //

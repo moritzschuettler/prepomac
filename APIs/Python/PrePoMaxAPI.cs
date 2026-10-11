@@ -25,6 +25,7 @@ namespace APIs.Python
         private readonly JobsAPI _jobs;
         private readonly ViewAPI _view;
         private readonly IPythonJobGateway _jobGateway;
+        private readonly IPythonModelGateway _modelGateway;
 
 
         // Properties
@@ -58,6 +59,15 @@ namespace APIs.Python
                 return workDirectory;
             }
         }
+        [PythonAPI("True while a recorded script runs again rather than on the run that recorded it: Regenerate, " +
+                   "Undo, Redo, OK of Edit History or a batch regeneration (-r) re-running it. A script uses it to " +
+                   "accept what its own first run left behind, as a journal's _output accepts the files that run " +
+                   "wrote. False on the first run, in the console and in an automation call. Read only.",
+                   Returns = "bool")]
+        public bool is_rerun
+        {
+            get { return _modelGateway != null && _modelGateway.IsRerunningRecordedScript(); }
+        }
 
 
         // Constructors
@@ -72,13 +82,16 @@ namespace APIs.Python
         {
             _resolver = new ResultResolver(results);
             _modelResolver = new ModelResolver(modelGateway);
+            PythonFileNameResolver fileNameResolver = new PythonFileNameResolver(jobGateway);
             MeshResolver meshResolver = new MeshResolver(_resolver, selectionGateway);
             SelectionService selectionService = new SelectionService(meshResolver, selectionGateway);
-            ResultFieldOutputService resultFieldOutputService = new ResultFieldOutputService(_resolver, commandGateway);
+            ResultFieldOutputService resultFieldOutputService =
+                new ResultFieldOutputService(_resolver, commandGateway, fileNameResolver);
             ResultHistoryOutputService resultHistoryOutputService =
-                new ResultHistoryOutputService(_resolver, selectionService, commandGateway);
-            _documentService = new DocumentService(_modelResolver, modelGateway, _resolver, jobGateway);
-            ParameterService parameterService = new ParameterService(_modelResolver, modelGateway);
+                new ResultHistoryOutputService(_resolver, selectionService, commandGateway, fileNameResolver);
+            _documentService = new DocumentService(_modelResolver, modelGateway, _resolver, jobGateway,
+                                                   fileNameResolver);
+            ParameterService parameterService = new ParameterService(_modelResolver, modelGateway, fileNameResolver);
             RegionServices regionServices = new RegionServices(_modelResolver, selectionService, modelGateway);
             MaterialService materialService = new MaterialService(_modelResolver, modelGateway);
             StepService stepService = new StepService(_modelResolver, modelGateway);
@@ -90,8 +103,10 @@ namespace APIs.Python
                 new ContactPairService(_modelResolver, selectionService, surfaceInteractionService,
                                        modelGateway);
             StepContentServices stepContentServices =
-                new StepContentServices(_modelResolver, selectionService, stepService, modelGateway);
-            FieldServices fieldServices = new FieldServices(_modelResolver, selectionService, modelGateway);
+                new StepContentServices(_modelResolver, selectionService, stepService, modelGateway,
+                                        fileNameResolver);
+            FieldServices fieldServices =
+                new FieldServices(_modelResolver, selectionService, modelGateway, fileNameResolver);
             SectionService sectionService =
                 new SectionService(_modelResolver, selectionService, modelGateway);
             GeometryPartService geometryPartService =
@@ -101,7 +116,7 @@ namespace APIs.Python
             MeshSetupItemService meshSetupItemService =
                 new MeshSetupItemService(_modelResolver, selectionService, meshGateway, modelGateway);
             MeshToolService meshToolService =
-                new MeshToolService(_modelResolver, selectionService, meshGateway);
+                new MeshToolService(_modelResolver, selectionService, meshGateway, fileNameResolver);
             MeshEditService meshEditService =
                 new MeshEditService(_modelResolver, selectionService, meshGateway);
             _results = new ResultsAPI(_resolver, resultFieldOutputService, resultHistoryOutputService,
@@ -117,30 +132,38 @@ namespace APIs.Python
             _jobs = new JobsAPI(new JobService(jobGateway));
             _view = new ViewAPI(viewGateway);
             _jobGateway = jobGateway;
+            _modelGateway = modelGateway;
         }
 
 
         // Methods
         [PythonAPI("Creates a new empty model. Not available inside a recorded script, because it replaces " +
                    "the command history. Refused while an analysis is running, naming it. Undefined is refused " +
-                   "for either argument.",
-                   Arguments = "model_space: str, unit_system: str", Returns = "None",
+                   "for either argument. In a session with a window, a model with unsaved changes is refused " +
+                   "unless discard_changes is True: save it with pmx.save first, or ask the user before " +
+                   "discarding. A session without a window discards them.",
+                   Arguments = "model_space: str, unit_system: str, discard_changes: bool = False", Returns = "None",
                    Example = "pmx.new_model('ThreeD', 'MM_TON_S_C')")]
-        public void new_model(object model_space, object unit_system)
+        public void new_model(object model_space, object unit_system, object discard_changes = null)
         {
             string modelSpace = PythonValueConverter.ToText(model_space, "model_space", false);
             string unitSystem = PythonValueConverter.ToText(unit_system, "unit_system", false);
-            _documentService.NewModel(modelSpace, unitSystem);
+            bool discardChanges = PythonValueConverter.ToBoolOrDefault(discard_changes, false, "discard_changes");
+            _documentService.NewModel(modelSpace, unitSystem, discardChanges);
         }
 
         [PythonAPI("Opens a .pmx or .pmh model file. Not available inside a recorded script, because it " +
                    "replaces the command history. Refused while an analysis is running, naming it. A result file " +
-                   "is opened by pmx.results.open.",
-                   Arguments = "file_name: str", Returns = "None")]
-        public void open(object file_name)
+                   "is opened by pmx.results.open. A relative file_name is taken from pmx.work_directory. In a " +
+                   "session with a window, a model with unsaved changes is refused unless discard_changes is " +
+                   "True: save it with pmx.save first, or ask the user before discarding. A session without a " +
+                   "window discards them.",
+                   Arguments = "file_name: str, discard_changes: bool = False", Returns = "None")]
+        public void open(object file_name, object discard_changes = null)
         {
             string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
-            _documentService.OpenFile(fileName);
+            bool discardChanges = PythonValueConverter.ToBoolOrDefault(discard_changes, false, "discard_changes");
+            _documentService.OpenFile(fileName, discardChanges);
         }
 
         [PythonAPI("Imports a geometry or mesh file into the current model using command history. The import " +
@@ -202,7 +225,7 @@ namespace APIs.Python
 
         [PythonAPI("Exports the nodes and elements of the named mesh parts using command history. The file " +
                    "extension picks the format: .inp is CalculiX unless format='Abaqus', .msh is Gmsh, .mesh is Mmg " +
-                   "and .stl the visualization surface. Give 'format' to override the extension.",
+                   "for a solid or shell part and .stl the visualization surface. Give 'format' to override the extension.",
                    Arguments = "part_names: list[str] or str, file_name: str, format: str = None", Returns = "None")]
         public void export_mesh(object part_names, object file_name, object format = null)
         {

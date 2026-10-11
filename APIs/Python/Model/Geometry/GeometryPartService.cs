@@ -416,6 +416,24 @@ namespace APIs.Python.Model
         {
             MeshGateway.RemoveGeometryParts(partNames);
         }
+        // A compound is transformed as one shape, so its CAD sub-parts are moved only with it
+        protected override void EnsureTransformable(string[] partNames, string transformName)
+        {
+            if (MeshGateway != null && MeshGateway.IsExplodedViewActive())
+                throw new PythonAPIException("The " + transformName + " transform can only be done when the exploded " +
+                                             "view is turned off. Turn it off with pmx.view.remove_exploded_view().");
+            foreach (string partName in partNames)
+            {
+                GeometryPart part = ResolvePart(partName) as GeometryPart;
+                if (part == null || !part.IsCADPart || part is CompoundGeometryPart) continue;
+                //
+                CompoundGeometryPart compoundPart = ModelResolver.GetModel().GetCompoundPartOfSubPart(partName);
+                if (compoundPart != null)
+                    throw new PythonAPIException("The " + transformName + " transform cannot be done for the " +
+                                                 "compound sub-part '" + partName + "'. The argument 'part_names' " +
+                                                 "must name its compound '" + compoundPart.Name + "' instead.");
+            }
+        }
         protected override void TranslateParts(string[] partNames, double[] translateVector, int numberOfCopies)
         {
             MeshGateway.TranslateGeometryParts(partNames, translateVector, numberOfCopies);

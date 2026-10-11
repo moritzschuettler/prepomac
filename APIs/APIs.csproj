@@ -70,6 +70,7 @@
     <Compile Include="Python\Model\Meshing\MeshSetupItemsAPI.cs" />
     <Compile Include="Python\Common\PythonColorConverter.cs" />
     <Compile Include="Python\Common\PythonNameComparer.cs" />
+    <Compile Include="Python\Common\PythonFileNameResolver.cs" />
     <Compile Include="Python\Common\PythonModelArgumentCheck.cs" />
     <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataAPI.cs" />
     <Compile Include="Python\Common\GeometryMetadata\GeometryMetadataEntitiesAPI.cs" />

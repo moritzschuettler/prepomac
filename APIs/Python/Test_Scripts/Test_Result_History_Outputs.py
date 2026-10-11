@@ -36,10 +36,22 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-def check_raises(function, message):
+def check_raises(function, message, unknown_keyword=None):
+    # Only the API's own refusal passes: a PythonAPIException, or for a call that deliberately passes the
+    # keyword unknown_keyword, the TypeError of the keyword guard. Anything else, and a message carrying a
+    # .NET stack trace, is a fault of the application that happened to stop the call
     try:
         function()
-    except Exception:
+    except Exception as ex:
+        kind, text = type(ex).__name__, str(ex)
+        if unknown_keyword is None:
+            expected, refusal = kind == "PythonAPIException", "a PythonAPIException"
+        else:
+            expected = kind == "TypeError" and "unexpected keyword argument '%s'" % unknown_keyword in text
+            refusal = "the keyword guard's TypeError for '%s'" % unknown_keyword
+        if not expected or "   at " in text:
+            raise Exception("TEST FAILED: " + message + " - the refusal must be " + refusal +
+                            " without a .NET stack trace, not " + kind + ": " + text[0:500])
         return
     raise Exception("TEST FAILED: " + message)
 
@@ -387,7 +399,8 @@ try:
                          name=refused_name, integral_type="Volume", region=volume_region,
                          cross_section="Axisymmetric", thickness=2.0),
                      "thickness was taken with the Axisymmetric cross_section")
-        check_raises(lambda: history_outputs.add_from_integration(name=refused_name, integral_type="Volume"),
+        check_raises(lambda: history_outputs.add_from_integration(name=refused_name, integral_type="Volume",
+                                                                  region=None),
                      "an integration without a region was accepted")
         check(get_history_output_names(history_outputs) == names_before,
               "a refused integration left a history output behind")

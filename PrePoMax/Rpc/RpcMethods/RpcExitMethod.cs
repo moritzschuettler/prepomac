@@ -49,7 +49,7 @@ namespace PrePoMax.Rpc
             }
             if (!discard && controller != null && controller.ModelChanged)
             {
-                throw new RpcException(RpcErrorCode.InvalidParams, "The model has unsaved changes and closing " +
+                throw new RpcException(RpcErrorCode.NotAllowed, "The model has unsaved changes and closing " +
                                        "discards them. Save it with pmx.save(file_name) first, or call " +
                                        "exit_session (exit on the pipe) with discard_changes set to true.");
             }

@@ -89,7 +89,8 @@ namespace PrePoMax.Python.Journal
             //
             report = new PythonJournalReport(fileName, commandCount, writer.EmittedCommandCount, writer.Refusals);
             //
-            string header = GetHeader(fileName, sourceDescription, report, writer.WritesToWorkDirectory);
+            string header = GetHeader(fileName, sourceDescription, report, writer.WritesToWorkDirectory,
+                                      writer.SessionStartFileName);
             int headerLineCount = GetLineCount(header);
             //
             commandFirstLineNumbers = new int[writer.CommandFirstLineIndices.Count];
@@ -141,7 +142,7 @@ namespace PrePoMax.Python.Journal
             return count;
         }
         private static string GetHeader(string fileName, string sourceDescription, PythonJournalReport report,
-                                        bool writesToWorkDirectory)
+                                        bool writesToWorkDirectory, string sessionStartFileName)
         {
             string scriptName = fileName == null ? "journal.py" : Path.GetFileName(fileName);
             StringBuilder header = new StringBuilder();
@@ -153,7 +154,19 @@ namespace PrePoMax.Python.Journal
             if (sourceDescription != null) header.AppendLine("# Opened from: " + sourceDescription);
             header.AppendLine("# " + report.CommandCount + " commands, " + report.RefusedCommandCount + " not emitted");
             header.AppendLine("#");
-            header.AppendLine("#   PrePoMax.com --script " + scriptName + " -g No -x Yes -w <work directory>");
+            if (sessionStartFileName == null)
+            {
+                header.AppendLine("#   PrePoMax.com --script " + scriptName + " -g No -x Yes -w <work directory>");
+            }
+            else
+            {
+                // A history that begins by opening a model file goes on from that model, which it cannot rebuild
+                header.AppendLine("# The session began by opening a model file, which this journal cannot rebuild,");
+                header.AppendLine("# so replay it with that file opened by -f:");
+                header.AppendLine("#");
+                header.AppendLine("#   PrePoMax.com --script " + scriptName + " -f \"" + sessionStartFileName +
+                                  "\" -g No -x Yes -w <work directory>");
+            }
             if (writesToWorkDirectory)
             {
                 header.AppendLine("#");
@@ -161,7 +174,9 @@ namespace PrePoMax.Python.Journal
                 header.AppendLine("# replay, pmx.work_directory, under their names, and read back from there. Two files");
                 header.AppendLine("# of the same name get numbered names, name_2.ext. The replay never overwrites a file");
                 header.AppendLine("# it did not write itself: one already in the work directory stops it with");
-                header.AppendLine("# FileExistsError, so replay in an empty one.");
+                header.AppendLine("# FileExistsError, so replay in an empty one. A replay recorded as a script and run");
+                header.AppendLine("# again - Regenerate, Undo, Redo - finds the files of its first run there and");
+                header.AppendLine("# writes over them, which pmx.is_rerun tells it.");
                 header.AppendLine();
                 header.AppendLine("import os");
                 header.AppendLine();
@@ -171,7 +186,7 @@ namespace PrePoMax.Python.Journal
                 header.AppendLine("def _output(name):");
                 header.AppendLine("    path = os.path.join(pmx.work_directory, name)");
                 header.AppendLine("    key = os.path.normcase(os.path.abspath(path))");
-                header.AppendLine("    if key not in _journal_outputs and os.path.exists(path):");
+                header.AppendLine("    if not pmx.is_rerun and key not in _journal_outputs and os.path.exists(path):");
                 header.AppendLine("        raise FileExistsError(path + ' exists and was not written by this ' +");
                 header.AppendLine("                              'replay; replay in an empty work directory')");
                 header.AppendLine("    _journal_outputs.add(key)");

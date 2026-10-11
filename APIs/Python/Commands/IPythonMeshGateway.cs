@@ -51,6 +51,8 @@ namespace APIs.Python
         PartProperties GetGeometryPartProperties(string partName);
         // Geometry parts
         void ReplaceGeometryPartProperties(string oldPartName, PartProperties newPartProperties);
+        // A geometry transform is refused while the exploded view is on
+        bool IsExplodedViewActive();
         void TranslateGeometryParts(string[] partNames, double[] translateVector, int numberOfCopies);
         void RotateGeometryParts(string[] partNames, double[] rotateCenter, double[] rotateAxis, double rotateAngle,
                                  int numberOfCopies);

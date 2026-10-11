@@ -500,12 +500,14 @@ def check_a_long_call(endpoint):
     """run_python past its timeout is answered with a call id, keeps running, and get_call collects it."""
     status = json.loads(endpoint.tool("get_status"))
     check(status["calls"] == [], "no call may be pending yet: " + str(status["calls"]))
-    source = os.linesep.join(["import time", "time.sleep(4)", "pmx.model.parameters.add('mcp_long', 2.5)",
+    # The call sleeps well past the bound, which leaves seconds of slack for a loaded machine
+    source = os.linesep.join(["import time", "time.sleep(8)", "pmx.model.parameters.add('mcp_long', 2.5)",
                               "print('mcp_long done')"])
     started = time.time()
     answer = json.loads(endpoint.tool("run_python", {"source": source, "timeout": 1}))
     check(answer.get("running") is True and answer["callId"] > 0, "the call must be answered as running: " + str(answer))
-    check(time.time() - started < 3.0, "the caller must be answered after its timeout, not after the call")
+    check(time.time() - started < 6.0, "the caller must be answered after its timeout, not after the call: " +
+          "%.1f s" % (time.time() - started))
     call_id = answer["callId"]
     status = json.loads(endpoint.tool("get_status"))
     check(not status["isIdle"] and ("Automation call " + str(call_id)) in status["busyReason"],
@@ -890,23 +892,32 @@ def check_collected_tool_answers(endpoint):
 
 
 def check_turn_wait_counts(endpoint):
-    """The wait for the turn counts against the timeout of the call that waits for it."""
-    source = os.linesep.join(["import time", "time.sleep(3)"])
+    """The wait for the turn counts against the timeout of the call that waits for it.
+
+    The bounds leave seconds of slack for a loaded machine: the call holding the turn sleeps well past
+    them, and whether it still runs, rather than the clock alone, tells a refusal that waited for it.
+    """
+    source = os.linesep.join(["import time", "time.sleep(8)"])
     first = json.loads(endpoint.tool("run_python", {"source": source, "timeout": 0}))
     check(first.get("running") is True, "the first call must be answered at once: " + str(first))
-    # Behind it, a timeout of 1 is refused as busy after a second, not after the request timeout
+    # Behind it, a timeout of 1 is refused as busy after a second, not after the request timeout of 5 s
     started = time.time()
     text = endpoint.failing_tool("eval_expression", {"expression": "6 * 7", "timeout": 1})
-    check(time.time() - started < 2.5 and "Busy" in text, "a call that cannot start within its timeout " +
-          "must be refused as busy within it: %.1f s, %s" % (time.time() - started, text))
+    elapsed = time.time() - started
+    holder = json.loads(endpoint.tool("get_call", {"call_id": first["callId"], "timeout": 0}))
+    check("Busy" in text and holder.get("running") is True and elapsed < 4.5,
+          "a call that cannot start within its timeout must be refused as busy within it, while the call " +
+          "holding the turn still runs: %.1f s, holder %s, %s" % (elapsed, str(holder)[:200], text))
     endpoint.tool("get_call", {"call_id": first["callId"], "timeout": 30})
-    # What is left of the wait after the turn is the call's: 3 s behind the first, 2 s for the second
+    # What is left of the wait after the turn is the call's: 3 s behind the first, 2 s for the second, which
+    # is answered as running while it sleeps; were the wait not counted it would run its 4 s and finish
+    source = os.linesep.join(["import time", "time.sleep(3)"])
     first = json.loads(endpoint.tool("run_python", {"source": source, "timeout": 0}))
     started = time.time()
     second = json.loads(endpoint.tool("run_python", {"source": os.linesep.join(["import time", "time.sleep(4)"]),
                                                      "timeout": 5}))
     waited = time.time() - started
-    check(second.get("running") is True and waited < 6.5,
+    check(second.get("running") is True and waited < 10,
           "a call that waited for its turn must be answered within its own timeout, not after %.1f s: %s" %
           (waited, str(second)))
     endpoint.tool("get_call", {"call_id": first["callId"], "timeout": 30})

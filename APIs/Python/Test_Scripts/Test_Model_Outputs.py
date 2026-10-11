@@ -22,10 +22,22 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-def check_raises(function, message):
+def check_raises(function, message, unknown_keyword=None):
+    # Only the API's own refusal passes: a PythonAPIException, or for a call that deliberately passes the
+    # keyword unknown_keyword, the TypeError of the keyword guard. Anything else, and a message carrying a
+    # .NET stack trace, is a fault of the application that happened to stop the call
     try:
         function()
-    except Exception:
+    except Exception as ex:
+        kind, text = type(ex).__name__, str(ex)
+        if unknown_keyword is None:
+            expected, refusal = kind == "PythonAPIException", "a PythonAPIException"
+        else:
+            expected = kind == "TypeError" and "unexpected keyword argument '%s'" % unknown_keyword in text
+            refusal = "the keyword guard's TypeError for '%s'" % unknown_keyword
+        if not expected or "   at " in text:
+            raise Exception("TEST FAILED: " + message + " - the refusal must be " + refusal +
+                            " without a .NET stack trace, not " + kind + ": " + text[0:500])
         return
     raise Exception("TEST FAILED: " + message)
 
@@ -278,11 +290,13 @@ def test_defined_fields():
         check(field.region_type == "NodeSetName", "unexpected region type " + field.region_type)
         check(pmx.model.node_sets[field.region_name].count == 2,
               "the region given with the switch back does not resolve to the selected nodes")
-        # A temperature read from a file is written without an amplitude, so it takes none, and a field given
-        # by value keeps its amplitude only as long as it stays one
+        # A temperature read from a file is written without an amplitude, so add_temperature_from_file has no
+        # amplitude_name argument for the keyword guard to let through, and a field given by value keeps its
+        # amplitude only as long as it stays one
         check_raises(lambda: fields.add_temperature_from_file(PREFIX + "Bad", file_name,
                                                               amplitude_name="Default"),
-                     "a temperature read from a file must not take an amplitude")
+                     "the keyword guard must refuse amplitude_name, which add_temperature_from_file does not take",
+                     "amplitude_name")
         check_refused(lambda: fields.add_temperature_from_file(PREFIX + "Bad", file_name, step_id=0), "'step_id'",
                       "a results file step below 1 must be refused")
         check(not fields.contains(PREFIX + "Bad"), "a refused defined field was recorded")

@@ -13,6 +13,7 @@
 #
 #Expected process exit code 0.
 import os
+import shutil
 import tempfile
 import time
 
@@ -28,10 +29,22 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-def check_raises(function, message):
+def check_raises(function, message, unknown_keyword=None):
+    # Only the API's own refusal passes: a PythonAPIException, or for a call that deliberately passes the
+    # keyword unknown_keyword, the TypeError of the keyword guard. Anything else, and a message carrying a
+    # .NET stack trace, is a fault of the application that happened to stop the call
     try:
         function()
-    except Exception:
+    except Exception as ex:
+        kind, text = type(ex).__name__, str(ex)
+        if unknown_keyword is None:
+            expected, refusal = kind == "PythonAPIException", "a PythonAPIException"
+        else:
+            expected = kind == "TypeError" and "unexpected keyword argument '%s'" % unknown_keyword in text
+            refusal = "the keyword guard's TypeError for '%s'" % unknown_keyword
+        if not expected or "   at " in text:
+            raise Exception("TEST FAILED: " + message + " - the refusal must be " + refusal +
+                            " without a .NET stack trace, not " + kind + ": " + text[0:500])
         return
     raise Exception("TEST FAILED: " + message)
 
@@ -222,7 +235,27 @@ def test_environment_variable_refusals():
           "a value is the user's text and must be kept as given")
 
 
-def test_kill_and_open_results_refusals():
+def wait_for_solver_process(timeout_seconds):
+    """True once the sleeping solver runs as a child of this process, False when it did not start in time."""
+    import clr
+    clr.AddReference("System.Management")
+    from System.Diagnostics import Process
+    from System.Management import ManagementObjectSearcher
+    query = ("SELECT ProcessId FROM Win32_Process WHERE ParentProcessId=%d AND Name='%s'"
+             % (Process.GetCurrentProcess().Id, os.path.basename(SLEEPING_SOLVER)))
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        searcher = ManagementObjectSearcher(query)
+        try:
+            if searcher.Get().Count > 0:
+                return True
+        finally:
+            searcher.Dispose()
+        time.sleep(0.1)
+    return False
+
+
+def test_kill_and_open_results_refusals(work):
     job = pmx.jobs[PREFIX + "Explicit"]
     # The sleeping solver writes no results, and a stale file of an earlier run must not answer for it
     results_file_name = job.results_file_name
@@ -237,9 +270,8 @@ def test_kill_and_open_results_refusals():
                   "opening a missing results file was accepted")
     # A running analysis is killed, and its results are not opened while it runs
     job.run(wait=False)
-    for _ in range(50):
-        if job.status == "Running":
-            break
+    deadline = time.time() + 30
+    while job.status != "Running" and time.time() < deadline:
         time.sleep(0.1)
     check(job.status == "Running", "the analysis that was not waited for must run: " + job.status)
     check_refused(lambda: pmx.jobs.open_results(PREFIX + "Explicit"), ["still running"],
@@ -255,7 +287,7 @@ def test_kill_and_open_results_refusals():
           "a refused remove or rename changed the analyses")
     check_refused(lambda: pmx.new_model('ThreeD', 'MM_TON_S_C'), [running_name, "running"],
                   "a new model was accepted while an analysis runs")
-    model_file_name = os.path.join(tempfile.gettempdir(), PREFIX + "Unopened.pmx")
+    model_file_name = os.path.join(work, PREFIX + "Unopened.pmx")
     with open(model_file_name, "w") as model_file:
         model_file.write("")
     try:
@@ -264,8 +296,9 @@ def test_kill_and_open_results_refusals():
     finally:
         os.remove(model_file_name)
     check(pmx.jobs.contains(PREFIX + "Explicit"), "a refused new model or open replaced the model")
-    # The status turns Running before the solver process is started, so the kill waits for the process
-    time.sleep(1.0)
+    # The status turns Running before the solver process is started, and a kill before it would leave the
+    # solver running, so the kill waits for the process
+    check(wait_for_solver_process(60), "the solver process of the running analysis did not start")
     job.kill()
     check(job.status == "Killed", "the killed analysis has the status " + job.status)
 
@@ -274,17 +307,26 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
     build_solvable_model()
-    test_explicit_settings(tempfile.gettempdir())
-    test_replacement_and_inheritance()
-    test_rename_by_case()
-    test_argument_follows_name_and_solver()
-    test_rejected_arguments()
-    test_custom_work_directory(tempfile.gettempdir())
-    test_timeout()
-    test_invalid_paths()
-    test_environment_variable_refusals()
-    test_kill_and_open_results_refusals()
-    clean()
+    # The analyses write their input files into a folder of their own, which goes whether the test passes or not
+    work = tempfile.mkdtemp(prefix=PREFIX)
+    try:
+        test_explicit_settings(work)
+        test_replacement_and_inheritance()
+        test_rename_by_case()
+        test_argument_follows_name_and_solver()
+        test_rejected_arguments()
+        test_custom_work_directory(work)
+        test_timeout()
+        test_invalid_paths()
+        test_environment_variable_refusals()
+        test_kill_and_open_results_refusals(work)
+        clean()
+    finally:
+        # A failure may leave the sleeping solver running in the folder, which then cannot be removed
+        for job in list(pmx.jobs):
+            if job.name.startswith(PREFIX) and job.status == "Running":
+                job.kill()
+        shutil.rmtree(work, ignore_errors=True)
     print("TEST PASSED")
 
 

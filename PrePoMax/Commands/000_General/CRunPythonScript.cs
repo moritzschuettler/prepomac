@@ -26,6 +26,8 @@ namespace PrePoMax.Commands
         [OptionalField] private string[] _arguments;
         [OptionalField] private bool _failed;
         [NonSerialized] private PythonEngineResult _executionResult;
+        // Only the instance a run creates starts true; a command read from a history file is always a rerun
+        [NonSerialized] private bool _isFirstRun;
 
 
         // Properties                                                                                                               
@@ -43,13 +45,16 @@ namespace PrePoMax.Commands
             _script = script;
             _fileName = fileName;
             _arguments = arguments == null ? null : (string[])arguments.Clone();
+            _isFirstRun = true;
         }
 
 
-        // Methods                                                                                                                  
+        // Methods
         public override bool Execute(Controller receiver)
         {
-            _executionResult = receiver.RunPythonScript(_script, _fileName, _arguments);
+            bool isRerun = !_isFirstRun;
+            _isFirstRun = false;
+            _executionResult = receiver.RunPythonScript(_script, _fileName, _arguments, isRerun);
             _failed = !string.IsNullOrEmpty(_executionResult.Error);
             //
             if (_failed)
@@ -63,8 +68,10 @@ namespace PrePoMax.Commands
         // pmx, __name__ and __file__, so the journal executes it in the same kind of namespace: a script
         // that binds a name the journal uses, such as selection_1, cannot change the lines after it. A
         // script run from a file read sys.argv as the engine set it, so the journal sets the same value
-        // around it and restores its own afterwards. The engine also put the folder of that file first on
-        // sys.path for the run, so the modules next to the script import, and so does the journal.
+        // around it and restores its own afterwards. The engine also put the folder of that file, as a full
+        // path, first on sys.path for the run, so the modules next to the script import, and so does the
+        // journal. Unlike the engine, the journal does not forget the modules the script imported from there:
+        // a later recorded script of the same journal that imports one reuses it rather than importing it anew.
         public override void ToPython(PythonJournalWriter writer)
         {
             string source = _fileName == null ? "embedded script" : _fileName;
@@ -82,7 +89,12 @@ namespace PrePoMax.Commands
                 writer.Line("import sys as _recorded_script_sys");
                 writer.Assign("_recorded_script_saved_argv", "list(_recorded_script_sys.argv)");
                 writer.Assign("_recorded_script_sys.argv", "[" + string.Join(", ", argv) + "]");
-                if (folder != null) writer.Statement("_recorded_script_sys.path.insert(0, " + folder + ")");
+                if (folder != null)
+                {
+                    writer.Assign("_recorded_script_added", folder + " not in _recorded_script_sys.path");
+                    writer.Line("if _recorded_script_added:");
+                    writer.Line("    _recorded_script_sys.path.insert(0, " + folder + ")");
+                }
             }
             writer.Line("_recorded_script_source = '''\\");
             writer.Block(GetTripleQuotedBody(_script) + "'''");
@@ -104,7 +116,7 @@ namespace PrePoMax.Commands
             if (_fileName != null) writer.Assign("_recorded_script_sys.argv", "_recorded_script_saved_argv");
             if (folder != null)
             {
-                writer.Line("if " + folder + " in _recorded_script_sys.path:");
+                writer.Line("if _recorded_script_added and " + folder + " in _recorded_script_sys.path:");
                 writer.Line("    _recorded_script_sys.path.remove(" + folder + ")");
             }
             writer.Comment("--- End of recorded script ---");
@@ -116,7 +128,7 @@ namespace PrePoMax.Commands
             //
             try
             {
-                string folder = System.IO.Path.GetDirectoryName(_fileName);
+                string folder = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(_fileName));
                 return string.IsNullOrEmpty(folder) ? null : PythonValueFormatter.Path(folder);
             }
             catch (Exception)

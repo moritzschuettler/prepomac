@@ -80,7 +80,9 @@ namespace APIs.Python
                    "asks, which an unattended run refuses as a prompt. As the Results action does, the result " +
                    "items the history holds for the analysis are then made again on the new results, as Settings " +
                    "- General - Open results - Run history postprocessing says; inside a recorded script they " +
-                   "are not, since the script replays them itself.", Arguments = "name: str", Returns = "None",
+                   "are not, since the script replays them itself. Where nobody can answer its Ask question - an " +
+                   "automation call, an unattended run - Ask is taken as yes, decided before the results are " +
+                   "opened.", Arguments = "name: str", Returns = "None",
                    Example = "pmx.jobs.open_results('Job-1')")]
         public void open_results(object name)
         {

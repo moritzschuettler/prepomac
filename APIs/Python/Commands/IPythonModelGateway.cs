@@ -22,6 +22,11 @@ namespace APIs.Python
         string[] GetAllMeshEntityNames();
         // Replacing the model also replaces the command collection, which a running script is part of
         bool IsInsideRecordedScript();
+        // A recorded script run again by Regenerate, Undo, Redo, Edit History or a batch regeneration
+        bool IsRerunningRecordedScript();
+        // Changes made since the last save in a session with a window, whose user would lose them; a session without
+        // one has nobody whose work it is
+        bool HasUnsavedChangesOfUser();
         void RenameModelItem(NamedClass item, string newName, string stepName);
         void ActivateDeactivateItems(NamedClass[] items, bool activate, string[] stepNames);
         string GetRecognizedMeshType(string partName);

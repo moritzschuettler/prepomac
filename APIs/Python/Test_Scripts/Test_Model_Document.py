@@ -9,7 +9,11 @@
 #Expected process exit code 0.
 
 import os
+import shutil
 import tempfile
+
+# The files the test writes go into a folder of its own, which main removes whether the test passes or not
+TEMPORARY_FOLDER = tempfile.mkdtemp(prefix="pytest_document_")
 
 
 def check(condition, message):
@@ -17,10 +21,22 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-def check_raises(function, message):
+def check_raises(function, message, unknown_keyword=None):
+    # Only the API's own refusal passes: a PythonAPIException, or for a call that deliberately passes the
+    # keyword unknown_keyword, the TypeError of the keyword guard. Anything else, and a message carrying a
+    # .NET stack trace, is a fault of the application that happened to stop the call
     try:
         function()
-    except Exception:
+    except Exception as ex:
+        kind, text = type(ex).__name__, str(ex)
+        if unknown_keyword is None:
+            expected, refusal = kind == "PythonAPIException", "a PythonAPIException"
+        else:
+            expected = kind == "TypeError" and "unexpected keyword argument '%s'" % unknown_keyword in text
+            refusal = "the keyword guard's TypeError for '%s'" % unknown_keyword
+        if not expected or "   at " in text:
+            raise Exception("TEST FAILED: " + message + " - the refusal must be " + refusal +
+                            " without a .NET stack trace, not " + kind + ": " + text[0:500])
         return
     raise Exception("TEST FAILED: " + message)
 
@@ -269,7 +285,7 @@ def test_parameters():
     check(not pmx.model.parameters["pytest_m"].description, "the description was not cleared")
     pmx.model.parameters.remove(["pytest_m"])
     # Export
-    file_name = os.path.join(tempfile.gettempdir(), "pytest_parameters.pmp")
+    file_name = os.path.join(TEMPORARY_FOLDER, "pytest_parameters.pmp")
     pmx.model.parameters.export_to_file(file_name)
     check(os.path.isfile(file_name), "the parameters file was not written")
     os.remove(file_name)
@@ -367,7 +383,7 @@ def test_parameters_set_all():
     # uses: the import resolves the whole file before it builds the parameters
     pmx.model.parameters.set_all(kept_names + ["pytest_g", "pytest_f"], kept_values + ["pytest_f * 2", 4.0],
                                  [""] * len(kept_names) + ["", "A described parameter"])
-    file_name = os.path.join(tempfile.gettempdir(), "pytest_described.pmp")
+    file_name = os.path.join(TEMPORARY_FOLDER, "pytest_described.pmp")
     pmx.model.parameters.export_to_file(file_name)
     pmx.model.parameters.import_from_file(file_name)
     os.remove(file_name)
@@ -384,17 +400,17 @@ def test_parameters_set_all():
 
 
 def test_export():
-    file_name = os.path.join(tempfile.gettempdir(), "pytest_model.inp")
+    file_name = os.path.join(TEMPORARY_FOLDER, "pytest_model.inp")
     if os.path.isfile(file_name):
         os.remove(file_name)
     pmx.export_to_calculix(file_name)
     check(os.path.isfile(file_name), "the CalculiX file was not written")
     os.remove(file_name)
     #
-    check_raises(lambda: pmx.export_to_calculix(os.path.join(tempfile.gettempdir(), "no_such_dir", "m.inp")),
+    check_raises(lambda: pmx.export_to_calculix(os.path.join(TEMPORARY_FOLDER, "no_such_dir", "m.inp")),
                  "a missing output directory must be rejected")
     # 3MF takes its edge thickness ratio as a plain value
-    check_raises(lambda: pmx.export_to_3mf(os.path.join(tempfile.gettempdir(), "m.3mf"), 0),
+    check_raises(lambda: pmx.export_to_3mf(os.path.join(TEMPORARY_FOLDER, "m.3mf"), 0),
                  "a zero edge thickness ratio must be rejected")
 
 
@@ -402,7 +418,7 @@ def test_import_refusals():
     part_names = list(pmx.model.parts.get_names())
     # The import takes the file types of its dialog, and the materials only of an .inp file
     for extension, only_materials, argument in [(".xyz", False, "'file_name'"), (".stl", True, "'only_materials'")]:
-        file_name = os.path.join(tempfile.gettempdir(), "pytest_import" + extension)
+        file_name = os.path.join(TEMPORARY_FOLDER, "pytest_import" + extension)
         open(file_name, "w").close()
         try:
             message = raised_message(lambda: pmx.import_file(file_name, only_materials=only_materials))
@@ -411,7 +427,7 @@ def test_import_refusals():
         finally:
             os.remove(file_name)
     # A parameters file the import cannot read is refused naming it, rather than with an exception of the model
-    file_name = os.path.join(tempfile.gettempdir(), "pytest_bad_parameters.pmp")
+    file_name = os.path.join(TEMPORARY_FOLDER, "pytest_bad_parameters.pmp")
     with open(file_name, "w") as file:
         file.write("pytest_bad_line")
     try:
@@ -434,14 +450,17 @@ def test_open_is_refused_in_a_script():
 
 
 def main():
-    test_properties()
-    test_model_space_and_unused_values()
-    test_parameters()
-    test_parameter_refusals()
-    test_parameters_set_all()
-    test_export()
-    test_import_refusals()
-    test_open_is_refused_in_a_script()
+    try:
+        test_properties()
+        test_model_space_and_unused_values()
+        test_parameters()
+        test_parameter_refusals()
+        test_parameters_set_all()
+        test_export()
+        test_import_refusals()
+        test_open_is_refused_in_a_script()
+    finally:
+        shutil.rmtree(TEMPORARY_FOLDER, ignore_errors=True)
     print("TEST PASSED")
 
 

@@ -16,10 +16,22 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-def check_raises(function, message):
+def check_raises(function, message, unknown_keyword=None):
+    # Only the API's own refusal passes: a PythonAPIException, or for a call that deliberately passes the
+    # keyword unknown_keyword, the TypeError of the keyword guard. Anything else, and a message carrying a
+    # .NET stack trace, is a fault of the application that happened to stop the call
     try:
         function()
-    except Exception:
+    except Exception as ex:
+        kind, text = type(ex).__name__, str(ex)
+        if unknown_keyword is None:
+            expected, refusal = kind == "PythonAPIException", "a PythonAPIException"
+        else:
+            expected = kind == "TypeError" and "unexpected keyword argument '%s'" % unknown_keyword in text
+            refusal = "the keyword guard's TypeError for '%s'" % unknown_keyword
+        if not expected or "   at " in text:
+            raise Exception("TEST FAILED: " + message + " - the refusal must be " + refusal +
+                            " without a .NET stack trace, not " + kind + ": " + text[0:500])
         return
     raise Exception("TEST FAILED: " + message)
 
@@ -74,7 +86,8 @@ def test_static_and_shared_values():
     check(step.get_value("max_time_increment") == 1.0, "max_time_increment was not set")
     # The incrementation type alone decides whether the solver works directly, as in the dialog
     check_raises(lambda: step.get_value("direct"), "direct is not a value of the step")
-    check_raises(lambda: steps.add_static(PREFIX + "Bad", direct=True), "direct is not an argument")
+    check_raises(lambda: steps.add_static(PREFIX + "Bad", direct=True),
+                 "the keyword guard must refuse direct, which add_static does not take", "direct")
     check_raises(lambda: step.get_value("no_such_value"), "an unknown value name must be rejected")
     # A static step is never a perturbation step
     check_raises(lambda: pmx.model.steps.add_static(PREFIX + "Bad", perturbation=True),

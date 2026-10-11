@@ -26,6 +26,7 @@ namespace PrePoMax.Python
         private static readonly object _initializationLock = new object();
         private static volatile bool _initialized;
         private static bool _engineStarted;
+        private static string _pythonHome;
         private static bool _dictionaryEncoderRegistered;
         private static bool _apiExceptionEncoderRegistered;
         private static bool _keywordGuardInstalled;
@@ -116,15 +117,36 @@ namespace PrePoMax.Python
             "__prepomax_added__ = " + ScriptFolderVariable + " not in sys.path\n" +
             "if __prepomax_added__:\n" +
             "    sys.path.insert(0, " + ScriptFolderVariable + ")\n";
+        private const string ScriptHomeVariable = "__prepomax_home__";
+        // A module of the Python installation - the standard library, site-packages, the embedded Python home - is
+        // never forgotten, even when the script folder holds that installation: numpy and the like cannot be
+        // imported a second time into the same process
         private const string ScriptFolderLeaveSource =
             "import os, sys\n" +
             "if __prepomax_added__ and " + ScriptFolderVariable + " in sys.path:\n" +
             "    sys.path.remove(" + ScriptFolderVariable + ")\n" +
-            "__prepomax_prefix__ = os.path.join(os.path.normcase(os.path.abspath(" + ScriptFolderVariable + ")), '')\n" +
+            "def __prepomax_key__(path):\n" +
+            "    return os.path.join(os.path.normcase(os.path.abspath(path)), '')\n" +
+            "__prepomax_prefix__ = __prepomax_key__(" + ScriptFolderVariable + ")\n" +
+            "__prepomax_kept__ = [sys.prefix, sys.base_prefix, sys.exec_prefix, sys.base_exec_prefix, " +
+            ScriptHomeVariable + "]\n" +
+            "try:\n" +
+            "    import site\n" +
+            "    __prepomax_kept__ += list(site.getsitepackages()) + [site.getusersitepackages()]\n" +
+            "except Exception:\n" +
+            "    pass\n" +
+            "__prepomax_kept__ = [__prepomax_key__(path) for path in __prepomax_kept__ if isinstance(path, str) and path]\n" +
+            "def __prepomax_is_kept__(key):\n" +
+            "    if os.sep + 'site-packages' + os.sep in key or os.sep + 'dist-packages' + os.sep in key:\n" +
+            "        return True\n" +
+            "    return any(key.startswith(kept) for kept in __prepomax_kept__)\n" +
             "for __prepomax_name__ in [name for name in list(sys.modules) if name not in __prepomax_modules__]:\n" +
             "    __prepomax_file__ = getattr(sys.modules.get(__prepomax_name__), '__file__', None)\n" +
-            "    if isinstance(__prepomax_file__, str) and \\\n" +
-            "       os.path.normcase(os.path.abspath(__prepomax_file__)).startswith(__prepomax_prefix__):\n" +
+            "    if not isinstance(__prepomax_file__, str):\n" +
+            "        continue\n" +
+            "    __prepomax_file_key__ = os.path.normcase(os.path.abspath(__prepomax_file__))\n" +
+            "    if __prepomax_file_key__.startswith(__prepomax_prefix__) and \\\n" +
+            "       not __prepomax_is_kept__(__prepomax_file_key__):\n" +
             "        del sys.modules[__prepomax_name__]\n";
 
 
@@ -197,6 +219,7 @@ namespace PrePoMax.Python
             Runtime.PythonDLL = pythonDll;
             // Help Python find its standard library and extension modules.
             PythonEngine.PythonHome = pythonDir;
+            _pythonHome = pythonDir;
             PythonEngine.PythonPath = Path.Combine(pythonDir, "Lib") + Path.PathSeparator +
                                       Path.Combine(pythonDir, "DLLs") + Path.PathSeparator +
                                       Path.Combine(pythonDir, "Lib", "site-packages");
@@ -822,8 +845,10 @@ namespace PrePoMax.Python
             try
             {
                 using (PyObject folderObject = new PyString(folder))
+                using (PyObject homeObject = new PyString(_pythonHome ?? ""))
                 {
                     folderScope.SetItem(ScriptFolderVariable, folderObject);
+                    folderScope.SetItem(ScriptHomeVariable, homeObject);
                 }
                 PythonEngine.Exec(ScriptFolderEnterSource, folderScope);
                 return folderScope;

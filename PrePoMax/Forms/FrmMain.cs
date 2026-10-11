@@ -302,8 +302,10 @@ namespace PrePoMax
                 AutoClosingMessageBox.WriteDataToOutput = WriteDataToOutput;
             }
             // A session an agent drives without a window runs next to the user's own, which keeps its recovery file
-            // in the same folder, so it writes a file of its own and deletes only that one when it closes
-            if (_cmdOptions.GetIsHiddenAutomationSession())
+            // in the same folder, so it writes a file of its own and deletes only that one when it closes. So does a
+            // batch run, which goes on as an ordinary session with -x No and would then write and delete the file
+            // of the user's session
+            if (_cmdOptions.GetIsHiddenAutomationSession() || _cmdOptions.GetIsBatchMode())
             {
                 Globals.HistoryFileName = Path.GetFileNameWithoutExtension(Globals.HistoryFileName) + "." +
                                           Process.GetCurrentProcess().Id + Path.GetExtension(Globals.HistoryFileName);
@@ -338,8 +340,10 @@ namespace PrePoMax
 
             if ((keyData & Keys.Alt) == Keys.Alt && (keyData & Keys.Control) == Keys.Control)
                 return false;
-            // The busy state disables the mouse on the menus; their shortcuts are ignored the same way
-            if (IsBusyForUserInput() && IsMenuShortcut(menuStripMain.Items, keyData))
+            // The busy state disables the mouse on the menus; their shortcuts are ignored the same way. An Alt
+            // combination is a window command as well - Alt+F4 closes the window, which asks first when it is busy -
+            // so it is left to the window
+            if ((keyData & Keys.Alt) != Keys.Alt && IsBusyForUserInput() && IsMenuShortcut(menuStripMain.Items, keyData))
                 return true;
 
             if ((keyData & Keys.KeyCode) == Keys.F &&
@@ -772,8 +776,11 @@ namespace PrePoMax
             // Asked here rather than at the end of this method, because it has to be answered before
             // anything can start the automation server: a folder that was just unpacked must not serve
             // the access token that shipped in its settings file. IsFirstRun writes the marker, so it
-            // can only be asked once and the answer is kept for the working directory check below
-            _isFirstRunInFolder = FirstRunChecker.IsFirstRun(Application.StartupPath);
+            // can only be asked once and the answer is kept for the working directory check below. A run given its
+            // settings with --settings reads and writes none of the folder's own, so it leaves the question to the
+            // first run that does, rather than write the cleared token into the file it was given
+            _isFirstRunInFolder = SettingsContainer.OverrideFileName == null &&
+                                  FirstRunChecker.IsFirstRun(Application.StartupPath);
             if (_isFirstRunInFolder) ClearAutomationAccessTokenOfAnUnpackedFolder();
             //
             try
@@ -1002,6 +1009,8 @@ namespace PrePoMax
             if (_cmdOptions.ExitAfterRegeneration != "No") return;
             //
             _controller.BatchRegenerationMode = false;
+            // The time limit is the limit of the unattended run, not of the session the user goes on with
+            Program.StopTimeoutTimer();
         }
         private void FrmMain_Resize(object sender, EventArgs e)
         {
@@ -1076,7 +1085,17 @@ namespace PrePoMax
                     if (response == DialogResult.Yes)
                     {
                         e.Cancel = true;            // stop the form from closing before saving
-                        await SaveAsync();          // save
+                        // A save that could not run - PrePoMax busy, nothing to save - leaves the window open and
+                        // says why, rather than doing nothing the user can see
+                        try
+                        {
+                            await SaveAsync();      // save
+                        }
+                        catch (Exception ex)
+                        {
+                            ExceptionTools.Show(this, ex);
+                            return;
+                        }
                         Close();                    // close the control
                     }
                     else if (response == DialogResult.Cancel) e.Cancel = true;
@@ -9520,15 +9539,25 @@ namespace PrePoMax
         {
             try
             {
-                CloseAllForms();
-                Application.DoEvents();
-                SetStateWorking(Globals.RegeneratingText);
-                _modelTree.ScreenUpdating = false;
-                _controller.RunHistoryPostprocessing();
+                RunHistoryPostprocessing(null);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
+            }
+        }
+        // The state, the tree and the camera the Results action runs the postprocessing with, for a script or an
+        // automation call on a thread of its own: it gives the answer to the Ask setting when nobody can answer
+        // the question, and an error reaches it rather than a box
+        public void RunHistoryPostprocessing(bool? answerToAsk)
+        {
+            try
+            {
+                CloseAllForms();
+                if (!InvokeRequired) Application.DoEvents();
+                SetStateWorking(Globals.RegeneratingText);
+                _modelTree.ScreenUpdating = false;
+                _controller.RunHistoryPostprocessing(answerToAsk);
             }
             finally
             {

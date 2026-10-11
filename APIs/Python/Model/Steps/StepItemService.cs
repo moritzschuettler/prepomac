@@ -27,6 +27,8 @@ namespace APIs.Python.Model
         private readonly StepService _stepService;
         private readonly IPythonModelGateway _modelGateway;
         private readonly string _itemTypeName;
+        // Only the item types that read a file - loads and defined fields from a file - are given one
+        private readonly PythonFileNameResolver _fileNameResolver;
 
 
         // Properties
@@ -37,13 +39,15 @@ namespace APIs.Python.Model
 
         // Constructors
         protected StepItemService(ModelResolver modelResolver, SelectionService selectionService,
-                                  StepService stepService, IPythonModelGateway modelGateway, string itemTypeName)
+                                  StepService stepService, IPythonModelGateway modelGateway, string itemTypeName,
+                                  PythonFileNameResolver fileNameResolver = null)
         {
             _modelResolver = modelResolver;
             _selectionService = selectionService;
             _stepService = stepService;
             _modelGateway = modelGateway;
             _itemTypeName = itemTypeName;
+            _fileNameResolver = fileNameResolver;
         }
 
 
@@ -164,22 +168,10 @@ namespace APIs.Python.Model
         public string ResolveExistingFileName(object fileName, string argumentName)
         {
             string name = AsString(fileName, argumentName);
-            if (name.Trim().Length == 0)
-                throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
+            if (_fileNameResolver == null)
+                throw new System.InvalidOperationException("The " + _itemTypeName + " service reads no files.");
             //
-            string fullFileName;
-            try
-            {
-                fullFileName = System.IO.Path.GetFullPath(name);
-            }
-            catch (System.Exception ex)
-            {
-                throw new PythonAPIException("The argument '" + argumentName + "' is invalid: " + ex.Message);
-            }
-            if (!System.IO.File.Exists(fullFileName))
-                throw new PythonAPIException("The file '" + fullFileName + "' does not exist.");
-            //
-            return fullFileName;
+            return _fileNameResolver.GetExistingFileName(name, argumentName);
         }
         public void SetActive(string stepName, NamedClass[] items, bool active)
         {

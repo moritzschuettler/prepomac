@@ -10,6 +10,7 @@
 #Expected process exit code 0.
 
 import os
+import shutil
 import tempfile
 
 PREFIX = "PyTest_"
@@ -27,10 +28,22 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-def check_raises(function, message):
+def check_raises(function, message, unknown_keyword=None):
+    # Only the API's own refusal passes: a PythonAPIException, or for a call that deliberately passes the
+    # keyword unknown_keyword, the TypeError of the keyword guard. Anything else, and a message carrying a
+    # .NET stack trace, is a fault of the application that happened to stop the call
     try:
         function()
-    except Exception:
+    except Exception as ex:
+        kind, text = type(ex).__name__, str(ex)
+        if unknown_keyword is None:
+            expected, refusal = kind == "PythonAPIException", "a PythonAPIException"
+        else:
+            expected = kind == "TypeError" and "unexpected keyword argument '%s'" % unknown_keyword in text
+            refusal = "the keyword guard's TypeError for '%s'" % unknown_keyword
+        if not expected or "   at " in text:
+            raise Exception("TEST FAILED: " + message + " - the refusal must be " + refusal +
+                            " without a .NET stack trace, not " + kind + ": " + text[0:500])
         return
     raise Exception("TEST FAILED: " + message)
 
@@ -268,13 +281,21 @@ def test_complex_phase():
         pmx.model.steps.remove([name])
 
 
+def export_deck_lines():
+    """The lines of the CalculiX deck the model writes, into a folder of its own that is always removed."""
+    folder = tempfile.mkdtemp(prefix=PREFIX)
+    try:
+        file_name = os.path.join(folder, PREFIX + "bcs.inp")
+        pmx.export_to_calculix(file_name)
+        with open(file_name) as f:
+            return [line.strip() for line in f]
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def read_boundary_lines(name):
     """The node coordinates and the *Boundary data lines of the named boundary condition in the written deck."""
-    file_name = os.path.join(tempfile.gettempdir(), PREFIX + "bcs.inp")
-    pmx.export_to_calculix(file_name)
-    with open(file_name) as f:
-        lines = [line.strip() for line in f]
-    os.remove(file_name)
+    lines = export_deck_lines()
     coordinates = {}
     in_nodes = False
     for line in lines:
@@ -370,15 +391,6 @@ def test_displacement_rotation_distribution():
     bcs.remove([name])
 
 
-def read_deck_lines():
-    file_name = os.path.join(tempfile.gettempdir(), PREFIX + "bcs_cs.inp")
-    pmx.export_to_calculix(file_name)
-    with open(file_name) as f:
-        lines = [line.strip() for line in f]
-    os.remove(file_name)
-    return lines
-
-
 def test_displacement_rotation_distribution_local_system():
     # CalculiX applies *Transform to nodes, so the per-node lines of a distributed boundary condition are
     # rotated only when the transformed node set holds every node they name
@@ -389,7 +401,7 @@ def test_displacement_rotation_distribution_local_system():
     bcs.add_displacement_rotation(name, pmx.create.region('NodeSetName', NODE_SET), u1=0.1, u3=1.5,
                                   distribution_name=SCALAR_DISTRIBUTION, coordinate_system_name=system)
     coordinates, rows = read_boundary_lines(name)
-    lines = read_deck_lines()
+    lines = export_deck_lines()
     transforms = [i for i, line in enumerate(lines) if line.lower().startswith("*transform")]
     check(len(transforms) == 1, "expected one *Transform, got " + str([lines[i] for i in transforms]))
     keyword = lines[transforms[0]]
@@ -430,14 +442,14 @@ def test_fixed_dofs():
     check(type(bc.get_value("fixed_dofs")) is list, "fixed_dofs must read back as a plain list")
     check(bc.get_value("u1") is None and bc.get_value("u3") is None,
           "a fixed and a free degree of freedom must read back as None")
-    lines = read_deck_lines()
+    lines = export_deck_lines()
     keyword = lines[lines.index("** Name: " + name) + 1]
     check(keyword.lower().replace(" ", "").startswith("*boundary,fixed"), "the deck did not fix the dofs: " + keyword)
     # A replace keeps the fixed dofs it is not given, and the read back goes back into the argument
     bc = bcs.replace_displacement_rotation(name, fixed_dofs=["U3"])
     check(list(bc.get_value("fixed_dofs")) == ["U1", "U2", "U3"], "the replace dropped a fixed dof: " +
           str(bc.get_value("fixed_dofs")))
-    lines = read_deck_lines()
+    lines = export_deck_lines()
     index = lines.index("** Name: " + name)
     check(lines[index + 1].lower().replace(" ", "").startswith("*boundary,fixed"),
           "the deck did not fix the dofs: " + lines[index + 1])

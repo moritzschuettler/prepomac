@@ -28,6 +28,8 @@ namespace PrePoMaxCmd
         // Mirror PrePoMax.ExitCodeEnum.LauncherError and Cancelled - the launcher cannot reference the application
         private const int LauncherErrorExitCode = 6;
         private const int CancelledExitCode = 7;
+        // The exit code Process.Kill terminates a process with
+        private const int KilledExitCode = -1;
         // Mirrors PrePoMax.Program.CancelEventNamePrefix
         private const string CancelEventNamePrefix = "PrePoMax.Cancel.";
         // How long PrePoMax.exe is given to write its journal and report after a cancel before it is killed
@@ -60,7 +62,11 @@ namespace PrePoMaxCmd
                     //
                     guiProcess.WaitForExit();
                     //
-                    return _isKilled ? CancelledExitCode : guiProcess.ExitCode;
+                    // A process that ended on its own before the kill reached it reports its own code. The kill
+                    // may end the wait before it is flagged, so a cancel that was asked for counts as well
+                    int exitCode = guiProcess.ExitCode;
+                    bool isCancelled = _isKilled || Volatile.Read(ref _numberOfCancels) > 0;
+                    return isCancelled && exitCode == KilledExitCode ? CancelledExitCode : exitCode;
                 }
             }
             catch (Exception ex)
@@ -122,8 +128,8 @@ namespace PrePoMaxCmd
             {
                 if (!guiProcess.HasExited)
                 {
-                    _isKilled = true;
                     guiProcess.Kill();
+                    _isKilled = true;
                 }
             }
             catch

@@ -81,14 +81,22 @@ namespace PrePoMax.Python
             job.Kill(message);
         }
         // As the Results action of the analysis does, the postprocessing the history holds for the analysis is run on
-        // the results; a recorded script and a regeneration replay the history as it was left, so they do not
+        // the results; a recorded script and a regeneration replay the history as it was left, so they do not. The
+        // question of the Ask setting is decided before the open is recorded: where nobody can answer it - an
+        // automation call, an unattended run - it is answered yes, as an unattended run answers it, rather than
+        // refused after the open. Where a user can, the user is asked, as the Results action asks
         public void OpenResults(string jobName)
         {
+            bool runsPostprocessing = _controller.Form != null && !_controller.IsCommandRecordingSuppressed &&
+                                      !_controller.IsReplayingHistory;
+            bool canAskUser = MessageBoxes.Mode == MessageBoxModeEnum.Interactive &&
+                              !MessageBoxes.IsNonInteractiveThread;
+            bool? answerToAsk = canAskUser ? (bool?)null : true;
+            //
             _controller.OpenResultsCommand(jobName);
             //
-            if (_controller.Form != null && _controller.Form.LastOpenResultsAccepted &&
-                !_controller.IsCommandRecordingSuppressed && !_controller.IsReplayingHistory)
-                _controller.RunHistoryPostprocessing();
+            if (runsPostprocessing && _controller.Form.LastOpenResultsAccepted)
+                _controller.Form.RunHistoryPostprocessing(answerToAsk);
         }
     }
 }

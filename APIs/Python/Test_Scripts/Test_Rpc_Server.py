@@ -517,7 +517,9 @@ def check_call_ids(client):
 
 def check_unknown_method_while_busy(client):
     """A method the server does not serve is refused at once, not after the call holding the turn ends."""
-    source = os.linesep.join(["import time", "time.sleep(4)"])
+    # The holding call sleeps long enough to still hold the turn on a loaded machine, so whether it still runs
+    # when the refusal arrives, rather than the clock, tells a refusal that waited for it
+    source = os.linesep.join(["import time", "time.sleep(10)"])
     answer = client.result("exec", {"source": source, "timeout": 0})
     check(answer.get("running") is True and answer.get("callId", 0) > 0,
           "a timeout of 0 must answer at once with a callId: " + str(answer))
@@ -525,7 +527,10 @@ def check_unknown_method_while_busy(client):
     error = client.error("no_such_method_while_busy")
     elapsed = time.time() - started
     check(error["code"] == METHOD_NOT_FOUND, "an unknown method must be MethodNotFound while busy: " + str(error))
-    check(elapsed < 2.0, "an unknown method must not wait for the turn: refused after " + str(elapsed) + " s")
+    holder = client.result("wait", {"call_id": answer["callId"], "timeout": 0})
+    check(holder.get("running") is True and elapsed < 8.0,
+          "an unknown method must not wait for the turn: refused after " + str(round(elapsed, 2)) +
+          " s, when the holding call answered " + str(holder))
     result = client.result("wait", {"call_id": answer["callId"], "timeout": 30})
     check(not result.get("failed") and not result.get("running"), "the holding call must finish: " + str(result))
     print("unknown method: refused in " + str(round(elapsed, 2)) + " s while another call held the turn")

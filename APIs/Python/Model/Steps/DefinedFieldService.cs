@@ -16,8 +16,9 @@ namespace APIs.Python.Model
     {
         // Constructors
         public DefinedFieldService(ModelResolver modelResolver, SelectionService selectionService,
-                                   StepService stepService, IPythonModelGateway modelGateway)
-            : base(modelResolver, selectionService, stepService, modelGateway, "defined field")
+                                   StepService stepService, IPythonModelGateway modelGateway,
+                                   PythonFileNameResolver fileNameResolver)
+            : base(modelResolver, selectionService, stepService, modelGateway, "defined field", fileNameResolver)
         {
         }
 

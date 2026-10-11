@@ -188,7 +188,7 @@ it has run, and it goes on to the end and records its commands as usual.
   An error that carries a .NET stack trace (`   at ...` lines) is a fault of PrePoMax, not of your
   call: report it to the user.
 - **PromptRefused.** The call reached a question PrePoMax asks the user - a confirmation such as
-  Continue? or Save changes? - which an unattended call cannot answer, so it stopped there; what it
+  Continue? - which an unattended call cannot answer, so it stopped there; what it
   did before the question stays. The refusal quotes the question. Change the call so the question
   does not arise, or ask the user to make that step.
 - **`messages`.** An error or a warning PrePoMax would show in a box with only an OK button is not
@@ -203,6 +203,9 @@ it has run, and it goes on to the end and records its commands as usual.
   session without a window - one started with `-g No` for you to work in - and is refused for one the
   user has open; save with `pmx.save(file_name)` first, or pass `discard_changes` to drop the changes.
   It is refused while an analysis runs, naming it: wait for `get_job` to report it finished, or kill it.
+- Do not throw away the user's work. In a session with a window, `pmx.new_model` and `pmx.open` are
+  refused while the model has unsaved changes. Save it with `pmx.save(file_name)` first, or ask the
+  user and pass `discard_changes=True` only once they agree to lose the changes.
 - Do not invent a member name. `describe_api` is cheap and the API refuses what it does not know.
 - Do not use `eval_expression` to change the model. It reports a command it recorded as a warning,
   which means you asked the wrong tool.
@@ -221,13 +224,14 @@ that records after an undo drops the undone commands, as a user's next action do
 ## Replaying a journal
 
 A journal holds the whole history, from the new model it starts with, so replay it on an empty model:
-`pmx.new_model(...)` first, then the journal source to `run_python` with the default
-`record='commands'`. Every call it makes is recorded as its own command, so the history matches the one
-it came from, except that a recorded script inside it is flattened into the calls it made. The files the
-session saved or exported are written to `pmx.work_directory` under their names, and the replay stops
-with `FileExistsError` rather than overwrite a file there it did not write itself. `record='script'`
-keeps the whole journal as one command that regeneration re-runs, so use it only for a journal that
-writes no files: the second run would find them and stop.
+`pmx.new_model(...)` first - in the user's session with unsaved work that is refused, so save first or
+ask the user before passing `discard_changes=True` - then the journal source to `run_python` with the
+default `record='commands'`. Every call it makes is recorded as its own command, so the history matches
+the one it came from, except that a recorded script inside it is flattened into the calls it made. The
+files the session saved or exported are written to `pmx.work_directory` under their names, and the
+replay stops with `FileExistsError` rather than overwrite a file there it did not write itself.
+`record='script'` keeps the whole journal as one command that Regenerate, Undo and Redo run again;
+those runs write over the files of the first run, which `pmx.is_rerun` tells the journal.
 ";
     }
 }

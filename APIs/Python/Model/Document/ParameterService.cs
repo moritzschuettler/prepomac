@@ -21,13 +21,16 @@ namespace APIs.Python.Model
         // Variables
         private readonly ModelResolver _modelResolver;
         private readonly IPythonModelGateway _modelGateway;
+        private readonly PythonFileNameResolver _fileNameResolver;
 
 
         // Constructors
-        public ParameterService(ModelResolver modelResolver, IPythonModelGateway modelGateway)
+        public ParameterService(ModelResolver modelResolver, IPythonModelGateway modelGateway,
+                                PythonFileNameResolver fileNameResolver)
         {
             _modelResolver = modelResolver;
             _modelGateway = modelGateway;
+            _fileNameResolver = fileNameResolver;
         }
 
 
@@ -322,19 +325,9 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument '" + argumentName + "' must not contain the hyphen " +
                                              "character, because a parameter name is used inside equations.");
         }
-        private static string ResolveFileName(string fileName)
+        private string ResolveFileName(string fileName)
         {
-            if (fileName == null || fileName.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'file_name' must not be empty.");
-            //
-            try
-            {
-                return Path.GetFullPath(fileName);
-            }
-            catch (Exception ex)
-            {
-                throw new PythonAPIException("The argument 'file_name' is invalid: " + ex.Message);
-            }
+            return _fileNameResolver.GetFullFileName(fileName, "file_name");
         }
         private void EnsureCommandsAvailable()
         {

@@ -31,6 +31,7 @@ namespace PrePoMax.Python.Journal
         private int _numOfLegacySplitFaces;
         private string _workDirectory;
         private bool _writesToWorkDirectory;
+        private string _sessionStartFileName;
         private readonly Dictionary<string, string> _outputFileNames;
         private readonly HashSet<string> _usedOutputFileNames;
 
@@ -43,6 +44,13 @@ namespace PrePoMax.Python.Journal
         // True once a file the session saved or exported is written into the work directory of the replay, which
         // the header then says and imports os for
         public bool WritesToWorkDirectory { get { return _writesToWorkDirectory; } }
+        // The model file a history begins by opening, which the journal cannot rebuild, so the header tells to
+        // replay it with -f naming that file
+        public string SessionStartFileName
+        {
+            get { return _sessionStartFileName; }
+            set { _sessionStartFileName = value; }
+        }
         public List<string> Refusals { get { return _refusals; } }
         public int EmittedCommandCount { get { return _emittedCommandCount; } }
         // True while nothing that builds the model has been emitted, so that a command which only makes sense at

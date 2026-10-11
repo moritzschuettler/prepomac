@@ -44,6 +44,14 @@ namespace PrePoMax.Python
         {
             return _controller.IsCommandRecordingSuppressed;
         }
+        public bool IsRerunningRecordedScript()
+        {
+            return _controller.IsRerunningRecordedScript;
+        }
+        public bool HasUnsavedChangesOfUser()
+        {
+            return _controller.ModelChanged && _controller.Form != null && !_controller.Form.IsWindowHidden;
+        }
         public void RenameModelItem(NamedClass item, string newName, string stepName)
         {
             // The view is passed explicitly so that a script does not depend on the view the user left behind

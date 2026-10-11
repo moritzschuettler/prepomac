@@ -27,10 +27,22 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-def check_raises(function, message):
+def check_raises(function, message, unknown_keyword=None):
+    # Only the API's own refusal passes: a PythonAPIException, or for a call that deliberately passes the
+    # keyword unknown_keyword, the TypeError of the keyword guard. Anything else, and a message carrying a
+    # .NET stack trace, is a fault of the application that happened to stop the call
     try:
         function()
-    except Exception:
+    except Exception as ex:
+        kind, text = type(ex).__name__, str(ex)
+        if unknown_keyword is None:
+            expected, refusal = kind == "PythonAPIException", "a PythonAPIException"
+        else:
+            expected = kind == "TypeError" and "unexpected keyword argument '%s'" % unknown_keyword in text
+            refusal = "the keyword guard's TypeError for '%s'" % unknown_keyword
+        if not expected or "   at " in text:
+            raise Exception("TEST FAILED: " + message + " - the refusal must be " + refusal +
+                            " without a .NET stack trace, not " + kind + ": " + text[0:500])
         return
     raise Exception("TEST FAILED: " + message)
 
@@ -136,7 +148,8 @@ def test_refusals():
         except Exception as ex:
             check("'center'" in str(ex), "a non-finite center must be refused naming the argument: " + str(ex))
     check_raises(lambda: pmx.view.apply_exploded_view(1, axes="W"), "unknown axes must be refused")
-    check_raises(lambda: pmx.view.apply_exploded_view(1, direction="XY"), "direction was renamed to axes")
+    check_raises(lambda: pmx.view.apply_exploded_view(1, direction="XY"),
+                 "the keyword guard must refuse direction, which was renamed to axes", "direction")
     check_raises(lambda: pmx.view.apply_exploded_view(1, tolerance=-1), "a negative tolerance must be refused")
     # A value the method does not take is refused, never ignored
     check_raises(lambda: pmx.view.apply_exploded_view(1, "AssemblyCenter", 2, step_by_step=True),

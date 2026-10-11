@@ -28,30 +28,33 @@ namespace APIs.Python.Model
         private readonly IPythonModelGateway _modelGateway;
         private readonly ResultResolver _resultResolver;
         private readonly IPythonJobGateway _jobGateway;
+        private readonly PythonFileNameResolver _fileNameResolver;
 
 
         // Constructors
         public DocumentService(ModelResolver modelResolver, IPythonModelGateway modelGateway,
-                               ResultResolver resultResolver, IPythonJobGateway jobGateway)
+                               ResultResolver resultResolver, IPythonJobGateway jobGateway,
+                               PythonFileNameResolver fileNameResolver)
         {
             _modelResolver = modelResolver;
             _modelGateway = modelGateway;
             _resultResolver = resultResolver;
             _jobGateway = jobGateway;
+            _fileNameResolver = fileNameResolver;
         }
 
 
         // Methods
-        public void NewModel(string modelSpace, string unitSystem)
+        public void NewModel(string modelSpace, string unitSystem, bool discardChanges)
         {
             ModelSpaceEnum modelSpaceValue = ToModelSpace(modelSpace);
             UnitSystemType unitSystemValue = ToUnitSystem(unitSystem);
             //
             EnsureCommandsAvailable();
-            EnsureModelCanBeReplaced("Creating a new model");
+            EnsureModelCanBeReplaced("Creating a new model", discardChanges);
             _modelGateway.NewModel(modelSpaceValue, unitSystemValue);
         }
-        public void OpenFile(string fileName)
+        public void OpenFile(string fileName, bool discardChanges)
         {
             string fullFileName = ResolveExistingFileName(fileName, "file_name");
             string extension = Path.GetExtension(fullFileName).ToLowerInvariant();
@@ -62,7 +65,7 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument 'file_name' must name a .pmx or .pmh file.");
             //
             EnsureCommandsAvailable();
-            EnsureModelCanBeReplaced("Opening a file");
+            EnsureModelCanBeReplaced("Opening a file", discardChanges);
             _modelGateway.OpenFile(fullFileName);
         }
         // A result file is opened beside the model, so it does not replace the command history and is recorded
@@ -150,7 +153,11 @@ namespace APIs.Python.Model
             if (formatValue == GeometryExportFormatEnum.Step || formatValue == GeometryExportFormatEnum.Brep ||
                 formatValue == GeometryExportFormatEnum.StepAssembly ||
                 formatValue == GeometryExportFormatEnum.BrepAssembly)
-                EnsureCadPartNames(names);
+                EnsureCadPartNames(names, formatValue);
+            if (formatValue == GeometryExportFormatEnum.Step || formatValue == GeometryExportFormatEnum.StepAssembly ||
+                formatValue == GeometryExportFormatEnum.BrepAssembly)
+                EnsureWorkDirectoryExists();
+            if (formatValue == GeometryExportFormatEnum.Mmg) EnsureMmgPartNames(_modelResolver.GetGeometry(), names);
             //
             EnsureCommandsAvailable();
             _modelGateway.ExportGeometry(names, fullFileName, formatValue);
@@ -164,6 +171,7 @@ namespace APIs.Python.Model
             else if (!ExportFormatTools.TryGetMeshFormat(fullFileName, out formatValue))
                 throw new PythonAPIException("The extension of the file '" + fullFileName + "' names no mesh export " +
                                              "format. Use .inp, .msh, .mesh or .stl, or give the argument 'format'.");
+            if (formatValue == MeshExportFormatEnum.Mmg) EnsureMmgPartNames(_modelResolver.GetMesh(), names);
             //
             EnsureCommandsAvailable();
             _modelGateway.ExportMesh(names, fullFileName, formatValue);
@@ -580,7 +588,8 @@ namespace APIs.Python.Model
             //
             return names;
         }
-        private void EnsureCadPartNames(string[] names)
+        // The export refuses these parts only after it was recorded, so they are refused here in its words
+        private void EnsureCadPartNames(string[] names, GeometryExportFormatEnum format)
         {
             FeMesh geometry = _modelResolver.GetGeometry();
             foreach (string name in names)
@@ -589,9 +598,33 @@ namespace APIs.Python.Model
                 if (!geometry.Parts.TryGetValue(name, out part))
                     throw new PythonAPIException("The geometry part '" + name + "' does not exist.");
                 GeometryPart geometryPart = part as GeometryPart;
-                if (geometryPart == null || geometryPart.CADFileData == null)
-                    throw new PythonAPIException("The geometry part '" + name + "' is not a CAD part.");
+                if (geometryPart == null || !geometryPart.IsCADPart)
+                    throw new PythonAPIException("The part " + name + " is not a CAD part and cannot be exported to a " +
+                                                 ExportFormatTools.GetExtension(format) + " file. The argument " +
+                                                 "'part_names' must name parts with CAD data for this format.");
             }
+        }
+        private static void EnsureMmgPartNames(FeMesh mesh, string[] names)
+        {
+            foreach (string name in names)
+            {
+                BasePart part = mesh.Parts[name];
+                if (part.PartType != PartType.Solid && part.PartType != PartType.Shell)
+                    throw new PythonAPIException("The part " + name + " is of the type " + part.PartType + " and " +
+                                                 "cannot be exported to an Mmg .mesh file. Only solid and shell parts " +
+                                                 "can. The argument 'part_names' must name only those for this format.");
+            }
+        }
+        // The modelling kernel writes a STEP file or an assembly in the work directory, and the export only reports
+        // a missing one after it was recorded
+        private void EnsureWorkDirectoryExists()
+        {
+            if (_jobGateway == null) return;
+            //
+            string workDirectory = _jobGateway.GetWorkDirectory();
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+                throw new PythonAPIException("The work directory does not exist. Set an existing work directory in " +
+                                             "the application settings before this export.");
         }
         private string[] ResolveGeometryPartNames(object partNames)
         {
@@ -612,7 +645,7 @@ namespace APIs.Python.Model
             //
             return PythonModelArgumentCheck.ToStoredPartNames(mesh, names, "result");
         }
-        private static string ResolveExistingFileName(string fileName, string argumentName)
+        private string ResolveExistingFileName(string fileName, string argumentName)
         {
             string fullFileName = ResolveOutputFileName(fileName, argumentName);
             if (!File.Exists(fullFileName))
@@ -620,28 +653,11 @@ namespace APIs.Python.Model
             //
             return fullFileName;
         }
-        private static string ResolveOutputFileName(string fileName, string argumentName)
+        private string ResolveOutputFileName(string fileName, string argumentName)
         {
-            if (fileName == null || fileName.Trim().Length == 0)
-                throw new PythonAPIException("The argument '" + argumentName + "' must not be empty.");
-            //
-            string fullFileName;
-            try
-            {
-                fullFileName = Path.GetFullPath(fileName);
-            }
-            catch (Exception ex)
-            {
-                throw new PythonAPIException("The argument '" + argumentName + "' is invalid: " + ex.Message);
-            }
-            //
-            string directoryName = Path.GetDirectoryName(fullFileName);
-            if (directoryName != null && directoryName.Length > 0 && !Directory.Exists(directoryName))
-                throw new PythonAPIException("The directory '" + directoryName + "' does not exist.");
-            //
-            return fullFileName;
+            return _fileNameResolver.GetOutputFileName(fileName, argumentName);
         }
-        private void EnsureModelCanBeReplaced(string operation)
+        private void EnsureModelCanBeReplaced(string operation, bool discardChanges)
         {
             JobService.EnsureNoAnalysisRunning(_jobGateway, operation);
             // Replacing the model rebuilds the command collection, which the running script belongs to
@@ -649,6 +665,11 @@ namespace APIs.Python.Model
                 throw new PythonAPIException(operation + " replaces the command history and is not available inside " +
                                              "a recorded script. Use the -f command line switch to open the file " +
                                              "before the script runs, or call this from the Python console.");
+            // The menu asks the user whether to save first, which a script cannot answer for them
+            if (!discardChanges && _modelGateway.HasUnsavedChangesOfUser())
+                throw new PythonAPIException(operation + " replaces the model, which has unsaved changes. Save it " +
+                                             "with pmx.save(file_name) first, or pass discard_changes=True once " +
+                                             "the user has agreed to lose them.");
         }
         private void EnsureCommandsAvailable()
         {

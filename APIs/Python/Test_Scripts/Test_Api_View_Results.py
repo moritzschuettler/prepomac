@@ -14,6 +14,12 @@
 #Expected process exit code 0.
 
 import os
+import shutil
+import tempfile
+
+# The pictures saved under names of the test go into a folder of their own, which main removes whether the
+# test passes or not
+TEMPORARY_FOLDER = tempfile.mkdtemp(prefix="PyTest_View_")
 
 
 def check(condition, message):
@@ -21,10 +27,22 @@ def check(condition, message):
         raise Exception("TEST FAILED: " + message)
 
 
-def check_raises(function, message):
+def check_raises(function, message, unknown_keyword=None):
+    # Only the API's own refusal passes: a PythonAPIException, or for a call that deliberately passes the
+    # keyword unknown_keyword, the TypeError of the keyword guard. Anything else, and a message carrying a
+    # .NET stack trace, is a fault of the application that happened to stop the call
     try:
         function()
-    except Exception:
+    except Exception as ex:
+        kind, text = type(ex).__name__, str(ex)
+        if unknown_keyword is None:
+            expected, refusal = kind == "PythonAPIException", "a PythonAPIException"
+        else:
+            expected = kind == "TypeError" and "unexpected keyword argument '%s'" % unknown_keyword in text
+            refusal = "the keyword guard's TypeError for '%s'" % unknown_keyword
+        if not expected or "   at " in text:
+            raise Exception("TEST FAILED: " + message + " - the refusal must be " + refusal +
+                            " without a .NET stack trace, not " + kind + ": " + text[0:500])
         return
     raise Exception("TEST FAILED: " + message)
 
@@ -153,7 +171,7 @@ def test_the_picture():
     check(color_type == 2, "the default picture must carry the background it shows: " + str(color_type))
     os.remove(path)
     # A name of its own, and a name that is not a PNG
-    named = os.path.join(os.environ["TEMP"], "PyTest_View.png")
+    named = os.path.join(TEMPORARY_FOLDER, "PyTest_View.png")
     check(pmx.view.save_image(named) == named, "the image must be written where it was asked for")
     check(os.path.exists(named), "the named image must exist: " + named)
     os.remove(named)
@@ -198,7 +216,7 @@ def test_the_picture_options():
           "the viewport background must be put back: " + str(read_png_header(after)))
     os.remove(after)
     # A magnification the renderer will not draw is refused, and nothing is written for it
-    refused = os.path.join(os.environ["TEMP"], "PyTest_View_Refused.png")
+    refused = os.path.join(TEMPORARY_FOLDER, "PyTest_View_Refused.png")
     check_raises(lambda: pmx.view.save_image(refused, False, 0), "a magnification below 1 must be rejected")
     check_raises(lambda: pmx.view.save_image(refused, False, 5), "a magnification above 4 must be rejected")
     check_raises(lambda: pmx.view.save_image(refused, False, "big"), "a magnification must be a number")
@@ -346,15 +364,18 @@ def test_the_annotations():
 
 def main():
     check(pmx.results.current is not None, "a result must be open")
-    test_the_view_is_the_results_view()
-    test_the_plotted_field()
-    test_the_plot_type()
-    test_the_deformation()
-    test_the_legend_range()
-    test_the_camera()
-    test_the_annotations()
-    test_the_picture()
-    test_the_picture_options()
+    try:
+        test_the_view_is_the_results_view()
+        test_the_plotted_field()
+        test_the_plot_type()
+        test_the_deformation()
+        test_the_legend_range()
+        test_the_camera()
+        test_the_annotations()
+        test_the_picture()
+        test_the_picture_options()
+    finally:
+        shutil.rmtree(TEMPORARY_FOLDER, ignore_errors=True)
     print("TEST PASSED")
 
 

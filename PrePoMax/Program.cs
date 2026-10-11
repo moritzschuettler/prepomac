@@ -210,8 +210,16 @@ namespace PrePoMax
         // a later one waits for the process to be terminated by the first
         private static void Finish(ExitCodeEnum exitCode, Exception exception)
         {
-            if (Interlocked.Exchange(ref _isFinishing, 1) == 1) Thread.Sleep(System.Threading.Timeout.Infinite);
+            if (!TryClaimFinish()) Thread.Sleep(System.Threading.Timeout.Infinite);
             //
+            FinishClaimed(exitCode, exception);
+        }
+        private static bool TryClaimFinish()
+        {
+            return Interlocked.Exchange(ref _isFinishing, 1) == 0;
+        }
+        private static void FinishClaimed(ExitCodeEnum exitCode, Exception exception)
+        {
             StopTimeoutTimer();
             // The journal is written first, so the report can say whether it was
             Controller controller = GetController();
@@ -353,7 +361,8 @@ namespace PrePoMax
             _timeoutTimer = new System.Threading.Timer(OnTimeoutElapsed, null, (long)cmdOptions.Timeout * 1000,
                                                        System.Threading.Timeout.Infinite);
         }
-        private static void StopTimeoutTimer()
+        // The time limit covers the batch phase of a run; a run that goes on as an ordinary session stops it
+        public static void StopTimeoutTimer()
         {
             System.Threading.Timer timer = _timeoutTimer;
             _timeoutTimer = null;
@@ -394,6 +403,9 @@ namespace PrePoMax
         {
             // Ctrl+C reaches an attached process twice, through the console and through the event
             if (Interlocked.Exchange(ref _isCancelled, 1) == 1) return;
+            // The end is claimed before the analyses are killed: a script that ends because its analysis was killed
+            // would otherwise finish first, with the code of its own failure. A run already finishing keeps its code
+            if (!TryClaimFinish()) return;
             //
             string message = "The run was cancelled with Ctrl+C.";
             Console.WriteLine("----------Cancelled-----------");
@@ -412,10 +424,12 @@ namespace PrePoMax
                 // Best effort - the process is terminated in any case
             }
             //
-            Finish(ExitCodeEnum.Cancelled, new CaeException(message));
+            FinishClaimed(ExitCodeEnum.Cancelled, new CaeException(message));
         }
         private static void OnTimeoutElapsed(object state)
         {
+            if (!TryClaimFinish()) return;
+            //
             string message = "The run exceeded the time limit of " + _cmdOptions.Timeout + " s.";
             Console.WriteLine("----------Timeout-------------");
             Console.WriteLine(message);
@@ -433,7 +447,7 @@ namespace PrePoMax
                 // The watchdog is best effort - the process is terminated in any case
             }
             //
-            Finish(ExitCodeEnum.TimedOut, new CaeException(message));
+            FinishClaimed(ExitCodeEnum.TimedOut, new CaeException(message));
         }
 
         //private static bool IsWindowsApplication()

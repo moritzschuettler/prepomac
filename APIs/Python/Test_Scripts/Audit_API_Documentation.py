@@ -16,9 +16,20 @@ Returns
 
 Overview
     every signature row of Python_API_Overview.md - | `name(arg, other=None, ...)` | - names a member
-    of the type its section documents, and every argument the row lists is one that member takes. A
-    row whose section names no type is matched by member name; one that still cannot be placed is
-    listed, not failed.
+    of the type it documents, and every argument the row lists is one that member takes. The type is
+    the one the row's own path leads to - pmx.create.x through the properties, reference_points.x by
+    the variable name - or else the one the paragraph above the table introduces - "A result
+    `ReferencePoint`:" - or else every type the heading names, on the model or the results side as the
+    heading and the part of the overview say. A row that can be placed and names no member of its
+    types fails; only a row that cannot be placed at all is matched by member name, and listed.
+
+Code examples
+    every call in a fenced code block of the overview that starts at pmx, or at a variable the same
+    block assigned from a pmx call or property, names members that exist, followed through the
+    properties.
+
+Agent texts
+    every pmx.<member> path McpAgentGuide.cs and McpToolCatalog.cs name exists on the API.
 
     python Audit_API_Documentation.py [--root <repository>]
 
@@ -457,34 +468,118 @@ def check_returns(types):
 # Check b: the overview ###############################################################################################
 ROW = re.compile(r"^\|\s*(?P<cell>[^|]*?`[^|]*?)\s*\|")
 CALL = re.compile(r"`(?P<path>[A-Za-z_][\w.]*)\((?P<arguments>[^`]*)\)`")
+# A paragraph that introduces the table below it with the type the table documents - "Each maker returns a
+# `SurfaceInteractionProperty`:", "A result `ReferencePoint`:" - or a paragraph that opens with the type
+INTRODUCTION = re.compile(r"^(?!\|)(?P<text>.*`[^`]+`.*):\s*$")
+EXPOSES = re.compile(r"^`(?P<name>\w+)` exposes\b")
 
 
-def section_type(types, heading, in_results):
-    """The API type a ### heading documents, or None when the heading names no type."""
-    if heading in HEADING_TYPES:
-        return prefer_namespace(lookup(types, HEADING_TYPES[heading]), "APIs.Python.Model")[0]
-    title = re.match(r"^`(\w+)`(?:\s*\((model)\))?\s*$", heading)
-    if not title:
-        return None
-    name, qualifier = title.group(1), title.group(2)
-    names = [SECTION_TYPES[name]] if name in SECTION_TYPES else [name + "API", "Result" + name + "API"]
-    candidates = [api_type for candidate_name in names for api_type in lookup(types, candidate_name)]
+def to_snake(name):
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+
+
+def doc_name(api_type):
+    """The name the overview gives a type: its C# name without the API suffix and the Result prefix."""
+    for documented, csharp in SECTION_TYPES.items():
+        if csharp == api_type.name:
+            return documented
+    name = re.sub(r"API$", "", api_type.name)
+    return name[len("Result"):] if name.startswith("Result") and len(name) > len("Result") else name
+
+
+def resolve_doc_type(types, name, results_side):
+    """The API type a name of the overview stands for, on the side the text is about; None for no type."""
+    names = [SECTION_TYPES[name]] if name in SECTION_TYPES else [name + "API", "Result" + name + "API", name]
+    candidates = [api_type for candidate_name in names for api_type in lookup(types, candidate_name)
+                  if api_type.name.endswith("API")]
     model_side = [t for t in candidates if t.namespace.endswith(".Model")]
     other_side = [t for t in candidates if not t.namespace.endswith(".Model")]
-    preferred = model_side + other_side if qualifier == "model" or not in_results else other_side + model_side
+    preferred = other_side + model_side if results_side else model_side + other_side
     return preferred[0] if preferred else None
 
 
-def row_arguments(text):
-    """The (name, shows a default) pairs of a row, and whether the row leaves arguments out with '...'."""
-    arguments, abbreviated = [], False
-    for piece in split_top_level(text):
-        if piece in ("...", "*", "/") or piece.startswith("*"):
-            abbreviated = True
+def is_results_side(text, in_results):
+    if "(model)" in text or "model mesh" in text or re.search(r"\bmodel\b `", text):
+        return False
+    if re.search(r"\bresults?\b", text) and "pmx." not in text:
+        return True
+    return in_results
+
+
+def section_types(types, heading, in_results):
+    """The API types a heading documents, every type it names in backquotes; empty when it names none."""
+    if heading in HEADING_TYPES:
+        return [prefer_namespace(lookup(types, HEADING_TYPES[heading]), "APIs.Python.Model")[0]]
+    results_side = is_results_side(heading, in_results)
+    found = []
+    for name in re.findall(r"`(\w+)`", heading):
+        api_type = resolve_doc_type(types, name, results_side)
+        if api_type is not None and api_type not in found:
+            found.append(api_type)
+    return found
+
+
+def property_type(types, owner, name):
+    """The API type a property of the owner returns, or None when it is no API type or no property."""
+    for member in members_of(types, owner, name):
+        if member.is_method:
             continue
-        name = re.match(r"^([A-Za-z_]\w*)\s*(=.*)?$", piece, re.S)
-        arguments.append((name.group(1), name.group(2) is not None) if name else None)
-    return arguments, abbreviated
+        return_type = re.sub(r"\?$", "", member.return_type.split()[-1]) if member.return_type else ""
+        candidates = prefer_namespace(lookup(types, return_type), owner.namespace)
+        if candidates:
+            return candidates[0]
+    return None
+
+
+def return_type_of(types, owner, name):
+    """The API type a method of the owner returns, when every overload returns the same one."""
+    returns = {member.return_type for member in members_of(types, owner, name) if member.is_method}
+    if len(returns) != 1:
+        return None
+    return_type = re.sub(r"\?$", "", returns.pop().split()[-1])
+    candidates = prefer_namespace(lookup(types, return_type), owner.namespace)
+    return candidates[0] if candidates else None
+
+
+def root_type(types):
+    candidates = lookup(types, "PrePoMaxAPI")
+    return candidates[0] if candidates else None
+
+
+def walk(types, owner, segments):
+    """Follows properties from the owner; returns (type, None), (None, missing segment) or (None, None)."""
+    for segment in segments:
+        if not members_of(types, owner, segment):
+            return None, segment
+        owner = property_type(types, owner, segment)
+        if owner is None:
+            return None, None
+    return owner, None
+
+
+def prefix_types(types, prefix, current, results_side):
+    """The types a variable prefix of a row - reference_points., selection. - stands for."""
+    matching = [api_type for api_type in current if to_snake(doc_name(api_type)) == prefix]
+    if matching:
+        return matching
+    camel = "".join(part.capitalize() for part in prefix.split("_"))
+    api_type = resolve_doc_type(types, camel, results_side)
+    return [api_type] if api_type is not None else []
+
+
+def call_owners(types, path, current, results_side):
+    """The types a call of a row is on, (types, None), or (None, what is missing) for a path that is wrong.
+
+    An empty list of types means the row cannot be placed; it is then matched by member name.
+    """
+    if path[0] == "pmx" and len(path) > 1:
+        owner, missing = walk(types, root_type(types), path[1:-1])
+        if missing is not None:
+            return None, "pmx.%s names %s, which is not a member" % (".".join(path[1:]), missing)
+        return ([owner] if owner is not None else []), None
+    if len(path) > 1:
+        return prefix_types(types, path[-2], current, results_side), None
+    return list(current), None
 
 
 def row_problems(member, arguments, abbreviated):
@@ -505,6 +600,39 @@ def row_problems(member, arguments, abbreviated):
     return ""
 
 
+def row_arguments(text):
+    """The (name, shows a default) pairs of a row, and whether the row leaves arguments out with '...'."""
+    arguments, abbreviated = [], False
+    for piece in split_top_level(text):
+        if piece in ("...", "*", "/") or piece.startswith("*"):
+            abbreviated = True
+            continue
+        name = re.match(r"^([A-Za-z_]\w*)\s*(=.*)?$", piece, re.S)
+        arguments.append((name.group(1), name.group(2) is not None) if name else None)
+    return arguments, abbreviated
+
+
+def introduced_types(types, line, in_results):
+    """The types a paragraph introduces for the table below it, or None when it introduces none."""
+    exposes = EXPOSES.match(line)
+    introduction = INTRODUCTION.match(line)
+    if not exposes and not introduction:
+        return None
+    results_side = is_results_side(line, in_results)
+    names = [exposes.group("name")] if exposes else re.findall(r"`([^`]+)`", introduction.group("text"))[-1:]
+    found = []
+    for name in names:
+        if name.startswith("pmx."):
+            owner, missing = walk(types, root_type(types), name.split(".")[1:])
+            if owner is not None:
+                found.append(owner)
+        elif re.match(r"^\w+$", name):
+            api_type = resolve_doc_type(types, name, results_side)
+            if api_type is not None:
+                found.append(api_type)
+    return found or None
+
+
 def check_overview(types, root):
     path = root / OVERVIEW
     lines = path.read_text(encoding="utf-8-sig").splitlines()
@@ -513,7 +641,7 @@ def check_overview(types, root):
     for api_type in types.values():
         for name, members in api_type.members.items():
             all_methods.setdefault(name, []).extend(member for member in members if member.is_method)
-    in_results, in_code, current = False, False, None
+    in_results, in_code, current, results_side = False, False, [], False
     for number, line in enumerate(lines, 1):
         if line.startswith("```"):
             in_code = not in_code
@@ -522,17 +650,22 @@ def check_overview(types, root):
             continue
         if line.startswith("## "):
             in_results = in_results or line.strip() == RESULTS_PART
-            current = None
+            current, results_side = [], in_results
             continue
-        if line.startswith("### "):
-            current = section_type(types, line[4:].strip(), in_results)
+        if line.startswith("### ") or line.startswith("#### "):
+            heading = line.lstrip("#").strip()
+            current, results_side = section_types(types, heading, in_results), is_results_side(heading, in_results)
+            continue
+        introduced = introduced_types(types, line, in_results)
+        if introduced is not None:
+            current, results_side = introduced, is_results_side(line, in_results)
             continue
         row = ROW.match(line)
         if not row:
             continue
         calls = list(CALL.finditer(row.group("cell")))
         # A cell that shows one call on a variable - selection.add_by_ids(...) - shows the rest on it too
-        on_variable = any("." in call.group("path") for call in calls)
+        cell_path = None
         for call in calls:
             dotted = call.group("path").split(".")
             name = dotted[-1]
@@ -544,13 +677,22 @@ def check_overview(types, root):
                 issues.append((where, name, "cannot read the arguments of %s" % call.group(0)))
                 continue
             checked += 1
-            if current is not None and not on_variable:
-                members = [m for m in members_of(types, current, name) if m.is_method]
-                if members:
-                    problems = [row_problems(member, arguments, abbreviated) for member in members]
-                    if all(problems):
-                        issues.append((where, name, "%s.%s: %s" % (current.name, name, problems[0])))
+            if len(dotted) > 1:
+                cell_path = dotted[:-1]
+            owner_path = (cell_path or []) + [name]
+            owners, wrong = call_owners(types, owner_path, current, results_side)
+            if wrong is not None:
+                issues.append((where, name, wrong))
+                continue
+            if owners:
+                members = [m for owner in owners for m in members_of(types, owner, name) if m.is_method]
+                if not members:
+                    issues.append((where, name, "%s has no member %s" % (" or ".join(t.name for t in owners), name)))
                     continue
+                problems = [row_problems(member, arguments, abbreviated) for member in members]
+                if all(problems):
+                    issues.append((where, name, "%s.%s: %s" % (members[0].type_name, name, problems[0])))
+                continue
             candidates = all_methods.get(name, [])
             if not candidates:
                 issues.append((where, name, "no API type has a member %s" % name))
@@ -558,10 +700,139 @@ def check_overview(types, root):
             problems = [row_problems(member, arguments, abbreviated) for member in candidates]
             if all(problems):
                 issues.append((where, name, "no member %s matches: %s" % (name, problems[0])))
-            elif len({member.type_name for member in candidates}) > 1 or current is not None:
+            else:
                 unmapped.append((where, name, "matched by name in %s"
                                  % ", ".join(sorted({member.type_name for member in candidates}))))
     return issues, unmapped, checked
+
+
+# Check d: the code examples of the overview ##########################################################################
+CODE_CALL = re.compile(r"(?<![\w.])(?P<path>[A-Za-z_]\w*(?:\.\w+)+)\s*\(")
+CODE_ASSIGNMENT = re.compile(r"^\s*(?P<variable>[A-Za-z_]\w*)\s*=\s*(?P<path>pmx(?:\.\w+)+)\s*(?P<rest>.*)$")
+
+
+def assigned_form(rest):
+    """'call' or 'property' when the assigned value is the call or the property itself, else None.
+
+    A value that goes on - an index, a further member - is something the example does not show the
+    type of, and a call that does not close on its line is taken to end where it closes.
+    """
+    rest = rest.strip()
+    if not rest:
+        return "property"
+    if not rest.startswith("("):
+        return None
+    depth = 0
+    for index, character in enumerate(rest):
+        depth += 1 if character == "(" else -1 if character == ")" else 0
+        if depth == 0:
+            return "call" if not rest[index + 1:].strip() else None
+    return "call"
+
+
+def code_lines(text):
+    """The line without its comment and with the inside of its string literals blanked."""
+    masked = re.sub(r"'[^']*'|\"[^\"]*\"", lambda match: match.group(0)[0] + " " * (len(match.group(0)) - 2) +
+                    match.group(0)[-1], text)
+    hash_at = masked.find("#")
+    return masked if hash_at < 0 else masked[:hash_at]
+
+
+def check_code_blocks(types, root):
+    """Every pmx call of a code example names members that exist, followed through the properties.
+
+    A variable assigned from a pmx call or property in the same example is followed too; a call on
+    anything else is not checked.
+    """
+    lines = (root / OVERVIEW).read_text(encoding="utf-8-sig").splitlines()
+    issues, checked = [], 0
+    in_code, variables = False, {}
+    for number, line in enumerate(lines, 1):
+        if line.startswith("```"):
+            in_code, variables = not in_code, {}
+            continue
+        if not in_code:
+            continue
+        code = code_lines(line)
+        where = "%s:%d" % (OVERVIEW, number)
+        for call in CODE_CALL.finditer(code):
+            path = call.group("path").split(".")
+            if path[0] == "pmx":
+                owner = root_type(types)
+            elif path[0] in variables:
+                owner = variables[path[0]]
+            else:
+                continue
+            checked += 1
+            owner, missing = walk(types, owner, path[1:-1])
+            if missing is not None:
+                issues.append((where, path[-1], "%s names %s, which is not a member" % (".".join(path), missing)))
+            elif owner is not None and not members_of(types, owner, path[-1]):
+                issues.append((where, path[-1], "%s has no member %s" % (owner.name, path[-1])))
+        assignment = CODE_ASSIGNMENT.match(code)
+        if assignment:
+            path = assignment.group("path").split(".")
+            owner, _ = walk(types, root_type(types), path[1:-1])
+            form = assigned_form(assignment.group("rest"))
+            value = None
+            if owner is not None and form is not None:
+                value = (return_type_of(types, owner, path[-1]) if form == "call"
+                         else property_type(types, owner, path[-1]))
+            if value is not None:
+                variables[assignment.group("variable")] = value
+            else:
+                variables.pop(assignment.group("variable"), None)
+    return issues, checked
+
+
+# Check e: the texts an agent reads ###################################################################################
+AGENT_TEXTS = ("PrePoMax/Mcp/McpAgentGuide.cs", "PrePoMax/Mcp/McpToolCatalog.cs")
+AGENT_PATH = re.compile(r"\bpmx(?:\.[A-Za-z_]\w*)+")
+
+
+def check_agent_texts(types, root):
+    """Every pmx.<member> path the MCP guide and the tool descriptions name exists on the API.
+
+    A path is followed through the properties; a segment ending in an underscore - add_ - stands for
+    the members it begins.
+    """
+    issues, checked = [], 0
+    for relative in AGENT_TEXTS:
+        source = (root / relative).read_text(encoding="utf-8-sig")
+        for match in AGENT_PATH.finditer(source):
+            path = match.group(0).split(".")
+            where = "%s:%d" % (relative, source.count("\n", 0, match.start()) + 1)
+            checked += 1
+            owner = root_type(types)
+            for index, segment in enumerate(path[1:], 1):
+                if segment.endswith("_"):
+                    if not any(name.startswith(segment) for name in all_member_names(types, owner)):
+                        issues.append((where, segment, "%s names no member that begins %s"
+                                       % (match.group(0), segment)))
+                    break
+                if not members_of(types, owner, segment):
+                    issues.append((where, segment, "%s names %s, which %s does not have"
+                                   % (match.group(0), segment, owner.name)))
+                    break
+                if index == len(path) - 1:
+                    break
+                owner = property_type(types, owner, segment)
+                if owner is None:
+                    break
+    return issues, checked
+
+
+def all_member_names(types, api_type, seen=None):
+    seen = set() if seen is None else seen
+    if (api_type.namespace, api_type.name) in seen:
+        return set()
+    seen.add((api_type.namespace, api_type.name))
+    names = set(api_type.members)
+    for base in api_type.bases:
+        for base_type in prefer_namespace(lookup(types, base), api_type.namespace):
+            names |= all_member_names(types, base_type, seen)
+            break
+    return names
 
 
 def audit(root):
@@ -569,8 +840,12 @@ def audit(root):
     argument_issues, argument_count = check_arguments(types)
     return_issues = check_returns(types)
     overview_issues, unmapped, row_count = check_overview(types, root)
+    code_issues, code_count = check_code_blocks(types, root)
+    agent_issues, agent_count = check_agent_texts(types, root)
     return {"arguments": argument_issues, "arguments_checked": argument_count, "returns": return_issues,
-            "overview": overview_issues, "overview_unmapped": unmapped, "overview_checked": row_count}
+            "overview": overview_issues, "overview_unmapped": unmapped, "overview_checked": row_count,
+            "code": code_issues, "code_checked": code_count, "agent_texts": agent_issues,
+            "agent_texts_checked": agent_count}
 
 
 def main():
@@ -592,8 +867,15 @@ def main():
     if args.verbose:
         for entry in result["overview_unmapped"]:
             print("   (by name) %s %s: %s" % entry)
+    print("Overview code example calls checked: %d, drifted: %d" % (result["code_checked"], len(result["code"])))
+    for entry in result["code"]:
+        print("   %s %s: %s" % entry)
+    print("Agent text pmx paths checked: %d, drifted: %d"
+          % (result["agent_texts_checked"], len(result["agent_texts"])))
+    for entry in result["agent_texts"]:
+        print("   %s %s: %s" % entry)
     print("Exceptions: %s" % ", ".join("%s.%s(%s)" % key for key in sorted(REQUIRED_DESPITE_DEFAULT)))
-    if result["arguments"] or result["returns"] or result["overview"]:
+    if result["arguments"] or result["returns"] or result["overview"] or result["code"] or result["agent_texts"]:
         return 1
     print("TEST PASSED")
     return 0

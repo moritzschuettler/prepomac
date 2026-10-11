@@ -190,6 +190,10 @@ namespace PrePoMax.Python
         {
             _controller.ReplaceGeometryPartPropertiesCommand(oldPartName, newPartProperties);
         }
+        public bool IsExplodedViewActive()
+        {
+            return _controller.IsExplodedViewActive();
+        }
         public void TranslateGeometryParts(string[] partNames, double[] translateVector, int numberOfCopies)
         {
             _controller.TranslateGeometryPartsCommand(partNames, translateVector, numberOfCopies);

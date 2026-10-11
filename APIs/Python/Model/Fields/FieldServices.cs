@@ -26,10 +26,10 @@ namespace APIs.Python.Model
 
         // Constructors
         public FieldServices(ModelResolver modelResolver, SelectionService selectionService,
-                             IPythonModelGateway modelGateway)
+                             IPythonModelGateway modelGateway, PythonFileNameResolver fileNameResolver)
         {
             _amplitudes = new AmplitudeService(modelResolver, selectionService, modelGateway);
-            _distributions = new DistributionService(modelResolver, selectionService, modelGateway);
+            _distributions = new DistributionService(modelResolver, selectionService, modelGateway, fileNameResolver);
             _initialConditions = new InitialConditionService(modelResolver, selectionService, modelGateway);
         }
     }

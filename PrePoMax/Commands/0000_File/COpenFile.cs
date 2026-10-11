@@ -68,7 +68,7 @@ namespace PrePoMax.Commands
             else if (writer.IsAtSessionStart)
             {
                 writer.Comment("Session start: " + Tools.GetGlobalPath(_fileName));
-                writer.Comment("Replay this journal with:  -f " + Tools.GetGlobalPath(_fileName));
+                writer.SessionStartFileName = Tools.GetGlobalPath(_fileName);
                 writer.CountSessionStartCommand();
             }
             else writer.Unsupported(this, "opening a model file replaces the command history, so a journal " +

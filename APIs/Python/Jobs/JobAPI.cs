@@ -88,7 +88,8 @@ namespace APIs.Python
         [PythonAPI("Writes the solver input file and runs the analysis using command history. It returns " +
                    "the job status, which is OK when the solver finished successfully. With wait the call " +
                    "returns only when the solver has finished; a timeout in seconds kills the solver and " +
-                   "returns TimedOut. The timeout starts when solver submission begins; refused preparation raises an error.",
+                   "returns TimedOut. The timeout starts when solver submission begins; refused preparation raises an error. " +
+                   "A work directory or a solver executable that does not exist is refused before anything is recorded.",
                    Arguments = "wait: bool = True, timeout: float = None", Returns = "str",
                    Example = "print(job.run(timeout=600))")]
         public string run(object wait = null, object timeout = null)
@@ -97,7 +98,8 @@ namespace APIs.Python
         }
 
         [PythonAPI("Writes the solver input file and only checks the model, without solving it. It returns " +
-                   "the job status.", Arguments = "wait: bool = True, timeout: float = None",
+                   "the job status. A work directory or a solver executable that does not exist is refused.",
+                   Arguments = "wait: bool = True, timeout: float = None",
                    Returns = "str")]
         public string check_model(object wait = null, object timeout = null)
         {

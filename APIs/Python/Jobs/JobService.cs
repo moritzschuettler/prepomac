@@ -226,7 +226,8 @@ namespace APIs.Python
             //
             if (job.JobStatus == JobStatus.Running || job.JobStatus == JobStatus.InQueue)
                 throw new PythonAPIException("The analysis is already running.");
-            int milliseconds = timeoutSeconds == 0 ? 0 : Math.Max(1, (int)Math.Ceiling(timeoutSeconds * 1000));
+            EnsureRunnable(job);
+            int milliseconds =timeoutSeconds == 0 ? 0 : Math.Max(1, (int)Math.Ceiling(timeoutSeconds * 1000));
             int numOfMessagesBefore = MessageBoxes.GetReportedMessages().Length;
             if (!_jobGateway.PrepareAndRunJob(job.Name, onlyCheckModel, runSynchronous, milliseconds))
             {
@@ -238,6 +239,42 @@ namespace APIs.Python
                                              reason);
             }
             return job.JobStatus.ToString();
+        }
+        // The run refuses a missing work directory and a missing solver executable only after it was recorded, so
+        // the same states are refused here, by the directory and the executable the run would use
+        private void EnsureRunnable(AnalysisJob job)
+        {
+            bool ownWorkDirectory = job.WorkDirectory != null && job.WorkDirectory.Trim().Length > 0;
+            string workDirectory;
+            try
+            {
+                string inputFileName = Path.Combine(ownWorkDirectory ? job.WorkDirectory
+                                                                     : _jobGateway.GetWorkDirectory(),
+                                                    job.Name + ".inp");
+                workDirectory = Path.GetDirectoryName(inputFileName);
+            }
+            catch (Exception exception) when (IsPathException(exception))
+            {
+                throw new PythonAPIException("The work directory of the analysis '" + job.Name + "' is not a valid " +
+                                             "path: " + exception.Message + " " + GetWorkDirectoryHint(ownWorkDirectory));
+            }
+            if (workDirectory == null || !Directory.Exists(workDirectory))
+                throw new PythonAPIException("The work directory '" + workDirectory + "' of the analysis '" + job.Name +
+                                             "' does not exist. " + GetWorkDirectoryHint(ownWorkDirectory));
+            if (!File.Exists(job.Executable))
+                throw new PythonAPIException("The executable file '" + job.Executable + "' of the analysis '" +
+                                             job.Name + "' does not exist. " +
+                                             (job.ExecutableOverridden
+                                              ? "Give it an existing 'executable' with pmx.jobs.replace."
+                                              : "Set the solver executable in the application settings, or give " +
+                                                "the analysis its own 'executable' with pmx.jobs.replace."));
+        }
+        private static string GetWorkDirectoryHint(bool ownWorkDirectory)
+        {
+            return ownWorkDirectory
+                   ? "Create it, or give the analysis an existing 'work_directory' with pmx.jobs.replace."
+                   : "Set the work directory in the application settings, or give the analysis its own " +
+                     "'work_directory' with pmx.jobs.replace.";
         }
         public void Kill(string name)
         {

@@ -19,8 +19,9 @@ namespace APIs.Python.Model
     {
         // Constructors
         public LoadService(ModelResolver modelResolver, SelectionService selectionService,
-                           StepService stepService, IPythonModelGateway modelGateway)
-            : base(modelResolver, selectionService, stepService, modelGateway, "load")
+                           StepService stepService, IPythonModelGateway modelGateway,
+                           PythonFileNameResolver fileNameResolver)
+            : base(modelResolver, selectionService, stepService, modelGateway, "load", fileNameResolver)
         {
         }
 

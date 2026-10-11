@@ -8,7 +8,13 @@
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Prompt_Refused.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 5, PromptRefused. The script must NOT print TEST PASSED, because the
-#refusal is raised inside the run and terminates the script.
+#refusal is raised inside the run and terminates the script. The report must show the question that
+#was refused, not merely some refusal:
+#Expected report prompts[-1].caption = "Warning"
+#Expected report prompts[-1].text contains "finite elements are missing a section assignment. Continue?"
+#Expected report prompts[-1].buttons = "OKCancel"
+#Expected report prompts[-1].refused = true
+#Expected report error contains "finite elements are missing a section assignment"
 
 PREFIX = "PyTest_"
 JOB = PREFIX + "Refused"

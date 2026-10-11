@@ -31,17 +31,18 @@ namespace APIs.Python.Model
 
         // Constructors
         public StepContentServices(ModelResolver modelResolver, SelectionService selectionService,
-                                   StepService stepService, IPythonModelGateway modelGateway)
+                                   StepService stepService, IPythonModelGateway modelGateway,
+                                   PythonFileNameResolver fileNameResolver)
         {
             _boundaryConditions =
                 new BoundaryConditionService(modelResolver, selectionService, stepService, modelGateway);
-            _loads = new LoadService(modelResolver, selectionService, stepService, modelGateway);
+            _loads = new LoadService(modelResolver, selectionService, stepService, modelGateway, fileNameResolver);
             _fieldOutputs =
                 new FieldOutputService(modelResolver, selectionService, stepService, modelGateway);
             _historyOutputs =
                 new HistoryOutputService(modelResolver, selectionService, stepService, modelGateway);
             _definedFields =
-                new DefinedFieldService(modelResolver, selectionService, stepService, modelGateway);
+                new DefinedFieldService(modelResolver, selectionService, stepService, modelGateway, fileNameResolver);
         }
     }
 }

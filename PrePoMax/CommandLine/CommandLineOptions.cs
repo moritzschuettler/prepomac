@@ -60,7 +60,9 @@ namespace PrePoMax
         // Journal
         [Option("journal", Required = false, HelpText = "The .py file name to be used for writing the session journal. The " +
                                                        "command history is emitted as a Python script when the run ends, " +
-                                                       "also when the run fails. A relative name is in the work directory.")]
+                                                       "also when the run fails. A bare file name, without a folder, is " +
+                                                       "in the work directory; a relative path with a folder is taken " +
+                                                       "from the current directory.")]
         public string JournalFileName { get; set; }
         // Timeout
         [Option("timeout", Required = false, Default = 0, HelpText = "The maximum duration of the run in seconds. Use 0 for no " +

@@ -29,15 +29,17 @@ namespace APIs.Python.Model
         private readonly ModelResolver _modelResolver;
         private readonly SelectionService _selectionService;
         private readonly IPythonMeshGateway _meshGateway;
+        private readonly PythonFileNameResolver _fileNameResolver;
 
 
         // Constructors
         public MeshToolService(ModelResolver modelResolver, SelectionService selectionService,
-                               IPythonMeshGateway meshGateway)
+                               IPythonMeshGateway meshGateway, PythonFileNameResolver fileNameResolver)
         {
             _modelResolver = modelResolver;
             _selectionService = selectionService;
             _meshGateway = meshGateway;
+            _fileNameResolver = fileNameResolver;
         }
 
 
@@ -130,20 +132,7 @@ namespace APIs.Python.Model
         }
         public void UpdateNodalCoordinatesFromFile(string fileName)
         {
-            if (fileName == null || fileName.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'file_name' must not be empty.");
-            //
-            string fullFileName;
-            try
-            {
-                fullFileName = Path.GetFullPath(fileName);
-            }
-            catch (Exception ex)
-            {
-                throw new PythonAPIException("The argument 'file_name' is invalid: " + ex.Message);
-            }
-            if (!File.Exists(fullFileName))
-                throw new PythonAPIException("The file '" + fullFileName + "' does not exist.");
+            string fullFileName = _fileNameResolver.GetExistingFileName(fileName, "file_name");
             //
             EnsureCommandsAvailable();
             _meshGateway.UpdateNodalCoordinatesFromFile(fullFileName);
