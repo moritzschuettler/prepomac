@@ -2364,6 +2364,7 @@ namespace PrePoMax
                 RegenerateTree();
                 //
                 SetMenuAndToolStripVisibility();
+                RedrawSelectedSymbols();
                 // During regeneration the tree is empty
                 if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput();
             }
@@ -2706,6 +2707,7 @@ namespace PrePoMax
                     _modelTree.RegenerateTree(_controller.Model, _controller.Jobs, _controller.CurrentResult);
                     //
                     SetMenuAndToolStripVisibility();
+                    RedrawSelectedSymbols();
                 }
             }
         }
@@ -2802,6 +2804,7 @@ namespace PrePoMax
                 RegenerateTree();
                 //
                 SetMenuAndToolStripVisibility();
+                RedrawSelectedSymbols();
                 // During regeneration the tree is empty
                 if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput(); 
             }
@@ -9568,6 +9571,7 @@ namespace PrePoMax
                 RegenerateTree();
                 //
                 SetMenuAndToolStripVisibility();
+                RedrawSelectedSymbols();
                 // During regeneration the tree is empty
                 if (_controller.CurrentResult != null) SelectFirstComponentOfFirstFieldOutput();
             }
@@ -11156,6 +11160,13 @@ namespace PrePoMax
                 //
                 this.ActiveControl = null;
             }
+        }
+        // A regeneration or an undo switches the view before the symbols list is refreshed, which sets the selected
+        // symbols without drawing them
+        private void RedrawSelectedSymbols()
+        {
+            if (_controller.CurrentView == ViewGeometryModelResults.Model) _controller.RedrawModelSymbols(false);
+            else if (_controller.CurrentView == ViewGeometryModelResults.Results) _controller.RedrawResultSymbols(false);
         }
         public void SelectLastSymbolName()
         {
