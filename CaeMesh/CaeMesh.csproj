@@ -164,6 +164,7 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepDirectionProblem.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepCellCandidate.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepPartMaps.cs" />
+    <Compile Include="Meshing\Gmsh\GmshSizeGrading.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockPrism.cs" />
     <Compile Include="Meshing\MeshTypeEnum.cs" />

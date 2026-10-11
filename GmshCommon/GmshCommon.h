@@ -20,6 +20,8 @@ const std::string &                 ->  System::String^
 
 */
 namespace GmshCommon {
+    public delegate double SizeCallback(int dim, int tag, double x, double y, double z, double lc);
+    //
 	public ref class Gmsh
 	{
 	public:
@@ -401,10 +403,28 @@ namespace GmshCommon {
             //                                                                                                                      
             ref class Mesh
             {
+            private:
+                // Kept so that the delegate gmsh calls through is not collected while gmsh holds it
+                static SizeCallback^ _sizeCallback;
             public:
                 static void Generate(int dim)
                 {
                     gmsh::model::mesh::generate(dim);
+                }
+                static void SetSizeCallback(SizeCallback^ callback)
+                {
+                    typedef double(__stdcall* SizeFunction)(int, int, double, double, double, double);
+                    _sizeCallback = callback;
+                    SizeFunction function = static_cast<SizeFunction>(
+                        Marshal::GetFunctionPointerForDelegate(callback).ToPointer());
+                    gmsh::model::mesh::setSizeCallback(
+                        [function](int dim, int tag, double x, double y, double z, double lc)
+                        { return function(dim, tag, x, y, z, lc); });
+                }
+                static void RemoveSizeCallback()
+                {
+                    gmsh::model::mesh::removeSizeCallback();
+                    _sizeCallback = nullptr;
                 }
                 static void Optimize(System::String^ method, bool force, int niter,
                     array<System::Tuple<int, int>^>^ dimTags)

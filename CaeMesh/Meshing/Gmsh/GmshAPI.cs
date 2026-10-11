@@ -83,6 +83,9 @@ namespace CaeMesh
         private const int _numSurfaceParameterSamples = 16;
         private const int _numLayerEdgeSamples = 256;
         private const double _cornerAngleToleranceDeg = 0.1;
+        private bool _graded;
+        private double _gradingMaxSize;
+        private GmshSizeGrading _sizeGrading;
 
 
         // Properties                                                                                                               
@@ -337,6 +340,46 @@ namespace CaeMesh
             Gmsh.Option.SetNumber("Mesh.MeshSizeMax", _gmshData.PartMeshingParameters.MaxH * sf);
             Gmsh.Option.SetNumber("Mesh.MeshSizeFromCurvature",
                                   2 * Math.PI * _gmshData.PartMeshingParameters.ElementsPerCurve / sf);
+            _gradingMaxSize = _gmshData.PartMeshingParameters.MaxH * sf;
+            _graded = algorithm2D != GmshAlgorithmMesh2DEnum.QuasiStructuredQuad;
+            if (!_graded) RemoveSizeGrading();
+        }
+        /// <summary>
+        /// Grades the sizes of every curve, surface and volume gmsh meshes from here on by the user's grading, the way
+        /// Netgen grades them (GmshSizeGrading). gmsh would otherwise mesh each curve on its own and carry the curve sizes
+        /// across the surfaces: a flat face bounded by curves fine for their curvature stays as fine inside, and a long
+        /// edge beside fine ones stays at the maximum size, the surface between them going from one to the other at once.
+        /// The sizes it grades from are those of a curve mesh made without the grading, the first time it is applied:
+        /// the curve mesh there is, or one made for it and cleared again.
+        ///
+        /// The quasi-structured quad algorithm, which meshes with sizes of its own, is not graded.
+        /// </summary>
+        private void SetSizeGrading()
+        {
+            if (_sizeGrading == null)
+            {
+                Gmsh.Model.Mesh.RemoveSizeCallback();
+                Tuple<int, int>[] curveDimTags;
+                Gmsh.Model.GetEntities(out curveDimTags, 1);
+                int[] elementTypes;
+                IntPtr[][] elementTags;
+                IntPtr[][] nodeTags;
+                bool meshed = curveDimTags.Any(dimTag =>
+                {
+                    Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out nodeTags, 1, dimTag.Item2);
+                    return elementTags.Any(tags => tags != null && tags.Length > 0);
+                });
+                if (!meshed) Gmsh.Model.Mesh.Generate(1);
+                _sizeGrading = GmshSizeGrading.FromCurveMesh(_gmshData.PartMeshingParameters.Grading, _gradingMaxSize);
+                if (!meshed) Gmsh.Model.Mesh.Clear();
+            }
+            Gmsh.Option.SetNumber("Mesh.MeshSizeExtendFromBoundary", 0);
+            Gmsh.Model.Mesh.SetSizeCallback(_sizeGrading.GetSize);
+        }
+        private void RemoveSizeGrading()
+        {
+            Gmsh.Model.Mesh.RemoveSizeCallback();
+            Gmsh.Option.SetNumber("Mesh.MeshSizeExtendFromBoundary", 1);
         }
         /// <summary>
         /// The algorithm the surfaces are meshed with. A sweep whose sources QuadWild meshes has gmsh mesh only its
@@ -665,6 +708,7 @@ namespace CaeMesh
             }
             // The triangulation Q-Morph starts from is chosen per surface, and the surfaces are meshed in one pass
             QMorph.SetBackgroundAlgorithms(surfaceIds.ToArray());
+            if (_graded) SetSizeGrading();
             Gmsh.Model.Mesh.Generate(2);
             QMorphFaceReport[] reports = QMorph.QuadMeshSurfaces(surfaceIds.ToArray());
             // A surface Q-Morph cannot mesh keeps its triangles, marked for the recombination by gmsh
@@ -718,6 +762,7 @@ namespace CaeMesh
                     Gmsh.Option.SetNumber("Mesh.Renumber", 0);
                     try
                     {
+                        if (_graded) SetSizeGrading();
                         Gmsh.Model.Mesh.Generate(3);
                     }
                     finally
@@ -3744,8 +3789,10 @@ namespace CaeMesh
                 }
                 if (!valid || end - previous < minGap) continue;
                 // A node already where it should be is not set again, which would only move it by the error of
-                // measuring the curve
-                double tolerance = 0.05 * (end - start) / (ordered.Count + 1);
+                // measuring the curve. That error is all the tolerance allows for: a twentieth of an element, as it
+                // was, kept the uneven spacing QuadWild gives a source off the target beside it, and every grid line
+                // of the wall leaned
+                double tolerance = 1E-6 * (end - start);
                 foreach (var move in ordered)
                 {
                     if (Math.Abs(move.Item2 - side.GetFraction(move.Item1)) > tolerance) side.MoveNode(move.Item1, move.Item2);
@@ -5630,6 +5677,7 @@ namespace CaeMesh
         }
         private void GenerateMesh(int dim)
         {
+            if (_graded) SetSizeGrading();
             Gmsh.Model.Mesh.Generate(0);
             if (dim == 1) Gmsh.Model.Mesh.Generate(1);
             if (dim == 2) Gmsh.Model.Mesh.Generate(2);
