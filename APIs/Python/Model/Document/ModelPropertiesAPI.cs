@@ -52,7 +52,9 @@ namespace APIs.Python.Model
         [PythonAPI("The global results file a submodel reads its boundary values from. As the dialog does, it " +
                    "takes a file name without path, with no space, colon, slash or non UTF-8 character, and the " +
                    "file must exist in the work directory. It is set on a Submodel only, and another model type " +
-                   "reads it as None.",
+                   "reads it as None. Regenerate with file dialogs and a batch regeneration store a full path: " +
+                   "one in the work directory reads as its bare file name, and one anywhere else reads as the " +
+                   "full path, which the setter refuses.",
                    Returns = "str or None")]
         public object global_results_file_name
         {

@@ -113,7 +113,7 @@ namespace APIs.Python.Model
         }
         private static double[][] ToTimeAmplitude(object timeAmplitude)
         {
-            double[][] rows = PythonDoubleListConverter.ToDoubleArray2D(timeAmplitude, "time_amplitude");
+            double[][] rows = PythonDoubleListConverter.ToFiniteDoubleArray2D(timeAmplitude, "time_amplitude");
             if (rows == null || rows.Length == 0)
                 throw new PythonAPIException("The argument 'time_amplitude' must contain at least one row.");
             //

@@ -110,6 +110,25 @@ def test_regions():
           list(pmx.model.node_sets[internal_name].get_node_ids()) == [5, 6] and
           not pmx.model.node_sets.contains(PREFIX + "Internal_Renamed"),
           "a refused change of an internal node set changed it")
+    # No dialog lists the internal node set, so it is not duplicated and no other item may name it
+    node_set_count = len(pmx.model.node_sets)
+    surface_count = len(pmx.model.surfaces)
+    reference_point_count = len(pmx.model.reference_points)
+    bc_count = len(bcs)
+    for function, fragment in [(lambda: pmx.model.node_sets.duplicate([internal_name]), "internal"),
+                               (lambda: pmx.model.surfaces.add_from_node_set(PREFIX + "Bad", internal_name),
+                                "'node_set_name'"),
+                               (lambda: pmx.model.reference_points.add_from_region(
+                                   PREFIX + "Bad", 'CenterOfGravity', 'NodeSetName', internal_name),
+                                "'region_name'"),
+                               (lambda: bcs.add_fixed(PREFIX + "Bad", pmx.create.region('NodeSetName', internal_name)),
+                                "'region'")]:
+        message = raised_message(function)
+        check(message is not None and fragment in message and internal_name in message,
+              "a call on the internal node set must be refused naming " + fragment + ": " + str(message))
+    check(len(pmx.model.node_sets) == node_set_count and len(pmx.model.surfaces) == surface_count and
+          len(pmx.model.reference_points) == reference_point_count and len(bcs) == bc_count,
+          "a refused call on an internal node set was recorded")
     # A named region points at an existing entity instead
     bc = bcs.add_fixed(PREFIX + "Fix_Set", pmx.create.region('NodeSetName', NODE_SET))
     check(bc.region_type == "NodeSetName", "unexpected region type " + bc.region_type)

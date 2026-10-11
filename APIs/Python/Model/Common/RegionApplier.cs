@@ -110,6 +110,7 @@ namespace APIs.Python.Model
             if (stored == null)
                 throw new PythonAPIException("The " + region.RegionType + " region '" + region.name +
                                              "' does not exist.");
+            RefuseInternal(stored, region.RegionType, argumentName);
             // The load dialog offers element based surfaces only, and a load on a node based one is invalid
             FeSurface surface = stored as FeSurface;
             if (item is Load && surface != null && surface.Type == FeSurfaceType.Node)
@@ -118,6 +119,17 @@ namespace APIs.Python.Model
                                              "Element surface only.");
             //
             return stored.Name;
+        }
+        // A set an imported surface uses is hidden as well, but keeps the name it was imported with, and an imported
+        // item that names it is kept by its dialog, so only the sets the application names itself are refused
+        private static void RefuseInternal(NamedClass stored, RegionTypeEnum regionType, string argumentName)
+        {
+            if (!stored.Internal || !stored.Name.StartsWith(CaeMesh.Globals.InternalName)) return;
+            //
+            throw new PythonAPIException("The argument '" + argumentName + "' names the " + regionType + " region '" +
+                                         stored.Name + "', which is internal: it belongs to the model item that " +
+                                         "made it from a selection, and the dialog does not offer it. Give a " +
+                                         "selection, or a region the model tree shows.");
         }
         private static NamedClass GetStored<T>(IDictionary<string, T> items, string name) where T : NamedClass
         {

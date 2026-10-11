@@ -270,15 +270,23 @@ try:
           "the field read back in the lookup spelling: " + increment_fields[EQUATION_NAME.upper()].name)
     field_outputs.remove(EQUATION_ENVELOPE_NAME)
     created_names.remove(EQUATION_ENVELOPE_NAME)
+    # A field read from the result file and its component are found in any case as well
+    file_envelope = field_outputs.add_envelope(EQUATION_ENVELOPE_NAME, "tostrain", strain_component.lower())
+    created_names.append(EQUATION_ENVELOPE_NAME)
+    check(file_envelope.field_name == "TOSTRAIN" and file_envelope.component_name == strain_component,
+          "the file field source was stored as %s.%s" % (file_envelope.field_name, file_envelope.component_name))
+    field_outputs.remove(EQUATION_ENVELOPE_NAME.lower())
+    created_names.remove(EQUATION_ENVELOPE_NAME)
     coordinate_systems = result.mesh.coordinate_systems
     if coordinate_systems.contains(COORDINATE_SYSTEM_NAME):
         coordinate_systems.remove(COORDINATE_SYSTEM_NAME)
     coordinate_systems.add(COORDINATE_SYSTEM_NAME, [0, 0, 0], [1, 0, 0], [0, 1, 0])
-    transform = field_outputs.add_coordinate_system_transform(TRANSFORM_NAME, "DISP",
+    transform = field_outputs.add_coordinate_system_transform(TRANSFORM_NAME, "disp",
                                                               COORDINATE_SYSTEM_NAME.upper())
     created_names.append(TRANSFORM_NAME)
     check(transform.coordinate_system_name == COORDINATE_SYSTEM_NAME,
           "the coordinate system was stored as " + transform.coordinate_system_name)
+    check(transform.field_name == "DISP", "the transformed field was stored as " + transform.field_name)
     field_outputs.remove(TRANSFORM_NAME)
     created_names.remove(TRANSFORM_NAME)
     coordinate_systems.remove(COORDINATE_SYSTEM_NAME)

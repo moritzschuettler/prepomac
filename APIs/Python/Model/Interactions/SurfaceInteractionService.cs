@@ -56,6 +56,7 @@ namespace APIs.Python.Model
         {
             SurfaceInteraction surfaceInteraction = new SurfaceInteraction(name);
             ApplyProperties(surfaceInteraction, properties);
+            EnsureDefined(surfaceInteraction);
             //
             return surfaceInteraction;
         }
@@ -74,6 +75,7 @@ namespace APIs.Python.Model
                 surfaceInteraction.Name = name;
             }
             if (properties != null) ApplyProperties(surfaceInteraction, properties);
+            EnsureDefined(surfaceInteraction);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceSurfaceInteraction(storedName, surfaceInteraction);
@@ -134,10 +136,9 @@ namespace APIs.Python.Model
                                                  "property of each type.");
                 surfaceInteraction.AddProperty(propertyCopy);
             }
-            EnsureDefined(surfaceInteraction);
         }
-        // The dialog refuses on OK an interaction without a surface behavior and a tied one without friction, in
-        // these words
+        // The dialog refuses on every OK, also when only its name changed, an interaction without a surface behavior
+        // and a tied one without friction, in these words
         private static void EnsureDefined(SurfaceInteraction surfaceInteraction)
         {
             SurfaceBehavior surfaceBehavior = null;

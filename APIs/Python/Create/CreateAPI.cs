@@ -175,7 +175,7 @@ namespace APIs.Python
                    "Isotropic. Any value of a row may be an equation string.",
                    Arguments = "stress_strain: list[list[float]], hardening: str = None",
                    Returns = "MaterialProperty",
-                   Example = "pmx.create.plastic([[250, 0, 20]], hardening='Kinematic')")]
+                   Example = "pmx.create.plastic([[250, 0, 0], [300, 0.05, 0]], hardening='Kinematic')")]
         public MaterialPropertyAPI plastic(object stress_strain, object hardening = null)
         {
             string hardeningText = PythonValueConverter.ToText(hardening, "hardening", true);

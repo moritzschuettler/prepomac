@@ -622,10 +622,18 @@ try:
     options_draft.filter1 = None
     check(options_draft.filter1 is None, "the draft filter was not cleared")
     # The one call form takes the options of the draft, which is the form the session journal writes
-    options_output = history_outputs.add_from_field(FROM_FIELD_OPTIONS_NAME, "DISP", [disp_component],
+    # The field and its components are found in any case and stored in the spelling of the result
+    options_output = history_outputs.add_from_field(FROM_FIELD_OPTIONS_NAME, "disp", [disp_component.lower()],
                                                     node_selection, step_id=step.id, increment_id=increment.id,
                                                     output_node_coordinates="deformed")
     created_names.append(FROM_FIELD_OPTIONS_NAME)
+    check(options_output.field_name == "DISP" and list(options_output.component_names) == [disp_component],
+          "the source field was stored as %s %s" % (options_output.field_name,
+                                                    list(options_output.component_names)))
+    check_raises(lambda: history_outputs.add_from_field(FROM_FIELD_OPTIONS_NAME + "_bad", "DISP",
+                                                        [disp_component, disp_component.lower()],
+                                                        node_selection),
+                 "a component named twice was accepted")
     check(options_output.step_id == step.id and options_output.increment_id == increment.id and
           options_output.output_node_coordinates == "Deformed",
           "add_from_field() did not apply its options: %s, %s, %s" % (options_output.step_id,
@@ -662,6 +670,17 @@ try:
     check(message is not None and "'complex_angle_deg'" in message,
           "a draft with an angle its complex result type does not use was added: " + str(message))
     check(not history_outputs.contains(FROM_FIELD_OPTIONS_NAME + "_bad"), "a refused From Field output was added")
+    # The angle reads None outside RealAtAngle, on the draft as on the output, and None goes back in as the
+    # unused angle
+    check(angle_draft.complex_angle_deg is None and options_output.complex_angle_deg is None,
+          "an angle outside RealAtAngle must read None: %s, %s" % (angle_draft.complex_angle_deg,
+                                                                   options_output.complex_angle_deg))
+    angle_draft.complex_angle_deg = options_output.complex_angle_deg
+    angle_draft.complex_result_type = "RealAtAngle"
+    check(angle_draft.complex_angle_deg == 0, "None did not set the unused angle: %s" % angle_draft.complex_angle_deg)
+    angle_draft.complex_angle_deg = 45
+    check(angle_draft.complex_angle_deg == 45, "the angle at RealAtAngle did not read back: %s"
+          % angle_draft.complex_angle_deg)
     # A result replace re-specifies the whole definition, so an option it is not given returns to its default
     options_output = history_outputs.replace_from_field(FROM_FIELD_OPTIONS_NAME, FROM_FIELD_OPTIONS_NAME, "DISP",
                                                         [disp_component], node_selection, step_id=step.id)

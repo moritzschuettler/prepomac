@@ -45,7 +45,9 @@ namespace APIs.Python.Model
 
         [PythonAPI("Replaces an existing surface interaction using command history. A value that is not " +
                    "given keeps the value the surface interaction already carries; the properties, when " +
-                   "given, replace the whole property list and are refused as on add.",
+                   "given, replace the whole property list and are refused as on add. Every replace refuses an " +
+                   "interaction left without a surface behavior, or a tied one without friction, as the " +
+                   "dialog does on OK.",
                    Arguments = "old_name: str, name: str = None, properties: SurfaceInteractionProperty or " +
                                "list[SurfaceInteractionProperty] = None", Returns = "SurfaceInteraction")]
         public SurfaceInteractionAPI replace(object old_name, object name = null, object properties = null)

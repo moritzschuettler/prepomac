@@ -102,6 +102,8 @@ namespace APIs.Python.Model
         }
         public void Duplicate(string[] names)
         {
+            foreach (string name in names) RefuseInternal(GetElementSet(name), "element set", "duplicated");
+            //
             EnsureCommandsAvailable();
             ModelGateway.DuplicateElementSets(names);
         }
@@ -122,6 +124,9 @@ namespace APIs.Python.Model
         }
         public void ConvertToMeshParts(string[] names)
         {
+            foreach (string name in names)
+                RefuseInternal(GetElementSet(name), "element set", "converted to mesh parts");
+            //
             EnsureCommandsAvailable();
             ModelGateway.ConvertElementSetsToMeshParts(names);
         }

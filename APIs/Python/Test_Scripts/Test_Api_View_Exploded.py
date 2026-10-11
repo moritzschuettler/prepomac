@@ -129,6 +129,12 @@ def test_refusals():
                  "the CenterPoint method without a center must be refused")
     check_raises(lambda: pmx.view.apply_exploded_view(1, "CenterPoint", 2, center=[0, 0]),
                  "a center without 3 coordinates must be refused")
+    for value in [float("nan"), float("inf")]:
+        try:
+            pmx.view.apply_exploded_view(1, "CenterPoint", 2, center=[0, value, 0])
+            raise Exception("TEST FAILED: a center with " + str(value) + " must be refused")
+        except Exception as ex:
+            check("'center'" in str(ex), "a non-finite center must be refused naming the argument: " + str(ex))
     check_raises(lambda: pmx.view.apply_exploded_view(1, axes="W"), "unknown axes must be refused")
     check_raises(lambda: pmx.view.apply_exploded_view(1, direction="XY"), "direction was renamed to axes")
     check_raises(lambda: pmx.view.apply_exploded_view(1, tolerance=-1), "a negative tolerance must be refused")

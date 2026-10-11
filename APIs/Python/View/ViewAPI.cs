@@ -131,14 +131,15 @@ namespace APIs.Python
         {
             return PythonListConverter.ToPythonList(Resolve().GetViewParameters());
         }
-        [PythonAPI("Sets the camera from the 10 values get_parameters returns.",
+        [PythonAPI("Sets the camera from the 10 values get_parameters returns. A NaN or an infinity is " +
+                   "refused.",
                    Arguments = "parameters: list[float]", Returns = "None",
                    Example = "camera = pmx.view.get_parameters()\n" +
                              "pmx.view.set_orientation('Top')\n" +
                              "pmx.view.set_parameters(camera)")]
         public void set_parameters(object parameters)
         {
-            double[] values = PythonDoubleListConverter.ToDoubleArray(parameters, "parameters");
+            double[] values = PythonDoubleListConverter.ToFiniteDoubleArray(parameters, "parameters");
             if (values == null || values.Length != 10)
                 throw new PythonAPIException("The argument 'parameters' must contain the 10 values " +
                                              "get_parameters returns.");
@@ -340,7 +341,7 @@ namespace APIs.Python
             double[] centerPoint = null;
             if (center != null)
             {
-                centerPoint = PythonDoubleListConverter.ToDoubleArray(center, "center");
+                centerPoint = PythonDoubleListConverter.ToFiniteDoubleArray(center, "center");
                 if (centerPoint == null || centerPoint.Length != 3)
                     throw new PythonAPIException("The argument 'center' must contain 3 coordinates.");
             }

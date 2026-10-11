@@ -341,6 +341,7 @@ namespace APIs.Python.Model
             }
             if (item == null)
                 throw new PythonAPIException("The " + region + " '" + regionName + "' does not exist.");
+            RefuseInternalArgument(item, region == RegionTypeEnum.NodeSetName ? "node set" : "surface", "region_name");
             //
             return item.Name;
         }

@@ -266,7 +266,8 @@ def solve(endpoint):
     """The analysis, started without waiting and polled the way an agent has to poll it."""
     endpoint.python("pmx.jobs.add('" + JOB + "')")
     started = time.time()
-    answer = endpoint.json_tool("run_job", {"name": JOB})
+    # A job is found regardless of case, and the answer names it as it is stored
+    answer = endpoint.json_tool("run_job", {"name": JOB.lower()})
     result = answer["run"]
     check(not result["failed"], "the analysis could not be started: " + result["error"])
     check(answer["name"] == JOB and answer["status"] != "", "run_job did not report the status: " + str(answer))

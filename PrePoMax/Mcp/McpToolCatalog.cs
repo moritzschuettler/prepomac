@@ -416,9 +416,9 @@ namespace PrePoMax.Mcp
             if (name == "run_job")
             {
                 string jobName = RequireString(arguments, "name");
-                string source = "print(pmx.jobs[" + Quote(jobName) + "].run(wait=False))";
-                return Shape(dispatcher, Invoke(dispatcher, "exec", ExecArguments(source)),
-                             delegate (string answer) { return GetRunJobAnswer(jobName, answer); });
+                string job = "pmx.jobs[" + Quote(jobName) + "]";
+                string source = "print(" + job + ".name)\nprint(" + job + ".run(wait=False))";
+                return Shape(dispatcher, Invoke(dispatcher, "exec", ExecArguments(source)), GetRunJobAnswer);
             }
             if (name == "get_job")
             {
@@ -463,18 +463,24 @@ namespace PrePoMax.Mcp
             }
             throw new McpException("There is no tool named " + name + ".");
         }
-        // The status the run started with, beside the answer of the call that started it
-        private static string GetRunJobAnswer(string jobName, string answer)
+        // The status the run started with, beside the answer of the call that started it. The script prints the
+        // name the job is stored under first, because a job is found regardless of case and the caller's spelling
+        // is not the job's
+        private static string GetRunJobAnswer(string answer)
         {
             if (IsFailed(answer)) throw new McpException(answer);
             object document;
             string error;
             if (!JsonReader.TryParse(answer, out document, out error)) return answer;
             //
+            string output = JsonReader.GetString(document, "output", "").Replace("\r\n", "\n").Trim();
+            int nameEnd = output.IndexOf('\n');
+            string storedJobName = nameEnd < 0 ? output : output.Substring(0, nameEnd).Trim();
+            string status = nameEnd < 0 ? "" : output.Substring(nameEnd + 1).Trim();
             JsonWriter writer = new JsonWriter();
             writer.BeginObject();
-            writer.WriteValue("name", jobName);
-            writer.WriteValue("status", JsonReader.GetString(document, "output", "").Trim());
+            writer.WriteValue("name", storedJobName);
+            writer.WriteValue("status", status);
             writer.WriteRawValue("run", answer);
             writer.EndObject();
             return writer.ToString();

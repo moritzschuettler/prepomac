@@ -155,30 +155,40 @@ namespace APIs.Python.Model
             }
         }
         // A material that is not temperature dependent writes no temperature column, and of every property but
-        // plastic only the first row, so a table the analysis would cut short is refused
+        // plastic only the first row, so a table the analysis would cut short is refused. Plastic writes every
+        // row as one curve, so a temperature would merge the curves of several temperatures into one
         private static void CheckRowsAreUsed(Material material)
         {
             if (material.TemperatureDependent) return;
             //
             foreach (MaterialProperty property in material.Properties)
             {
+                string propertyType = MaterialPropertyAPI.GetPropertyType(property);
+                if (property is Plastic plastic)
+                {
+                    foreach (EquationContainer[] plasticRow in plastic.StressStrainTemp)
+                        CheckTemperatureIsZero(plasticRow, propertyType);
+                    continue;
+                }
                 EquationContainer[][] table = GetSingleValuedTable(property);
                 if (table == null) continue;
                 //
-                string propertyType = MaterialPropertyAPI.GetPropertyType(property);
                 if (table.Length > 1)
                     throw new PythonAPIException("The " + propertyType + " property has " + table.Length + " rows, " +
                                                  "but a material that is not temperature dependent uses only the " +
                                                  "first one. Give temperature_dependent=True, or a single row.");
-                EquationContainer[] row = table[0];
-                double temperature = row.Length == 0 ? 0 : row[row.Length - 1].Value;
-                if (temperature != 0)
-                    throw new PythonAPIException("The " + propertyType + " property has the temperature " +
-                                                 temperature.ToString(CultureInfo.InvariantCulture) + ", but a " +
-                                                 "material that is not temperature dependent writes no " +
-                                                 "temperature. Give temperature_dependent=True, or a temperature " +
-                                                 "of 0.");
+                CheckTemperatureIsZero(table[0], propertyType);
             }
+        }
+        private static void CheckTemperatureIsZero(EquationContainer[] row, string propertyType)
+        {
+            double temperature = row.Length == 0 ? 0 : row[row.Length - 1].Value;
+            if (temperature != 0)
+                throw new PythonAPIException("The " + propertyType + " property has the temperature " +
+                                             temperature.ToString(CultureInfo.InvariantCulture) + ", but a " +
+                                             "material that is not temperature dependent writes no " +
+                                             "temperature. Give temperature_dependent=True, or a temperature " +
+                                             "of 0.");
         }
         private static EquationContainer[][] GetSingleValuedTable(MaterialProperty property)
         {

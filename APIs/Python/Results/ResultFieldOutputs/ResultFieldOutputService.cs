@@ -168,22 +168,20 @@ namespace APIs.Python
             EnsureCommandsAvailable();
             _commandGateway.DuplicateResultFieldOutputs(storedNames);
         }
-        // A result field output is keyed regardless of case, while a field read from the result file is keyed
-        // by its exact name
+        // A field output and a field read from the result file are found regardless of case
         public void RemoveFieldOutputs(string resultName, object fieldOutputNames)
         {
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(fieldOutputNames, "names");
             ValidateStringList(names, "names");
+            PythonNameComparer.RefuseRepeated(names, "names");
             FeResults result = ResolveCurrentResult(resultName);
-            string[] existingFieldNames = result.GetAllFieldNames();
             string[] storedNames = new string[names.Length];
             for (int i = 0; i < names.Length; i++)
             {
-                if (result.ContainsResultFieldOutput(names[i]))
-                    storedNames[i] = result.GetResultFieldOutput(names[i]).Name;
-                else if (existingFieldNames.Contains(names[i])) storedNames[i] = names[i];
-                else throw new PythonAPIException("The result field output '" + names[i] +
-                                                  "' does not exist in result '" + resultName + "'.");
+                storedNames[i] = ResultFieldNameResolver.GetStoredFieldName(result, names[i]);
+                if (storedNames[i] == null)
+                    throw new PythonAPIException("The result field output '" + names[i] +
+                                                 "' does not exist in result '" + resultName + "'.");
             }
             //
             EnsureCommandsAvailable();
@@ -194,18 +192,21 @@ namespace APIs.Python
             ValidateRequiredString(fieldOutputName, "field_output_name");
             string[] names = PythonStringListConverter.ToStringArray(componentNames, "component_names");
             ValidateStringList(names, "component_names");
+            PythonNameComparer.RefuseRepeated(names, "component_names");
             FeResults result = ResolveCurrentResult(resultName);
             string storedFieldOutputName = ResolveStoredFieldName(result, resultName, fieldOutputName);
-            string[] existingComponentNames = result.GetFieldComponentNames(storedFieldOutputName);
-            foreach (string name in names)
+            string[] storedComponentNames = new string[names.Length];
+            for (int i = 0; i < names.Length; i++)
             {
-                if (existingComponentNames == null || !existingComponentNames.Contains(name))
-                    throw new PythonAPIException("The component '" + name + "' does not exist in field output '" +
+                storedComponentNames[i] = ResultFieldNameResolver.GetStoredComponentName(result, storedFieldOutputName,
+                                                                                         names[i]);
+                if (storedComponentNames[i] == null)
+                    throw new PythonAPIException("The component '" + names[i] + "' does not exist in field output '" +
                                                  fieldOutputName + "'.");
             }
             //
             EnsureCommandsAvailable();
-            _commandGateway.RemoveResultFieldOutputComponents(storedFieldOutputName, names);
+            _commandGateway.RemoveResultFieldOutputComponents(storedFieldOutputName, storedComponentNames);
         }
         public void ExportFieldOutputToCsv(string resultName, string fileName, string fieldOutputName,
                                            int stepId, int incrementId)
@@ -266,7 +267,10 @@ namespace APIs.Python
         private static void ValidateLimit(FeResults result, ResultFieldOutputLimit limit)
         {
             ValidateDefinition(limit.Name, limit.FieldName, limit.ComponentName, limit.ItemNameLimit);
-            limit.FieldName = ValidateSourceFieldComponent(result, limit.FieldName, limit.ComponentName);
+            string storedLimitComponentName;
+            limit.FieldName = ValidateSourceFieldComponent(result, limit.FieldName, limit.ComponentName,
+                                                           out storedLimitComponentName);
+            limit.ComponentName = storedLimitComponentName;
             if (result.Mesh == null) throw new PythonAPIException("The result does not contain a mesh.");
             // The mesh finds a part or an element set regardless of case, while the result checks the limit keys
             // against its own spelling, so every key is stored as the mesh spells it
@@ -312,7 +316,10 @@ namespace APIs.Python
         {
             ValidateRequiredString(envelope.FieldName, "field_name");
             ValidateRequiredString(envelope.ComponentName, "component_name");
-            envelope.FieldName = ValidateSourceFieldComponent(result, envelope.FieldName, envelope.ComponentName);
+            string storedEnvelopeComponentName;
+            envelope.FieldName = ValidateSourceFieldComponent(result, envelope.FieldName, envelope.ComponentName,
+                                                              out storedEnvelopeComponentName);
+            envelope.ComponentName = storedEnvelopeComponentName;
         }
         private static void ValidateEquation(FeResults result, ResultFieldOutputEquation equation)
         {
@@ -343,20 +350,22 @@ namespace APIs.Python
                 throw new PythonAPIException("The field output '" + transform.FieldName +
                                              "' does not contain all required components.");
         }
-        // Both return the source field in its stored spelling
-        private static string ValidateSourceFieldComponent(FeResults result, string fieldName, string componentName)
+        // Both return the source field, and the first its component, in the spelling of the result
+        private static string ValidateSourceFieldComponent(FeResults result, string fieldName, string componentName,
+                                                           out string storedComponentName)
         {
             string storedFieldName = ValidateSourceField(result, fieldName);
-            string[] componentNames = result.GetFieldComponentNames(storedFieldName);
-            if (componentNames == null || !componentNames.Contains(componentName))
+            storedComponentName = ResultFieldNameResolver.GetStoredComponentName(result, storedFieldName,
+                                                                                 componentName);
+            if (storedComponentName == null)
                 throw new PythonAPIException("The component '" + componentName +
                                              "' does not exist in field '" + storedFieldName + "'.");
             return storedFieldName;
         }
         private static string ValidateSourceField(FeResults result, string fieldName)
         {
-            if (result.ContainsResultFieldOutput(fieldName)) return result.GetResultFieldOutput(fieldName).Name;
-            if (result.GetAllFieldNames().Contains(fieldName)) return fieldName;
+            string storedFieldName = ResultFieldNameResolver.GetStoredFieldName(result, fieldName);
+            if (storedFieldName != null) return storedFieldName;
             //
             throw new PythonAPIException("The source field '" + fieldName + "' does not exist in the result.");
         }
@@ -407,12 +416,11 @@ namespace APIs.Python
                                              "Get pmx.results.current again before modifying field outputs.");
             return result;
         }
-        // A result field output is keyed regardless of case, while a field read from the result file is keyed
-        // by its exact name
+        // A field output and a field read from the result file are found regardless of case
         private static string ResolveStoredFieldName(FeResults result, string resultName, string fieldName)
         {
-            if (result.ContainsResultFieldOutput(fieldName)) return result.GetResultFieldOutput(fieldName).Name;
-            if (result.GetAllFieldNames().Contains(fieldName)) return fieldName;
+            string storedFieldName = ResultFieldNameResolver.GetStoredFieldName(result, fieldName);
+            if (storedFieldName != null) return storedFieldName;
             //
             throw new PythonAPIException("The result field output '" + fieldName + "' does not exist in result '" +
                                          resultName + "'.");

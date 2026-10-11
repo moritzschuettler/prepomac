@@ -36,11 +36,48 @@ namespace APIs.Python.Model
         }
         public void CreateCompound(string[] partNames)
         {
+            if (partNames.Length < 2)
+                throw new PythonAPIException("The argument 'part_names' must name at least two parts, which is what " +
+                                             "a compound part is made from.");
+            FeMesh geometry = ResolveMesh();
+            HashSet<PartType> stlPartTypes = new HashSet<PartType>();
+            HashSet<PartType> cadPartTypes = new HashSet<PartType>();
+            foreach (string partName in geometry.GetMeshablePartNames(partNames))
+            {
+                GeometryPart part = GetPart(partName) as GeometryPart;
+                if (part == null)
+                    throw new PythonAPIException("The argument 'part_names' names the part '" + partName + "', which " +
+                                                 "is not a geometry part.");
+                if (part.IsCADPart) cadPartTypes.Add(part.PartType);
+                else stlPartTypes.Add(part.PartType);
+            }
+            if (stlPartTypes.Count + cadPartTypes.Count != 1)
+                throw new PythonAPIException("Compound part can be made from only CAD or only stl based geometry " +
+                                             "parts of the same type. Give 'part_names' of one kind.");
+            //
             EnsureCommandsAvailable();
             MeshGateway.CreateAndImportCompoundPart(partNames);
         }
         public void RegenerateCompound(string[] partNames)
         {
+            foreach (string partName in partNames)
+            {
+                CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
+                if (compoundPart == null)
+                    throw new PythonAPIException("The argument 'part_names' names the part '" + partName + "', " +
+                                                 "which is not a compound part.");
+                if (compoundPart.CreatedFromPartNames == null || compoundPart.CreatedFromPartNames.Length <= 1)
+                    continue;
+                //
+                foreach (string createdFromPartName in compoundPart.CreatedFromPartNames)
+                {
+                    if (GetPart(createdFromPartName) == null)
+                        throw new PythonAPIException("The part '" + createdFromPartName + "' that was used to " +
+                                                     "create a compound part '" + partName + "' is missing. " +
+                                                     "Leave the compound out of 'part_names'.");
+                }
+            }
+            //
             EnsureCommandsAvailable();
             MeshGateway.RegenerateCompoundParts(partNames);
         }
@@ -51,13 +88,40 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             MeshGateway.SwapPartGeometries(storedPartName1, storedPartName2);
         }
+        // The two conversions and the normal flip list only the parts they apply to, so any other part is refused
         public void ConvertShellToSolid(string[] partNames)
         {
+            foreach (string partName in partNames)
+            {
+                GeometryPart part = ResolvePart(partName) as GeometryPart;
+                if (part == null || !part.IsCADPart || part.PartType != PartType.Shell)
+                    throw new PythonAPIException("The argument 'part_names' names the part '" + partName + "', " +
+                                                 "which is not a CAD shell part. Only a CAD shell part can be " +
+                                                 "converted to a solid part.");
+            }
+            //
             EnsureCommandsAvailable();
             MeshGateway.ConvertShellToSolid(partNames);
         }
         public void ConvertSolidToShell(string[] partNames)
         {
+            HashSet<string> subPartNames = new HashSet<string>();
+            foreach (BasePart basePart in ResolveMesh().Parts.Values)
+            {
+                if (basePart is CompoundGeometryPart compoundPart) subPartNames.UnionWith(compoundPart.SubPartNames);
+            }
+            foreach (string partName in partNames)
+            {
+                GeometryPart part = ResolvePart(partName) as GeometryPart;
+                bool solid = part is CompoundGeometryPart ||
+                             (part != null && part.IsCADPart &&
+                              (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell));
+                if (!solid || subPartNames.Contains(partName))
+                    throw new PythonAPIException("The argument 'part_names' names the part '" + partName + "', " +
+                                                 "which is not a CAD solid part or a compound part. Only those can " +
+                                                 "be converted to a shell part.");
+            }
+            //
             EnsureCommandsAvailable();
             MeshGateway.ConvertSolidToShell(partNames);
         }
@@ -292,6 +356,15 @@ namespace APIs.Python.Model
         }
         public void FlipStlNormals(string[] partNames)
         {
+            foreach (string partName in partNames)
+            {
+                GeometryPart part = ResolvePart(partName) as GeometryPart;
+                if (part == null || part.IsCADPart)
+                    throw new PythonAPIException("The argument 'part_names' names the part '" + partName + "', " +
+                                                 "which is not an STL part. Only the normals of an STL part can be " +
+                                                 "flipped.");
+            }
+            //
             EnsureCommandsAvailable();
             MeshGateway.FlipStlPartSurfacesNormal(partNames);
         }

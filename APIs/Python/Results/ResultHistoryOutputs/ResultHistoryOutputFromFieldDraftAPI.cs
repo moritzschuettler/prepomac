@@ -43,11 +43,20 @@ namespace APIs.Python
             }
         }
         [PythonAPI("The complex result angle in degrees, used only with complex_result_type RealAtAngle, so " +
-                   "a nonzero angle is refused otherwise when the draft is added.", Returns = "float")]
+                   "a nonzero angle is refused otherwise when the draft is added. It reads None when " +
+                   "complex_result_type is not RealAtAngle, as the history output does, and None sets it to 0, " +
+                   "the angle that is not used.", Returns = "float or None")]
         public object complex_angle_deg
         {
-            get { return _complexAngleDeg; }
-            set { _complexAngleDeg = PythonValueConverter.ToFiniteDouble(value, "complex_angle_deg"); }
+            get
+            {
+                if (_complexResultType != ComplexResultTypeEnum.RealAtAngle) return null;
+                return _complexAngleDeg;
+            }
+            set
+            {
+                _complexAngleDeg = value == null ? 0 : PythonValueConverter.ToFiniteDouble(value, "complex_angle_deg");
+            }
         }
         [PythonAPI("The result step ID, or None for all steps.", Returns = "int or None")]
         public object step_id

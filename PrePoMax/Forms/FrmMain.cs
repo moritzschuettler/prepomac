@@ -2105,7 +2105,8 @@ namespace PrePoMax
         private void WriteSessionJournal(List<PrePoMax.Commands.Command> commands, string fileName, string source)
         {
             PythonJournalReport report = PythonJournalExporter.Export(commands, fileName, source,
-                                                                      _controller.Settings.General.NumOfSplitFaces);
+                                                                      _controller.Settings.General.NumOfSplitFaces,
+                                                                      _controller.Settings.GetWorkDirectory());
             //
             WriteDataToOutput(report.GetSummary());
             foreach (string refusal in report.Refusals) WriteDataToOutput("   Not emitted: " + refusal);

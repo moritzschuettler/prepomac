@@ -40,7 +40,7 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Creates a surface from an existing node set using command history. The surface_type " +
-                   "is taken as add takes it.",
+                   "is taken as add takes it. An internal node set, which the dialog does not list, is refused.",
                    Arguments = "name: str, node_set_name: str, surface_type: str = None", Returns = "Surface")]
         public SurfaceAPI add_from_node_set(object name, object node_set_name, object surface_type = null)
         {

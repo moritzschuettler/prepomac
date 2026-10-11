@@ -245,6 +245,7 @@
     <Compile Include="Python\Results\Fields\ResultStepsAPI.cs" />
     <Compile Include="Python\Results\ResultAPI.cs" />
     <Compile Include="Python\Results\ResultDataService.cs" />
+    <Compile Include="Python\Results\ResultFieldNameResolver.cs" />
     <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputAPI.cs" />
     <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputCoordinateSystemTransformAPI.cs" />
     <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputCoordinateSystemTransformDraftAPI.cs" />

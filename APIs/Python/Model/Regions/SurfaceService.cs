@@ -108,6 +108,8 @@ namespace APIs.Python.Model
         }
         public void Duplicate(string[] names)
         {
+            foreach (string name in names) RefuseInternal(GetSurface(name), "surface", "duplicated");
+            //
             EnsureCommandsAvailable();
             ModelGateway.DuplicateSurfaces(names);
         }
@@ -159,6 +161,7 @@ namespace APIs.Python.Model
             FeNodeSet nodeSet = null;
             if (mesh == null || !mesh.NodeSets.TryGetValue(nodeSetName, out nodeSet))
                 throw new PythonAPIException("The node set '" + nodeSetName + "' does not exist.");
+            RefuseInternalArgument(nodeSet, "node set", "node_set_name");
             // The controller follows a renamed node set by comparing names exactly, so the surface stores the
             // model's own spelling rather than the caller's
             FeSurface surface = new FeSurface(name, nodeSet.Name);

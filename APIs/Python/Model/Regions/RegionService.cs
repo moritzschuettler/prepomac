@@ -81,6 +81,15 @@ namespace APIs.Python.Model
                                          "belongs to the model item that made it from a selection, so it cannot " +
                                          "be " + action + ". Change the region of that item instead.");
         }
+        protected static void RefuseInternalArgument(NamedClass region, string regionDescription, string argumentName)
+        {
+            if (region == null || !region.Internal) return;
+            //
+            throw new PythonAPIException("The argument '" + argumentName + "' names the " + regionDescription + " '" +
+                                         region.Name + "', which is internal: it belongs to the model item that " +
+                                         "made it from a selection, and the dialog does not offer it. Give a " +
+                                         regionDescription + " the model tree shows.");
+        }
         protected void EnsureCommandsAvailable()
         {
             if (_modelGateway == null)

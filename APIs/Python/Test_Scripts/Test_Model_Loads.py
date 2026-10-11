@@ -114,8 +114,15 @@ def test_concentrated():
     load = loads.replace_concentrated_force(PREFIX + "F", f1=250)
     check(load.get_value("f1") == 250, "f1 was not replaced")
     check(load.get_value("f3") == -1000, "f3 must survive a replace")
+    # The node set the force made from its selection is internal, so no other item may name it
+    internal_region = pmx.create.region('NodeSetName', load.region_name)
+    message = raised_message(lambda: loads.add_moment(PREFIX + "M", internal_region, m2=5.5))
+    check(message is not None and "internal" in message and "'region'" in message,
+          "an internal node set must be refused as a region: " + str(message))
+    check(not loads.contains(PREFIX + "M"), "a load with an internal region must not be recorded")
     # A named region is accepted where a selection is
-    load = loads.add_moment(PREFIX + "M", pmx.create.region('NodeSetName', load.region_name), m2=5.5)
+    node_set = pmx.model.node_sets.add(PREFIX + "Moment_Nodes", node_selection([1, 2]))
+    load = loads.add_moment(PREFIX + "M", pmx.create.region('NodeSetName', node_set.name), m2=5.5)
     check(load.get_value("m2") == 5.5, "m2 was not set")
     check(load.region_type == "NodeSetName", "unexpected region type " + load.region_type)
     # A named region the load dialog does not offer is refused before anything is recorded: a concentrated

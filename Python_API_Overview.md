@@ -736,7 +736,7 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | `model_space` | `ThreeD`, `PlaneStress`, `PlaneStrain` or `Axisymmetric`. Writable; `Undefined` and `None` are refused. Assigning it sets the model space of a new model, as the new model dialog does, and leaves the element types as they are, so once the model has a geometry or a mesh a defined model space is changed by `replace(model_space=...)`, which updates them. |
 | `unit_system` | `M_KG_S_C`, `MM_TON_S_C`, `M_TON_S_C`, `IN_LB_S_F` or `UNIT_LESS`. Writable; `Undefined` and `None` are refused. |
 | `model_type` | `GeneralModel`, `Submodel` or `SlipWearModel`. Writable. A `Submodel` needs an existing global results file and a `SlipWearModel` cycles its increment divides, so a change to one of them is made by `replace(...)` together with those values. |
-| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable on a `Submodel`; as the dialog does, it takes a file name without path, with no space, `:`, `\`, `/` or non UTF-8 character, and the file must exist in the work directory, so it cannot be cleared. Another model type reads it as `None`. |
+| `global_results_file_name` | The results file a submodel reads its boundary values from. Writable on a `Submodel`; as the dialog does, it takes a file name without path, with no space, `:`, `\`, `/` or non UTF-8 character, and the file must exist in the work directory, so it cannot be cleared. Another model type reads it as `None`. Regenerate with file dialogs and a batch regeneration store a full path: one in the work directory reads as its bare file name, which goes back into the setter, and one anywhere else reads as the full path, which no setter takes and the journal reports as not emitted. |
 | `slip_wear_results` | Which results a slip wear model keeps. Writable on a `SlipWearModel`; another model type reads it as `None`. |
 | `number_of_cycles`, `cycles_increment`, `number_of_smoothing_steps` | The slip wear model values as whole numbers (`int`), evaluated from the value or equation they were entered with. Writable on a `SlipWearModel` with an `int` or a `str` equation, as `replace(...)` takes them, and `get_equations()` returns the equation. Another model type reads them as `None`. |
 | `get_equations()` | The expressions those three values were entered with, without evaluating them, as a `dict[str, str]`, on a `SlipWearModel`; another model type returns an empty `dict`. Only a value entered as an expression is returned, with its leading `=`; a value entered as a plain number is left out, and the property of the same name returns it. |
@@ -867,7 +867,7 @@ rejects a setup item without creation data. The target follows the item type, as
 | `add_local_mesh_size(name, selection, element_size=None, number_of_elements=None)` | A local mesh size. Exactly one of the two values is given. |
 | `add_shell_mmg(name, selection, ...)` | An MMG shell mesh item. It selects MMG for STL shell parts and defines its geometry approximation. |
 | `add_thicken_shell_mesh(name, selection, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens a shell mesh. |
-| `add_netgen_mesh(name, selection, number_of_optimize_steps_2d=None, number_of_optimize_steps_3d=None, quad_dominated=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone. It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
+| `add_netgen_mesh(name, selection, number_of_optimize_steps_2d=None, number_of_optimize_steps_3d=None, quad_dominated=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone, and it structures the 3-sided and 4-sided faces by default (`transfinite_three_sided='Mapped'`, `transfinite_four_sided=True`). It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
 | `add_tetrahedral_gmsh(name, selection, ...)` | A Gmsh tetrahedral mesh item. |
 | `add_shell_gmsh(name, selection, ...)` | A Gmsh shell mesh item. |
 | `add_transfinite_mesh(name, selection, allow_pyramid_elements=False, ...)` | A Gmsh transfinite mesh item. |
@@ -898,16 +898,18 @@ factors are used only with `relative_size=True`, so with `False` they are refuse
 on the switch the item ends up with, the one given or the one it keeps - and left out of `get_settings`; they keep
 their values for a later switch back. `midside_nodes_on_geometry` is used only for second order elements, and the
 dialog shows it only then, so it is refused with `second_order=False` - the one given or the one the item keeps - and
-left out of `get_settings` and the journal. The Netgen fineness is written for no mesher and the dialog does not
-show it, so the API does not take it.
+left out of `get_settings` and the journal. The Netgen fineness is written to the Netgen parameter file, but nglib
+ignores it and the dialog does not show it, so the API does not take it.
 `merge_cells`, `True` by default, meshes each part a split cut as one mesh part; `False` keeps its
 cells as separate, conforming mesh parts, so they can carry different sections. The Netgen settings
 `number_of_optimize_steps_2d`, `number_of_optimize_steps_3d`, `quad_dominated`, `transfinite_three_sided`,
 `transfinite_four_sided` and `transfinite_angle_deg` belong to `add_netgen_mesh`. `transfinite_three_sided`
 (`Mapped` by default, `Polar` or `No`) and `transfinite_four_sided` (on by default) mesh the 3-sided and the
 4-sided faces every mesher structures as structured grids - a 3-sided face as three blocks of quads around one
-inner node, or with `Polar` the grid collapsed at one corner with triangles there - with quads when `quad_dominated` is set and triangles otherwise. Opposite sides are balanced to the coarser count, a number of elements set on an
-edge as a number is kept (one an element size gives is not), and the meshing is refused when the set numbers cannot
+inner node, or with `Polar` the grid collapsed at one corner with triangles there - with quads when `quad_dominated` is set and triangles otherwise. Opposite sides are balanced to the coarser count where the counts are close: an edge
+that borders a face meshed free keeps at least 0.8 of the count its mesh size asks for, and the sides it is
+balanced with are raised to it instead. A number of elements set on an edge as a number is kept (one an element
+size gives is not) - the lowest counts give way to it - and the meshing is refused when the set numbers cannot
 agree. A compound is structured on the faces of its solids; a face two solids share is one face. An item read from
 a file written before a setting existed has it off.
 Like the dialog, it derives `max_size` and `min_size` from the size of the selected parts, and the
@@ -1051,6 +1053,12 @@ selection built in the `geometry` view, with the `geometry` target except for th
 operations - `defeature`, `offset_face`, `flip_face_orientations`, `delete_cad_faces`, `fuse_faces` and
 `delete_stl_faces` - take either `geometry` or `geometry_surfaces`, the target their dialogs pick and the journal
 writes.
+
+The part operations take only the parts their menus list, and refuse any other part naming it and `part_names`:
+`add_compound` needs at least two parts, all of them CAD or all of them STL parts of one part type, a compound
+standing for its sub-parts; `regenerate_compound` takes compound parts, and refuses one a part it was made from is
+missing for; `convert_shell_to_solid` takes CAD shell parts, `convert_solid_to_shell` CAD solid parts and compound
+parts but not their sub-parts, and `flip_stl_normals` STL parts.
 
 Each of `defeature`, `flip_face_orientations`, `delete_cad_faces` and `delete_stl_faces` reports what
 it did to every part it was asked about, as a `dict[str, int]`, and a part it could not touch reports
@@ -1363,7 +1371,7 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 
 | Member | Description |
 | --- | --- |
-| `add(name, time_amplitude, time_span=None, shift_time=None, shift_amplitude=None)` | Adds a tabular amplitude. Every row is `[time, amplitude]`. `shift_time` and `shift_amplitude` move every time and every amplitude value by a fixed amount, as the dialog's Modify fields do; both are plain numbers and default to 0. |
+| `add(name, time_amplitude, time_span=None, shift_time=None, shift_amplitude=None)` | Adds a tabular amplitude. Every row is `[time, amplitude]`, and a NaN or an infinity in it is refused naming `time_amplitude`. `shift_time` and `shift_amplitude` move every time and every amplitude value by a fixed amount, as the dialog's Modify fields do; both are plain numbers and default to 0. |
 | `replace(old_name, name=None, time_amplitude=None, time_span=None, shift_time=None, shift_amplitude=None)` | Replaces an existing amplitude. Everything that is not given is kept, the shifts included. |
 
 `Amplitude` exposes `name`, `time_span`, `shift_time`, `shift_amplitude`, `row_count` and `get_time_amplitude()`.
@@ -1466,7 +1474,9 @@ once; a second one is refused naming `properties`.
 
 A material that is **not** temperature dependent writes no temperature and, of every property but `plastic`, only
 the first row. Such a property with more than one row, or with a non-zero temperature, is therefore refused with a
-message that names `temperature_dependent`, rather than written short. A replace checks the merged material when it
+message that names `temperature_dependent`, rather than written short. `plastic` writes all its rows as one curve, so
+any of its rows with a non-zero temperature is refused the same way, rather than merging the curves of several
+temperatures. A replace checks the merged material when it
 is given `properties` or `temperature_dependent`. A session journal writes a material that is not temperature
 dependent with the rows the analysis uses.
 
@@ -1538,8 +1548,10 @@ print(node_set.count, node_set.get_node_ids())
 | `get_center_of_gravity()` | The center of gravity as `[x, y, z]`, or an empty list when the node set has none. |
 
 An internal node set, element set or surface (`is_internal`) is the converted selection of the item that made it,
-and the model tree does not show it, so `replace`, `rename` and `remove` refuse it; change the region of that item
-instead.
+and the model tree does not show it, so `replace`, `rename`, `remove`, `duplicate` and
+`element_sets.convert_to_mesh_parts` refuse it; change the region of that item instead. No dialog lists it either, so
+`surfaces.add_from_node_set`, the reference point region methods and a `pmx.create.region` given to a model item
+refuse to name it, naming the argument.
 
 ### `ElementSets`
 
@@ -1829,7 +1841,7 @@ Reached as `pmx.model.surface_interactions`. A surface interaction is composed o
 | Member | Description |
 | --- | --- |
 | `add(name, properties)` | Adds a surface interaction. One property, or a list of them, each type at most once; a repeated type is refused naming `properties`. As the dialog does, the properties must hold a `surface_behavior` - otherwise `Surface interaction must define a surface behavior.` - and a `Tied` surface behavior also a `friction`, which gives the stick slope. |
-| `replace(old_name, name=None, properties=None)` | Replaces a surface interaction. A value that is not given is kept; `properties`, when given, replaces the whole property list and is refused as on `add`. |
+| `replace(old_name, name=None, properties=None)` | Replaces a surface interaction. A value that is not given is kept; `properties`, when given, replaces the whole property list and is refused as on `add`. Like the dialog's OK, every replace checks the result, so an interaction that would still lack a surface behavior, or a tied one its friction, is refused even when only `name` is given. |
 
 `SurfaceInteraction` exposes `name`, `property_count`, `get_properties()` and `get_property_types()`, which names every
 property after the `pmx.create` maker that makes it: `friction`, `gap_conductance` or `surface_behavior`.
@@ -2405,7 +2417,8 @@ when the region is created. Every model item that takes a `region` argument acce
 A selection based region does **not** read back as `Selection`. The application converts it into an
 internal node set, element set or surface when the item is added, so `region_type` reads back as
 `NodeSetName`, `ElementSetName` or `SurfaceName` either way, and `region_name` then names a set the
-user did not create.
+user did not create. No dialog offers such an internal set, so a `Region` that names one is refused naming the
+argument; give the selection instead.
 
 ## Analyses
 
@@ -2495,7 +2508,7 @@ moved the view should put it back itself rather than expecting replay to.
 | `get_orientation_names()` | The orientation names `set_orientation` accepts. |
 | `zoom_to_fit()` | Fits everything visible in the viewport. |
 | `get_parameters()` | The camera as a `list[float]` of 10 values: position, focal point and view up, three each, then the parallel scale. |
-| `set_parameters(parameters)` | Sets the camera from those 10 values. |
+| `set_parameters(parameters)` | Sets the camera from those 10 values. A NaN or an infinity among them is refused naming `parameters`. |
 | `rotate(azimuth_deg, elevation_deg=0, roll_deg=0)` | Turns the camera about the model by angles in degrees: `azimuth_deg` about the vertical axis of the view, `elevation_deg` about its horizontal axis, `roll_deg` about the viewing direction. |
 | `look_at(point, parallel_scale=None)` | Moves the camera so that it looks at a point in model coordinates, keeping the viewing direction and the view up. The parallel scale is half the viewport height in model units; one that is not given keeps the zoom. |
 | `set_result_field(field_name, component_name=None)` | Plots a field component of the current result. The component that is not given is the first one of the field. |
@@ -2507,7 +2520,7 @@ moved the view should put it back itself rather than expecting replay to.
 | `set_legend_range(min_value, max_value)` | Fixes the color legend range of the plotted field component, so pictures of different increments or models share one color scale. Kept per field component while the result is open, the way the legend settings keep it. Needs an open result in the results view. |
 | `reset_legend_range()` | Puts the legend of the plotted field component back to the automatic range. |
 | `save_image(file_name=None, transparent_background=False, magnification=1)` | Writes a PNG of the viewport and returns the path. A file name that is not given means a file in the temporary folder. A transparent background leaves out the background the viewport shows, so the picture can be put on a page of any color; the model, the legend and the labels keep their own colors. The magnification, 1 to 4, renders the picture that many times larger than the viewport, for one that is going to be printed - only the model is drawn larger, the legend, the scale bar and the triad keep the size they have on screen. |
-| `apply_exploded_view(scale_factor=0.5, method='Disassembly', magnification=2, axes='XYZ', step_by_step=None, tolerance=None, center=None)` | Pulls the parts of the displayed view apart, the way the exploded view dialog does. `method` is `Disassembly`, `AssemblyCenter` or `CenterPoint`, in any case, and `CenterPoint` needs `center`. The scale factor, 0 to 1, is the position of the dialog's slider; the magnification is 1 to 10 for `Disassembly`, 25 for `AssemblyCenter` and 1000 for `CenterPoint`. `axes` limits the movement to the coordinate axes `XYZ`, `X`, `Y`, `Z`, `XY`, `XZ` or `YZ`, in any case. A compound part moves as one body. `step_by_step`, off when not given, and `tolerance`, where 0 - the value when not given - means one thousandth of the assembly diagonal, are taken only by `Disassembly`, and `center` only by `CenterPoint`; another method refuses them rather than ignoring them. A value out of range is refused, not clamped. |
+| `apply_exploded_view(scale_factor=0.5, method='Disassembly', magnification=2, axes='XYZ', step_by_step=None, tolerance=None, center=None)` | Pulls the parts of the displayed view apart, the way the exploded view dialog does. `method` is `Disassembly`, `AssemblyCenter` or `CenterPoint`, in any case, and `CenterPoint` needs `center`. The scale factor, 0 to 1, is the position of the dialog's slider; the magnification is 1 to 10 for `Disassembly`, 25 for `AssemblyCenter` and 1000 for `CenterPoint`. `axes` limits the movement to the coordinate axes `XYZ`, `X`, `Y`, `Z`, `XY`, `XZ` or `YZ`, in any case. A compound part moves as one body. `step_by_step`, off when not given, and `tolerance`, where 0 - the value when not given - means one thousandth of the assembly diagonal, are taken only by `Disassembly`, and `center` only by `CenterPoint`; another method refuses them rather than ignoring them. A value out of range is refused, not clamped, and so is a NaN or an infinity, a coordinate of `center` included. |
 | `remove_exploded_view()` | Puts the parts of the displayed view back, the way the dialog's Disable button does. Nothing happens when no exploded view is applied. |
 | `exploded_view_active` | True when the displayed view is pulled apart by an exploded view. |
 | `annotations` | The arrow annotations of the displayed view, a `ViewAnnotations`. |
@@ -2834,7 +2847,7 @@ Collection of user-defined result field outputs. These are postprocessing defini
 
 The `name` of every draft is checked as a model item name is, when the draft is created: an empty name, one with leading or trailing spaces or with characters a name cannot hold is refused.
 
-`based_on` is required and must be `"Parts"`, `"ElementSets"`, or `"AllElements"` (in any case; it reads back in this spelling). `item_limits` must be a non-empty Python dictionary with finite, nonzero values. Its keys are part names, element-set names, or the single key `"All elements"` when `based_on="AllElements"`. Part and element-set names and the `"All elements"` key are matched regardless of case and stored as the result spells them, so `item_limits` reads back in that spelling; two keys that name the same item are refused. The source `field_name` of a limit, an envelope or a coordinate system transform, and the `coordinate_system_name` of a transform, are matched regardless of case as well and stored in the result's spelling, so a user-defined field output is found under any case.
+`based_on` is required and must be `"Parts"`, `"ElementSets"`, or `"AllElements"` (in any case; it reads back in this spelling). `item_limits` must be a non-empty Python dictionary with finite, nonzero values. Its keys are part names, element-set names, or the single key `"All elements"` when `based_on="AllElements"`. Part and element-set names and the `"All elements"` key are matched regardless of case and stored as the result spells them, so `item_limits` reads back in that spelling; two keys that name the same item are refused. The source `field_name` and `component_name` of a limit, an envelope or a coordinate system transform, and the `coordinate_system_name` of a transform, are matched regardless of case as well and stored in the result's spelling, so `field_name='disp'` finds the `DISP` read from the result file as it finds a user-defined field output; an exact spelling wins over one that differs only in case. The names `remove`, `remove_components` and `export_to_csv` take are matched the same way.
 
 Creation only produces a Python-side draft and does not call the controller or modify command history. Assign optional filters to the draft, then call `add(output)`. The complete draft is converted and validated before the postprocessing command is created. If the current result changes after a `Result` object was obtained, get `pmx.results.current` again before adding the draft.
 
@@ -3509,6 +3522,11 @@ is found first, and otherwise the one history output whose name differs from it 
 The `name` of every draft is checked as a model item name is, when the draft is created: an empty name, one with
 leading or trailing spaces or with characters a name cannot hold is refused.
 
+The `field_name` and `component_names` of a From Field or an integration output are matched regardless of case,
+for a field read from the result file as for a user-defined field output, and stored in the spelling of the
+result, so the output's `field_name` and `component_names` read back as the result spells them; an exact spelling
+wins over one that differs only in case, and a component named twice is refused.
+
 
 Creation examples:
 
@@ -3710,7 +3728,9 @@ also take the options of the From Field draft - `complex_result_type`, `complex_
 dialog shows `complex_result_type` only for a result with complex results, `complex_angle_deg` only at `RealAtAngle`
 and `harmonic` only for complex results at `Real` with a single `step_id` and `increment_id`, so the definition that
 is added - by these calls or from a draft - is refused naming the option outside that state: a type other than
-`Real`, a nonzero angle, or `harmonic=True`. The draft form is kept here as well, because a
+`Real`, a nonzero angle, or `harmonic=True`. The draft's `complex_angle_deg` reads `None` outside `RealAtAngle`,
+as the output's does, and takes `None` as the unused angle 0, so the read-back of either goes back into it. The
+draft form is kept here as well, because a
 history output draft carries a lot of state and is sometimes easier to build in steps.
 
 ### `HistoryOutputFilter`

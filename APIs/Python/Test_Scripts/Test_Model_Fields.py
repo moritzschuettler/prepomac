@@ -73,6 +73,14 @@ def test_amplitudes():
     check_raises(lambda: amplitudes.add(PREFIX + "Bad", []), "an empty table must be rejected")
     check_raises(lambda: amplitudes.add(PREFIX + "Bad", [[0, 0]], time_span="NotATimeSpan"),
                  "an unknown time span must be rejected")
+    count_before_non_finite = len(amplitudes)
+    for function in [lambda: amplitudes.add(PREFIX + "Bad", [[0, 0], [float("nan"), 1]]),
+                     lambda: amplitudes.replace(PREFIX + "Amp_T", time_amplitude=[[0, 0], [1, float("inf")]])]:
+        message = raised_message(function)
+        check(message is not None and "'time_amplitude'" in message,
+              "a non-finite amplitude row must be refused naming the argument: " + str(message))
+    check(len(amplitudes) == count_before_non_finite and amplitudes[PREFIX + "Amp_T"].row_count == 3,
+          "a refused non-finite amplitude was recorded")
     #
     amplitudes.rename(PREFIX + "Amp", PREFIX + "Amp_R")
     check(amplitudes.contains(PREFIX + "Amp_R"), "the amplitude was not renamed")

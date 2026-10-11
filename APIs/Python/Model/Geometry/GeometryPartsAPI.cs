@@ -29,14 +29,16 @@ namespace APIs.Python.Model
         // Methods
         [PythonAPI("Adds a compound part made from the named parts using command history. When one of them is a " +
                    "compound part made by split_solid, the solids are gathered into sub-parts after the parts they " +
-                   "came from, and a solid where the parts overlap is a sub-part of its own named Overlap.",
+                   "came from, and a solid where the parts overlap is a sub-part of its own named Overlap. " +
+                   "At least two parts are needed, all of them CAD or all of them STL parts of one part type.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
         public void add_compound(object part_names)
         {
             _service.CreateCompound(_service.ResolveNames(part_names));
         }
 
-        [PythonAPI("Regenerates the named compound parts using command history.",
+        [PythonAPI("Regenerates the named compound parts using command history. A part that is not a " +
+                   "compound, or a compound a part it was made from is missing for, is refused.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
         public void regenerate_compound(object part_names)
         {
@@ -52,14 +54,16 @@ namespace APIs.Python.Model
             _service.SwapGeometries(partName1, partName2);
         }
 
-        [PythonAPI("Converts the named shell parts to solid parts using command history.",
+        [PythonAPI("Converts the named CAD shell parts to solid parts using command history. Any other part " +
+                   "is refused.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
         public void convert_shell_to_solid(object part_names)
         {
             _service.ConvertShellToSolid(_service.ResolveNames(part_names));
         }
 
-        [PythonAPI("Converts the named solid parts to shell parts using command history.",
+        [PythonAPI("Converts the named CAD solid parts or compound parts to shell parts using command " +
+                   "history. Any other part, a sub-part of a compound included, is refused.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
         public void convert_solid_to_shell(object part_names)
         {
@@ -325,7 +329,8 @@ namespace APIs.Python.Model
             return _service.SplitPeriodicFaces(_service.ResolveNames(part_names), numberOfFaces);
         }
 
-        [PythonAPI("Flips the surface normals of the named STL parts using command history.",
+        [PythonAPI("Flips the surface normals of the named STL parts using command history. A CAD part is " +
+                   "refused.",
                    Arguments = "part_names: list[str] or str", Returns = "None")]
         public void flip_stl_normals(object part_names)
         {

@@ -106,7 +106,7 @@ namespace APIs.Python
                    "and AllElements. For AllElements, item_limits must contain one item named 'All elements'. " +
                    "Part and element set names and the 'All elements' key are matched regardless of case and " +
                    "stored as the result spells them; two keys naming the same item are refused when the " +
-                   "output is added. The source field_name is matched the same way. " +
+                   "output is added. The source field_name and component_name are matched the same way. " +
                    "This does not modify the result.",
                    Arguments = "name: str, field_name: str, component_name: str, based_on: str, " +
                                "item_limits: dict[str, float]",
@@ -122,8 +122,9 @@ namespace APIs.Python
             return _service.CreateFieldOutputLimit(nameText, fieldName, componentName, basedOn, item_limits);
         }
 
-        [PythonAPI("Creates an envelope field-output draft with MAX, MIN, and AVERAGE components. " +
-                   "This does not modify the result.",
+        [PythonAPI("Creates an envelope field-output draft with MAX, MIN, and AVERAGE components. The source " +
+                   "field_name and component_name are matched regardless of case and stored as the result " +
+                   "spells them. This does not modify the result.",
                    Arguments = "name: str, field_name: str, component_name: str",
                    Returns = "FieldOutputEnvelopeDraft")]
         public ResultFieldOutputEnvelopeDraftAPI create_field_output_envelope(object name, object field_name,
@@ -149,7 +150,8 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a coordinate-system transform field-output draft for a complete vector or tensor " +
-                   "field. This does not modify the result.",
+                   "field. The source field_name is matched regardless of case and stored as the result spells it. " +
+                   "This does not modify the result.",
                    Arguments = "name: str, field_name: str, coordinate_system_name: str",
                    Returns = "FieldOutputCoordinateSystemTransformDraft")]
         public ResultFieldOutputCoordinateSystemTransformDraftAPI create_field_output_coordinate_system_transform(
@@ -226,7 +228,7 @@ namespace APIs.Python
                                                                     item_limits), filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result field output by a limit field output, in one call.",
+        [PythonAPI("Replaces a limit field output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_limit", Returns = "FieldOutput")]
         public ResultFieldOutputAPI replace_limit(object old_name, object name, object field_name,
                                                   object component_name, object based_on, object item_limits,
@@ -267,7 +269,7 @@ namespace APIs.Python
                                    filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result field output by an envelope field output, in one call.",
+        [PythonAPI("Replaces an envelope field output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_envelope", Returns = "FieldOutput")]
         public ResultFieldOutputAPI replace_envelope(object old_name, object name, object field_name,
                                                      object component_name,
@@ -308,7 +310,7 @@ namespace APIs.Python
                                    filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result field output by an equation field output, in one call.",
+        [PythonAPI("Replaces an equation field output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_equation", Returns = "FieldOutput")]
         public ResultFieldOutputAPI replace_equation(object old_name, object name, object equation,
                                                      object unit = null,
@@ -350,7 +352,7 @@ namespace APIs.Python
                                    filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result field output by a coordinate system transform field output, in one call.",
+        [PythonAPI("Replaces a coordinate system transform field output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_coordinate_system_transform",
                    Returns = "FieldOutput")]
         public ResultFieldOutputAPI replace_coordinate_system_transform(
@@ -407,14 +409,16 @@ namespace APIs.Python
             _service.DuplicateFieldOutputs(_resultName, names);
         }
 
-        [PythonAPI("Validates and removes result field outputs using command history.",
+        [PythonAPI("Validates and removes result field outputs using command history. A name is matched " +
+                   "regardless of case.",
                    Arguments = "names: list[str] or str", Returns = "None")]
         public void remove(object names)
         {
             _service.RemoveFieldOutputs(_resultName, names);
         }
 
-        [PythonAPI("Validates and removes components from a result field output using command history.",
+        [PythonAPI("Validates and removes components from a result field output using command history. The " +
+                   "field output and component names are matched regardless of case.",
                    Arguments = "field_output_name: str, component_names: list[str]", Returns = "None")]
         public void remove_components(object field_output_name, object component_names)
         {

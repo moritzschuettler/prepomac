@@ -110,7 +110,9 @@ namespace APIs.Python
 
         [PythonAPI("Creates a From Field result history-output draft. The region can be a result node selection, " +
                    "a NodeSetName or SurfaceName region created by pmx.create.region and resolved against the " +
-                   "result mesh, or a result node set or surface. This does not modify the result.",
+                   "result mesh, or a result node set or surface. field_name and component_names are matched " +
+                   "regardless of case and stored as the result spells them when the draft is added. This does " +
+                   "not modify the result.",
                    Arguments = "name: str, field_name: str, component_names: list[str], " +
                                "region: Selection or Region or NodeSet or Surface",
                    Returns = "HistoryOutputFromFieldDraft")]
@@ -141,7 +143,8 @@ namespace APIs.Python
                    "region created by pmx.create.region is resolved against the result mesh. Possible " +
                    "integral_result values are Geometry (the region length/area/volume), Field (the field " +
                    "integral) and FieldByGeometry (the region average of the field); field_name and " +
-                   "component_names are required for Field and FieldByGeometry and refused for Geometry. The " +
+                   "component_names are required for Field and FieldByGeometry and refused for Geometry, and are " +
+                   "matched regardless of case and stored as the result spells them. The " +
                    "cross_section scaling (None, Thickness or Axisymmetric) is the out-of-plane scaling of 2D " +
                    "output; the Line and Volume integrals take it on a 2D and a 3D result alike, as the " +
                    "dialog does, and the Surface " +
@@ -304,7 +307,7 @@ namespace APIs.Python
             return add(WithFilters(draft, filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result history output by a From Field one, in one call.",
+        [PythonAPI("Replaces a From Field history output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_field",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_field(object old_name, object name, object field_name,
@@ -352,7 +355,7 @@ namespace APIs.Python
                                    filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result history output by a From Equation one, in one call.",
+        [PythonAPI("Replaces a From Equation history output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_equation",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_equation(object old_name, object name, object equation,
@@ -411,7 +414,7 @@ namespace APIs.Python
                                    filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result history output by a From Integration one, in one call.",
+        [PythonAPI("Replaces a From Integration history output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_integration",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_integration(
@@ -466,7 +469,7 @@ namespace APIs.Python
                                    filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result history output by a From Merged Histories one, in one call.",
+        [PythonAPI("Replaces a From Merged Histories history output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_merged_histories",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_merged_histories(
@@ -504,7 +507,7 @@ namespace APIs.Python
                                    filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result history output by a From Extracted Entry one, in one call.",
+        [PythonAPI("Replaces a From Extracted Entry history output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_extracted_entry",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_extracted_entry(
@@ -538,7 +541,7 @@ namespace APIs.Python
             return add(WithFilters(_service.CreateXY(nameText, x_source, y_source), filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result history output by an XY one, in one call.",
+        [PythonAPI("Replaces an XY history output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_xy", Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_xy(object old_name, object name, object x_source, object y_source,
                                                  object filter1 = null,
@@ -576,7 +579,7 @@ namespace APIs.Python
                                                             yAxisUnit), filter1Value, filter2Value));
         }
 
-        [PythonAPI("Replaces a result history output by a From Table one, in one call.",
+        [PythonAPI("Replaces a From Table history output, in one call.",
                    Arguments = "old_name: str, and the arguments of add_from_table",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI replace_from_table(object old_name, object name, object data_points,

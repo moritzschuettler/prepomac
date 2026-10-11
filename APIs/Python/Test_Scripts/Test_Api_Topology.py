@@ -173,6 +173,14 @@ def test_view():
     check_raises(lambda: pmx.view.set_orientation("Sideways"), "an unknown orientation must be rejected")
     check_raises(lambda: pmx.view.set_result_field("DISP"), "a plot without an open result must be rejected")
     check_raises(lambda: pmx.view.set_parameters([1, 2, 3]), "a short camera must be rejected")
+    for value in [float("nan"), float("-inf")]:
+        try:
+            pmx.view.set_parameters(camera[:9] + [value])
+            raise Exception("TEST FAILED: a camera with " + str(value) + " must be refused")
+        except Exception as ex:
+            check("'parameters'" in str(ex), "a non-finite camera must be refused naming the argument: " + str(ex))
+    restored = pmx.view.get_parameters()
+    check(all(abs(restored[i] - camera[i]) < 1e-6 for i in range(10)), "a refused camera changed the view")
 
 
 def centre_offset(camera, target):

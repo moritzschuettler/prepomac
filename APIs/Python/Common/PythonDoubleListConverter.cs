@@ -47,6 +47,32 @@ namespace APIs.Python
             //
             throw InvalidList2D(argumentName);
         }
+        public static double[] ToFiniteDoubleArray(object value, string argumentName)
+        {
+            double[] values = ToDoubleArray(value, argumentName);
+            RefuseNonFinite(values, argumentName);
+            //
+            return values;
+        }
+        public static double[][] ToFiniteDoubleArray2D(object value, string argumentName)
+        {
+            double[][] rows = ToDoubleArray2D(value, argumentName);
+            foreach (double[] row in rows) RefuseNonFinite(row, argumentName);
+            //
+            return rows;
+        }
+        private static void RefuseNonFinite(double[] values, string argumentName)
+        {
+            if (values == null) return;
+            //
+            foreach (double value in values)
+            {
+                if (double.IsNaN(value) || double.IsInfinity(value))
+                    throw new PythonAPIException("The argument '" + argumentName + "' must contain finite numbers, " +
+                                                 "but it contains " + value.ToString(CultureInfo.InvariantCulture) +
+                                                 ".");
+            }
+        }
         private static double[] ConvertPythonIterable(PyObject value, string argumentName)
         {
             List<double> converted = new List<double>();

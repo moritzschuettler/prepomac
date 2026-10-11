@@ -28,10 +28,14 @@ namespace PrePoMax.Python.Journal
         private int _commandIndex;
         private int _lineIndex;
         private int _numOfLegacySplitFaces;
+        private string _workDirectory;
 
 
         // Properties                                                                                                               
         public PythonJournalScope Scope { get { return _scope; } }
+        // The work directory of the session the journal is written in, which a replay is run in with -w, so that a
+        // command holding a file name a regeneration rooted there can write the name the API takes
+        public string WorkDirectory { get { return _workDirectory; } set { _workDirectory = value; } }
         public List<string> Refusals { get { return _refusals; } }
         public int EmittedCommandCount { get { return _emittedCommandCount; } }
         // The position of the command being emitted, so that one which only makes sense at the start of
@@ -60,6 +64,7 @@ namespace PrePoMax.Python.Journal
             _commandIndex = 0;
             _lineIndex = 0;
             _numOfLegacySplitFaces = 1;
+            _workDirectory = null;
         }
 
 

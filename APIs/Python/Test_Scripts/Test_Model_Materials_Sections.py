@@ -87,9 +87,9 @@ def test_materials():
     # that gives them must not fall back to the constructor defaults
     materials.add(PREFIX + "Kinematic",
                   [pmx.create.elastic(210000, 0.3),
-                   pmx.create.plastic([[250, 0, 20]], hardening="Kinematic")])
+                   pmx.create.plastic([[250, 0, 0]], hardening="Kinematic")])
     materials.add(PREFIX + "Isotropic",
-                  [pmx.create.elastic(210000, 0.3), pmx.create.plastic([[250, 0, 20]])])
+                  [pmx.create.elastic(210000, 0.3), pmx.create.plastic([[250, 0, 0]])])
     materials.add(PREFIX + "Expansion",
                   [pmx.create.elastic(210000, 0.3),
                    pmx.create.thermal_expansion(1.2e-5, zero_temperature=123)])
@@ -170,7 +170,10 @@ def test_materials():
     count_before_rows = len(materials)
     for properties in [pmx.create.elastic([[210000, 0.3, 0], [180000, 0.32, 400]]),
                        pmx.create.elastic([[210000, 0.3, 20]]),
-                       [pmx.create.elastic(210000, 0.3), pmx.create.density([[7.85e-9, 0], [7.8e-9, 400]])]]:
+                       [pmx.create.elastic(210000, 0.3), pmx.create.density([[7.85e-9, 0], [7.8e-9, 400]])],
+                       [pmx.create.elastic(210000, 0.3), pmx.create.plastic([[250, 0, 20]])],
+                       [pmx.create.elastic(210000, 0.3),
+                        pmx.create.plastic([[250, 0, 0], [300, 0.05, 0], [200, 0, 400], [250, 0.05, 400]])]]:
         message = raised_message(lambda: materials.add(PREFIX + "Bad", properties))
         check(message is not None and "temperature_dependent" in message,
               "rows a material that is not temperature dependent drops must be refused: " + str(message))
@@ -281,7 +284,7 @@ def test_material_properties():
     check(close(temp[1]["thermal_expansion"], [[1.2e-5, 0], [1.4e-5, 400]]),
           "the thermal expansion table did not read back: " + str(temp[1]))
     kinematic = plain_values(list(materials[PREFIX + "Kinematic"].get_properties())[1])
-    check(close(kinematic, {"stress_strain": [[250, 0, 20]], "hardening": "Kinematic"}),
+    check(close(kinematic, {"stress_strain": [[250, 0, 0]], "hardening": "Kinematic"}),
           "the plastic values did not read back: " + str(kinematic))
     expansion = list(materials[PREFIX + "Expansion"].get_properties())[1]
     check(expansion.property_type == "thermal_expansion", "unexpected type " + expansion.property_type)
@@ -416,6 +419,21 @@ def test_sections(material_name):
     check(section.region_type == "ElementSetName",
           "the selection was not converted, region type is " + section.region_type)
     check(section.region_name is not None and len(section.region_name) > 0, "the region name is empty")
+    # No dialog lists the internal element set, so it is neither duplicated, converted nor named as a region
+    internal_set = section.region_name
+    element_set_count = len(pmx.model.element_sets)
+    part_count = len(pmx.model.parts)
+    section_count = len(sections)
+    for function, fragment in [(lambda: pmx.model.element_sets.duplicate([internal_set]), "internal"),
+                               (lambda: pmx.model.element_sets.convert_to_mesh_parts([internal_set]), "internal"),
+                               (lambda: sections.add_solid(PREFIX + "Bad", material_name,
+                                                           pmx.create.region('ElementSetName', internal_set)),
+                                "'region'")]:
+        message = raised_message(function)
+        check(message is not None and fragment in message and internal_set in message,
+              "a call on the internal element set must be refused: " + str(message))
+    check(len(pmx.model.element_sets) == element_set_count and len(pmx.model.parts) == part_count and
+          len(sections) == section_count, "a refused call on an internal element set was recorded")
     #
     sections.add_point_mass(PREFIX + "Mass", node_selection, 0.5)
     check(sections[PREFIX + "Mass"].item_type == "point_mass", "the point mass section was not added")

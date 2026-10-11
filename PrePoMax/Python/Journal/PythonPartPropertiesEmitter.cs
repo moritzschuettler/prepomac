@@ -22,10 +22,20 @@ namespace PrePoMax.Python.Journal
     // for the element kinds it contains, and the API refuses the others, so a None slot is left out.
     public static class PythonPartPropertiesEmitter
     {
+        // Variables                                                                                                                
+        public const int MinimumPartAlpha = 25;
+
+
         // Methods                                                                                                                  
         public static void Emit(PythonJournalWriter writer, string collection, string oldPartName,
                                 PartProperties properties, bool withElementTypes)
         {
+            // An older API set a part color below the alpha the dialog and replace_properties allow; leaving the
+            // color out would keep the color the part has on replay, so the call cannot be written
+            if (properties.Color.A < MinimumPartAlpha)
+                throw new NotSupportedException("the color of the part '" + properties.Name + "' has an alpha of " +
+                                                properties.Color.A + ", and replace_properties refuses an alpha " +
+                                                "below " + MinimumPartAlpha);
             List<string> arguments = new List<string> { PythonValueFormatter.Text(oldPartName),
                                                         "name=" + PythonValueFormatter.Text(properties.Name),
                                                         "color=" +

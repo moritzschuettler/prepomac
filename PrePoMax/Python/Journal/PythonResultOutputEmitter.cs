@@ -80,6 +80,14 @@ namespace PrePoMax.Python.Journal
             string method;
             if (output is ResultHistoryOutputFromField fromField)
             {
+                // An older history may hold the harmonic switch where the dialog no longer shows it; the results
+                // still compute it, and the API refuses it there, so the output cannot be written
+                bool harmonicAllowed = fromField.ComplexResultType == ComplexResultTypeEnum.Real &&
+                                       fromField.StepId != -1 && fromField.StepIncrementId != -1;
+                if (fromField.Harmonic && !harmonicAllowed)
+                    throw new NotSupportedException("the history output '" + output.Name + "' computes a harmonic " +
+                                                    "with complex result type " + fromField.ComplexResultType +
+                                                    " or over more than one increment, which the API refuses");
                 method = verb + "_from_field";
                 arguments.Add(PythonValueFormatter.Text(fromField.FieldName));
                 arguments.Add(PythonValueFormatter.List(fromField.ComponentNames));
@@ -91,16 +99,15 @@ namespace PrePoMax.Python.Journal
                     arguments.Add("complex_result_type=" +
                                   PythonValueFormatter.Text(fromField.ComplexResultType.ToString()));
                 // The dialog shows the angle only at RealAtAngle and the harmonic switch only for the real part of
-                // one increment, and the API takes them only then
+                // one increment, and the API takes them only then; the results read the angle only at RealAtAngle, so
+                // an angle an older history holds elsewhere is left out
                 if (fromField.ComplexResultType == ComplexResultTypeEnum.RealAtAngle && fromField.ComplexAngleDeg != 0)
                     arguments.Add("complex_angle_deg=" + PythonValueFormatter.Number(fromField.ComplexAngleDeg));
                 if (fromField.StepId != -1)
                     arguments.Add("step_id=" + PythonValueFormatter.Format(fromField.StepId));
                 if (fromField.StepIncrementId != -1)
                     arguments.Add("increment_id=" + PythonValueFormatter.Format(fromField.StepIncrementId));
-                if (fromField.Harmonic && fromField.ComplexResultType == ComplexResultTypeEnum.Real &&
-                    fromField.StepId != -1 && fromField.StepIncrementId != -1)
-                    arguments.Add("harmonic=" + PythonValueFormatter.Format(true));
+                if (fromField.Harmonic) arguments.Add("harmonic=" + PythonValueFormatter.Format(true));
                 if (fromField.OutputNodeCoordinates != OutputNodeCoordinatesEnum.Off)
                     arguments.Add("output_node_coordinates=" +
                                   PythonValueFormatter.Text(fromField.OutputNodeCoordinates.ToString()));

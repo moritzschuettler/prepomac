@@ -178,11 +178,34 @@ namespace APIs.Python.Model
         {
             return _modelResolver.GetModel().Properties.ModelType.ToString();
         }
-        // A value the model type does not use is hidden by the dialog and refused by its setter, so it reads None
+        // A value the model type does not use is hidden by the dialog and refused by its setter, so it reads None.
+        // Regenerate with file dialogs and a batch regeneration store a full path, which the setter refuses, so a
+        // path in the work directory reads as the name the setter takes; a path anywhere else names a file no
+        // setter can, and reads as it is stored
         public string GetGlobalResultsFileName()
         {
             ModelProperties properties = _modelResolver.GetModel().Properties;
-            return properties.ModelType == ModelType.Submodel ? properties.GlobalResultsFileName : null;
+            if (properties.ModelType != ModelType.Submodel) return null;
+            //
+            string fileName = properties.GlobalResultsFileName;
+            string workDirectory = _jobGateway == null ? null : _jobGateway.GetWorkDirectory();
+            if (fileName == null || workDirectory == null) return fileName;
+            try
+            {
+                if (!Path.IsPathRooted(fileName)) return fileName;
+                //
+                char[] separators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
+                string fileDirectory = Path.GetFullPath(Path.GetDirectoryName(fileName)).TrimEnd(separators);
+                string fullWorkDirectory = Path.GetFullPath(workDirectory).TrimEnd(separators);
+                if (string.Equals(fileDirectory, fullWorkDirectory, StringComparison.OrdinalIgnoreCase))
+                    return Path.GetFileName(fileName);
+            }
+            catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException ||
+                                       ex is PathTooLongException)
+            {
+                return fileName;
+            }
+            return fileName;
         }
         public string GetSlipWearResults()
         {
@@ -413,8 +436,8 @@ namespace APIs.Python.Model
         // The dialog refuses on OK a submodel whose global results file it cannot find in the work directory and a
         // slip wear model whose cycles do not divide into increments, in these words, and judges the properties it
         // ends with. A setter or a rename has no dialog OK and keeps the stored file name, so the file is looked up
-        // only when the call gives it or makes the model a submodel; a replayed journal then does not depend on the
-        // work directory it runs in
+        // only when the call gives it or makes the model a submodel. A journal of the dialog gives it on every replace
+        // of a Submodel, as the dialog checks it on every OK, so its replay needs the file in its own work directory
         private void EnsureDefined(ModelProperties properties, bool checkGlobalResultsFile)
         {
             if (properties.ModelType == ModelType.Submodel)

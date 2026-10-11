@@ -80,6 +80,8 @@ namespace APIs.Python.Model
         }
         public void Duplicate(string[] names)
         {
+            foreach (string name in names) RefuseInternal(GetNodeSet(name), "node set", "duplicated");
+            //
             EnsureCommandsAvailable();
             ModelGateway.DuplicateNodeSets(names);
         }

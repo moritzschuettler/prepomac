@@ -132,6 +132,7 @@ def test_stl():
     before = list(parts().get_names())
     pmx.import_file(os.path.join(MODELS, "cube.stl"))
     stl_name = added_part_names(before)[0]
+    test_part_kind_refusals(before[0], stl_name)
     before_center = box_center(stl_name)
     parts().translate(stl_name, [0, 0, 5])
     check_close(box_center(stl_name), [before_center[0], before_center[1], before_center[2] + 5],
@@ -182,6 +183,36 @@ def test_stl():
     parts().remove([stl_name])
 
 
+# The dialogs list only the parts an operation applies to, so any other part is refused naming the argument and
+# nothing is recorded
+def check_part_refused(function, fragment, message):
+    names_before = list(parts().get_names())
+    try:
+        function()
+    except Exception as ex:
+        check("'part_names'" in str(ex) and fragment in str(ex), message + ": " + str(ex)[0:300])
+        check(list(parts().get_names()) == names_before, message + ": the refused call changed the parts")
+        return
+    raise Exception("TEST FAILED: " + message)
+
+
+def test_part_kind_refusals(cad_name, stl_name):
+    check_part_refused(lambda: parts().add_compound([cad_name, stl_name]), "only CAD or only stl",
+                       "a compound of a CAD and an STL part must be refused")
+    check_part_refused(lambda: parts().add_compound([cad_name]), "at least two",
+                       "a compound of one part must be refused")
+    check_part_refused(lambda: parts().regenerate_compound([cad_name]), cad_name,
+                       "regenerating a part that is not a compound must be refused")
+    check_part_refused(lambda: parts().convert_shell_to_solid([cad_name]), cad_name,
+                       "converting a CAD solid to a solid must be refused")
+    check_part_refused(lambda: parts().convert_shell_to_solid([stl_name]), stl_name,
+                       "converting an STL part to a solid must be refused")
+    check_part_refused(lambda: parts().convert_solid_to_shell([stl_name]), stl_name,
+                       "converting an STL part to a shell must be refused")
+    check_part_refused(lambda: parts().flip_stl_normals([cad_name]), cad_name,
+                       "flipping the normals of a CAD part must be refused")
+
+
 def test_compound(names):
     before = list(parts().get_names())
     parts().add_compound(names)
@@ -196,6 +227,8 @@ def test_compound(names):
     check_close(center(sub_part), [before_center[0], before_center[1], before_center[2] + 7],
                 "the sub-part did not move with its compound")
     check_raises(lambda: parts().translate(sub_part, [1, 0, 0]), "a compound sub-part must not be moved on its own")
+    check_part_refused(lambda: parts().convert_solid_to_shell([sub_part]), sub_part,
+                       "converting a compound sub-part to a shell must be refused")
 
 
 def test_refusals(name):

@@ -67,7 +67,8 @@ namespace APIs.Python.Model
             return this[nameText];
         }
 
-        [PythonAPI("Converts the named element sets into mesh parts using command history.",
+        [PythonAPI("Converts the named element sets into mesh parts using command history. An internal " +
+                   "element set is refused.",
                    Arguments = "names: list[str] or str", Returns = "None")]
         public void convert_to_mesh_parts(object names)
         {

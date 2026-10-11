@@ -339,7 +339,10 @@ namespace APIs.Python
         private static void ValidateFromField(FeResults result, ResultHistoryOutputFromField output)
         {
             ValidateRegion(result, output, "nodes", RegionTypeEnum.NodeSetName, RegionTypeEnum.SurfaceName);
-            output.FieldName = ValidateFieldComponents(result, output.FieldName, output.ComponentNames);
+            string[] storedComponentNames;
+            output.FieldName = ValidateFieldComponents(result, output.FieldName, output.ComponentNames,
+                                                       out storedComponentNames);
+            output.ComponentNames = storedComponentNames;
             if (output.StepId == -1)
             {
                 if (output.StepIncrementId != -1)
@@ -397,7 +400,12 @@ namespace APIs.Python
             else ValidateRegion(result, output, "elements", RegionTypeEnum.ElementSetName);
             // The geometry (measure) result integrates the unit field, so it needs no field/components
             if (output.IntegralResult != IntegralResultEnum.Geometry)
-                output.FieldName = ValidateFieldComponents(result, output.FieldName, output.ComponentNames);
+            {
+                string[] storedComponentNames;
+                output.FieldName = ValidateFieldComponents(result, output.FieldName, output.ComponentNames,
+                                                           out storedComponentNames);
+                output.ComponentNames = storedComponentNames;
+            }
             ValidateDeformationField(result, output.DeformationVariableName);
             if (output.Unit == null) throw new PythonAPIException("The integration unit must not be None.");
             ValidateCrossSection(output.IntegralType, output.CrossSection, output.Thickness);
@@ -589,22 +597,24 @@ namespace APIs.Python
                                                  "' does not contain any faces.");
             }
         }
-        // A user-defined field output is found regardless of case and returned in the spelling of the result, as
+        // The field and its components are found regardless of case and returned in the spelling of the result, as
         // the result field outputs find their source field
-        private static string ValidateFieldComponents(FeResults result, string fieldName, string[] componentNames)
+        private static string ValidateFieldComponents(FeResults result, string fieldName, string[] componentNames,
+                                                      out string[] storedComponentNames)
         {
             ValidateRequiredString(fieldName, "field_name");
             ValidateStringList(componentNames, "component_names");
-            string storedFieldName;
-            if (result.ContainsResultFieldOutput(fieldName))
-                storedFieldName = result.GetResultFieldOutput(fieldName).Name;
-            else if (result.GetAllFieldNames().Contains(fieldName)) storedFieldName = fieldName;
-            else throw new PythonAPIException("The source field '" + fieldName + "' does not exist in the result.");
-            string[] existingComponents = result.GetFieldComponentNames(storedFieldName);
-            foreach (string componentName in componentNames)
+            PythonNameComparer.RefuseRepeated(componentNames, "component_names");
+            string storedFieldName = ResultFieldNameResolver.GetStoredFieldName(result, fieldName);
+            if (storedFieldName == null)
+                throw new PythonAPIException("The source field '" + fieldName + "' does not exist in the result.");
+            storedComponentNames = new string[componentNames.Length];
+            for (int i = 0; i < componentNames.Length; i++)
             {
-                if (existingComponents == null || !existingComponents.Contains(componentName))
-                    throw new PythonAPIException("The component '" + componentName +
+                storedComponentNames[i] = ResultFieldNameResolver.GetStoredComponentName(result, storedFieldName,
+                                                                                          componentNames[i]);
+                if (storedComponentNames[i] == null)
+                    throw new PythonAPIException("The component '" + componentNames[i] +
                                                  "' does not exist in field '" + storedFieldName + "'.");
             }
             return storedFieldName;

@@ -59,7 +59,8 @@ namespace APIs.Python.Model
 
         [PythonAPI("Creates a reference point from a named region using command history. The mode is " +
                    "CenterOfGravity or BoundingBoxCenter, and the region type is NodeSetName or " +
-                   "SurfaceName, which is what the dialog offers.",
+                   "SurfaceName, which is what the dialog offers. An internal node set or surface, which the " +
+                   "dialog does not list, is refused.",
                    Arguments = "name: str, created_from: str, region_type: str, region_name: str, " +
                                "name_visible: bool = None, color: list[int] or str = None",
                    Returns = "ReferencePoint")]
