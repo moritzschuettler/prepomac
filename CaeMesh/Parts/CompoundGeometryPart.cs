@@ -49,7 +49,8 @@ namespace CaeMesh
         /// <summary>
         /// The sub part each cell of a split compound belongs to, one for every name in SubPartNames.
         /// A split cuts a part into cells, and the part it cut is what the user still sees and meshes,
-        /// so the cells are gathered under it. A compound that was not made by splitting has none.
+        /// so the cells are gathered under it. A compound that was not made by splitting has none until its sub parts
+        /// are grouped, when each of them becomes a sub part of one cell, as a split leaves a part it does not cut.
         /// </summary>
         public string[] CellSubPartNames { get { return _cellSubPartNames; } set { _cellSubPartNames = value; } }
         /// <summary>
@@ -65,7 +66,7 @@ namespace CaeMesh
         /// first cell is. A sub part it does not name is listed after the ones it does, in the order of its cells.
         /// </summary>
         public string[] SplitSubPartOrder { get { return _splitSubPartOrder; } set { _splitSubPartOrder = value; } }
-        public bool CreatedBySplit { get { return _cellSubPartNames != null; } }
+        public bool HasCellSubParts { get { return _cellSubPartNames != null; } }
 
 
         // Constructors                                                                                                             

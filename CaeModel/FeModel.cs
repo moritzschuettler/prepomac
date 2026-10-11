@@ -1933,7 +1933,7 @@ namespace CaeModel
             for (int i = 0; i < partNames.Length; i++) mesh.Parts.Add(importedParts[i].Name, importedParts[i]);
             // The cells of a split compound are meshed together, so their meshes share the faces between them,
             // and each part the split cut becomes one mesh part again unless its cells are kept apart
-            if (part is CompoundGeometryPart splitCompoundPart && splitCompoundPart.CreatedBySplit &&
+            if (part is CompoundGeometryPart splitCompoundPart && splitCompoundPart.HasCellSubParts &&
                 !mergeCompoundParts && mergeCells)
                 MergeSplitCellMeshParts(mesh, splitCompoundPart);
             // Split compound mesh - after the cells are merged, so only the parts the split cut are separated

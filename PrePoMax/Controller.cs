@@ -3576,7 +3576,7 @@ namespace PrePoMax
             if (_currentView != ViewGeometryModelResults.Geometry) return null;
             foreach (var entry in _model.Geometry.Parts)
             {
-                if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit) continue;
+                if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.HasCellSubParts) continue;
                 int index = Array.IndexOf(compoundPart.SubPartNames, partName);
                 if (index >= 0) return compoundPart.Name + ":" + compoundPart.CellSubPartNames[index];
             }
@@ -4411,6 +4411,7 @@ namespace PrePoMax
             }
             return parts.ToArray();
         }
+        // The cells the compounds can group: the cells of a split compound and every sub part of any other compound
         public GeometryPart[] GetSplitCells()
         {
             if (_model.Geometry == null) return null;
@@ -4418,12 +4419,12 @@ namespace PrePoMax
             List<GeometryPart> cells = new List<GeometryPart>();
             foreach (var entry in _model.Geometry.Parts)
             {
-                if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit) continue;
+                if (!(entry.Value is CompoundGeometryPart compoundPart)) continue;
                 //
                 for (int i = 0; i < compoundPart.SubPartNames.Length; i++)
                 {
                     BasePart cell;
-                    if (compoundPart.CellSubPartNames[i] != null &&
+                    if ((!compoundPart.HasCellSubParts || compoundPart.CellSubPartNames[i] != null) &&
                         _model.Geometry.Parts.TryGetValue(compoundPart.SubPartNames[i], out cell))
                         cells.Add((GeometryPart)cell);
                 }
@@ -4526,7 +4527,7 @@ namespace PrePoMax
                             {
                                 cgp.SubPartNames[i] = newPartProperties.Name;
                                 // The only cell of a sub part is the sub part, so its name is the sub part's
-                                if (cgp.CreatedBySplit && cgp.CellSubPartNames[i] == oldPartName &&
+                                if (cgp.HasCellSubParts && cgp.CellSubPartNames[i] == oldPartName &&
                                     cgp.GetCellNames(oldPartName).Length == 1)
                                     cgp.CellSubPartNames[i] = newPartProperties.Name;
                                 break;
@@ -4590,7 +4591,7 @@ namespace PrePoMax
         {
             BasePart part;
             if (!_model.Geometry.Parts.TryGetValue(compoundPartName, out part) ||
-                !(part is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit ||
+                !(part is CompoundGeometryPart compoundPart) || !compoundPart.HasCellSubParts ||
                 !compoundPart.CellSubPartNames.Contains(oldSubPartName))
                 throw new CaeException("The part " + oldSubPartName + " of the compound part " + compoundPartName +
                                        " does not exist.");
@@ -4632,12 +4633,14 @@ namespace PrePoMax
         /// <summary>
         /// Puts the named cells of a split compound under one sub part, which is then meshed into one mesh part,
         /// so that the regions of a solid cut for different materials can be gathered as the materials need.
-        /// The geometry is not changed. A sub part left without cells is gone.
+        /// The sub parts of any other compound are its cells. The geometry is not changed. A sub part left without
+        /// cells is gone.
         /// </summary>
         public void GroupSplitCells(string compoundPartName, string[] cellNames, string subPartName)
         {
             subPartName = GetGroupSplitCellsSubPartName(compoundPartName, cellNames, subPartName);
             CompoundGeometryPart compoundPart = (CompoundGeometryPart)_model.Geometry.Parts[compoundPartName];
+            if (!compoundPart.HasCellSubParts) SetOwnCellSubParts(compoundPart);
             //
             string[] cellSubPartNames = compoundPart.CellSubPartNames;
             int[] cellSubPartIds = new int[cellSubPartNames.Length];
@@ -4700,11 +4703,17 @@ namespace PrePoMax
         {
             BasePart part;
             if (compoundPartName == null || !_model.Geometry.Parts.TryGetValue(compoundPartName, out part) ||
-                !(part is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit)
-                throw new CaeException("The part " + compoundPartName + " is not a compound part made by a split.");
+                !(part is CompoundGeometryPart compoundPart))
+                throw new CaeException("The part " + compoundPartName + " is not a compound part.");
             if (cellNames == null || cellNames.Length == 0)
                 throw new CaeException("Group cells: no cells of the compound part " + compoundPartName +
                                        " were selected.");
+            // The check reads the sub parts the grouping would give a compound that has none, and leaves it as it is
+            if (!compoundPart.HasCellSubParts)
+            {
+                compoundPart = new CompoundGeometryPart(compoundPart);
+                SetOwnCellSubParts(compoundPart);
+            }
             //
             HashSet<string> groupedCellNames = new HashSet<string>();
             HashSet<string> groupedSubPartNames = new HashSet<string>();
@@ -4756,6 +4765,16 @@ namespace PrePoMax
             }
             return subPartName;
         }
+        // A compound that was not made by a split holds each of its sub parts as a sub part of one cell, as a split
+        // leaves a part it does not cut. The cell is named after its sub part, and the sub part keeps the part id
+        // the cell was meshed with
+        private void SetOwnCellSubParts(CompoundGeometryPart compoundPart)
+        {
+            compoundPart.CellSubPartNames = compoundPart.SubPartNames.ToArray();
+            compoundPart.CellSubPartIds = compoundPart.SubPartNames.Select(name => _model.Geometry.Parts[name].PartId)
+                                                                   .ToArray();
+            compoundPart.SplitSubPartOrder = null;
+        }
         /// <summary>
         /// Makes one solid of the named bodies of a compound, which takes out the faces they share and heals the
         /// edges left on their outside, so cells come back as the solid the splits cut them from. A body is a sub
@@ -4783,7 +4802,7 @@ namespace PrePoMax
             int numOfSolids = GetNumberOfSplitGeometrySolids(brepFileName);
             // One cell belongs to one sub part, so cells of several are grouped under one before the compound is
             // replaced. The kernel has fused them by then, so a fuse it refuses leaves the sub parts as they were.
-            if (compoundPart.CreatedBySplit)
+            if (compoundPart.HasCellSubParts)
             {
                 string[] fusedSubPartNames = cellNames
                     .Select(cellName => compoundPart.CellSubPartNames[Array.IndexOf(compoundPart.SubPartNames, cellName)])
@@ -4797,7 +4816,7 @@ namespace PrePoMax
             _form.ScreenUpdating = false;
             try
             {
-                if (numOfSolids > 1 && !compoundPart.CreatedBySplit)
+                if (numOfSolids > 1 && !compoundPart.HasCellSubParts)
                     _lastFusedSplitCellName = ReplaceCompoundWithFusedSubParts(compoundPart, brepFileName, solidIds);
                 else if (numOfSolids > 1)
                 {
@@ -4820,7 +4839,7 @@ namespace PrePoMax
                                                " could not be replaced.");
                     _lastFusedSplitCellName = result.SubPartNames[solidIds[0] - 1];
                 }
-                else if (compoundPart.CreatedBySplit)
+                else if (compoundPart.HasCellSubParts)
                 {
                     string subPartName = compoundPart.GetSplitSubPartNames()[0];
                     _lastFusedSplitCellName = ReplaceCompoundWithPart(compoundPart, brepFileName, subPartName,
@@ -5187,7 +5206,7 @@ namespace PrePoMax
         /// </summary>
         private void SetCopiedSplitSubParts(CompoundGeometryPart sourceCompoundPart, CompoundGeometryPart compoundPart)
         {
-            if (!sourceCompoundPart.CreatedBySplit ||
+            if (!sourceCompoundPart.HasCellSubParts ||
                 sourceCompoundPart.SubPartNames.Length != compoundPart.SubPartNames.Length) return;
             // The cells of the copy are renamed after their sub parts, so the names they were imported with are free
             HashSet<string> reservedNames = new HashSet<string>(_model.GetReservedPartNames(),
@@ -5253,7 +5272,7 @@ namespace PrePoMax
                 GeometryPart sourcePart = (GeometryPart)_model.Geometry.Parts[sourcePartName];
                 if (sourcePart is CompoundGeometryPart sourceCompoundPart)
                 {
-                    splitSource |= sourceCompoundPart.CreatedBySplit;
+                    splitSource |= sourceCompoundPart.HasCellSubParts;
                     GeometryPart[] cells = GetSubParts(sourceCompoundPart.Name);
                     for (int i = 0; i < cells.Length; i++)
                     {
@@ -5734,7 +5753,7 @@ namespace PrePoMax
                 if (solidIds.Count == 0) continue;
                 //
                 compoundChanged = true;
-                if (compoundPart.CreatedBySplit) changedSplitCompounds.Add(compoundPart);
+                if (compoundPart.HasCellSubParts) changedSplitCompounds.Add(compoundPart);
                 // One solid is not a compound and no solid is nothing, so either way the compound itself
                 // goes and whatever is left of it stands on its own
                 if (remainingSubPartNames.Count <= 1)
@@ -5968,7 +5987,7 @@ namespace PrePoMax
             importedSubParts = GetSubParts(newCompoundPartName);
             // The compound keeps the sub parts it has, which the user may have grouped or renamed since. One made
             // before the cells of a split part were gathered keeps those the regeneration gathered them under
-            bool keepImportedSplitSubParts = importedCompoundPart.CreatedBySplit && !compoundPart.CreatedBySplit;
+            bool keepImportedSplitSubParts = importedCompoundPart.HasCellSubParts && !compoundPart.HasCellSubParts;
             CompoundGeometryPart splitSubPartsSource = keepImportedSplitSubParts ? importedCompoundPart : compoundPart;
             string[] cellSubPartNames = splitSubPartsSource.CellSubPartNames?.ToArray();
             int[] cellSubPartIds = splitSubPartsSource.CellSubPartIds?.ToArray();
@@ -7738,7 +7757,7 @@ namespace PrePoMax
         /// </summary>
         private void RenameSplitCells(CompoundGeometryPart compoundPart)
         {
-            if (!compoundPart.CreatedBySplit) return;
+            if (!compoundPart.HasCellSubParts) return;
             //
             string[] cellNames = compoundPart.SubPartNames.ToArray();
             HashSet<string> cellNameSet = new HashSet<string>(cellNames, StringComparer.OrdinalIgnoreCase);
@@ -9778,7 +9797,7 @@ namespace PrePoMax
             try
             {
                 int[] solidNumbers = Enumerable.Range(1, compoundPart.SubPartNames.Length).ToArray();
-                if (compoundPart.CreatedBySplit)
+                if (compoundPart.HasCellSubParts)
                 {
                     File.WriteAllLines(GetSplitGeometryOriginsFileName(dividedBrepFileName),
                                        solidNumbers.Select(i => i.ToString()));
@@ -10468,7 +10487,7 @@ namespace PrePoMax
             _form.ScreenUpdating = false;
             try
             {
-                if (keptSolidNumbers.Length > 1 && compoundPart.CreatedBySplit)
+                if (keptSolidNumbers.Length > 1 && compoundPart.HasCellSubParts)
                 {
                     File.WriteAllLines(GetSplitGeometryOriginsFileName(brepFileName),
                                        keptSolidNumbers.Select(i => i.ToString()));
@@ -10486,7 +10505,7 @@ namespace PrePoMax
                     BasePart keptSubPart = subParts[keptSolidNumbers[0] - 1];
                     string partName = keptSubPart.Name;
                     int partId = keptSubPart.PartId;
-                    if (compoundPart.CreatedBySplit)
+                    if (compoundPart.HasCellSubParts)
                     {
                         partName = compoundPart.CellSubPartNames[keptSolidNumbers[0] - 1];
                         partId = GetSplitSubPartId(compoundPart, partName);
@@ -10974,7 +10993,7 @@ namespace PrePoMax
             {
                 foreach (var entry in _model.Geometry.Parts)
                 {
-                    if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit) continue;
+                    if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.HasCellSubParts) continue;
                     int cellIndex = Array.IndexOf(compoundPart.SubPartNames, partName);
                     if (cellIndex >= 0 && compoundPart.CellSubPartNames[cellIndex] != null)
                         return compoundPart.GetCellNames(compoundPart.CellSubPartNames[cellIndex]);
@@ -11528,7 +11547,7 @@ namespace PrePoMax
         {
             foreach (var entry in _model.Geometry.Parts)
             {
-                if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit) continue;
+                if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.HasCellSubParts) continue;
                 int index = Array.IndexOf(compoundPart.SubPartNames, cellName);
                 if (index >= 0) return compoundPart.CellSubPartNames[index];
             }
@@ -11538,7 +11557,7 @@ namespace PrePoMax
         {
             foreach (var entry in _model.Geometry.Parts)
             {
-                if (entry.Value is CompoundGeometryPart compoundPart && compoundPart.CreatedBySplit &&
+                if (entry.Value is CompoundGeometryPart compoundPart && compoundPart.HasCellSubParts &&
                     compoundPart.CellSubPartNames.Contains(subPartName))
                     return compoundPart;
             }
@@ -18881,7 +18900,7 @@ namespace PrePoMax
         {
             foreach (var entry in _model.Geometry.Parts)
             {
-                if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.CreatedBySplit) continue;
+                if (!(entry.Value is CompoundGeometryPart compoundPart) || !compoundPart.HasCellSubParts) continue;
                 //
                 int index = Array.IndexOf(compoundPart.SubPartNames, part.Name);
                 if (index < 0 || compoundPart.CellSubPartNames[index] == null) continue;
@@ -24215,7 +24234,7 @@ namespace PrePoMax
                 Dictionary<string, string> cellNameSubPartName = new Dictionary<string, string>();
                 foreach (var entry in mesh.Parts)
                 {
-                    if (entry.Value is CompoundGeometryPart compoundPart && compoundPart.CreatedBySplit)
+                    if (entry.Value is CompoundGeometryPart compoundPart && compoundPart.HasCellSubParts)
                     {
                         for (int i = 0; i < compoundPart.SubPartNames.Length; i++)
                         {

@@ -42,7 +42,8 @@ namespace APIs.Python.Model
             get { return _service.GetRecognizedMeshType(_partName); }
         }
         [PythonAPI("The sub-parts of a compound part made by split_solid: the solids its cells were cut from, " +
-                   "which rename_split_sub_part renames. Empty for any other part.", Returns = "StringList")]
+                   "which rename_split_sub_part renames, or of any other compound once group_split_cells grouped " +
+                   "its sub-parts. Empty for any other part.", Returns = "StringList")]
         public StringListAPI split_sub_part_names
         {
             get { return new StringListAPI(_service.GetSplitSubPartNames(_partName)); }
@@ -58,7 +59,8 @@ namespace APIs.Python.Model
 
 
         // Methods
-        [PythonAPI("The cells of one sub-part of a compound part made by split_solid, in the order the compound " +
+        [PythonAPI("The cells of one sub-part of a compound part made by split_solid, or grouped by " +
+                   "group_split_cells, in the order the compound " +
                    "holds them, which group_split_cells takes.",
                    Arguments = "sub_part_name: str", Returns = "StringList")]
         public StringListAPI get_split_cell_names(object sub_part_name)

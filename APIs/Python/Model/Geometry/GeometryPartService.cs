@@ -184,15 +184,16 @@ namespace APIs.Python.Model
         public string[] GetSplitSubPartNames(string partName)
         {
             CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
-            if (compoundPart == null || !compoundPart.CreatedBySplit) return new string[0];
+            if (compoundPart == null || !compoundPart.HasCellSubParts) return new string[0];
             //
             return compoundPart.GetSplitSubPartNames();
         }
         public void RenameSplitSubPart(string partName, string oldName, string newName)
         {
             CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
-            if (compoundPart == null || !compoundPart.CreatedBySplit)
-                throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split.");
+            if (compoundPart == null || !compoundPart.HasCellSubParts)
+                throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split " +
+                                             "or with grouped sub-parts.");
             string storedOldName = FindName(compoundPart.GetSplitSubPartNames(), oldName);
             if (storedOldName == null)
                 throw new PythonAPIException("The compound part '" + partName + "' has no sub-part named '" +
@@ -209,8 +210,9 @@ namespace APIs.Python.Model
         public string[] GetSplitCellNames(string partName, string subPartName)
         {
             CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
-            if (compoundPart == null || !compoundPart.CreatedBySplit)
-                throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split.");
+            if (compoundPart == null || !compoundPart.HasCellSubParts)
+                throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split " +
+                                             "or with grouped sub-parts.");
             string storedSubPartName = FindName(compoundPart.GetSplitSubPartNames(), subPartName);
             if (storedSubPartName == null)
                 throw new PythonAPIException("The compound part '" + partName + "' has no sub-part named '" +
@@ -221,8 +223,11 @@ namespace APIs.Python.Model
         public string GroupSplitCells(string partName, object cellNames, string subPartName)
         {
             CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
-            if (compoundPart == null || !compoundPart.CreatedBySplit)
-                throw new PythonAPIException("The part '" + partName + "' is not a compound part made by a split.");
+            if (compoundPart == null)
+                throw new PythonAPIException("The part '" + partName + "' is not a compound part.");
+            // The sub parts of a compound that was not made by a split are its cells, each a sub part of its own
+            string[] subPartNames = compoundPart.HasCellSubParts ? compoundPart.GetSplitSubPartNames() :
+                                                                   compoundPart.SubPartNames;
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(cellNames, "cell_names");
             if (names == null || names.Length == 0)
                 throw new PythonAPIException("The argument 'cell_names' must name at least one cell.");
@@ -231,7 +236,7 @@ namespace APIs.Python.Model
             string storedSubPartName = subPartName;
             if (subPartName != null)
             {
-                string existingSubPartName = FindName(compoundPart.GetSplitSubPartNames(), subPartName);
+                string existingSubPartName = FindName(subPartNames, subPartName);
                 PythonNameComparer.ValidateFormat(subPartName, "sub_part_name", existingSubPartName);
                 if (existingSubPartName != null) storedSubPartName = existingSubPartName;
                 else if (ModelResolver.GetModel().GetReservedPartNames().Contains(subPartName))

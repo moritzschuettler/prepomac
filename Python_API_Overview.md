@@ -1180,7 +1180,9 @@ pmx.model.geometry.parts.split_face(top, line)
 ```
 
 A compound part made by a solid split gathers its cells under the solids they were cut from, and
-those are the sub-parts the tree shows. `part.split_sub_part_names` lists them as a `StringList`, empty for any other
+those are the sub-parts the tree shows; so does any other compound once `group_split_cells` has grouped its
+cells. `part.split_sub_part_names` lists them as a `StringList`, empty for any other part, an imported or
+`add_compound` compound not grouped yet included. `get_split_cell_names` and `rename_split_sub_part` refuse such a
 part, and `rename_split_sub_part(part_name, old_name, new_name)` renames one the way renaming it in
 the tree does: its cells are renamed after it, and so is the mesh part it was meshed into. A name
 another part already uses is refused, compared regardless of case as the tree compares it. The sub-part
@@ -1195,7 +1197,10 @@ pmx.model.geometry.parts.rename_split_sub_part(compound.name, compound.split_sub
 `group_split_cells(part_name, cell_names, sub_part_name=None)` is Group Cells in the tree: it puts the
 named cells under one sub-part without changing the geometry, so that with the cells merged, the
 default, they are meshed into one mesh part. That is how the regions of one solid cut for different
-materials are gathered as the materials need them. The sub-part is the one named, joined if the
+materials are gathered as the materials need them. The cells of a compound that was imported or
+created with `add_compound` are its sub-parts: until they are grouped, each is a sub-part of one cell
+named after it, as a split leaves a part it does not cut, and once grouped the compound lists them in
+`split_sub_part_names`. The sub-part is the one named, joined if the
 compound has it and created with a part id of its own otherwise, listed after the sub-parts the
 compound already has. Without a name it is the largest sub-part whose cells are all among the named
 ones, so a sub-part given whole together with further cells takes them in, and otherwise a new
@@ -1363,8 +1368,9 @@ cannot reach by tetrahedra. `Revolve` is a solid the sweep between two ends cann
 revolution of a group of coplanar surfaces about an axis they touch; a sweep item, or the default sweep of a
 part with no mesh setup item, meshes it by a revolved block. A revolved solid clear of the axis is left to the sweep.
 The recognition depends on the geometry alone, so an exploded view does not change it.
-It also adds `split_sub_part_names` (a `StringList`), the sub-parts of a compound part made by `split_solid`,
-which `rename_split_sub_part` renames; it is empty for any other part. `get_split_cell_names(sub_part_name)`
+It also adds `split_sub_part_names` (a `StringList`), the sub-parts of a compound part made by `split_solid`, or
+of any other compound once `group_split_cells` grouped its cells, which `rename_split_sub_part` renames; it is
+empty for any other part, an imported or `add_compound` compound not grouped yet included. `get_split_cell_names(sub_part_name)`
 lists the cells of one of them as a `StringList`, which `group_split_cells` takes.
 
 `ModelPart` adds `get_inverted_element_ids()`, an `IntList` of the IDs of the inverted or degenerate solid elements

@@ -654,8 +654,8 @@ namespace UserControls
             cellNames = names.ToArray();
             return true;
         }
-        // The cells of one split compound, which can be put under one sub part unless they already are the whole
-        // of a single sub part
+        // The cells of one split compound, or sub parts of any other compound, which can be put under one sub part
+        // unless they already are the whole of a single sub part
         private bool TryGetSplitCellsToGroup(TreeNode[] nodes, out string compoundPartName, out string[] cellNames)
         {
             compoundPartName = null;
@@ -668,18 +668,24 @@ namespace UserControls
             {
                 if (!(node.Tag is GeometryPart cell) || !IsCompoundGeometrySubPartNode(node)) return false;
                 TreeNode compoundNode = _splitSubPartNodes.ContainsKey(node.Parent) ? node.Parent.Parent : node.Parent;
-                if (!(compoundNode?.Tag is CompoundGeometryPart nodeCompoundPart) || !nodeCompoundPart.CreatedBySplit)
-                    return false;
+                if (!(compoundNode?.Tag is CompoundGeometryPart nodeCompoundPart)) return false;
                 if (compoundPart == null) compoundPart = nodeCompoundPart;
                 else if (compoundPart != nodeCompoundPart) return false;
                 names.Add(cell.Name);
             }
-            //
-            HashSet<string> subPartNames = new HashSet<string>();
-            foreach (string name in names)
-                subPartNames.Add(compoundPart.CellSubPartNames[Array.IndexOf(compoundPart.SubPartNames, name)]);
-            if (subPartNames.Count == 1 && compoundPart.GetCellNames(subPartNames.First()).Length == names.Count)
-                return false;
+            // Each sub part of a compound that was not made by a split is a sub part of one cell
+            if (!compoundPart.HasCellSubParts)
+            {
+                if (names.Distinct().Count() < 2) return false;
+            }
+            else
+            {
+                HashSet<string> subPartNames = new HashSet<string>();
+                foreach (string name in names)
+                    subPartNames.Add(compoundPart.CellSubPartNames[Array.IndexOf(compoundPart.SubPartNames, name)]);
+                if (subPartNames.Count == 1 && compoundPart.GetCellNames(subPartNames.First()).Length == names.Count)
+                    return false;
+            }
             //
             compoundPartName = compoundPart.Name;
             cellNames = names.ToArray();

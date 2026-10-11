@@ -128,7 +128,8 @@ namespace APIs.Python.Model
             return _service.SplitGeometry(selectionValue, toolValue, fuzzy_tolerance, SplitTypeEnum.Shell);
         }
 
-        [PythonAPI("Renames a sub-part of a compound part made by split_solid, the way renaming it in the " +
+        [PythonAPI("Renames a sub-part of a compound part made by split_solid, or grouped by group_split_cells, " +
+                   "the way renaming it in the " +
                    "tree does. The sub-part is the solid the cells were cut from, which the part lists in " +
                    "split_sub_part_names; its cells are renamed after it, and so is the mesh part it was " +
                    "meshed into. old_name is matched regardless of case.",
@@ -142,9 +143,11 @@ namespace APIs.Python.Model
             _service.RenameSplitSubPart(partName, oldName, newName);
         }
 
-        [PythonAPI("Puts the named cells of a compound part made by split_solid under one sub-part, the way " +
-                   "Group Cells in the tree does, so that they are meshed into one mesh part when the cells are " +
-                   "merged, which is the default. The geometry is not changed. The sub-part is the one named, " +
+        [PythonAPI("Puts the named cells of a compound part under one sub-part, the way Group Cells in the tree " +
+                   "does, so that they are meshed into one mesh part when the cells are merged, which is the " +
+                   "default. The cells of a compound made by split_solid are the pieces it was cut into; those " +
+                   "of any other compound are its sub-parts, each until then a sub-part of one cell named after " +
+                   "it. The geometry is not changed. The sub-part is the one named, " +
                    "joined if the compound has it and created otherwise, and a new one is listed last; " +
                    "without a name it is the largest sub-part whose cells are all among the named ones, or " +
                    "else a new sub-part named after the one the first cell belongs to. A sub-part left " +
