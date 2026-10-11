@@ -28,6 +28,9 @@ namespace APIs.Python.Model
         public string description { get { return _service.ResolveMaterial(_materialName).Description; } }
         [PythonAPI("True when the material is written to the solver input file.", Returns = "bool")]
         public bool active { get { return _service.ResolveMaterial(_materialName).Active; } }
+        [PythonAPI("True when the material resolved during the last regeneration: the equations of its " +
+                   "properties.", Returns = "bool")]
+        public bool valid { get { return _service.ResolveMaterial(_materialName).Valid; } }
         [PythonAPI("Whether every material-property row is temperature dependent.", Returns = "bool")]
         public bool temperature_dependent
         {

@@ -34,6 +34,9 @@ namespace APIs.Python
         [PythonAPI("The field output type, named after the add_* method that makes it without the add_ prefix: " +
                    "limit, envelope, equation or coordinate_system_transform.", Returns = "str")]
         public string item_type { get { return GetItemType(Resolve()); } }
+        [PythonAPI("True when the field output resolved during the last result update: the fields, parts, " +
+                   "element sets and coordinate system it is computed from.", Returns = "bool")]
+        public bool valid { get { return Resolve().Valid; } }
         [PythonAPI("The first field-output filter, or None when it is disabled.",
                    Returns = "FieldOutputFilter or None")]
         public ResultFieldOutputFilterAPI filter1

@@ -107,6 +107,16 @@ def test_distributions():
     #
     distributions.rename(PREFIX + "D", PREFIX + "D_R")
     check(distributions.contains(PREFIX + "D_R"), "the distribution was not renamed")
+    # Removing the coordinate system a distribution is defined in leaves the distribution invalid
+    check(distributions[PREFIX + "D_R"].valid, "a new distribution must be valid")
+    system = PREFIX + "CS_Removed"
+    pmx.model.coordinate_systems.add(system, [0, 0, 0], [0, 1, 0], [-1, 0, 0])
+    distributions.add_from_equation(PREFIX + "D_CS", "x", coordinate_system_name=system)
+    check(distributions[PREFIX + "D_CS"].valid, "the distribution in an existing coordinate system is not valid")
+    pmx.model.coordinate_systems.remove([system])
+    check(not distributions[PREFIX + "D_CS"].valid,
+          "the distribution in a removed coordinate system is still valid")
+    distributions.remove([PREFIX + "D_CS"])
     # A distribution keeps its equation as plain text, so the leading equals sign the application
     # evaluates with has to be supplied by the API rather than by the caller
     scalar = distributions.add_from_equation(PREFIX + "Scalar", "1 + 0.01 * x")

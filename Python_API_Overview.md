@@ -1412,7 +1412,8 @@ selection = pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces',
 | `replace_from_file(old_name, name=None, file_name=None, interpolator_type=None, interpolator_radius=None, scale=None, translate=None, coordinate_system_name=None)` | Replaces a file distribution. A value that is not given is kept, and an equation distribution is refused. A new `file_name` is read again, and a file that changes a scalar distribution into a vector one, or back, is refused while an item uses the distribution, as for `replace_from_equation`. A file that cannot be read is refused naming `file_name`. |
 
 `Distribution` exposes `name`, `item_type` (`'from_equation'` or `'from_file'`), `equation`, `file_name`,
-`interpolator_type`, `interpolator_radius`, `scale`, `translate`, `coordinate_system_name` and `get_equations()`.
+`interpolator_type`, `interpolator_radius`, `scale`, `translate`, `coordinate_system_name`, `valid` (False when its
+coordinate system no longer resolves) and `get_equations()`.
 
 | Property | Description |
 | --- | --- |
@@ -1462,7 +1463,7 @@ pmx.model.initial_conditions.add_temperature('IC-1', nodes, 20)
 | `add(name, properties, description=None, temperature_dependent=False)` | Adds a material. The properties are created by `pmx.create`. Set `temperature_dependent=True` to write every row with its temperature. A material holds one elastic property and one density, so `density` together with `elastic_with_density`, which holds the density, is refused. |
 | `replace(old_name, name=None, properties=None, description=None, temperature_dependent=None)` | Replaces an existing material. Omitted values are kept. |
 
-`Material` exposes `name`, `description`, `active`, `temperature_dependent`, `property_count`, `get_properties()` and
+`Material` exposes `name`, `description`, `active`, `valid`, `temperature_dependent`, `property_count`, `get_properties()` and
 `get_property_types()`, which names every property after the `pmx.create` maker that makes it: `elastic`, `density`,
 `elastic_with_density`, `elastic_engineering_constants`, `elastic_lamina`, `plastic`, `slip_wear`, `specific_heat`,
 `thermal_conductivity` or `thermal_expansion`. `get_properties()` returns detached `MaterialProperty` copies as a plain Python list, and the
@@ -1915,7 +1916,7 @@ slave one; both are a `Selection` or a `Region`, and both name surfaces.
 | `hide(names)`, `show(names)` | Symbol visibility. |
 
 `ContactPair` exposes `name`, `surface_interaction_name`, `method`, `small_sliding`, `adjust`,
-`adjustment_size`, `active`, `visible`, `master_color` and `slave_color` (the colors of the two surfaces as plain
+`adjustment_size`, `active`, `visible`, `valid`, `master_color` and `slave_color` (the colors of the two surfaces as plain
 lists `[R, G, B, A]`, which the arguments of the same name take back), and `master_region_type`,
 `master_region_name`, `slave_region_type` and `slave_region_name`.
 
@@ -2269,6 +2270,7 @@ step.history_outputs.add_nodal('H-Output-1', selection, ['U', 'RF'], totals_type
 | `name`, `step_name` | The history output name and the step it belongs to. |
 | `item_type` | `nodal`, `element`, `section` or `contact`, named after the `add_*` method. |
 | `active` | True when the history output is written to the solver input file. |
+| `valid` | False when the region or contact pair the history output is written for no longer resolves; the model tree marks it invalid. |
 | `region_type`, `region_name` | The region, or the contact pair, the history output is written for. |
 | `totals_type`, `global_output` | The shared history output values. |
 | `get_variables()` | The requested output variables as a list of names. |
@@ -3103,6 +3105,7 @@ Base representation of a user-defined result field output.
 | --- | --- |
 | `name` | Field output name. |
 | `item_type` | `limit`, `envelope`, `equation` or `coordinate_system_transform`, named after the `add_*` method that makes it. |
+| `valid` | False when a field, part, element set or coordinate system the output is computed from no longer resolves. |
 | `filter1` | First `FieldOutputFilter`, or `None` when disabled. |
 | `filter2` | Second `FieldOutputFilter`, or `None` when disabled. |
 
@@ -3855,6 +3858,7 @@ offers no way to add or replace one, and a session journal reports such a comman
 | `name` | History output name. |
 | `fields` | History fields in the output. |
 | `is_user_defined` | `True` when the output was defined by the user instead of produced by the solver. |
+| `valid` | False when a user-defined output no longer resolves its region or the outputs and fields it is computed from; always `True` for a solver-generated output. |
 | `item_type` | `from_field`, `from_equation`, `from_integration`, `from_merged_histories`, `from_extracted_entry`, `xy` or `from_table`, named after the `add_*` method that makes it, `from_affine_fit` for a From Affine Fit output made in the user interface, which no `add_*` method makes, or `None` for a solver-generated output. |
 | `filter1` | First `HistoryOutputFilter`, or `None` when disabled or the output is solver-generated. |
 | `filter2` | Second `HistoryOutputFilter`, or `None` when disabled or the output is solver-generated. |

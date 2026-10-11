@@ -507,6 +507,7 @@ try:
     # READ-BACK: a user-defined history output is returned as its type-specific object.
     table_output = history_outputs[TABLE_NAME]
     check(table_output.is_user_defined, "The table output is not reported as user defined.")
+    check(table_output.valid, "The table output is not reported as valid.")
     check(table_output.item_type == "from_table",
           "The table output reported the wrong item type: %s" % table_output.item_type)
     check(table_output.number_of_y_columns == 1, "The table output reported the wrong Y-column count.")

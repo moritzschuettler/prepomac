@@ -262,6 +262,15 @@ def test_contact_pairs():
     check(not pair.small_sliding, "small sliding is off by default")
     check(pair.adjustment_size is None, "no adjustment size is given by default")
     check(pair.active and pair.visible, "a new contact pair must be active and visible")
+    check(pair.valid, "a new contact pair must be valid")
+    # Removing the surface interaction a contact pair uses leaves the contact pair invalid
+    removed_interaction = PREFIX + "SI_Removed"
+    pmx.model.surface_interactions.add(removed_interaction, pmx.create.surface_behavior('Hard'))
+    pairs.add(PREFIX + "Pair_Removed", removed_interaction, surface_selection(3), surface_selection(4))
+    check(pairs[PREFIX + "Pair_Removed"].valid, "the contact pair with an existing interaction is not valid")
+    pmx.model.surface_interactions.remove([removed_interaction])
+    check(not pairs[PREFIX + "Pair_Removed"].valid, "the contact pair with a removed interaction is still valid")
+    pairs.remove([PREFIX + "Pair_Removed"])
     # The surface interaction name is checked
     check_raises(lambda: pairs.add(PREFIX + "Bad", "NoSuchInteraction", surface_selection(1),
                                    surface_selection(2)),

@@ -148,6 +148,15 @@ def test_history_outputs():
     check(output.region_type == "NodeSetName", "unexpected region type " + output.region_type)
     check(sorted(list(output.get_variables())) == ["RF", "U"], "unexpected variables")
     check(output.totals_type == "Only", "the totals type was not set")
+    check(output.valid, "a new history output must be valid")
+    # Removing the node set a history output is written for leaves the history output invalid
+    removed_set = PREFIX + "Set_Removed"
+    pmx.model.node_sets.add(removed_set, node_selection([3, 4]))
+    outputs.add_nodal(PREFIX + "HN_Removed", pmx.create.region('NodeSetName', removed_set), "U")
+    check(outputs[PREFIX + "HN_Removed"].valid, "the history output of an existing node set is not valid")
+    pmx.model.node_sets.remove([removed_set])
+    check(not outputs[PREFIX + "HN_Removed"].valid, "the history output of a removed node set is still valid")
+    outputs.remove([PREFIX + "HN_Removed"])
     check_raises(lambda: outputs.add_nodal(PREFIX + "Bad", node_selection([1]), "U",
                                            totals_type="NotATotalsType"),
                  "an unknown totals type must be rejected")

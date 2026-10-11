@@ -97,6 +97,9 @@ namespace APIs.Python.Model
         }
         [PythonAPI("The name of the coordinate system the distribution is defined in.", Returns = "str")]
         public string coordinate_system_name { get { return Resolve().CoordinateSystemName; } }
+        [PythonAPI("True when the distribution resolved during the last regeneration: its coordinate system.",
+                   Returns = "bool")]
+        public bool valid { get { return Resolve().Valid; } }
 
 
         // Constructors

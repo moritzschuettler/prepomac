@@ -38,6 +38,9 @@ namespace APIs.Python.Model
         public string item_type { get { return GetItemType(Resolve()); } }
         [PythonAPI("True when the history output is written to the solver input file.", Returns = "bool")]
         public bool active { get { return Resolve().Active; } }
+        [PythonAPI("True when the history output resolved during the last regeneration: its region.",
+                   Returns = "bool")]
+        public bool valid { get { return Resolve().Valid; } }
         [PythonAPI("The region type, for example NodeSetName or ContactPair.", Returns = "str")]
         public string region_type { get { return Resolve().RegionType.ToString(); } }
         [PythonAPI("The name of the region the history output is written for.", Returns = "str")]

@@ -116,6 +116,7 @@ try:
     created_names.append(LIMIT_NAME)
     check(field_outputs.contains(LIMIT_NAME), "add() did not create the limit output.")
     check(added.name == LIMIT_NAME, "add() returned the wrong limit output.")
+    check(added.valid, "add() returned a limit output that is not valid.")
     print("PASS: add limit field output")
 
     # REPLACE: keep the name, change the limit, and use the remaining average filter type.

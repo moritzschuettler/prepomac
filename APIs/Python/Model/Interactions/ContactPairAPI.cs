@@ -55,6 +55,9 @@ namespace APIs.Python.Model
         public bool active { get { return Resolve().Active; } }
         [PythonAPI("True when the contact pair symbols are drawn.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
+        [PythonAPI("True when the contact pair resolved during the last regeneration: its surface interaction " +
+                   "and its master and slave surfaces.", Returns = "bool")]
+        public bool valid { get { return Resolve().Valid; } }
         [PythonAPI("The region type of the master side.", Returns = "str")]
         public string master_region_type { get { return Resolve().MasterRegionType.ToString(); } }
         [PythonAPI("The region name of the master side.", Returns = "str")]

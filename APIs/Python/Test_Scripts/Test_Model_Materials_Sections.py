@@ -57,6 +57,7 @@ def test_materials():
     check(material.description == "Test steel", "the description was not stored")
     # The activation state reads back on the item
     check(material.active, "a new material must be active")
+    check(material.valid, "a new material must be valid")
     materials.deactivate([PREFIX + "Steel"])
     check(not materials[PREFIX + "Steel"].active, "the material was not deactivated")
     materials.activate([PREFIX + "Steel"])

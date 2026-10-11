@@ -42,6 +42,17 @@ namespace APIs.Python
         [PythonAPI("Whether the history output was defined by the user instead of produced by the solver.",
                    Returns = "bool")]
         public bool is_user_defined { get { return ResolveOrNull() != null; } }
+        [PythonAPI("True when a user-defined history output resolved during the last result update: the " +
+                   "region and the history outputs or fields it is computed from. Always True for a " +
+                   "solver-generated history output.", Returns = "bool")]
+        public bool valid
+        {
+            get
+            {
+                ResultHistoryOutput historyOutput = ResolveOrNull();
+                return historyOutput == null || historyOutput.Valid;
+            }
+        }
         [PythonAPI("The history output type, named after the add_* method that makes it without the add_ prefix, " +
                    "for example from_field or from_table, from_affine_fit for an output made in the user " +
                    "interface, which no add_* method makes, or None for a solver-generated history output.",
