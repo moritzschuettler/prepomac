@@ -51,6 +51,9 @@ namespace APIs.Python.Model
         public bool active { get { return Resolve().Active; } }
         [PythonAPI("True when the load symbols are drawn.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
+        [PythonAPI("True when the load resolved during the last regeneration: its region, distribution, " +
+                   "amplitudes, coordinate system and equations, and the model space it needs.", Returns = "bool")]
+        public bool valid { get { return Resolve().Valid; } }
         [PythonAPI("The region type, for example NodeSetName or SurfaceName.", Returns = "str")]
         public string region_type { get { return Resolve().RegionType.ToString(); } }
         [PythonAPI("The name of the region the load is applied to.", Returns = "str")]

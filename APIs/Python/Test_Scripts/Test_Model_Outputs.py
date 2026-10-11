@@ -228,6 +228,20 @@ def test_defined_fields():
           "the temperature expression did not read back: " + str(field.get_equations()))
     check(field.get_value("temperature") == 250, "the temperature expression did not evaluate")
     check(field.region_type == "NodeSetName", "the region must survive a replace")
+    # Removing a distribution the field still names leaves it invalid; with a user keyword the removal
+    # rebuilds the generated keywords, which must not read the removed distribution
+    check(field.valid, "a defined field by value must be valid")
+    removed_distribution = PREFIX + "Removed"
+    pmx.model.distributions.add_from_equation(removed_distribution, "1 + 0.02 * x")
+    field = fields.replace_temperature(PREFIX + "DF", distribution_name=removed_distribution)
+    check(field.valid, "the defined field with an existing distribution is not valid")
+    user_keyword_path = list(pmx.model.keywords.get_model_keywords()[-1].indices)
+    pmx.model.keywords.set_user_keyword(user_keyword_path, "** " + PREFIX + "User keyword")
+    pmx.model.distributions.remove([removed_distribution])
+    pmx.model.keywords.remove_user_keyword(user_keyword_path)
+    check(not fields[PREFIX + "DF"].valid, "the defined field naming a removed distribution is still valid")
+    field = fields.replace_temperature(PREFIX + "DF", distribution_name="Constant")
+    check(field.valid, "the defined field is not valid again with the constant distribution")
     # The from file form is a different add method, and its file is checked
     check_raises(lambda: fields.add_temperature_from_file(PREFIX + "Bad", "no_such_file.frd"),
                  "a missing temperature file must be rejected")

@@ -110,6 +110,7 @@ def test_concentrated():
     check(load.get_value("f1") == 0, "f1 must stay zero")
     check(load.amplitude_name == "Default", "unexpected amplitude name " + load.amplitude_name)
     check(load.active and load.visible, "a new load must be active and visible")
+    check(load.valid, "a new load must be valid")
     # A value that is not given survives the replace
     load = loads.replace_concentrated_force(PREFIX + "F", f1=250)
     check(load.get_value("f1") == 250, "f1 was not replaced")
@@ -196,6 +197,19 @@ def test_surface_loads():
     load = loads.replace_pressure(PREFIX + "P", distribution_name=SCALAR_DISTRIBUTION.upper())
     check(load.get_value("distribution_name") == SCALAR_DISTRIBUTION,
           "a distribution given in other case did not read back as the model spells it")
+    # Removing a distribution the pressure still names leaves it invalid; with a user keyword the removal
+    # rebuilds the generated keywords, which must not read the removed distribution
+    removed_distribution = PREFIX + "Removed"
+    pmx.model.distributions.add_from_equation(removed_distribution, "1 + 0.02 * x")
+    load = loads.replace_pressure(PREFIX + "P", distribution_name=removed_distribution)
+    check(load.valid, "the pressure with an existing distribution is not valid")
+    user_keyword_path = list(pmx.model.keywords.get_model_keywords()[-1].indices)
+    pmx.model.keywords.set_user_keyword(user_keyword_path, "** " + PREFIX + "User keyword")
+    pmx.model.distributions.remove([removed_distribution])
+    pmx.model.keywords.remove_user_keyword(user_keyword_path)
+    check(not loads[PREFIX + "P"].valid, "the pressure naming a removed distribution is still valid")
+    load = loads.replace_pressure(PREFIX + "P", distribution_name="Constant")
+    check(load.valid, "the pressure is not valid again with the constant distribution")
     # Hydrostatic pressure
     load = loads.add_hydrostatic_pressure(PREFIX + "HP", surface_selection(1),
                                           first_point=[0, 0, 0], second_point=[0, 0, 1],

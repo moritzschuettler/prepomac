@@ -32,6 +32,9 @@ namespace APIs.Python.Model
         public bool active { get { return Resolve().Active; } }
         [PythonAPI("True when the defined field symbols are drawn.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
+        [PythonAPI("True when the defined field resolved during the last regeneration: its region, " +
+                   "distribution and equations.", Returns = "bool")]
+        public bool valid { get { return Resolve().Valid; } }
         [PythonAPI("The region type, for example NodeSetName.", Returns = "str")]
         public string region_type { get { return Resolve().RegionType.ToString(); } }
         [PythonAPI("The name of the region the defined field is applied to.", Returns = "str")]

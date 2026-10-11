@@ -43,6 +43,9 @@ namespace APIs.Python.Model
         public bool active { get { return Resolve().Active; } }
         [PythonAPI("True when the constraint symbols are drawn.", Returns = "bool")]
         public bool visible { get { return Resolve().Visible; } }
+        [PythonAPI("True when the constraint resolved during the last regeneration: its regions and equations.",
+                   Returns = "bool")]
+        public bool valid { get { return Resolve().Valid; } }
         [PythonAPI("The region type of the master side. For a rigid body and a coupling this is the " +
                    "reference point.", Returns = "str")]
         public string master_region_type { get { return Resolve().MasterRegionType.ToString(); } }

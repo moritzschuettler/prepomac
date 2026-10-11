@@ -1773,7 +1773,7 @@ constraint takes one `color`. Each is a `color` value as described at the top.
 | `merge_by_master_slave(names)` | | Merges the constraints that share a master and a slave region. |
 | `hide(names)`, `show(names)` | | Symbol visibility. |
 
-`Constraint` exposes `name`, `item_type` (the `add_*` name without `add_`, `'tie'` or `'point_spring'`), `active`, `visible`, `master_region_type`,
+`Constraint` exposes `name`, `item_type` (the `add_*` name without `add_`, `'tie'` or `'point_spring'`), `active`, `visible`, `valid`, `master_region_type`,
 `master_region_name`, `slave_region_type`, `slave_region_name`, the colors of its type as plain lists `[R, G, B, A]` -
 `master_color` and `slave_color` of a tie, a cyclic symmetry and a joint, `color` of every other type, the other ones
 refused naming those the type has - `region_type` and `region_name`, the region the `region` argument sets (refused
@@ -2190,6 +2190,7 @@ An **imported pressure** is read from its results file on every model check, so 
 | `name`, `step_name` | The load name and the step it belongs to. |
 | `item_type` | The load type, named after the `add_*` method that makes it without `add_`: `concentrated_force`, `moment`, `pressure`, `hydrostatic_pressure`, `imported_pressure`, `surface_traction`, `shell_edge_load`, `gravity`, `centrifugal`, `pre_tension`, `concentrated_flux`, `surface_flux`, `body_flux`, `film_heat_transfer` or `radiation_heat_transfer`. |
 | `active`, `visible` | Item state. |
+| `valid` | False when the region, distribution, amplitude, coordinate system or an equation the load refers to no longer resolves, or the load does not fit the model space; the model tree marks it invalid. |
 | `region_type`, `region_name` | The region the load is applied to. |
 | `amplitude_name`, `coordinate_system_name` | The names the load refers to. |
 | `color` | The symbol color as a plain list `[R, G, B, A]`. |
@@ -2286,6 +2287,7 @@ A `distribution_name` must name a `Scalar` distribution for `bcs.add_temperature
 | `name`, `step_name` | The defined field name and the step it belongs to. |
 | `item_type` | `temperature` or `temperature_from_file`, named after the `add_*` method that makes it. |
 | `active`, `visible` | Item state. |
+| `valid` | False when the region, distribution or an equation the defined field refers to no longer resolves; the model tree marks it invalid. |
 | `region_type`, `region_name` | The region the defined field is applied to. |
 | `amplitude_name` | The amplitude the defined field refers to. |
 | `color` | The symbol color as a plain list `[R, G, B, A]`. |

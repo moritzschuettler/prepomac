@@ -339,6 +339,16 @@ def test_reference_point_constraints():
     check(rb.slave_region_type == "NodeSetName", "unexpected region " + rb.slave_region_type)
     check_raises(lambda: constraints.add_rigid_body(PREFIX + "Bad", "NoSuchRP", node_selection([1])),
                  "an unknown reference point must be rejected")
+    # Removing the reference point a rigid body names leaves the rigid body invalid
+    check(rb.valid, "a new rigid body must be valid")
+    removed_point = PREFIX + "RP_Removed"
+    pmx.model.reference_points.add(removed_point, [0.5, 0.5, 3.0])
+    constraints.add_rigid_body(PREFIX + "RB_Removed", removed_point, node_selection([5, 6]))
+    check(constraints[PREFIX + "RB_Removed"].valid, "the rigid body with an existing reference point is not valid")
+    pmx.model.reference_points.remove([removed_point])
+    check(not constraints[PREFIX + "RB_Removed"].valid,
+          "the rigid body naming a removed reference point is still valid")
+    constraints.remove([PREFIX + "RB_Removed"])
     # The rigid body dialog picks geometry, so its journal hands that selection back, and it must resolve to
     # the nodes the same face selected by nodes gives
     face_nodes = sorted(pmx.create.selection_by_ids('femodel', 'nodes', 'surfaces', {1: [1]}).get_ids())
