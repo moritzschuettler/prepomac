@@ -33,8 +33,11 @@ raises no license-compatibility question. Mmg's own LICENSE requires that both `
 `lib\gmsh-4.13.dll` is no longer the binary from the upstream Gmsh SDK. It is built from patched
 Gmsh sources, published at `gitlab.com/MatejB/gmsh` on the branch `prepomax-quadqs-transfinite`, so
 that the quasi-structured quad algorithm leaves alone the element counts a swept mesh pins on its
-curves. Everything else in `ThirdParty/gmsh-4.13.0-Windows64-sdk/` is still the upstream SDK, the
-import library and the headers among it.
+curves, a quadrangle is never split into triangles that fold over each other, and a curve is sized by
+the curvature of its faces in its own direction rather than by their largest curvature, which made a
+straight edge along a narrow fillet as fine as the fillet is round.
+Everything else in `ThirdParty/gmsh-4.13.0-Windows64-sdk/` is still the upstream SDK, the import
+library and the headers among it.
 
 The build is configured without the graphical interface and without the OpenCASCADE application
 framework, neither of which PrePoMax calls, and links OpenCASCADE statically, so the dll carries no

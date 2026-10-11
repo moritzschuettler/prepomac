@@ -4447,6 +4447,21 @@ namespace CaeMesh
                 else if (_quadWildSourceIds.Count > 0 && _gmshData.EdgeIdNumElements.ContainsKey(edgeId))
                     problem.SetWeight(edgeId, _chosenCountWeight);
             }
+            // A curved edge keeps the elements the curvature setting gives it on its 1D mesh: one for every part of a
+            // full turn per element it turns by, and no more than its 1D mesh has. A straight edge is no longer sized
+            // by the curvature of a face it bounds, so the straight side across a structured source from an arc can
+            // be the coarser one, and the arc would take its count: two quadrilaterals across a half circle fold. The
+            // sources QuadWild meshes keep their curves by QuadWild's own minimum, which the rounds settle on
+            double elementsPerTurn = Gmsh.Option.GetNumber("Mesh.MeshSizeFromCurvature");
+            if (elementsPerTurn > 0 && _quadWildSourceIds.Count == 0)
+            {
+                foreach (var edgeId in problem.EdgeIds.ToArray())
+                {
+                    int minimum = Math.Min((int)Math.Ceiling(GetTurningAngleDeg(edgeId) * elementsPerTurn / 360 - 1E-6),
+                                           SweepWallTopology.GetElementCount(edgeId));
+                    if (minimum > 1) problem.SetMinimum(edgeId, minimum);
+                }
+            }
             return problem;
         }
         /// <summary>
