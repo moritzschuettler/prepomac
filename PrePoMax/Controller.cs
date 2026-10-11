@@ -1123,6 +1123,15 @@ namespace PrePoMax
             _defaultMeshTypesDisabled = true;
         }
         /// <summary>
+        /// Meshes by the default mesh types again. A replay of the whole history calls it before its first
+        /// command, so that the command heading the history of an older model is what decides how it is meshed,
+        /// and removing that command from the history takes effect without reading the model again.
+        /// </summary>
+        public void EnableDefaultMeshTypes()
+        {
+            _defaultMeshTypesDisabled = false;
+        }
+        /// <summary>
         /// The solid and shell parts that no mesh setup item meshes, named as they are meshed - a compound part
         /// stands for its sub-parts, since they are meshed as one. A model built before v2.6.3 meshed every one
         /// of them by Netgen, a solid part by tetrahedra whatever mesh its geometry could carry, and with the
@@ -1221,6 +1230,10 @@ namespace PrePoMax
         /// </summary>
         public NetgenMesh[] AddNetgenMeshesToUncoveredParts()
         {
+            // A history the command disabling the default mesh types was removed from is meshed the way this
+            // version meshes, and keeps no Netgen item for it
+            if (!_defaultMeshTypesDisabled) return new NetgenMesh[0];
+            //
             List<NetgenMesh> netgenMeshes = CreateNetgenMeshesForUncoveredParts();
             foreach (var netgenMesh in netgenMeshes)
             {

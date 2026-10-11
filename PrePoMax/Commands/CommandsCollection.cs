@@ -602,6 +602,10 @@ namespace PrePoMax.Commands
             List<string> warnings = new List<string>();
             _errors = new List<string>();
             //
+            if (lastSave == null &&
+                (regenerateType == RegenerateTypeEnum.All || regenerateType == RegenerateTypeEnum.PreProcess))
+                _controller.EnableDefaultMeshTypes();
+            //
             foreach (Command command in _commands)    // clear command modifies the collection
             {
                 if (count++ <= _currPositionIndex)
