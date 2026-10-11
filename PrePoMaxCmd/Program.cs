@@ -10,6 +10,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 
 namespace PrePoMaxCmd
 {
@@ -24,10 +25,17 @@ namespace PrePoMaxCmd
     static class Program
     {
         private const string GuiExecutableName = "PrePoMax.exe";
-        // Mirrors PrePoMax.ExitCodeEnum.LauncherError - the launcher cannot reference the application assembly
+        // Mirror PrePoMax.ExitCodeEnum.LauncherError and Cancelled - the launcher cannot reference the application
         private const int LauncherErrorExitCode = 6;
+        private const int CancelledExitCode = 7;
+        // Mirrors PrePoMax.Program.CancelEventNamePrefix
+        private const string CancelEventNamePrefix = "PrePoMax.Cancel.";
+        // How long PrePoMax.exe is given to write its journal and report after a cancel before it is killed
+        private const int CancelGracePeriodMilliseconds = 30000;
         //
         private static Process _guiProcess;
+        private static int _numberOfCancels;
+        private static volatile bool _isKilled;
         //
         static int Main()
         {
@@ -52,7 +60,7 @@ namespace PrePoMaxCmd
                     //
                     guiProcess.WaitForExit();
                     //
-                    return guiProcess.ExitCode;
+                    return _isKilled ? CancelledExitCode : guiProcess.ExitCode;
                 }
             }
             catch (Exception ex)
@@ -65,17 +73,58 @@ namespace PrePoMaxCmd
                 _guiProcess = null;
             }
         }
+        // The first Ctrl+C asks PrePoMax.exe to end the run, which it does the way its time limit does: it kills the
+        // running analyses, writes the journal and the report and exits with code 7. It receives the break event only
+        // while it is attached to this console, so it is also asked through an event named after its process. It is
+        // killed when it has not exited after the grace period, or at once on a second Ctrl+C
         private static void OnCancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
-            // PrePoMax.exe receives the break event only while it is attached to the console
             Process guiProcess = _guiProcess;
             if (guiProcess == null) return;
             //
             e.Cancel = true;
             //
+            if (Interlocked.Increment(ref _numberOfCancels) > 1 || !SignalCancel(guiProcess))
+            {
+                Kill(guiProcess);
+                return;
+            }
+            Console.Error.WriteLine("Cancelling - press Ctrl+C again to stop PrePoMax at once.");
+            ThreadPool.QueueUserWorkItem(delegate (object state)
+            {
+                try
+                {
+                    if (!guiProcess.WaitForExit(CancelGracePeriodMilliseconds)) Kill(guiProcess);
+                }
+                catch
+                {
+                    // The process was already disposed of because it exited
+                }
+            });
+        }
+        private static bool SignalCancel(Process guiProcess)
+        {
             try
             {
-                if (!guiProcess.HasExited) guiProcess.Kill();
+                EventWaitHandle cancelEvent;
+                if (!EventWaitHandle.TryOpenExisting(CancelEventNamePrefix + guiProcess.Id, out cancelEvent)) return false;
+                using (cancelEvent) cancelEvent.Set();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        private static void Kill(Process guiProcess)
+        {
+            try
+            {
+                if (!guiProcess.HasExited)
+                {
+                    _isKilled = true;
+                    guiProcess.Kill();
+                }
             }
             catch
             {

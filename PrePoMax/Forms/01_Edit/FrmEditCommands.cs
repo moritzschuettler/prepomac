@@ -43,6 +43,7 @@ namespace PrePoMax.Forms
         private int[] _pythonCommandFirstLines;
         private bool _pythonScriptOutdated;
         private List<Command> _preparedCommands;
+        private int _preparedActiveCommandCount;
         private bool _symbolsDrawn;
 
 
@@ -129,11 +130,15 @@ namespace PrePoMax.Forms
                     //
                     if (saveFileDialog.ShowDialog() == DialogResult.OK)
                     {
-                        // The dialog may hold a reordered or shortened history, so what is shown is emitted. An
-                        // unedited history is shown with the commands an undo took back, which the model is not
-                        // built by, so the journal leaves them out as Regenerate does
-                        List<Command> commands = _viewCommands == null || IsShowingPreparedHistory() ?
-                                                 _controller.GetActiveCommands() : Commands;
+                        List<Command> commands = GetPythonScriptCommands();
+                        int numOfUndoneCommands = GetNumOfShownUndoneCommands();
+                        if (numOfUndoneCommands > 0 &&
+                            MessageBoxes.ShowWarningQuestionOKCancel("The edited history holds " + numOfUndoneCommands +
+                                                                     " commands an undo took back. OK applies every " +
+                                                                     "row, so the script runs them too. Save it?") !=
+                            DialogResult.OK) return;
+                        //
+                        UpdatePythonScript();
                         PythonJournalReport report =
                             PythonJournalExporter.Export(commands, saveFileDialog.FileName, _controller.OpenedFileName,
                                                          _controller.Settings.General.NumOfSplitFaces,
@@ -366,6 +371,7 @@ namespace PrePoMax.Forms
         {
             List<Command> commands = _controller.GetCommands();
             _preparedCommands = new List<Command>(commands);
+            _preparedActiveCommandCount = _controller.GetActiveCommands().Count;
             //
             SetCommands(commands);
             //
@@ -382,7 +388,7 @@ namespace PrePoMax.Forms
             }
             return false;
         }
-        private bool IsShowingPreparedHistory()
+        private bool IsShowingPreparedRows()
         {
             if (_viewCommands == null || _preparedCommands == null || _viewCommands.Count != _preparedCommands.Count)
                 return false;
@@ -391,7 +397,28 @@ namespace PrePoMax.Forms
             {
                 if (!ReferenceEquals(_viewCommands[i].Command, _preparedCommands[i])) return false;
             }
-            return !IsHistoryChangedSincePrepare();
+            return true;
+        }
+        // The script shown and the one saved are the same. Unedited rows stand for the history the model is built by
+        // now, which leaves out the commands an undo took back, as Regenerate does, and takes in the commands
+        // recorded while the dialog was open. An edited list is emitted row by row, as OK applies every row.
+        private List<Command> GetPythonScriptCommands()
+        {
+            if (_viewCommands == null || IsShowingPreparedRows()) return _controller.GetActiveCommands();
+            //
+            return Commands;
+        }
+        private int GetNumOfShownUndoneCommands()
+        {
+            if (_viewCommands == null || _preparedCommands == null || IsShowingPreparedRows()) return 0;
+            //
+            int count = 0;
+            for (int i = _preparedActiveCommandCount; i < _preparedCommands.Count; i++)
+            {
+                Command undoneCommand = _preparedCommands[i];
+                if (_viewCommands.Exists(viewCommand => ReferenceEquals(viewCommand.Command, undoneCommand))) count++;
+            }
+            return count;
         }
         private void OpenPmh(string fileName)
         {
@@ -487,7 +514,6 @@ namespace PrePoMax.Forms
             //
             dgvCommands.Invalidate();
         }
-        // The script mirrors the rows as they are now, so a reordered or shortened history is shown as it would be saved
         private void UpdatePythonScript()
         {
             if (_viewCommands == null) return;
@@ -499,7 +525,8 @@ namespace PrePoMax.Forms
             //
             PythonJournalReport report;
             int[] commandFirstLines;
-            string text = PythonJournalExporter.GetText(Commands, PythonScriptName, _controller.OpenedFileName,
+            string text = PythonJournalExporter.GetText(GetPythonScriptCommands(), PythonScriptName,
+                                                        _controller.OpenedFileName,
                                                         out report, out commandFirstLines,
                                                         _controller.Settings.General.NumOfSplitFaces,
                                                         _controller.Settings.GetWorkDirectory());

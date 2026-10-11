@@ -74,6 +74,17 @@ namespace PrePoMax.Commands
         public int Count { get { return _commands.Count(); } }
         public int CurrPositionIndex { get { return _currPositionIndex; } }
         public List<Command> Commands { get { return _commands; } }
+        // How many commands GetActiveCommands would return, read without copying them, so it can be asked from a
+        // thread other than the one changing the history: a history that is replaced meanwhile gives either count
+        public int ActiveCommandCount
+        {
+            get
+            {
+                List<Command> commands = _commands;
+                int count = commands == null ? 0 : commands.Count;
+                return Math.Max(0, Math.Min(_currPositionIndex + 1, count));
+            }
+        }
         // The sequence number of the command this session recorded last; a command recorded later has a larger one
         public static long LastSequenceNumber { get { return Interlocked.Read(ref _lastSequenceNumber); } }
         // Changes each time the history is replaced: a new model, an opened file, an edited or cleared history
@@ -417,11 +428,22 @@ namespace PrePoMax.Commands
             //
             stopwatch.Stop();
             command.TimeSpan = stopwatch.Elapsed;
+            if (result) ReportWrittenFile(command);
             //
             if (result) ReconcileKeywordOverrides(command, keywordOverridesSnapshot, keywordStateMessages);
             else _controller.ShowOrDeferKeywordStateMessages(keywordStateMessages);
             //
             return result;
+        }
+        // The run report lists the files the run wrote, those a script wrote through pmx included, whose commands are
+        // executed without being recorded
+        private static void ReportWrittenFile(Command command)
+        {
+            BatchRunReport report = BatchRunReport.Current;
+            if (report == null) return;
+            //
+            if (command is CSaveToPmx saveToPmx) report.AddWrittenFile(saveToPmx.FileName);
+            else if (command is IExportFileCommand exportFileCommand) report.AddWrittenFile(exportFileCommand.FileName);
         }
         private KeywordOverridesSnapshot CaptureKeywordOverrides(Command command)
         {
@@ -577,6 +599,7 @@ namespace PrePoMax.Commands
             bool executeWithDialog;
             string oldFileName;
             Dictionary<string, string> replacedFileNames = new Dictionary<string, string>();
+            List<string> warnings = new List<string>();
             _errors = new List<string>();
             //
             foreach (Command command in _commands)    // clear command modifies the collection
@@ -596,6 +619,9 @@ namespace PrePoMax.Commands
                         (regenerateType == RegenerateTypeEnum.Analysis && !(command is AnalysisCommand)) ||
                         (regenerateType == RegenerateTypeEnum.PostProcess && !(command is PostprocessCommand)))
                         continue;
+                    // A command recorded as failed - a script that ended with an error after it changed the model - fails
+                    // again by design, and that is not a failure of the regeneration
+                    bool isRecordedAsFailed = command.IsRecordedAsFailed;
                     // Try
                     try
                     {
@@ -630,12 +656,26 @@ namespace PrePoMax.Commands
                     }
                     catch (Exception ex)
                     {
-                        _errors.Add(command.Name + ": " + ex.Message);
+                        if (isRecordedAsFailed)
+                            warnings.Add(command.Name + ": " + ex.Message.TrimEnd() + Environment.NewLine +
+                                         "The command was recorded as failed, and it failed again as expected.");
+                        else _errors.Add(command.Name + ": " + ex.Message);
                     }
                     // Check model changed
                     CheckModelChanged(command);
                 }
                 else break;
+            }
+            // Report warnings
+            if (warnings.Count != 0)
+            {
+                WriteOutput?.Invoke("");
+                WriteOutput?.Invoke("****   Warnings   ****");
+                foreach (var warning in warnings)
+                {
+                    WriteOutput?.Invoke(warning);
+                }
+                WriteOutput?.Invoke("****   Number of warnings: " + warnings.Count + "   ****");
             }
             // Report Errors
             if (_errors.Count != 0)

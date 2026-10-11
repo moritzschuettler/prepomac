@@ -501,6 +501,10 @@ namespace PrePoMax
         {
             return _commands.GetActiveCommands();
         }
+        public int GetActiveCommandCount()
+        {
+            return _commands.ActiveCommandCount;
+        }
         public List<string> GetCommandCollectionErrors()
         {
             return _commands.Errors;
@@ -1254,7 +1258,7 @@ namespace PrePoMax
             if (!_defaultMeshTypesDisabled) return;
             //
             commandsCollection.InsertCommand(0, new CDisableDefaultMeshTypes());
-            commandsCollection.InsertCommand(commandsCollection.Commands.Count,
+            commandsCollection.InsertCommand(commandsCollection.CurrPositionIndex + 1,
                                              new CAddNetgenMeshToUncoveredParts());
         }
         private void InitializeNewCommands(CommandsCollection commandsCollection)
@@ -1329,6 +1333,7 @@ namespace PrePoMax
             //
             InitializeNewCommands(null);
             _commands.ReadFromFile(fileName);
+            ApplyCompatibilityToCommands(_commands);
             //
             RegenerateTypeEnum regenerateType;
             if (parameters != null && (parameters.Contains(Globals.RegenerateAll) || parameters.Contains(Globals.FromFileOpenMenu)))

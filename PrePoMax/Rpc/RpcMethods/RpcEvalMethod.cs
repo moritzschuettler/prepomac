@@ -51,7 +51,8 @@ namespace PrePoMax.Rpc
             string[] messages = MessageBoxes.GetReportedMessages();
             MessageBoxes.ClearReportedMessages();
             //
-            server.Form.EchoAutomationExecution("Automation server - eval", expression, result.Output, result.Error);
+            server.Form.EchoAutomationExecution("Automation server - eval", expression, result.Output,
+                                                result.GetErrorText());
             RpcExecMethod.WriteMessagesToOutput(server, messages);
             //
             JsonWriter writer = new JsonWriter();
@@ -63,6 +64,7 @@ namespace PrePoMax.Rpc
             writer.WriteRawValue("value", result.Json);
             writer.WriteValue("hasValue", result.Json != null);
             writer.WriteValue("output", result.Output);
+            writer.WriteValue("stderr", result.ErrorOutput);
             writer.WriteValue("error", result.Error);
             writer.WriteValue("failed", !string.IsNullOrEmpty(result.Error));
             writer.WriteValue("elapsed", elapsed);

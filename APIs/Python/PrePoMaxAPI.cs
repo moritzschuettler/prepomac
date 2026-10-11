@@ -42,10 +42,22 @@ namespace APIs.Python
         [PythonAPI("What the application shows - the displayed tree, the camera, the plotted result - and a " +
                    "picture of it. None of it is a model change, so none of it is recorded.", Returns = "View")]
         public ViewAPI view { get { return _view; } }
-        [PythonAPI("The work directory of the session: the one -w or the settings give, where an analysis " +
-                   "without a work directory of its own runs and where a replayed journal writes the files its " +
-                   "session saved or exported. Read only.", Returns = "str")]
-        public string work_directory { get { return _jobGateway == null ? null : _jobGateway.GetWorkDirectory(); } }
+        [PythonAPI("The work directory of the session: the -w of a script or regeneration run, otherwise " +
+                   "the one the settings give, where an analysis without a work directory of its own runs and " +
+                   "where a replayed journal writes the files its session saved or exported. Read only. A " +
+                   "session without one raises, telling to pass -w or set it in Settings - Solver.",
+                   Returns = "str")]
+        public string work_directory
+        {
+            get
+            {
+                string workDirectory = _jobGateway == null ? null : _jobGateway.GetWorkDirectory();
+                if (string.IsNullOrWhiteSpace(workDirectory))
+                    throw new PythonAPIException("pmx.work_directory: no work directory: pass -w or set it in " +
+                                                 "Settings - Solver");
+                return workDirectory;
+            }
+        }
 
 
         // Constructors

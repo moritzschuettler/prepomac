@@ -44,7 +44,7 @@ EXIT_CODE = re.compile(r"^#\s*Expected process exit code\s+(?P<code>\d+)")
 # The switches a test may ask for in its header; everything else the runner supplies itself
 HEADER_SWITCHES = ("-f", "--rpc")
 STATUS_BY_CODE = {0: "Ok", 1: "OptionError", 2: "ModelError", 3: "ScriptError", 4: "TimedOut",
-                  5: "PromptRefused", 6: "LauncherError"}
+                  5: "PromptRefused", 6: "LauncherError", 7: "Cancelled"}
 # The application is given --timeout, so the parent waits a little longer before it kills the tree
 SCRIPT_TIMEOUT = 600
 PROCESS_TIMEOUT = SCRIPT_TIMEOUT + 60

@@ -77,7 +77,10 @@ namespace APIs.Python
         [PythonAPI("Opens the results of the named analysis using command history. The results become the " +
                    "current result of pmx.results. A running analysis and a missing results file are refused. " +
                    "A results file modified after the analysis finished raises the question the user interface " +
-                   "asks, which an unattended run refuses as a prompt.", Arguments = "name: str", Returns = "None",
+                   "asks, which an unattended run refuses as a prompt. As the Results action does, the result " +
+                   "items the history holds for the analysis are then made again on the new results, as Settings " +
+                   "- General - Open results - Run history postprocessing says; inside a recorded script they " +
+                   "are not, since the script replays them itself.", Arguments = "name: str", Returns = "None",
                    Example = "pmx.jobs.open_results('Job-1')")]
         public void open_results(object name)
         {

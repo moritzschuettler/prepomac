@@ -65,11 +65,11 @@ namespace PrePoMax.Commands
                 writer.Statement(writer.Call("pmx.results", "open", writer.Path(Tools.GetGlobalPath(_fileName))));
                 writer.CountEmittedCommand();
             }
-            else if (writer.CommandIndex == 0)
+            else if (writer.IsAtSessionStart)
             {
                 writer.Comment("Session start: " + Tools.GetGlobalPath(_fileName));
                 writer.Comment("Replay this journal with:  -f " + Tools.GetGlobalPath(_fileName));
-                writer.CountEmittedCommand();
+                writer.CountSessionStartCommand();
             }
             else writer.Unsupported(this, "opening a model file replaces the command history, so a journal " +
                                           "cannot replay it");

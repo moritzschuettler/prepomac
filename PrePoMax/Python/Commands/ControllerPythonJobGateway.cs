@@ -80,9 +80,15 @@ namespace PrePoMax.Python
             //
             job.Kill(message);
         }
+        // As the Results action of the analysis does, the postprocessing the history holds for the analysis is run on
+        // the results; a recorded script and a regeneration replay the history as it was left, so they do not
         public void OpenResults(string jobName)
         {
             _controller.OpenResultsCommand(jobName);
+            //
+            if (_controller.Form != null && _controller.Form.LastOpenResultsAccepted &&
+                !_controller.IsCommandRecordingSuppressed && !_controller.IsReplayingHistory)
+                _controller.RunHistoryPostprocessing();
         }
     }
 }

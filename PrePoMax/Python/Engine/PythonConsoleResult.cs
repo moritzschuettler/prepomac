@@ -20,6 +20,10 @@ namespace PrePoMax.Python
     {
         // Variables
         public string Output { get; set; }
+        // What the script printed to sys.stderr - warnings, logging - which is output, not a failure. A console line
+        // is the exception: the console reports the error of a line there itself
+        public string ErrorOutput { get; set; }
+        // The error the script ended with, and only that, so a script failed exactly when this is not empty
         public string Error { get; set; }
         public bool NeedMoreInput { get; set; }
 
@@ -28,8 +32,21 @@ namespace PrePoMax.Python
         public PythonEngineResult()
         {
             Output = "";
+            ErrorOutput = "";
             Error = "";
             NeedMoreInput = false;
+        }
+
+
+        // Methods
+        // Everything the user is shown in red: what went to stderr, then the error the script ended with
+        public string GetErrorText()
+        {
+            string errorOutput = ErrorOutput ?? "";
+            string error = Error ?? "";
+            if (errorOutput.Length > 0 && error.Length > 0 && !errorOutput.EndsWith("\n"))
+                errorOutput += Environment.NewLine;
+            return errorOutput + error;
         }
     }
 }

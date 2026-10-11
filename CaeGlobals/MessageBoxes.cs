@@ -46,6 +46,13 @@ namespace CaeGlobals
         // The reports a marked thread was answered with instead of a box, so the call that ran there can hand
         // them to its caller - a refusal is otherwise said only in a box nobody sees
         [ThreadStatic] private static List<string> _reportedMessages;
+        // A message box is a native window that Application.OpenForms does not list, so the boxes shown here are
+        // counted for the automation server, which must not start a call while one waits for the user
+        private static int _numberOfOpenMessageBoxes;
+        public static bool IsMessageBoxOpen
+        {
+            get { return System.Threading.Volatile.Read(ref _numberOfOpenMessageBoxes) > 0; }
+        }
         public static void ClearReportedMessages()
         {
             _reportedMessages = null;
@@ -99,7 +106,7 @@ namespace CaeGlobals
         {
             using (new CenterWinDialog(ParentForm))
             {
-                if (mode == MessageBoxModeEnum.Interactive) return MessageBox.Show(ParentForm, text, caption, buttons, icon);
+                if (mode == MessageBoxModeEnum.Interactive) return ShowNative(ParentForm, text, caption, buttons, icon);
                 //
                 if (WriteDataToOutput != null)
                 {
@@ -111,13 +118,26 @@ namespace CaeGlobals
                 if (isDecision && mode == MessageBoxModeEnum.Strict)
                 {
                     RecordPrompt(caption, text, buttons, DialogResult.None, true, true);
-                    throw new PromptRefusedException("An interactive prompt was refused in the strict non-interactive mode." +
-                                                     Environment.NewLine + caption + ": " + text);
+                    throw new PromptRefusedException(PromptRefusedException.RefusalText + Environment.NewLine +
+                                                     caption + ": " + text);
                 }
                 //
                 DialogResult result = GetNonInteractiveResult(buttons);
                 RecordPrompt(caption, text, buttons, result, isDecision, false);
                 return result;
+            }
+        }
+        private static DialogResult ShowNative(IWin32Window owner, string text, string caption, MessageBoxButtons buttons,
+                                               MessageBoxIcon icon)
+        {
+            System.Threading.Interlocked.Increment(ref _numberOfOpenMessageBoxes);
+            try
+            {
+                return MessageBox.Show(owner, text, caption, buttons, icon);
+            }
+            finally
+            {
+                System.Threading.Interlocked.Decrement(ref _numberOfOpenMessageBoxes);
             }
         }
         private static DialogResult GetNonInteractiveResult(MessageBoxButtons buttons)
@@ -193,7 +213,7 @@ namespace CaeGlobals
             if (GetEffectiveMode() != MessageBoxModeEnum.Interactive)
                 return Show(text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
             //
-            return MessageBox.Show(owner, text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+            return ShowNative(owner, text, "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
         }
         // Error
         public static void ShowError(string text)

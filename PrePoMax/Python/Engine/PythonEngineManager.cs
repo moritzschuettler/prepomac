@@ -109,6 +109,23 @@ namespace PrePoMax.Python
             ScriptScopeVariable,
             ScriptTracebackVariable
         };
+        private const string ScriptFolderVariable = "__prepomax_folder__";
+        private const string ScriptFolderEnterSource =
+            "import sys\n" +
+            "__prepomax_modules__ = set(sys.modules)\n" +
+            "__prepomax_added__ = " + ScriptFolderVariable + " not in sys.path\n" +
+            "if __prepomax_added__:\n" +
+            "    sys.path.insert(0, " + ScriptFolderVariable + ")\n";
+        private const string ScriptFolderLeaveSource =
+            "import os, sys\n" +
+            "if __prepomax_added__ and " + ScriptFolderVariable + " in sys.path:\n" +
+            "    sys.path.remove(" + ScriptFolderVariable + ")\n" +
+            "__prepomax_prefix__ = os.path.join(os.path.normcase(os.path.abspath(" + ScriptFolderVariable + ")), '')\n" +
+            "for __prepomax_name__ in [name for name in list(sys.modules) if name not in __prepomax_modules__]:\n" +
+            "    __prepomax_file__ = getattr(sys.modules.get(__prepomax_name__), '__file__', None)\n" +
+            "    if isinstance(__prepomax_file__, str) and \\\n" +
+            "       os.path.normcase(os.path.abspath(__prepomax_file__)).startswith(__prepomax_prefix__):\n" +
+            "        del sys.modules[__prepomax_name__]\n";
 
 
         // Properties
@@ -584,12 +601,12 @@ namespace PrePoMax.Python
                         EndExecution(execution);
                     }
                     result.Output = stdout.getvalue().ToString();
-                    result.Error = stderr.getvalue().ToString();
+                    result.ErrorOutput = stderr.getvalue().ToString();
                 }
                 catch (PythonException exception)
                 {
                     result.Output = stdout.getvalue().ToString();
-                    result.Error = stderr.getvalue().ToString();
+                    result.ErrorOutput = stderr.getvalue().ToString();
                     AppendError(result, FormatPythonException(exception));
                 }
                 catch (Exception exception)
@@ -597,7 +614,7 @@ namespace PrePoMax.Python
                     // A .NET exception raised by the API can reach here as itself rather than as a
                     // Python exception, and it is still what the expression did, not a protocol failure
                     result.Output = stdout.getvalue().ToString();
-                    result.Error = stderr.getvalue().ToString();
+                    result.ErrorOutput = stderr.getvalue().ToString();
                     AppendError(result, exception.Message);
                 }
                 finally
@@ -779,7 +796,68 @@ namespace PrePoMax.Python
                     scope.SetItem("__file__", fileName);
                 }
                 SetPrePoMaxAPI(scope, results, controller);
-                return ExecuteScript(code, scope);
+                using (PyDict folderScope = EnterScriptFolder(scriptFileName))
+                {
+                    try
+                    {
+                        return ExecuteScript(code, scope);
+                    }
+                    finally
+                    {
+                        LeaveScriptFolder(folderScope);
+                    }
+                }
+            }
+        }
+        // A script run from a file imports the modules next to it, as python script.py would, so its folder is first
+        // on sys.path for the run. What the run imported from that folder is forgotten afterwards, so the next run -
+        // a Regenerate, a run after the user edited the module - imports it again rather than reusing the old one.
+        // Both are best effort: a folder that cannot be added must not stop the script. Called with the GIL held
+        private static PyDict EnterScriptFolder(string scriptFileName)
+        {
+            string folder = GetScriptFolder(scriptFileName);
+            if (folder == null) return null;
+            //
+            PyDict folderScope = new PyDict();
+            try
+            {
+                using (PyObject folderObject = new PyString(folder))
+                {
+                    folderScope.SetItem(ScriptFolderVariable, folderObject);
+                }
+                PythonEngine.Exec(ScriptFolderEnterSource, folderScope);
+                return folderScope;
+            }
+            catch (PythonException)
+            {
+                folderScope.Dispose();
+                return null;
+            }
+        }
+        private static void LeaveScriptFolder(PyDict folderScope)
+        {
+            if (folderScope == null) return;
+            //
+            try
+            {
+                PythonEngine.Exec(ScriptFolderLeaveSource, folderScope);
+            }
+            catch (PythonException)
+            {
+            }
+        }
+        private static string GetScriptFolder(string scriptFileName)
+        {
+            if (string.IsNullOrEmpty(scriptFileName) || scriptFileName == "<string>") return null;
+            //
+            try
+            {
+                string folder = Path.GetDirectoryName(Path.GetFullPath(scriptFileName));
+                return string.IsNullOrEmpty(folder) ? null : folder;
+            }
+            catch (Exception)
+            {
+                return null;
             }
         }
         private static PythonEngineResult ExecuteScript(string code, PyDict scope)
@@ -807,13 +885,13 @@ namespace PrePoMax.Python
                 }
                 //
                 result.Output = stdout.getvalue().ToString();
-                result.Error = stderr.getvalue().ToString();
+                result.ErrorOutput = stderr.getvalue().ToString();
                 result.NeedMoreInput = false;
             }
             catch (PythonException ex)
             {
                 result.Output = stdout.getvalue().ToString();
-                result.Error = stderr.getvalue().ToString();
+                result.ErrorOutput = stderr.getvalue().ToString();
                 string scriptError = GetScriptErrorFromScope(scope);
                 //
                 if (!string.IsNullOrEmpty(scriptError))
@@ -826,7 +904,7 @@ namespace PrePoMax.Python
             catch (Exception ex)
             {
                 result.Output = stdout.getvalue().ToString();
-                result.Error = stderr.getvalue().ToString();
+                result.ErrorOutput = stderr.getvalue().ToString();
                 string scriptError = GetScriptErrorFromScope(scope);
                 //
                 if (!string.IsNullOrEmpty(scriptError))

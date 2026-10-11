@@ -59,13 +59,15 @@ namespace PrePoMax.Rpc
             string[] messages = MessageBoxes.GetReportedMessages();
             MessageBoxes.ClearReportedMessages();
             //
-            server.Form.EchoAutomationExecution("Automation server - exec", source, result.Output, result.Error);
+            server.Form.EchoAutomationExecution("Automation server - exec", source, result.Output, result.GetErrorText());
             WriteMessagesToOutput(server, messages);
             //
             JsonWriter writer = new JsonWriter();
             writer.BeginObject();
             writer.WriteValue("record", recordMode);
             writer.WriteValue("output", result.Output == null ? "" : result.Output);
+            // What the source printed to sys.stderr is output; only the error it ended with is a failure
+            writer.WriteValue("stderr", result.ErrorOutput == null ? "" : result.ErrorOutput);
             writer.WriteValue("error", result.Error == null ? "" : result.Error);
             writer.WriteValue("failed", !string.IsNullOrEmpty(result.Error));
             writer.WriteValue("elapsed", elapsed);

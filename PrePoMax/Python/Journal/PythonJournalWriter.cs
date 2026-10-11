@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using CaeGlobals;
 using PrePoMax.Commands;
 
 namespace PrePoMax.Python.Journal
@@ -25,11 +26,13 @@ namespace PrePoMax.Python.Journal
         private readonly List<string> _refusals;
         private readonly List<int> _commandFirstLineIndices;
         private int _emittedCommandCount;
-        private int _commandIndex;
+        private int _sessionStartCommandCount;
         private int _lineIndex;
         private int _numOfLegacySplitFaces;
         private string _workDirectory;
         private bool _writesToWorkDirectory;
+        private readonly Dictionary<string, string> _outputFileNames;
+        private readonly HashSet<string> _usedOutputFileNames;
 
 
         // Properties                                                                                                               
@@ -42,9 +45,10 @@ namespace PrePoMax.Python.Journal
         public bool WritesToWorkDirectory { get { return _writesToWorkDirectory; } }
         public List<string> Refusals { get { return _refusals; } }
         public int EmittedCommandCount { get { return _emittedCommandCount; } }
-        // The position of the command being emitted, so that one which only makes sense at the start of
-        // a session can tell whether it is there
-        public int CommandIndex { get { return _commandIndex; } set { _commandIndex = value; } }
+        // True while nothing that builds the model has been emitted, so that a command which only makes sense at
+        // the start of a session, such as a clear, can tell whether it is there. The compatibility commands an
+        // older history starts with emit nothing, so they do not move the start.
+        public bool IsAtSessionStart { get { return _emittedCommandCount == _sessionStartCommandCount; } }
         public int RefusedCommandCount { get { return _refusals.Count; } }
         // The line each command started at, so that a caller showing the script can pair a line with its command
         public List<int> CommandFirstLineIndices { get { return _commandFirstLineIndices; } }
@@ -65,18 +69,19 @@ namespace PrePoMax.Python.Journal
             _refusals = new List<string>();
             _commandFirstLineIndices = new List<int>();
             _emittedCommandCount = 0;
-            _commandIndex = 0;
+            _sessionStartCommandCount = 0;
             _lineIndex = 0;
             _numOfLegacySplitFaces = 1;
             _workDirectory = null;
             _writesToWorkDirectory = false;
+            _outputFileNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _usedOutputFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
 
 
         // Methods                                                                                                                  
         public void BeginCommand(int commandIndex)
         {
-            _commandIndex = commandIndex;
             _commandFirstLineIndices.Add(_lineIndex);
         }
         public void Line(string line)
@@ -112,21 +117,64 @@ namespace PrePoMax.Python.Journal
         {
             _emittedCommandCount++;
         }
+        public void CountSessionStartCommand()
+        {
+            _emittedCommandCount++;
+            _sessionStartCommandCount++;
+        }
         public string Value(object value)
         {
             return PythonValueFormatter.Format(value);
         }
+        // A file the session read after writing it is read where the replay wrote it
         public string Path(string value)
         {
+            string key = GetPathKey(value);
+            string outputFileName;
+            if (key != null && _outputFileNames.TryGetValue(key, out outputFileName))
+                return "os.path.join(pmx.work_directory, " + PythonValueFormatter.Path(outputFileName) + ")";
+            //
             return PythonValueFormatter.Path(value);
         }
         // A file the session saved or exported is written by the replay under its name in the work directory of
-        // the replay, as a batch regeneration writes it, so a replay never overwrites the file the session wrote
+        // the replay, through the header's _output, which refuses a file there that the replay did not write. Two
+        // files of the same name the session wrote in different folders are given numbered names.
         public string OutputPath(string fileName)
         {
             _writesToWorkDirectory = true;
-            return "os.path.join(pmx.work_directory, " +
-                   PythonValueFormatter.Path(System.IO.Path.GetFileName(fileName)) + ")";
+            return "_output(" + PythonValueFormatter.Path(GetOutputFileName(fileName)) + ")";
+        }
+        private string GetOutputFileName(string fileName)
+        {
+            string key = GetPathKey(fileName);
+            string outputFileName;
+            if (key == null) return null;
+            if (_outputFileNames.TryGetValue(key, out outputFileName)) return outputFileName;
+            //
+            string originalFileName = System.IO.Path.GetFileName(key);
+            string nameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(originalFileName);
+            string extension = System.IO.Path.GetExtension(originalFileName);
+            outputFileName = originalFileName;
+            for (int i = 2; _usedOutputFileNames.Contains(outputFileName); i++)
+                outputFileName = nameWithoutExtension + "_" + i + extension;
+            //
+            _usedOutputFileNames.Add(outputFileName);
+            _outputFileNames.Add(key, outputFileName);
+            return outputFileName;
+        }
+        private static string GetPathKey(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName)) return null;
+            //
+            string globalFileName = Tools.GetGlobalPath(fileName);
+            try
+            {
+                return System.IO.Path.GetFullPath(globalFileName);
+            }
+            catch (Exception)
+            {
+                return globalFileName;
+            }
         }
         public string Call(string target, string method, params string[] arguments)
         {

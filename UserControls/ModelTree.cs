@@ -378,6 +378,8 @@ namespace UserControls
         public Func<string[], string[]> GetPartNamesToMeshFromMeshSetupItems;
         // Returns whether the given geometry part, or a part of the given compound, has small features
         public Func<string, bool> HasSmallFeatures;
+        // Returns whether the application is busy, when the keys that act on the tree are ignored as its mouse is
+        public Func<bool> IsApplicationBusy;
 
 
         // Constructors                                                                                                             
@@ -2171,6 +2173,12 @@ namespace UserControls
             // Let the native tree label editor consume Enter and Escape. Processing the
             // model-tree shortcuts here can act on the rebuilt tree after a rename.
             if (tree.EditModeActive) return;
+            if (IsApplicationBusy != null && IsApplicationBusy() &&
+                (e.KeyCode == Keys.Delete || e.KeyCode == Keys.Space || e.KeyCode == Keys.Enter))
+            {
+                e.SuppressKeyPress = true;
+                return;
+            }
             //if (tree.Focused) // Disable since called from FrmMain.KeyboardHook_KeyDown
             {
                 if (e.KeyCode == Keys.Delete)

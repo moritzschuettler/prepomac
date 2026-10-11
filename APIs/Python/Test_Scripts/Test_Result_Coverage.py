@@ -228,7 +228,11 @@ def test_result_lifecycle():
         check(pmx.results.current.name == names[0],
               "the current result is named in the lookup spelling: " + pmx.results.current.name)
     pmx.results.remove_current()
-    check(len(list(pmx.results.get_names())) == len(names) - 1, "the current result was not removed")
+    remaining = list(pmx.results.get_names())
+    check(len(remaining) == len(names) - 1, "the current result was not removed")
+    # As Close Current Result does, the first remaining result becomes the current one
+    if remaining:
+        check(pmx.results.current.name == remaining[0], "the first remaining result was not made current")
     pmx.results.clear()
     check(len(list(pmx.results.get_names())) == 0, "the results were not cleared")
 

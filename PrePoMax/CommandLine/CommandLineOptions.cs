@@ -60,7 +60,7 @@ namespace PrePoMax
         // Journal
         [Option("journal", Required = false, HelpText = "The .py file name to be used for writing the session journal. The " +
                                                        "command history is emitted as a Python script when the run ends, " +
-                                                       "also when the run fails.")]
+                                                       "also when the run fails. A relative name is in the work directory.")]
         public string JournalFileName { get; set; }
         // Timeout
         [Option("timeout", Required = false, Default = 0, HelpText = "The maximum duration of the run in seconds. Use 0 for no " +
@@ -94,7 +94,8 @@ namespace PrePoMax
         public string SettingsFileName { get; set; }
         // No settings save
         [Option("noSettingsSave", Required = false, Default = false, HelpText = "Do not write the settings file. This is " +
-                                                                                 "always used when a script is executed.")]
+                                                                                 "always used when a script is executed, " +
+                                                                                 "and by -g No with --rpc.")]
         public bool NoSettingsSave { get; set; }
         // Overwrite
         [Option('o', "overwrite", Required = false, Default = "No", HelpText = "Overwrite the .pmx file after regeneration: " +
@@ -156,7 +157,9 @@ namespace PrePoMax
         public string WorkDirectory { get; set; }
         // ExitAfterRegeneration
         [Option('x', "exitAfterRegeneration", Required = false, Default = "Yes", HelpText = "Exit PrePoMax after regeneration: " +
-                                                                                            "Yes | No.")]
+                                                                                            "Yes | No. With -g No, No needs " +
+                                                                                            "the automation server (--rpc), " +
+                                                                                            "which is what can close it.")]
         public string ExitAfterRegeneration { get; set; }
 
 
@@ -174,8 +177,12 @@ namespace PrePoMax
                 text += "Script arguments: " + cmdOptions.ScriptArguments + Environment.NewLine;
             if (cmdOptions.GetIsBatchMode() && cmdOptions.OnPrompt != null)
                 text += "On prompt: " + cmdOptions.OnPrompt + Environment.NewLine;
+            if (cmdOptions.SaveFileName != null)
+                text += "Save file name: " + cmdOptions.SaveFileName + Environment.NewLine;
             if (cmdOptions.ReportFileName != null)
                 text += "Report file name: " + cmdOptions.ReportFileName + Environment.NewLine;
+            if (cmdOptions.JournalFileName != null)
+                text += "Journal file name: " + cmdOptions.JournalFileName + Environment.NewLine;
             if (cmdOptions.Timeout > 0)
                 text += "Timeout: " + cmdOptions.Timeout + " s" + Environment.NewLine;
             if (cmdOptions.SettingsFileName != null)
@@ -215,12 +222,15 @@ namespace PrePoMax
                     // Use current directory if no work directory is specified
                     cmdOptions.WorkDirectory = Directory.GetCurrentDirectory();
                 }
+                cmdOptions.WorkDirectory = Path.GetFullPath(cmdOptions.WorkDirectory);
                 // Options
                 if (cmdOptions == null)
                     throw new CaeException("The command line parameters are null.");
-                // FileName
+                // FileName - a name without a folder is in the work directory, as the other file names are
                 if (cmdOptions.FileName != null)
                 {
+                    cmdOptions.FileName = GetFullFileName(cmdOptions.FileName, cmdOptions.WorkDirectory);
+                    //
                     if (!File.Exists(cmdOptions.FileName))
                         throw new Exception("The file " + cmdOptions.FileName + " does not exist.");
                 }
@@ -364,6 +374,15 @@ namespace PrePoMax
                     if (reportDirectory != null && reportDirectory.Length > 0 && !Directory.Exists(reportDirectory))
                         throw new CaeException("The report directory " + reportDirectory + " does not exist.");
                 }
+                // Journal
+                if (cmdOptions.JournalFileName != null)
+                {
+                    cmdOptions.JournalFileName = GetFullFileName(cmdOptions.JournalFileName, cmdOptions.WorkDirectory);
+                    //
+                    string journalDirectory = Path.GetDirectoryName(cmdOptions.JournalFileName);
+                    if (journalDirectory != null && journalDirectory.Length > 0 && !Directory.Exists(journalDirectory))
+                        throw new CaeException("The journal directory " + journalDirectory + " does not exist.");
+                }
                 // Automation server - zero is what says the settings decide, so it is not out of range
                 if (cmdOptions.RpcPort != 0 &&
                     (cmdOptions.RpcPort < AutomationSettings.MinPort || cmdOptions.RpcPort > AutomationSettings.MaxPort))
@@ -400,6 +419,13 @@ namespace PrePoMax
                 if (exit == "YES") cmdOptions.ExitAfterRegeneration = "Yes";        // fix all caps and spaces
                 else if (exit == "NO") cmdOptions.ExitAfterRegeneration = "No";     // fix all caps and spaces
                 else throw new CaeException("Exit switch can only be set to Yes or No.");
+                // A session without a window that does not exit could only be closed by the automation server
+                if (cmdOptions.ShowGui == "No" && cmdOptions.ExitAfterRegeneration == "No" && cmdOptions.Rpc == "Off")
+                {
+                    throw new CaeException("The No GUI switch with -x No needs the automation server (--rpc On or " +
+                                           "ReadOnly): a session without a window that does not exit could not be " +
+                                           "closed by anyone.");
+                }
             }
             catch (Exception ex)
             {
@@ -425,8 +451,14 @@ namespace PrePoMax
         }
         public bool GetIsSettingsSaveDisabled()
         {
-            // A script run must never change the settings of the interactive user
-            return NoSettingsSave || ScriptFileName != null;
+            // A script run and a session an agent drives without a window must never change the settings of the
+            // interactive user
+            return NoSettingsSave || ScriptFileName != null || GetIsHiddenAutomationSession();
+        }
+        // A session without a window started for the automation server, which may run next to the user's own
+        public bool GetIsHiddenAutomationSession()
+        {
+            return ShowGui == "No" && Rpc != null && Rpc != "Off";
         }
         public MessageBoxModeEnum GetMessageBoxMode()
         {

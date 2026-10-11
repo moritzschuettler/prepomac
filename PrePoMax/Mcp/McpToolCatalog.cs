@@ -146,6 +146,8 @@ namespace PrePoMax.Mcp
                 "whole source as one command instead, which is what keeps a computed model parametric - " +
                 "regeneration re-runs the source - but the variables do not survive the call. A script that fails " +
                 "after it changed the model is still recorded, so the history holds what it did up to the error.\n\n" +
+                "What the source prints to stderr comes back as stderr and does not fail the call: failed is true " +
+                "only when the Python ended with an exception, which is in error.\n\n" +
                 "A long operation - meshing a large part, an import, a regeneration - may outlast the wait, which " +
                 "is the requestTimeout get_status reports unless timeout says otherwise. It is not stopped and not " +
                 "lost: the answer is {\"running\": true, \"callId\": n}, the call runs to the end and records " +
@@ -214,7 +216,10 @@ namespace PrePoMax.Mcp
                 "as a script. A journal longer than 200,000 characters is not returned inline: it is written " +
                 "to a file in the temporary folder, and the answer gives its path as journal.fileName. It " +
                 "changes neither the model nor the view, but it writes files: journal_file overwrites a file " +
-                "that already exists under that name, so it is not read only.",
+                "that already exists under that name, also in read only mode, which protects only the command " +
+                "history. A journal holds the whole history, so it is replayed on an empty model - pmx.new_model " +
+                "first - through run_python with record='commands', which records each call it makes; a recorded " +
+                "script inside it is flattened into those calls. The guide says more.",
                 SessionSchema("\"include_journal\": {\"type\": \"boolean\", \"description\": " +
                               "\"Emit the history as a Python script as well. Defaults to false.\"}, " +
                               "\"journal_file\": {\"type\": \"string\", \"description\": " +

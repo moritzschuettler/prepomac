@@ -150,17 +150,33 @@ namespace PrePoMax.Python.Journal
             header.AppendLine("# The PrePoMax object is available as 'pmx'.");
             header.AppendLine("#");
             header.AppendLine("# Generated " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " by " + Globals.ProgramName);
-            if (sourceDescription != null) header.AppendLine("# Source: " + sourceDescription);
+            if (sourceDescription != null) header.AppendLine("# Opened from: " + sourceDescription);
             header.AppendLine("# " + report.CommandCount + " commands, " + report.RefusedCommandCount + " not emitted");
             header.AppendLine("#");
             header.AppendLine("#   PrePoMax.com --script " + scriptName + " -g No -x Yes -w <work directory>");
             if (writesToWorkDirectory)
             {
                 header.AppendLine("#");
-                header.AppendLine("# The files the session saved or exported are written to the work directory of the replay,");
-                header.AppendLine("# pmx.work_directory, under their names, never where the session wrote them.");
+                header.AppendLine("# The files the session saved or exported are written to the work directory of the");
+                header.AppendLine("# replay, pmx.work_directory, under their names, and read back from there. Two files");
+                header.AppendLine("# of the same name get numbered names, name_2.ext. The replay never overwrites a file");
+                header.AppendLine("# it did not write itself: one already in the work directory stops it with");
+                header.AppendLine("# FileExistsError, so replay in an empty one.");
                 header.AppendLine();
                 header.AppendLine("import os");
+                header.AppendLine();
+                header.AppendLine("_journal_outputs = set()");
+                header.AppendLine();
+                header.AppendLine();
+                header.AppendLine("def _output(name):");
+                header.AppendLine("    path = os.path.join(pmx.work_directory, name)");
+                header.AppendLine("    key = os.path.normcase(os.path.abspath(path))");
+                header.AppendLine("    if key not in _journal_outputs and os.path.exists(path):");
+                header.AppendLine("        raise FileExistsError(path + ' exists and was not written by this ' +");
+                header.AppendLine("                              'replay; replay in an empty work directory')");
+                header.AppendLine("    _journal_outputs.add(key)");
+                header.AppendLine("    return path");
+                header.AppendLine();
             }
             header.AppendLine();
             //

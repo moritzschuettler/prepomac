@@ -22,6 +22,9 @@ namespace PrePoMax.Python
         public string Json { get; set; }
         public string TypeName { get; set; }
         public string Output { get; set; }
+        // What the expression printed to sys.stderr, which is output and not a failure
+        public string ErrorOutput { get; set; }
+        // The error the evaluation ended with, and only that
         public string Error { get; set; }
 
 
@@ -33,7 +36,20 @@ namespace PrePoMax.Python
             Json = null;
             TypeName = "";
             Output = "";
+            ErrorOutput = "";
             Error = "";
+        }
+
+
+        // Methods                                                                                                                  
+        // Everything the user is shown in red: what went to stderr, then the error the evaluation ended with
+        public string GetErrorText()
+        {
+            string errorOutput = ErrorOutput ?? "";
+            string error = Error ?? "";
+            if (errorOutput.Length > 0 && error.Length > 0 && !errorOutput.EndsWith("\n"))
+                errorOutput += Environment.NewLine;
+            return errorOutput + error;
         }
     }
 }

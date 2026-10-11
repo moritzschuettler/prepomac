@@ -1332,6 +1332,57 @@ def check_journal_round_trip(client):
           " lines in a fresh session")
 
 
+def check_journal_of_output_files(client):
+    """A replay writes the files its session wrote into its own work directory, gives two of the same name
+    numbered names, reads a file the session wrote back from there, and never overwrites a file it did not
+    write itself."""
+    value = client.result("eval", {"expression": "pmx.work_directory"})
+    check(not value["failed"], "the work directory must be readable: " + value["error"])
+    work_directory = value["value"]
+    names = ["rpc_outputs.inp", "rpc_outputs_2.inp"]
+    for name in names:
+        check(not os.path.exists(os.path.join(work_directory, name)), name + " is already in the work directory")
+    try:
+        replay_output_files(client, work_directory)
+    finally:
+        for name in names:
+            if os.path.isfile(os.path.join(work_directory, name)):
+                os.remove(os.path.join(work_directory, name))
+
+
+def replay_output_files(client, work_directory):
+    first_file = os.path.join(tempfile.mkdtemp(prefix="rpc_outputs_a_"), "rpc_outputs.inp")
+    second_file = os.path.join(tempfile.mkdtemp(prefix="rpc_outputs_b_"), "rpc_outputs.inp")
+    source = os.linesep.join(["pmx.new_model('ThreeD', 'MM_TON_S_C')",
+                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')",
+                              "pmx.export_to_calculix(r'" + first_file + "')",
+                              "pmx.export_to_calculix(r'" + second_file + "')",
+                              "pmx.export_to_calculix(r'" + first_file + "')",
+                              "pmx.import_file(r'" + second_file + "')"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the model with its exports must be built: " + result["error"])
+    journal_source = client.result("history", {"include_journal": True})["journal"]["source"]
+    check(journal_source.count("_output('rpc_outputs.inp')") == 2 and
+          journal_source.count("_output('rpc_outputs_2.inp')") == 1,
+          "the exports must be written under their names, the second folder's numbered:" + os.linesep +
+          journal_source)
+    check("pmx.import_file(os.path.join(pmx.work_directory, 'rpc_outputs_2.inp'))" in journal_source,
+          "a file the session wrote must be read back where the replay wrote it:" + os.linesep + journal_source)
+    # The first replay writes the files; the second one finds them and stops rather than overwrite them
+    for attempt in range(2):
+        result = client.result("exec", {"source": "pmx.new_model('ThreeD', 'MM_TON_S_C')"})
+        check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+        result = client.result("exec", {"source": journal_source})
+        if attempt == 0:
+            check(not result["failed"], "the journal must replay: " + result["error"])
+            for name in ["rpc_outputs.inp", "rpc_outputs_2.inp"]:
+                check(os.path.isfile(os.path.join(work_directory, name)), "the replay did not write " + name)
+        else:
+            check(result["failed"] and "FileExistsError" in result["error"],
+                  "a replay must refuse to overwrite a file it did not write: " + str(result))
+    print("journal: the exported files are written to the work directory and never overwritten")
+
+
 def check_exit_guards(client):
     """Closing a session that has unsaved changes has to be asked for explicitly."""
     client.result("exec", {"source": "pmx.model.parameters.add('exit_guard', 1.0)"})
@@ -1694,6 +1745,7 @@ def main():
         check_journal_of_layouts(client)
         check_result_file_opening(client)
         check_journal_round_trip(client)
+        check_journal_of_output_files(client)
         check_exit_guards(client)
         read_only_model = os.path.join(session.directory, "read_only.pmx")
         save_model_with_analysis(client, read_only_model)

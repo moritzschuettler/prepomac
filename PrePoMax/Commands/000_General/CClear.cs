@@ -46,10 +46,10 @@ namespace PrePoMax.Commands
         // API form for that, because replacing the model rebuilds the command collection
         public override void ToPython(PythonJournalWriter writer)
         {
-            if (writer.CommandIndex == 0)
+            if (writer.IsAtSessionStart)
             {
                 writer.Comment("New model - the journal starts from an empty model");
-                writer.CountEmittedCommand();
+                writer.CountSessionStartCommand();
             }
             else writer.Unsupported(this, "a model can only be cleared before the journal starts");
         }

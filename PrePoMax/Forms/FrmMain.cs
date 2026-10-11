@@ -97,6 +97,8 @@ namespace PrePoMax
         private Dictionary<ViewGeometryModelResults, int> _selectedSymbolIndex;
         private Stack<bool[]> _prevMenuStates;
         private bool _closeAfterRegeneration;
+        // The error a script or a regeneration started with -g Yes -x No failed with, which leaves the window open
+        private Exception _batchPhaseError;
         // Failed jobs whose nonpositive Jacobian element set waits for the running Python to end, with the element
         // ids read when the job ended and the identity of the mesh they belong to, or null when it could not be read
         private Dictionary<string, Tuple<int[], long?>> _nonpositiveJacobianSetsAwaited =
@@ -181,6 +183,7 @@ namespace PrePoMax
 
         #region Properties #########################################################################################################
         public Controller Controller { get { return _controller; } set { _controller = value; } }
+        public Exception BatchPhaseError { get { return _batchPhaseError; } }
         public ViewGeometryModelResults GetCurrentView()
         {
             return _controller.CurrentView;
@@ -298,6 +301,13 @@ namespace PrePoMax
                 MessageBoxes.WriteDataToOutput = WriteDataToOutput;
                 AutoClosingMessageBox.WriteDataToOutput = WriteDataToOutput;
             }
+            // A session an agent drives without a window runs next to the user's own, which keeps its recovery file
+            // in the same folder, so it writes a file of its own and deletes only that one when it closes
+            if (_cmdOptions.GetIsHiddenAutomationSession())
+            {
+                Globals.HistoryFileName = Path.GetFileNameWithoutExtension(Globals.HistoryFileName) + "." +
+                                          Process.GetCurrentProcess().Id + Path.GetExtension(Globals.HistoryFileName);
+            }
             MessageBoxes.Mode = _cmdOptions.GetMessageBoxMode();
             // Every dialog shown without a user present belongs in the run report
             BatchRunReport report = BatchRunReport.Current;
@@ -328,6 +338,9 @@ namespace PrePoMax
 
             if ((keyData & Keys.Alt) == Keys.Alt && (keyData & Keys.Control) == Keys.Control)
                 return false;
+            // The busy state disables the mouse on the menus; their shortcuts are ignored the same way
+            if (IsBusyForUserInput() && IsMenuShortcut(menuStripMain.Items, keyData))
+                return true;
 
             if ((keyData & Keys.KeyCode) == Keys.F &&
                 (keyData & (Keys.Control | Keys.Alt | Keys.Shift)) == Keys.Control)
@@ -400,6 +413,7 @@ namespace PrePoMax
                 _modelTree.GetRelatedGeometryItemNames = _controller.GetRelatedGeometryItemNames;
                 _modelTree.GetPartNamesToMeshFromMeshSetupItems = _controller.GetPartNamesToMeshFromMeshSetupItems;
                 _modelTree.HasSmallFeatures = _controller.HasSmallFeatures;
+                _modelTree.IsApplicationBusy = IsBusyForUserInput;
                 //
                 _modelTree.GeometryMeshResultsEvent += ModelTree_ViewEvent;
                 _modelTree.SelectEvent += ModelTree_SelectEvent;
@@ -804,6 +818,7 @@ namespace PrePoMax
                             _controller.SaveToPmx(fileName);
                         }
                     }
+                    EndBatchPhase();
                     // Exit
                     if (_cmdOptions.ExitAfterRegeneration == "Yes")
                     {
@@ -908,8 +923,18 @@ namespace PrePoMax
             }
             catch (Exception ex)
             {
+                // A run with a window told not to exit keeps it open after its script or regeneration failed, so the
+                // user sees what happened; the process still ends with the code of that failure
+                if (_controller.BatchRegenerationMode && !_hideWindow && _cmdOptions.ExitAfterRegeneration == "No" &&
+                    !(ex is Rpc.RpcStartException))
+                {
+                    _batchPhaseError = ex;
+                    EndBatchPhase();
+                    WriteDataToOutput(ex.Message);
+                    ExceptionTools.Show(this, ex);
+                }
                 // Regeneration, and a session without a window whose automation server could not start
-                if (_controller.BatchRegenerationMode || ex is Rpc.RpcStartException)
+                else if (_controller.BatchRegenerationMode || ex is Rpc.RpcStartException)
                 {
                     throw new CaeException(ex.Message, ex);
                 }
@@ -950,6 +975,8 @@ namespace PrePoMax
             if (result != null)
             {
                 if (!string.IsNullOrEmpty(result.Output)) WriteDataToOutput(result.Output);
+                // What the script printed to stderr is shown, but only the error it ended with fails the run
+                if (!string.IsNullOrEmpty(result.ErrorOutput)) WriteDataToOutput(result.ErrorOutput);
                 if (!string.IsNullOrEmpty(result.Error)) throw new PythonScriptException(result.Error.TrimEnd());
             }
             // Save after the script command was recorded, so that the saved history can be regenerated
@@ -958,6 +985,7 @@ namespace PrePoMax
                 WriteDataToOutput("Saving: " + _cmdOptions.SaveFileName);
                 await Task.Run(() => _controller.SaveToPmxCommand(_cmdOptions.SaveFileName));
             }
+            EndBatchPhase();
             // Exit
             if (_cmdOptions.ExitAfterRegeneration == "Yes")
             {
@@ -965,6 +993,15 @@ namespace PrePoMax
                 WriteDataToOutput("Close application.");
                 Close();
             }
+        }
+        // A run told not to exit after its script or regeneration goes on as an ordinary session from here: closing
+        // it is not taken for an interrupted regeneration, an unsaved model is offered for saving and the history is
+        // written for recovery
+        private void EndBatchPhase()
+        {
+            if (_cmdOptions.ExitAfterRegeneration != "No") return;
+            //
+            _controller.BatchRegenerationMode = false;
         }
         private void FrmMain_Resize(object sender, EventArgs e)
         {
@@ -1983,8 +2020,10 @@ namespace PrePoMax
             {
                 if (!_controller.ModelInitialized && !_controller.ResultsInitialized)
                     throw new CaeException("There is no model or results to save.");
+                if (!SetStateWorking(Globals.SavingAsText))
+                    throw new CaeException("PrePoMax is busy, so the model was not saved. Save it when the running " +
+                                           "operation has finished.");
                 //
-                SetStateWorking(Globals.SavingAsText);
                 await Task.Run(() => _controller.SaveAs());
             }
             catch (Exception ex)
@@ -2366,9 +2405,11 @@ namespace PrePoMax
             if (!_controller.ModelInitialized && !_controller.ResultsInitialized)
                 throw new CaeException("There is no model or results to save.");
             //
+            if (!SetStateWorking(Globals.SavingText))
+                throw new CaeException("PrePoMax is busy, so the model was not saved. Save it when the running " +
+                                       "operation has finished.");
             try
             {
-                SetStateWorking(Globals.SavingText);
                 await Task.Run(() => _controller.Save());
                 UpdatePythonEngine();
             }
@@ -2616,15 +2657,21 @@ namespace PrePoMax
         #region Edit menu ##########################################################################################################
         private async void tsmiUndo_Click(object sender, EventArgs e)
         {
+            if (IsBusyForUserInput()) return;
+            //
+            bool isBusy = false;
             try
             {
                 RegenerateTypeEnum regenerateType;
                 if (TryGetRegenerateType(_controller.IsRegenerateTypeUsedByUndo(), out regenerateType))
                 {
-                    SetStateWorking(Globals.UndoingText);
-                    _modelTree.ScreenUpdating = false;
-                    //
-                    await Task.Run(() => _controller.UndoHistory(regenerateType));
+                    isBusy = !SetStateWorking(Globals.UndoingText);
+                    if (!isBusy)
+                    {
+                        _modelTree.ScreenUpdating = false;
+                        //
+                        await Task.Run(() => _controller.UndoHistory(regenerateType));
+                    }
                 }
             }
             catch (Exception ex)
@@ -2633,11 +2680,14 @@ namespace PrePoMax
             }
             finally
             {
-                SetStateReady(Globals.UndoingText);
-                _modelTree.ScreenUpdating = true;
-                _modelTree.RegenerateTree(_controller.Model, _controller.Jobs, _controller.CurrentResult);
-                //
-                SetMenuAndToolStripVisibility();
+                if (!isBusy)
+                {
+                    SetStateReady(Globals.UndoingText);
+                    _modelTree.ScreenUpdating = true;
+                    _modelTree.RegenerateTree(_controller.Model, _controller.Jobs, _controller.CurrentResult);
+                    //
+                    SetMenuAndToolStripVisibility();
+                }
             }
         }
         private void tsmiRedo_Click(object sender, EventArgs e)
@@ -3039,6 +3089,15 @@ namespace PrePoMax
         }
         private void PythonPanel_ExecuteCommand(object sender, PythonTextBoxCommandEventArgs e)
         {
+            string refusal = GetPythonConsoleRefusal("the line was not run");
+            if (refusal != null)
+            {
+                e.Output = "";
+                e.Error = refusal;
+                e.NeedMoreInput = false;
+                return;
+            }
+            //
             PythonEngineResult result;
             using (new PythonStopWatchdog(Bounds))
             {
@@ -3046,7 +3105,7 @@ namespace PrePoMax
             }
             //
             e.Output = result.Output;
-            e.Error = result.Error;
+            e.Error = result.GetErrorText();
             e.NeedMoreInput = result.NeedMoreInput;
         }
         private void PythonPanel_ExecuteScript(object sender, PythonTextBoxCommandEventArgs e)
@@ -3062,7 +3121,7 @@ namespace PrePoMax
                 }
                 //
                 e.Output = result.Output;
-                e.Error = result.Error;
+                e.Error = result.GetErrorText();
                 e.NeedMoreInput = result.NeedMoreInput;
             }
             finally
@@ -3082,7 +3141,7 @@ namespace PrePoMax
                 }
                 //
                 e.Output = result.Output;
-                e.Error = result.Error;
+                e.Error = result.GetErrorText();
                 e.NeedMoreInput = result.NeedMoreInput;
             }
             finally
@@ -3101,17 +3160,33 @@ namespace PrePoMax
         // refusing the user's script as well would only cost a retry
         private bool TakeStateForPythonScript(PythonTextBoxCommandEventArgs e)
         {
-            if (tsslState.Text == Globals.AutomationText)
+            string refusal = GetPythonConsoleRefusal("the script was not started");
+            if (refusal != null)
             {
                 e.Output = "";
-                e.Error = "The automation server is running a call, so the script was not started. " +
-                          "Wait for it to finish, or switch the server off in Tools - Automation Server." +
-                          Environment.NewLine;
+                e.Error = refusal;
                 e.NeedMoreInput = false;
                 return false;
             }
             _pythonScriptTookState = SetStateWorking(Globals.PythonScriptText);
             return true;
+        }
+        // The console runs on the user interface thread and takes the GIL. Python already running elsewhere - an
+        // agent call holds the GIL and may be waiting for this thread to do work for it - would leave the two waiting
+        // for each other, so nothing is started while it runs. The engine knows of a running call at once, the busy
+        // state only after the 300 ms it is delayed by
+        private string GetPythonConsoleRefusal(string whatHappened)
+        {
+            bool isAutomationCall = tsslState.Text == Globals.AutomationText;
+            if (!isAutomationCall && !PythonEngineManager.IsExecuting) return null;
+            //
+            if (isAutomationCall)
+            {
+                return "The automation server is running a call, so " + whatHappened + ". Wait for it to finish, or " +
+                       "switch the server off in Tools - Automation Server." + Environment.NewLine;
+            }
+            return "Python is already running - an automation server call or a script - so " + whatHappened + ". " +
+                   "Wait for it to finish." + Environment.NewLine;
         }
         private void ReleaseStateForPythonScript()
         {
@@ -3122,6 +3197,8 @@ namespace PrePoMax
         }
         private void PythonPanel_AutocompleteRequested(object sender, PythonTextBoxAutocompleteEventArgs e)
         {
+            if (GetPythonConsoleRefusal("") != null) return;
+            //
             e.Completions.AddRange(PythonEngineManager.GetCompletions(e.Expression, e.Prefix));
         }
         // Standard views
@@ -8204,8 +8281,18 @@ namespace PrePoMax
         private void ClearAutomationAccessTokenOfAnUnpackedFolder()
         {
             if (_controller == null || _controller.AutomationSettings.AccessToken.Length == 0) return;
-            //
-            _controller.SaveAutomationAccessToken("");
+            // Written even by a run that does not write the settings, because the marker of the first run is written
+            // in any case, and no later run would clear the token again
+            bool isSaveDisabled = SettingsContainer.IsSaveDisabled;
+            SettingsContainer.IsSaveDisabled = false;
+            try
+            {
+                _controller.SaveAutomationAccessToken("");
+            }
+            finally
+            {
+                SettingsContainer.IsSaveDisabled = isSaveDisabled;
+            }
             WriteDataToOutput("This PrePoMax folder is being run for the first time, so the access token found in " +
                               "its settings was cleared. Generate one in Tools - Settings - Automation before " +
                               "starting the automation server.");
@@ -8387,9 +8474,13 @@ namespace PrePoMax
             if (tsslState.Text != Globals.ReadyText) return "PrePoMax is busy: " + tsslState.Text;
             //
             Form openForm = GetOpenAutomationBlockingForm();
-            if (openForm != null)
+            string name = null;
+            if (openForm != null) name = openForm.Text != null && openForm.Text.Length > 0 ? openForm.Text : openForm.Name;
+            else name = GetOpenNativeDialogTitle();
+            if (name == null && MessageBoxes.IsMessageBoxOpen) name = "";
+            if (name != null)
             {
-                string name = openForm.Text != null && openForm.Text.Length > 0 ? openForm.Text : openForm.Name;
+                if (name.Length == 0) name = "a message box or a file dialog";
                 return "A dialog is open: " + name + ". The user is editing something; wait until it is closed, " +
                        "or ask the user to close it.";
             }
@@ -8404,7 +8495,8 @@ namespace PrePoMax
                     if (form.Visible) return form;
                 }
             }
-            // A message box, a file dialog or anything else that was shown modally
+            // A form of this application shown modally. A message box and a file dialog are native windows the
+            // collection does not list, so GetOpenNativeDialogTitle looks for those
             try
             {
                 FormCollection openForms = Application.OpenForms;
@@ -8420,6 +8512,42 @@ namespace PrePoMax
             }
             return null;
         }
+        // A message box and a common file dialog are both native dialog windows of the class #32770, found among
+        // the windows of the user interface thread, which shows every one of them. A file dialog is not counted
+        // where it is shown, because it is opened from dozens of places across the forms, and this also finds a
+        // message box shown other than through MessageBoxes. Returns the title of the first one that is visible,
+        // or null when there is none
+        private string GetOpenNativeDialogTitle()
+        {
+            string title = null;
+            EnumThreadWindowsCallback callback = delegate (IntPtr windowHandle, IntPtr parameter)
+            {
+                if (!IsWindowVisible(windowHandle)) return true;
+                //
+                StringBuilder className = new StringBuilder(64);
+                GetClassName(windowHandle, className, className.Capacity);
+                if (className.ToString() != "#32770") return true;
+                //
+                StringBuilder text = new StringBuilder(256);
+                GetWindowText(windowHandle, text, text.Capacity);
+                title = text.ToString();
+                return false;
+            };
+            EnumThreadWindows(GetCurrentThreadId(), callback, IntPtr.Zero);
+            GC.KeepAlive(callback);
+            return title;
+        }
+        private delegate bool EnumThreadWindowsCallback(IntPtr windowHandle, IntPtr parameter);
+        [DllImport("user32.dll")]
+        private static extern bool EnumThreadWindows(int threadId, EnumThreadWindowsCallback callback, IntPtr parameter);
+        [DllImport("kernel32.dll")]
+        private static extern int GetCurrentThreadId();
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetClassName(IntPtr windowHandle, StringBuilder className, int maxCount);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowText(IntPtr windowHandle, StringBuilder text, int maxCount);
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr windowHandle);
         private void AutomationServer_StateChanged()
         {
             // A connection is accepted on the listener thread, and the last one is reported while
@@ -11571,6 +11699,25 @@ namespace PrePoMax
         private bool IsStateWorking()
         {
             return tsslState.Text != Globals.ReadyText;
+        }
+        // A long operation, or Python running anywhere - an agent call before its busy state shows, or a script of
+        // the Python panel that let the window pump messages
+        private bool IsBusyForUserInput()
+        {
+            return IsStateWorking() || PythonEngineManager.IsExecuting;
+        }
+        private static bool IsMenuShortcut(ToolStripItemCollection items, Keys keyData)
+        {
+            if (keyData == Keys.None) return false;
+            //
+            foreach (ToolStripItem item in items)
+            {
+                ToolStripMenuItem menuItem = item as ToolStripMenuItem;
+                if (menuItem == null) continue;
+                if (menuItem.ShortcutKeys == keyData) return true;
+                if (menuItem.HasDropDownItems && IsMenuShortcut(menuItem.DropDownItems, keyData)) return true;
+            }
+            return false;
         }
         public bool IsStateOpening()
         {

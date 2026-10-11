@@ -101,10 +101,20 @@ The root object available in the Python console is `pmx`.
   as individual PrePoMax commands.
 - **Record and Run** stores the complete editor source as one phase-neutral history command and then executes it. Commands invoked
   by that script still use the normal controller command path, but they are not added to history a second time.
-- Recorded scripts run in a fresh scope containing a new `pmx`, `__name__ = "__main__"`, and `__file__ = "<string>"`.
-  They cannot depend on variables or imports left in the interactive console by earlier work.
-- A recorded script is added to history only when it completes without an error. Full-history regeneration executes the embedded
-  source at the same position in history; phase-only regeneration skips recorded scripts.
+- Recorded scripts run in a fresh scope containing a new `pmx`, `__name__ = "__main__"`, and `__file__`: the script file of a
+  `--script` run, or `"<string>"` for a script recorded from the editor. They cannot depend on variables or imports left in the
+  interactive console by earlier work.
+- A recorded script that completes is added to history. One that fails after it changed the model is added too, marked as failed,
+  so the history holds what it did up to the error and Regenerate runs it to the same error; one that fails before changing
+  anything is not added. Full-history regeneration executes the embedded source at the same position in history; phase-only
+  regeneration skips recorded scripts. A script marked as failed that fails again is a warning of the regeneration, not one of
+  its errors, so a batch regeneration of such a `.pmx` exits with 0, as a replay of its journal does.
+- A script fails only when it ends with an exception. What it prints to `sys.stderr` - a warning, a log line - is shown with its
+  output, in red in the console and on the console of a `--script` run, and does not fail it.
+- A script run from a file - `--script`, or a recorded one regenerated - has the folder of that file first on `sys.path` while it
+  runs, so it imports the modules next to it as `python script.py` would. The folder is taken off `sys.path` again afterwards, and
+  the modules the run imported from it are forgotten, so the next run - a Regenerate, or a run after the module was edited -
+  imports them afresh rather than reusing the first run's copies.
 
 ## Session journal
 
@@ -115,23 +125,33 @@ document describes: what it writes is what a user would have written.
 | Where | What it does |
 | --- | --- |
 | **File - Export - Python session journal \*.py** | Writes the journal of the open model's history. |
-| **Edit - Edit History**, then **File - Save As Python** in its *Edit Commands* dialog | Writes the journal of the history shown in the dialog, including a reordered or shortened one; an unedited history is written without the commands an undo took back, which the dialog still lists. |
+| **Edit - Edit History**, then **File - Save As Python** in its *Edit Commands* dialog | Writes the journal the dialog shows beside the list. Unedited rows stand for the history the model is built by now: the commands an undo took back, which the dialog still lists, are left out, and commands recorded while the dialog was open are taken in. An edited list - reordered, shortened, or opened from a file - is written row by row, as OK applies every row; when it holds commands an undo took back, saving asks first. |
 | `--journal <file.py>` | Writes the journal when a batch run ends, on a failing run too. |
 
 A journal is the history the model is built by: a command an undo took back is left out, as Regenerate
 leaves it out, until a redo brings it back. A file the session saved or exported - `pmx.save`, the
 `export_*` calls - is written by the replay under its name into the replay's own work directory,
-`os.path.join(pmx.work_directory, 'model.pmx')`, as a batch regeneration writes it, so a replay never
-overwrites the file the session wrote; the header says so and imports `os`. An analysis the history
-added by default where one already existed is written as a comment.
+`_output('model.pmx')`, as a batch regeneration writes it. `_output`, which the header defines and
+imports `os` for, joins the name to `pmx.work_directory` and stops the replay with `FileExistsError`
+when a file of that name is already there and was not written by this replay, so a replay never
+overwrites a file it did not write - the session's own `.pmx` included, should the work directory be
+its folder. Two files of the same name the session wrote in different folders get numbered names,
+`name_2.ext`. A file the session read after writing it - an import, a result file, a parameters file -
+is read from where the replay wrote it. `pmx.work_directory` raises when the session has none, so
+replay with `-w`. An analysis the history added by default where one already existed is written as a
+comment.
 
-A journal names the file the session started from in its header rather than opening it, because
-replacing the model rebuilds the command collection a running script belongs to. Replay it with the
-`-f` switch:
+A journal holds the whole history from the empty model it starts with - the history of an opened
+`.pmx` begins with the clear of its own new model - so replay it without `-f`; opening the model
+first would build it twice:
 
 ```bash
-PrePoMax.com -f model.pmx --script journal.py -g No -x Yes -w <work directory>
+PrePoMax.com --script journal.py -g No -x Yes -w <empty work directory>
 ```
+
+Only a history that begins by opening a file it cannot rebuild says so in its header, as
+`Replay this journal with: -f <file>`; the header's `Opened from:` line only names the file the
+session had open.
 
 What a journal will not do silently: a command it cannot emit becomes a comment naming the command
 and the reason, and the export reports how many it wrote. A recorded Python script is emitted
@@ -139,7 +159,8 @@ verbatim rather than expanded into the calls it made, because regeneration re-ru
 and expanding it would replace live computation with the values it produced the first time. Its
 source is written as a string and executed with `exec` in a namespace of its own holding `pmx`,
 `__name__` and `__file__`, as the recorded run had, so a name the script binds - `selection_1`, say -
-cannot change the journal lines after it.
+cannot change the journal lines after it. A script recorded from a file has the folder of that file put
+first on `sys.path` around it, as the recorded run had.
 
 `APIs/Python/Test_Scripts/Test_Rpc_Live_Session.py` checks the whole path: it builds a varied model
 in a session driven through the automation server, journals that session, replays the emitted script
@@ -158,16 +179,31 @@ PrePoMax.com --script build.py --scriptArgs "40 steel" -f model.pmx -g No -x Yes
 - `--scriptArgs` is split on spaces and reaches the script as `sys.argv[1:]`; `sys.argv[0]` is the script file name.
 - `--onPrompt` decides what happens when a dialog asks for a decision and nobody can answer it. `Fail` aborts the run, `Accept`
   answers with the default answer. A script defaults to `Fail`, a regeneration defaults to `Accept`. Single button dialogs only
-  report and never abort the run.
+  report and never abort the run. It applies only with `-g No`: with a window the user answers the dialog, and `--onPrompt`
+  is ignored.
 - `--timeout <seconds>` limits the whole run. On expiry the running analyses are killed and the process exits.
+- **Ctrl+C** in the console of `PrePoMax.com` ends the run the way the time limit does: the running analyses are killed, the
+  journal and the report are written, and the process exits with code 7. A second Ctrl+C, or 30 s without an exit, kills it.
 - `--settings <file>` reads the settings from an explicit file, and `--noSettingsSave` does not write them back. A script run
-  never writes the settings file, so parallel runs cannot disturb each other or the interactive user.
-- `--report <file.json>` writes a machine readable record of the run: the invocation, the executed commands and their durations,
-  the reported messages, the answered or refused prompts, the analysis jobs with their status, and the produced files. The report
-  is written also when the run fails.
+  and a `-g No` session with `--rpc` never write the settings file, so parallel runs cannot disturb each other or the
+  interactive user. Such a session without a window also keeps its recovery history in a file of its own,
+  `history.<process id>.pmh`, so it never overwrites or deletes the one of a session the user has open.
+- A file name without a folder - `-f`, `--script`, `--save`, `--report`, `--journal`, `--settings` - is taken from the work
+  directory `-w`, or from the current directory when there is none.
+- `--report <file.json>` writes a machine readable record of the run: the invocation - every switch, `--journal`, `--rpc`, `-u`
+  and `-p` included - the executed commands and their durations, the reported messages, the answered or refused prompts, the
+  analysis jobs with their status, whether the journal was written (`journal`, with the reason when it was not), and the
+  produced files: the `--save` file, every file a save or an export wrote - also through `pmx.save` and the `export_*` calls
+  of a script - the analysis files and the journal. The journal is written first, so the report can say so. The report is
+  written also when the run fails.
 - `--save <file.pmx>` saves the model after the script finishes. The save happens after the script command is recorded, so the
   saved file regenerates the scripted session; a `pmx.save` call from inside the script cannot, because the script command is
   added to the history only once it has completed.
+- `-x No` keeps the application running after the script or the regeneration. With its window it then goes on as an ordinary
+  session: closing it asks to save an unsaved model and the history is written for recovery. A script or a regeneration that
+  failed leaves that window open too, with the error shown, and the process still exits with the code of the failure when it is
+  closed. Without a window `-x No` needs `--rpc`, the only thing that could close such a session; `-g No -x No` alone is
+  refused with code 1.
 
 The process exit code is part of the command line contract:
 
@@ -176,10 +212,11 @@ The process exit code is part of the command line contract:
 | 0 | Completed, no errors |
 | 1 | Command line or option error, also a `-g No` session started with `--rpc` whose automation server could not start |
 | 2 | Model or regeneration error |
-| 3 | Script error - an unhandled Python exception |
+| 3 | Script error - an unhandled Python exception. Output to `sys.stderr` alone is not one |
 | 4 | Timed out |
-| 5 | An interactive prompt was refused because `--onPrompt` is `Fail` |
+| 5 | An interactive prompt was refused because `--onPrompt` is `Fail`, and the refusal is what ended the run - a script that caught it and failed later for another reason exits with 3 |
 | 6 | The `PrePoMax.com` launcher could not start the application |
+| 7 | Cancelled with Ctrl+C |
 
 ## Agent integration
 
@@ -376,7 +413,10 @@ project, or to `~/.claude/skills/prepomax/` to have it in all of them.
 - **Busy is an answer.** A call that arrives while a dialog is open or a mesher is running is refused
   with the reason, and nothing is done. The question is asked on the thread that owns the window,
   because that is the only place the truth is visible: an item dialog of this application is not
-  modal, and a modal one keeps pumping messages.
+  modal, and a modal one keeps pumping messages. A message box and a file dialog count as dialogs
+  too, although they are native windows the application's list of forms does not show. While the
+  application is busy its menu shortcuts - `Ctrl+S`, `Ctrl+Z` and the others - and the `Delete`,
+  `Space` and `Enter` keys of the model tree are ignored, as its mouse already was.
 - **A long call leaves the window usable, and says it is working.** The work runs off the thread
   that owns the window, the way a `--script` run runs it, so the window keeps answering while a long
   call is in flight. Calls that reach the model are served one at a time, so two agents cannot
@@ -425,6 +465,9 @@ project, or to `~/.claude/skills/prepomax/` to have it in all of them.
 - **Printed output is capped.** What one call, console line or script prints to `stdout` or
   `stderr` keeps its first 1,000,000 and its last 100,000 characters, with
   `[output truncated: N characters omitted]` between them, in the answer and in the Python panel.
+- **Only an exception fails a call.** What a call prints to `stderr` - a warning, a log line - comes
+  back in its own `stderr` field of the `exec` and `eval` answer and is shown in the Python panel, but
+  `failed` is true and `error` is filled only when the Python ended with an exception.
 - **A call that lasts marks the application busy.** Once an agent call has been running for a third
   of a second it takes the state the application uses for its own long operations - the status bar
   says *Automation server...*, the menus and toolbars go quiet, and the view stops redrawing - so the
@@ -433,7 +476,10 @@ project, or to `~/.claude/skills/prepomax/` to have it in all of them.
 - **A script of the user's own and an agent call exclude each other.** Running a script from the
   Python panel marks the application busy the same way, so an agent call that arrives while it runs
   is refused with the reason; and a script does not start while an agent call holds the state, and
-  says so in the console rather than failing later.
+  says so in the console rather than failing later. A console line is not run either, and no
+  completions are offered, while Python runs anywhere - an agent call that has not yet marked the
+  application busy included - because the console runs on the thread an agent call may be waiting
+  for; the console says so instead of hanging.
 - **Read only means the model cannot change.** It does not refuse a method; it blocks the command
   history, which every state change of the application passes through, so no Python an agent sends
   can get around it. Reading keeps working. The block is held only while a call that waits its turn
@@ -678,7 +724,7 @@ model item.
 | `pmx.open(file_name)` | Opens a .pmx or .pmh model file, which replaces the command history; a .pmh history is regenerated whole, as **File - Open** regenerates it. A result file is refused and named to `pmx.results.open`, and so is the call while an analysis is running. **Console only.** |
 | `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. It takes the types the import dialog takes - `.stp`, `.step`, `.igs`, `.iges`, `.brep`, `.stl`, `.unv`, `.vol`, `.inp`, `.mesh`, `.obj` and `.pmp` - and refuses another naming `file_name`; `only_materials=True` imports the materials of an `.inp` file and is refused for another type. As the dialog does, it refuses with "There is no model to import into. First create a new model." while the model space or the unit system is undefined: create the model with `pmx.new_model`, or set `model_space` and `unit_system` first. A `.pmp` file is refused as `parameters.import_from_file` refuses it. |
 | `pmx.save(file_name)` | Saves the model to a .pmx file. |
-| `pmx.work_directory` | The session's work directory (-w or the settings), read only; a replayed journal writes the files its session saved or exported here. |
+| `pmx.work_directory` | The session's work directory (the -w of a script or regeneration run, otherwise the settings), read only; a replayed journal writes the files its session saved or exported here. A session without one raises, telling to pass `-w` or set it in Settings - Solver. |
 | `pmx.export_to_calculix(file_name)` | Exports a CalculiX .inp file. |
 | `pmx.export_to_abaqus(file_name)` | Exports an Abaqus .inp file. |
 | `pmx.export_to_3mf(file_name, edge_thickness_ratio=1)` | Exports the model to a 3MF file. `edge_thickness_ratio` must be finite and larger than zero. |
@@ -1687,7 +1733,7 @@ the editor tree shows, so a script edits the keyword the user would click.
 | `get_overrides()` | The user edits of the generated keywords, as a plain Python list, each with its `indices` (an `IntList`), `data`, `disabled`, `suppressed` and `original_signature`. |
 | `set_user_keyword(indices, data)` | Inserts or replaces one user keyword. The index path names an insertion position in the tree with every user keyword already inserted, so its last index may be the number of keywords it is inserted among. A keyword at an index path the model already holds is replaced in place. As the editor does, a new keyword inside a deactivated keyword is refused with "Cannot add user keyword to a deactivated keyword.", naming the index paths, and so is one at an index path that names no insertion position; a keyword the model already holds at either, which the editor keeps and the solver input file leaves out, may be replaced. |
 | `remove_user_keyword(indices)` | Removes one user keyword. |
-| `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. Each index path is a position in the tree with the preceding pairs already inserted, and an index path given twice is refused. An index path inside a deactivated keyword, or one that names no insertion position, is refused as by `set_user_keyword`, unless the model already holds a user keyword there. Such a kept keyword is matched by its place among the generated keywords, since the editor writes it after the visible ones at its place in the tree they make, and two kept keywords may share an index path. |
+| `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. Each index path is a position in the tree with the preceding pairs already inserted, and an index path given twice is refused. An index path inside a deactivated keyword, or one that names no insertion position, is refused as by `set_user_keyword`, unless it names a user keyword the model already holds there. Such a kept keyword is matched by its place among the generated keywords, since the editor writes it after the visible ones at its place in the tree they make; each pair takes at most one kept keyword, its text must be given unchanged (a changed text is refused naming `keywords`), and two kept keywords may share an index path. An index path that matches an active held keyword is still checked as a new one. |
 | `set_override(indices, data=None, disabled=None)` | Edits one generated keyword. The text replaces it and `disabled` writes it as a comment. A value that is not given is kept. |
 | `remove_override(indices)`, `clear_overrides()` | Removes the user edits. `clear_overrides()` is refused when there are no overrides. |
 
@@ -2464,7 +2510,7 @@ analysis added without arguments is the one the dialog would offer.
 | --- | --- |
 | `add(name, fem_solver=None, executable=None, argument=None, work_directory=None, compatibility_mode=None, number_of_cpus=None, environment_variables=None)` | Adds an analysis. `fem_solver` is `Calculix`, `Abaqus` or `FEMaster`. A given `executable` or `work_directory` that is no valid path is refused naming it. |
 | `replace(old_name, name=None, ..., inherit_executable=None, inherit_work_directory=None, inherit_number_of_cpus=None, inherit_environment_variables=None)` | Replaces an analysis. A value that is not given is kept. An `argument` edited away from the solver default survives a new name or solver; otherwise it follows them, so renaming `Job-1` to `Job-2` makes the argument `Job-2` and `fem_solver='Abaqus'` makes it `job=Job-2`. A given `argument` always wins. `rename` treats the argument the same way, so an edited argument survives it too. |
-| `open_results(name)` | Opens the results of the analysis. They become the current result of `pmx.results`. A running analysis and a missing results file are refused. A results file modified after the analysis finished raises the question the application asks, which an unattended run refuses as a prompt. |
+| `open_results(name)` | Opens the results of the analysis. They become the current result of `pmx.results`. A running analysis and a missing results file are refused. A results file modified after the analysis finished raises the question the application asks, which an unattended run refuses as a prompt. As the Results action does, the result items the history holds for the analysis are then made again on the new results, as Settings - General - Open results - Run history postprocessing says; inside a recorded script they are not, since the script replays them itself. |
 
 A running analysis - `Running` or `InQueue` - cannot be removed, renamed or replaced; the refusal names
 it. Wait for it to finish or `kill()` it first.
@@ -2804,12 +2850,12 @@ Collection of loaded result files.
 | Member | Description |
 | --- | --- |
 | `len(pmx.results)` | Number of loaded results. |
-| `current` | The currently selected `Result`. Assigning a loaded result name or a `Result` selects that result through command history, the way the results list of the toolbar does. |
+| `current` | The currently selected `Result`. Assigning a loaded result name or a `Result` selects that result through command history, the way the results list of the toolbar does; assigning the result that is already current records nothing. |
 | `history_outputs` | Returns history outputs for the currently selected result. |
 | `field_outputs` | Returns field outputs for the currently selected result. |
 | `get_names()` | Returns result names as `StringList`. |
 | `open(file_name)` | Opens a .frd, .dat, .odb or .foam result file beside the current model through command history, the way **File - Open** does for a result file. The model and its command history are kept, so it is available inside a recorded script and the journal writes it. A .pmx or .pmh file is refused and named to `pmx.open`. |
-| `remove_current()` | Removes the current result through command history. |
+| `remove_current()` | Removes the current result through command history. As Close Current Result does, the first remaining result then becomes the current one, recorded as a selection, so the calls that need a current result keep working; removing the only result clears the results. |
 | `clear()` | Removes every loaded result through command history. |
 | `contains(name)` | Checks whether a result exists. |
 
@@ -4076,8 +4122,10 @@ save called from inside the running recorded script is written before that scrip
 the history.
 
 A script run from a file receives its own path in `sys.argv[0]` and `__file__`, so it can find the
-assets next to it. A recorded script that is replayed from the history has no file of its own and
-uses the virtual `__file__` value `<string>`. `--scriptArgs` supplies `sys.argv[1:]` in both cases.
+assets next to it. A `--script` run that is replayed from the history keeps the `__file__` and
+`sys.argv` it was recorded with - the original path and `--scriptArgs` - so the file must still be
+where it was for assets next to it. A script recorded from the editor has no file of its own and uses
+the virtual `__file__` value `<string>`.
 
 ## Internal and infrastructure classes
 

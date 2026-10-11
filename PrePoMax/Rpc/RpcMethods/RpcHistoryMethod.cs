@@ -66,16 +66,16 @@ namespace PrePoMax.Rpc
             writer.EndArray();
             //
             if (includeJournal)
-                WriteJournal(writer, journalFile, commands, controller.Settings.General.NumOfSplitFaces,
-                             controller.Settings.GetWorkDirectory());
+                WriteJournal(writer, journalFile, commands, controller.OpenedFileName,
+                             controller.Settings.General.NumOfSplitFaces, controller.Settings.GetWorkDirectory());
             writer.EndObject();
             return writer.ToString();
         }
         private static void WriteJournal(JsonWriter writer, string requestedFile, List<Command> commands,
-                                         int numOfLegacySplitFaces, string workDirectory)
+                                         string openedFileName, int numOfLegacySplitFaces, string workDirectory)
         {
             string fileName = requestedFile == null ? GetTemporaryFileName() : GetRequestedFileName(requestedFile);
-            PythonJournalReport report = PythonJournalExporter.Export(commands, fileName, "the automation server",
+            PythonJournalReport report = PythonJournalExporter.Export(commands, fileName, openedFileName,
                                                                       numOfLegacySplitFaces, workDirectory);
             //
             writer.BeginObject("journal");

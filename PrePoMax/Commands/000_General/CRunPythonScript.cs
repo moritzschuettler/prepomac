@@ -63,11 +63,13 @@ namespace PrePoMax.Commands
         // pmx, __name__ and __file__, so the journal executes it in the same kind of namespace: a script
         // that binds a name the journal uses, such as selection_1, cannot change the lines after it. A
         // script run from a file read sys.argv as the engine set it, so the journal sets the same value
-        // around it and restores its own afterwards.
+        // around it and restores its own afterwards. The engine also put the folder of that file first on
+        // sys.path for the run, so the modules next to the script import, and so does the journal.
         public override void ToPython(PythonJournalWriter writer)
         {
             string source = _fileName == null ? "embedded script" : _fileName;
             string scriptFileName = _fileName == null ? PythonValueFormatter.Text("<string>") : writer.Path(_fileName);
+            string folder = GetScriptFolder();
             writer.Comment("--- Recorded script: " + source + " ---");
             if (_fileName != null)
             {
@@ -80,6 +82,7 @@ namespace PrePoMax.Commands
                 writer.Line("import sys as _recorded_script_sys");
                 writer.Assign("_recorded_script_saved_argv", "list(_recorded_script_sys.argv)");
                 writer.Assign("_recorded_script_sys.argv", "[" + string.Join(", ", argv) + "]");
+                if (folder != null) writer.Statement("_recorded_script_sys.path.insert(0, " + folder + ")");
             }
             writer.Line("_recorded_script_source = '''\\");
             writer.Block(GetTripleQuotedBody(_script) + "'''");
@@ -99,8 +102,28 @@ namespace PrePoMax.Commands
             }
             else writer.Statement(exec);
             if (_fileName != null) writer.Assign("_recorded_script_sys.argv", "_recorded_script_saved_argv");
+            if (folder != null)
+            {
+                writer.Line("if " + folder + " in _recorded_script_sys.path:");
+                writer.Line("    _recorded_script_sys.path.remove(" + folder + ")");
+            }
             writer.Comment("--- End of recorded script ---");
             writer.CountEmittedCommand();
+        }
+        private string GetScriptFolder()
+        {
+            if (string.IsNullOrEmpty(_fileName)) return null;
+            //
+            try
+            {
+                string folder = System.IO.Path.GetDirectoryName(_fileName);
+                return string.IsNullOrEmpty(folder) ? null : PythonValueFormatter.Path(folder);
+            }
+            catch (Exception)
+            {
+                // A recorded name that is not a valid path today names no folder to import from
+                return null;
+            }
         }
         // The body of a ''' literal that holds the script unchanged and readable: a backslash is doubled,
         // and a quote is escaped only where it could close the literal - before another quote or at the

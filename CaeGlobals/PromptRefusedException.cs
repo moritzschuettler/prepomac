@@ -13,6 +13,11 @@ namespace CaeGlobals
 {
     public class PromptRefusedException : CaeException
     {
+        // Variables
+        // The message opens with it, so a refusal can be recognized after it went through the text of a traceback
+        public const string RefusalText = "An interactive prompt was refused in the strict non-interactive mode.";
+
+
         // Constructors
         public PromptRefusedException(string message)
             : base(message)

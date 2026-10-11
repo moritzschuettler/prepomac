@@ -31,6 +31,9 @@ namespace PrePoMax
         private readonly CommandLineOptions _options;
         private readonly string _arguments;
         private readonly List<MessageBoxPrompt> _prompts;
+        private readonly List<string> _writtenFileNames;
+        private bool _isJournalWritten;
+        private string _journalError;
 
 
         // Static properties
@@ -45,6 +48,7 @@ namespace PrePoMax
             _options = options;
             _arguments = arguments;
             _prompts = new List<MessageBoxPrompt>();
+            _writtenFileNames = new List<string>();
         }
 
 
@@ -56,22 +60,29 @@ namespace PrePoMax
 
 
         // Methods
-        public bool HasRefusedPrompt()
-        {
-            lock (_syncRoot)
-            {
-                foreach (MessageBoxPrompt prompt in _prompts)
-                {
-                    if (prompt.IsRefused) return true;
-                }
-            }
-            return false;
-        }
         public void AddPrompt(MessageBoxPrompt prompt)
         {
             if (prompt == null) return;
             //
             lock (_syncRoot) { _prompts.Add(prompt); }
+        }
+        // A file a command of the run wrote: a save or an export, also one a script made through pmx
+        public void AddWrittenFile(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName)) return;
+            //
+            lock (_syncRoot)
+            {
+                if (!_writtenFileNames.Contains(fileName)) _writtenFileNames.Add(fileName);
+            }
+        }
+        public void SetJournalResult(bool isWritten, string error)
+        {
+            lock (_syncRoot)
+            {
+                _isJournalWritten = isWritten;
+                _journalError = error;
+            }
         }
         public void Write(ExitCodeEnum exitCode, Exception exception, Controller controller)
         {
@@ -93,6 +104,7 @@ namespace PrePoMax
                 writer.WriteValue("error", exception == null ? null : exception.Message);
                 //
                 WriteInvocation(writer);
+                WriteJournal(writer);
                 WriteCommands(writer, controller);
                 WriteMessages(writer);
                 WritePrompts(writer);
@@ -118,13 +130,36 @@ namespace PrePoMax
             writer.WriteValue("script", _options.ScriptFileName);
             writer.WriteValue("scriptArguments", _options.ScriptArguments);
             writer.WriteValue("save", _options.SaveFileName);
+            writer.WriteValue("journal", _options.JournalFileName);
             writer.WriteValue("regenerationFile", _options.RegenerationFileName);
+            writer.WriteValue("parameters", _options.Parameters);
+            writer.WriteValue("parametersExport", _options.ParametersExportFileName);
+            writer.WriteValue("unitSystem", _options.UnitSystem);
+            writer.WriteValue("rpc", _options.Rpc);
             writer.WriteValue("showGui", _options.ShowGui);
             writer.WriteValue("overwrite", _options.Overwrite);
             writer.WriteValue("onPrompt", _options.OnPrompt);
             writer.WriteValue("timeoutSeconds", _options.Timeout);
             writer.WriteValue("settingsFile", _options.SettingsFileName);
             writer.WriteValue("settingsSaved", !_options.GetIsSettingsSaveDisabled());
+            writer.EndObject();
+        }
+        // Written before the report, so the report can say whether it was
+        private void WriteJournal(JsonWriter writer)
+        {
+            if (_options.JournalFileName == null) return;
+            //
+            bool isWritten;
+            string error;
+            lock (_syncRoot)
+            {
+                isWritten = _isJournalWritten;
+                error = _journalError;
+            }
+            writer.BeginObject("journal");
+            writer.WriteValue("file", _options.JournalFileName);
+            writer.WriteValue("written", isWritten);
+            writer.WriteValue("error", error);
             writer.EndObject();
         }
         private void WriteCommands(JsonWriter writer, Controller controller)
@@ -221,6 +256,12 @@ namespace PrePoMax
             if (_options.Overwrite == "Yes" && _options.RegenerationFileName != null)
                 AddExistingFileName(fileNames, _options.RegenerationFileName);
             AddExistingFileName(fileNames, _options.ParametersExportFileName);
+            AddExistingFileName(fileNames, _options.SaveFileName);
+            lock (_syncRoot)
+            {
+                foreach (string fileName in _writtenFileNames) AddExistingFileName(fileNames, fileName);
+                if (_isJournalWritten) AddExistingFileName(fileNames, _options.JournalFileName);
+            }
             //
             if (controller != null && controller.Jobs != null)
             {

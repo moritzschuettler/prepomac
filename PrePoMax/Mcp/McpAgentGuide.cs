@@ -170,6 +170,9 @@ it has run, and it goes on to the end and records its commands as usual.
   `get_call` and check `recordedCommands`.
 - Printed output is capped: an answer keeps the first 1,000,000 and the last 100,000 characters and
   says `[output truncated: N characters omitted]` between them. Print what you need, not everything.
+- What your code prints to `stderr` - a warning, a log line - comes back as `stderr` and does not
+  fail the call. A call failed only when `failed` is true: its Python ended with the exception in
+  `error`.
 
 ## When a call is refused
 
@@ -178,6 +181,8 @@ it has run, and it goes on to the end and records its commands as usual.
   yours that is still running: collect it with `get_call` first.
 - **Read only.** The user has protected the model - in the settings, or by starting the session with
   `--rpc ReadOnly`; the refusal says which. Reading still works; ask them before asking for more.
+  Read only protects the command history, not the files: `get_history` with `journal_file` still
+  writes, and overwrites, the file it is given.
 - **An API error.** The traceback ends in `PythonAPIException:` and a message that names the
   reason and usually the accepted values. Read it and fix the call rather than trying variations.
   An error that carries a .NET stack trace (`   at ...` lines) is a fault of PrePoMax, not of your
@@ -212,6 +217,17 @@ A call that opens a `.pmx` or starts a new model replaces the history; its answe
 `recordedCommands` lists only what the call made, not the history the opened file brings.
 `get_history`, its journal and the command count of `get_status` leave out what the user undid; a call
 that records after an undo drops the undone commands, as a user's next action does.
+
+## Replaying a journal
+
+A journal holds the whole history, from the new model it starts with, so replay it on an empty model:
+`pmx.new_model(...)` first, then the journal source to `run_python` with the default
+`record='commands'`. Every call it makes is recorded as its own command, so the history matches the one
+it came from, except that a recorded script inside it is flattened into the calls it made. The files the
+session saved or exported are written to `pmx.work_directory` under their names, and the replay stops
+with `FileExistsError` rather than overwrite a file there it did not write itself. `record='script'`
+keeps the whole journal as one command that regeneration re-runs, so use it only for a journal that
+writes no files: the second run would find them and stop.
 ";
     }
 }

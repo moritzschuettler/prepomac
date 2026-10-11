@@ -26,7 +26,8 @@ namespace APIs.Python
 
         // Properties
         [PythonAPI("The currently selected result. Setting it to the loaded path name of a result, or to a " +
-                   "Result, selects that result the way the results list of the toolbar does.",
+                   "Result, selects that result the way the results list of the toolbar does; the result that " +
+                   "is already current records nothing.",
                    Returns = "Result")]
         public object current
         {
@@ -102,13 +103,24 @@ namespace APIs.Python
             //
             _documentService.OpenResultFile(fileName);
         }
-        [PythonAPI("Removes the current result using command history.", Returns = "None")]
+        [PythonAPI("Removes the current result using command history. As Close Current Result does, the first " +
+                   "remaining result becomes the current one, and removing the only result clears the results.",
+                   Returns = "None")]
         public void remove_current()
         {
             if (_resolver.GetCurrentResultName() == null)
                 throw new PythonAPIException("No current result is selected.");
             EnsureCommandsAvailable();
+            if (_resolver.GetResultNames().Length <= 1)
+            {
+                _commandGateway.ClearResults();
+                return;
+            }
+            //
             _commandGateway.RemoveCurrentResults();
+            string[] remainingNames = _resolver.GetResultNames();
+            if (remainingNames.Length > 0 && !_resolver.IsCurrentResult(remainingNames[0]))
+                _commandGateway.SetCurrentResults(remainingNames[0]);
         }
         [PythonAPI("Removes every loaded result using command history.", Returns = "None")]
         public void clear()
@@ -143,6 +155,7 @@ namespace APIs.Python
             resultName = _resolver.GetStoredResultName(resultName);
             if (_commandGateway == null)
                 throw new PythonAPIException("Result selection is not available in this Python API context.");
+            if (_resolver.IsCurrentResult(resultName)) return;
             _commandGateway.SetCurrentResults(resultName);
             if (!_resolver.IsCurrentResult(resultName))
                 throw new PythonAPIException("The result '" + resultName + "' could not be selected.");

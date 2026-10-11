@@ -22,6 +22,7 @@ namespace PrePoMax
         ScriptError = 3,
         TimedOut = 4,
         PromptRefused = 5,
-        LauncherError = 6
+        LauncherError = 6,
+        Cancelled = 7
     }
 }
