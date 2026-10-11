@@ -346,6 +346,24 @@ def test_displacement_rotation_distribution():
         check_refused(lambda: bcs.replace_displacement_rotation(name, u2=value), "'u2'",
                       "a non-finite u2 must be refused naming it")
     check(bcs[name].get_value("u2") is None, "a refused non-finite value changed u2")
+    # A distribution the condition still names can be removed, and a replace keeping it is then refused; with a
+    # user keyword the removal rebuilds the generated keywords, which must not read the removed distribution
+    removed_distribution = PREFIX + "Removed"
+    pmx.model.distributions.add_from_equation(removed_distribution, "1 + 0.02 * x")
+    bcs.replace_displacement_rotation(name, u1=1, distribution_name=removed_distribution)
+    user_keyword_path = list(pmx.model.keywords.get_model_keywords()[-1].indices)
+    pmx.model.keywords.set_user_keyword(user_keyword_path, "** " + PREFIX + "User keyword")
+    pmx.model.distributions.remove([removed_distribution])
+    pmx.model.keywords.remove_user_keyword(user_keyword_path)
+    check(bcs[name].get_value("distribution_name") == removed_distribution,
+          "the condition no longer names the removed distribution")
+    check_refused(lambda: bcs.replace_displacement_rotation(name, u1=2), "'distribution_name'",
+                  "a replace keeping a removed distribution must be refused")
+    check(bcs[name].get_value("u1") == 1, "the refused replacement changed u1")
+    bcs.replace_displacement_rotation(name, distribution_name="Constant")
+    coordinates, rows = read_boundary_lines(name)
+    check([row[0] for row in rows] == [NODE_SET, NODE_SET],
+          "the node set lines did not come back after the removed distribution: " + str(rows))
     bcs.remove([name])
 
 

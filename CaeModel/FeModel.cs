@@ -7165,10 +7165,15 @@ namespace CaeModel
             //
             return springs.ToArray();
         }
+        // Distributions                                                                            
+        public bool IsDistributionAvailable(string distributionName)
+        {
+            return distributionName != Distribution.DefaultDistributionName && _distributions.ContainsKey(distributionName);
+        }
         // Initial conditions                                                                       
         public InitialTemperature[] GetNodalTemperaturesFromVariableInitialTemperature(InitialTemperature initialTemperature)
         {
-            if (initialTemperature.DistributionName == Distribution.DefaultDistributionName) return null;
+            if (!IsDistributionAvailable(initialTemperature.DistributionName)) return null;
             int[] nodeIds;
             double[][] coor;
             _mesh.GetRegionNodeIdsAndCoordinates(initialTemperature.RegionName, initialTemperature.RegionType,
@@ -7191,7 +7196,7 @@ namespace CaeModel
         // Boundary conditions                                                                      
         public TemperatureBC[] GetNodalTemperaturesFromVariableTemperatureBC(TemperatureBC temperatureBC)
         {
-            if (temperatureBC.DistributionName == Distribution.DefaultDistributionName) return null;
+            if (!IsDistributionAvailable(temperatureBC.DistributionName)) return null;
             int[] nodeIds;
             double[][] coor;
             _mesh.GetRegionNodeIdsAndCoordinates(temperatureBC.RegionName, temperatureBC.RegionType,
@@ -7216,7 +7221,7 @@ namespace CaeModel
                                                                          out int[] nodeIds)
         {
             nodeIds = null;
-            if (displacementRotation.DistributionName == Distribution.DefaultDistributionName) return null;
+            if (!IsDistributionAvailable(displacementRotation.DistributionName)) return null;
             if (displacementRotation.RegionType == RegionTypeEnum.ReferencePointName)
                 throw new CaeException("A distribution cannot be applied to a reference point.");
             //
@@ -7270,7 +7275,7 @@ namespace CaeModel
         }
         public CLoad[] GetNodalCLoadsFromSurfaceTraction(STLoad load)
         {
-            if (load.DistributionName == Distribution.DefaultDistributionName)
+            if (!IsDistributionAvailable(load.DistributionName))
                 return GetNodalCLoadsFromConstantSurfaceTraction(load);
             else
                 return GetNodalCLoadsFromSurfaceTractionByDistribution(load);
@@ -8022,7 +8027,7 @@ namespace CaeModel
         public DefinedTemperature[] GetNodalTemperaturesFromVariableDefinedTemperature(DefinedTemperature definedTemperature)
         {
             if (definedTemperature.Type == DefinedTemperatureTypeEnum.FromFile) return null;
-            if (definedTemperature.DistributionName == Distribution.DefaultDistributionName) return null;
+            if (!IsDistributionAvailable(definedTemperature.DistributionName)) return null;
             int[] nodeIds;
             double[][] coor;
             _mesh.GetRegionNodeIdsAndCoordinates(definedTemperature.RegionName, definedTemperature.RegionType,

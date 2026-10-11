@@ -2559,7 +2559,7 @@ namespace FileInOut.Output
                 }
                 else if (load is DLoad dl)
                 {
-                    if (dl.DistributionName == Distribution.DefaultDistributionName)
+                    if (!model.IsDistributionAvailable(dl.DistributionName))
                     {
                         CalDLoad dLoad = new CalDLoad(dl, model.Mesh.Surfaces[dl.RegionName], complexLoadType);
                         parent.AddKeyword(dLoad);
