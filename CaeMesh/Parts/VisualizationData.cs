@@ -793,7 +793,7 @@ namespace CaeMesh
         public Dictionary<int, HashSet<int>> GetSurfaceIdSurfaceNeighbourIds()
         {
             Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = new Dictionary<int, HashSet<int>>();
-            HashSet<int> surfaceNeighbourIds;
+            for (int i = 0; i < _faceEdgeIds.Length; i++) surfaceIdSurfaceNeighbourIds.Add(i, new HashSet<int>());
             // The faces meeting at each edge, so that the neighbours of a face follow from its own edges
             // instead of from comparing it with every other face
             List<int> edgeFaceIds;
@@ -812,11 +812,7 @@ namespace CaeMesh
                 {
                     foreach (var neighbourId in entry.Value)
                     {
-                        if (surfaceId == neighbourId) continue;
-                        //
-                        if (surfaceIdSurfaceNeighbourIds.TryGetValue(surfaceId, out surfaceNeighbourIds))
-                            surfaceNeighbourIds.Add(neighbourId);
-                        else surfaceIdSurfaceNeighbourIds.Add(surfaceId, new HashSet<int>() { neighbourId });
+                        if (surfaceId != neighbourId) surfaceIdSurfaceNeighbourIds[surfaceId].Add(neighbourId);
                     }
                 }
             }
