@@ -53,6 +53,9 @@ def split_boxes():
     first = list(compound.split_sub_part_names)[0]
     check(type(compound.get_split_cell_names(first)).__name__ == "StringListAPI",
           "the cell names must be a StringList: " + type(compound.get_split_cell_names(first)).__name__)
+    split_cells = [cell for name in compound.split_sub_part_names for cell in compound.get_split_cell_names(name)]
+    check(sorted(compound.cell_names) == sorted(split_cells),
+          "cell_names must list every cell of the split compound: " + str(list(compound.cell_names)))
     return compound
 
 

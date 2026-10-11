@@ -1215,6 +1215,10 @@ the tree does: its cells are renamed after it, and so is the mesh part it was me
 another part already uses is refused, compared regardless of case as the tree compares it. The sub-part
 and cell names `rename_split_sub_part`, `group_split_cells` and `fuse_bodies` take are matched regardless
 of case, a body named twice in any spelling is refused, and a new name is checked as every name is.
+`part.cell_names` lists the solids of any compound part as a `StringList`, in the order the compound holds
+them: the cells of a split or grouped compound and the sub-parts of any other, which are its cells until
+they are grouped. Those are the names `group_split_cells` and `fuse_bodies` take; it is empty for a part
+that is not a compound.
 
 ```python
 compound = [part for part in pmx.model.geometry.parts if part.split_sub_part_names][0]
@@ -1398,7 +1402,9 @@ The recognition depends on the geometry alone, so an exploded view does not chan
 It also adds `split_sub_part_names` (a `StringList`), the sub-parts of a compound part made by `split_solid`, or
 of any other compound once `group_split_cells` grouped its cells, which `rename_split_sub_part` renames; it is
 empty for any other part, an imported or `add_compound` compound not grouped yet included. `get_split_cell_names(sub_part_name)`
-lists the cells of one of them as a `StringList`, which `group_split_cells` takes.
+lists the cells of one of them as a `StringList`, which `group_split_cells` takes. `cell_names` (a `StringList`)
+lists every solid of a compound part, the cells of a split or grouped one and the sub-parts of any other, and is
+empty for a part that is not a compound.
 
 `ModelPart` adds `get_inverted_element_ids()`, an `IntList` of the IDs of the inverted or degenerate solid elements
 of the part - those with a scaled Jacobian at a corner that is zero or negative. Meshing keeps such

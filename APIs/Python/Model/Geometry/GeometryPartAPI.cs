@@ -48,6 +48,14 @@ namespace APIs.Python.Model
         {
             get { return new StringListAPI(_service.GetSplitSubPartNames(_partName)); }
         }
+        [PythonAPI("The solids of a compound part, in the order the compound holds them: the cells of a compound " +
+                   "made by split_solid or grouped by group_split_cells, and the sub-parts of any other compound, " +
+                   "which are its cells until they are grouped. These are the names group_split_cells and " +
+                   "fuse_bodies take. Empty for any other part.", Returns = "StringList")]
+        public StringListAPI cell_names
+        {
+            get { return new StringListAPI(_service.GetCellNames(_partName)); }
+        }
 
 
         // Constructors

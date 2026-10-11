@@ -188,6 +188,13 @@ namespace APIs.Python.Model
             //
             return compoundPart.GetSplitSubPartNames();
         }
+        public string[] GetCellNames(string partName)
+        {
+            CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
+            if (compoundPart == null) return new string[0];
+            //
+            return (string[])compoundPart.SubPartNames.Clone();
+        }
         public void RenameSplitSubPart(string partName, string oldName, string newName)
         {
             CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
