@@ -543,6 +543,17 @@ def test_invalid_equations():
                   "'axis_point[1]'", "a vector component that cannot be evaluated must be refused by its index")
     check_refused(lambda: loads.replace_concentrated_force(PREFIX + "F", f2="=undefined_param"), "'f2'",
                   "a replace with an equation that cannot be evaluated must be refused naming f2")
+    # A NaN or an infinity is refused naming the argument, a vector component by its index
+    for value in [float("nan"), float("inf"), float("-inf")]:
+        check_refused(lambda: loads.add_pressure(PREFIX + "Bad", surface_selection(1), value), "'magnitude'",
+                      "a non-finite pressure must be refused naming magnitude")
+        check_refused(lambda: loads.replace_concentrated_force(PREFIX + "F", f2=value), "'f2'",
+                      "a non-finite force component must be refused naming f2")
+        check_refused(lambda: loads.add_centrifugal(PREFIX + "Bad", part_selection(), axis_point=[0, value, 0],
+                                                    axis_direction=[0, 0, 1], rotational_speed=1),
+                      "'axis_point[1]'", "a non-finite vector component must be refused by its index")
+    check_refused(lambda: loads.add_pressure(PREFIX + "Bad", surface_selection(1), True), "'magnitude'",
+                  "a bool pressure must be refused naming magnitude")
     check(len(loads) == count_before and not loads.contains(PREFIX + "Bad"),
           "a load with an invalid equation was recorded")
     check(loads[PREFIX + "F"].get_value("f2") == 0, "the refused replace changed f2")

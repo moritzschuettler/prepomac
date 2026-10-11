@@ -192,10 +192,55 @@ def test_wrong_kind_arguments():
     check(model.node_sets.contains(None) is False, "contains(None) must be False")
 
 
+# One rule for whole numbers: a whole float is the number, a fraction, a bool and a string are refused, in a
+# single argument, an ID list and the part ID keys of an ID map alike. A number list refuses a bool, a color
+# channel is a finite whole number, and an option string is matched regardless of case and surrounding spaces.
+def test_converter_rules():
+    create = pmx.create
+    whole = create.selection_by_ids("femodel", "nodes", "nodes", [1.0, 2.0])
+    check(sorted(list(whole.get_ids())) == [1, 2], "whole floats must be taken as IDs: " + str(list(whole.get_ids())))
+    by_float_key = create.selection_by_ids("femodel", "nodes", "surfaces", {1.0: [1.0]})
+    by_int_key = create.selection_by_ids("femodel", "nodes", "surfaces", {1: [1]})
+    check(sorted(list(by_float_key.get_ids())) == sorted(list(by_int_key.get_ids())),
+          "a whole float part ID key and item ID must be taken as integers")
+    for function, argument in [(lambda: create.selection_by_ids("femodel", "nodes", "nodes", [1.5]), "'ids'"),
+                               (lambda: create.selection_by_ids("femodel", "nodes", "nodes", [True]), "'ids'"),
+                               (lambda: create.selection_by_ids("femodel", "nodes", "nodes", ["1"]), "'ids'"),
+                               (lambda: create.selection_by_ids("femodel", "nodes", "nodes", [float("nan")]),
+                                "'ids'"),
+                               (lambda: create.selection_by_ids("femodel", "nodes", "surfaces", {1: [True]}),
+                                "'ids[1]'"),
+                               (lambda: create.selection_by_ids("femodel", "nodes", "surfaces", {1.5: [1]}),
+                                "'ids'"),
+                               (lambda: create.selection_by_pick("femodel", "nodes", [0, True, 0], "Surface"),
+                                "'point'")]:
+        message = api_error(function)
+        check(message is not None and argument in message and "No method matches" not in message,
+              "a fraction, a bool or a string must be refused naming " + argument + ": " + str(message))
+    # A color channel is a whole number from 0 to 255
+    parts = pmx.model.parts
+    name = parts.first().name
+    color_before = list(parts[name].color)
+    for channels in [[255, 0.5, 0], [float("nan"), 0, 0], [0, True, 0]]:
+        message = api_error(lambda: parts.set_color(name, channels))
+        check(message is not None and "'color'" in message, "the channels " + str(channels) +
+              " must be refused naming color: " + str(message))
+    check(list(parts[name].color) == color_before, "a refused color changed the part")
+    parts.set_color(name, [0.0, 0.0, 255.0])
+    check(list(parts[name].color) == [0, 0, 255, 255], "whole float channels must set the color")
+    parts.reset_color(name)
+    # An option string is matched regardless of case and surrounding spaces, a name is not
+    padded = create.selection_by_ids(" FeModel ", " nodes", "Nodes ", [1, 2])
+    check(padded.view == "femodel" and padded.target == "nodes", "padded option strings were not matched")
+    padded.add_by_ids(" nodes ", [3], operation=" add ")
+    check(sorted(list(padded.get_ids())) == [1, 2, 3], "a padded source or operation did not resolve")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     test_typed_arguments()
     test_wrong_kind_arguments()
+    test_converter_rules()
     materials = pmx.model.materials
     test_unknown_keyword(materials)
     test_misspelled_keyword(materials)

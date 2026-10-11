@@ -30,6 +30,7 @@ namespace PrePoMax.Commands
 
         // Properties                                                                                                               
         public string Name { get { return _name; } }
+        public DateTime DateCreated { get { return _dateCreated; } }
         public TimeSpan TimeSpan { get { return _timeSpan; } set { _timeSpan = value; } }
         /// <summary>
         /// A command made before Split Periodic Faces became a command of its own was executed while CAD import and

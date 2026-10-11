@@ -27,6 +27,15 @@ def check_raises(function, message):
     raise Exception("TEST FAILED: " + message)
 
 
+def raised_message(function):
+    """The message of the exception the function raises, or None when it raises none."""
+    try:
+        function()
+    except Exception as ex:
+        return str(ex)
+    return None
+
+
 def ids(selection):
     return sorted(list(selection.get_ids()))
 
@@ -144,6 +153,30 @@ def test_geometry_source():
         for item_id in [0, -1]:
             check_raises(lambda: ids(pmx.create.selection_by_ids('femodel', 'geometry', source, {1: [item_id]})),
                          "the " + source + " ID " + str(item_id) + " was accepted")
+    # A geometry ID is item_index * 100000 + type * 10000 + part_id. One naming a missing part, a type digit that
+    # is no geometry type, or an item its part does not have is refused naming 'ids', for every target and for a
+    # preview, rather than failing inside the mesh, and a model item given it is not recorded
+    part_id = geometry_ids[0] % 10000
+    node_sets_before = list(pmx.model.node_sets.get_names())
+    for geometry_id, words in [(geometry_ids[0] - part_id + 9999, "does not exist"),
+                               (7 * 10000 + part_id, "type digit 7"),
+                               (part_id, "type digit 0"),
+                               (999 * 100000 + 3 * 10000 + part_id, "has"),
+                               (999 * 100000 + 2 * 10000 + part_id, "has"),
+                               (999 * 100000 + 1 * 10000 + part_id, "has"),
+                               (1 * 100000 + 9 * 10000 + part_id, "has")]:
+        for target in ['nodes', 'elements', 'surfaces', 'edges', 'parts', 'geometry']:
+            selection = pmx.create.selection_by_ids('femodel', target, 'geometry', [geometry_id])
+            for function in [lambda: selection.get_ids(), lambda: selection.preview()]:
+                message = raised_message(function)
+                check(message is not None and "'ids'" in message and words in message,
+                      "the geometry ID " + str(geometry_id) + " must be refused naming ids for target " + target +
+                      ": " + str(message))
+        selection = pmx.create.selection_by_ids('femodel', 'nodes', 'geometry', [geometry_id])
+        message = raised_message(lambda: pmx.model.node_sets.add("PyTest_Bad_Geometry_Id", selection))
+        check(message is not None and "'ids'" in message, "a node set from the geometry ID " + str(geometry_id) +
+              " must be refused naming ids: " + str(message))
+    check(list(pmx.model.node_sets.get_names()) == node_sets_before, "a refused node set was recorded")
 
 
 def test_case_insensitive_names():

@@ -55,20 +55,32 @@ namespace APIs.Python
         }
         public static double ToDouble(object value, string argumentName)
         {
+            return ToDouble(value, argumentName, false, false);
+        }
+        // NaN and infinity are refused unless the caller takes one of them as an explicit setting, such as
+        // float('nan') for a value the dialog offers as Default or float('inf') for no limit
+        public static double ToDouble(object value, string argumentName, bool allowNaN, bool allowInfinity)
+        {
             if (value == null)
                 throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
             // A string is not read as a number: no equation is evaluated here, and '10' is text in Python
             if (value is bool || value is string)
                 throw new PythonAPIException("The argument '" + argumentName + "' must be a number.");
             //
+            double number;
             try
             {
-                return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+                number = Convert.ToDouble(value, CultureInfo.InvariantCulture);
             }
             catch (Exception)
             {
                 throw new PythonAPIException("The argument '" + argumentName + "' must be a number.");
             }
+            if ((double.IsNaN(number) && !allowNaN) || (double.IsInfinity(number) && !allowInfinity))
+                throw new PythonAPIException("The argument '" + argumentName + "' must be a finite number, not " +
+                                             ToRoundTripString(number) + ".");
+            //
+            return number;
         }
         public static int ToInt(object value, string argumentName)
         {
@@ -161,11 +173,7 @@ namespace APIs.Python
         }
         public static double ToFiniteDouble(object value, string argumentName)
         {
-            double number = ToDouble(value, argumentName);
-            if (double.IsNaN(number) || double.IsInfinity(number))
-                throw new PythonAPIException("The argument '" + argumentName + "' must be finite.");
-            //
-            return number;
+            return ToDouble(value, argumentName, false, false);
         }
         public static bool ToBool(object value, string argumentName)
         {

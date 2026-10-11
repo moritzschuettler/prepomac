@@ -45,13 +45,7 @@ namespace APIs.Python
                         {
                             using (PyObject keyObject = keys.GetItem(i))
                             {
-                                int key;
-                                try { key = keyObject.As<int>(); }
-                                catch
-                                {
-                                    throw new PythonAPIException("All keys in '" + argumentName +
-                                                                 "' must be part IDs.");
-                                }
+                                int key = ToPartId(keyObject, argumentName);
                                 if (key <= 0)
                                     throw new PythonAPIException("All part IDs in '" + argumentName +
                                                                  "' must be greater than 0.");
@@ -82,18 +76,25 @@ namespace APIs.Python
             SortedDictionary<int, int[]> converted = new SortedDictionary<int, int[]>();
             foreach (DictionaryEntry entry in value)
             {
-                int key;
-                try { key = Convert.ToInt32(entry.Key); }
-                catch
-                {
-                    throw new PythonAPIException("All keys in '" + argumentName + "' must be part IDs.");
-                }
+                int key = ToPartId(entry.Key, argumentName);
                 if (key <= 0)
                     throw new PythonAPIException("All part IDs in '" + argumentName + "' must be greater than 0.");
                 converted.Add(key, PythonIntListConverter.ToIntArray(entry.Value, argumentName + "[" + key + "]"));
             }
             if (converted.Count == 0) throw InvalidMap(argumentName);
             return converted;
+        }
+        private static int ToPartId(object key, string argumentName)
+        {
+            try
+            {
+                return PythonIntListConverter.ToWholeNumber(key, argumentName);
+            }
+            catch (PythonAPIException)
+            {
+                throw new PythonAPIException("All keys in '" + argumentName + "' must be part IDs, which are whole " +
+                                             "32-bit numbers.");
+            }
         }
         private static PythonAPIException InvalidMap(string argumentName)
         {

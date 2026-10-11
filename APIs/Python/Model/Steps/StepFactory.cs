@@ -325,7 +325,7 @@ namespace APIs.Python.Model
             if (steadyState != null) step.SteadyState = PythonValueConverter.ToBool(steadyState, "steady_state");
             if (deltmx != null)
             {
-                double value = PythonValueConverter.ToDouble(deltmx, "deltmx");
+                double value = PythonValueConverter.ToDouble(deltmx, "deltmx", true, true);
                 if (double.IsNaN(value) || value <= 0)
                     throw new PythonAPIException("The argument 'deltmx' must be a positive number, or float('inf') " +
                                                  "for no limit.");
@@ -392,7 +392,7 @@ namespace APIs.Python.Model
         }
         private static double ToFrequencyLimit(object value, string argumentName)
         {
-            double converted = PythonValueConverter.ToDouble(value, argumentName);
+            double converted = PythonValueConverter.ToDouble(value, argumentName, true, true);
             if (!double.IsNaN(converted) && !(converted >= 0 && !double.IsInfinity(converted)))
                 throw new PythonAPIException("The argument '" + argumentName + "' must be at least 0, or " +
                                              "float('nan') for no limit.");

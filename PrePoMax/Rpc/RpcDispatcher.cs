@@ -193,7 +193,7 @@ namespace PrePoMax.Rpc
                 throw;
             }
             _lastStartedCallId = call.Id;
-            return CollectWithin(call, callWaitMilliseconds);
+            return CollectWithin(call, callWaitMilliseconds, false);
         }
         private string ExecuteOnCallThread(RpcRequest request)
         {
@@ -219,13 +219,13 @@ namespace PrePoMax.Rpc
         // A finished answer is given up only once it has reached the caller. Inside a delivery the transport
         // has begun, it stays collectable until the transport says the response was written, because a client
         // whose own request timeout ran out first is gone, and its answer would otherwise be lost with it
-        private string CollectWithin(RpcRunningCall call, int waitMilliseconds)
+        private string CollectWithin(RpcRunningCall call, int waitMilliseconds, bool isCollected)
         {
             if (!call.Wait(waitMilliseconds)) return call.GetRunningAnswer();
             //
             if (_undeliveredCalls != null) _undeliveredCalls.Add(call);
             else lock (_callLock) _calls.Remove(call.Id);
-            return call.GetResult();
+            return isCollected ? call.GetCollectedResult() : call.GetResult();
         }
         // Begun by a transport on the thread that serves one request, before it is dispatched, and ended once
         // the response was written or failed to be. The answers handed over in between are given up only by a
@@ -265,7 +265,7 @@ namespace PrePoMax.Rpc
                                        "Call get_status (status on the pipe) for the calls that are running or " +
                                        "waiting to be collected.");
             }
-            return CollectWithin(call, 1000 * waitSeconds);
+            return CollectWithin(call, 1000 * waitSeconds, true);
         }
         // A caller that never collects must not have every answer kept for the rest of the session: only the
         // latest answers are kept, and none longer than an hour after its call finished

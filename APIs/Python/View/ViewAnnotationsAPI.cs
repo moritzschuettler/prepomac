@@ -78,7 +78,7 @@ namespace APIs.Python
             return Resolve().AddElementAnnotation(PythonValueConverter.ToInt(element_id, "element_id"));
         }
         [PythonAPI("Removes the named annotations of the displayed view. A single name or a list of names, " +
-                   "compared regardless of case.",
+                   "each matched by its exact spelling first and then regardless of case.",
                    Arguments = "names: list[str] or str", Returns = "None",
                    Example = "pmx.view.annotations.remove(['Load', 'R_Annotation-1'])")]
         public void remove(object names)

@@ -341,6 +341,11 @@ def test_displacement_rotation_distribution():
     coordinates, rows = read_boundary_lines(name)
     check([row[0] for row in rows] == [NODE_SET, NODE_SET], "the node set lines did not come back: " +
           str(rows))
+    # A NaN or an infinity is refused naming the degree of freedom, never stored as a free one
+    for value in [float("nan"), float("inf")]:
+        check_refused(lambda: bcs.replace_displacement_rotation(name, u2=value), "'u2'",
+                      "a non-finite u2 must be refused naming it")
+    check(bcs[name].get_value("u2") is None, "a refused non-finite value changed u2")
     bcs.remove([name])
 
 

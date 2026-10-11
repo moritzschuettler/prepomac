@@ -1089,13 +1089,13 @@ namespace FileInOut.Output
             }
             return appliedCount;
         }
-        private enum UserKeywordStatus
+        public enum UserKeywordStatus
         {
             Active,
             Suppressed,
             Conflict
         }
-        static private UserKeywordStatus GetUserKeywordStatus(List<CalculixKeyword> keywords, int[] indices)
+        static public UserKeywordStatus GetUserKeywordStatus(List<CalculixKeyword> keywords, int[] indices)
         {
             if (keywords == null || indices == null || indices.Length == 0) return UserKeywordStatus.Conflict;
             // A root keyword is inserted between two generated keywords.

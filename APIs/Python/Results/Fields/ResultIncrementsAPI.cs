@@ -60,11 +60,11 @@ namespace APIs.Python
             get
             {
                 int[] keys = get_ids().ToArray();
-                if (index < 0) index = keys.Length + index;
-                if (index < 0 || index >= keys.Length)
+                int position = index < 0 ? keys.Length + index : index;
+                if (position < 0 || position >= keys.Length)
                     throw new PythonAPIException("The index " + index + " is out of range.");
                 //
-                return this[keys[index]];
+                return this[keys[position]];
             }
         }
         public IEnumerator<ResultIncrementAPI> GetEnumerator()

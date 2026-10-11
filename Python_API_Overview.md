@@ -30,6 +30,7 @@ The root object available in the Python console is `pmx`.
   with or without NumPy. The one bulk ID column is the element `connectivity`, a NumPy array (an `IntList` without NumPy) read in slices with
   `offsets`. A map is a `dict`, below.
 - Every `color` argument is a `list[int]` or a `str`: `[R, G, B]` or `[R, G, B, A]` with channels from 0 to 255, or a .NET color name such as `'Red'`.
+  A channel is a whole number, which a whole float such as `255.0` also is; a fraction, a NaN and a bool are refused.
   A color read back is always a plain `list` `[R, G, B, A]`, which goes back into the `color` argument.
 - A map a member returns (`get_settings`, `get_equations`, `get_element_types`, `mesh.generate`, the geometry operations' counts, ...) is a Python `dict`, so it prints its content and supports `in`, `.items()` and indexing.
 - Methods that construct Python-side objects do not modify PrePoMax. They make either a detached part
@@ -81,12 +82,18 @@ The root object available in the Python console is `pmx`.
 - A boolean, whole number or number argument is checked by the API, not by .NET overload resolution, so a
   wrong value is refused naming the argument: `None` for a required one, `2.5` for a whole number, `1` for a
   boolean. A whole number also takes a float with a whole value, such as `2.0`, and an optional
-  argument given as `None` takes its documented default.
+  argument given as `None` takes its documented default. The same rule holds for every item of an ID list and
+  every part ID key of an ID map: `[1.0, 2.0]` is `[1, 2]`, while `1.5`, `True` and `'1'` are refused. A list of
+  numbers refuses a bool as a single number does. A number refuses a NaN or an infinity naming the argument,
+  unless the argument documents `float('nan')` or `float('inf')` as a setting, as a `Default` tie tolerance or
+  an unset frequency limit is.
 - So are a name or option string and an API object: a number for a name is refused as `The argument 'name'
   must be a string, not int.`, and a region where a selection is taken as `The argument 'selection' takes a
   Selection made by pmx.create.selection_by_ids, ..., not Region.`. The same holds for a filter, a draft and a
   split tool, and for `in` on a collection; `contains(None)` and `None in` a collection are `False`,
-  and an ID collection takes a whole float in `in` as `contains` does.
+  and an ID collection takes a whole float in `in` as `contains` does. An option string - an enumeration
+  value, a view, a selection target or source - is matched regardless of case and of surrounding spaces; a
+  name is not, as above.
 
 ## Script execution and regeneration
 
@@ -329,6 +336,9 @@ Four things an agent has no way to work out from the model alone, and where each
 **What a call recorded is named.** `run_python` and `eval_expression` report `recordedCommands` as
 the command class and the line the command history editor shows, which names the item, so a call
 that wrote several things is not just a list of types. `get_history` carries the same description.
+A call that opens a `.pmx` or starts a new model replaces the history: its answer then says
+`historyReplaced` with a `historyMessage`, and `recordedCommands` lists only the commands the call
+made, never the history the opened file brings.
 
 **Units are not converted.** A plain number is a value in the model's unit system, which `get_status`
 reports as `model.unitSystem`. The instructions say so, because nothing else will: 210000 is a correct
@@ -1647,9 +1657,10 @@ a node set, an element set or a part.
 
 ### `Keywords`
 
-Reached as `pmx.model.keywords`. It is the CalculiX keyword editor: a keyword is addressed by the
-index path it has in the generated keyword tree, which is the path the editor tree shows, so a script
-edits the keyword the user would click.
+Reached as `pmx.model.keywords`. It is the CalculiX keyword editor: a generated keyword is addressed
+by the index path it has in the generated keyword tree, and a user keyword by its position in that
+tree with the user keywords before it inserted in order, as the export inserts them. That is the path
+the editor tree shows, so a script edits the keyword the user would click.
 
 | Member | Description |
 | --- | --- |
@@ -1657,9 +1668,9 @@ edits the keyword the user would click.
 | `get_model_keywords()` | The generated keywords, as a plain Python list, each with the index path that addresses it and its complete text. |
 | `get_user_keywords()` | The user keywords, as a plain Python list, each with the index path it is inserted at. |
 | `get_overrides()` | The user edits of the generated keywords, as a plain Python list, each with its `indices` (an `IntList`), `data`, `disabled`, `suppressed` and `original_signature`. |
-| `set_user_keyword(indices, data)` | Inserts or replaces one user keyword. The index path names an insertion position, so its last index may be the number of keywords it is inserted among. As the editor does, a new keyword inside a deactivated generated keyword is refused with "Cannot add user keyword to a deactivated keyword.", naming the index paths; a keyword the model already holds there, which the editor keeps, may be replaced. |
+| `set_user_keyword(indices, data)` | Inserts or replaces one user keyword. The index path names an insertion position in the tree with every user keyword already inserted, so its last index may be the number of keywords it is inserted among. A keyword at an index path the model already holds is replaced in place. As the editor does, a new keyword inside a deactivated keyword is refused with "Cannot add user keyword to a deactivated keyword.", naming the index paths; a keyword the model already holds there, which the editor keeps, may be replaced. |
 | `remove_user_keyword(indices)` | Removes one user keyword. |
-| `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. An index path inside a deactivated generated keyword is refused as by `set_user_keyword`, unless the model already holds a user keyword there. |
+| `replace_user_keywords(keywords)` | Replaces every user keyword by index path and text pairs. Each index path is a position in the tree with the preceding pairs already inserted, and an index path given twice is refused. An index path inside a deactivated keyword is refused as by `set_user_keyword`, unless the model already holds a user keyword there. |
 | `set_override(indices, data=None, disabled=None)` | Edits one generated keyword. The text replaces it and `disabled` writes it as a comment. A value that is not given is kept. |
 | `remove_override(indices)`, `clear_overrides()` | Removes the user edits. `clear_overrides()` is refused when there are no overrides. |
 
@@ -2289,7 +2300,7 @@ only makes the detached **parts** that those methods take as arguments, and reco
 
 | Member | Description |
 | --- | --- |
-| `selection_by_ids(view, target, source, ids)` | Creates an ID-based selection. |
+| `selection_by_ids(view, target, source, ids, geometry_select_mode='SelectId')` | Creates an ID-based selection. |
 | `elastic(youngs_modulus, poissons_ratio=None)` | Elastic property. Two values, or a list of `[E, v, temperature]` rows; `poissons_ratio` is required with a single `youngs_modulus`. Any value of this and of every other material property maker may be an equation string. |
 | `elastic_with_density(youngs_modulus, poissons_ratio, density)` | Combined elastic and density property. |
 | `elastic_engineering_constants(constants)` | Orthotropic elastic. Rows of `[E1, E2, E3, v12, v13, v23, G12, G13, G23, temperature]`, each physically stable, with strictly increasing temperatures. |
@@ -2554,7 +2565,9 @@ picture carries. They are view state, not model changes: each of the three views
 the results view keeps one set per result, and they are saved in the `.pmx` without going through the
 command history, the same as a label placed by a query in the application. The names
 `Min_Annotation`, `Max_Annotation` and `Measure_Annotation` are reserved. Names are compared
-regardless of case, as model names are, and an annotation keeps the spelling it was added with.
+regardless of case, as model names are, and an annotation keeps the spelling it was added with; a
+generated name is free regardless of case too. An older `.pmx` may hold two names that differ only in
+case, so a lookup tries the exact spelling first.
 
 | Member | Description |
 | --- | --- |
@@ -2591,7 +2604,8 @@ Possible `view` values are `"geometry"`, `"femodel"`, and `"results"`.
 
 Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"edges"`, `"parts"`, `"geometry"`, and `"geometry_surfaces"`. Possible `source` values are `"nodes"`, `"elements"`, `"vertices"`, `"edges"`, `"surfaces"`, `"parts"`, and `"geometry"`.
 
-The view, the target and the source are matched regardless of case, and the selection stores them in the lowercase
+The view, the target and the source are matched regardless of case and of surrounding spaces, as every option string
+is, and the selection stores them in the lowercase
 spelling above, so `selection.view` and `selection.target` read back the same whichever way they were written.
 
 Nodes, elements, vertices, and parts use a list of IDs. Vertex IDs are the node IDs displayed by Query. Edge and surface IDs are 1-based within each part and use a part-to-ID mapping:
@@ -2627,8 +2641,16 @@ whatever target the selection carries. The other geometry sources take per part 
 application turns them into geometry IDs itself, so `geometry` is what a script uses to give back an
 ID list it read from a recorded selection, and it is what the session journal emits.
 
+A geometry ID packs the item, its type and its part as `item_index * 100000 + type * 10000 + part_id`,
+with the type `1` for a vertex, `2` for an edge, `3` for a solid surface, `4` and `5` for the front and
+back of a shell surface, `6` for a shell edge surface and `9` for a whole part, whose item index is 0.
+When the selection is used - added to a model item, resolved by `get_ids` or `preview` - a geometry ID
+naming a part the view does not have, a type digit outside that list, or an item index its part does not
+have is refused naming `ids`, before anything is recorded.
+
 ```python
-selection = pmx.create.selection_by_ids('geometry', 'surfaces', 'geometry', [2000003, 2000004])
+# Surfaces 4 and 5 of the solid part with ID 1
+selection = pmx.create.selection_by_ids('geometry', 'surfaces', 'geometry', [330001, 430001])
 ```
 
 A selection is built either from IDs or from a **pick** - a point in space, which the application

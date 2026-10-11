@@ -41,8 +41,8 @@ namespace PrePoMax.Rpc
             if (controller == null) throw new RpcException(RpcErrorCode.InternalError, "There is no open model.");
             //
             server.Form.PrepareAutomationPythonEngine();
-            int commandsBefore = GetCommandCount(controller);
             DateTime started = DateTime.Now;
+            List<Command> commandsBefore = GetCommandsSnapshot(controller);
             PythonEngineResult result;
             if (IsCancelledBeforeStart())
             {
@@ -52,7 +52,8 @@ namespace PrePoMax.Rpc
             else if (recordMode == "script") result = controller.RunPythonScriptCommand(source);
             else result = controller.ExecutePythonWithKeywordStateReport(() => PythonEngineManager.ExecuteScript(source));
             double elapsed = (DateTime.Now - started).TotalSeconds;
-            List<Command> recorded = GetRecordedCommands(controller, commandsBefore);
+            List<Command> recorded = GetRecordedCommands(controller, commandsBefore, started);
+            bool historyReplaced = IsHistoryReplaced(controller, commandsBefore);
             //
             server.Form.EchoAutomationExecution("Automation server - exec", source, result.Output, result.Error);
             //
@@ -63,7 +64,7 @@ namespace PrePoMax.Rpc
             writer.WriteValue("error", result.Error == null ? "" : result.Error);
             writer.WriteValue("failed", !string.IsNullOrEmpty(result.Error));
             writer.WriteValue("elapsed", elapsed);
-            WriteRecordedCommands(writer, recorded);
+            WriteRecordedCommands(writer, recorded, historyReplaced);
             WriteCancellation(writer, !string.IsNullOrEmpty(result.Error));
             writer.EndObject();
             return writer.ToString();
@@ -97,29 +98,60 @@ namespace PrePoMax.Rpc
                                              "completed normally.");
             }
         }
-        public static int GetCommandCount(Controller controller)
+        public static List<Command> GetCommandsSnapshot(Controller controller)
         {
             List<Command> commands = controller.GetCommands();
-            return commands == null ? 0 : commands.Count;
+            return commands == null ? new List<Command>() : new List<Command>(commands);
         }
         // The commands the call added to the history, in the order they were recorded. This is what
         // makes an agent's work visible as ordinary user actions: the user can delete any of them in
         // the command history editor and regenerate.
         //
+        // A call that opens a .pmx or starts a new model replaces the history, so a command is the
+        // call's when it was not in the history before and was made after the call started; the
+        // history an opened file brings was made before.
+        //
         // Each one is reported as its class name and as the line the command history editor shows,
         // which names the item. A call that writes several items is otherwise a list of types that
         // says how many things happened but not to what
-        public static List<Command> GetRecordedCommands(Controller controller, int countBefore)
+        public static List<Command> GetRecordedCommands(Controller controller, List<Command> commandsBefore,
+                                                        DateTime started)
         {
             List<Command> recorded = new List<Command>();
             List<Command> commands = controller.GetCommands();
             if (commands == null) return recorded;
             //
-            for (int i = countBefore; i < commands.Count; i++) recorded.Add(commands[i]);
+            HashSet<Command> previousCommands = new HashSet<Command>(commandsBefore);
+            foreach (Command command in commands)
+            {
+                if (command != null && !previousCommands.Contains(command) && command.DateCreated >= started)
+                    recorded.Add(command);
+            }
             return recorded;
         }
-        public static void WriteRecordedCommands(JsonWriter writer, List<Command> recorded)
+        public static bool IsHistoryReplaced(Controller controller, List<Command> commandsBefore)
         {
+            List<Command> commands = controller.GetCommands();
+            if (commands == null) return commandsBefore.Count > 0;
+            if (commands.Count < commandsBefore.Count) return true;
+            //
+            for (int i = 0; i < commandsBefore.Count; i++)
+            {
+                if (!ReferenceEquals(commands[i], commandsBefore[i])) return true;
+            }
+            return false;
+        }
+        // Said only of a call that replaced the history, so the answer of every other call is unchanged
+        public static void WriteRecordedCommands(JsonWriter writer, List<Command> recorded, bool historyReplaced)
+        {
+            if (historyReplaced)
+            {
+                writer.WriteValue("historyReplaced", true);
+                writer.WriteValue("historyMessage", "The call replaced the command history - it opened a file or " +
+                                                    "started a new model - so the history it found is gone. The " +
+                                                    "history an opened file brings is not listed in " +
+                                                    "recordedCommands; get_history shows the whole history.");
+            }
             writer.BeginArray("recordedCommands");
             for (int i = 0; i < recorded.Count; i++)
             {

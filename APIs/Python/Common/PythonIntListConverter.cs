@@ -11,6 +11,7 @@ using Python.Runtime;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace APIs.Python
@@ -47,15 +48,7 @@ namespace APIs.Python
                         {
                             using (PyObject item = items.GetItem(i))
                             {
-                                try
-                                {
-                                    converted.Add(item.As<int>());
-                                }
-                                catch
-                                {
-                                    throw new PythonAPIException("All items in '" + argumentName +
-                                                                 "' must be integers.");
-                                }
+                                converted.Add(ToWholeNumber(item, argumentName));
                             }
                         }
                     }
@@ -75,22 +68,68 @@ namespace APIs.Python
         private static int[] ConvertManagedEnumerable(IEnumerable value, string argumentName)
         {
             List<int> converted = new List<int>();
-            foreach (object item in value)
+            foreach (object item in value) converted.Add(ToWholeNumber(item, argumentName));
+            return Normalize(converted, argumentName);
+        }
+        // One rule for every whole number argument, as PythonValueConverter.ToInt reads it: a float that is whole is
+        // taken, a fraction, a bool, a string and a number outside 32 bits are refused
+        private static int ToWholeNumber(PyObject item, string argumentName)
+        {
+            double number;
+            try
             {
-                if (item is bool || !(item is sbyte || item is byte || item is short || item is ushort ||
-                                      item is int || item is uint || item is long || item is ulong))
-                    throw new PythonAPIException("All items in '" + argumentName + "' must be integers.");
-                try
+                using (Py.GIL())
+                using (PyObject type = item.GetPythonType())
+                using (PyObject typeName = type.GetAttr("__name__"))
                 {
-                    converted.Add(Convert.ToInt32(item));
-                }
-                catch
-                {
-                    throw new PythonAPIException("All items in '" + argumentName +
-                                                 "' must be valid 32-bit integers.");
+                    if (item.IsNone() || typeName.As<string>() == "bool" || PyString.IsStringType(item))
+                        throw NotWholeNumbers(argumentName);
+                    number = item.As<double>();
                 }
             }
-            return Normalize(converted, argumentName);
+            catch (PythonAPIException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                throw NotWholeNumbers(argumentName);
+            }
+            return ToWholeNumberOfDouble(number, argumentName);
+        }
+        public static int ToWholeNumber(object item, string argumentName)
+        {
+            PyObject python = item as PyObject;
+            if (python != null) return ToWholeNumber(python, argumentName);
+            //
+            if (item is bool || !(item is sbyte || item is byte || item is short || item is ushort || item is int ||
+                                  item is uint || item is long || item is ulong || item is float || item is double ||
+                                  item is decimal))
+                throw NotWholeNumbers(argumentName);
+            //
+            double number;
+            try
+            {
+                number = Convert.ToDouble(item, CultureInfo.InvariantCulture);
+            }
+            catch (Exception)
+            {
+                throw NotWholeNumbers(argumentName);
+            }
+            return ToWholeNumberOfDouble(number, argumentName);
+        }
+        private static int ToWholeNumberOfDouble(double number, string argumentName)
+        {
+            if (double.IsNaN(number) || double.IsInfinity(number) || number != Math.Truncate(number) ||
+                number < int.MinValue || number > int.MaxValue)
+                throw NotWholeNumbers(argumentName);
+            //
+            return (int)number;
+        }
+        private static PythonAPIException NotWholeNumbers(string argumentName)
+        {
+            return new PythonAPIException("All items in '" + argumentName + "' must be whole 32-bit numbers, not " +
+                                          "fractions, bools or strings.");
         }
         private static int[] Normalize(IEnumerable<int> values, string argumentName)
         {

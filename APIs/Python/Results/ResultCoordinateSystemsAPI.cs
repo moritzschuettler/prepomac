@@ -67,11 +67,11 @@ namespace APIs.Python
             get
             {
                 string[] names = GetNames();
-                if (index < 0) index = names.Length + index;
-                if (index < 0 || index >= names.Length)
+                int position = index < 0 ? names.Length + index : index;
+                if (position < 0 || position >= names.Length)
                     throw new PythonAPIException("The index " + index + " is out of range.");
                 //
-                return this[names[index]];
+                return this[names[position]];
             }
         }
         public IEnumerator<ResultCoordinateSystemAPI> GetEnumerator()

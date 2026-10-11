@@ -124,7 +124,7 @@ namespace APIs.Python.Model
             if (adjust != null) adjustValue = PythonValueConverter.ToBool(adjust, "adjust");
             if (adjustmentSize != null)
             {
-                double size = PythonValueConverter.ToDouble(adjustmentSize, "adjustment_size");
+                double size = PythonValueConverter.ToDouble(adjustmentSize, "adjustment_size", true, true);
                 if (adjustValue == false)
                     throw new PythonAPIException("The argument 'adjustment_size' applies only when the slave " +
                                                  "nodes are adjusted. Leave it out together with adjust=False.");

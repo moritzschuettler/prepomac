@@ -82,7 +82,7 @@ namespace PrePoMax
             else if (AnnotationBase.Controller.CurrentView == ViewGeometryModelResults.Results) prefix = "R_";
             else throw new NotSupportedException();
             //
-            return GetCurrentAnnotations().GetNextNumberedKey(prefix + "Annotation");
+            return GetCurrentAnnotationNameSet().GetNextNumberedKey(prefix + "Annotation");
         }
         private string GetFreeMeasurementAnnotationName(MeasurementAnnotationType measurementType)
         {
@@ -92,7 +92,11 @@ namespace PrePoMax
             else if (AnnotationBase.Controller.CurrentView == ViewGeometryModelResults.Results) prefix = "R_";
             else throw new NotSupportedException();
             //
-            return GetCurrentAnnotations().GetNextNumberedKey(prefix + measurementType.ToString());
+            return GetCurrentAnnotationNameSet().GetNextNumberedKey(prefix + measurementType.ToString());
+        }
+        private HashSet<string> GetCurrentAnnotationNameSet()
+        {
+            return new HashSet<string>(GetCurrentAnnotations().Keys, StringComparer.OrdinalIgnoreCase);
         }
         public string[] GetCurrentAnnotationNames()
         {

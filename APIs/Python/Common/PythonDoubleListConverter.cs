@@ -91,6 +91,12 @@ namespace APIs.Python
                             using (PyObject item = items.GetItem(i))
                             {
                                 if (PyString.IsStringType(item)) throw InvalidNumber(argumentName);
+                                // A bool converts to 1 or 0, which is never what a script meant
+                                using (PyObject type = item.GetPythonType())
+                                using (PyObject typeName = type.GetAttr("__name__"))
+                                {
+                                    if (typeName.As<string>() == "bool") throw InvalidNumber(argumentName);
+                                }
                                 try
                                 {
                                     converted.Add(item.As<double>());

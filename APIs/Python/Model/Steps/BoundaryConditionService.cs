@@ -68,7 +68,12 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The distribution '" + name + "' given as 'distribution_name' scales " +
                                              "prescribed values only, and none of u1, u2, u3, ur1, ur2 and ur3 has " +
                                              "a nonzero value.");
-            Distribution distribution = ModelResolver.GetModel().Distributions[name];
+            // A replace keeps the name of a distribution that may have been removed since
+            Distribution distribution;
+            if (!ModelResolver.GetModel().Distributions.TryGetValue(name, out distribution))
+                throw new PythonAPIException("The distribution '" + name + "' given as 'distribution_name' does not " +
+                                             "exist. Give an existing distribution or distribution_name='" +
+                                             Distribution.DefaultDistributionName + "'.");
             string error;
             if (!boundaryCondition.IsDistributionTypeSupported(distribution.DistributionType, out error))
                 throw new PythonAPIException("The distribution '" + name + "' given as 'distribution_name' is a " +

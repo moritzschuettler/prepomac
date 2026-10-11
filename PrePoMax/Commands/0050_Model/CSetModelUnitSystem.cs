@@ -45,11 +45,12 @@ namespace PrePoMax.Commands
         }
 
         // The command sets the three dimensional model space as well, so the journal does too, after the unit
-        // system as CSetNewModelProperties writes it
+        // system as CSetNewModelProperties writes it, which leaves out an undefined unit system
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Assign("pmx.model.properties.unit_system",
-                          PythonValueFormatter.Text(_unitSystemType.ToString()));
+            if (_unitSystemType != UnitSystemType.Undefined)
+                writer.Assign("pmx.model.properties.unit_system",
+                              PythonValueFormatter.Text(_unitSystemType.ToString()));
             writer.Assign("pmx.model.properties.model_space",
                           PythonValueFormatter.Text(ModelSpaceEnum.ThreeD.ToString()));
             writer.CountEmittedCommand();

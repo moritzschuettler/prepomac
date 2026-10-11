@@ -366,6 +366,28 @@ def check_history(client):
     check(result["firstIndex"] == result["commandCount"] - 2, "a limit must return the tail: " + str(result))
 
 
+def check_recording_across_open(client, directory):
+    """A call that replaces the history lists only its own commands, never those an opened file brings."""
+    file_name = os.path.join(directory, "recording_across_open.pmx")
+    result = client.result("exec", {"source": "pmx.save(r'" + file_name + "')"})
+    check(not result["failed"], "the model must be saved: " + result["error"])
+    check("historyReplaced" not in result, "a save does not replace the history: " + str(result))
+    result = client.result("exec", {"source": "pmx.open(r'" + file_name + "')" + os.linesep +
+                                              "pmx.model.parameters.add('after_open', 1.0)"})
+    check(not result["failed"], "the model must be opened: " + result["error"])
+    check(result.get("historyReplaced") is True and len(result.get("historyMessage", "")) > 0,
+          "an open must be reported as replacing the history: " + str(result))
+    descriptions = [entry["description"] for entry in result["recordedCommands"]]
+    check(not any("live_a" in description for description in descriptions),
+          "the history of the opened file must not be listed as recorded: " + str(descriptions))
+    check(result["recordedCommands"][-1]["type"] == "CAddParameter" and "after_open" in descriptions[-1],
+          "the command the call made after the open must be listed: " + str(descriptions))
+    value = client.result("eval", {"expression": "pmx.new_model('ThreeD', 'MM_TON_S_C')"})
+    check(value.get("historyReplaced") is True and "warning" in value,
+          "an expression that starts a new model must be warned about: " + str(value))
+    print("recording: an open lists " + str(len(descriptions)) + " own command(s), not the file's history")
+
+
 def read_replaced_values(client):
     step = "pmx.model.steps['journal_static']"
     expressions = [step + ".bcs['journal_dr'].get_value('" + dof + "')" for dof in ("u1", "u2", "u3")]
@@ -1590,6 +1612,7 @@ def main():
         check_argument_types(client)
         check_recording(client)
         check_history(client)
+        check_recording_across_open(client, session.directory)
         check_journal_of_replaces(client)
         check_journal_of_jobs(client)
         check_journal_of_model_states(client)

@@ -34,8 +34,8 @@ namespace PrePoMax.Rpc
             if (controller == null) throw new RpcException(RpcErrorCode.InternalError, "There is no open model.");
             //
             server.Form.PrepareAutomationPythonEngine();
-            int commandsBefore = RpcExecMethod.GetCommandCount(controller);
             DateTime started = DateTime.Now;
+            List<Command> commandsBefore = RpcExecMethod.GetCommandsSnapshot(controller);
             PythonEvalResult result;
             if (RpcExecMethod.IsCancelledBeforeStart())
             {
@@ -44,7 +44,8 @@ namespace PrePoMax.Rpc
             }
             else result = PythonEngineManager.Evaluate(expression);
             double elapsed = (DateTime.Now - started).TotalSeconds;
-            List<Command> recorded = RpcExecMethod.GetRecordedCommands(controller, commandsBefore);
+            List<Command> recorded = RpcExecMethod.GetRecordedCommands(controller, commandsBefore, started);
+            bool historyReplaced = RpcExecMethod.IsHistoryReplaced(controller, commandsBefore);
             //
             server.Form.EchoAutomationExecution("Automation server - eval", expression, result.Output, result.Error);
             //
@@ -60,10 +61,12 @@ namespace PrePoMax.Rpc
             writer.WriteValue("error", result.Error);
             writer.WriteValue("failed", !string.IsNullOrEmpty(result.Error));
             writer.WriteValue("elapsed", elapsed);
-            RpcExecMethod.WriteRecordedCommands(writer, recorded);
-            if (recorded.Count > 0)
+            RpcExecMethod.WriteRecordedCommands(writer, recorded, historyReplaced);
+            if (recorded.Count > 0 || historyReplaced)
             {
-                writer.WriteValue("warning", "The expression recorded a command. eval_expression (eval on the " +
+                writer.WriteValue("warning", (recorded.Count > 0 ? "The expression recorded a command. " :
+                                              "The expression replaced the command history. ") +
+                                             "eval_expression (eval on the " +
                                              "pipe) is meant for reading; use run_python (exec on the pipe) for " +
                                              "anything that changes the model.");
             }

@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using System;
 using System.Drawing;
 
 namespace APIs.Python
@@ -35,9 +36,9 @@ namespace APIs.Python
             int[] channels = new int[values.Length];
             for (int i = 0; i < values.Length; i++)
             {
-                if (values[i] < 0 || values[i] > 255)
+                if (double.IsNaN(values[i]) || values[i] != Math.Truncate(values[i]) || values[i] < 0 || values[i] > 255)
                     throw new PythonAPIException("The channel values of the argument '" + argumentName +
-                                                 "' must be between 0 and 255.");
+                                                 "' must be whole numbers between 0 and 255.");
                 channels[i] = (int)values[i];
             }
             //

@@ -94,16 +94,19 @@ namespace PrePoMax.Forms
         // Methods                                                                                                                  
         private void CheckForMissingData()
         {
-            int  rowId = 1;
             foreach (DataGridViewRow row in dgvEnvironmentVariables.Rows)
             {
-                if (rowId == dgvEnvironmentVariables.Rows.Count) continue; // skip the last row
-
-                if (row.Cells[0].Value == null || row.Cells[0].Value.ToString().Trim() == "" || row.Cells[1].Value == null || row.Cells[1].Value.ToString().Trim() == "")
-                    throw new CaeException("Row " + rowId.ToString() + " contains empty data. Add missing data or delete entire row.");
-
-                rowId++;
+                if (row.IsNewRow) continue;
+                //
+                if (IsCellBlank(row, "Name") || IsCellBlank(row, "Value"))
+                    throw new CaeException("Row " + (row.Index + 1).ToString() +
+                                           " contains empty data. Add missing data or delete entire row.");
             }
+        }
+        private static bool IsCellBlank(DataGridViewRow row, string columnName)
+        {
+            object value = row.Cells[columnName].Value;
+            return value == null || string.IsNullOrWhiteSpace(value.ToString());
         }
 
 

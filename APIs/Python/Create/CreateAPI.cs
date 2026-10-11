@@ -33,9 +33,11 @@ namespace APIs.Python
         [PythonAPI("Creates an ID-based selection. Possible view values are 'geometry', 'femodel', and " +
                    "'results'. Possible target values are 'nodes', 'elements', 'surfaces', 'edges', 'parts', " +
                    "'geometry', and 'geometry_surfaces'. Possible source values are 'nodes', 'elements', " +
-                   "'vertices', 'edges', 'surfaces', 'parts', and 'geometry'. The 'geometry' source takes the geometry IDs the " +
-                   "application records for a geometry pick made in the Selection by ID mode, and converts " +
-                   "them to any target. The view, the target and the source are matched regardless of case.",
+                   "'vertices', 'edges', 'surfaces', 'parts', and 'geometry'. The 'geometry' source takes the " +
+                   "geometry IDs the application records for a geometry pick made in the Selection by ID mode, " +
+                   "and converts them to any target; an ID that names no part, no geometry type or no item of " +
+                   "its part is refused. The view, the target and the source are matched regardless of case " +
+                   "and surrounding spaces.",
                    Arguments = "view: str, target: str, source: str, ids: list[int] or dict[int, list[int]], " +
                                "geometry_select_mode: str = 'SelectId'",
                    Returns = "Selection",

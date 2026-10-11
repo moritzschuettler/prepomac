@@ -52,12 +52,17 @@ namespace PrePoMax.Commands
 
         // The dialog sets both at once while the API carries one property each, so this is the single
         // place where one recorded command becomes two. The API changes a defined unit system of a model that holds
-        // something only while the model space is undefined, so the unit system is set first
+        // something only while the model space is undefined, so the unit system is set first. The API refuses
+        // Undefined, which a new model already has, so an undefined value is left out
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Assign("pmx.model.properties.unit_system",
-                          PythonValueFormatter.Text(_unitSystemType.ToString()));
-            writer.Assign("pmx.model.properties.model_space", PythonValueFormatter.Text(_modelSpace.ToString()));
+            if (_unitSystemType != UnitSystemType.Undefined)
+                writer.Assign("pmx.model.properties.unit_system",
+                              PythonValueFormatter.Text(_unitSystemType.ToString()));
+            if (_modelSpace != ModelSpaceEnum.Undefined)
+                writer.Assign("pmx.model.properties.model_space", PythonValueFormatter.Text(_modelSpace.ToString()));
+            if (_unitSystemType == UnitSystemType.Undefined && _modelSpace == ModelSpaceEnum.Undefined)
+                writer.Comment("The model space and the unit system stay undefined");
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

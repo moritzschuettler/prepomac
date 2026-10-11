@@ -57,10 +57,10 @@ namespace APIs.Python.Model
             get
             {
                 string[] names = GetItemNames();
-                if (index < 0) index = names.Length + index;
-                if (index < 0 || index >= names.Length)
+                int position = index < 0 ? names.Length + index : index;
+                if (position < 0 || position >= names.Length)
                     throw new PythonAPIException("The " + _itemTypeName + " index " + index + " is out of range.");
-                return CreateItemAPI(names[index]);
+                return CreateItemAPI(names[position]);
             }
         }
         public IEnumerator<TItemAPI> GetEnumerator()

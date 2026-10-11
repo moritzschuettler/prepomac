@@ -239,6 +239,13 @@ def test_view_without_a_result():
                  "a reserved name must be rejected")
     annotations.remove(["PyTest_Label", node_name, element_name])
     check(len(list(annotations.get_names())) == 0, "the removed annotations must be gone")
+    # A generated name is free regardless of case, so it never twins a name the script chose
+    annotations.add_text(node_name.swapcase(), "Taken", [0.0, 0.0, 0.0])
+    twin_free_name = annotations.add_node(1)
+    check(twin_free_name.lower() != node_name.lower(), "the generated name twins a name of another case: " +
+          twin_free_name)
+    annotations.remove([node_name.swapcase(), twin_free_name])
+    check(len(list(annotations.get_names())) == 0, "the removed annotations must be gone")
 
 
 def main():

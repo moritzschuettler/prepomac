@@ -204,6 +204,24 @@ namespace PrePoMax.Rpc
             if (_exception != null) _exception.Throw();
             return _result;
         }
+        // The answer get_call hands over. Its own arguments were fine, so a refusal it passes on says that the
+        // collected call was refused, under the code that call would have been refused with
+        public string GetCollectedResult()
+        {
+            if (_exception == null) return _result;
+            //
+            Exception exception = _exception.SourceException;
+            string id = _id.ToString(CultureInfo.InvariantCulture);
+            string refused = "The call " + id + " was refused: " + exception.Message;
+            RpcException rpcException = exception as RpcException;
+            if (rpcException != null) throw new RpcException(rpcException.Code, refused, exception);
+            if (exception is PromptRefusedException)
+                throw new RpcException(RpcErrorCode.PromptRefused, refused, exception);
+            if (exception is APIs.Python.PythonAPIException)
+                throw new RpcException(RpcErrorCode.ApiError, refused, exception);
+            throw new RpcException(RpcErrorCode.InternalError, "The call " + id + " failed: " + exception.Message,
+                                   exception);
+        }
         public string GetRunningAnswer()
         {
             string id = _id.ToString(CultureInfo.InvariantCulture);

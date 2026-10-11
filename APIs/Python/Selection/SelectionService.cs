@@ -497,6 +497,7 @@ namespace APIs.Python
             // they are passed through unchanged rather than built from per part item IDs
             if (item.Source == "geometry")
             {
+                ValidateGeometryIds(item.Ids, mesh);
                 geometryBased = true;
                 return item.Ids;
             }
@@ -615,6 +616,39 @@ namespace APIs.Python
                                                  " does not exist in the selected view.");
             }
         }
+        // A geometry ID packs an item index, a geometry type and a part ID, and the mesh decodes it without checks
+        private static void ValidateGeometryIds(int[] geometryIds, FeMesh mesh)
+        {
+            foreach (int geometryId in geometryIds)
+            {
+                int[] itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
+                int itemIndex = itemTypePartIds[0];
+                GeometryType geometryType = (GeometryType)itemTypePartIds[1];
+                BasePart part = mesh.GetPartFromId(itemTypePartIds[2]);
+                if (part == null)
+                    throw new PythonAPIException("The geometry ID " + geometryId + " in 'ids' names part ID " +
+                                                 itemTypePartIds[2] + ", which does not exist in the selected view.");
+                //
+                int itemCount;
+                VisualizationData visualization = part.Visualization;
+                if (geometryType == GeometryType.Vertex)
+                    itemCount = visualization != null && visualization.VertexNodeIds != null
+                                ? visualization.VertexNodeIds.Length : 0;
+                else if (geometryType.IsEdge())
+                    itemCount = visualization != null && visualization.EdgeCellIdsByEdge != null
+                                ? visualization.EdgeCount : 0;
+                else if (geometryType.IsSurface()) itemCount = visualization != null ? visualization.FaceCount : 0;
+                else if (geometryType == GeometryType.Part) itemCount = 1;
+                else
+                    throw new PythonAPIException("The geometry ID " + geometryId + " in 'ids' carries the geometry " +
+                                                 "type digit " + itemTypePartIds[1] + ", which names no geometry " +
+                                                 "type. Give geometry IDs as the application records them.");
+                if (itemIndex >= itemCount)
+                    throw new PythonAPIException("The geometry ID " + geometryId + " in 'ids' names " +
+                                                 geometryType + " " + (itemIndex + 1) + " of part ID " +
+                                                 itemTypePartIds[2] + ", which has " + itemCount + ".");
+            }
+        }
         private static BasePart ResolveSelectablePart(FeMesh mesh, int partId)
         {
             BasePart part = mesh.GetPartFromId(partId);
@@ -656,9 +690,11 @@ namespace APIs.Python
         }
         private static string ValidateName(string value, string argumentName, string[] names)
         {
+            if (value == null) throw new PythonAPIException("The argument '" + argumentName + "' must not be None.");
+            //
             foreach (string name in names)
             {
-                if (string.Equals(value, name, StringComparison.OrdinalIgnoreCase)) return name;
+                if (string.Equals(value.Trim(), name, StringComparison.OrdinalIgnoreCase)) return name;
             }
             throw new PythonAPIException("The argument '" + argumentName + "' must be '" +
                                          string.Join("', '", names, 0, names.Length - 1) + "', or '" +

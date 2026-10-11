@@ -803,7 +803,7 @@ namespace APIs.Python.Model
         {
             if (value == null || value is string) return false;
             //
-            return double.IsNaN(PythonValueConverter.ToDouble(value, argumentName));
+            return double.IsNaN(PythonValueConverter.ToDouble(value, argumentName, true, false));
         }
         private static void ApplySpringValues(SpringConstraint constraint, object k1, object k2, object k3)
         {

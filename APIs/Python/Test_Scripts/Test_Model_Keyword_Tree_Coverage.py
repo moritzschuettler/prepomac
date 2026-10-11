@@ -120,6 +120,54 @@ def test_user_keywords_in_deactivated_keyword():
         pmx.model.materials.remove([material_name])
 
 
+def clear_user_keywords():
+    keywords = pmx.model.keywords
+    for entry in reversed(keywords.get_user_keywords()):
+        keywords.remove_user_keyword(entry.indices)
+
+
+def test_user_keyword_paths_in_merged_tree():
+    keywords = pmx.model.keywords
+    active_name = PREFIX + "Active"
+    deactivated_name = PREFIX + "Deactivated"
+    pmx.model.materials.add(active_name, [pmx.create.density(7.85e-9)])
+    pmx.model.materials.add(deactivated_name, [pmx.create.density(7.85e-9)])
+    try:
+        pmx.model.materials.deactivate([deactivated_name])
+        active_path = material_keyword_path(active_name)
+        check(material_keyword_path(deactivated_name) == active_path[:-1] + [active_path[-1] + 1],
+              "the deactivated material does not follow the active one in the keyword tree")
+        # A user keyword before the active material moves both materials one position on in the tree the
+        # editor shows, so the active material takes the position the deactivated one has in the generated tree
+        keywords.set_user_keyword(active_path, USER_KEYWORD)
+        under_active = active_path[:-1] + [active_path[-1] + 1, 0]
+        under_deactivated = active_path[:-1] + [active_path[-1] + 2, 0]
+        keywords.set_user_keyword(under_active, USER_KEYWORD)
+        check(keywords.count == 2, "a user keyword under the active material was not added")
+        check_refused(lambda: keywords.set_user_keyword(under_deactivated, USER_KEYWORD),
+                      "Cannot add user keyword to a deactivated keyword",
+                      "a user keyword under the deactivated material must be refused")
+        # Each pair of a replacement is placed in the tree the preceding pairs make
+        keywords.replace_user_keywords([(active_path, USER_KEYWORD), (under_active, USER_KEYWORD)])
+        check(keywords.count == 2, "the replacement did not keep both user keywords")
+        check_refused(lambda: keywords.replace_user_keywords([(active_path, USER_KEYWORD),
+                                                              (under_deactivated, USER_KEYWORD)]),
+                      "Cannot add user keyword to a deactivated keyword",
+                      "a replacement pair under the deactivated material must be refused")
+        check_refused(lambda: keywords.replace_user_keywords([(active_path, USER_KEYWORD),
+                                                              (active_path, USER_KEYWORD)]),
+                      "more than once", "an index path given twice to a replacement must be refused")
+        check(keywords.count == 2, "a refused replacement changed the editor state")
+        # Replacing the text of a held keyword keeps its place among the others
+        keywords.set_user_keyword(active_path, USER_KEYWORD + "\n** replaced")
+        entries = keywords.get_user_keywords()
+        check(list(entries[0].indices) == active_path and entries[0].data.endswith("** replaced"),
+              "the replaced user keyword lost its place")
+    finally:
+        clear_user_keywords()
+        pmx.model.materials.remove([active_name, deactivated_name])
+
+
 def test_overrides(generated):
     keywords = pmx.model.keywords
     path = list(generated[0].indices)
@@ -369,6 +417,7 @@ def main():
     generated = test_generated_keywords()
     test_user_keywords(generated)
     test_user_keywords_in_deactivated_keyword()
+    test_user_keyword_paths_in_merged_tree()
     test_overrides(generated)
     test_tree()
     test_tree_views()

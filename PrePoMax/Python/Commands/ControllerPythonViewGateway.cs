@@ -405,7 +405,12 @@ namespace PrePoMax.Python
         }
         private string FindAnnotationName(string name)
         {
-            foreach (string existingName in _controller.Annotations.GetCurrentAnnotationNames())
+            string[] existingNames = _controller.Annotations.GetCurrentAnnotationNames();
+            foreach (string existingName in existingNames)
+            {
+                if (existingName == name) return existingName;
+            }
+            foreach (string existingName in existingNames)
             {
                 if (string.Equals(existingName, name, StringComparison.OrdinalIgnoreCase)) return existingName;
             }

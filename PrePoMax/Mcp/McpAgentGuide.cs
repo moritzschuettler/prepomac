@@ -204,6 +204,8 @@ it has run, and it goes on to the end and records its commands as usual.
 
 Everything you recorded is in **Edit - Edit History**, which lists it, removes it and reorders it, and
 **Edit - Regenerate History** rebuilds the model without it. Say so when you tell the user what you changed.
+A call that opens a `.pmx` or starts a new model replaces the history; its answer says `historyReplaced`, and
+`recordedCommands` lists only what the call made, not the history the opened file brings.
 ";
     }
 }

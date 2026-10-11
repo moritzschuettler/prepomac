@@ -438,6 +438,20 @@ def test_springs_and_compression_only():
     co = constraints.replace_compression_only(PREFIX + "CO", tensile_force_at_negative_infinity=float("nan"))
     check(co.get_value("tensile_force_at_negative_infinity") is None,
           "float('nan') did not set the tensile force back to Default")
+    # Only NaN stands for Default; an infinity is refused naming the argument, and a value without a Default
+    # refuses a NaN too
+    message = raised_message(lambda: constraints.replace_compression_only(PREFIX + "CO", clearance=float("nan")))
+    check(message is not None and "'clearance'" in message and "finite" in message,
+          "a NaN clearance must be refused naming it: " + str(message))
+    message = raised_message(lambda: constraints.replace_compression_only(PREFIX + "CO",
+                                                                          spring_stiffness=float("inf")))
+    check(message is not None and "'spring_stiffness'" in message and "finite" in message,
+          "an infinite spring stiffness must be refused naming it: " + str(message))
+    message = raised_message(lambda: constraints.replace_point_spring(PREFIX + "PS", k1=float("nan")))
+    check(message is not None and "'k1'" in message and "finite" in message,
+          "a NaN spring constant must be refused naming it: " + str(message))
+    check(co.get_value("spring_stiffness") is None and abs(co.get_value("clearance") - 0.001) < 1e-12,
+          "a refused replacement changed the compression only constraint")
     # An equation is accepted where a value is
     pmx.model.parameters.add(PREFIX + "k", 25.0)
     ps = constraints.replace_point_spring(PREFIX + "PS", k2=PREFIX + "k * 2")
