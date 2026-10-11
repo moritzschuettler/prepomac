@@ -7509,12 +7509,14 @@ namespace PrePoMax
                 ReplacePartGeometryFromFile(part, brepFileName, true);
                 return partName;
             }
-            // Every cell keeps the sub part and the color of the solid it was cut from, which the mesher
-            // names by its place in the part, the same place its sub part has in the compound
+            // Every cell keeps the sub part, the color and the visibility of the solid it was cut from, which the
+            // mesher names by its place in the part, the same place its sub part has in the compound
             string[] sourceSubPartNames;
             int[] sourceSubPartIds;
             Color[] sourceColors;
-            GetSplitGeometrySourceSolids(part, out sourceSubPartNames, out sourceSubPartIds, out sourceColors);
+            bool[] sourceVisibilities;
+            GetSplitGeometrySourceSolids(part, out sourceSubPartNames, out sourceSubPartIds, out sourceColors,
+                                         out sourceVisibilities);
             int[] origins = ReadSplitGeometryOrigins(brepFileName, numOfSolids, sourceSubPartNames.Length);
             if (origins == null) return null;
             // The pieces are imported from a brep file, so nothing of the part is needed once it is
@@ -7574,12 +7576,14 @@ namespace PrePoMax
                 //
                 BasePart cell = _model.Geometry.Parts[compoundPart.SubPartNames[i]];
                 cell.Color = sourceColors[origins[i] - 1];
+                cell.Visible = sourceVisibilities[origins[i] - 1];
                 _form.UpdateActor(cell.Name, cell.Name, GetDrawnGeometryPartColor(cell));
             }
             compoundPart.CellSubPartNames = cellSubPartNames;
             compoundPart.CellSubPartIds = cellSubPartIds;
             compoundPart.SplitSubPartOrder = subPartOrder;
             RenameSplitCells(compoundPart);
+            HideSplitCellsOfHiddenSolids(compoundPart);
             // A compound that is split again is still the same body, so what was defined on the whole of a sub
             // part is defined on the whole of what it became
             foreach (var entry in compoundMeshSetupItems)
@@ -7652,7 +7656,7 @@ namespace PrePoMax
             return meshSetupItems;
         }
         private void GetSplitGeometrySourceSolids(GeometryPart part, out string[] subPartNames, out int[] subPartIds,
-                                                  out Color[] colors)
+                                                  out Color[] colors, out bool[] visibilities)
         {
             if (part is CompoundGeometryPart compoundPart)
             {
@@ -7660,6 +7664,7 @@ namespace PrePoMax
                 subPartNames = new string[subParts.Length];
                 subPartIds = new int[subParts.Length];
                 colors = new Color[subParts.Length];
+                visibilities = new bool[subParts.Length];
                 for (int i = 0; i < subParts.Length; i++)
                 {
                     string cellSubPartName = compoundPart.CellSubPartNames?[i];
@@ -7667,6 +7672,7 @@ namespace PrePoMax
                     subPartIds[i] = cellSubPartName == null ? subParts[i].PartId :
                                                               GetSplitSubPartId(compoundPart, cellSubPartName);
                     colors[i] = subParts[i].Color;
+                    visibilities[i] = subParts[i].Visible;
                 }
             }
             else
@@ -7674,7 +7680,30 @@ namespace PrePoMax
                 subPartNames = new string[] { part.Name };
                 subPartIds = new int[] { part.PartId };
                 colors = new Color[] { part.Color };
+                visibilities = new bool[] { part.Visible };
             }
+        }
+        /// <summary>
+        /// The cells of a split are drawn as they are imported, every one of them shown, so a cell cut from a hidden
+        /// solid is taken off the screen again. A compound whose cells are all hidden is hidden with them, as it is
+        /// when they are hidden one by one.
+        /// </summary>
+        private void HideSplitCellsOfHiddenSolids(CompoundGeometryPart compoundPart)
+        {
+            List<string> hiddenPartNames = new List<string>();
+            foreach (string cellName in compoundPart.SubPartNames)
+            {
+                if (!_model.Geometry.Parts[cellName].Visible) hiddenPartNames.Add(cellName);
+            }
+            if (hiddenPartNames.Count == 0) return;
+            //
+            if (hiddenPartNames.Count == compoundPart.SubPartNames.Length)
+            {
+                compoundPart.Visible = false;
+                hiddenPartNames.Add(compoundPart.Name);
+            }
+            _form.HideActors(hiddenPartNames.ToArray(), false);
+            RefreshCompoundSharedModelEdges(compoundPart.Name);
         }
         /// <summary>
         /// The part id of a sub part of a split compound. A compound saved before the sub parts held ids of their
