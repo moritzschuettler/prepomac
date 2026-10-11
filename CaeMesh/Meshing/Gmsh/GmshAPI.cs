@@ -5313,11 +5313,12 @@ namespace CaeMesh
         /// <summary>
         /// Lays a structured grid over the faces of a shell the one definition all meshers follow found. A side is a
         /// chain of edges, so every surface is given its corners. Opposite sides are balanced to the same number of
-        /// elements for the coarser mesh; when the numbers the user set on edges make that impossible, the meshing is
-        /// refused. A three-sided face mapped is meshed as three blocks of quads around one inner node, which needs an
-        /// even sum on its sides and no side with as many elements as the other two; gmsh meshes it free first and the
-        /// blocks replace that mesh. A polar one is the grid gmsh collapses at one corner, which needs the two sides
-        /// meeting there to carry the same number of elements.
+        /// elements for the coarser mesh, an edge beside a face meshed free lowered only close to its own count; when
+        /// the numbers the user set on edges make that impossible, the meshing is refused. A three-sided face mapped is
+        /// meshed as three blocks of quads around one inner node, which needs an even sum on its sides and no side with
+        /// as many elements as the other two; gmsh meshes it free first and the blocks replace that mesh. A polar one
+        /// is the grid gmsh collapses at one corner, which needs the two sides meeting there to carry the same number
+        /// of elements.
         /// </summary>
         private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces)
         {
@@ -5370,10 +5371,20 @@ namespace CaeMesh
                 else if (IsPolar(face)) pairs.Add(face.GetPolarSidePair(GetPolarCornerIndex(face)));
                 else triples.Add(new TransfiniteSideTriple(face.FaceId, face.SideEdgeIds));
             }
+            HashSet<int> structuredFaceIds = new HashSet<int>(faces.Select(face => face.FaceId));
+            HashSet<int> freeFaceEdgeIds = new HashSet<int>();
+            Tuple<int, int>[] boundaryDimTags;
+            foreach (var surfaceDimTag in surfaceDimTags)
+            {
+                if (structuredFaceIds.Contains(surfaceDimTag.Item2)) continue;
+                Gmsh.Model.GetBoundary(new Tuple<int, int>[] { surfaceDimTag }, out boundaryDimTags, false, false, false);
+                freeFaceEdgeIds.UnionWith(boundaryDimTags.Select(dimTag => Math.Abs(dimTag.Item2)));
+            }
             List<TransfiniteSideTriple> unbalancedTriples;
             List<TransfiniteSidePair> unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts,
                                                                                          pinnedEdgeIds, pairs, triples,
-                                                                                         out unbalancedTriples);
+                                                                                         out unbalancedTriples,
+                                                                                         freeFaceEdgeIds);
             if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
                 throw new CaeException(GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
                                                                  pinnedEdgeIds));

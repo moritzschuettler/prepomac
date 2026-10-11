@@ -51,7 +51,9 @@ triangulate. Its `BREP_MESH` reads the optional `transfinite_faces`, `transfinit
 `transfinite_filename` entries of the mesh parameters file. The file names the structured faces PrePoMax
 finds by the one definition all its meshers follow - every face with its sides as chains of edges, the
 numbers of elements set on edges and the names messages use - and Netgen then finds none of its own: it
-balances opposite sides to the coarser count without changing a set number, meshes every given face as a
+balances opposite sides to the coarser count without changing a set number - an edge bordering a face not
+given keeps at least 0.8 of its own count, the sides it is balanced with raised to it instead, unless the set
+numbers leave no room for that - meshes every given face as a
 structured grid - a 3-sided one as three blocks of quads around one inner node by the mapping all
 PrePoMax meshers share - quads when quad dominated, else triangles - with no fallback, and refuses the meshing,
 naming the faces and edges, when the set numbers cannot agree or a grid folds. Without the file the older
@@ -79,7 +81,8 @@ of a compound it cannot reach with it. The pyramids need two changes to Netgen 5
 its pyramid rules asked for the sides of a quadrilateral to be identified point pairs, which only a
 boundary layer has, and the rules that give a pyramid an apex of its own carried a quality no
 quadrilateral ever reached; a mesh without identified pairs now takes those rules. The volume
-optimisation no longer collapses an edge of a pyramid, which merged a pyramid's apex into its base. Its smoothing weighs a
+optimisation no longer collapses an edge of a pyramid, which merged a pyramid's apex into its base, and its edge
+swapping leaves an edge whose ring of elements does not close, which read unset points and crashed. Its smoothing weighs a
 pyramid as the four tetrahedra its points span, which keeps the apex from being moved through the base. A pyramid is scaled by its own
 quadrilateral rather than by the coarser local mesh size, so that pyramids in an inside corner do not lean
 over one another, and a pyramid whose quadrilateral closes an angle sharper than a right one with another

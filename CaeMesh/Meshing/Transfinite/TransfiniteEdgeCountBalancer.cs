@@ -19,29 +19,57 @@ namespace CaeMesh
     /// a three-sided face an even sum in which no side carries as many elements as the other two together. The balance
     /// is the interval assignment: every pair and every three-sided face is a row of one lp_solve problem, and the counts
     /// closest to the ones the mesh size asks for, lower ones before higher ones, keep them all. The numbers the user set
-    /// are never changed, so sides they leave no way to agree are returned, for the meshing to be refused.
+    /// are never changed, so sides they leave no way to agree are returned, for the meshing to be refused. Lowering
+    /// evens out counts that are close: an edge that borders a free face keeps at least 0.8 of the count the mesh size
+    /// asks for, since the free mesh beside it is made to that size, unless the numbers the user set leave no room.
     /// </summary>
     public static class TransfiniteEdgeCountBalancer
     {
         // Variables
         private const int _timeoutSeconds = 20;
+        private const double _freeFaceLowestShare = 0.8;
 
 
         // Methods
         /// <summary>
         /// Sets edgeIdCount, which holds every edge of the pairs, to the balanced numbers of elements. naturalCounts
-        /// are the numbers the mesh size asks for. Returns the pairs left unequal, none when every pair is balanced,
-        /// and the three-sided faces left without valid numbers in unbalancedTriples.
+        /// are the numbers the mesh size asks for and freeFaceEdgeIds the edges that border a face meshed free.
+        /// Returns the pairs left unequal, none when every pair is balanced, and the three-sided faces left without
+        /// valid numbers in unbalancedTriples.
         /// </summary>
         public static List<TransfiniteSidePair> Balance(Dictionary<int, int> edgeIdCount,
                                                         Dictionary<int, int> naturalCounts,
                                                         HashSet<int> pinnedEdgeIds, List<TransfiniteSidePair> pairs,
                                                         List<TransfiniteSideTriple> triples,
-                                                        out List<TransfiniteSideTriple> unbalancedTriples)
+                                                        out List<TransfiniteSideTriple> unbalancedTriples,
+                                                        HashSet<int> freeFaceEdgeIds = null)
         {
+            int count;
             List<TransfiniteSidePair> unbalanced;
-            if (!BalanceBySolve(edgeIdCount, naturalCounts, pinnedEdgeIds, pairs, triples, out unbalanced,
-                                out unbalancedTriples))
+            Dictionary<int, int> edgeIdLowestCount = new Dictionary<int, int>();
+            if (freeFaceEdgeIds != null)
+            {
+                foreach (var edgeId in edgeIdCount.Keys)
+                {
+                    if (freeFaceEdgeIds.Contains(edgeId) && !pinnedEdgeIds.Contains(edgeId) &&
+                        naturalCounts.TryGetValue(edgeId, out count))
+                        edgeIdLowestCount[edgeId] = (int)Math.Ceiling(_freeFaceLowestShare * count - 1E-9);
+                }
+            }
+            if (edgeIdLowestCount.Count > 0)
+            {
+                Dictionary<int, int> balancedCounts = new Dictionary<int, int>(edgeIdCount);
+                if (BalanceBySolve(balancedCounts, naturalCounts, pinnedEdgeIds, edgeIdLowestCount, pairs, triples,
+                                   out unbalanced, out unbalancedTriples) &&
+                    unbalanced.Count == 0 && unbalancedTriples.Count == 0)
+                {
+                    foreach (var entry in balancedCounts) edgeIdCount[entry.Key] = entry.Value;
+                    return unbalanced;
+                }
+            }
+            // The numbers the user set leave no room for the lowest counts, so they give way
+            if (!BalanceBySolve(edgeIdCount, naturalCounts, pinnedEdgeIds, new Dictionary<int, int>(), pairs, triples,
+                                out unbalanced, out unbalancedTriples))
                 throw new CaeException("lp_solve found no element counts for the structured faces.");
             return unbalanced;
         }
@@ -50,8 +78,9 @@ namespace CaeMesh
         /// problem, which gives such rows up at a high price, names it. False when lp_solve finds no counts at all.
         /// </summary>
         private static bool BalanceBySolve(Dictionary<int, int> edgeIdCount, Dictionary<int, int> naturalCounts,
-                                           HashSet<int> pinnedEdgeIds, List<TransfiniteSidePair> pairs,
-                                           List<TransfiniteSideTriple> triples, out List<TransfiniteSidePair> unbalanced,
+                                           HashSet<int> pinnedEdgeIds, Dictionary<int, int> edgeIdLowestCount,
+                                           List<TransfiniteSidePair> pairs, List<TransfiniteSideTriple> triples,
+                                           out List<TransfiniteSidePair> unbalanced,
                                            out List<TransfiniteSideTriple> unbalancedTriples)
         {
             unbalanced = null;
@@ -62,6 +91,7 @@ namespace CaeMesh
             foreach (var edgeId in edgeIdCount.Keys)
             {
                 if (pinnedEdgeIds.Contains(edgeId)) problem.FixEdge(edgeId, edgeIdCount[edgeId]);
+                else if (edgeIdLowestCount.TryGetValue(edgeId, out count)) problem.SetMinimum(edgeId, count);
                 else problem.AddEdge(edgeId);
             }
             foreach (var pair in pairs)

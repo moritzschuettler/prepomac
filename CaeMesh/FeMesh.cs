@@ -4534,9 +4534,11 @@ namespace CaeMesh
         /// Finds the surfaces that two of the given parts have in common - the interfaces between the
         /// sub-parts of a compound part. Every part carries its own copy of the nodes, so the surfaces are
         /// matched by geometry: the same vertex positions, the same area and the same centroid. The result
-        /// maps the gmsh topology id of each shared surface to the id of its twin on the other part.
+        /// maps the gmsh topology id of each shared surface to the id of its twin on the other part. With
+        /// firstCopies it maps instead every surface of a part to the same surface of the first part that has
+        /// it, in the order of the parts, so that a surface three parts have reaches one id.
         /// </summary>
-        public Dictionary<int, int> GetSharedSurfaceIds(BasePart[] parts)
+        public Dictionary<int, int> GetSharedSurfaceIds(BasePart[] parts, bool firstCopies = false)
         {
             VisualizationData vis;
             List<int> surfaceIds = new List<int>();
@@ -4558,13 +4560,13 @@ namespace CaeMesh
                     vertexCoors.Add(GetVertexCoordinates(vis.GetVertexNodeIdsForSurfaceId(i)));
                 }
             }
-            return MatchSharedItems(parts, surfaceIds, partIds, areas, centroids, vertexCoors);
+            return MatchSharedItems(parts, surfaceIds, partIds, areas, centroids, vertexCoors, firstCopies);
         }
         /// <summary>
         /// Finds the edges that two of the given parts have in common, the way GetSharedSurfaceIds finds
         /// the surfaces: by the vertex positions, the length and the centroid.
         /// </summary>
-        public Dictionary<int, int> GetSharedEdgeIds(BasePart[] parts)
+        public Dictionary<int, int> GetSharedEdgeIds(BasePart[] parts, bool firstCopies = false)
         {
             VisualizationData vis;
             List<int> edgeIds = new List<int>();
@@ -4586,11 +4588,11 @@ namespace CaeMesh
                     vertexCoors.Add(GetVertexCoordinates(vis.GetVertexNodeIdsForEdgeId(i)));
                 }
             }
-            return MatchSharedItems(parts, edgeIds, partIds, lengths, centroids, vertexCoors);
+            return MatchSharedItems(parts, edgeIds, partIds, lengths, centroids, vertexCoors, firstCopies);
         }
         private Dictionary<int, int> MatchSharedItems(BasePart[] parts, List<int> itemIds, List<int> partIds,
                                                       List<double> sizes, List<double[]> centroids,
-                                                      List<double[][]> vertexCoors)
+                                                      List<double[][]> vertexCoors, bool firstCopies)
         {
             BoundingBox boundingBox = new BoundingBox();
             foreach (var part in parts) boundingBox.IncludeBox(part.BoundingBox);
@@ -4611,6 +4613,11 @@ namespace CaeMesh
                     if (GetCoorDistance(centroids[i], centroids[j]) > centroidTolerance) continue;
                     if (!AreVertexCoordinatesEqual(vertexCoors[i], vertexCoors[j], vertexTolerance)) continue;
                     //
+                    if (firstCopies)
+                    {
+                        sharedItemIds.Add(itemIds[j], itemIds[i]);
+                        continue;
+                    }
                     sharedItemIds.Add(itemIds[i], itemIds[j]);
                     sharedItemIds.Add(itemIds[j], itemIds[i]);
                     break;

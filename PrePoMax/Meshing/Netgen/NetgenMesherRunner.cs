@@ -323,7 +323,12 @@ namespace PrePoMax
             string fileName = Path.Combine(workDirectory, Globals.TransfiniteFacesFileName);
             if (File.Exists(fileName)) File.Delete(fileName);
             if ((!meshingParameters.IsTransfiniteThreeSided && !meshingParameters.TransfiniteFourSided) ||
-                !part.IsCADPart || part is CompoundGeometryPart) return null;
+                !part.IsCADPart) return null;
+            // The solids of a compound in the order its brep holds them
+            BasePart[] parts;
+            if (part is CompoundGeometryPart compoundPart)
+                parts = compoundPart.SubPartNames.Select(name => _controller.Model.Geometry.Parts[name]).ToArray();
+            else parts = new BasePart[] { part };
             //
             GmshData sizes = new GmshData();
             _controller.GetMeshItemSizes(part.Name, ref sizes, meshSetupItems);
@@ -334,13 +339,19 @@ namespace PrePoMax
                 {
                     // A number an element size gives is the structured grid's to change
                     if (sizes.FixedCountEdgeIds != null && !sizes.FixedCountEdgeIds.Contains(entry.Key)) continue;
-                    if (FeMesh.GetPartIdFromGmshTopologyId(entry.Key) == part.PartId)
-                        pinnedEdgeCounts[FeMesh.GetItemIdFromGmshTopologyId(entry.Key)] = entry.Value;
+                    pinnedEdgeCounts[entry.Key] = entry.Value;
                 }
             }
-            NetgenTransfiniteFile.Write(fileName, _controller.Model.Geometry, part, meshingParameters.TransfiniteThreeSided,
-                                        meshingParameters.TransfiniteFourSided, meshingParameters.TransfiniteAngleDeg,
-                                        pinnedEdgeCounts);
+            if (!NetgenTransfiniteFile.Write(fileName, _controller.Model.Geometry, parts,
+                                             meshingParameters.TransfiniteThreeSided,
+                                             meshingParameters.TransfiniteFourSided,
+                                             meshingParameters.TransfiniteAngleDeg, pinnedEdgeCounts))
+            {
+                _controller.Form.WriteDataToOutput("The surfaces of the compound part " + part.Name + " cannot be " +
+                                                   "matched to the solids Netgen meshes, so Netgen meshes them " +
+                                                   "without structured faces.");
+                return null;
+            }
             return fileName;
         }
         public bool PreviewEdgeNodesForQuadWild(GeometryPart part,
