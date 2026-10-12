@@ -591,7 +591,7 @@ namespace PrePoMax
             _form = form;
             _form.Controller = this;
             // Jobs
-            _jobRunner = new ExecutableJobRunner();
+            _jobRunner = new ExecutableJobRunner(() => TimeSpan.FromMinutes(_settings.Meshing.MesherTimeLimit));
             _netgenRunner = new NetgenMesherRunner(this);
             _mmgRunner = new MmgMesherRunner(this);
             _gmshRunner = new GmshMesherRunner(this);
@@ -11396,6 +11396,7 @@ namespace PrePoMax
                         string partDirectory = Path.Combine(batchDirectory, i.ToString("D4"));
                         Directory.CreateDirectory(partDirectory);
                         //
+                        _jobRunner.ClearLastJob();
                         Stopwatch phaseWatch = Stopwatch.StartNew();
                         GeneratedMeshData generatedMesh;
                         try
@@ -11416,7 +11417,8 @@ namespace PrePoMax
                                 errors.Add("Mesh generation canceled.");
                                 break;
                             }
-                            errors.Add(partName + ": Mesh generation failed.");
+                            errors.Add(partName + ": " + (_jobRunner.WasTimedOut ? GetMesherTimeLimitError() :
+                                                                                  "Mesh generation failed."));
                             continue;
                         }
                         if (generatedMesh.RetainWorkDirectory) retainBatchDirectory = true;
@@ -11446,7 +11448,7 @@ namespace PrePoMax
                     catch (Exception ex)
                     {
                         if (keepQuadWildFilesOnFailure) retainBatchDirectory = true;
-                        errors.Add(partName + ": " + ex.Message);
+                        errors.Add(partName + ": " + (_jobRunner.WasTimedOut ? GetMesherTimeLimitError() : ex.Message));
                         if (_jobRunner.WasKilled)
                         {
                             errors.Add("Mesh generation canceled.");
@@ -11486,6 +11488,12 @@ namespace PrePoMax
             }
             //
             return generatedMeshes.Count > 0;
+        }
+        private string GetMesherTimeLimitError()
+        {
+            return "The mesher was still running after the time limit of " + _settings.Meshing.MesherTimeLimit +
+                   " min and was stopped. Change the mesh settings of the part or raise the time limit in " +
+                   "Tools - Settings - Meshing.";
         }
         private GeneratedMeshData GenerateMesh(GeometryPart part, string workDirectory)
         {

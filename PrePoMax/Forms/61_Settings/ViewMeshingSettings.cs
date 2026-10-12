@@ -37,6 +37,17 @@ namespace PrePoMax.Settings
             get { return _meshingSettings.ParallelMeshingThreads; }
             set { _meshingSettings.ParallelMeshingThreads = value; }
         }
+        //
+        [CategoryAttribute("Time limit")]
+        [OrderedDisplayName(0, 10, "Mesher time limit [min]")]
+        [DescriptionAttribute("Set the time a mesher may run on one part. A mesher still running after it is stopped " +
+                              "and the part is reported as not meshed. From 1 to 10080 minutes.")]
+        [Id(1, 8)]
+        public int MesherTimeLimit
+        {
+            get { return _meshingSettings.MesherTimeLimit; }
+            set { _meshingSettings.MesherTimeLimit = value; }
+        }
 
 
         // Constructors                                                                                                             

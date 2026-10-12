@@ -22,18 +22,21 @@ namespace PrePoMax
     {
         // Variables                                                                                                                
         private ExecutableJob _executableJob;
+        private Func<TimeSpan> _getTimeLimit;
 
 
         // Properties                                                                                                               
         public bool IsRunning { get { return _executableJob != null && _executableJob.JobStatus == JobStatus.Running; } }
         public bool WasKilled { get { return _executableJob != null && _executableJob.JobStatus == JobStatus.Killed; } }
+        public bool WasTimedOut { get { return _executableJob != null && _executableJob.JobStatus == JobStatus.TimedOut; } }
         public string ErrorData { get { return _executableJob == null ? null : _executableJob.ErrorData; } }
 
 
         // Constructors                                                                                                             
-        public ExecutableJobRunner()
+        public ExecutableJobRunner(Func<TimeSpan> getTimeLimit)
         {
             _executableJob = null;
+            _getTimeLimit = getTimeLimit;
         }
 
 
@@ -42,6 +45,7 @@ namespace PrePoMax
                              Action<string> appendOutput)
         {
             _executableJob = new ExecutableJob(name, executable, argument, workDirectory);
+            _executableJob.TimeLimit = _getTimeLimit();
             // A job run from the user interface thread holds that thread until the job ends, while the output
             // the job reports from its reading thread is marshalled to the output window on it - which waits
             // for the job forever. That output is held and written by the calling thread instead, in order.
@@ -89,6 +93,7 @@ namespace PrePoMax
             StringBuilder[] outputs = new StringBuilder[arguments.Length];
             object writeLock = new object();
             int numOfEndedJobs = 0;
+            TimeSpan timeLimit = _getTimeLimit();
             ParallelOptions options = new ParallelOptions();
             options.MaxDegreeOfParallelism = numOfSlots;
             //
@@ -100,6 +105,7 @@ namespace PrePoMax
                 outputs[index] = output;
                 ExecutableJob job = new ExecutableJob(name + "-" + slot, executable, arguments[index], workDirectory);
                 job.AllowConcurrentRuns = true;
+                job.TimeLimit = timeLimit;
                 job.AppendOutput += data => { lock (output) output.Append(data); };
                 JobStatus jobStatus;
                 try
@@ -145,6 +151,10 @@ namespace PrePoMax
                 heldOutput.Clear();
             }
             foreach (string item in data) appendOutput(item);
+        }
+        public void ClearLastJob()
+        {
+            if (!IsRunning) _executableJob = null;
         }
         public bool Kill(string message)
         {

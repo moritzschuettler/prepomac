@@ -7581,6 +7581,7 @@ namespace CaeMesh
             //
             BasePart part = GetPartFromId(itemTypePartIds[2]);
             if (part == null || (onlyVisible && !(part.Active && part.Visible))) return new int[0];
+            if (!HasGeometryItem(part, (GeometryType)itemTypePartIds[1], itemTypePartIds[0])) return new int[0];
             //
             if (selectItem == vtkSelectItem.Node)
             {
@@ -7633,6 +7634,17 @@ namespace CaeMesh
             }
             else throw new NotSupportedException();
         }
+        // A selection kept by geometry id names a vertex, an edge or a face by its number in the part, and a new mesh
+        // of the part may have fewer of them; one it no longer has selects nothing, as a part it no longer has does
+        private static bool HasGeometryItem(BasePart part, GeometryType geomType, int itemId)
+        {
+            VisualizationData vis = part.Visualization;
+            if (itemId < 0) return false;
+            else if (geomType == GeometryType.Vertex) return vis.VertexNodeIds != null && itemId < vis.VertexNodeIds.Length;
+            else if (geomType.IsEdge()) return vis.EdgeCellIdsByEdge != null && itemId < vis.EdgeCellIdsByEdge.Length;
+            else if (geomType.IsSurface()) return vis.CellIdsByFace != null && itemId < vis.CellIdsByFace.Length;
+            else return true;
+        }
         public int[] GetNodeIdsFromGeometryId(int geometryId)
         {
             int[] itemTypePartIds = GetItemTypePartIdsFromGeometryId(geometryId);
@@ -7643,6 +7655,7 @@ namespace CaeMesh
             VisualizationData vis = part.Visualization;
             HashSet<int> nodeIds = new HashSet<int>();
             GeometryType geomType = (GeometryType)itemTypePartIds[1];
+            if (!HasGeometryItem(part, geomType, itemTypePartIds[0])) return new int[0];
             //
             if (geomType == GeometryType.Vertex)
             {

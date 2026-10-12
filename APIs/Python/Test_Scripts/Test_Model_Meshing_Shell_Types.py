@@ -20,6 +20,9 @@
 #    edges it cannot be kept, and the meshing is refused rather than overriding either of them.
 #  - The open quarter cylinder by a gmsh shell item with transfinite_three_sided="Polar": a quarter circle is the grid
 #    gmsh collapses at its centre, so its triangles fan around that one node and everything else is quadrilaterals.
+#  - The open quarter cylinder by a Netgen item with quad_dominated=True keeps every face and its area. Netgen meshing
+#    its faces in parallel joined the quadrilaterals of every face but the first to the points of other faces, which
+#    came out as one mesh face many times the area of the shell.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Shell_Types.py -g No -x Yes -w <dir>
 #
@@ -175,6 +178,25 @@ def check_polar(part):
           "the triangles of the polar open quarter cylinder do not fan around the centres of the quarter circles")
 
 
+def check_netgen_quad_dominated(part):
+    items = pmx.model.mesh.setup_items
+    items.add_netgen_mesh("PyTest_Netgen_Quad", pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [part.id]),
+                          quad_dominated=True)
+    kinds = mesh(part)
+    items.remove(["PyTest_Netgen_Quad"])
+    check(kinds.get("quadrilateral", 0) > 0, "the quad-dominated Netgen mesh has no quadrilaterals: " + str(kinds))
+    meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name][0]
+    faces = meshed.get_face_data()
+    area = sum(float(a) for a in faces.areas)
+    print("Netgen quad-dominated:", faces.count, "of", part.get_face_data().count, "faces, area", area, "of",
+          part.surface_area)
+    check(faces.count == part.get_face_data().count,
+          "the quad-dominated Netgen mesh has " + str(faces.count) + " faces instead of " +
+          str(part.get_face_data().count))
+    check(abs(area - part.surface_area) < 0.01 * part.surface_area,
+          "the quad-dominated Netgen mesh has the area " + str(area) + " instead of " + str(part.surface_area))
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     cad = list(pmx.model.geometry.parts)
@@ -198,6 +220,7 @@ def main():
     check(irregular <= allowed, "the quarter circles of the open quarter cylinder are not meshed as three blocks: " +
           str(irregular) + " irregular nodes")
     check_polar(open_cylinder)
+    check_netgen_quad_dominated(open_cylinder)
     print("TEST PASSED")
 
 

@@ -52,6 +52,7 @@ namespace CaeJob
         [NonSerialized] private string _errorFileName;
         [NonSerialized] private object _myLock;
         [NonSerialized] private bool _allowConcurrentRuns;
+        [NonSerialized] private TimeSpan _timeLimit;
 
 
         // Properties
@@ -84,6 +85,10 @@ namespace CaeJob
         /// Runs the executable while another process runs it, instead of waiting for that one to end.
         /// </summary>
         public bool AllowConcurrentRuns { get { return _allowConcurrentRuns; } set { _allowConcurrentRuns = value; } }
+        /// <summary>
+        /// How long the executable may run before it is stopped and the job ends as timed out.
+        /// </summary>
+        public TimeSpan TimeLimit { get { return _timeLimit; } set { _timeLimit = value; } }
         public string OutputData
         {
             get
@@ -142,6 +147,7 @@ namespace CaeJob
             _updateWatch = null;
             _sbOutput = null;
             _allowConcurrentRuns = false;
+            _timeLimit = TimeSpan.FromDays(21);
         }
 
 
@@ -209,7 +215,7 @@ namespace CaeJob
                 _exe.BeginOutputReadLine();
                 _exe.BeginErrorReadLine();
                 //
-                int ms = 1000 * 3600 * 24 * 7 * 3; // 3 weeks
+                int ms = (int)Math.Min(int.MaxValue, _timeLimit.TotalMilliseconds);
                 //
                 if (_exe.WaitForExit(ms) && _outputWaitHandle.WaitOne(ms) && _errorWaitHandle.WaitOne(ms))
                 {
@@ -222,8 +228,7 @@ namespace CaeJob
                 }
                 else
                 {
-                    // Timed out.
-                    Kill("Time out.");
+                    Kill("The run was stopped after the time limit of " + _timeLimit.TotalMinutes + " min.");
                     _jobStatus = JobStatus.TimedOut;
                 }
                 _exe.Close();
