@@ -1037,12 +1037,18 @@ namespace FileInOut.Output
         }
         static public string GetKeywordSignature(CalculixKeyword keyword)
         {
-            string signatureData = keyword.GetType().FullName + "\n" + GetCompleteKeywordData(keyword);
+            string signatureData = keyword.GetType().FullName + "\n" + GetKeywordSignatureData(keyword);
             using (SHA256 sha256 = SHA256.Create())
             {
                 byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(signatureData));
                 return BitConverter.ToString(hash).Replace("-", "");
             }
+        }
+        static private string GetKeywordSignatureData(CalculixKeyword keyword)
+        {
+            if (keyword is CalHeading heading)
+                return heading.GetKeywordString() + heading.GetDataStringWithoutGeneratedValues();
+            return GetCompleteKeywordData(keyword);
         }
         static public int ApplyKeywordOverrides(List<CalculixKeyword> keywords,
                                                 IList<CalculixKeywordOverride> keywordOverrides)
@@ -1069,9 +1075,11 @@ namespace FileInOut.Output
                             item.OriginalSignature == GetKeywordSignature(originalKeyword));
                 if (keywordOverride != null)
                 {
+                    string replacementData = keywordOverride.Data;
+                    if (originalKeyword is CalHeading heading) replacementData = heading.ApplyGeneratedValues(replacementData);
                     keywords[i] = new CalKeywordOverride(originalKeyword,
                                                          GetCompleteKeywordData(originalKeyword),
-                                                         keywordOverride.Data,
+                                                         replacementData,
                                                          keywordOverride.Disabled);
                     appliedCount++;
                 }

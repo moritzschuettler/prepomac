@@ -8,6 +8,10 @@
 #
 #Expected process exit code 0.
 
+import hashlib
+import os
+import re
+
 
 USER_KEYWORD = "*NO ANALYSIS"
 PREFIX = "PyTest_Kw_"
@@ -289,6 +293,55 @@ def test_overrides(generated):
                   "clearing an empty set of overrides was accepted")
 
 
+def written_heading(file_name):
+    with open(file_name) as input_file:
+        lines = input_file.read().splitlines()
+    start = [i for i, line in enumerate(lines) if line.lower().startswith("*heading")][0] + 1
+    end = start
+    while end < len(lines) and not lines[end].startswith("*"):
+        end += 1
+    return lines[start:end]
+
+
+# A new model draws a new hash and the heading carries it together with the date of the day, so an edit of
+# the heading is compared without the two, or a regeneration or an export on another day would reset it. The
+# written heading carries the current hash whatever the edit says, because the hash maps results onto the model
+def test_heading_override():
+    keywords = pmx.model.keywords
+    heading = [k for k in keywords.get_model_keywords() if k.data.lower().startswith("*heading")][0]
+    path = list(heading.indices)
+    generated_line = [line for line in heading.data.splitlines() if line.startswith("Hash:")][0]
+    current_hash = generated_line.split(",")[0].split(":", 1)[1].strip()
+    current_date = generated_line.split(",")[1].split(":", 1)[1].strip()
+    user_line = "PyTest heading line kept by the edit"
+    stale = re.sub(r"(Hash:[ \t]*)[^,\r\n]*", r"\g<1>Stale123", heading.data)
+    stale = re.sub(r"(Date:[ \t]*)[^,\r\n]*", r"\g<1>1/1/2000", stale)
+    keywords.set_override(path, data=stale.rstrip("\r\n") + "\r\n" + user_line)
+    try:
+        normalized = re.sub(r"((?:Hash|Date):[ \t]*)[^,\r\n]*", r"\1", heading.data)
+        expected = hashlib.sha256(("FileInOut.Output.Calculix.CalHeading\n" + normalized).encode("utf-8"))
+        signature = [o for o in keywords.get_overrides() if list(o.indices) == path][0].original_signature
+        check(signature == expected.hexdigest().upper(),
+              "the heading signature must leave out the hash and the date: " + signature)
+        #
+        file_name = os.path.join(pmx.work_directory, PREFIX + "Heading.inp")
+        pmx.export_to_calculix(file_name)
+        lines = written_heading(file_name)
+        check(lines[0] == generated_line,
+              "the written heading must carry the current hash " + current_hash + " and date " + current_date +
+              ", not the stale ones of the edit: " + str(lines))
+        check(lines[1:] == [user_line], "the user text of the heading was not kept: " + str(lines))
+        # An edit without the hash line is given the generated one, or the results would not map
+        keywords.set_override(path, data="*Heading\r\n" + user_line)
+        pmx.export_to_calculix(file_name)
+        lines = written_heading(file_name)
+        check(lines == [generated_line, user_line],
+              "the generated hash line was not added to an edit without one: " + str(lines))
+    finally:
+        keywords.remove_override(path)
+    check(keywords.override_count == 0, "the heading override was not removed")
+
+
 def test_tree():
     tree = pmx.model.tree
     part_names = list(pmx.model.parts.get_names())
@@ -500,6 +553,7 @@ def main():
     test_user_keyword_paths_in_merged_tree()
     test_kept_inactive_user_keywords()
     test_overrides(generated)
+    test_heading_override()
     test_tree()
     test_tree_views()
     test_tree_existence()
