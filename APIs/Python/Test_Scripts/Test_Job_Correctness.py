@@ -18,8 +18,12 @@
 #reaction history, the reaction heat flux and body heating of both result files, the participation factor and the
 #effective masses, a compression only support and a distributed mass are given for the full revolution, as the
 #loads and the forces of the results file are, and that a point and a distributed mass of the ring, axisymmetric and
-#in plane strain, solve in a frequency step at the hand computed frequency. The section print of the ring is given for the full revolution for
-#each element type, and left as CalculiX writes it when its elements are of types CalculiX writes for different angles.
+#in plane strain, solve in a frequency step at the hand computed frequency. The modes of the ring are normalized to the
+#mass of the revolution, with 2D and 3D output, in the fields and the printed history, so the axial participation
+#factor times the mode is 1, while the radial and rotational participation, which cancels over the revolution, is left
+#for the segment. The section print of the ring is given for the full revolution for
+#each element type, and left as CalculiX writes it when its elements are of types CalculiX writes for different angles;
+#its moments, which cancel over the revolution, are always left as CalculiX writes them.
 #With 3D output the ring is the 2 degree segment: its fields are those of the segment, its .dat history is given for the
 #full revolution, the node sets and surfaces of the model are not copied onto it, and an axisymmetric cross section is
 #refused. Last, the results of the ring are opened as another model's, and a .dat file on its own, and are still given
@@ -500,9 +504,9 @@ def test_complex_frequency_modes(work):
         pmx.model.node_sets.remove([clamp])
 
 
-def check_reference_point_displacements(result, point_name, coordinates, dat_file_name):
+def check_reference_point_displacements(result, point_name, coordinates, dat_file_name, step_factors=None):
     # The displacements CalculiX prints for the node of the point, increment by increment and mode by mode, are the
-    # ones the results file holds for it
+    # ones the results file holds for it, times the factor of the step
     with open(dat_file_name) as dat_file:
         printed = [[float(value) for value in values.split()] for values in
                    re.findall(r"displacements \(vx,vy,vz\) for set " + re.escape(point_name.upper()) +
@@ -510,9 +514,11 @@ def check_reference_point_displacements(result, point_name, coordinates, dat_fil
     point = result.mesh.reference_points[point_name]
     count = 0
     for step_id in result.steps.get_ids():
+        factor = (step_factors or {}).get(step_id, 1.0)
         for increment_id in [i for i in result.steps[step_id].increments.get_ids() if i > 0]:
             check(count < len(printed), "the reference point " + point_name + " has more increments than the " +
                   str(len(printed)) + " printed displacements")
+            printed[count] = [value * factor for value in printed[count]]
             deformed = list(point.get_deformed_coordinates(step_id, increment_id))
             for i in range(3):
                 check(abs(deformed[i] - coordinates[i] - printed[count][i]) <= 1e-5 * max(abs(printed[count][i]), 1e-6),
@@ -618,9 +624,12 @@ def test_two_d_reference_point_results(work):
         for model_space in ["PlaneStrain", "Axisymmetric"]:
             pmx.model.properties.replace(model_space=model_space)
             name = PREFIX + model_space + "_Point"
-            result, _, _ = run_and_open(name, work)
+            result, frequency_step_id, _ = run_and_open(name, work)
             check_reference_point_mesh(result, 15)
-            check_reference_point_displacements(result, point, coordinates, os.path.join(work, name + ".dat"))
+            # The .dat file prints the modes of an axisymmetric model for the mass of the segment
+            step_factors = {frequency_step_id: 1 / math.sqrt(180)} if model_space == "Axisymmetric" else None
+            check_reference_point_displacements(result, point, coordinates, os.path.join(work, name + ".dat"),
+                                                step_factors)
     finally:
         pmx.model.properties.replace(model_space='Axisymmetric')
         pmx.model.constraints.remove([rigid_body])
@@ -901,13 +910,35 @@ def run_ring_section_print(name, work):
                                        u2=0)
     step.loads.add_pressure(PREFIX + "Ring_Pressure", pmx.create.region('SurfaceName', PREFIX + "Ring_Top"), 1.0)
     step.history_outputs.add_section(PREFIX + "Ring_Section_Print",
-                                     pmx.create.region('SurfaceName', PREFIX + "Ring_Bottom_Edge"), ["SOF", "SOAREA"])
+                                     pmx.create.region('SurfaceName', PREFIX + "Ring_Bottom_Edge"),
+                                     ["SOF", "SOM", "SOAREA"])
     result, _, _ = run_and_open(name, work)
     set_name = (PREFIX + "Ring_Bottom_Edge").upper()
     area = history_total(result, set_name, "SURFACE_AREA", "A")
     force = history_total(result, set_name, "TOTAL_SURFACE_FORCE", "FY")
+    check_section_print_moments(result, set_name, os.path.join(work, name + ".dat"))
     pmx.model.steps.remove([PREFIX + "Ring_Section_Step"])
     return area, force
+
+
+def check_section_print_moments(result, set_name, dat_file_name):
+    # The moments of a section print cancel over the revolution, so they are left as CalculiX prints them
+    with open(dat_file_name) as dat_file:
+        text = dat_file.read()
+    origin = [float(value) for value in re.findall(r"moment about the origin\(mx,my,mz\)\s*\n\s*((?:\S+\s+){5}\S+)",
+                                                   text)[-1].split()[3:]]
+    center = [float(value) for value in re.findall(r"moment about the center of gravity\(mx,my,mz\)\s*\n\s*" +
+                                                   r"((?:\S+\s+){2}\S+)", text)[-1].split()]
+    loads = [float(value) for value in re.findall(r"torque and bending moment \(size\)\s*\n\s*((?:\S+\s+){4}\S+)",
+                                                  text)[-1].split()[3:]]
+    read = [history_total(result, set_name, "MOMENT_ABOUT_ORIGIN", name) for name in ["MX", "MY", "MZ"]] + \
+           [history_total(result, set_name, "MOMENT_ABOUT_CG", name) for name in ["MX", "MY", "MZ"]] + \
+           [history_total(result, set_name, "SURFACE_LOADS", name) for name in ["TORQUE", "BENDING_MOMENT"]]
+    printed = origin + center + loads
+    check(abs(printed[2]) > 1e-3 and
+          all(abs(a - b) <= 1e-5 * max(abs(b), 1e-12) for a, b in zip(read, printed)),
+          "the moments of a section print of an axisymmetric model are not left as CalculiX prints them: " +
+          str(read) + " instead of " + str(printed))
 
 
 def write_mixed_ring_mesh(file_name):
@@ -977,25 +1008,84 @@ def test_axisymmetric_section_print_per_revolution(work):
           str(revolved_area))
 
 
+def read_dat_modal_rows(dat_file_name, title):
+    # The rows of a modal block of the .dat file, the X, Y, Z components and rotations, by mode number, TOTAL for the
+    # sum of the modes and ALL for the one row of the total effective mass
+    with open(dat_file_name) as dat_file:
+        lines = dat_file.read().split(title + "\n", 1)[1].splitlines()[3:]
+    rows = {}
+    for line in lines:
+        values = line.split()
+        if len(values) == 7:
+            rows[values[0]] = [float(value) for value in values[1:]]
+        elif len(values) == 6:
+            rows["ALL"] = [float(value) for value in values]
+        else:
+            break
+    return rows
+
+
 def test_axisymmetric_frequency_per_revolution(work):
     # CalculiX normalizes the modes to the mass of its 2 degree segment. The free ring moves along the axis as a
     # whole in its first mode, which carries the whole mass of the revolved ring as its effective mass, and its
-    # participation factor is the square root of that mass
+    # participation factor is the square root of that mass. The modes are read back normalized to that mass, so the
+    # axial displacement of the first mode is one over the square root, and the participation factor times the mode
+    # is 1, with 2D and with 3D output. The radial and rotational participation cancels over the revolution and is
+    # left as CalculiX prints it for the segment
     density = 7.85e-9
     mass = density * math.pi * (20.0 ** 2 - 10.0 ** 2) * 2.0
+    bottom = PREFIX + "Ring_Bottom"
     add_ring_section(PREFIX + "Steel_Mass", [pmx.create.elastic(210000, 0.3), pmx.create.density(density)])
-    pmx.model.steps.add_frequency(PREFIX + "Ring_Frequency", number_of_frequencies=3)
-    result, _, _ = run_and_open(PREFIX + "Axi_Frequency", work)
-    set_name = [name for name in result.history_outputs.get_names() if str(name).startswith("STEP_")][0]
-    values = {}
-    for component in ["PARTICIPATION_FACTORS", "EFFECTIVE_MODAL_MASS", "TOTAL_EFFECTIVE_MASS"]:
-        entries = result.get_history_output_entries(set_name, "FACTOR", component)
-        values[component] = entries["Y_COMPONENT"].get_data().values[0]
-    check(abs(abs(values["PARTICIPATION_FACTORS"]) - math.sqrt(mass)) < 1e-3 * math.sqrt(mass) and
-          abs(values["EFFECTIVE_MODAL_MASS"] - mass) < 1e-3 * mass and
-          abs(values["TOTAL_EFFECTIVE_MASS"] - mass) < 1e-3 * mass,
-          "the participation factor, the effective modal mass and the total effective mass of an axisymmetric " +
-          "model are not given for the full revolution: " + str(values) + " for the mass " + str(mass))
+    step = pmx.model.steps.add_frequency(PREFIX + "Ring_Frequency", number_of_frequencies=3)
+    step.history_outputs.add_nodal(PREFIX + "Ring_Mode", pmx.create.region('NodeSetName', bottom), ["U"])
+    for output in ["2D", "3D"]:
+        if output == "3D":
+            step.field_outputs.replace_element('EF-Output-1', output='ThreeD')
+        name = PREFIX + "Axi_Frequency_" + output
+        result, step_id, _ = run_and_open(name, work)
+        set_name = [name for name in result.history_outputs.get_names() if str(name).startswith("STEP_")][0]
+        values = {}
+        for component in ["PARTICIPATION_FACTORS", "EFFECTIVE_MODAL_MASS", "TOTAL_EFFECTIVE_MASS"]:
+            entries = result.get_history_output_entries(set_name, "FACTOR", component)
+            values[component] = entries["Y_COMPONENT"].get_data().values[0]
+        check(abs(abs(values["PARTICIPATION_FACTORS"]) - math.sqrt(mass)) < 1e-3 * math.sqrt(mass) and
+              abs(values["EFFECTIVE_MODAL_MASS"] - mass) < 1e-3 * mass and
+              abs(values["TOTAL_EFFECTIVE_MASS"] - mass) < 1e-3 * mass,
+              "the participation factor, the effective modal mass and the total effective mass of an axisymmetric " +
+              "model with " + output + " output are not given for the full revolution: " + str(values) +
+              " for the mass " + str(mass))
+        first_mode = list(result.steps[step_id].increments.get_ids())[0]
+        field = [result.get_nodal_value(step_id, first_mode, 'DISP', 'U2', node_id)
+                 for node_id in bottom_node_ids(result)]
+        entries = result.get_history_output_entries(bottom.upper(), "DISPLACEMENTS", "U2")
+        history = [entries[str(entry)].get_data().values[0] for entry in entries.get_names()]
+        check(all(abs(abs(value) - 1 / math.sqrt(mass)) < 1e-3 / math.sqrt(mass) for value in field + history) and
+              abs(values["PARTICIPATION_FACTORS"] * field[0] - 1) < 1e-3,
+              "the first mode of an axisymmetric model with " + output + " output is not normalized to the mass of " +
+              "the full revolution: the axial displacements " + str(field) + " in the field and " + str(history) +
+              " in the history, and the participation factor " + str(values["PARTICIPATION_FACTORS"]) +
+              ", instead of " + str(1 / math.sqrt(mass)))
+        dat_file_name = os.path.join(work, name + ".dat")
+        for component, title, total_component in [
+                ("PARTICIPATION_FACTORS", "P A R T I C I P A T I O N   F A C T O R S", None),
+                ("EFFECTIVE_MODAL_MASS", "E F F E C T I V E   M O D A L   M A S S", "TOTAL_EFFECTIVE_MODAL_MASS"),
+                ("TOTAL_EFFECTIVE_MASS", "T O T A L   E F F E C T I V E   M A S S", None)]:
+            rows = read_dat_modal_rows(dat_file_name, title)
+            printed = [rows[mode] for mode in sorted(mode for mode in rows if mode != "TOTAL")]
+            for index, direction in [(0, "X_COMPONENT"), (5, "Z_ROTATION")]:
+                read = list(result.get_history_output_entries(set_name, "FACTOR", component)[direction]
+                            .get_data().values)
+                check(len(read) == len(printed) and
+                      all(abs(a - b[index]) <= 1e-5 * max(abs(b[index]), 1e-30) for a, b in zip(read, printed)),
+                      "the " + direction + " of the " + component + " of an axisymmetric model, which cancels over " +
+                      "the revolution, is not left as CalculiX prints it: " + str(read) + " instead of " +
+                      str([row[index] for row in printed]))
+                if total_component is not None:
+                    total = result.get_history_output_entries(set_name, "FACTOR", total_component)[direction]
+                    total = total.get_data().values[0]
+                    check(abs(total - rows["TOTAL"][index]) <= 1e-5 * max(abs(rows["TOTAL"][index]), 1e-30),
+                          "the total " + direction + " of the " + component + " of an axisymmetric model is not left " +
+                          "as CalculiX prints it: " + str(total) + " instead of " + str(rows["TOTAL"][index]))
 
 
 def test_axisymmetric_gap_and_mass_per_revolution(work):

@@ -20,6 +20,7 @@ namespace CaeResults
         public int StepId;
         public int IncrementId;
         public double Time;
+        public bool FrequencyMode;
         public string FieldName;
         public string SetName;
         public string BaseSetName;

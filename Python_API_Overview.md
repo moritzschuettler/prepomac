@@ -2975,14 +2975,23 @@ result = pmx.results.current
 **Axisymmetric results.** CalculiX computes an axisymmetric model as a 2 degree segment. The results are read back for
 the full revolution, as the loads are given: the reaction heat flux `RFL` of the .frd file and the forces, volumes,
 energies, heat fluxes, contact and section print totals and modal masses of the .dat file are scaled to 360 degrees.
+Forces keep the convention of the .frd file, where a radial component is the sum of the radial forces around the
+revolution. The values that cancel over the revolution are left as CalculiX writes them for its segment: the moments of
+a contact or section print (`MOMENT_ABOUT_ORIGIN`, `MOMENT_ABOUT_CG`, and `TORQUE` and `BENDING_MOMENT` of
+`SURFACE_LOADS`), and every direction but the axial `Y_COMPONENT` of the participation factors, the effective modal
+masses and the total effective mass. The modes of a frequency and a complex frequency step are normalized to the mass
+of the full revolution, so the axial participation factor times the mode is 1 as in a 3D model of the same body: the
+displacements, stresses, strains, forces and contact values of a mode, in the .frd file and in the history CalculiX
+prints for it, are divided by the square root of 180, and its energies by 180. Buckling modes, which CalculiX
+normalizes to the stiffness of the segment, and the responses of the dynamic steps are not changed.
 The input file writes the model space into its heading (`Model space: Axisymmetric`), which CalculiX copies into the
 .frd file, so a result is scaled whichever model is open, or none; a .dat file opened on its own takes the model space
 from the .frd file beside it. A result file without that line, written by an older version, is taken as axisymmetric
 only when the open axisymmetric model is the one it was computed from. A section print is scaled by the element types
 of that model, so without it the section print is left as CalculiX writes it, with a message. When the field output
 asks for 3D output (`output='ThreeD'`), or CalculiX expands the model on its own, the result mesh is the 2 degree
-segment of 3D elements: its fields (`FORC`, `RFL`) and part volumes are those of the segment, the .dat history is still
-given for 360 degrees, only the element sets of the model are copied to it - its node sets and surfaces do not match the
+segment of 3D elements: its fields (`FORC`, `RFL`) and part volumes are those of the segment, its modes are normalized
+to the mass of the full revolution as with 2D output, the .dat history is still given for 360 degrees, only the element sets of the model are copied to it - its node sets and surfaces do not match the
 new nodes - and an `"Axisymmetric"` cross section integration is refused.
 
 ### `Result`

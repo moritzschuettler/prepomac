@@ -67,6 +67,28 @@ namespace CaeResults
         // concentrated heat fluxes and the forces of the results file are given for the full revolution
         private const float _axisymmetricSegmentsPerRevolution = 180;
         private static readonly string[] _axisymmetricSegmentFieldNames = new string[] { FOFieldNames.Rfl };
+        // The modes of a frequency step are normalized to the mass of the segment, 1/180 of the mass of the revolution.
+        // Buckling modes are normalized to the stiffness, and the responses of the dynamic steps are not modes
+        private static readonly StepTypeEnum[] _massNormalizedModeStepTypes = new StepTypeEnum[]
+        {
+            StepTypeEnum.Frequency,
+            StepTypeEnum.ComplexFrequency
+        };
+        private static readonly string[] _axisymmetricModeFieldNames = new string[]
+        {
+            FOFieldNames.Disp,
+            FOFieldNames.Stress,
+            FOFieldNames.ZZStr,
+            FOFieldNames.ToStrain,
+            FOFieldNames.MeStrain,
+            FOFieldNames.Forc,
+            FOFieldNames.Contact
+        };
+        private static readonly string[] _axisymmetricModeEnergyFieldNames = new string[]
+        {
+            FOFieldNames.Ener,
+            FOFieldNames.Cels
+        };
 
 
         // Methods                                                                                                                  
@@ -74,6 +96,14 @@ namespace CaeResults
         {
             foreach (var fieldName in _axisymmetricSegmentFieldNames)
                 results.ScaleFieldValues(fieldName, _axisymmetricSegmentsPerRevolution);
+        }
+        static public void ScaleAxisymmetricModesToRevolution(FeResults results)
+        {
+            float factor = (float)(1 / Math.Sqrt(_axisymmetricSegmentsPerRevolution));
+            foreach (var fieldName in _axisymmetricModeFieldNames)
+                results.ScaleFieldValues(fieldName, factor, _massNormalizedModeStepTypes);
+            foreach (var fieldName in _axisymmetricModeEnergyFieldNames)
+                results.ScaleFieldValues(fieldName, factor * factor, _massNormalizedModeStepTypes);
         }
         static public void ReadHeading(string fileName, out string hashName, out string modelSpace)
         {

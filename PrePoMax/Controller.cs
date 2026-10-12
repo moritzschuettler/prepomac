@@ -1894,9 +1894,11 @@ namespace PrePoMax
                                         "mesh is the 2 degree segment CalculiX computes. Its field values, such as the " +
                                         "forces and the reaction heat fluxes, and the part volumes are those of the " +
                                         "segment, while the history read from the .dat file is given for the full " +
-                                        "revolution.");
+                                        "revolution. The modes are normalized to the mass of the full revolution.");
             }
             else FrdFileReader.ScaleAxisymmetricSegmentFields(results);
+            // The participation factors are given for the full revolution, so are the modes, whatever the output
+            FrdFileReader.ScaleAxisymmetricModesToRevolution(results);
         }
         // Read pmx
         private void GetPmxFileVersion(string fileName, out string programmNameVersion, out string suffix)

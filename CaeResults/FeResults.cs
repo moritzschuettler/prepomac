@@ -815,12 +815,13 @@ namespace CaeResults
             //
             InitializeUndeformedNodes();
         }
-        public void ScaleFieldValues(string fieldName, float factor)
+        public void ScaleFieldValues(string fieldName, float factor, ICollection<StepTypeEnum> stepTypes = null)
         {
             HashSet<Field> scaledFields = new HashSet<Field>();
             foreach (var entry in _fields)
             {
-                if (entry.Key.Name == fieldName && scaledFields.Add(entry.Value)) entry.Value.ScaleComponentValues(factor);
+                if (entry.Key.Name == fieldName && (stepTypes == null || stepTypes.Contains(entry.Key.StepType)) &&
+                    scaledFields.Add(entry.Value)) entry.Value.ScaleComponentValues(factor);
             }
         }
         // CalculiX writes a 2D model expanded into the 3D elements it computes with when the field output asks for 3D

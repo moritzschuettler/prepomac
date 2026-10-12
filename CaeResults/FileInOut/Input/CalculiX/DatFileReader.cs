@@ -53,7 +53,9 @@ namespace CaeResults
         // CalculiX writes these totals of an axisymmetric model for its 2 degree segment, while the loads and the forces
         // of the results file are given for the full revolution. The statistics of a contact print cover the segment, but
         // those of a section print cover 1 degree for CAX4 and CAX8R elements and 2 degrees for the other types. The
-        // modes are normalized to the mass of the segment, so the participation factors scale with its square root
+        // modes are normalized to the mass of the segment, so the participation factors scale with its square root and
+        // the values of a mode with one over it. Over the revolution the moments and the radial and the out of plane
+        // directions of the participation factors and the effective masses cancel, so they are left for the segment
         private const double _axisymmetricSegmentsPerRevolution = 180;
         private static readonly HashSet<string> _axisymmetricSegmentFieldNames = new HashSet<string>()
         {
@@ -85,10 +87,38 @@ namespace CaeResults
         private static readonly HashSet<string> _axisymmetricSegmentStatisticsFieldNames = new HashSet<string>()
         {
             HOFieldNames.TotalSurfaceForce,
-            HOFieldNames.MomentAboutOrigin,
-            HOFieldNames.MomentAboutCG,
             HOFieldNames.SurfaceArea,
             HOFieldNames.SurfaceLoads
+        };
+        private static readonly HashSet<string> _axisymmetricMomentComponentNames = new HashSet<string>()
+        {
+            HOComponentNames.TORQUE,
+            HOComponentNames.BENDING_MOMENT
+        };
+        private static readonly HashSet<string> _axisymmetricModeFieldNames = new HashSet<string>()
+        {
+            HOFieldNames.Displacements,
+            HOFieldNames.Forces,
+            HOFieldNames.TotalForce,
+            HOFieldNames.Stresses,
+            HOFieldNames.Strains,
+            HOFieldNames.MechanicalStrains,
+            HOFieldNames.RelativeContactDisplacement,
+            HOFieldNames.ContactStress,
+            HOFieldNames.TotalSurfaceForce,
+            HOFieldNames.MomentAboutOrigin,
+            HOFieldNames.MomentAboutCG,
+            HOFieldNames.SurfaceLoads
+        };
+        private static readonly HashSet<string> _axisymmetricModeEnergyFieldNames = new HashSet<string>()
+        {
+            HOFieldNames.InternalEnergyDensity,
+            HOFieldNames.InternalEnergy,
+            HOFieldNames.TotalInternalEnergy,
+            HOFieldNames.KineticEnergy,
+            HOFieldNames.TotalKineticEnergy,
+            HOFieldNames.ContactPrintEnergy,
+            HOFieldNames.ContactSpringEnergy
         };
         //
         private static readonly Dictionary<string, string> _compMapRP = new Dictionary<string, string>()
@@ -290,6 +320,7 @@ namespace CaeResults
                                 // Fix the time if reported inside an eigenvalue number block from time to frequency
                                 if (eigenvalueNumber != -1 && newDataSet.Time == 1)   // 1 ... frequency
                                 {
+                                    newDataSet.FrequencyMode = true;
                                     if (timeFrequency == null)
                                         timeFrequency = GetTimeFrequencyPairs(frequencyHistoryOutput, stepKey);
                                     // Change the frequency step time to frequency
@@ -991,6 +1022,7 @@ namespace CaeResults
             int len;
             int firstDataRowId = 1;
             double factor = 1;
+            double componentFactor;
             string mode;
             string timeFrequency;
             string entryName = null;
@@ -1144,6 +1176,7 @@ namespace CaeResults
                 int delta = values[0].Length - componentNames.Length;
                 for (int col = delta; col < values[0].Length; col++)  // first value in a row is time
                 {
+                    componentFactor = componentNames[col - delta] == HOComponentNames.YCOMPONENT ? factor : 1;
                     historyResultEntries = new HistoryResultEntries(componentNames[col - delta], false);
                     totalHistoryResultEntries = new HistoryResultEntries(componentNames[col - delta], false);
                     //
@@ -1152,8 +1185,8 @@ namespace CaeResults
                         if (delta == 1) time = values[row][0];
                         else time = row + 1;
                         //
-                        if (double.IsNaN(time)) totalHistoryResultEntries.Add(1, values[row][col] * factor);
-                        else historyResultEntries.Add(time, values[row][col] * factor);
+                        if (double.IsNaN(time)) totalHistoryResultEntries.Add(1, values[row][col] * componentFactor);
+                        else historyResultEntries.Add(time, values[row][col] * componentFactor);
                     }
                     historyResultComponent.Entries.Add(historyResultEntries.Name, historyResultEntries);
                     if (totalHistoryResultEntries.Time.Count > 0)
@@ -1455,6 +1488,7 @@ namespace CaeResults
             string id;
             double time;
             double factor;
+            double componentFactor;
             double[] values;
             //
             foreach (var dataSet in dataSets)
@@ -1464,7 +1498,8 @@ namespace CaeResults
                 factor = 1;
                 if (axisymmetric)
                     factor = GetAxisymmetricSegmentsPerRevolution(repairedDataSet, axisymmetricModelMesh,
-                                                                  sectionPrintFactors, unscaledSectionMessages);
+                                                                  sectionPrintFactors, unscaledSectionMessages) *
+                             GetAxisymmetricModeFactor(repairedDataSet);
                 time = repairedDataSet.Time;
                 // Get or create a set
                 if (!historyOutput.Sets.TryGetValue(repairedDataSet.SetName, out set))
@@ -1517,6 +1552,10 @@ namespace CaeResults
                             component = new HistoryResultComponent(repairedDataSet.ComponentNames[j + offset]);
                             field.Components.Add(component.Name, component);
                         }
+                        componentFactor = factor;
+                        if (axisymmetric && HOFieldNames.GetNoSuffixName(field.Name) == HOFieldNames.SurfaceLoads &&
+                            _axisymmetricMomentComponentNames.Contains(component.Name))
+                            componentFactor = GetAxisymmetricModeFactor(repairedDataSet);
                         // For the case of total forces
                         if (valueId == null) id = component.Name;
                         else id = valueId;
@@ -1532,7 +1571,7 @@ namespace CaeResults
                              field.Name == HOFieldNames.ContactPrintEnergy ||
                              field.Name == HOFieldNames.ContactSpringEnergy) && entries.Time.Contains(time))
                         {
-                            entries.SumValue(values[j + offset] * factor);
+                            entries.SumValue(values[j + offset] * componentFactor);
                         }
                         // Skip repeating
                         else if (field.Name == HOFieldNames.TotalNumberOfContactElements && entries.Time.Contains(time))
@@ -1540,7 +1579,7 @@ namespace CaeResults
                         // Add
                         else
                         {
-                            entries.Add(time, values[j + offset] * factor);
+                            entries.Add(time, values[j + offset] * componentFactor);
                         }
                     }
                 }
@@ -1562,6 +1601,14 @@ namespace CaeResults
             }
             //
             return historyOutput;
+        }
+        static private double GetAxisymmetricModeFactor(DatDataSet dataSet)
+        {
+            if (!dataSet.FrequencyMode) return 1;
+            if (_axisymmetricModeFieldNames.Contains(dataSet.FieldName))
+                return 1 / Math.Sqrt(_axisymmetricSegmentsPerRevolution);
+            if (_axisymmetricModeEnergyFieldNames.Contains(dataSet.FieldName)) return 1 / _axisymmetricSegmentsPerRevolution;
+            return 1;
         }
         static private double GetAxisymmetricSegmentsPerRevolution(DatDataSet dataSet, FeMesh axisymmetricModelMesh,
                                                                    Dictionary<string, double> sectionPrintFactors,
