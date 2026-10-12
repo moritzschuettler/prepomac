@@ -109,6 +109,7 @@ namespace PrePoMax.Python
         public void ImportFile(string fileName, bool onlyMaterials)
         {
             int numOfParts = CountModelParts();
+            int commandCount = _controller.GetActiveCommandCount();
             _controller.ClearErrors();
             _controller.ClearWarnings();
             _controller.ImportFileCommand(fileName, onlyMaterials);
@@ -118,8 +119,11 @@ namespace PrePoMax.Python
             {
                 _controller.OutputErrors();
                 if (!onlyMaterials && CountModelParts() == numOfParts)
+                {
+                    if (_controller.GetActiveCommandCount() > commandCount) _controller.RemoveLastCommand();
                     throw new PythonAPIException("The file imported nothing: " +
                                                  string.Join(" ", _controller.GetErrors()).Replace(Environment.NewLine, " "));
+                }
             }
         }
         private int CountModelParts()

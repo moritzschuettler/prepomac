@@ -265,6 +265,16 @@ namespace PrePoMax.Commands
             _commands.Insert(index, command);
             if (index <= _currPositionIndex + 1) _currPositionIndex++;
         }
+        // A command an API call refuses after the controller recorded it - an import that added nothing - must not stay
+        // in the history, or a replay of the history or of its journal stops at it
+        public void RemoveLastCommand()
+        {
+            if (_currPositionIndex < 0 || _currPositionIndex != _commands.Count - 1) return;
+            //
+            RemoveCommand(_commands[_currPositionIndex]);
+            OnEnableDisableUndoRedo();
+            WriteToFile();
+        }
         private bool RemoveCommand(Command command)
         {
             int index = _commands.IndexOf(command);

@@ -95,7 +95,7 @@ namespace APIs.Python.Model
         {
             string nameText = PythonValueConverter.ToText(name, "name", true);
             // The same lookup as get, so a name contains accepts is one get finds
-            return nameText != null && GetItem(nameText) != null;
+            return nameText != null && FindItem(nameText) != null;
         }
 
         [PythonAPI("Returns the item with the specified name.", Arguments = "name: str")]
@@ -194,11 +194,24 @@ namespace APIs.Python.Model
         {
             if (name == null) throw new PythonAPIException("The " + _itemTypeName + " name must not be None.");
             //
-            TItem item = GetItem(name);
+            TItem item = FindItem(name);
             if (item == null)
                 throw new PythonAPIException("The " + _itemTypeName + " '" + name + "' does not exist.");
             //
             return item;
+        }
+        // Names are compared regardless of case, as the model keys its collections, whether or not the collection of
+        // an item type looks its items up that way, so every verb finds the same item
+        private TItem FindItem(string name)
+        {
+            TItem item = GetItem(name);
+            if (item != null) return item;
+            //
+            foreach (string storedName in GetItemNames())
+            {
+                if (PythonNameComparer.AreSame(storedName, name)) return GetItem(storedName);
+            }
+            return null;
         }
         protected TItem[] ResolveItems(object names)
         {

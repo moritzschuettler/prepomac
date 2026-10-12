@@ -513,6 +513,10 @@ namespace PrePoMax
         {
             return _commands.ActiveCommandCount;
         }
+        public void RemoveLastCommand()
+        {
+            _commands.RemoveLastCommand();
+        }
         public List<string> GetCommandCollectionErrors()
         {
             return _commands.Errors;
