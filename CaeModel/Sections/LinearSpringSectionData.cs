@@ -22,19 +22,27 @@ namespace CaeModel
     {
         // Variables                                                                                                                
         private int _direction;                 //ISerializable
+        private int _secondDirection;           //ISerializable
         private double _stiffness;              //ISerializable
 
 
         // Properties                                                                                                               
         public int Direction { get { return _direction; } set { _direction = value; } }
+        public int SecondDirection { get { return _secondDirection; } set { _secondDirection = value; } }
         public double Stiffness { get { return _stiffness; } set { _stiffness = value; } }
 
 
         // Constructors                                                                                                             
         public LinearSpringSectionData(string name, string elementSetName, int direction, double stiffness)
+            : this(name, elementSetName, direction, 0, stiffness)
+        {
+        }
+        public LinearSpringSectionData(string name, string elementSetName, int direction, int secondDirection,
+                                       double stiffness)
             : base(name, null, elementSetName, RegionTypeEnum.ElementSetName, 1)
         {
             _direction = direction;
+            _secondDirection = secondDirection;
             _stiffness= stiffness;
         }
         public LinearSpringSectionData(SerializationInfo info, StreamingContext context)
@@ -46,6 +54,9 @@ namespace CaeModel
                 {
                     case "_direction":
                         _direction = (int)entry.Value;
+                        break;
+                    case "_secondDirection":
+                        _secondDirection = (int)entry.Value;
                         break;
                     case "_stiffness":
                         _stiffness = (double)entry.Value;
@@ -67,6 +78,7 @@ namespace CaeModel
             base.GetObjectData(info, context);
             //
             info.AddValue("_direction", _direction, typeof(int));
+            info.AddValue("_secondDirection", _secondDirection, typeof(int));
             info.AddValue("_stiffness", _stiffness, typeof(double));
         }
     }

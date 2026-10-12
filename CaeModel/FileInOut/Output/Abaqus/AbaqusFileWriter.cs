@@ -39,7 +39,7 @@ namespace FileInOut.Output
             copy.Mesh.RemoveParts(inactivePartNames, out _, false);
             //
             CalculixKeyword keywordToChange;
-            List<CalculixKeyword> keywords = CalculixFileWriter.GetAllKeywords(copy, convertPyramidsTo, deformations);
+            List<CalculixKeyword> keywords = CalculixFileWriter.GetAllKeywords(copy, convertPyramidsTo, deformations, false);
             for (int i = 0; i < keywords.Count; i++)
             {
                 keywordToChange = keywords[i];

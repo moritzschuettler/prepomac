@@ -639,8 +639,6 @@ namespace CaeResults
                 feDescriptorId = (FrdFeDescriptorId)int.Parse(record1[2]);
                 if (record1.Length == 5) materialID = int.Parse(record1[4]);    // ResultsForLastIterations has different output
                 else materialID = -1;
-                //
-                AddMaterialElementId(id, materialID, gapMaterialIds, springMaterialIds, massMaterialIds, materialIdElementIds);
                 // A line holds up to 10 element nodes
                 numOfNodes = GetNumberOfElementNodes(feDescriptorId);
                 record1 = lines[++i].Split(splitter, StringSplitOptions.RemoveEmptyEntries);
@@ -652,7 +650,9 @@ namespace CaeResults
                     if (!TryGetBeamNodeIds(record1, out frdNodeIds)) continue;
                 }
                 else frdNodeIds = GetNodeIds(record1, record2, numOfNodes);
+                if (IsReferencePointResultElement(feDescriptorId, frdNodeIds)) continue;
                 //
+                AddMaterialElementId(id, materialID, gapMaterialIds, springMaterialIds, massMaterialIds, materialIdElementIds);
                 AddElement(elements, GetElement(id, feDescriptorId, frdNodeIds));
             }
             //
@@ -680,16 +680,21 @@ namespace CaeResults
                 materialID = BitConverter.ToInt32(data, position + 3 * sizeof(int));
                 position += 4 * sizeof(int);
                 //
-                AddMaterialElementId(id, materialID, gapMaterialIds, springMaterialIds, massMaterialIds, materialIdElementIds);
-                //
                 frdNodeIds = new int[GetNumberOfElementNodes(feDescriptorId)];
                 Buffer.BlockCopy(data, position, frdNodeIds, 0, frdNodeIds.Length * sizeof(int));
                 position += frdNodeIds.Length * sizeof(int);
+                if (IsReferencePointResultElement(feDescriptorId, frdNodeIds)) continue;
                 //
+                AddMaterialElementId(id, materialID, gapMaterialIds, springMaterialIds, massMaterialIds, materialIdElementIds);
                 AddElement(elements, GetElement(id, feDescriptorId, frdNodeIds));
             }
             //
             return elements;
+        }
+        static private bool IsReferencePointResultElement(FrdFeDescriptorId feDescriptorId, int[] frdNodeIds)
+        {
+            // The input file gives the node of a reference point a spring to itself only so the node reaches the results
+            return feDescriptorId == FrdFeDescriptorId.BeamLinear && frdNodeIds.Length == 2 && frdNodeIds[0] == frdNodeIds[1];
         }
         static private void AddMaterialElementId(int elementId, int materialID, HashSet<int> gapMaterialIds,
                                                  HashSet<int> springMaterialIds, HashSet<int> massMaterialIds,

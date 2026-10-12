@@ -45,8 +45,11 @@ namespace FileInOut.Output.Calculix
         public override string GetDataString()
         {
             StringBuilder sb = new StringBuilder();
-            // An axial spring has no direction line
-            if (_linearSpringSectionData.Direction > 0)
+            // An axial spring has no direction line and a spring between two nodes has one direction for each
+            if (_linearSpringSectionData.SecondDirection > 0)
+                sb.AppendFormat("{0}, {1}{2}", _linearSpringSectionData.Direction, _linearSpringSectionData.SecondDirection,
+                                Environment.NewLine);
+            else if (_linearSpringSectionData.Direction > 0)
                 sb.AppendFormat("{0}{1}", _linearSpringSectionData.Direction, Environment.NewLine);
             else sb.AppendLine();
             sb.AppendFormat("{0}{1}", _linearSpringSectionData.Stiffness.ToCalculiX16String(true), Environment.NewLine);

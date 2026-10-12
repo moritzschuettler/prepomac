@@ -3627,6 +3627,8 @@ A result `ReferencePoint`:
 | `created_from` | How the point was created: `Coordinates`, `OnPoint`, `BetweenTwoPoints`, `CircleCenter`, `CenterOfGravity` or `BoundingBoxCenter`. |
 | `name_visible`, `color`, `visible` | Whether the name is drawn next to the symbol, the symbol colour as a plain list `[R, G, B, A]`, and the visibility. |
 | `get_coordinates()` | The coordinates computed on the result mesh, as `[x, y, z]`. |
+| `get_nodal_value(step_id, increment_id, field_name, component_name)` | One nodal field component value of the point, as `result.get_nodal_value` returns it for a node. The analysis writes a node of its own for a reference point that a rigid body or a kinematic coupling moves, tied to it in the directions the constraint moves it, so the results file holds that point; any other point is refused. |
+| `get_deformed_coordinates(step_id, increment_id)` | The true-scale deformed coordinates of the point using `DISP`, as `[x, y, z]`, refused as `get_nodal_value` is. The results view draws the point deformed, with the deformation scale of the plot and in an animation, and a point the results file does not hold undeformed. |
 | `get_equations()` | The coordinates entered as expressions, under the argument `coordinates` as a list `[x, y, z]` that goes back into `add` and `replace`; a coordinate entered as a plain number stays a number in the list. Coordinates entered as plain numbers, or computed from a selection, are left out; `get_coordinates()` returns them. |
 | `get_construction()` | How the point is built, under `created_from`, `region_type` and `region_name`. `region_type` and `region_name` are `None` unless `created_from` is `CenterOfGravity` or `BoundingBoxCenter`, the modes `add_from_region` takes. |
 

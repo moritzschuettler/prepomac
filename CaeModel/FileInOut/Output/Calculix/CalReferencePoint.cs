@@ -15,6 +15,7 @@ namespace FileInOut.Output.Calculix
         public string RotationNodeSetName { get; set; }
         public bool UsedByRigidBody { get; set; }
         public bool UsedByCoupling { get; set; }
+        public int ResultNodeId { get; set; }
 
         public bool HasRotationNode { get { return RotationNodeId.HasValue; } }
     }

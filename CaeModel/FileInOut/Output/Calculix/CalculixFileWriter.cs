@@ -138,9 +138,11 @@ namespace FileInOut.Output
         }
         //
         static public List<CalculixKeyword> GetAllKeywords(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
-                                                           Dictionary<int, double[]> deformations = null)
+                                                           Dictionary<int, double[]> deformations = null,
+                                                           bool referencePointResultNodes = true)
         {
-            List<CalculixKeyword> keywords = GetModelKeywords(model, convertPyramidsTo, deformations);
+            List<CalculixKeyword> keywords = GetModelKeywords(model, convertPyramidsTo, deformations, false,
+                                                              referencePointResultNodes);
             // Overrides use indices from the generated tree, before user keywords shift visual positions.
             ApplyKeywordOverrides(keywords, model.CalculixKeywordOverrides);
             // Add user keywords
@@ -157,7 +159,8 @@ namespace FileInOut.Output
         }
         static public List<CalculixKeyword> GetModelKeywords(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
                                                              Dictionary<int, double[]> deformations = null,
-                                                             bool addAllMaterials = false)
+                                                             bool addAllMaterials = false,
+                                                             bool referencePointResultNodes = true)
         {
             // Clone surfaces
             OrderedDictionary<string, FeSurface> originalSurfaces = model.Mesh.Surfaces;
@@ -194,6 +197,12 @@ namespace FileInOut.Output
                 GetCoordinateSystemNodeSet(model, referencePoints, ref coordinateSystemNodeSets);
                 // Fix pyramid surfaces
                 FixPyramidSurfaces(model, convertPyramidsTo, ref replacedElements, ref additionalElementSetNames);
+                // Prepare reference point result nodes - only CalculiX needs them
+                if (referencePointResultNodes)
+                    GetReferencePointResultNodes(model, referencePoints, ref maxNodeId, ref maxElementId, ref additionalNodes,
+                                                 ref additionalNodeSets, ref additionalElementKeywords,
+                                                 ref additionalSectionData, ref additionalBoundaryConditions,
+                                                 ref equationParameters);
                 // Prepare mass sections
                 GetMassSections(model, referencePoints, ref maxNodeId, ref maxElementId, ref additionalNodes,
                                 ref additionalNodeSets, ref additionalElementKeywords, ref additionalElementSetNames,
@@ -708,11 +717,15 @@ namespace FileInOut.Output
                             reservedElementSetNames.Add(name);
                             // Element keyword
                             maxElementId++;
-                            massNodeId = GetMassElementNodeId(nodeId, new double[] { referencePoint.X.Value,
-                                                                                     referencePoint.Y.Value,
-                                                                                     referencePoint.Z.Value },
-                                                              twoD, ref maxNodeId, additionalNodes, massNodeIds,
-                                                              equationParameters);
+                            // The node of its own of a moved reference point carries the mass, since its spring gives
+                            // CalculiX the matrix entries a mass element lacks for a held direction of the point
+                            massNodeId = referencePoints[referencePoint.Name].ResultNodeId;
+                            if (massNodeId <= 0)
+                                massNodeId = GetMassElementNodeId(nodeId, new double[] { referencePoint.X.Value,
+                                                                                         referencePoint.Y.Value,
+                                                                                         referencePoint.Z.Value },
+                                                                  twoD, ref maxNodeId, additionalNodes, massNodeIds,
+                                                                  equationParameters);
                             element = new MassElement(maxElementId, new int[] { massNodeId });
                             calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
                             additionalElementKeywords.Add(calElement);
@@ -892,6 +905,140 @@ namespace FileInOut.Output
                 //
                 maxElementId = elementId;
             }
+        }
+        static private void GetReferencePointResultNodes(FeModel model,
+                                                         Dictionary<string, CalReferencePoint> referencePoints,
+                                                         ref int maxNodeId, ref int maxElementId,
+                                                         ref List<FeNode> additionalNodes,
+                                                         ref List<FeNodeSet> additionalNodeSets,
+                                                         ref List<CalElement> additionalElementKeywords,
+                                                         ref List<SectionData> additionalSectionData,
+                                                         ref List<BoundaryCondition> additionalBoundaryConditions,
+                                                         ref List<double[]> equationParameters)
+        {
+            // CalculiX writes into the results file only the nodes of elements, leaving out the elements of one node, so
+            // a reference point a constraint moves gets a node of its own at its coordinates, in the order of the points,
+            // with a spring of no stiffness from the node to itself. The node is tied to the reference point in the
+            // directions the constraint moves it and held in the others, because a spring on the reference point node
+            // would give it degrees of freedom that nothing holds, which a solver cannot solve. CalculiX does not compute
+            // the motion of the reference point of a distributing coupling
+            if (model.Mesh == null) return;
+            //
+            Dictionary<string, HashSet<int>> referencePointDirections = GetReferencePointDirections(model);
+            List<FeElement> elements = new List<FeElement>();
+            List<int> resultNodeIds = new List<int>();
+            Dictionary<string, List<int>> heldDirectionsNodeIds = new Dictionary<string, List<int>>();
+            HashSet<int> directions;
+            CalReferencePoint calReferencePoint;
+            FeReferencePoint referencePoint;
+            string heldDirections;
+            foreach (var entry in model.Mesh.ReferencePoints)
+            {
+                referencePoint = entry.Value;
+                if (!referencePoints.TryGetValue(entry.Key, out calReferencePoint) ||
+                    !referencePointDirections.TryGetValue(entry.Key, out directions)) continue;
+                //
+                maxNodeId++;
+                additionalNodes.Add(new FeNode(maxNodeId, referencePoint.X.Value, referencePoint.Y.Value,
+                                               referencePoint.Z.Value));
+                heldDirections = "";
+                for (int direction = 1; direction <= 3; direction++)
+                {
+                    if (directions.Contains(direction))
+                        equationParameters.Add(new double[] { maxNodeId, direction, 1, calReferencePoint.ReferenceNodeId,
+                                                              direction, -1 });
+                    else heldDirections += direction;
+                }
+                if (heldDirections.Length > 0)
+                {
+                    if (!heldDirectionsNodeIds.TryGetValue(heldDirections, out List<int> nodeIds))
+                    {
+                        nodeIds = new List<int>();
+                        heldDirectionsNodeIds.Add(heldDirections, nodeIds);
+                    }
+                    nodeIds.Add(maxNodeId);
+                }
+                maxElementId++;
+                elements.Add(new LinearSpringElement(maxElementId, new int[] { maxNodeId, maxNodeId }));
+                resultNodeIds.Add(maxNodeId);
+                calReferencePoint.ResultNodeId = maxNodeId;
+            }
+            if (elements.Count == 0) return;
+            // Elements
+            HashSet<string> reservedElementSetNames = model.Mesh.GetReservedElementSetNames();
+            string name = "Internal_Reference_Point_Results";
+            if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
+            additionalElementKeywords.Add(new CalElement(FeElementTypeSpring.SPRING2.ToString(), name, elements));
+            additionalSectionData.Add(new LinearSpringSectionData("LinearSpringSection", name, 1, 1, 0));
+            // Boundary conditions - the spring also gives the nodes a temperature, which a thermal step must hold
+            HashSet<string> nodeSetNames = new HashSet<string>(model.Mesh.NodeSets.Keys);
+            foreach (var additionalNodeSet in additionalNodeSets) nodeSetNames.Add(additionalNodeSet.Name);
+            string allNodesName = GetReferencePointResultNodeSetName(nodeSetNames);
+            additionalNodeSets.Add(new FeNodeSet(allNodesName, resultNodeIds.ToArray()));
+            additionalBoundaryConditions.Add(new TemperatureBC("Reference_Point_Results_Temperature", allNodesName,
+                                                               RegionTypeEnum.NodeSetName, 0, false));
+            DisplacementRotation displacementRotation;
+            foreach (var entry in heldDirectionsNodeIds)
+            {
+                if (entry.Value.Count == resultNodeIds.Count) name = allNodesName;
+                else
+                {
+                    name = GetReferencePointResultNodeSetName(nodeSetNames);
+                    additionalNodeSets.Add(new FeNodeSet(name, entry.Value.ToArray()));
+                }
+                displacementRotation = new DisplacementRotation("Reference_Point_Results_BC_" + entry.Key, name,
+                                                                RegionTypeEnum.NodeSetName, false, false, 0);
+                if (entry.Key.Contains("1")) displacementRotation.U1.SetEquationFromValue(0);
+                if (entry.Key.Contains("2")) displacementRotation.U2.SetEquationFromValue(0);
+                if (entry.Key.Contains("3")) displacementRotation.U3.SetEquationFromValue(0);
+                additionalBoundaryConditions.Add(displacementRotation);
+            }
+        }
+        static private string GetReferencePointResultNodeSetName(HashSet<string> nodeSetNames)
+        {
+            string name = "Internal_Reference_Point_Results_NodeSet";
+            if (nodeSetNames.Contains(name)) name = nodeSetNames.GetNextNumberedKey(name);
+            nodeSetNames.Add(name);
+            return name;
+        }
+        static public Dictionary<string, HashSet<int>> GetReferencePointDirections(FeModel model)
+        {
+            // The translations of a reference point node that the active constraints move, in plane in a 2D model
+            int maxDirection = model.Properties.ModelSpace.IsTwoD() ? 2 : 3;
+            int[] constraintDirections;
+            string referencePointName;
+            HashSet<int> directions;
+            Dictionary<string, HashSet<int>> referencePointDirections =
+                new Dictionary<string, HashSet<int>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in model.Constraints)
+            {
+                if (!entry.Value.Active) continue;
+                //
+                if (entry.Value is RigidBody rigidBody)
+                {
+                    referencePointName = rigidBody.ReferencePointName;
+                    constraintDirections = new int[] { 1, 2, 3 };
+                }
+                else if (entry.Value is KinematicCoupling kinematicCoupling)
+                {
+                    referencePointName = kinematicCoupling.ReferencePointName;
+                    constraintDirections = kinematicCoupling.GetConstrainedDirections();
+                }
+                else continue;
+                //
+                if (referencePointName == null) continue;
+                foreach (int direction in constraintDirections)
+                {
+                    if (direction > maxDirection) continue;
+                    if (!referencePointDirections.TryGetValue(referencePointName, out directions))
+                    {
+                        directions = new HashSet<int>();
+                        referencePointDirections.Add(referencePointName, directions);
+                    }
+                    directions.Add(direction);
+                }
+            }
+            return referencePointDirections;
         }
         static private void GetCompressionOnlyConstraintData(FeModel model, ref int maxNodeId, ref int maxElementId,
                                                              ref List<FeNode> additionalNodes,
@@ -2642,6 +2789,9 @@ namespace FileInOut.Output
             //
             foreach (var additionalBoundaryCondition in additionalBoundaryConditions)
             {
+                // A temperature is held only in a step that solves the temperatures
+                if (additionalBoundaryCondition is TemperatureBC && !step.IsBoundaryConditionSupported(additionalBoundaryCondition))
+                    continue;
                 if (step.Active && additionalBoundaryCondition.Active)
                     AppendBoundaryCondition(model, step, additionalBoundaryCondition, referencePoints, tmp);
                 else tmp.AddKeyword(new CalDeactivated(additionalBoundaryCondition.Name));

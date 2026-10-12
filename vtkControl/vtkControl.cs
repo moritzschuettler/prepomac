@@ -9435,6 +9435,19 @@ namespace vtkControl
                     arrowActor.VtkMaxActorVisible = visible;
             }
         }
+        public void UpdateOverlayPointsActor(string actorName, double[][] coordinates)
+        {
+            if (_overlayActors.TryGetValue(actorName, out vtkMaxActor actor))
+                UpdateMeasurementActor(actorName, coordinates, actor.VtkMaxActorVisible);
+        }
+        public void UpdateOverlayCaptionActorPosition(string actorName, double[] position)
+        {
+            if (_overlayActors.TryGetValue(actorName, out vtkMaxActor actor) && actor is vtkMaxCaptionActor captionActor)
+            {
+                captionActor.Position = position;
+                captionActor.CaptionActor.GetPositionCoordinate().SetValue(position[0], position[1], position[2]);
+            }
+        }
         public void RemoveMeasurementAnnotations(string[] names)
         {
             if (names == null) return;

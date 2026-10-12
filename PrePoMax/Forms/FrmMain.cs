@@ -12350,6 +12350,14 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.RemoveMeasurementAnnotations, names);
         }
+        public void UpdateOverlayPointsActor(string actorName, double[][] coordinates)
+        {
+            InvokeIfRequired(_vtk.UpdateOverlayPointsActor, actorName, coordinates);
+        }
+        public void UpdateOverlayCaptionActorPosition(string actorName, double[] position)
+        {
+            InvokeIfRequired(_vtk.UpdateOverlayCaptionActorPosition, actorName, position);
+        }
         public void AddOrientedDisplacementConstraintActor(vtkMaxActorData actorData, double symbolSize)
         {
             InvokeIfRequired(_vtk.AddOrientedDisplacementConstraintActor, actorData, symbolSize);

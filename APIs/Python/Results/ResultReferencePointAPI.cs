@@ -9,6 +9,7 @@
 
 using APIs.Python.Model;
 using CaeMesh;
+using CaeResults;
 using System.Collections.Generic;
 
 namespace APIs.Python
@@ -55,6 +56,34 @@ namespace APIs.Python
             FeReferencePoint referencePoint = Resolve();
             return PythonListConverter.ToPythonList(new double[] { referencePoint.X.Value, referencePoint.Y.Value,
                                                                    referencePoint.Z.Value });
+        }
+        [PythonAPI("Returns one nodal field component value of the result reference point, as get_nodal_value of the " +
+                   "result returns it for a node. The results file holds a reference point that a rigid body or a " +
+                   "kinematic coupling moves, in the directions it moves it; any other is refused.",
+                   Arguments = "step_id: int, increment_id: int, field_name: str, component_name: str",
+                   Returns = "float")]
+        public float get_nodal_value(object step_id, object increment_id, object field_name, object component_name)
+        {
+            string fieldName = PythonValueConverter.ToText(field_name, "field_name", false);
+            string componentName = PythonValueConverter.ToText(component_name, "component_name", false);
+            return _referencePoints.GetNodalValue(_referencePointName, PythonValueConverter.ToInt(step_id, "step_id"),
+                                                  PythonValueConverter.ToInt(increment_id, "increment_id"), fieldName,
+                                                  componentName);
+        }
+        [PythonAPI("Returns the true-scale deformed coordinates [x, y, z] of the result reference point using the " +
+                   "DISP field. The results view draws the point deformed as it draws the mesh. A reference point " +
+                   "the results file does not hold is refused, as by get_nodal_value.",
+                   Arguments = "step_id: int, increment_id: int", Returns = "list[float]")]
+        public object get_deformed_coordinates(object step_id, object increment_id)
+        {
+            int stepId = PythonValueConverter.ToInt(step_id, "step_id");
+            int incrementId = PythonValueConverter.ToInt(increment_id, "increment_id");
+            double[] coordinates = Resolve().Coor();
+            string[] componentNames = new string[] { FOComponentNames.U1, FOComponentNames.U2, FOComponentNames.U3 };
+            for (int i = 0; i < componentNames.Length; i++)
+                coordinates[i] += _referencePoints.GetNodalValue(_referencePointName, stepId, incrementId,
+                                                                 FOFieldNames.Disp, componentNames[i]);
+            return PythonListConverter.ToPythonList(coordinates);
         }
         [PythonAPI("Returns the coordinate expressions the result reference point was entered with, without " +
                    "evaluating them, under the argument coordinates as a list [x, y, z]. The coordinates are " +

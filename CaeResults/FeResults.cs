@@ -50,6 +50,10 @@ namespace CaeResults
         [NonSerialized]
         private Dictionary<int, FeNode> _undeformedNodes;
         [NonSerialized]
+        private bool[] _resultNodesOutsideMesh;                 // [resultsId] - null until computed
+        [NonSerialized]
+        private Dictionary<int, FeNode> _nodesOutsideMesh;      // the nodes of the results file no element holds
+        [NonSerialized]
         private float _scale;
         [NonSerialized]
         private int _stepId;
@@ -777,6 +781,12 @@ namespace CaeResults
         public void SetMesh(FeMesh mesh, Dictionary<int, int> nodeIdsLookUp)
         {
             _mesh = new FeMesh(mesh, mesh.Parts.Keys.ToArray());
+            // The nodes no element holds are the result nodes of the reference points
+            _nodesOutsideMesh = new Dictionary<int, FeNode>();
+            foreach (var entry in mesh.Nodes)
+            {
+                if (!_mesh.Nodes.ContainsKey(entry.Key)) _nodesOutsideMesh.Add(entry.Key, entry.Value);
+            }
             //
             List<BasePart> parts = new List<BasePart>();
             foreach (var entry in _mesh.Parts)
@@ -792,6 +802,7 @@ namespace CaeResults
             InitializeUndeformedNodes();
             //
             _nodeIdsLookUp = nodeIdsLookUp;
+            _resultNodesOutsideMesh = null;
         }
         public void ScaleAllParts(double scale)
         {
@@ -850,7 +861,50 @@ namespace CaeResults
         {
             _undeformedNodes = new Dictionary<int, FeNode>(_mesh.Nodes.Count());
             foreach (var entry in _mesh.Nodes) _undeformedNodes.Add(entry.Key, new FeNode(entry.Value));
+            _resultNodesOutsideMesh = null;
             ResetScaleStepIncrement();
+        }
+        private bool[] GetResultNodesOutsideMesh()
+        {
+            // The results file also holds the result nodes of the reference points, which no element of the mesh holds
+            if (_resultNodesOutsideMesh == null)
+            {
+                List<int> resultNodeIds = new List<int>();
+                int numOfResultNodes = 0;
+                if (_nodeIdsLookUp != null && _undeformedNodes != null)
+                {
+                    foreach (var entry in _nodeIdsLookUp)
+                    {
+                        if (entry.Value < 0) continue;
+                        if (entry.Value >= numOfResultNodes) numOfResultNodes = entry.Value + 1;
+                        if (!_undeformedNodes.ContainsKey(entry.Key)) resultNodeIds.Add(entry.Value);
+                    }
+                }
+                if (resultNodeIds.Count == 0) _resultNodesOutsideMesh = new bool[0];
+                else
+                {
+                    _resultNodesOutsideMesh = new bool[numOfResultNodes];
+                    foreach (int resultNodeId in resultNodeIds) _resultNodesOutsideMesh[resultNodeId] = true;
+                }
+            }
+            return _resultNodesOutsideMesh;
+        }
+        private float GetMeshComponentAbsMax(Field field, string componentName)
+        {
+            // The deformation scale follows the mesh as it did before the results file held the reference points
+            bool[] outsideMesh = GetResultNodesOutsideMesh();
+            float[] values = outsideMesh.Length == 0 ? null : field.GetComponentValues(componentName);
+            if (values == null) return field.GetComponentAbsMax(componentName);
+            //
+            float max = 0;
+            float value;
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (i < outsideMesh.Length && outsideMesh[i]) continue;
+                value = Math.Abs(values[i]);
+                if (value > max) max = value;
+            }
+            return max;
         }
         private void ResetScaleStepIncrement()
         {
@@ -6700,6 +6754,78 @@ namespace CaeResults
                 }
             }
         }
+        public void SetReferencePointResultNodes(ICollection<string> movedReferencePointNames)
+        {
+            // The input file gives each reference point that a constraint moves a node of its own, in the order of the
+            // reference points and at their coordinates, which no element holds
+            List<int> nodeIds = new List<int>();
+            if (_nodesOutsideMesh != null)
+            {
+                foreach (var entry in _nodesOutsideMesh)
+                {
+                    if (TryGetResultNodeId(entry.Key, out _)) nodeIds.Add(entry.Key);
+                }
+            }
+            nodeIds.Sort();
+            //
+            int index = 0;
+            double size = Math.Max(_mesh.BoundingBox.GetDiagonal(), 1E-6);
+            double tolerance;
+            HashSet<string> moved = new HashSet<string>(movedReferencePointNames, StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in _mesh.ReferencePoints)
+            {
+                FeReferencePoint referencePoint = entry.Value;
+                referencePoint.ResultNodeId = 0;
+                if (!moved.Contains(referencePoint.Name)) continue;
+                // A results file in text holds the coordinates to six digits
+                double[] coor = referencePoint.Coor();
+                tolerance = 1E-4 * Math.Max(size, Math.Max(Math.Abs(coor[0]), Math.Max(Math.Abs(coor[1]), Math.Abs(coor[2]))));
+                for (int i = index; i < nodeIds.Count; i++)
+                {
+                    FeNode node = _nodesOutsideMesh[nodeIds[i]];
+                    if (Math.Abs(node.X - coor[0]) <= tolerance && Math.Abs(node.Y - coor[1]) <= tolerance &&
+                        Math.Abs(node.Z - coor[2]) <= tolerance)
+                    {
+                        referencePoint.ResultNodeId = node.Id;
+                        index = i + 1;
+                        break;
+                    }
+                }
+            }
+        }
+        public bool TryGetReferencePointResultNodeId(FeReferencePoint referencePoint, out int resultNodeId)
+        {
+            // The results file holds the node of a reference point, which no element of the mesh holds
+            resultNodeId = -1;
+            int nodeId = referencePoint.ResultNodeId;
+            return nodeId > 0 && _undeformedNodes != null && !_undeformedNodes.ContainsKey(nodeId) &&
+                   TryGetResultNodeId(nodeId, out resultNodeId);
+        }
+        public double[] GetDeformedReferencePointCoor(FeReferencePoint referencePoint, float scale, int stepId,
+                                                      int stepIncrementId)
+        {
+            double[] coor = referencePoint.Coor();
+            if (scale != 0 && TryGetReferencePointResultNodeId(referencePoint, out int resultNodeId))
+            {
+                float[][] deformations = GetNodalMeshDeformations(stepId, stepIncrementId);
+                if (deformations != null && resultNodeId < deformations[0].Length)
+                {
+                    for (int i = 0; i < 3; i++) coor[i] += scale * deformations[i][resultNodeId];
+                }
+            }
+            return coor;
+        }
+        public bool TryGetReferencePointValue(FeReferencePoint referencePoint, FieldData fieldData, out float value)
+        {
+            value = 0;
+            if (!TryGetReferencePointResultNodeId(referencePoint, out _)) return false;
+            //
+            float[] values = GetValues(fieldData, new int[] { referencePoint.ResultNodeId });
+            if (values == null || values.Length != 1) return false;
+            //
+            value = values[0];
+            return true;
+        }
         //
         public void ScaleValues(float scale, float[] values, out float[] scaledValues)
         {
@@ -6855,7 +6981,7 @@ namespace CaeResults
                     //
                     foreach (var componentName in componentNames)
                     {
-                        value = Math.Pow(entry.Value.GetComponentAbsMax(componentName), 2);
+                        value = Math.Pow(GetMeshComponentAbsMax(entry.Value, componentName), 2);
                         if (!double.IsNaN(value)) fieldMax += value;
                     }
                     //
@@ -6884,7 +7010,7 @@ namespace CaeResults
                         //
                         foreach (var componentName in componentNames)
                         {
-                            value = Math.Pow(entry.Value.GetComponentAbsMax(componentName), 2);
+                            value = Math.Pow(GetMeshComponentAbsMax(entry.Value, componentName), 2);
                             if (!double.IsNaN(value)) max += value;
                         }
                         //

@@ -1684,6 +1684,8 @@ namespace PrePoMax
                 if (!fromFileOpenMenu)
                 {
                     _allResults.CurrentResult.CopyFeatureItemsFromMesh(_model.Mesh, (int)ViewGeometryModelResults.Results);
+                    _allResults.CurrentResult.SetReferencePointResultNodes(
+                        CalculixFileWriter.GetReferencePointDirections(_model).Keys);
                 }
                 //
                 ResumeExplodedViews(false); // must be here after the parts were mapped
@@ -25379,7 +25381,7 @@ namespace PrePoMax
                 //
                 Color colorBorder = Color.Black;
                 //
-                double[][] coor = new double[][] { referencePoint.Coor() };
+                double[][] coor = new double[][] { GetDrawnReferencePointCoor(referencePoint) };
                 // Draw the larger circle
                 DrawNodes(referencePoint.Name + Globals.NameSeparator + "Border", coor, colorBorder, layer, nodeSize,
                           false, false);
@@ -25397,6 +25399,63 @@ namespace PrePoMax
                 }
             }
             catch { } // do not show the exception to the user
+        }
+        private double[] GetDrawnReferencePointCoor(FeReferencePoint referencePoint)
+        {
+            if (_currentView != ViewGeometryModelResults.Results || _allResults.CurrentResult == null ||
+                _currentFieldData == null) return referencePoint.Coor();
+            //
+            return _allResults.CurrentResult.GetDeformedReferencePointCoor(referencePoint, GetScale(),
+                                                                         _currentFieldData.StepId,
+                                                                         _currentFieldData.StepIncrementId);
+        }
+        private void UpdateAnimationReferencePoints(int frameNumber)
+        {
+            FeResults result = _allResults.CurrentResult;
+            if (_currentView != ViewGeometryModelResults.Results || result == null || result.Mesh == null ||
+                _animationLocatorFieldData == null || frameNumber < 0 || frameNumber >= _animationLocatorFieldData.Length)
+                return;
+            //
+            List<FeReferencePoint> referencePoints = new List<FeReferencePoint>();
+            foreach (var entry in result.Mesh.ReferencePoints)
+            {
+                FeReferencePoint referencePoint = entry.Value;
+                if (referencePoint.Active && referencePoint.Visible && referencePoint.Valid && !referencePoint.Internal &&
+                    result.TryGetReferencePointResultNodeId(referencePoint, out _)) referencePoints.Add(referencePoint);
+            }
+            if (referencePoints.Count == 0) return;
+            //
+            FieldData fieldData = _animationLocatorFieldData[frameNumber];
+            float scale = _animationLocatorScale;
+            if (_animationLocatorRatios != null) scale *= _animationLocatorRatios[frameNumber];
+            ComplexResultTypeEnum complexResultType = result.ComplexResultType;
+            float complexAngleDeg = result.ComplexAngleDeg;
+            try
+            {
+                // Harmonic animation - the frame angle replaces the displayed one and is restored
+                if (_animationLocatorAngles != null)
+                    result.SetComplexResultTypeAndAngle(ComplexResultTypeEnum.RealAtAngle,
+                                                        _animationLocatorAngles[frameNumber], fieldData);
+                //
+                foreach (FeReferencePoint referencePoint in referencePoints)
+                {
+                    double[] coor = result.GetDeformedReferencePointCoor(referencePoint, scale, fieldData.StepId,
+                                                                         fieldData.StepIncrementId);
+                    double[][] nodeCoor = new double[][] { coor };
+                    string nodesName = Globals.NameSeparator + "nodes";
+                    _form.UpdateOverlayPointsActor(referencePoint.Name + Globals.NameSeparator + "Border" + nodesName,
+                                                   nodeCoor);
+                    _form.UpdateOverlayPointsActor(referencePoint.Name + nodesName, nodeCoor);
+                    _form.UpdateOverlayCaptionActorPosition("RP" + Globals.NameSeparator + referencePoint.Name + "_name",
+                                                            coor);
+                }
+            }
+            catch { } // do not show the exception to the user
+            finally
+            {
+                if (_animationLocatorAngles != null)
+                    result.SetComplexResultTypeAndAngle(complexResultType, complexAngleDeg, fieldData);
+            }
         }
         // Coordinate systems
         public void DrawAllCoordinateSystems()
@@ -31211,6 +31270,8 @@ namespace PrePoMax
         // Animation
         public void AnimationFrameChanged(int frameNumber, bool initializeAnnotationAnchors)
         {
+            UpdateAnimationReferencePoints(frameNumber);
+            //
             _updatingAnimationAnnotations = true;
             _initializingAnimationAnnotationAnchors = initializeAnnotationAnchors;
             try

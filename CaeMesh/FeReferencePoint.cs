@@ -53,6 +53,7 @@ namespace CaeMesh
         private int _createdFromRefNodeId1;                     //ISerializable
         private int _createdFromRefNodeId2;                     //ISerializable
         private string _refNodeSetName;                         //ISerializable
+        private int _resultNodeId;                              //ISerializable
         private string _rotNodeSetName;                         //ISerializable
         private bool _nameVisible;                              //ISerializable
         private bool _twoD;                                     //ISerializable
@@ -82,6 +83,7 @@ namespace CaeMesh
         public int CreatedFromRefNodeId1 { get { return _createdFromRefNodeId1; } set { _createdFromRefNodeId1 = value; } }
         public int CreatedFromRefNodeId2 { get { return _createdFromRefNodeId2; } set { _createdFromRefNodeId2 = value; } }
         public string RefNodeSetName { get { return _refNodeSetName; } set { _refNodeSetName = value; } }
+        public int ResultNodeId { get { return _resultNodeId; } set { _resultNodeId = value; } }
         public string RotNodeSetName { get { return _rotNodeSetName; } set { _rotNodeSetName = value; } }
         public bool NameVisible { get { return _nameVisible; } set { _nameVisible = value; } }
         public bool TwoD { get { return _twoD; } }
@@ -163,6 +165,8 @@ namespace CaeMesh
                         _createdFromRefNodeId2 = (int)entry.Value; break;
                     case "_refNodeSetName":
                         _refNodeSetName = (string)entry.Value; break;
+                    case "_resultNodeId":
+                        _resultNodeId = (int)entry.Value; break;
                     case "_rotNodeSetName":
                         _rotNodeSetName = (string)entry.Value; break;
                     case "_nameVisible":
@@ -292,6 +296,7 @@ namespace CaeMesh
             info.AddValue("_createdFromRefNodeId1", _createdFromRefNodeId1, typeof(int));
             info.AddValue("_createdFromRefNodeId2", _createdFromRefNodeId2, typeof(int));
             info.AddValue("_refNodeSetName", _refNodeSetName, typeof(string));
+            info.AddValue("_resultNodeId", _resultNodeId, typeof(int));
             info.AddValue("_rotNodeSetName", _rotNodeSetName, typeof(string));
             info.AddValue("_nameVisible", _nameVisible, typeof(bool));
             info.AddValue("_twoD", _twoD, typeof(bool));

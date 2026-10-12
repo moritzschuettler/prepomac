@@ -315,6 +315,23 @@ namespace APIs.Python
             //
             return _meshService.ResolveResultWithMesh(_resultName);
         }
+        internal float GetNodalValue(string name, int stepId, int incrementId, string fieldName, string componentName)
+        {
+            FeResults result = ResolveResult();
+            FeReferencePoint point = ResolveReferencePoint(name);
+            new ResultDataService(_resultResolver).ValidateComponent(_resultName, result, stepId, incrementId, fieldName,
+                                                                     componentName);
+            FieldData fieldData = result.GetFieldData(fieldName, componentName, stepId, incrementId, true);
+            if (!fieldData.Valid)
+                throw new PythonAPIException("The field '" + fieldName + "' does not exist for step " + stepId +
+                                             ", increment " + incrementId + ".");
+            float value;
+            if (!result.TryGetReferencePointValue(point, fieldData, out value))
+                throw new PythonAPIException("The result reference point '" + point.Name + "' has no values in the " +
+                                             "results file, which holds only a reference point that a rigid body or " +
+                                             "a kinematic coupling moves.");
+            return value;
+        }
         internal FeReferencePoint ResolveReferencePoint(string name)
         {
             if (name == null) throw new PythonAPIException("The result reference point name must not be None.");
