@@ -37,6 +37,7 @@ namespace CaeMesh
         private readonly Dictionary<int, double> _edgeIdWeight;
         private readonly Dictionary<int, double> _edgeIdDownWeight;
         private readonly Dictionary<int, int> _edgeIdMinimum;
+        private readonly Dictionary<int, int> _edgeIdMaximum;
         private readonly List<IntervalRow> _rows;
 
 
@@ -56,6 +57,7 @@ namespace CaeMesh
             _edgeIdWeight = new Dictionary<int, double>();
             _edgeIdDownWeight = new Dictionary<int, double>();
             _edgeIdMinimum = new Dictionary<int, int>();
+            _edgeIdMaximum = new Dictionary<int, int>();
             _rows = new List<IntervalRow>();
         }
 
@@ -94,6 +96,14 @@ namespace CaeMesh
         {
             AddEdge(edgeId);
             _edgeIdMinimum[edgeId] = Math.Max(1, minimum);
+        }
+        /// <summary>
+        /// The most elements the edge may carry, unless its count is fixed.
+        /// </summary>
+        public void SetMaximum(int edgeId, int maximum)
+        {
+            AddEdge(edgeId);
+            _edgeIdMaximum[edgeId] = Math.Max(1, maximum);
         }
         private double GetWeight(int edgeId)
         {
@@ -178,8 +188,9 @@ namespace CaeMesh
                 bool isFixed = _edgeIdFixedCount.TryGetValue(edgeId, out fixedCount);
                 int minimum;
                 if (!_edgeIdMinimum.TryGetValue(edgeId, out minimum)) minimum = 1;
-                int column = addColumn("n" + edgeId, isFixed ? fixedCount : minimum, isFixed ? fixedCount : LpSolve.Infinity,
-                                       true, 0);
+                int maximum;
+                double upperBound = _edgeIdMaximum.TryGetValue(edgeId, out maximum) ? Math.Max(minimum, maximum) : LpSolve.Infinity;
+                int column = addColumn("n" + edgeId, isFixed ? fixedCount : minimum, isFixed ? fixedCount : upperBound, true, 0);
                 double weight = GetWeight(edgeId);
                 int upColumn = addColumn("up" + edgeId, 0, LpSolve.Infinity, false, weight * _upWeight / target);
                 int downColumn = addColumn("down" + edgeId, 0, LpSolve.Infinity, false,

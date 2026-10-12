@@ -17,7 +17,10 @@
 #    around it (two on the open rim).
 #  - A structured grid divides the opposite sides of a face equally, so the number of elements set on one edge
 #    of the open box carries over to the edges parallel to it. Set to a different number on a second of those
-#    edges it cannot be kept, and the meshing is refused rather than overriding either of them.
+#    edges it cannot be kept, and the meshing is refused rather than overriding either of them. An element size is
+#    kept the same way, by a number of elements within a quarter of the one it asks for: alone it is kept on its edge
+#    and the edges parallel to it, and against a number of elements or an element size four times larger set on one
+#    of those it is refused.
 #  - The open quarter cylinder by a gmsh shell item with transfinite_three_sided="Polar": a quarter circle is the grid
 #    gmsh collapses at its centre, so its triangles fan around that one node and everything else is quadrilaterals.
 #  - The open quarter cylinder by a Netgen item with quad_dominated=True keeps every face and its area. Netgen meshing
@@ -197,6 +200,38 @@ def check_netgen_quad_dominated(part):
           "the quad-dominated Netgen mesh has the area " + str(area) + " instead of " + str(part.surface_area))
 
 
+def check_element_sizes(part):
+    """An element size set on an edge of a structured face is kept, within a quarter of the number of elements it asks
+    for, on it and on the edges the grid links to it; against a number of elements or an element size the grid cannot
+    agree with, the meshing is refused."""
+    items = pmx.model.mesh.setup_items
+    first, second = parallel_edge_ids(part)
+    data = part.get_edge_data()
+    ids = [int(i) for i in data.ids]
+    length = float(list(data.lengths)[ids.index(first)])
+    geometry_ids = [int(list(data.geometry_ids)[ids.index(edge_id)]) for edge_id in (first, second)]
+    items.add_meshing_parameters("PyTest_Sizes", pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]),
+                                 relative_size=False, max_size=length / 4, min_size=length / 100, second_order=False)
+    items.add_local_mesh_size("PyTest_Edge_A", edge_selection(part, first), element_size=length / 20)
+    report = pmx.model.mesh.generate(part.name)
+    check(report[part.name] == "", "one element size must mesh: " + report[part.name])
+    counts = [pmx.create.selection_by_ids('femodel', 'nodes', 'geometry', [geometry_id]).preview().count - 1
+              for geometry_id in geometry_ids]
+    check(counts == [20, 20], "the element size asking for 20 elements must be kept on both edges: " + str(counts))
+    for name, values in (("a number of elements", {"number_of_elements": 3}),
+                         ("an element size four times larger", {"element_size": length / 5})):
+        items.add_local_mesh_size("PyTest_Edge_B", edge_selection(part, second), **values)
+        message = None
+        try:
+            pmx.model.mesh.generate(part.name)
+        except Exception as ex:
+            message = str(ex)
+        check(message is not None and "by its element size" in message and "   at " not in message,
+              "an element size against " + name + " on linked edges must be refused: " + str(message))
+        items.remove(["PyTest_Edge_B"])
+    items.remove(["PyTest_Edge_A", "PyTest_Sizes"])
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     cad = list(pmx.model.geometry.parts)
@@ -208,6 +243,7 @@ def main():
     kinds = mesh(open_box)
     check(list(kinds.keys()) == ["quadrilateral"], "the open box must be meshed by quadrilaterals only: " + str(kinds))
     check_pinned_edges(open_box)
+    check_element_sizes(open_box)
     check_chained_sides(open_box)
     #
     open_cylinder = open_shell(cylinder, 4)

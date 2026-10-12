@@ -7,6 +7,7 @@
 // Author: Matej Borovinšek
 // Contributors:
 
+using CaeGlobals;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,15 +24,21 @@ namespace CaeMesh
     /// </summary>
     public static class NetgenTransfiniteFile
     {
+        // Variables
+        private const int _timeoutSeconds = 20;
+
+
         // Methods
         /// <summary>
         /// The parts are the solids of the brep Netgen meshes, in the order the brep holds them: one part, or the
-        /// sub-parts of a compound. pinnedEdgeCounts holds the number of elements the user set on an edge, by gmsh
-        /// topology id. Returns false, writing nothing, when the faces and edges of the sub-parts cannot be given the
-        /// numbers Netgen gives them in the compound.
+        /// sub-parts of a compound. pinnedEdgeCounts holds the number of elements the user set on an edge and
+        /// sizedEdgeCounts the number an element size the user set asks for, both by gmsh topology id. Returns false,
+        /// writing nothing, when the faces and edges of the sub-parts cannot be given the numbers Netgen gives them in
+        /// the compound.
         /// </summary>
         public static bool Write(string fileName, FeMesh geometry, BasePart[] parts, TransfiniteThreeSidedEnum threeSided,
-                                 bool fourSided, double transfiniteAngleDeg, Dictionary<int, int> pinnedEdgeCounts)
+                                 bool fourSided, double transfiniteAngleDeg, Dictionary<int, int> pinnedEdgeCounts,
+                                 Dictionary<int, int> sizedEdgeCounts = null)
         {
             Dictionary<int, int> faceKernelIds;
             Dictionary<int, int> edgeKernelIds;
@@ -50,6 +57,18 @@ namespace CaeMesh
                     if (edgeKernelIds.TryGetValue(entry.Key, out kernelId)) pinnedCounts[kernelId] = entry.Value;
                 }
             }
+            Dictionary<int, int> sizedCounts = new Dictionary<int, int>();
+            if (sizedEdgeCounts != null)
+            {
+                foreach (var entry in sizedEdgeCounts)
+                {
+                    if (edgeKernelIds.TryGetValue(entry.Key, out kernelId) && !pinnedCounts.ContainsKey(kernelId))
+                        sizedCounts[kernelId] = entry.Value;
+                }
+            }
+            List<TransfiniteSidePair> pairs = new List<TransfiniteSidePair>();
+            List<TransfiniteSideTriple> triples = new List<TransfiniteSideTriple>();
+            Dictionary<int, string> faceNames = new Dictionary<int, string>();
             foreach (var part in parts)
             {
                 foreach (var face in TransfiniteFaceDetector.Detect(geometry, part, threeSided,
@@ -60,10 +79,22 @@ namespace CaeMesh
                     //
                     int polarCornerIndex = threeSided == TransfiniteThreeSidedEnum.Polar ?
                                            TransfiniteFaceDetector.GetPolarCornerIndex(geometry, part, face) : -1;
-                    faceLines.AppendLine("face " + faceKernelIds[FeMesh.GmshTopologyId(face.FaceId, part.PartId)] +
-                                         " " + face.NumberOfSides +
-                                         (polarCornerIndex >= 0 ? " polar " + polarCornerIndex : "") +
-                                         " surface " + (face.FaceId + 1) + " of " + part.Name);
+                    int faceKernelId = faceKernelIds[FeMesh.GmshTopologyId(face.FaceId, part.PartId)];
+                    faceNames[faceKernelId] = "surface " + (face.FaceId + 1) + " of " + part.Name;
+                    faceLines.AppendLine("face " + faceKernelId + " " + face.NumberOfSides +
+                                         (polarCornerIndex >= 0 ? " polar " + polarCornerIndex : "") + " " +
+                                         faceNames[faceKernelId]);
+                    int[][] sides = face.SideEdgeIds.Select(side => side.Select(edgeId =>
+                                        edgeKernelIds[FeMesh.GmshTopologyId(edgeId, part.PartId)]).ToArray()).ToArray();
+                    if (face.NumberOfSides == 4)
+                    {
+                        pairs.Add(new TransfiniteSidePair(faceKernelId, sides[0], sides[2]));
+                        pairs.Add(new TransfiniteSidePair(faceKernelId, sides[1], sides[3]));
+                    }
+                    else if (polarCornerIndex >= 0)
+                        pairs.Add(new TransfiniteSidePair(faceKernelId, sides[(polarCornerIndex + 2) % 3],
+                                                          sides[polarCornerIndex]));
+                    else triples.Add(new TransfiniteSideTriple(faceKernelId, sides));
                     foreach (var side in face.SideEdgeIds)
                     {
                         faceLines.AppendLine("side " + side.Length + " " +
@@ -90,6 +121,9 @@ namespace CaeMesh
                     edgeLines.Add(kernelId, "edge " + (edgeId + 1) + " of " + part.Name);
                 }
             }
+            // Netgen keeps the numbers of elements set, so the element sizes are settled here among them
+            foreach (var entry in KeepElementSizes(pairs, triples, pinnedCounts, sizedCounts, faceNames, edgeLines))
+                pinnedCounts[entry.Key] = entry.Value;
             //
             int count;
             StringBuilder sb = new StringBuilder();
@@ -103,6 +137,74 @@ namespace CaeMesh
             }
             System.IO.File.WriteAllText(fileName, sb.ToString());
             return true;
+        }
+        /// <summary>
+        /// The numbers of elements of the edges of the structured faces with an element size, each within the range that
+        /// keeps its element size and closest to the number it asks for, that the faces can take together with the
+        /// numbers of elements set. The other edges are free here, and Netgen balances them around these. When no such
+        /// numbers exist, the meshing is refused with the faces and the edges that cannot agree.
+        /// </summary>
+        private static Dictionary<int, int> KeepElementSizes(List<TransfiniteSidePair> pairs,
+                                                             List<TransfiniteSideTriple> triples,
+                                                             Dictionary<int, int> pinnedCounts,
+                                                             Dictionary<int, int> sizedCounts,
+                                                             Dictionary<int, string> faceNames,
+                                                             Dictionary<int, string> edgeLines)
+        {
+            HashSet<int> sideEdgeIds = new HashSet<int>(pairs.SelectMany(pair => pair.SideA.Concat(pair.SideB)));
+            sideEdgeIds.UnionWith(triples.SelectMany(triple => triple.Sides.SelectMany(side => side)));
+            if (!sideEdgeIds.Any(sizedCounts.ContainsKey)) return new Dictionary<int, int>();
+            //
+            int count;
+            int minCount;
+            int maxCount;
+            IntervalProblem problem = new IntervalProblem(edgeId => sizedCounts.TryGetValue(edgeId, out count) ? count :
+                                                                    pinnedCounts.TryGetValue(edgeId, out count) ? count : 1);
+            foreach (var edgeId in sideEdgeIds)
+            {
+                if (pinnedCounts.TryGetValue(edgeId, out count)) problem.FixEdge(edgeId, count);
+                else if (sizedCounts.TryGetValue(edgeId, out count))
+                {
+                    TransfiniteEdgeCountBalancer.GetElementSizeCountRange(count, out minCount, out maxCount);
+                    problem.SetMinimum(edgeId, minCount);
+                    problem.SetMaximum(edgeId, maxCount);
+                }
+                else problem.SetWeight(edgeId, 1E-6);
+            }
+            foreach (var pair in pairs)
+                problem.AddEqualSums(faceNames[pair.FaceId], IntervalRowTierEnum.Hard, pair.SideA, pair.SideB, pair.FaceId);
+            foreach (var triple in triples)
+                problem.AddThreeSided(faceNames[triple.FaceId], IntervalRowTierEnum.Hard, triple.Sides, triple.FaceId);
+            //
+            IntervalSolution solution = problem.Solve(false, _timeoutSeconds);
+            if (solution.HasCounts)
+                return sizedCounts.Where(entry => sideEdgeIds.Contains(entry.Key))
+                                  .ToDictionary(entry => entry.Key, entry => solution.EdgeIdNumOfElements[entry.Key]);
+            if (solution.Status != LpSolve.Infeasible)
+                throw new CaeException("lp_solve found no element counts for the structured faces (" + solution.StatusName +
+                                       ").");
+            //
+            IntervalSolution relaxed = problem.Solve(true, _timeoutSeconds);
+            List<IntervalRow> conflicts = relaxed.HasCounts ? relaxed.ViolatedRows : problem.Rows;
+            Func<int, string> describe = edgeId =>
+            {
+                if (pinnedCounts.TryGetValue(edgeId, out count)) return edgeLines[edgeId] + " set to " + count + " elements";
+                TransfiniteEdgeCountBalancer.GetElementSizeCountRange(sizedCounts[edgeId], out minCount, out maxCount);
+                return edgeLines[edgeId] + " given " + sizedCounts[edgeId] + " elements by its element size, which " +
+                       minCount + " to " + maxCount + " elements keep";
+            };
+            List<string> lines = new List<string>();
+            foreach (var row in conflicts)
+            {
+                int[] edgeIds = row.Sides.SelectMany(side => side).Distinct()
+                                   .Where(edgeId => pinnedCounts.ContainsKey(edgeId) || sizedCounts.ContainsKey(edgeId))
+                                   .ToArray();
+                lines.Add("The sizes set on the edges of " + row.Name + " cannot all be kept by its structured grid (" +
+                          string.Join("; ", edgeIds.Select(describe)) + ").");
+            }
+            lines.Add("Set element sizes and numbers of elements that agree on these edges, or switch off the transfinite " +
+                      "meshing of the 3-sided and 4-sided surfaces.");
+            throw new CaeException(string.Join(Environment.NewLine, lines));
         }
         /// <summary>
         /// The numbers Netgen gives the faces and edges of the parts, by gmsh topology id. Netgen numbers those of a

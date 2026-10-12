@@ -46,9 +46,6 @@ namespace CaeMesh
         private Dictionary<int, int> _surfaceIdPolarCornerIndex = new Dictionary<int, int>();
         private bool _sweepRecombine;
         private const int _intervalTimeoutSeconds = 20;
-        // An element size the user set is kept by a number of elements up to this factor off the one it asks for, which
-        // is as far as a structured grid lowers an edge beside a free face
-        private const double _elementSizeCountFactor = 1.25;
         private SweepCountConflictException _intervalConflict;
         private const double _chosenCountWeight = 1000;
         private const double _quadWildDownWeight = 100;
@@ -4315,7 +4312,7 @@ namespace CaeMesh
             foreach (var entry in _sizedEdgeIdNumElements.OrderBy(entry => entry.Key))
             {
                 if (!solution.EdgeIdNumOfElements.TryGetValue(entry.Key, out count)) continue;
-                GetElementSizeCountRange(entry.Value, out minCount, out maxCount);
+                TransfiniteEdgeCountBalancer.GetElementSizeCountRange(entry.Value, out minCount, out maxCount);
                 if (count >= minCount && count <= maxCount) continue;
                 //
                 int root = Find(parent, entry.Key);
@@ -5509,13 +5506,16 @@ namespace CaeMesh
                 freeFaceEdgeIds.UnionWith(boundaryDimTags.Select(dimTag => Math.Abs(dimTag.Item2)));
             }
             List<TransfiniteSideTriple> unbalancedTriples;
+            Dictionary<int, int> sizedEdgeIdCounts = _sizedEdgeIdNumElements.Where(entry => edgeIdCount.ContainsKey(entry.Key))
+                                                                             .ToDictionary(entry => entry.Key,
+                                                                                           entry => entry.Value);
             List<TransfiniteSidePair> unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts,
                                                                                          pinnedEdgeIds, pairs, triples,
                                                                                          out unbalancedTriples,
-                                                                                         freeFaceEdgeIds);
+                                                                                         freeFaceEdgeIds, sizedEdgeIdCounts);
             if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
                 throw new CaeException(GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
-                                                                 pinnedEdgeIds));
+                                                                 pinnedEdgeIds, null, sizedEdgeIdCounts));
             //
             Gmsh.Model.Mesh.Clear();
             foreach (var entry in edgeIdCount) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
@@ -5555,13 +5555,23 @@ namespace CaeMesh
         private static string GetUnbalancedSidesMessage(List<TransfiniteSidePair> unbalanced,
                                                         List<TransfiniteSideTriple> unbalancedTriples,
                                                         Dictionary<int, int> edgeIdCount, HashSet<int> pinnedEdgeIds,
-                                                        string advice = null)
+                                                        string advice = null,
+                                                        Dictionary<int, int> sizedEdgeIdCounts = null)
         {
             double sf = GetMeshSizeFactor((GmshAlgorithmMesh2DEnum)(int)Gmsh.Option.GetNumber("Mesh.Algorithm"));
-            Func<int[], string> describe = side =>
-                string.Join(", ", side.Select(edgeId => "Edge " + edgeId +
-                                                        (pinnedEdgeIds.Contains(edgeId) ? " (set to " +
-                                                         (int)Math.Round(edgeIdCount[edgeId] * sf) + ")" : "")));
+            Func<int, int> shown = number => (int)Math.Round(number * sf);
+            Func<int, string> describeEdge = edgeId =>
+            {
+                int count;
+                int minCount;
+                int maxCount;
+                if (pinnedEdgeIds.Contains(edgeId)) return "Edge " + edgeId + " (set to " + shown(edgeIdCount[edgeId]) + ")";
+                if (sizedEdgeIdCounts == null || !sizedEdgeIdCounts.TryGetValue(edgeId, out count)) return "Edge " + edgeId;
+                TransfiniteEdgeCountBalancer.GetElementSizeCountRange(count, out minCount, out maxCount);
+                return "Edge " + edgeId + " (given " + shown(count) + " by its element size, which " + shown(minCount) +
+                       " to " + shown(maxCount) + " keep)";
+            };
+            Func<int[], string> describe = side => string.Join(", ", side.Select(describeEdge));
             List<string> lines = new List<string>();
             foreach (var pair in unbalanced)
             {
@@ -5575,8 +5585,8 @@ namespace CaeMesh
                           "blocks of quads fill - an even sum, with no side carrying as many as the other two: " +
                           string.Join("; ", triple.Sides.Select(describe)) + ".");
             }
-            lines.Add(advice ?? "Change the number of elements set on these edges, or switch off the transfinite " +
-                                "meshing of the 3-sided and 4-sided surfaces.");
+            lines.Add(advice ?? "Change the element sizes or the numbers of elements set on these edges, or switch off the " +
+                                "transfinite meshing of the 3-sided and 4-sided surfaces.");
             return string.Join(Environment.NewLine, lines);
         }
         /// <summary>
@@ -5675,7 +5685,7 @@ namespace CaeMesh
             foreach (var edgeId in sizedEdgeIds)
             {
                 int numOfElements = _gmshData.EdgeIdNumElements[edgeId];
-                GetElementSizeCountRange(numOfElements, out minCount, out maxCount);
+                TransfiniteEdgeCountBalancer.GetElementSizeCountRange(numOfElements, out minCount, out maxCount);
                 lowest = Math.Max(lowest, minCount);
                 highest = Math.Min(highest, maxCount);
                 most = Math.Max(most, numOfElements);
@@ -5696,7 +5706,7 @@ namespace CaeMesh
                     items.Add("Edge " + edgeId + " set to " + shown(numOfElements) + " elements");
                     continue;
                 }
-                GetElementSizeCountRange(numOfElements, out minCount, out maxCount);
+                TransfiniteEdgeCountBalancer.GetElementSizeCountRange(numOfElements, out minCount, out maxCount);
                 items.Add("Edge " + edgeId + " given " + shown(numOfElements) + " elements by its element size, which " +
                           shown(minCount) + " to " + shown(maxCount) + " elements keep");
             }
@@ -5706,16 +5716,6 @@ namespace CaeMesh
             return "The sizes set on edges a structured grid divides equally cannot all be kept (" +
                    string.Join("; ", items) + "), which are linked through the opposite sides of " +
                    string.Join(", ", surfaceIds.Select(id => "Surface " + id)) + ".";
-        }
-        /// <summary>
-        /// The numbers of elements that keep the element size the user set on an edge, which asks for numOfElements:
-        /// up to _elementSizeCountFactor off it, and one element off it at least.
-        /// </summary>
-        private static void GetElementSizeCountRange(int numOfElements, out int minCount, out int maxCount)
-        {
-            minCount = Math.Max(1, Math.Min(numOfElements - 1,
-                                            (int)Math.Ceiling(numOfElements / _elementSizeCountFactor - 1E-9)));
-            maxCount = Math.Max(numOfElements + 1, (int)Math.Floor(numOfElements * _elementSizeCountFactor + 1E-9));
         }
         /// <summary>
         /// Meshes free every face with a corner sharper than 180° minus the threshold angle or flatter than the

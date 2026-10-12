@@ -13,7 +13,10 @@
 #  - A side face of the open box split down the middle leaves its neighbours with sides of two edges, and the box
 #    is still meshed as structured grids.
 #  - A number of elements set on one edge carries over to the edges parallel to it; set to a different number on a
-#    second of them it cannot be kept, and the meshing is refused.
+#    second of them it cannot be kept, and the meshing is refused. An element size is kept the same way, by a number
+#    of elements within a quarter of the one it asks for, which PrePoMax settles among the numbers set and hands to
+#    Netgen as set: alone it is kept on its edge and the edges parallel to it, where Netgen's balance took them to the
+#    maximum element size, and against a number of elements or a four times larger element size it is refused.
 #  - The quarter cylinder that loses a flat radial face keeps two quarter circles, which have three sides and are
 #    meshed as three blocks of quads around one inner node by the mapping all meshers share: the shell is
 #    quadrilaterals only, and only the two inner nodes and the vertices have other than four quads around them.
@@ -201,6 +204,37 @@ def check_l_profile():
     items.remove([NETGEN + "_L", NETGEN + "_Size", "PyTest_Edge_L"])
 
 
+def check_element_sizes(part):
+    """An element size set on an edge of a structured face is kept on it and on the edges the grid links to it, rather
+    than Netgen's balance taking the edges to the maximum element size; against a number of elements or an element size
+    the grid cannot agree with, the meshing is refused."""
+    items = pmx.model.mesh.setup_items
+    first, second = parallel_edge_ids(part)
+    data = part.get_edge_data()
+    ids = [int(i) for i in data.ids]
+    length = float(list(data.lengths)[ids.index(first)])
+    geometry_ids = [int(list(data.geometry_ids)[ids.index(edge_id)]) for edge_id in (first, second)]
+    items.add_meshing_parameters("PyTest_Sizes", part_selection(part), relative_size=False, max_size=length / 4,
+                                 min_size=length / 100, second_order=False)
+    items.add_local_mesh_size("PyTest_Edge_A", edge_selection(part, first), element_size=length / 20)
+    mesh(part)
+    counts = [pmx.create.selection_by_ids("femodel", "nodes", "geometry", [geometry_id]).preview().count - 1
+              for geometry_id in geometry_ids]
+    check(counts == [20, 20], "the element size asking for 20 elements must be kept on both edges: " + str(counts))
+    for name, values in (("a number of elements", {"number_of_elements": 3}),
+                         ("an element size four times larger", {"element_size": length / 5})):
+        items.add_local_mesh_size("PyTest_Edge_B", edge_selection(part, second), **values)
+        message = None
+        try:
+            pmx.model.mesh.generate(part.name)
+        except Exception as ex:
+            message = str(ex)
+        check(message is not None and "by its element size" in message and "   at " not in message,
+              "an element size against " + name + " on linked edges must be refused: " + str(message))
+        items.remove(["PyTest_Edge_B"])
+    items.remove(["PyTest_Edge_A", "PyTest_Sizes"])
+
+
 def split_side_face(part):
     vertices = [list(c) for c in part.get_vertex_data().coordinates]
     low = [min(c[i] for c in vertices) for i in range(3)]
@@ -228,6 +262,7 @@ def main():
     check(list(kinds.keys()) == ["triangle"], "without quad-dominated the open box must be triangles: " + str(kinds))
     netgen(open_box, True)
     check_pinned_edges(open_box)
+    check_element_sizes(open_box)
     #
     open_box = split_side_face(open_box)
     netgen(open_box, True)

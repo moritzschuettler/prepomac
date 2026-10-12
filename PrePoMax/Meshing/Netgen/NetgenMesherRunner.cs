@@ -334,13 +334,15 @@ namespace PrePoMax
             GmshData sizes = new GmshData();
             _controller.GetMeshItemSizes(part.Name, ref sizes, meshSetupItems);
             Dictionary<int, int> pinnedEdgeCounts = new Dictionary<int, int>();
+            Dictionary<int, int> sizedEdgeCounts = new Dictionary<int, int>();
             if (sizes.EdgeIdNumElements != null)
             {
                 foreach (var entry in sizes.EdgeIdNumElements)
                 {
-                    // A number an element size gives is the structured grid's to change
-                    if (sizes.FixedCountEdgeIds != null && !sizes.FixedCountEdgeIds.Contains(entry.Key)) continue;
-                    pinnedEdgeCounts[entry.Key] = entry.Value;
+                    // A number an element size gives may move within the range that keeps the element size
+                    if (sizes.FixedCountEdgeIds != null && !sizes.FixedCountEdgeIds.Contains(entry.Key))
+                        sizedEdgeCounts[entry.Key] = entry.Value;
+                    else pinnedEdgeCounts[entry.Key] = entry.Value;
                 }
             }
             bool transfinite = meshingParameters.IsTransfiniteThreeSided || meshingParameters.TransfiniteFourSided;
@@ -349,7 +351,7 @@ namespace PrePoMax
             if (!NetgenTransfiniteFile.Write(fileName, _controller.Model.Geometry, parts,
                                              meshingParameters.TransfiniteThreeSided,
                                              meshingParameters.TransfiniteFourSided,
-                                             meshingParameters.TransfiniteAngleDeg, pinnedEdgeCounts))
+                                             meshingParameters.TransfiniteAngleDeg, pinnedEdgeCounts, sizedEdgeCounts))
             {
                 if (pinnedEdgeCounts.Count > 0)
                     throw new CaeException("The edges of the compound part " + part.Name + " cannot be matched to the " +
