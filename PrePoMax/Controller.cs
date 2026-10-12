@@ -11621,6 +11621,10 @@ namespace PrePoMax
             {
                 _form.WriteDataToOutput("");
                 foreach (string error in errors) _form.WriteErrorToOutput(error);
+                // An unattended regeneration has nobody to read the messages, so a part left without its mesh fails
+                // the command, and with it the run, the way any other failing command does
+                if (_batchRegenerationMode && _commands.IsReplayingHistory)
+                    throw new CaeException(string.Join(Environment.NewLine, errors));
             }
             //
             return generatedMeshes.Count > 0;

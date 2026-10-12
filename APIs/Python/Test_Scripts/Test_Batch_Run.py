@@ -29,7 +29,9 @@
 #Expected report error contains "cancelled"
 #
 #It also checks that what a script prints to stderr does not fail it, that the folder of the script
-#is on sys.path so a module next to it imports, and that -g No -x No without --rpc is refused.
+#is on sys.path so a module next to it imports, and that -g No -x No without --rpc is refused. A -r regeneration
+#in which the mesh of one part fails must exit with 2, name the part on the console and in the report, while one
+#without a failure exits with 0.
 
 import os
 import shutil
@@ -146,6 +148,76 @@ def check_saved_script_regenerates():
         shutil.rmtree(work_directory, ignore_errors=True)
 
 
+def write_scaled_cube(file_name, scale):
+    models = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Models")
+    lines = []
+    with open(os.path.join(models, "cube.stl")) as reader:
+        for line in reader:
+            values = line.split()
+            if values and values[0] == "vertex":
+                line = "      vertex " + " ".join(repr(float(value) * scale) for value in values[1:]) + "\n"
+            lines.append(line)
+    with open(file_name, "w") as writer:
+        writer.writelines(lines)
+
+
+def check_failed_part_mesh_fails_regeneration():
+    # A part whose mesh fails on regeneration fails the run, where the application with a window shows the message
+    # and goes on. The cube swap.stl is replaced by a much larger one between the runs, so the local mesh size that
+    # fitted its meshing parameters is refused on regeneration while the other part still meshes
+    import System
+    executable = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName
+    launcher = os.path.join(os.path.dirname(executable), "PrePoMax.com")
+    if not os.path.isfile(launcher):
+        print("Skipped the failed part mesh check: " + launcher + " does not exist.")
+        return
+    work_directory = tempfile.mkdtemp(prefix="PyTest_Batch_")
+    try:
+        keep = os.path.join(work_directory, "keep.stl")
+        swap = os.path.join(work_directory, "swap.stl")
+        write_scaled_cube(keep, 10.0)
+        write_scaled_cube(swap, 10.0)
+        script = os.path.join(work_directory, "mesh.py")
+        with open(script, "w") as writer:
+            writer.write("pmx.model.properties.unit_system = 'MM_TON_S_C'\n"
+                         "pmx.model.properties.model_space = 'ThreeD'\n"
+                         "pmx.import_file(%r)\n"
+                         "pmx.import_file(%r)\n"
+                         "names = list(pmx.model.geometry.parts.get_names())\n"
+                         "pmx.model.geometry.parts.rename(names[1], 'PyTest_Swap')\n"
+                         "part = pmx.model.geometry.parts['PyTest_Swap']\n"
+                         "selection = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [part.id])\n"
+                         "pmx.model.mesh.setup_items.add_local_mesh_size('PyTest_LMS', selection, element_size=0.5)\n"
+                         "pmx.model.mesh.generate([names[0], 'PyTest_Swap'])\n" % (keep, swap))
+        saved = os.path.join(work_directory, "mesh.pmx")
+        report_file = os.path.join(work_directory, "run.json")
+        for arguments, scale, exit_code in ((["--script", script, "--save", saved], None, 0),
+                                            (["-r", saved], None, 0),
+                                            (["-r", saved, "--report", report_file], 10000.0, 2)):
+            if scale is not None:
+                write_scaled_cube(swap, scale)
+            completed = subprocess.run([launcher] + arguments + ["-g", "No", "-x", "Yes", "-w", work_directory,
+                                                                 "--timeout", "300"],
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=600)
+            output = completed.stdout.decode("utf-8", "replace")
+            check(completed.returncode == exit_code, " ".join(arguments[:1]) + " must exit with " + str(exit_code) +
+                  ", not " + str(completed.returncode) + ": " + output[-3000:])
+        check("Process finished with errors." in output, "the failed regeneration must say it failed: " + output[-3000:])
+        # The saved history replays the script, whose mesh.generate raises naming the part
+        check("PythonAPIException: PyTest_Swap: The element size 0.5 of the local mesh size PyTest_LMS" in output,
+              "the console must name the part whose mesh failed and why: " + output[-3000:])
+        check("   at PrePoMax." not in output, "the failed mesh must be reported without a .NET stack trace: " +
+              output[-3000:])
+        import json
+        with open(report_file) as reader:
+            run = json.load(reader)
+        check(run["exitStatus"] == "ModelError", "the report status must be ModelError, not " + str(run["exitStatus"]))
+        check("PyTest_Swap: The element size 0.5" in (run["error"] or ""),
+              "the report error must name the part whose mesh failed and why: " + str(run["error"]))
+    finally:
+        shutil.rmtree(work_directory, ignore_errors=True)
+
+
 def main():
     check(len(sys.argv) >= 1, "sys.argv must contain the script file name")
     check(sys.argv[0].lower().endswith(".py"), "sys.argv[0] must be the script file name")
@@ -171,6 +243,7 @@ def main():
     #
     check_hidden_session_without_exit_is_refused()
     check_saved_script_regenerates()
+    check_failed_part_mesh_fails_regeneration()
     #
     print("TEST PASSED")
 

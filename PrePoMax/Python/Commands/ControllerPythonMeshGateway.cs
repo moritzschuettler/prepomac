@@ -99,10 +99,18 @@ namespace PrePoMax.Python
         // The controller already collects which parts meshed and why the others did not, and writes the
         // reasons to the output window. This hands them to the caller as well, because an agent has no
         // output window to read. A call that meshed nothing records no command, so it raises rather than
-        // returning a report of an operation that left no trace
+        // returning a report of an operation that left no trace. An unattended regeneration replaying the script
+        // fails the meshing of any part that did not mesh, and the script is told why without the .NET stack
         public Dictionary<string, string> CreateMeshes(string[] partNames)
         {
-            _controller.CreateMeshesCommand(partNames);
+            try
+            {
+                _controller.CreateMeshesCommand(partNames);
+            }
+            catch (CaeException ex)
+            {
+                throw new PythonAPIException(ex.Message);
+            }
             //
             HashSet<string> meshed = new HashSet<string>(_controller.LastMeshedPartNames);
             string[] errors = _controller.LastMeshingErrors;

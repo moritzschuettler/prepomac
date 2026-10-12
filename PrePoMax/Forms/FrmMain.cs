@@ -815,8 +815,10 @@ namespace PrePoMax
                         // Regenerate
                         await Task.Run(() => _controller.RegenerateHistoryCommands(false, false, _cmdOptions.GetRegenerateType()));
                         // Check for errors
-                        if (_controller.GetCommandCollectionErrors() != null && _controller.GetCommandCollectionErrors().Count > 0)
-                            throw new CaeException("Failed to regenerate some commands.");
+                        List<string> regenerationErrors = _controller.GetCommandCollectionErrors();
+                        if (regenerationErrors != null && regenerationErrors.Count > 0)
+                            throw new CaeException("Failed to regenerate some commands." + Environment.NewLine +
+                                                   string.Join(Environment.NewLine, regenerationErrors));
                         // Overwrite
                         if (_cmdOptions.Overwrite == "Yes")
                         {
