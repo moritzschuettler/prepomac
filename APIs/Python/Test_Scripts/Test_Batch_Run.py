@@ -118,6 +118,34 @@ def cancel_this_run():
     raise Exception("TEST FAILED: the cancel event did not end the run")
 
 
+def check_saved_script_regenerates():
+    # A script run without a file records no new model at the start of its history, and the .pmx it saves must
+    # still regenerate rather than replay the script onto the model the file was saved with
+    import System
+    executable = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName
+    launcher = os.path.join(os.path.dirname(executable), "PrePoMax.com")
+    if not os.path.isfile(launcher):
+        print("Skipped the --save and -r check: " + launcher + " does not exist.")
+        return
+    work_directory = tempfile.mkdtemp(prefix="PyTest_Batch_")
+    try:
+        script = os.path.join(work_directory, "saved.py")
+        with open(script, "w") as writer:
+            writer.write("pmx.model.properties.unit_system = 'MM_TON_S_C'\n"
+                         "pmx.model.properties.model_space = 'ThreeD'\n"
+                         "pmx.model.materials.add('PyTest_M', pmx.create.elastic(1.0, 0.3))\n")
+        saved = os.path.join(work_directory, "saved.pmx")
+        for arguments in (["--script", script, "--save", saved], ["-r", saved]):
+            completed = subprocess.run([launcher] + arguments + ["-g", "No", "-x", "Yes", "-w", work_directory,
+                                                                 "--timeout", "120"],
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=300)
+            output = completed.stdout.decode("utf-8", "replace")
+            check(completed.returncode == 0, " ".join(arguments[:1]) + " must exit with 0, not " +
+                  str(completed.returncode) + ": " + output)
+    finally:
+        shutil.rmtree(work_directory, ignore_errors=True)
+
+
 def main():
     check(len(sys.argv) >= 1, "sys.argv must contain the script file name")
     check(sys.argv[0].lower().endswith(".py"), "sys.argv[0] must be the script file name")
@@ -142,6 +170,7 @@ def main():
         cancel_this_run()
     #
     check_hidden_session_without_exit_is_refused()
+    check_saved_script_regenerates()
     #
     print("TEST PASSED")
 

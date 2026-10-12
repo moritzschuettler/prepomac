@@ -372,9 +372,9 @@ namespace CaeMesh
         public Vec3D DirectionX(double[] coor = null)
         {
             if (_dx == null) EquationChanged();
-            if (coor == null || coor.Length != 3 || (coor[0] == 0 && coor[1] == 0 && coor[2] == 0) ||
+            if (coor == null || coor.Length != 3 ||
                 _type == CoordinateSystemTypeEnum.Rectangular) return _dx;
-            // Cylindrical point not equal to (0, 0, 0)
+            // Cylindrical, at the given point
             else
             {
                 Vec3D p1 = new Vec3D(Center());
@@ -389,9 +389,9 @@ namespace CaeMesh
         public Vec3D DirectionY(double[] coor = null, Vec3D dx = null)
         {
             if (_dy == null) EquationChanged();
-            if (coor == null || coor.Length != 3 || (coor[0] == 0 && coor[1] == 0 && coor[2] == 0) ||
+            if (coor == null || coor.Length != 3 ||
                 _type == CoordinateSystemTypeEnum.Rectangular) return _dy;
-            // Cylindrical point not equal to (0, 0, 0)
+            // Cylindrical, at the given point
             else
             {
                 if (dx == null) dx = DirectionX(coor);

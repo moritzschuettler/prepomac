@@ -845,6 +845,14 @@ namespace PrePoMax
                     // Must be set before the first command, so that a script run leaves the recovery file
                     // of the interactive user untouched
                     if (scriptMode) _controller.RegenerationWorkDirectory = _cmdOptions.WorkDirectory;
+                    // A session without a window, which an agent drives, works where it was told to, so that two of
+                    // them do not write their analyses over each other in the work directory of the settings; it is
+                    // not a batch run, which would refuse its automation server and leave out its history
+                    else if (_hideWindow && _cmdOptions.WorkDirectory != null)
+                    {
+                        _controller.RegenerationWorkDirectory = _cmdOptions.WorkDirectory;
+                        _controller.BatchRegenerationMode = false;
+                    }
                     // Try to recover unsaved progress due to crushed PrePoMax - a question for a
                     // person, so a session without a window is not asked: the unattended answer is the
                     // affirmative one and would regenerate the crash file of the interactive user
@@ -2284,7 +2292,7 @@ namespace PrePoMax
                 string extension = Path.GetExtension(fileName).ToLower();
                 if (extension == ".pmh") stateText = Globals.RegeneratingText;
                 //
-                if (SetStateWorking(stateText) || IsStateRegeneratingOrUndoing())
+                if (SetStateWorking(stateText) || IsStateRegeneratingOrUndoing() || IsStateHeldByPython())
                 {
                     stateSet = true;
                     await Task.Run(() => Open(fileName, ActionOnFile, resetCamera, parameters));
@@ -11399,7 +11407,8 @@ namespace PrePoMax
                     //
                     UpdateComplexControlStates();
                     // Running this by from a command must change the results name
-                    if (resultsName != tscbResultNames.SelectedItem.ToString())
+                    // A removed result leaves no name selected
+                    if (tscbResultNames.SelectedItem == null || resultsName != tscbResultNames.SelectedItem.ToString())
                     {
                         tscbResultNames.SelectedIndexChanged -= tscbResultNames_SelectedIndexChanged;
                         tscbResultNames.SelectedItem = resultsName;
@@ -11766,6 +11775,12 @@ namespace PrePoMax
         public bool IsStateRegeneratingOrUndoing()
         {
             return tsslState.Text == Globals.RegeneratingText || tsslState.Text == Globals.UndoingText;
+        }
+        // A script of the Python panel or an automation call holds the state for everything it does, so an
+        // operation it starts itself is not another task
+        private bool IsStateHeldByPython()
+        {
+            return tsslState.Text == Globals.PythonScriptText || tsslState.Text == Globals.AutomationText;
         }
         //
         private void tsslCancel_MouseDown(object sender, MouseEventArgs e)
@@ -12702,8 +12717,31 @@ namespace PrePoMax
                     _controller.CurrentFieldData = data;   // to correctly update the increment time
                     tscbStepAndIncrement.SelectedIndexChanged += tscbStepAndIncrement_SelectionChanged;  // reattach event
                 }
-                else SetDefaultStepAndIncrementIds();
+                // The default is the plotted increment, so a list without it must not ask for it again
+                else if (!IsPlottedStepAndIncrement(stepId, incrementId)) SetDefaultStepAndIncrementIds();
             });
+        }
+        // As the toolbar list selects them, so the plot is drawn for the new step and increment, which setting
+        // the ids alone leaves for the next redraw
+        public void SelectStepAndIncrement(int stepId, int incrementId)
+        {
+            InvokeIfRequired(() =>
+            {
+                FieldData current = _controller.CurrentFieldData;
+                if (current == null) return;
+                //
+                string stepIncrement = stepId + ", " + incrementId;
+                tscbStepAndIncrement.SelectedIndexChanged -= tscbStepAndIncrement_SelectionChanged;
+                if (tscbStepAndIncrement.Items.Contains(stepIncrement)) tscbStepAndIncrement.SelectedItem = stepIncrement;
+                tscbStepAndIncrement.SelectedIndexChanged += tscbStepAndIncrement_SelectionChanged;
+                //
+                SetFieldData(current.Name, current.Component, stepId, incrementId);
+            });
+        }
+        private bool IsPlottedStepAndIncrement(int stepId, int incrementId)
+        {
+            FieldData fieldData = _controller.CurrentFieldData;
+            return fieldData != null && fieldData.StepId == stepId && fieldData.StepIncrementId == incrementId;
         }
         public void SetDefaultStepAndIncrementIds()
         {
@@ -13073,6 +13111,10 @@ namespace PrePoMax
         public void SelectFirstComponentOfFirstFieldOutput()
         {
             InvokeIfRequired(_modelTree.SelectFirstComponentOfFirstFieldOutput);
+        }
+        public void SelectFieldOutputComponent(string fieldName, string componentName)
+        {
+            InvokeIfRequired(_modelTree.SelectFieldOutputComponent, fieldName, componentName);
         }
         //
         public void SetNumberOfModelUserKeywords(int numOfUserKeywords)

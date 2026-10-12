@@ -50,8 +50,12 @@ namespace APIs.Python.Model
         public object get_coordinates()
         {
             FeReferencePoint referencePoint = Resolve();
-            return PythonListConverter.ToPythonList(new double[] { referencePoint.X.Value, referencePoint.Y.Value,
-                                                                   referencePoint.Z.Value });
+            return PythonListConverter.ToPythonList(new double[]
+            {
+                ModelItemValueReader.EvaluateEquation(referencePoint.X, "coordinates"),
+                ModelItemValueReader.EvaluateEquation(referencePoint.Y, "coordinates"),
+                ModelItemValueReader.EvaluateEquation(referencePoint.Z, "coordinates")
+            });
         }
         [PythonAPI("Returns the coordinate expressions the reference point was entered with, without " +
                    "evaluating them, under coordinates, the argument of add and replace, as a list of three. " +

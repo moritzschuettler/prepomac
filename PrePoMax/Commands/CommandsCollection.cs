@@ -177,8 +177,9 @@ namespace PrePoMax.Commands
         public void RefuseWhenBlocked(string actionName)
         {
             if (_commandBlockReason == null) return;
-            //
-            throw new CaeException(actionName + " was refused. " + _commandBlockReason);
+            // Only an automation call or a script meets a blocked history, and the API's own refusal reaches it as a
+            // Python exception without the .NET stack a CaeException carries
+            throw new APIs.Python.PythonAPIException(actionName + " was refused. " + _commandBlockReason);
         }
         public bool IsCommandRecordingSuppressed { get { return _commandRecordingSuppressionCount > 0; } }
         // Regenerate, or an undo, executing the commands of the history again
@@ -604,7 +605,12 @@ namespace PrePoMax.Commands
             //
             if (lastSave == null &&
                 (regenerateType == RegenerateTypeEnum.All || regenerateType == RegenerateTypeEnum.PreProcess))
+            {
                 _controller.EnableDefaultMeshTypes();
+                // The history of a new model starts by clearing it; one that does not - a script run without a file,
+                // an automation session that never started a new model - would replay onto the model it was saved with
+                if (_commands.Count > 0 && !(_commands[0] is CClear)) _controller.Clear();
+            }
             //
             foreach (Command command in _commands)    // clear command modifies the collection
             {

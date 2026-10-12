@@ -415,7 +415,10 @@ namespace PrePoMax.Python
             using (Py.GIL())
             {
                 if (_console != null) { _console.Dispose(); _console = null; }
-                if (_scope != null) { _scope.Dispose(); _scope = null; }
+                // A script that opened a file or started a new model goes on in the scope it replaced and reads its
+                // error from there, so that scope is left to the garbage collector rather than disposed under it
+                if (_scope != null && !IsExecuting) _scope.Dispose();
+                _scope = null;
                 //
                 CreateScopeAndConsole();
             }

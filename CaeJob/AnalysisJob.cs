@@ -138,6 +138,8 @@ namespace CaeJob
         {
             get
             {
+                // A missing file reads as written in 1601, which every finished run would be newer than
+                if (!File.Exists(ResultsFileName)) return false;
                 DateTime lastWriteTime = File.GetLastWriteTime(ResultsFileName);
                 return _endTime > lastWriteTime;
             }
@@ -469,6 +471,9 @@ namespace CaeJob
         {
             if (_femSolver == FEMSolverEnum.Calculix)
             {
+                // An error that does not stop the run, such as a temperature file that cannot be read, has no asterisk
+                if (text.Contains(" ERROR in ") || text.StartsWith("ERROR in ") || text.Contains("\nERROR in "))
+                    return true;
                 //*ERROR reading *DYNAMIC: initial increment size exce eds step size
                 if (text.Contains("*ERROR"))
                 {
@@ -574,7 +579,7 @@ namespace CaeJob
                 // after Kill() _jobStatus is Killed
                 // A kill or a time out has already decided the outcome and must not be overwritten here
                 if (_jobStatus != JobStatus.Killed && _jobStatus != JobStatus.TimedOut)
-                    _jobStatus = JobStatus.OK;
+                    _jobStatus = GetCompletedStatus(_exe.ExitCode);
             }
             else
             {
@@ -584,6 +589,17 @@ namespace CaeJob
                 _jobStatus = JobStatus.TimedOut;
             }
             _exe.Close();
+        }
+        // A solver that crashed - a segmentation fault ends CalculiX without an error message and without the
+        // steps after it - exits with a code other than zero, as one that stopped on an error does. A model check,
+        // which runs the steps without an analysis, ends with an exit code other than zero as well
+        private JobStatus GetCompletedStatus(int exitCode)
+        {
+            if (exitCode == 0) return JobStatus.OK;
+            if (ContainsNoAnalysis(_sbOutput.ToString()) || ContainsNoAnalysis(_sbAllOutput.ToString())) return JobStatus.OK;
+            //
+            AppendDataToOutput(" The solver ended with the exit code " + exitCode + ".");
+            return JobStatus.Failed;
         }
         private void Run_Win10()
         {
@@ -646,7 +662,7 @@ namespace CaeJob
                     // after Kill() _jobStatus is Killed
                     // A kill or a time out has already decided the outcome and must not be overwritten here
                     if (_jobStatus != JobStatus.Killed && _jobStatus != JobStatus.TimedOut)
-                        _jobStatus = JobStatus.OK;
+                        _jobStatus = GetCompletedStatus(_exe.ExitCode);
                 }
                 else
                 {

@@ -5426,7 +5426,7 @@ namespace CaeResults
             {
                 foreach (var incrementId in existingStepEntry.Value)
                 {
-                    deformedCoor = undeformedCoor.ToArray();
+                    deformedCoor = undeformedCoor.Select(nodeCoor => nodeCoor.ToArray()).ToArray();
                     ScaleNodeCoordinates(deformationFieldName, 1,
                                          existingStepEntry.Key, incrementId, nodeIds, ref deformedCoor);
                     nodeIdNode.Clear();
@@ -5504,7 +5504,7 @@ namespace CaeResults
                         values = field.GetComponentValues(component.Name);
                         if (values == null) continue;
                         //
-                        deformedCoor = undeformedCoor.ToArray();
+                        deformedCoor = undeformedCoor.Select(nodeCoor => nodeCoor.ToArray()).ToArray();
                         ScaleNodeCoordinates(deformationFieldName, 1,
                                              existingStepEntry.Key, incrementId, nodeIds, ref deformedCoor);
                         // Get deformed node ids and their field values

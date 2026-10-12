@@ -449,6 +449,10 @@ namespace PrePoMax
         {
             return _errors.Count();
         }
+        public string[] GetErrors()
+        {
+            return _errors.ToArray();
+        }
         public int GetNumberOfWarnings()
         {
             return _warnings.Count();
@@ -738,6 +742,8 @@ namespace PrePoMax
         }
         public string[] CheckAndUpdateResultValidity()
         {
+            // The results view stays displayed when its last result is closed
+            if (_allResults.CurrentResult == null) return new string[0];
             // Tuple<NamedClass, string>   ...   Tuple<invalidItem, stepName>
             List<Tuple<NamedClass, string>> items = new List<Tuple<NamedClass, string>>();
             string[] invalidResultItems = _allResults.CurrentResult.CheckValidity(items);
@@ -10984,6 +10990,15 @@ namespace PrePoMax
                     if (mp.CreationIds != null && mp.CreationIds.Length > 0)
                     {
                         selectedPartIds = new HashSet<int>(FeMesh.GetPartIdsFromGeometryIds(mp.CreationIds));
+                        // A compound selected as a whole stands for the parts it is meshed from
+                        foreach (int selectedPartId in selectedPartIds.ToArray())
+                        {
+                            if (_model.Geometry.GetPartFromId(selectedPartId) is CompoundGeometryPart compoundPart)
+                            {
+                                string[] compoundMeshablePartNames = GetMeshablePartNames(new string[] { compoundPart.Name });
+                                selectedPartIds.UnionWith(_model.Geometry.GetPartIdsFomPartNames(compoundMeshablePartNames));
+                            }
+                        }
                         //
                         if (selectedPartIds.Intersect(meshAblePartIds).Count() == meshAblePartIds.Length)
                             meshingParameters = mp.DeepCopy();
@@ -12985,7 +13000,9 @@ namespace PrePoMax
             //
             if (update)
             {
-                _model.UpdateMeshPartsElementTypes(true);
+                // A new model space takes its own element types: the plane stress elements an axisymmetric model also
+                // allows would keep a plane model solving as one
+                _model.UpdateMeshPartsElementTypes(false);
                 // Check for a change to or from AxiSymmetric
                 if (prevModelSpace == ModelSpaceEnum.Axisymmetric || newModelSpace == ModelSpaceEnum.Axisymmetric)
                 {

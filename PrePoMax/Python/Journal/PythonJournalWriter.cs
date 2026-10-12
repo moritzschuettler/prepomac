@@ -104,7 +104,9 @@ namespace PrePoMax.Python.Journal
         }
         public void Comment(string comment)
         {
-            Line("# " + comment);
+            // A reason taken from an exception message may span lines, and every one of them must stay a comment
+            foreach (string line in comment.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+                Line("# " + line);
         }
         public void Block(string block)
         {

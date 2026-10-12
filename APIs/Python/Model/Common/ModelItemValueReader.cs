@@ -132,7 +132,11 @@ namespace APIs.Python.Model
             //
             EquationContainer equation = value as EquationContainer;
             // A value the dialog shows as Default, and a degree of freedom that is not constrained, carry a NaN
-            if (equation != null) return double.IsNaN(equation.Value) ? null : (object)equation.Value;
+            if (equation != null)
+            {
+                double evaluated = EvaluateEquation(equation, valueName);
+                return double.IsNaN(evaluated) ? null : (object)evaluated;
+            }
             // A damping is handed over as the part pmx.create makes, a copy, so it goes back into the step
             // argument it came from and changing it changes nothing in the model
             if (value is Damping damping) return new DampingAPI(damping.DeepClone());
@@ -154,6 +158,20 @@ namespace APIs.Python.Model
             //
             throw new InvalidOperationException("The value '" + valueName + "' of a " + item.GetType().Name +
                                                 " is a " + value.GetType().Name + ", which no argument takes.");
+        }
+        // An equation whose parameter was renamed or removed no longer evaluates; the evaluator's message carries
+        // its stack, so only its first line is passed on
+        internal static double EvaluateEquation(EquationContainer equation, string valueName)
+        {
+            try
+            {
+                return equation.Value;
+            }
+            catch (Exception ex)
+            {
+                string message = ex.Message.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)[0];
+                throw new PythonAPIException("The value '" + valueName + "' cannot be evaluated: " + message.Trim());
+            }
         }
         private static PropertyInfo FindProperty(object item, string valueName)
         {

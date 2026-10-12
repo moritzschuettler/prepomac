@@ -112,6 +112,13 @@ class Endpoint(object):
         """run_python, the way an agent writes a step of its work."""
         return self.json_tool("run_python", {"source": source})
 
+    def failing_python(self, source):
+        """run_python of a call meant to fail, whose answer carries the error."""
+        result = self.call("tools/call", {"name": "run_python", "arguments": {"source": source}})
+        text = result["content"][0]["text"]
+        check(result.get("isError"), "the call was meant to fail: " + text)
+        return json.loads(text)
+
     def close(self):
         # There is nothing to shut down: the endpoint is the application, and an HTTP request holds
         # no connection of its own between calls
@@ -330,6 +337,47 @@ def journal_the_session(endpoint):
     print("screenshot: " + str(result["length"]) + " bytes, transparent and magnified")
 
 
+def check_results_open_in_a_long_call(endpoint):
+    """A call that lasts holds the busy state, and opening results inside it is part of the call, not another task."""
+    result = endpoint.python("import time" + os.linesep +
+                             "pmx.results.clear()" + os.linesep +
+                             "time.sleep(1)" + os.linesep +
+                             "pmx.jobs.open_results('" + JOB + "')" + os.linesep +
+                             "print(len(pmx.results.get_names()))")
+    check(not result["failed"], "the long call failed: " + result["error"])
+    check(result["output"].strip() == "1", "the results must be open after a long call opened them: " +
+          result["output"] + str(result.get("messages")))
+    check("messages" not in result, "opening results in a long call must not warn: " + str(result.get("messages")))
+    print("long call: the results were opened inside it")
+
+
+def check_a_model_change_after_closing_the_results(endpoint):
+    """The results view stays displayed when its last result is closed, and must not break a model change."""
+    result = endpoint.python("pmx.view.current = 'results'" + os.linesep +
+                             "pmx.results.clear()" + os.linesep +
+                             "pmx.model.parameters.add('" + PREFIX + "after_clear', 5)")
+    check(not result["failed"], "a model change after closing the results failed: " + result["error"])
+    check([entry["type"] for entry in result["recordedCommands"]] == ["CRemoveAllResults", "CAddParameter"],
+          "the parameter must be recorded: " + str(result["recordedCommands"]))
+    endpoint.python("pmx.model.parameters.remove('" + PREFIX + "after_clear')" + os.linesep +
+                    "pmx.jobs.open_results('" + JOB + "')")
+    print("closed results: a model change in the empty results view is recorded")
+
+
+def check_errors_after_a_new_model(endpoint):
+    """A new model replaces the console scope while the call still runs in the old one, which keeps its error."""
+    result = endpoint.failing_python("pmx.new_model('ThreeD', 'MM_TON_S_C', discard_changes=True)" + os.linesep +
+                                     "pmx.model.geometry.parts.rename('" + PREFIX + "NoSuchPart', 'x')")
+    check(result["failed"], "renaming a part that does not exist must fail")
+    check("PythonAPIException: The geometry part" in result["error"] and "   at " not in result["error"],
+          "an error after a new model must be a Python traceback without a .NET stack: " + result["error"])
+    # An index past the end of a returned list is refused like any other wrong argument
+    result = endpoint.failing_python("pmx.model.steps.get_names()[5]")
+    check(result["failed"] and "out of range" in result["error"] and "   at " not in result["error"],
+          "an index out of range must be refused without a .NET stack: " + result["error"])
+    print("errors: clean after a new model, and for an index out of range")
+
+
 def check_a_fast_call_does_not_mark_the_session_busy(endpoint):
     """The state is only worth showing for a call that lasts, so a fast one must not touch it."""
     endpoint.python("fast_call_probe = 1 + 1")
@@ -422,8 +470,11 @@ def run_the_workflow():
         solve(endpoint)
         read_the_result(endpoint)
         journal_the_session(endpoint)
+        check_results_open_in_a_long_call(endpoint)
+        check_a_model_change_after_closing_the_results(endpoint)
         check_a_fast_call_does_not_mark_the_session_busy(endpoint)
         check_a_long_call_blocks_nothing(session, endpoint)
+        check_errors_after_a_new_model(endpoint)
     finally:
         if endpoint is not None:
             endpoint.close()

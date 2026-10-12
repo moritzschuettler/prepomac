@@ -77,7 +77,8 @@ namespace APIs.Python.Model
                    "distribution scales every prescribed degree of freedom, a vector one scales u1, u2 and u3 by " +
                    "its three components; either needs a nonzero prescribed value and a region that is not a " +
                    "reference point. A two dimensional model has no u3, ur1 and ur2, so it refuses a value for " +
-                   "them. The phase_deg applies only in a steady_state_dynamics step, where a boundary " +
+                   "them, and a coordinate system other than Global constrains the translations only, so it " +
+                   "refuses ur1, ur2 and ur3. The phase_deg applies only in a steady_state_dynamics step, where a boundary " +
                    "condition is complex, and is refused elsewhere; it is at least 0 and below 360 degrees. The " +
                    "selection target is geometry, as the dialog picks it, or nodes.",
                    Arguments = "name: str, region: Selection or Region, u1: float = None, u2: float = None, " +
@@ -110,6 +111,7 @@ namespace APIs.Python.Model
                 boundaryCondition.DistributionName = _service.ResolveDistributionName(distribution_name);
             _service.ApplyAmplitudeName(boundaryCondition, amplitude_name);
             _service.ApplyCoordinateSystemName(boundaryCondition, coordinate_system_name);
+            RefuseRotationsInCoordinateSystem(boundaryCondition, ur1, ur2, ur3);
             _service.ApplyCommonValues(boundaryCondition, phase_deg, color);
             EnsureFixedDegreesOfFreedom(boundaryCondition);
             _service.EnsureDistributionApplicable(boundaryCondition);
@@ -149,6 +151,7 @@ namespace APIs.Python.Model
                 boundaryCondition.DistributionName = _service.ResolveDistributionName(distribution_name);
             _service.ApplyAmplitudeName(boundaryCondition, amplitude_name);
             _service.ApplyCoordinateSystemName(boundaryCondition, coordinate_system_name);
+            RefuseRotationsInCoordinateSystem(boundaryCondition, ur1, ur2, ur3);
             _service.ApplyCommonValues(boundaryCondition, phase_deg, color);
             EnsureFixedDegreesOfFreedom(boundaryCondition);
             _service.EnsureDistributionApplicable(boundaryCondition);
@@ -376,6 +379,18 @@ namespace APIs.Python.Model
         }
         // The dialog stores a fixed degree of freedom as positive infinity, which the solver input writes without
         // a value
+        // A displacement in a coordinate system constrains the translations only, as the dialog hides the rotations
+        // then, so a rotation given with one is refused rather than dropped
+        private static void RefuseRotationsInCoordinateSystem(DisplacementRotation boundaryCondition, object ur1,
+                                                              object ur2, object ur3)
+        {
+            if (boundaryCondition.CoordinateSystemName == CaeMesh.CoordinateSystem.DefaultCoordinateSystemName) return;
+            if (ur1 == null && ur2 == null && ur3 == null) return;
+            //
+            throw new PythonAPIException("The arguments 'ur1', 'ur2' and 'ur3' do not apply in the coordinate system '" +
+                                         boundaryCondition.CoordinateSystemName + "': a displacement in a coordinate " +
+                                         "system constrains the translations only.");
+        }
         private static void FixDegreesOfFreedom(DisplacementRotation boundaryCondition, object fixedDofs,
                                                 object freeDofs, object u1, object u2, object u3, object ur1,
                                                 object ur2, object ur3)

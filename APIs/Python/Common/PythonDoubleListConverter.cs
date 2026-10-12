@@ -80,7 +80,7 @@ namespace APIs.Python
             {
                 using (Py.GIL())
                 {
-                    if (value.IsNone() || PyString.IsStringType(value)) throw InvalidList(argumentName);
+                    if (value.IsNone() || PyString.IsStringType(value) || PyDict.IsDictType(value)) throw InvalidList(argumentName);
                     using (PyObject builtins = Py.Import("builtins"))
                     using (PyObject listFunction = builtins.GetAttr("list"))
                     using (PyObject items = listFunction.Invoke(value))
@@ -136,7 +136,7 @@ namespace APIs.Python
             {
                 using (Py.GIL())
                 {
-                    if (value.IsNone() || PyString.IsStringType(value)) throw InvalidList2D(argumentName);
+                    if (value.IsNone() || PyString.IsStringType(value) || PyDict.IsDictType(value)) throw InvalidList2D(argumentName);
                     using (PyObject builtins = Py.Import("builtins"))
                     using (PyObject listFunction = builtins.GetAttr("list"))
                     using (PyObject items = listFunction.Invoke(value))

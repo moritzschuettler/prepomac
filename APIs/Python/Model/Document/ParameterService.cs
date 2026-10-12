@@ -310,6 +310,17 @@ namespace APIs.Python.Model
         {
             ValidateNameFormat(name, argumentName, allowedExistingName);
             if (allowedExistingName != null && PythonNameComparer.AreSame(name, allowedExistingName)) return;
+            // As the parameter editor refuses them: an equation reads a name starting with a digit as a number, and a
+            // reserved name - a constant such as pi, a coordinate, a model property - shadows the parameter
+            if (char.IsDigit(name[0]))
+                throw new PythonAPIException("The argument '" + argumentName + "' must not start with a digit.");
+            foreach (string reservedName in MyNCalc.GetReservedParameterNames()
+                                                   .Concat(_modelResolver.GetModel().GetPropertyParameters().Keys))
+            {
+                if (string.Equals(name, reservedName, StringComparison.OrdinalIgnoreCase))
+                    throw new PythonAPIException("The argument '" + argumentName + "' names '" + name + "', which " +
+                                                 "is reserved in equations.");
+            }
             //
             foreach (string existingName in GetNames())
             {

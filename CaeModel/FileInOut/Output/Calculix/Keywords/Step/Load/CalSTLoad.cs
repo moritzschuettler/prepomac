@@ -25,6 +25,7 @@ namespace FileInOut.Output.Calculix
         private STLoad _load;
         private CLoad[] _cLoads;
         private ComplexLoadTypeEnum _complexLoadType;
+        private FeMesh _mesh;
 
 
         // Properties                                                                                                               
@@ -36,6 +37,7 @@ namespace FileInOut.Output.Calculix
             _load = load;
             _cLoads = model.GetNodalCLoadsFromSurfaceTraction(_load);
             _complexLoadType = complexLoadType;
+            _mesh = model.Mesh;
         }
 
 
@@ -59,20 +61,24 @@ namespace FileInOut.Output.Calculix
             //
             double ratio = GetComplexRatio(_complexLoadType, _load.PhaseDeg.Value);
             //
+            // A *Transform would rotate every load and boundary condition of the nodes in every step, so the components
+            // given in a coordinate system are rotated here instead
+            CoordinateSystem coordinateSystem;
+            _mesh.CoordinateSystems.TryGetValue(_load.CoordinateSystemName, out coordinateSystem);
+            int numOfDirections = _load.TwoD ? 2 : 3;
+            //
             if (_cLoads != null)
             {
-                List<int> directions = new List<int>();
                 foreach (var cLoad in _cLoads)
                 {
-                    directions.Clear();
-                    if (cLoad.F1.Value != 0) directions.Add(1);
-                    if (cLoad.F2.Value != 0) directions.Add(2);
-                    if (cLoad.F3.Value != 0) directions.Add(3);
+                    double[] force = new double[] { cLoad.F1.Value, cLoad.F2.Value, cLoad.F3.Value };
+                    if (coordinateSystem != null)
+                        force = coordinateSystem.GetOrientedVectorAtPoint(force, _mesh.Nodes[cLoad.NodeId].Coor);
                     //
-                    foreach (var dir in directions)
+                    for (int dir = 1; dir <= numOfDirections; dir++)
                     {
-                        sb.AppendFormat("{0}, {1}, {2}", cLoad.NodeId, dir,
-                                        (ratio * cLoad.GetComponent(dir - 1)).ToCalculiX16String());
+                        if (force[dir - 1] == 0) continue;
+                        sb.AppendFormat("{0}, {1}, {2}", cLoad.NodeId, dir, (ratio * force[dir - 1]).ToCalculiX16String());
                         sb.AppendLine();
                     }
                 }

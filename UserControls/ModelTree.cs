@@ -4837,6 +4837,26 @@ namespace UserControls
                 }
             }
         }
+        // A redraw selects the field component of the selected tree node again, so a component plotted without
+        // a click in the tree must also be selected there, or the next redraw plots the previous one
+        public void SelectFieldOutputComponent(string fieldName, string componentName)
+        {
+            TreeNode fieldNode = _resultFieldOutputs.Nodes[fieldName];
+            TreeNode componentNode = fieldNode?.Nodes[componentName];
+            if (componentNode == null) return;
+            //
+            try
+            {
+                _disableSelectionsChanged = true;
+                fieldNode.Expand();
+                cltvResults.SelectedNodes.Clear();  // for the shift key to work
+                cltvResults.SelectedNode = componentNode;
+            }
+            finally
+            {
+                _disableSelectionsChanged = false;
+            }
+        }
         private void CreateOverwriteHistoryOutputNodes(HistoryResultSet[] historyResultSets,
                                                        ResultHistoryOutput[] resultHistoryOutputs,
                                                        int[] indices = null)

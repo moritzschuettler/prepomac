@@ -120,6 +120,30 @@ def test_the_plotted_field():
           "a refused increment must leave the plot alone: " + str(plotted))
 
 
+def test_a_redraw_keeps_the_plotted_field():
+    # A redraw plots the component selected in the results tree, so a field set by the API must be selected
+    # there too; DISP U3 is not the component the tree selects when the result opens
+    pmx.view.set_result_field("DISP", "U3")
+    plotted = pmx.view.get_result_field()
+    shown = pmx.view.annotations.get_min_max()
+    deformation_type = pmx.view.deformation_type
+    deformation_factor = pmx.view.deformation_factor
+    redraws = [("show_min_max", lambda: pmx.view.annotations.show_min_max(not shown[0], shown[1])),
+               ("set_legend_range", lambda: pmx.view.set_legend_range(-1.0, 1.0)),
+               ("reset_legend_range", lambda: pmx.view.reset_legend_range()),
+               ("deformation_factor", lambda: setattr(pmx.view, "deformation_factor", 3.0))]
+    try:
+        for name, redraw in redraws:
+            redraw()
+            check(pmx.view.get_result_field() == plotted,
+                  name + " must keep the plotted field " + str(plotted) + ": " + str(pmx.view.get_result_field()))
+    finally:
+        pmx.view.annotations.show_min_max(shown[0], shown[1])
+        pmx.view.reset_legend_range()
+        pmx.view.deformation_type = deformation_type
+        pmx.view.deformation_factor = deformation_factor
+
+
 def test_the_plot_type():
     for name in ["Undeformed", "Deformed", "ColorContours"]:
         pmx.view.result_type = name
@@ -362,11 +386,44 @@ def test_the_annotations():
           "the removed annotations must be gone: " + str(list(annotations.get_names())))
 
 
+def test_a_result_opened_by_the_api():
+    # A result opened by a script must fill the step and increment list the view selects from, as File - Open
+    # fills it; an empty list once made the selection of an increment recurse until the process died
+    file_name = pmx.results.current.file_name
+    pmx.results.clear()
+    pmx.results.open(file_name)
+    check(pmx.view.get_result_field() is not None, "a result opened by the API must be plotted")
+    pmx.view.set_result_field("DISP", "U3")
+    result = pmx.results.current
+    pictures = []
+    for step_id in result.steps.get_ids():
+        for increment_id in result.steps[step_id].increments.get_ids():
+            pmx.view.set_result_increment(step_id, increment_id)
+            plotted = pmx.view.get_result_field()
+            check(plotted["step_id"] == step_id and plotted["increment_id"] == increment_id,
+                  "the increment of a result opened by the API must be selectable: " + str(plotted))
+            path = pmx.view.save_image()
+            with open(path, "rb") as reader:
+                pictures.append(reader.read())
+            os.remove(path)
+    # The plot is drawn for the increment that was selected, not left at the one drawn before it
+    if len(pictures) > 1:
+        check(pictures[0] != pictures[-1], "selecting another increment must redraw the plot")
+    # Removing the current one of two results makes the other current, as Close Current Result does
+    copy_name = os.path.join(TEMPORARY_FOLDER, "PyTest_Copy.frd")
+    shutil.copyfile(file_name, copy_name)
+    pmx.results.open(copy_name)
+    pmx.results.remove_current()
+    names = list(pmx.results.get_names())
+    check(len(names) == 1 and pmx.results.current is not None, "the other result must be current: " + str(names))
+
+
 def main():
     check(pmx.results.current is not None, "a result must be open")
     try:
         test_the_view_is_the_results_view()
         test_the_plotted_field()
+        test_a_redraw_keeps_the_plotted_field()
         test_the_plot_type()
         test_the_deformation()
         test_the_legend_range()
@@ -374,6 +431,7 @@ def main():
         test_the_annotations()
         test_the_picture()
         test_the_picture_options()
+        test_a_result_opened_by_the_api()
     finally:
         shutil.rmtree(TEMPORARY_FOLDER, ignore_errors=True)
     print("TEST PASSED")

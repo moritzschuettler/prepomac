@@ -95,6 +95,32 @@ def setup():
     pmx.model.distributions.add_from_equation(VECTOR_DISTRIBUTION, ["x", "y", "z"])
 
 
+def read_step_blocks(file_name):
+    with open(file_name) as reader:
+        text = reader.read()
+    return text.split("\n*Step")[1:]
+
+
+def test_identical_boundary_conditions_keep_op(directory):
+    # CalculiX breaks the rotational constraints of expanded shell nodes on *Boundary, op=New, so a step that only
+    # applies the boundary conditions of the step before it again must not write it
+    file_name = os.path.join(directory, "op_new.inp")
+    region = pmx.create.region('NodeSetName', NODE_SET)
+    pmx.model.steps[STEP].bcs.add_fixed(PREFIX + "Fix_1", region)
+    pmx.model.steps[NEXT_STEP].bcs.add_fixed(PREFIX + "Fix_2", region)
+    pmx.export_model(file_name)
+    blocks = read_step_blocks(file_name)
+    check("*Boundary, op=New" in blocks[0], "the first step must start its boundary conditions anew")
+    check("*Boundary, op=New" not in blocks[1], "a step with the same boundary conditions must not write op=New")
+    pmx.model.steps[NEXT_STEP].bcs.remove([PREFIX + "Fix_2"])
+    pmx.model.steps[NEXT_STEP].bcs.add_displacement_rotation(PREFIX + "Disp_2", region, u1=0.1)
+    pmx.export_model(file_name)
+    blocks = read_step_blocks(file_name)
+    check("*Boundary, op=New" in blocks[1], "a step with other boundary conditions must write op=New")
+    pmx.model.steps[STEP].bcs.remove([PREFIX + "Fix_1"])
+    pmx.model.steps[NEXT_STEP].bcs.remove([PREFIX + "Disp_2"])
+
+
 def test_regions():
     bcs = pmx.model.steps[STEP].bcs
     check(bcs.step_name == STEP, "the collection must carry the step name")
@@ -676,6 +702,12 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
     setup()
+    # The input file it writes holds every boundary condition of the steps, so it runs while they hold only its own
+    directory = tempfile.mkdtemp(prefix="pytest_op_new_")
+    try:
+        test_identical_boundary_conditions_keep_op(directory)
+    finally:
+        shutil.rmtree(directory)
     test_regions()
     test_displacement_rotation()
     test_complex_phase()

@@ -275,7 +275,9 @@ namespace PrePoMax.Python
                                              componentName + "'. Its components are " +
                                              string.Join(", ", components) + ".");
             //
-            ResolveForm().SetFieldData(fieldName, component);
+            FrmMain form = ResolveForm();
+            form.SelectFieldOutputComponent(fieldName, component);
+            form.SetFieldData(fieldName, component);
         }
         // The form falls back to the default increment for a combination its list does not hold, so
         // the combination is checked here: a script that asked for an increment the result does not
@@ -293,7 +295,7 @@ namespace PrePoMax.Python
                                              "with the ID " + incrementId + ". Its increment IDs are " +
                                              Join(incrementIds) + ".");
             //
-            ResolveForm().SetStepAndIncrementIds(stepId, incrementId);
+            ResolveForm().SelectStepAndIncrement(stepId, incrementId);
         }
         // A relative name is placed where the screenshot tool of the automation server places it, so the
         // same name means the same file whichever front door asked for it

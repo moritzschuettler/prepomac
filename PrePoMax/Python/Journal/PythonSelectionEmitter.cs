@@ -232,7 +232,8 @@ namespace PrePoMax.Python.Journal
             //
             if (selection.MaxNumberOfGeometryIds != defaults.MaxNumberOfGeometryIds)
                 arguments.Add("max_geometry_ids=" + selection.MaxNumberOfGeometryIds);
-            if (selection.MaxNumberOfItemIds != defaults.MaxNumberOfItemIds)
+            // A selection of an older file reads 0, which the application takes as unlimited, as the default is
+            if (selection.MaxNumberOfItemIds != defaults.MaxNumberOfItemIds && selection.MaxNumberOfItemIds != 0)
                 arguments.Add("max_item_ids=" + selection.MaxNumberOfItemIds);
             if (selection.LimitSelectionToFirstPart) arguments.Add("limit_to='FirstPart'");
             else if (selection.LimitSelectionToFirstGeometryType) arguments.Add("limit_to='FirstGeometryType'");

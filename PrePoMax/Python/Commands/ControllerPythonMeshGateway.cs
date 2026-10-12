@@ -141,9 +141,15 @@ namespace PrePoMax.Python
         {
             _controller.CreateBoundaryLayerCommand(geometrySelection, thickness);
         }
+        // Only shell elements are remeshed, and a remeshing that changed nothing records no command, so the caller is
+        // told rather than left with an operation that left no trace
         public void RemeshElements(RemeshingParameters remeshingParameters)
         {
+            int commandCount = _controller.GetActiveCommandCount();
             _controller.RemeshElementsCommand(remeshingParameters);
+            if (_controller.GetActiveCommandCount() == commandCount)
+                throw new PythonAPIException("No element was remeshed. Remeshing works on shell elements only, so the " +
+                                             "region must hold shell elements, and the mesher must succeed on them.");
         }
         public void ThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset,
                                      bool keepModelEdges)

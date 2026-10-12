@@ -31,6 +31,20 @@ namespace PrePoMax.Python
         }
 
 
+        // Static methods
+        // The run and the export dialogs ask whether to go on with invalid items, which a script cannot answer; an
+        // invalid item would be written without what it lost - a removed coordinate system, region or amplitude - so
+        // the call is refused, naming the items to fix, deactivate or remove
+        public static void RefuseInvalidModelItems(Controller controller, string whatHappened)
+        {
+            string[] invalidItems = controller.CheckAndUpdateModelValidity();
+            if (invalidItems.Length == 0) return;
+            //
+            throw new PythonAPIException("The model contains active invalid items, so " + whatHappened + ": " +
+                                         string.Join(", ", invalidItems) + ". Fix, deactivate or remove them first.");
+        }
+
+
         // Methods
         public FeModel GetModel()
         {
@@ -56,6 +70,8 @@ namespace PrePoMax.Python
         {
             // The view is passed explicitly so that a script does not depend on the view the user left behind
             _controller.RenameCommand(item, newName, stepName, ViewGeometryModelResults.Model);
+            // The items that referenced the old name are checked again, as after a parameter change
+            _controller.CheckAndUpdateModelValidity();
         }
         public void ActivateDeactivateItems(NamedClass[] items, bool activate, string[] stepNames)
         {
@@ -70,15 +86,49 @@ namespace PrePoMax.Python
         {
             _controller.New();
             _controller.SetNewModelPropertiesCommand(modelSpace, unitSystemType);
+            // As File - New leaves it: setting the unit system of the empty model is no change to save
+            _controller.ModelChanged = false;
         }
-        // Opened and recorded as File - Open opens and records it, so a result file and a .pmh history replay the same
+        // Opened and recorded as File - Open opens and records it, so a result file and a .pmh history replay the same.
+        // The form fills the result names and the step and increment list of an opened result, which the view API
+        // selects from
         public void OpenFile(string fileName)
         {
-            _controller.OpenFileCommand(fileName, Globals.FromFileOpenMenu);
+            if (_controller.Form != null)
+            {
+                _controller.Form.Open(fileName, _controller.OpenFileCommand, true, Globals.FromFileOpenMenu);
+                // A result file without a unit system gets one as File - Open gives it, unit less where nobody can
+                // choose
+                if (_controller.ResultsInitialized) _controller.Form.SelectResultsUnitSystem(Globals.FromFileOpenMenu);
+            }
+            else _controller.OpenFileCommand(fileName, Globals.FromFileOpenMenu);
         }
+        // The import dialog reports the errors the import collected, as the output window shows them. An import that
+        // added nothing because of them - a 3D file imported into a 2D model - is refused, so a script is not left with
+        // a model the file never reached
         public void ImportFile(string fileName, bool onlyMaterials)
         {
+            int numOfParts = CountModelParts();
+            _controller.ClearErrors();
+            _controller.ClearWarnings();
             _controller.ImportFileCommand(fileName, onlyMaterials);
+            //
+            if (_controller.GetNumberOfWarnings() > 0) _controller.OutputWarnings();
+            if (_controller.GetNumberOfErrors() > 0)
+            {
+                _controller.OutputErrors();
+                if (!onlyMaterials && CountModelParts() == numOfParts)
+                    throw new PythonAPIException("The file imported nothing: " +
+                                                 string.Join(" ", _controller.GetErrors()).Replace(Environment.NewLine, " "));
+            }
+        }
+        private int CountModelParts()
+        {
+            FeModel model = _controller.Model;
+            int count = 0;
+            if (model.Geometry != null) count += model.Geometry.Parts.Count;
+            if (model.Mesh != null) count += model.Mesh.Parts.Count;
+            return count;
         }
         public void SaveToPmx(string fileName)
         {
@@ -86,10 +136,12 @@ namespace PrePoMax.Python
         }
         public void ExportToCalculix(string fileName)
         {
+            RefuseInvalidModelItems(_controller, "the model was not exported");
             _controller.ExportToCalculixCommand(fileName);
         }
         public void ExportToAbaqus(string fileName)
         {
+            RefuseInvalidModelItems(_controller, "the model was not exported");
             _controller.ExportToAbaqusCommand(fileName);
         }
         public void ExportTo3mf(string fileName, double edgeThicknessRatio)
@@ -280,7 +332,8 @@ namespace PrePoMax.Python
         {
             _controller.SetCalculixKeywordEditorStateCommand(keywords, overrides);
         }
-        // Parameters
+        // Parameters - the model checks its items again only while the model view is displayed, so a script reads
+        // the validity of the items a parameter change broke right after it
         public void AddParameter(EquationParameter parameter)
         {
             _controller.AddParameterCommand(parameter);
@@ -288,18 +341,22 @@ namespace PrePoMax.Python
         public void ReplaceParameter(string oldParameterName, EquationParameter parameter)
         {
             _controller.ReplaceParameterCommand(oldParameterName, parameter);
+            _controller.CheckAndUpdateModelValidity();
         }
         public void RemoveParameters(string[] parameterNames)
         {
             _controller.RemoveParametersCommand(parameterNames);
+            _controller.CheckAndUpdateModelValidity();
         }
         public void SetParameters(EquationParameter[] parameters)
         {
             _controller.SetParametersCommand(parameters);
+            _controller.CheckAndUpdateModelValidity();
         }
         public void ImportParameters(string fileName)
         {
             _controller.ImportParametersCommand(fileName);
+            _controller.CheckAndUpdateModelValidity();
         }
         public void ExportParameters(string fileName)
         {

@@ -9,6 +9,7 @@
 
 using CaeGlobals;
 using CaeMesh;
+using CaeModel;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -176,6 +177,7 @@ namespace APIs.Python.Model
                 {
                     FieldInfo field = ResolveElementTypeField(entry.Key);
                     object parsed = ParseElementTypeValue(field, entry.Key, entry.Value);
+                    RefuseElementTypeOfAnotherModelSpace(field, entry.Key, parsed);
                     EnsureElementKindPresent(oldPartName, properties, field, entry.Key);
                     field.SetValue(boxed, parsed);
                 }
@@ -193,6 +195,7 @@ namespace APIs.Python.Model
             //
             FieldInfo field = ResolveElementTypeField(elementType);
             object parsed = ParseElementTypeValue(field, elementType, value);
+            RefuseElementTypeOfAnotherModelSpace(field, elementType, parsed);
             foreach (string partName in partNames)
                 EnsureElementKindPresent(partName, GetPartProperties(partName), field, elementType);
             //
@@ -379,6 +382,17 @@ namespace APIs.Python.Model
         }
         // Enum.Parse accepts a number and combines a comma separated list into another member, so only a member
         // name is taken. None is not a value: it marks an absent element kind, and the part ignores it
+        // The part dialog offers only the element types of the model space; another one fails in the solver
+        private void RefuseElementTypeOfAnotherModelSpace(FieldInfo field, string elementType, object parsed)
+        {
+            ModelSpaceEnum modelSpace = _modelResolver.GetModel().Properties.ModelSpace;
+            HashSet<string> unavailableNames;
+            if (modelSpace.GetUnavailableElementTypeNames().TryGetValue(field.FieldType, out unavailableNames) &&
+                unavailableNames.Contains(parsed.ToString()))
+                throw new PythonAPIException("The value '" + parsed + "' of the element type '" + elementType +
+                                             "' cannot be used in a " + modelSpace + " model, as the dialog does " +
+                                             "not offer it there.");
+        }
         private static object ParseElementTypeValue(FieldInfo field, string elementType, string value)
         {
             object parsed = null;

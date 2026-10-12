@@ -55,7 +55,8 @@ namespace APIs.Python.Model
             _toolService.CreateBoundaryLayer(selectionValue, thickness);
         }
 
-        [PythonAPI("Remeshes the elements of a region using command history. The region is a selection or " +
+        [PythonAPI("Remeshes the shell elements of a region using command history, and raises when none was " +
+                   "remeshed - a region of solid elements only. The region is a selection or " +
                    "an ElementSetName region, which is what the dialog offers; the selection target is elements, " +
                    "as the dialog picks them, or geometry. Every parameter that is not " +
                    "given keeps the application default. max_size and min_size are at least 0, a min_size larger " +

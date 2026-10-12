@@ -62,7 +62,11 @@ namespace FileInOut.Output.Calculix
             string fileData = "";
             string amplitude = "";
             if (_definedTemperature.Type == DefinedTemperatureTypeEnum.FromFile)
-                fileData = string.Format(", File={0}, Step={1}", _definedTemperature.FileName, _definedTemperature.StepNumber);
+            {
+                string stepData = ", Step=" + _definedTemperature.StepNumber;
+                int maxLength = CalculixLineLength - "*Temperature, File=".Length - stepData.Length - OpTypeString().Length;
+                fileData = ", File=" + Tools.GetPathForSolverLine(_definedTemperature.FileName, maxLength, false) + stepData;
+            }
             else
             {
                 if (_definedTemperature.AmplitudeName != Amplitude.DefaultAmplitudeName)

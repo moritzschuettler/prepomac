@@ -80,6 +80,8 @@ namespace APIs.Python
         private static TPart Unwrap<TPart>(PyObject value, string argumentName, string expectation)
             where TPart : class
         {
+            // pythonnet converts None to null rather than refusing it
+            if (value.IsNone()) throw Invalid(argumentName, expectation);
             try
             {
                 return value.As<TPart>();

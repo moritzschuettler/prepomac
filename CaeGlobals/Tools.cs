@@ -20,6 +20,7 @@ using DynamicTypeDescriptor;
 using System.Linq.Expressions;
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using UnitsNet;
 
 namespace CaeGlobals
@@ -135,6 +136,19 @@ namespace CaeGlobals
                 return "#" + path.Substring(startUpPath.Length);
             }
             return path;
+        }
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern uint GetShortPathName(string longPath, StringBuilder shortPath, uint bufferLength);
+        // CalculiX reads 132 characters of a keyword line and drops the blanks of an unquoted value, so a file name
+        // that does not fit, or has blanks where it cannot keep them, is given in the short form Windows keeps for it
+        public static string GetPathForSolverLine(string path, int maxLength, bool blanksAllowed)
+        {
+            if (path == null || (path.Length <= maxLength && (blanksAllowed || !path.Contains(" ")))) return path;
+            //
+            StringBuilder shortPath = new StringBuilder(path.Length + 1);
+            uint length = GetShortPathName(path, shortPath, (uint)shortPath.Capacity);
+            if (length == 0 || length >= shortPath.Capacity) return path;
+            return shortPath.ToString();
         }
         public static string GetGlobalPath(string path)
         {

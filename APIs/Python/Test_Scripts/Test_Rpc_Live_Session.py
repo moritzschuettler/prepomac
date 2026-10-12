@@ -260,6 +260,8 @@ def check_read_only(client):
     result = client.result("exec", {"source": "pmx.model.parameters.add('blocked', 1.0)"})
     check(result["failed"], "a change must fail in read only mode")
     check("read only" in result["error"], "the refusal must say why: " + result["error"])
+    check("PythonAPIException" in result["error"] and "   at " not in result["error"],
+          "the refusal must be a PythonAPIException without a .NET stack: " + result["error"])
     check(result["recordedCommands"] == [], "nothing may be recorded: " + str(result["recordedCommands"]))
     # Reading keeps working, which is what an agent mostly does
     value = client.result("eval", {"expression": "pmx.model.parameters.get_names()"})

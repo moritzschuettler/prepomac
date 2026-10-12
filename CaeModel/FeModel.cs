@@ -385,9 +385,11 @@ namespace CaeModel
             foreach (var entry in _contactPairs)
             {
                 contactPair = entry.Value;
+                // CalculiX takes the master of a contact pair or a tie as element faces only
                 valid = _surfaceInteractions.ContainsValidKey(contactPair.SurfaceInteractionName)
                         && _mesh.Surfaces.ContainsValidKey(contactPair.SlaveRegionName)
-                        && _mesh.Surfaces.ContainsValidKey(contactPair.MasterRegionName);
+                        && _mesh.Surfaces.ContainsValidKey(contactPair.MasterRegionName)
+                        && IsElementSurface(contactPair.MasterRegionName);
                 //
                 SetItemValidity(null, contactPair, valid, items);
                 if (!valid && contactPair.Active) invalidItems.Add("Contact pair: " + contactPair.Name);
@@ -705,7 +707,7 @@ namespace CaeModel
             else if (constraint is Tie t)
             {
                 valid = _mesh.Surfaces.ContainsValidKey(t.SlaveRegionName) && _mesh.Surfaces.ContainsValidKey(t.MasterRegionName)
-                        && (t.SlaveRegionName != t.MasterRegionName);
+                        && (t.SlaveRegionName != t.MasterRegionName) && IsElementSurface(t.MasterRegionName);
             }
             else if (constraint is Joint joint)
             {
@@ -714,6 +716,11 @@ namespace CaeModel
             else throw new NotSupportedException();
             //
             return valid;
+        }
+        private bool IsElementSurface(string surfaceName)
+        {
+            FeSurface surface;
+            return _mesh.Surfaces.TryGetValue(surfaceName, out surface) && surface.Type == FeSurfaceType.Element;
         }
         public bool IsJointRegionValid(Joint joint)
         {
@@ -1097,10 +1104,13 @@ namespace CaeModel
             }
             else if (bc is DisplacementRotation dr)
             {
+                // The node of a reference point is not transformed, so a coordinate system there would be written as
+                // the global one
                 valid = (dr.RegionType == RegionTypeEnum.NodeSetName && _mesh.NodeSets.ContainsValidKey(dr.RegionName))
                         || (dr.RegionType == RegionTypeEnum.SurfaceName && (_mesh.Surfaces.ContainsValidKey(dr.RegionName)))
                         || (dr.RegionType == RegionTypeEnum.ReferencePointName
-                        && (_mesh.ReferencePoints.ContainsValidKey(dr.RegionName)));
+                        && (_mesh.ReferencePoints.ContainsValidKey(dr.RegionName))
+                        && dr.CoordinateSystemName == CoordinateSystem.DefaultCoordinateSystemName);
             }
             else if (bc is SubmodelBC sm)
             {
@@ -1155,7 +1165,9 @@ namespace CaeModel
             }
             else if (load is ShellEdgeLoad sel)
             {
-                valid = (_mesh.Surfaces.TryGetValue(sel.SurfaceName, out s) && s.Valid);
+                // CalculiX loads only the edges of shell elements, which a 2D model does not have
+                valid = !sel.TwoD && _mesh.Surfaces.TryGetValue(sel.SurfaceName, out s) && s.Valid &&
+                        IsShellEdgeSurface(s);
             }
             else if (load is GravityLoad gl)
             {
@@ -8192,6 +8204,22 @@ namespace CaeModel
 
 
         // 3D - 2D                                                                                  
+        private bool IsShellEdgeSurface(FeSurface surface)
+        {
+            if (surface.ElementFaces == null || surface.ElementFaces.Count == 0) return false;
+            //
+            FeElementSet elementSet;
+            foreach (var entry in surface.ElementFaces)
+            {
+                if (entry.Key == FeFaceName.S1 || entry.Key == FeFaceName.S2) return false;
+                if (!_mesh.ElementSets.TryGetValue(entry.Value, out elementSet)) return false;
+                foreach (var elementId in elementSet.Labels)
+                {
+                    if (!(_mesh.Elements[elementId] is FeElement2D)) return false;
+                }
+            }
+            return true;
+        }
         public void UpdateMeshPartsElementTypes(bool allowMixedModel)
         {
             if (_properties != null)

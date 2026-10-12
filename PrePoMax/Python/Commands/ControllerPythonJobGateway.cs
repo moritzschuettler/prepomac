@@ -68,6 +68,7 @@ namespace PrePoMax.Python
         }
         public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool runSynchronous, int timeoutMilliseconds = 0)
         {
+            ControllerPythonModelGateway.RefuseInvalidModelItems(_controller, "the analysis was not run");
             return _controller.PrepareAndRunJobCommand(jobName, onlyCheckModel, runSynchronous, timeoutMilliseconds);
         }
         public void KillJob(string jobName, string message)

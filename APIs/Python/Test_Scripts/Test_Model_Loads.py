@@ -696,6 +696,45 @@ def test_load_coordinate_system():
     pmx.model.coordinate_systems.remove([system])
 
 
+def read_cload_lines(file_name):
+    lines = []
+    in_cload = False
+    with open(file_name) as reader:
+        for line in reader:
+            line = line.strip()
+            if line.startswith("**"):
+                continue
+            if line.startswith("*"):
+                in_cload = line.lower().startswith("*cload")
+                continue
+            if in_cload and line:
+                fields = [field.strip() for field in line.split(",")]
+                lines.append((fields[0], int(fields[1]), float(fields[2])))
+    return lines
+
+
+def test_coordinate_system_is_not_a_transform(directory):
+    # A *Transform applies to its nodes in every step and to every load and boundary condition on them, so a
+    # force given in a coordinate system is written rotated into the global directions instead
+    loads = pmx.model.steps[STEP].loads
+    system = PREFIX + "CS_Rotated"
+    pmx.model.coordinate_systems.add(system, [0, 0, 0], [0, 1, 0], [-1, 0, 0])
+    loads.add_concentrated_force(PREFIX + "F_Local", node_selection([1]), f1=10, coordinate_system_name=system)
+    pmx.model.steps[NEXT_STEP].loads.add_concentrated_force(PREFIX + "F_Global", node_selection([1]), f1=5)
+    file_name = os.path.join(directory, "cs_loads.inp")
+    pmx.export_model(file_name)
+    with open(file_name) as reader:
+        check("*transform" not in reader.read().lower(), "a load coordinate system must not be written as *Transform")
+    # The selection is written as a node set of its own, so only the directions and the values are compared
+    cloads = [(direction, value) for node, direction, value in read_cload_lines(file_name)]
+    check((2, 10.0) in cloads, "the local x force must be written along the global y: " + str(cloads))
+    check((1, 5.0) in cloads, "the global force of the next step must stay global: " + str(cloads))
+    check((1, 10.0) not in cloads, "the local force must not be written along the global x: " + str(cloads))
+    loads.remove([PREFIX + "F_Local"])
+    pmx.model.steps[NEXT_STEP].loads.remove([PREFIX + "F_Global"])
+    pmx.model.coordinate_systems.remove([system])
+
+
 def test_collection_verbs():
     loads = pmx.model.steps[STEP].loads
     name = PREFIX + "F"
@@ -805,6 +844,12 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
     setup()
+    # The input file it writes holds every load of the steps, so it runs while they hold only its own
+    directory = tempfile.mkdtemp(prefix="pytest_cs_loads_")
+    try:
+        test_coordinate_system_is_not_a_transform(directory)
+    finally:
+        shutil.rmtree(directory)
     test_concentrated()
     test_surface_loads()
     test_body_loads()

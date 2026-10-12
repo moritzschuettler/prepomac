@@ -47,7 +47,7 @@ namespace FileInOut.Output.Calculix
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendFormat("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}{10}",
-                            "", _parameter.IR, _parameter.IP, _parameter.IC,
+                            _parameter.I0, _parameter.IR, _parameter.IP, _parameter.IC,
                             _parameter.IL, _parameter.IG, "", _parameter.IA, "", "", Environment.NewLine);
             sb.AppendFormat("{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}{8}",
                             _parameter.Df.ToCalculiX16String(), _parameter.DC.ToCalculiX16String(),

@@ -31,8 +31,11 @@ namespace APIs.Python
         {
             get
             {
-                if (index < 0) index = _items.Length + index;
-                if (index < 0 || index >= _items.Length) throw new IndexOutOfRangeException();
+                int position = index < 0 ? _items.Length + index : index;
+                if (position < 0 || position >= _items.Length)
+                    throw new PythonAPIException("The index " + index + " is out of range for a list of " + _items.Length +
+                                                 " IDs.");
+                index = position;
                 return _items[index];
             }
         }

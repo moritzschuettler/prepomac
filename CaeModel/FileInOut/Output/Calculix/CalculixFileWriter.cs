@@ -411,7 +411,6 @@ namespace FileInOut.Output
             string nodeSetName;
             HashSet<string> nodeSetNames;
             FeSurface surface;
-            FeReferencePoint referencePoint;
             CoordinateSystem coordinateSystem;
             // Boundary conditions
             foreach (var boundaryCondition in model.StepCollection.GetAllBoundaryConditions())
@@ -446,48 +445,6 @@ namespace FileInOut.Output
                         //if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
                         //    nodeSetNames.Add(nodeSetName);
                         //else coordinateSystemNodeSets.Add(coordinateSystem, new HashSet<string>() { nodeSetName });
-                    }
-                }
-            }
-            // Loads
-            foreach (var load in model.StepCollection.GetAllLoads())
-            {
-                if (load.Active &&
-                    model.Mesh.CoordinateSystems.TryGetValue(load.CoordinateSystemName, out coordinateSystem) &&
-                    coordinateSystem != null)
-                {
-                    if (load is CLoad cLoad)
-                    {
-                        // Node set
-                        if (load.RegionType == RegionTypeEnum.NodeSetName)
-                        {
-                            nodeSetName = load.RegionName;
-                            if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
-                                nodeSetNames.Add(nodeSetName);
-                            else coordinateSystemNodeSets.Add(coordinateSystem, new HashSet<string>() { nodeSetName });
-                        }
-                        // Reference point
-                        else if (load.RegionType == RegionTypeEnum.ReferencePointName)
-                        {
-                            referencePoint = model.Mesh.ReferencePoints[load.RegionName];
-                            nodeSetName = referencePoints[referencePoint.Name].ReferenceNodeSetName;
-                            //
-                            if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
-                                nodeSetNames.Add(nodeSetName);
-                            else coordinateSystemNodeSets.Add(coordinateSystem, new HashSet<string>() { nodeSetName });
-                        }
-                    }
-                    else if (load is STLoad stLoad)
-                    {
-                        // Surface
-                        if (stLoad.RegionType == RegionTypeEnum.SurfaceName)
-                        {
-                            surface = model.Mesh.Surfaces[stLoad.RegionName];
-                            nodeSetName = surface.NodeSetName;
-                            if (coordinateSystemNodeSets.TryGetValue(coordinateSystem, out nodeSetNames))
-                                nodeSetNames.Add(nodeSetName);
-                            else coordinateSystemNodeSets.Add(coordinateSystem, new HashSet<string>() { nodeSetName });
-                        }
                     }
                 }
             }
@@ -627,6 +584,20 @@ namespace FileInOut.Output
                 }
             }
         }
+        static private bool IsMassSectionRegionPresent(FeModel model, MassSection massSection,
+                                                       Dictionary<string, CalReferencePoint> referencePoints)
+        {
+            FeSurface surface;
+            if (massSection is DistributedMassSection)
+                return model.Mesh.Surfaces.TryGetValue(massSection.RegionName, out surface) &&
+                       model.Mesh.NodeSets.ContainsKey(surface.NodeSetName);
+            if (massSection.RegionType == RegionTypeEnum.NodeSetName)
+                return model.Mesh.NodeSets.ContainsKey(massSection.RegionName);
+            if (massSection.RegionType == RegionTypeEnum.ReferencePointName)
+                return model.Mesh.ReferencePoints.ContainsKey(massSection.RegionName) &&
+                       referencePoints.ContainsKey(massSection.RegionName);
+            return true;
+        }
         static private void GetMassSections(FeModel model, Dictionary<string, CalReferencePoint> referencePoints,
                                             ref int maxElementId, ref List<CalElement> additionalElementKeywords,
                                             ref HashSet<string> additionalElementSetNames,
@@ -651,6 +622,10 @@ namespace FileInOut.Output
             {
                 if (entry.Value is MassSection ms)
                 {
+                    // A section whose region was removed or renamed is invalid and refused by a run, but the input is
+                    // also written to place the user keywords, before the validity is updated
+                    if (!IsMassSectionRegionPresent(model, ms, referencePoints)) continue;
+                    //
                     if (ms is PointMassSection pms)
                     {
                         if (pms.RegionType == RegionTypeEnum.NodeSetName)
@@ -1159,7 +1134,18 @@ namespace FileInOut.Output
             suppresedCount = 0;
             unsuppresedCount = 0;
             removedCount = 0;
-            List<CalculixKeyword> keywords = GetModelKeywords(model, ConvertPyramidsToEnum.Wedges, null, true);
+            List<CalculixKeyword> keywords;
+            try
+            {
+                keywords = GetModelKeywords(model, ConvertPyramidsToEnum.Wedges, null, true);
+            }
+            catch (Exception)
+            {
+                // An item that cannot be written - its region was removed or renamed - must not fail every model change
+                // that updates the user keywords. They keep their states until it is fixed, and a run or an export
+                // refuses the invalid item meanwhile
+                return;
+            }
             List<int[]> keywordsToRemove = new List<int[]>();
             // Add user keywords
             if (model.CalculixUserKeywords != null)
@@ -1232,6 +1218,18 @@ namespace FileInOut.Output
             string text = sb.ToString();
             if (text.EndsWith(Environment.NewLine)) text = text.Substring(0, text.Length - Environment.NewLine.Length);
             return text;
+        }
+        static private string GetKeywordsTextWithoutComments(CalculixKeyword parent)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (var keyword in parent.Keywords) WriteKeywordRecursively(sb, keyword);
+            //
+            StringBuilder withoutComments = new StringBuilder();
+            foreach (var line in sb.ToString().Split(new string[] { Environment.NewLine }, StringSplitOptions.None))
+            {
+                if (!line.StartsWith("**")) withoutComments.AppendLine(line);
+            }
+            return withoutComments.ToString();
         }
         static private void WriteKeywordRecursively(StringBuilder sb, CalculixKeyword keyword)
         {
@@ -2234,6 +2232,8 @@ namespace FileInOut.Output
                 return;
             }
             //
+            string previousBoundaryConditionsText = null;
+            bool previousOutputFrequencySet = false;
             foreach (var step in model.StepCollection.StepsList)
             {
                 if (step is InitialStep) continue;
@@ -2354,26 +2354,34 @@ namespace FileInOut.Output
                     title = new CalTitle("Output frequency", "");
                     calStepHeader.AddKeyword(title);
                     CalOutputFrequency calOutputFrequency = new CalOutputFrequency(step.OutputFrequency);
-                    if (!calOutputFrequency.IsDefault()) title.AddKeyword(calOutputFrequency);
+                    // CalculiX keeps the frequency of the step before, so a default after a set one is written out
+                    if (!calOutputFrequency.IsDefault() || previousOutputFrequencySet) title.AddKeyword(calOutputFrequency);
+                    previousOutputFrequencySet = !calOutputFrequency.IsDefault();
                 }
                 else calStepHeader.AddKeyword(new CalDeactivated(step.GetType().ToString()));
                 // Boundary conditions title
                 title = new CalTitle("Boundary conditions", "");
                 calStepHeader.AddKeyword(title);
-                // Boundary conditions op
-                if (step.Active && !(step is ModalDynamicsStep))
-                {
-                    title.AddKeyword(new CalOpParameter(OpKeywordEnum.Boundary, OpTypeEnum.New));
-                }
                 // Boundary conditions
+                CalTitle boundaryConditions = new CalTitle("", "");
                 foreach (var bcEntry in step.BoundaryConditions)
                 {
                     if (step.Active && bcEntry.Value.Active)
-                        AppendBoundaryCondition(model, step, bcEntry.Value, referencePoints, title);
-                    else title.AddKeyword(new CalDeactivated(bcEntry.Value.Name));
+                        AppendBoundaryCondition(model, step, bcEntry.Value, referencePoints, boundaryConditions);
+                    else boundaryConditions.AddKeyword(new CalDeactivated(bcEntry.Value.Name));
                 }
                 // Additional boundary conditions
-                AppendAdditionalBoundaryConditions(model, step, additionalBoundaryConditions, referencePoints, title);
+                AppendAdditionalBoundaryConditions(model, step, additionalBoundaryConditions, referencePoints,
+                                                   boundaryConditions);
+                // Boundary conditions op - a step that applies the boundary conditions of the step before it again keeps
+                // them, because CalculiX breaks the rotational constraints of expanded shell nodes on op=New
+                string boundaryConditionsText = GetKeywordsTextWithoutComments(boundaryConditions);
+                if (step.Active && !(step is ModalDynamicsStep) && boundaryConditionsText != previousBoundaryConditionsText)
+                {
+                    title.AddKeyword(new CalOpParameter(OpKeywordEnum.Boundary, OpTypeEnum.New));
+                }
+                if (step.Active) previousBoundaryConditionsText = boundaryConditionsText;
+                foreach (var keyword in boundaryConditions.Keywords) title.AddKeyword(keyword);
                 // Loads title
                 title = new CalTitle("Loads", "");
                 calStepHeader.AddKeyword(title);
@@ -2417,7 +2425,8 @@ namespace FileInOut.Output
                 title = new CalTitle("Defined fields", "");
                 calStepHeader.AddKeyword(title);
                 // Defined fields op
-                if (step.Active && step.DefinedFields.Count > 0)
+                // A deactivated defined field is as good as none, which keeps the temperatures of the step before
+                if (step.Active && step.DefinedFields.Values.Any(definedField => definedField.Active))
                 {
                     title.AddKeyword(new CalOpParameter(OpKeywordEnum.Temperature, OpTypeEnum.New));
                 }
@@ -2549,7 +2558,7 @@ namespace FileInOut.Output
             {
                 if (load is CLoad cl)
                 {
-                    CalCLoad cLoad = new CalCLoad(cl, referencePoints, complexLoadType);
+                    CalCLoad cLoad = new CalCLoad(model.Mesh, cl, referencePoints, complexLoadType);
                     parent.AddKeyword(cLoad);
                 }
                 else if (load is MomentLoad ml)
@@ -2633,7 +2642,7 @@ namespace FileInOut.Output
                         CLoad cLoad = new CLoad(ptl.Name, nodeId, ptl.GetMagnitudeValue(), 0, 0, ptl.TwoD,
                                                 ptl.Complex, ptl.PhaseDeg.Value);
                         cLoad.AmplitudeName = ptl.AmplitudeName;
-                        calKey = new CalCLoad(cLoad, referencePoints, complexLoadType);
+                        calKey = new CalCLoad(model.Mesh, cLoad, referencePoints, complexLoadType);
                     }
                     else if (ptl.Type == PreTensionLoadType.Displacement)
                     {

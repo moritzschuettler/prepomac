@@ -186,6 +186,41 @@ def test_custom_work_directory(work):
                  "a missing analysis work directory was accepted")
 
 
+def test_a_solver_that_crashes(work):
+    # A solver that ends with an exit code other than zero has failed, although it printed no error: a crashed
+    # CalculiX stops without one, leaving the results of the steps before the crash
+    name = PREFIX + "Crash"
+    pmx.jobs.add(name, fem_solver="Calculix", executable=SLEEPING_SOLVER,
+                 argument="-NoProfile -NonInteractive -Command \"Set-Content " + name + ".frd ('x' * 400); exit 3\"",
+                 work_directory=work)
+    status = pmx.jobs[name].run(timeout=60)
+    check(status == "FailedWithResults", "a solver that left results and exited with code 3 returned " + status)
+    check("exit code 3" in pmx.jobs[name].get_output(), "the output must name the exit code")
+    pmx.jobs.remove(name)
+
+
+def test_invalid_items_refuse_the_run(work):
+    # The run dialog asks whether to go on with invalid items, which a script cannot answer, and an invalid item would
+    # be written without what it lost: a force in a removed coordinate system was applied in the global directions
+    system = PREFIX + "CS"
+    load_name = PREFIX + "Force"
+    loads = pmx.model.steps[PREFIX + "Step"].loads
+    pmx.model.coordinate_systems.add(system, [0, 0, 0], [0, 1, 0], [-1, 0, 0])
+    loads.add_concentrated_force(load_name, pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [5]), f1=1,
+                                 coordinate_system_name=system)
+    pmx.model.coordinate_systems.remove([system])
+    check(not loads[load_name].valid, "a force in a removed coordinate system must be invalid")
+    name = PREFIX + "Invalid"
+    pmx.jobs.add(name, work_directory=work)
+    check_refused(lambda: pmx.jobs[name].run(timeout=60), ["invalid items", load_name],
+                  "a run with an invalid load was not refused")
+    check_refused(lambda: pmx.export_model(os.path.join(work, name + ".inp")), ["invalid items", load_name],
+                  "an export with an invalid load was not refused")
+    check(not os.path.isfile(os.path.join(work, name + ".inp")), "a refused run or export wrote an input file")
+    loads.remove([load_name])
+    pmx.jobs.remove([name])
+
+
 def test_timeout():
     job = pmx.jobs[PREFIX + "Explicit"]
     status = job.run(timeout=1)
@@ -316,6 +351,8 @@ def main():
         test_argument_follows_name_and_solver()
         test_rejected_arguments()
         test_custom_work_directory(work)
+        test_a_solver_that_crashes(work)
+        test_invalid_items_refuse_the_run(work)
         test_timeout()
         test_invalid_paths()
         test_environment_variable_refusals()

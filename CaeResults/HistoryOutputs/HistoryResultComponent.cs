@@ -115,7 +115,10 @@ namespace CaeResults
                 }
                 else
                 {
-                    // If all time arrays are equal, remove all except the first
+                    // If all time arrays are equal, remove all except the first - from the file only, so the entries
+                    // get their own time arrays back once they are written
+                    Dictionary<HistoryResultEntries, List<double>> removedTimes =
+                        new Dictionary<HistoryResultEntries, List<double>>();
                     if (historyResultComponent.Entries.Count > 0)
                     {
                         bool allTimesEqual = true;
@@ -133,7 +136,9 @@ namespace CaeResults
                             int count = 0;
                             foreach (var entry in historyResultComponent.Entries)
                             {
-                                if (count++ > 0) entry.Value.Time = new List<double>();
+                                if (count++ == 0) continue;
+                                removedTimes[entry.Value] = entry.Value.Time;
+                                entry.Value.Time = new List<double>();
                             }
                         }
                     }
@@ -141,8 +146,15 @@ namespace CaeResults
                     Tools.WriteIntToFileStream(fileStream, 1);
                     Tools.WriteIntToFileStream(fileStream, historyResultComponent.Entries.Count);
                     //
-                    foreach (var entry in historyResultComponent.Entries)
-                        HistoryResultEntries.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                    try
+                    {
+                        foreach (var entry in historyResultComponent.Entries)
+                            HistoryResultEntries.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                    }
+                    finally
+                    {
+                        foreach (var entry in removedTimes) entry.Key.Time = entry.Value;
+                    }
                 }
             }
         }

@@ -22,6 +22,8 @@ namespace FileInOut.Output.Calculix
     public abstract class CalculixKeyword //: ISerializable - this would mean that all derived classes must be Serializable !!!
     {
         // Variables                                                                                                                
+        // CalculiX reads this many characters of a line
+        protected const int CalculixLineLength = 132;
         protected List<CalculixKeyword> _keywords;          //ISerializable
         private bool _active;                               //ISerializable
 

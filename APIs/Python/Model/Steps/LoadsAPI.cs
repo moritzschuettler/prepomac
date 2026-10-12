@@ -322,6 +322,9 @@ namespace APIs.Python.Model
             string nameText = PythonValueConverter.ToText(name, "name", false);
             _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
+            if (TwoD())
+                throw new PythonAPIException("A shell edge load loads the edges of shell elements, which a two " +
+                                             "dimensional model does not have, as the dialog does not offer it there.");
             ShellEdgeLoad load = new ShellEdgeLoad(nameText, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
             _service.ApplyRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyShellEdgeLoad(load, magnitude);

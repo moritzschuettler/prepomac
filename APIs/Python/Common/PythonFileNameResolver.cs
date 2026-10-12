@@ -67,6 +67,10 @@ namespace APIs.Python
             string directoryName = Path.GetDirectoryName(fullFileName);
             if (directoryName != null && directoryName.Length > 0 && !Directory.Exists(directoryName))
                 throw new PythonAPIException("The directory '" + directoryName + "' does not exist.");
+            // A folder - a drive root included - is no file to write
+            if (directoryName == null || Directory.Exists(fullFileName))
+                throw new PythonAPIException("The argument '" + argumentName + "' names the folder '" + fileName +
+                                             "', not a file.");
             //
             return fullFileName;
         }

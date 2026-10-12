@@ -293,9 +293,15 @@ namespace PrePoMax.Python.Journal
                                                 PythonValueFormatter.Number(friction.Coefficient),
                                                 "stick_slope=" + PythonValueFormatter.Number(friction.StickSlope));
             if (property is GapConductance gapConductance)
+            {
+                // The constant form is written as the constant, as get_values reads it, or a replay makes it a table
+                if (gapConductance.GapConductanceType == GapConductanceEnum.Constant)
+                    return PythonJournalWriter.Join("pmx.create.gap_conductance", "conductance=" +
+                                                    PythonValueFormatter.Number(gapConductance.ConductnancePressureTemp[0][0]));
                 return PythonJournalWriter.Join("pmx.create.gap_conductance",
                                                 "conductance_table=" +
                                                 Table(gapConductance.ConductnancePressureTemp));
+            }
             if (property is SurfaceBehavior surfaceBehavior)
             {
                 // pmx.create refuses a value the pressure overclosure type does not use
