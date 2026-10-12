@@ -305,24 +305,30 @@ def written_heading(file_name):
 
 # A new model draws a new hash and the heading carries it together with the date of the day, so an edit of
 # the heading is compared without the two, or a regeneration or an export on another day would reset it. The
-# written heading carries the current hash whatever the edit says, because the hash maps results onto the model
+# written heading carries the current hash whatever the edit says, because the hash maps results onto the model.
+# The model space line, which tells the results of an axisymmetric model apart, is written the same way and is
+# left out of the comparison, so an edit made before the line was written still applies
 def test_heading_override():
     keywords = pmx.model.keywords
     heading = [k for k in keywords.get_model_keywords() if k.data.lower().startswith("*heading")][0]
     path = list(heading.indices)
     generated_line = [line for line in heading.data.splitlines() if line.startswith("Hash:")][0]
+    space_line = "Model space: " + pmx.model.properties.model_space
+    check(space_line in heading.data.splitlines(), "the heading does not name the model space: " + heading.data)
     current_hash = generated_line.split(",")[0].split(":", 1)[1].strip()
     current_date = generated_line.split(",")[1].split(":", 1)[1].strip()
     user_line = "PyTest heading line kept by the edit"
     stale = re.sub(r"(Hash:[ \t]*)[^,\r\n]*", r"\g<1>Stale123", heading.data)
     stale = re.sub(r"(Date:[ \t]*)[^,\r\n]*", r"\g<1>1/1/2000", stale)
+    stale = re.sub(r"(Model space:[ \t]*)[^,\r\n]*", r"\g<1>Axisymmetric", stale)
     keywords.set_override(path, data=stale.rstrip("\r\n") + "\r\n" + user_line)
     try:
-        normalized = re.sub(r"((?:Hash|Date):[ \t]*)[^,\r\n]*", r"\1", heading.data)
+        normalized = re.sub(r"Model space:[^\r\n]*(\r\n|\n)", "", heading.data)
+        normalized = re.sub(r"((?:Hash|Date):[ \t]*)[^,\r\n]*", r"\1", normalized)
         expected = hashlib.sha256(("FileInOut.Output.Calculix.CalHeading\n" + normalized).encode("utf-8"))
         signature = [o for o in keywords.get_overrides() if list(o.indices) == path][0].original_signature
         check(signature == expected.hexdigest().upper(),
-              "the heading signature must leave out the hash and the date: " + signature)
+              "the heading signature must leave out the hash, the date and the model space: " + signature)
         #
         file_name = os.path.join(pmx.work_directory, PREFIX + "Heading.inp")
         pmx.export_to_calculix(file_name)
@@ -330,13 +336,20 @@ def test_heading_override():
         check(lines[0] == generated_line,
               "the written heading must carry the current hash " + current_hash + " and date " + current_date +
               ", not the stale ones of the edit: " + str(lines))
-        check(lines[1:] == [user_line], "the user text of the heading was not kept: " + str(lines))
-        # An edit without the hash line is given the generated one, or the results would not map
+        check(lines[1] == space_line, "the written heading must carry the current model space: " + str(lines))
+        check(lines[2:] == [user_line], "the user text of the heading was not kept: " + str(lines))
+        # An edit without the hash line is given the generated ones, or the results would not map
         keywords.set_override(path, data="*Heading\r\n" + user_line)
         pmx.export_to_calculix(file_name)
         lines = written_heading(file_name)
-        check(lines == [generated_line, user_line],
+        check(lines == [generated_line, space_line, user_line],
               "the generated hash line was not added to an edit without one: " + str(lines))
+        # An edit made before the heading named the model space is given the line after its hash line
+        keywords.set_override(path, data="*Heading\r\n" + generated_line + "\r\n" + user_line)
+        pmx.export_to_calculix(file_name)
+        lines = written_heading(file_name)
+        check(lines == [generated_line, space_line, user_line],
+              "the model space line was not added to an edit without one: " + str(lines))
     finally:
         keywords.remove_override(path)
     check(keywords.override_count == 0, "the heading override was not removed")

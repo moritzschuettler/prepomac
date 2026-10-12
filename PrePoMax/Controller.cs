@@ -1435,8 +1435,7 @@ namespace PrePoMax
             {
                 results = (FeResults)OpenByFunction(fileName, parameters, FrdFileReader.Read);
                 if (results != null) results.FileName = fileName;    // fix file name if a copy was used
-                if (results != null && IsAxisymmetricModelResult(results.HashName))
-                    FrdFileReader.ScaleAxisymmetricSegmentFields(results);
+                if (results != null) ScaleAxisymmetricSegmentFields(results);
             }
             //
             bool resultsExist = results != null && results.Mesh != null;
@@ -1456,11 +1455,24 @@ namespace PrePoMax
             try
             {
                 if (_allResults.CurrentResult == null)
-                    _allResults.Add(fileName, new FeResults(fileName, _model.UnitSystem));
+                {
+                    // The .dat file does not name the model it was computed from, the .frd file beside it does
+                    FeResults datResults = new FeResults(fileName, _model.UnitSystem);
+                    string frdFileName = Path.ChangeExtension(fileName, ".frd");
+                    if (File.Exists(frdFileName))
+                    {
+                        string hashName;
+                        string modelSpace;
+                        FrdFileReader.ReadHeading(frdFileName, out hashName, out modelSpace);
+                        datResults.HashName = hashName;
+                        datResults.ModelSpace = modelSpace;
+                    }
+                    _allResults.Add(fileName, datResults);
+                }
                 // This is also called in AppendResults
-                string resultHashName = _allResults.CurrentResult.HashName;
+                FeResults currentResult = _allResults.CurrentResult;
                 HistoryResults results = (HistoryResults)OpenByFunction(fileName, parameters,
-                                                                         f => ReadHistoryResults(f, resultHashName));
+                                                                         f => ReadHistoryResults(f, currentResult));
                 _allResults.CurrentResult.SetHistory(results);
                 // Wear
                 _allResults.CurrentResult.ComputeWear(_model.StepCollection.GetSlipWearStepIds(),
@@ -1676,7 +1688,16 @@ namespace PrePoMax
                 string[] mappedPartNames = _allResults.CurrentResult.CopyPartsFromMesh(_model.Mesh, convertPyramidsTo,
                                                                                        out nodeCoordinatesChanged);
                 if (mappedPartNames.Length == _model.Mesh.Parts.Count)
-                    _allResults.CurrentResult.CopyMeshItemsFromMesh(_model.Mesh, convertPyramidsTo);
+                {
+                    // A 2D model written with 3D output has nodes of its own, which the node sets and surfaces miss
+                    bool expandedToThreeD = _model.Properties.ModelSpace.IsTwoD() &&
+                                            _allResults.CurrentResult.IsMeshThreeDimensional();
+                    _allResults.CurrentResult.CopyMeshItemsFromMesh(_model.Mesh, convertPyramidsTo, !expandedToThreeD);
+                    if (expandedToThreeD)
+                        _form.WriteDataToOutput("Result parts: the 2D model was written with 3D output, so its node " +
+                                                "sets and surfaces were not copied to the 3D result mesh, which does not " +
+                                                "have their nodes; its element sets were.");
+                }
                 //
                 WriteResultPartMappingToOutput(mappedPartNames, nodeCoordinatesChanged);
                 //
@@ -1753,11 +1774,11 @@ namespace PrePoMax
             else
             {
                 FeResults results = FrdFileReader.Read(fileName);
-                if (IsAxisymmetricModelResult(results.HashName)) FrdFileReader.ScaleAxisymmetricSegmentFields(results);
+                ScaleAxisymmetricSegmentFields(results);
                 // Open .dat file
                 string datFileName = Path.GetFileNameWithoutExtension(results.FileName) + ".dat";
                 datFileName = Path.Combine(Path.GetDirectoryName(results.FileName), datFileName);
-                if (File.Exists(datFileName)) results.SetHistory(ReadHistoryResults(datFileName, results.HashName));
+                if (File.Exists(datFileName)) results.SetHistory(ReadHistoryResults(datFileName, results));
                 // Check if the meshes are the same and rename the parts
                 if (_allResults.CurrentResult.Mesh != null && results.Mesh != null)
                 {
@@ -1817,7 +1838,7 @@ namespace PrePoMax
             //
             return nodeSets;
         }
-        private HistoryResults ReadHistoryResults(string fileName, string resultHashName)
+        private HistoryResults ReadHistoryResults(string fileName, FeResults results)
         {
             string[] errors;
             List<string> modelNames = new List<string>();
@@ -1830,9 +1851,10 @@ namespace PrePoMax
                 modelNames.AddRange(_model.Mesh.ReferencePoints.Keys);
             }
             string[] unscaledSectionMessages;
-            FeMesh axisymmetricMesh = IsAxisymmetricModelResult(resultHashName) ? _model.Mesh : null;
-            HistoryResults historyResults = DatFileReader.Read(fileName, modelNames, axisymmetricMesh, out errors,
-                                                               out unscaledSectionMessages);
+            bool axisymmetric = IsAxisymmetricResult(results);
+            FeMesh axisymmetricModelMesh = axisymmetric && IsModelResult(results) ? _model.Mesh : null;
+            HistoryResults historyResults = DatFileReader.Read(fileName, modelNames, axisymmetric, axisymmetricModelMesh,
+                                                               out errors, out unscaledSectionMessages);
             if (unscaledSectionMessages != null)
             {
                 foreach (string message in unscaledSectionMessages) _form.WriteDataToOutput(message);
@@ -1850,11 +1872,31 @@ namespace PrePoMax
             }
             return historyResults;
         }
-        private bool IsAxisymmetricModelResult(string resultHashName)
+        private bool IsModelResult(FeResults results)
         {
-            // The result files do not tell an axisymmetric model apart, so the model the result was computed from does
-            return _model != null && _model.Mesh != null && _model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric &&
-                   _model.HashName == resultHashName;
+            return _model != null && _model.Mesh != null && _model.HashName == results.HashName;
+        }
+        private bool IsAxisymmetricResult(FeResults results)
+        {
+            if (results.ModelSpace != null) return results.ModelSpace == ModelSpaceEnum.Axisymmetric.ToString();
+            // A results file written before its heading named the model space is told apart by the model it was
+            // computed from
+            return IsModelResult(results) && _model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric;
+        }
+        private void ScaleAxisymmetricSegmentFields(FeResults results)
+        {
+            if (!IsAxisymmetricResult(results)) return;
+            // CalculiX does not scale the fields of the 3D output of an axisymmetric model, which is the 2 degree
+            // segment it computes, while the .dat file does not depend on the output
+            if (results.IsMeshThreeDimensional())
+            {
+                _form.WriteDataToOutput("Results: the axisymmetric model was written with 3D output, so the result " +
+                                        "mesh is the 2 degree segment CalculiX computes. Its field values, such as the " +
+                                        "forces and the reaction heat fluxes, and the part volumes are those of the " +
+                                        "segment, while the history read from the .dat file is given for the full " +
+                                        "revolution.");
+            }
+            else FrdFileReader.ScaleAxisymmetricSegmentFields(results);
         }
         // Read pmx
         private void GetPmxFileVersion(string fileName, out string programmNameVersion, out string suffix)
@@ -19960,7 +20002,7 @@ namespace PrePoMax
                     results.Mesh.NodeSets.Add(entry.Key, entry.Value.DeepClone());
                 }
                 //
-                results.SetHistory(ReadHistoryResults(resultsFileDat, results.HashName));
+                results.SetHistory(ReadHistoryResults(resultsFileDat, results));
                 // Open .cel file
                 if (File.Exists(resultsFileCel))
                 {
@@ -20004,7 +20046,7 @@ namespace PrePoMax
                 //
                 _model.GetMaterialAssignments(out _);
                 //
-                results.SetHistory(ReadHistoryResults(resultsFileDat, results.HashName));
+                results.SetHistory(ReadHistoryResults(resultsFileDat, results));
                 //
                 int[] slipWearStepIds = _model.StepCollection.GetSlipWearStepIds();
                 if (results.ComputeWear(slipWearStepIds, _model.GetNodalSlipWearCoefficients(),

@@ -147,7 +147,9 @@ namespace APIs.Python
                    "matched regardless of case and stored as the result spells them. The " +
                    "cross_section scaling (None, Thickness or Axisymmetric) is the out-of-plane scaling of 2D " +
                    "output; the Line and Volume integrals take it on a 2D and a 3D result alike, as the " +
-                   "dialog does, and the Surface " +
+                   "dialog does, except that adding an Axisymmetric one to a result with a 3D mesh is refused: an " +
+                   "axisymmetric model written with 3D output is the 2 degree segment CalculiX computes, and is " +
+                   "integrated without a cross section. The Surface " +
                    "integral refuses any value but None. The thickness argument is taken only with the " +
                    "Thickness cross_section, where it defaults to 1.0. Possible " +
                    "deformation_variable_name values are Displacements, Forces, SurfaceNormals, WearDepths, " +

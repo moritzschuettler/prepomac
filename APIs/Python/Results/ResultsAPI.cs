@@ -92,7 +92,10 @@ namespace APIs.Python
 
         [PythonAPI("Opens a .frd, .dat, .odb or .foam result file beside the current model using command " +
                    "history. The model and its command history are kept; a .pmx or .pmh file is refused, " +
-                   "because pmx.open opens it.",
+                   "because pmx.open opens it. The results of an axisymmetric model are given for the full " +
+                   "revolution whichever model is open, since the heading of the .frd file names the model space; " +
+                   "a .dat file opened alone takes it from the .frd file beside it. With 3D output the result " +
+                   "mesh is the 2 degree segment CalculiX computes, and its fields are those of the segment.",
                    Arguments = "file_name: str", Returns = "None",
                    Example = "pmx.results.open('Analysis-1.frd')")]
         public void open(object file_name)

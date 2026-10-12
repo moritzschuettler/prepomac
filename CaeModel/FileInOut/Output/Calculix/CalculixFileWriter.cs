@@ -1520,7 +1520,8 @@ namespace FileInOut.Output
         //
         static private void AppendHeading(FeModel model, CalculixKeyword parent)
         {
-            CalHeading heading = new CalHeading(model.Name, model.HashName, model.UnitSystem.UnitSystemType);
+            CalHeading heading = new CalHeading(model.Name, model.HashName, model.UnitSystem.UnitSystemType,
+                                                model.Properties.ModelSpace);
             parent.AddKeyword(heading);
         }
         static private void AppendSubmodel(FeModel model, string[] nodeSetNames, CalculixKeyword parent)

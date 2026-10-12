@@ -2972,6 +2972,19 @@ pmx.results.current = names[-1]
 result = pmx.results.current
 ```
 
+**Axisymmetric results.** CalculiX computes an axisymmetric model as a 2 degree segment. The results are read back for
+the full revolution, as the loads are given: the reaction heat flux `RFL` of the .frd file and the forces, volumes,
+energies, heat fluxes, contact and section print totals and modal masses of the .dat file are scaled to 360 degrees.
+The input file writes the model space into its heading (`Model space: Axisymmetric`), which CalculiX copies into the
+.frd file, so a result is scaled whichever model is open, or none; a .dat file opened on its own takes the model space
+from the .frd file beside it. A result file without that line, written by an older version, is taken as axisymmetric
+only when the open axisymmetric model is the one it was computed from. A section print is scaled by the element types
+of that model, so without it the section print is left as CalculiX writes it, with a message. When the field output
+asks for 3D output (`output='ThreeD'`), or CalculiX expands the model on its own, the result mesh is the 2 degree
+segment of 3D elements: its fields (`FORC`, `RFL`) and part volumes are those of the segment, the .dat history is still
+given for 360 degrees, only the element sets of the model are copied to it - its node sets and surfaces do not match the
+new nodes - and an `"Axisymmetric"` cross section integration is refused.
+
 ### `Result`
 
 Single loaded result file.
@@ -3706,7 +3719,7 @@ is found first, and otherwise the one history output whose name differs from it 
 | `contains(name)` | Checks whether the history output exists. |
 | `create_history_output_from_field(name, field_name, component_names, region)` | Creates a From Field draft. The region is a `Selection`, a `Region` (`NodeSetName` or `SurfaceName`), a result `NodeSet` or a result `Surface`. |
 | `create_history_output_from_equation(name, equation, unit="/")` | Creates a From History Output by Equation draft. |
-| `create_history_output_from_integration(name, integral_type, region, field_name=None, component_names=None, integral_result="Geometry", deformation_variable_name="Displacements", unit="/", cross_section="None", thickness=None)` | Creates a line, surface, or volume integration draft. The `region` is required: a `Selection`, a `Region`, a result `ElementSet` or a result `Surface`, as the table below allows. `integral_type` is `"Line"`, `"Surface"` or `"Volume"`. `integral_result` is `"Geometry"` (region size), `"Field"` (field integral), or `"FieldByGeometry"` (region average of the field); `field_name` and `component_names` are required for `"Field"` and `"FieldByGeometry"` and refused for `"Geometry"`. `cross_section` (`"None"`, `"Thickness"`, or `"Axisymmetric"`) is the out-of-plane scaling of 2D output; a line and a volume integral take it on a 2D and a 3D result alike, as the dialog does, and a surface integral is never scaled and refuses any value but `"None"`. `thickness` is taken only with the `"Thickness"` cross section, where it defaults to 1.0, and refused otherwise. |
+| `create_history_output_from_integration(name, integral_type, region, field_name=None, component_names=None, integral_result="Geometry", deformation_variable_name="Displacements", unit="/", cross_section="None", thickness=None)` | Creates a line, surface, or volume integration draft. The `region` is required: a `Selection`, a `Region`, a result `ElementSet` or a result `Surface`, as the table below allows. `integral_type` is `"Line"`, `"Surface"` or `"Volume"`. `integral_result` is `"Geometry"` (region size), `"Field"` (field integral), or `"FieldByGeometry"` (region average of the field); `field_name` and `component_names` are required for `"Field"` and `"FieldByGeometry"` and refused for `"Geometry"`. `cross_section` (`"None"`, `"Thickness"`, or `"Axisymmetric"`) is the out-of-plane scaling of 2D output; a line and a volume integral take it on a 2D and a 3D result alike, as the dialog does, except that adding an `"Axisymmetric"` one to a result with a 3D mesh is refused - an axisymmetric model written with 3D output is the 2 degree segment CalculiX computes, and is integrated with `"None"` - and a surface integral is never scaled and refuses any value but `"None"`. `thickness` is taken only with the `"Thickness"` cross section, where it defaults to 1.0, and refused otherwise. |
 | `create_history_output_from_merged_histories(name, source1, source2, source3=None, source4=None)` | Creates a From Merged Histories draft that merges two to four history components into one history output. |
 | `create_history_output_from_extracted_entry(name, source, entry_name)` | Creates a From Extracted Entry draft that copies one named entry of a history component into its own history output. |
 | `create_history_output_xy(name, x_source, y_source)` | Creates an XY draft that plots the entries of the Y history component against the values of the X history component. |

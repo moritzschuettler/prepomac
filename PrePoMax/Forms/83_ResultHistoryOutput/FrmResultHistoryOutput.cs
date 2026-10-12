@@ -278,6 +278,12 @@ namespace PrePoMax.Forms
             if (ResultHistoryOutput is ResultHistoryOutputFromIntegration rhofiThickness &&
                 rhofiThickness.CrossSection == IntegrationScaleType.Thickness && rhofiThickness.Thickness <= 0)
                 throw new CaeException("The cross section thickness must be larger than zero.");
+            if (ResultHistoryOutput is ResultHistoryOutputFromIntegration rhofiCrossSection)
+            {
+                string crossSectionError =
+                    _controller.CurrentResult.GetIntegrationCrossSectionError(rhofiCrossSection.CrossSection);
+                if (crossSectionError != null) throw new CaeException(crossSectionError);
+            }
             // Check equation
             if (ResultHistoryOutput is ResultHistoryOutputFromEquation rhofe)
             {

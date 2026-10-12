@@ -75,6 +75,22 @@ namespace CaeResults
             foreach (var fieldName in _axisymmetricSegmentFieldNames)
                 results.ScaleFieldValues(fieldName, _axisymmetricSegmentsPerRevolution);
         }
+        static public void ReadHeading(string fileName, out string hashName, out string modelSpace)
+        {
+            hashName = null;
+            modelSpace = null;
+            if (fileName == null || !File.Exists(fileName)) return;
+            //
+            string line;
+            List<string> lines = new List<string>();
+            using (StreamReader reader = new StreamReader(fileName))
+            {
+                while ((line = reader.ReadLine()) != null && !line.StartsWith("    2C", StringComparison.Ordinal))
+                    lines.Add(line);
+            }
+            hashName = GetHashName(lines.ToArray());
+            modelSpace = GetModelSpace(lines.ToArray());
+        }
         static public FeResults Read(string fileName)
         {
             if (fileName != null && File.Exists(fileName))
@@ -111,6 +127,7 @@ namespace CaeResults
                     if (setID.StartsWith("    1C", StringComparison.Ordinal))  // Data
                     {
                         result.HashName = GetHashName(dataSet.Lines);
+                        result.ModelSpace = GetModelSpace(dataSet.Lines);
                         result.DateTime = GetDateTime(dataSet.Lines);
                         result.UnitSystem = GetUnitSystem(dataSet.Lines); // calls SetConverterUnits on the UnitSystem
                         GetMaterialIdsAndNames(dataSet.Lines, out materialIdMaterialName, out gapMaterialIds,
@@ -300,6 +317,22 @@ namespace CaeResults
             }
             //
             return Tools.GetRandomString(8);
+        }
+        static private string GetModelSpace(string[] lines)
+        {
+            //    1UModel space: Axisymmetric
+            string key = "Model space:";
+            int index;
+            string modelSpace;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                index = lines[i].IndexOf(key, StringComparison.OrdinalIgnoreCase);
+                if (index < 0) continue;
+                //
+                modelSpace = lines[i].Substring(index + key.Length).Split(',')[0].Trim();
+                return modelSpace.Length > 0 ? modelSpace : null;
+            }
+            return null;
         }
         static private UnitSystem GetUnitSystem(string[] lines)
         {

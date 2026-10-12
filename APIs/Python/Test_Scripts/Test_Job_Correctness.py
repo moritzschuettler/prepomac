@@ -20,6 +20,10 @@
 #loads and the forces of the results file are, and that a point and a distributed mass of the ring, axisymmetric and
 #in plane strain, solve in a frequency step at the hand computed frequency. The section print of the ring is given for the full revolution for
 #each element type, and left as CalculiX writes it when its elements are of types CalculiX writes for different angles.
+#With 3D output the ring is the 2 degree segment: its fields are those of the segment, its .dat history is given for the
+#full revolution, the node sets and surfaces of the model are not copied onto it, and an axisymmetric cross section is
+#refused. Last, the results of the ring are opened as another model's, and a .dat file on its own, and are still given
+#for the full revolution, since the results file names the model space; a file that does not name it is not scaled.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Job_Correctness.py -g No -x Yes -w <dir>
 #
@@ -755,6 +759,141 @@ def test_axisymmetric_thermal_per_revolution(work):
           " instead of " + str(2 * revolved_area))
 
 
+def bottom_node_ids(result):
+    # The nodes of the ring at height 0: 1 to 5 in its 2D mesh, and the nodes of both faces of its segment in 3D
+    data = result.mesh.nodes.get_data()
+    return [node_id for node_id, coordinates in zip(list(data.ids), data.coordinates) if abs(coordinates[1]) < 1e-6]
+
+
+def bottom_field_total(result, field_name, component_name):
+    step_id = list(result.steps.get_ids())[-1]
+    increment_id = list(result.steps[step_id].increments.get_ids())[-1]
+    return sum(result.get_nodal_value(step_id, increment_id, field_name, component_name, node_id)
+               for node_id in bottom_node_ids(result))
+
+
+def history_entries_total(result, set_name, field_name, component_name):
+    entries = result.get_history_output_entries(set_name, field_name, component_name)
+    return sum(entries[str(entry)].get_data().values[-1] for entry in entries.get_names())
+
+
+def check_three_d_mesh_of_the_ring(result, name):
+    # The mesh is the 2 degree segment, which has nodes of its own, so the node sets and surfaces of the model are not
+    # copied onto it, while its elements keep the numbers and the element sets of the model
+    data = result.mesh.nodes.get_data()
+    z_values = [abs(coordinates[2]) for coordinates in data.coordinates]
+    check(max(z_values) > 0.3, "the " + name + " result with 3D output is not the expanded segment: " + str(max(z_values)))
+    node_set_names = [str(set_name).upper() for set_name in result.mesh.node_sets.get_names()]
+    surface_names = [str(surface_name).upper() for surface_name in result.mesh.surfaces.get_names()]
+    element_set_names = [str(set_name).upper() for set_name in result.mesh.element_sets.get_names()]
+    check((PREFIX + "Ring_Bottom").upper() not in node_set_names and (PREFIX + "Ring_Top").upper() not in surface_names,
+          "the node sets and surfaces of the 2D model were copied onto the 3D " + name + " result, whose nodes they " +
+          "do not hold: " + str(node_set_names) + " " + str(surface_names))
+    check((PREFIX + "Ring").upper() in element_set_names,
+          "the element sets of the 2D model were not copied onto the 3D " + name + " result: " + str(element_set_names))
+
+
+def test_axisymmetric_three_d_output(work):
+    # With 3D output CalculiX writes the 2 degree segment it computes, and does not scale its fields: the forces and the
+    # reaction heat flux of the results file are those of the segment, while the .dat file is given for the full
+    # revolution as with 2D output. An axisymmetric cross section, which integrates the 2D mesh, is refused on it
+    revolved_area = math.pi * (20.0 ** 2 - 10.0 ** 2)
+    bottom = PREFIX + "Ring_Bottom"
+    add_ring_section(PREFIX + "Steel_Conductor", [pmx.create.elastic(210000, 0.3),
+                                                  pmx.create.thermal_conductivity(50.0)])
+    step = pmx.model.steps.add_static(PREFIX + "Ring_Step_3D")
+    step.bcs.add_fixed(PREFIX + "Ring_Fixed", pmx.create.region('NodeSetName', bottom))
+    step.loads.add_pressure(PREFIX + "Ring_Pressure", pmx.create.region('SurfaceName', PREFIX + "Ring_Top"), 1.0)
+    step.field_outputs.replace_element('EF-Output-1', output='ThreeD')
+    step.history_outputs.add_nodal(PREFIX + "Ring_Reactions", pmx.create.region('NodeSetName', bottom), ["RF"])
+    result, _, _ = run_and_open(PREFIX + "Axi_Reactions_3D", work)
+    with open(os.path.join(work, PREFIX + "Axi_Reactions_3D.frd")) as results_file:
+        heading = [results_file.readline() for _ in range(3)]
+    check(any(line.strip() == "1UModel space: Axisymmetric" for line in heading),
+          "the results file does not name the model space in its heading: " + str(heading))
+    check_three_d_mesh_of_the_ring(result, "static")
+    field = bottom_field_total(result, 'FORC', 'F2')
+    history = history_entries_total(result, bottom.upper(), "FORCES", "RF2")
+    check(abs(field - revolved_area / 180) < 1e-3 * revolved_area / 180 and
+          abs(history - revolved_area) < 1e-3 * revolved_area,
+          "the reactions of the 3D output of an axisymmetric model are not the segment in the field and the full " +
+          "revolution in the history: " + str(field) + " and " + str(history) + " against " + str(revolved_area))
+    outputs = result.history_outputs
+    volume = PREFIX + "Axi_Volume"
+    check_raises(lambda: outputs.add(outputs.create_history_output_from_integration(
+                     volume, "Volume", pmx.create.selection_by_ids('results', 'elements', 'parts', [1]),
+                     cross_section="Axisymmetric")),
+                 "an axisymmetric cross section was accepted on the 3D output of an axisymmetric model")
+    check(volume not in list(outputs.get_names()), "a refused integration was added to the result")
+    pmx.model.steps.remove([PREFIX + "Ring_Step_3D"])
+    # The reaction heat flux of the segment
+    step = pmx.model.steps.add_heat_transfer(PREFIX + "Ring_Heat_3D", steady_state=True)
+    step.bcs.add_temperature(PREFIX + "Ring_Cold", pmx.create.region('NodeSetName', bottom), 0.0)
+    step.loads.add_surface_flux(PREFIX + "Ring_Flux", pmx.create.region('SurfaceName', PREFIX + "Ring_Top"), 1.0)
+    step.field_outputs.replace_element('EF-Output-1', output='ThreeD')
+    step.history_outputs.add_nodal(PREFIX + "Ring_Heat_Flow", pmx.create.region('NodeSetName', bottom), ["RFL"],
+                                   totals_type="Yes")
+    result, _, _ = run_and_open(PREFIX + "Axi_Heat_3D", work)
+    check_three_d_mesh_of_the_ring(result, "thermal")
+    field = bottom_field_total(result, 'RFL', 'RFL')
+    history = history_total(result, bottom.upper(), "TOTAL_HEAT_GENERATION", "RFL")
+    check(abs(field + revolved_area / 180) < 1e-3 * revolved_area / 180 and
+          abs(history + revolved_area) < 1e-3 * revolved_area,
+          "the reaction heat flux of the 3D output of an axisymmetric model is not the segment in the field and the " +
+          "full revolution in the history: " + str(field) + " and " + str(history) + " against " + str(-revolved_area))
+
+
+def copy_results_of_another_model(work, name, keep_model_space):
+    # The results files of the analysis as another model would have written them: a model hash that is not the hash of
+    # the open model, and, when keep_model_space is false, without the model space line older versions did not write
+    copy_name = PREFIX + "Other_" + name + ("" if keep_model_space else "_Unnamed_Space")
+    for extension in [".frd", ".dat"]:
+        with open(os.path.join(work, PREFIX + name + extension)) as source:
+            lines = source.read().splitlines(True)
+        if extension == ".frd":
+            lines = [re.sub(r"Hash: [^,]*,", "Hash: Other123,", line) for line in lines
+                     if keep_model_space or "Model space:" not in line]
+        with open(os.path.join(work, copy_name + extension), "w") as target:
+            target.write("".join(lines))
+    return os.path.join(work, copy_name)
+
+
+def test_axisymmetric_results_of_another_model(work):
+    # The results file names the model space, so the results of the axisymmetric ring are given for the full revolution
+    # whichever model is open, and a .dat file opened on its own takes it from the .frd file beside it. A results file
+    # without the line is axisymmetric only beside the model it was computed from
+    revolved_area = math.pi * (20.0 ** 2 - 10.0 ** 2)
+    bottom = (PREFIX + "Ring_Bottom").upper()
+    pmx.results.clear()
+    pmx.results.open(copy_results_of_another_model(work, "Axi_Reactions", True) + ".dat")
+    history = history_entries_total(pmx.results.current, bottom, "FORCES", "RF2")
+    check(abs(history - revolved_area) < 1e-3 * revolved_area, "the reaction history of an axisymmetric model opened " +
+          "alone is not given for the full revolution: " + str(history) + " instead of " + str(revolved_area))
+    pmx.results.open(copy_results_of_another_model(work, "Axi_Heat", True) + ".frd")
+    result = pmx.results.current
+    field = bottom_field_total(result, 'RFL', 'RFL')
+    history = history_total(result, bottom, "TOTAL_HEAT_GENERATION", "RFL")
+    check(abs(field + revolved_area) < 1e-3 * revolved_area and abs(history + revolved_area) < 1e-3 * revolved_area,
+          "the reaction heat flux of an axisymmetric model opened beside another model is not given for the full " +
+          "revolution: " + str(field) + " and " + str(history) + " instead of " + str(-revolved_area))
+    pmx.results.open(copy_results_of_another_model(work, "Axi_Heat_3D", True) + ".frd")
+    result = pmx.results.current
+    field = bottom_field_total(result, 'RFL', 'RFL')
+    history = history_total(result, bottom, "TOTAL_HEAT_GENERATION", "RFL")
+    check(abs(field + revolved_area / 180) < 1e-3 * revolved_area / 180 and
+          abs(history + revolved_area) < 1e-3 * revolved_area,
+          "the reaction heat flux of the 3D output of an axisymmetric model opened beside another model is not the " +
+          "segment in the field and the full revolution in the history: " + str(field) + " and " + str(history))
+    pmx.results.open(copy_results_of_another_model(work, "Axi_Heat", False) + ".frd")
+    result = pmx.results.current
+    field = bottom_field_total(result, 'RFL', 'RFL')
+    history = history_total(result, bottom, "TOTAL_HEAT_GENERATION", "RFL")
+    check(abs(field + revolved_area / 180) < 1e-3 * revolved_area / 180 and
+          abs(history + revolved_area / 180) < 1e-3 * revolved_area / 180,
+          "a results file that does not name its model space was taken as axisymmetric beside another model: " +
+          str(field) + " and " + str(history))
+
+
 def run_ring_section_print(name, work):
     # The section print of the bottom edge carries the pressure of 1 on the top, both given for the full revolution
     step = pmx.model.steps.add_static(PREFIX + "Ring_Section_Step")
@@ -966,6 +1105,8 @@ def main():
         clean()
         test_axisymmetric_thermal_per_revolution(work)
         clean()
+        test_axisymmetric_three_d_output(work)
+        clean()
         test_axisymmetric_frequency_per_revolution(work)
         clean()
         test_axisymmetric_gap_and_mass_per_revolution(work)
@@ -976,6 +1117,7 @@ def main():
         clean()
         test_axisymmetric_section_print_per_revolution(work)
         clean()
+        test_axisymmetric_results_of_another_model(work)
     finally:
         # A failure may leave the sleeping solver running in the folder, which then cannot be removed
         for job in list(pmx.jobs):

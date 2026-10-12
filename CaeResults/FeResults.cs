@@ -156,6 +156,7 @@ namespace CaeResults
         private string _deformationFieldOutputName;
         private ComplexResultTypeEnum _complexResultType;
         private float _complexAngleDeg;
+        private string _modelSpace;                             // null for a results file whose heading does not name it
 
 
 
@@ -166,6 +167,7 @@ namespace CaeResults
         public FeMesh Mesh { get { return _mesh; } set { _mesh = value; } }
         public DateTime DateTime { get { return _dateTime; } set { _dateTime = value; } }
         public UnitSystem UnitSystem { get { return _unitSystem; } set { _unitSystem = value; } }
+        public string ModelSpace { get { return _modelSpace; } set { _modelSpace = value; } }
         public ComplexResultTypeEnum ComplexResultType { get { return _complexResultType; } }
         public float ComplexAngleDeg { get { return _complexAngleDeg; } }
         public string DeformationFieldOutputName
@@ -242,6 +244,8 @@ namespace CaeResults
                         _complexResultType = (ComplexResultTypeEnum)entry.Value; break;
                     case "_complexAngleDeg":
                         _complexAngleDeg = (float)entry.Value; break;
+                    case "_modelSpace":
+                        _modelSpace = (string)entry.Value; break;
                 }
             }
             // Compatibility for version v2.6.0
@@ -303,6 +307,7 @@ namespace CaeResults
             info.AddValue("_deformationFieldOutputName", _deformationFieldOutputName, typeof(string));
             info.AddValue("_complexResultType", _complexResultType, typeof(ComplexResultTypeEnum));
             info.AddValue("_complexAngleDeg", _complexAngleDeg, typeof(float));
+            info.AddValue("_modelSpace", _modelSpace, typeof(string));
         }
 
 
@@ -817,6 +822,32 @@ namespace CaeResults
             {
                 if (entry.Key.Name == fieldName && scaledFields.Add(entry.Value)) entry.Value.ScaleComponentValues(factor);
             }
+        }
+        // CalculiX writes a 2D model expanded into the 3D elements it computes with when the field output asks for 3D
+        // output, and on its own for some element combinations
+        public bool IsMeshThreeDimensional()
+        {
+            if (_mesh == null) return false;
+            //
+            foreach (var entry in _mesh.Elements)
+            {
+                if (entry.Value is FeElement3D) return true;
+            }
+            Dictionary<int, FeNode> nodes = _undeformedNodes != null ? _undeformedNodes : _mesh.Nodes;
+            foreach (var entry in nodes)
+            {
+                if (Math.Abs(entry.Value.Z) > 1E-6 * Math.Max(1, Math.Max(Math.Abs(entry.Value.X), Math.Abs(entry.Value.Y))))
+                    return true;
+            }
+            return false;
+        }
+        public string GetIntegrationCrossSectionError(IntegrationScaleType crossSection)
+        {
+            if (crossSection != IntegrationScaleType.Axisymmetric || !IsMeshThreeDimensional()) return null;
+            //
+            return "The Axisymmetric cross section integrates over the 2D mesh of an axisymmetric model, but the mesh of " +
+                   "this result is 3D. An axisymmetric model written with 3D output is the 2 degree segment CalculiX " +
+                   "computes, so integrate it without a cross section to get the values of the segment.";
         }
         public string[] AddPartsFromMesh(FeMesh mesh, string[] partNames)
         {
@@ -2333,11 +2364,14 @@ namespace CaeResults
             //
             return copiedPartNames.Concat(rebuiltPartNames).ToArray();
         }
-        public void CopyMeshItemsFromMesh(FeMesh mesh, ConvertPyramidsToEnum convertPyramidsTo)
+        public void CopyMeshItemsFromMesh(FeMesh mesh, ConvertPyramidsToEnum convertPyramidsTo, bool copyNodeSetsAndSurfaces)
         {
-            foreach (var entry in mesh.NodeSets)
+            if (copyNodeSetsAndSurfaces)
             {
-                _mesh.NodeSets.Add(entry.Key, entry.Value.DeepClone());
+                foreach (var entry in mesh.NodeSets)
+                {
+                    _mesh.NodeSets.Add(entry.Key, entry.Value.DeepClone());
+                }
             }
             //
             string newName;
@@ -2354,6 +2388,7 @@ namespace CaeResults
                 _mesh.ElementSets.Add(newElementSet.Name, newElementSet);
             }
             //
+            if (!copyNodeSetsAndSurfaces) return;
             foreach (var entry in mesh.Surfaces)
             {
                 _mesh.Surfaces.Add(entry.Key, entry.Value.DeepClone());
@@ -5446,6 +5481,8 @@ namespace CaeResults
                                                             int[] nodeIds, Dictionary<string, FeElement> namedElements)
         {
             if (nodeIds == null || nodeIds.Length == 0 || namedElements.Count == 0) return null;
+            string crossSectionError = GetIntegrationCrossSectionError(resultHistoryOutput.CrossSection);
+            if (crossSectionError != null) throw new CaeException(crossSectionError);
             //
             double[][] undeformedCoor = new double[nodeIds.Length][];
             for (int i = 0; i < nodeIds.Length; i++) undeformedCoor[i] = _undeformedNodes[nodeIds[i]].Coor;

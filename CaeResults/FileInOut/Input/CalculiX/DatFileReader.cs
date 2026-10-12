@@ -171,12 +171,12 @@ namespace CaeResults
         };
 
         // Methods                                                                                                                  
-        static public HistoryResults Read(string fileName, IEnumerable<string> fullNames, FeMesh axisymmetricMesh,
-                                          out string[] errors, out string[] unscaledSectionMessages)
+        static public HistoryResults Read(string fileName, IEnumerable<string> fullNames, bool axisymmetric,
+                                          FeMesh axisymmetricModelMesh, out string[] errors,
+                                          out string[] unscaledSectionMessages)
         {
             errors = null;
             unscaledSectionMessages = null;
-            bool axisymmetric = axisymmetricMesh != null;
             List<string> errorsList = new List<string>();
             //
             if (fileName != null && File.Exists(fileName))
@@ -336,8 +336,8 @@ namespace CaeResults
                 allHistoryResults.AppendSets(bucklingHistoryOutput);
                 //
                 List<string> unscaledSectionMessagesList = new List<string>();
-                HistoryResults historyOutput = GetHistoryOutput(dataSets.Values, hashSuffixFullNames, axisymmetricMesh,
-                                                                unscaledSectionMessagesList);
+                HistoryResults historyOutput = GetHistoryOutput(dataSets.Values, hashSuffixFullNames, axisymmetric,
+                                                                axisymmetricModelMesh, unscaledSectionMessagesList);
                 unscaledSectionMessages = unscaledSectionMessagesList.ToArray();
                 AddComplexFields(historyOutput);
                 AddStressComponents(historyOutput);
@@ -1439,8 +1439,8 @@ namespace CaeResults
             return value;
         }
         static private HistoryResults GetHistoryOutput(IEnumerable<DatDataSet> dataSets,
-                                                       Dictionary<string, string> hashSuffixFullNames,
-                                                       FeMesh axisymmetricMesh, List<string> unscaledSectionMessages)
+                                                       Dictionary<string, string> hashSuffixFullNames, bool axisymmetric,
+                                                       FeMesh axisymmetricModelMesh, List<string> unscaledSectionMessages)
         {
             Dictionary<string, double> sectionPrintFactors = new Dictionary<string, double>();
             HistoryResults historyOutput = new HistoryResults("HistoryOutput");
@@ -1462,9 +1462,9 @@ namespace CaeResults
                 repairedDataSet = RepairReferencePointDataSet(dataSet, hashSuffixFullNames);
                 //
                 factor = 1;
-                if (axisymmetricMesh != null)
-                    factor = GetAxisymmetricSegmentsPerRevolution(repairedDataSet, axisymmetricMesh, sectionPrintFactors,
-                                                                  unscaledSectionMessages);
+                if (axisymmetric)
+                    factor = GetAxisymmetricSegmentsPerRevolution(repairedDataSet, axisymmetricModelMesh,
+                                                                  sectionPrintFactors, unscaledSectionMessages);
                 time = repairedDataSet.Time;
                 // Get or create a set
                 if (!historyOutput.Sets.TryGetValue(repairedDataSet.SetName, out set))
@@ -1563,7 +1563,7 @@ namespace CaeResults
             //
             return historyOutput;
         }
-        static private double GetAxisymmetricSegmentsPerRevolution(DatDataSet dataSet, FeMesh axisymmetricMesh,
+        static private double GetAxisymmetricSegmentsPerRevolution(DatDataSet dataSet, FeMesh axisymmetricModelMesh,
                                                                    Dictionary<string, double> sectionPrintFactors,
                                                                    List<string> unscaledSectionMessages)
         {
@@ -1582,7 +1582,7 @@ namespace CaeResults
             if (!sectionPrintFactors.TryGetValue(dataSet.BaseSetName, out factor))
             {
                 string message;
-                factor = GetAxisymmetricSectionPrintSegmentsPerRevolution(axisymmetricMesh, dataSet.BaseSetName,
+                factor = GetAxisymmetricSectionPrintSegmentsPerRevolution(axisymmetricModelMesh, dataSet.BaseSetName,
                                                                           dataSet.SetName, out message);
                 if (message != null) unscaledSectionMessages.Add(message);
                 sectionPrintFactors.Add(dataSet.BaseSetName, factor);
@@ -1594,18 +1594,27 @@ namespace CaeResults
         {
             message = null;
             FeSurface surface = null;
-            foreach (var entry in mesh.Surfaces)
+            if (mesh != null)
             {
-                if (entry.Key.ToUpper() == surfaceName.ToUpper())
+                foreach (var entry in mesh.Surfaces)
                 {
-                    surface = entry.Value;
-                    break;
+                    if (entry.Key.ToUpper() == surfaceName.ToUpper())
+                    {
+                        surface = entry.Value;
+                        break;
+                    }
                 }
             }
             if (surface != null && !surface.Name.StartsWith(Globals.InternalName)) surfaceName = surface.Name;
             else surfaceName = historySetName;
             string messageStart = "The section print history " + surfaceName + " of the axisymmetric model is left for " +
                                   "the part of the revolution CalculiX writes it for, since ";
+            if (mesh == null)
+            {
+                message = messageStart + "the angle depends on the element types of the model the result was computed " +
+                          "from, which is not open.";
+                return 1;
+            }
             if (surface == null || surface.ElementFaces == null)
             {
                 message = messageStart + "the surface was not found in the model.";

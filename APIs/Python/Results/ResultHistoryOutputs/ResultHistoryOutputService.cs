@@ -403,6 +403,9 @@ namespace APIs.Python
             ValidateDeformationField(result, output.DeformationVariableName);
             if (output.Unit == null) throw new PythonAPIException("The integration unit must not be None.");
             ValidateCrossSection(output.IntegralType, output.CrossSection, output.Thickness);
+            string crossSectionError = result.GetIntegrationCrossSectionError(output.CrossSection);
+            if (crossSectionError != null)
+                throw new PythonAPIException("The argument 'cross_section' cannot be Axisymmetric here. " + crossSectionError);
         }
         private static void ValidateFromMergedHistories(FeResults result,
                                                        ResultHistoryOutputFromMergedHistories output,
