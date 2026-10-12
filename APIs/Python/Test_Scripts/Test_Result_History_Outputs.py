@@ -24,11 +24,12 @@ MERGED_NAME = "PyTest_History_merged"
 EXTRACTED_NAME = "PyTest_History_extracted"
 XY_NAME = "PyTest_History_xy"
 TABLE_NAME = "PyTest_History_table"
+PICK_NAME = "PyTest_History_pick"
 
 # Derived outputs must be removed before the outputs their equations and sources reference.
 CLEANUP_ORDER = [EQUATION_NAME, XY_NAME, MERGED_NAME, EXTRACTED_NAME, TABLE_NAME, INTEGRATION_NAME,
                  ELEMENT_SIZE_NAME, MERGE_SOURCE_2_NAME, MERGE_SOURCE_1_NAME, FROM_FIELD_NAME,
-                 FROM_FIELD_OPTIONS_NAME]
+                 FROM_FIELD_OPTIONS_NAME, PICK_NAME]
 
 
 def check(condition, message):
@@ -823,6 +824,34 @@ try:
     for member in ["add_from_affine_fit", "replace_from_affine_fit"]:
         check(not hasattr(history_outputs, member), "the API must not offer %s" % member)
     print("PASS: the API offers no From Affine Fit history output")
+
+    # PICK: a results pick names a point of the undeformed geometry, so the deformation the view plots
+    # does not change what it selects, neither when it is made nor when it is resolved again. The cube is
+    # squashed, so on the deformed display the top face lies closest to the points on its side face
+    deformation_type = pmx.view.deformation_type
+    picks = [([1.0, 0.5, 0.9], 'Surface'), ([1.0, 0.5, 0.5], 'Surface'), ([0.9, 0.5, 1.0], 'Surface')]
+    try:
+        resolved = {}
+        for plotted in ["Undeformed", "Automatic5"]:
+            pmx.view.deformation_type = plotted
+            resolved[plotted] = [sorted(list(pmx.create.selection_by_pick('results', 'nodes', point, select_by)
+                                             .get_ids())) for point, select_by in picks]
+        check(resolved["Undeformed"] == resolved["Automatic5"],
+              "a results pick selected %s on the undeformed and %s on the deformed display" %
+              (resolved["Undeformed"], resolved["Automatic5"]))
+        history_outputs.add_from_field(PICK_NAME, "DISP", [disp_component],
+                                       pmx.create.selection_by_pick('results', 'nodes', picks[0][0], 'Surface'))
+        created_names.append(PICK_NAME)
+        component = history_outputs[PICK_NAME].fields["DISP"].components[disp_component]
+        entries = sorted(int(entry) for entry in component.get_entry_names())
+        check(entries == resolved["Undeformed"][0],
+              "the history output of a pick on the deformed display holds the nodes %s, expected %s" %
+              (entries, resolved["Undeformed"][0]))
+        history_outputs.remove([PICK_NAME])
+        created_names.remove(PICK_NAME)
+    finally:
+        pmx.view.deformation_type = deformation_type
+    print("PASS: a results pick does not depend on the plotted deformation")
 
     print("RESULT: all applicable result history-output command tests passed")
     print("TEST PASSED")

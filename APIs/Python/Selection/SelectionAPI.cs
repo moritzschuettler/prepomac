@@ -66,7 +66,9 @@ namespace APIs.Python
                    "select_by values are Node, Element, Edge, Surface, EdgeAngle, SurfaceAngle, Part, " +
                    "Geometry, GeometryVertex, GeometryEdge, GeometrySurface, GeometryEdgeAngle, " +
                    "GeometrySurfaceAngle and GeometryPart. The angle_deg applies to the angle based modes. " +
-                   "The nearest entity is picked, so a point that does not lie on the model still resolves.",
+                   "The nearest entity is picked, so a point that does not lie on the model still resolves. " +
+                   "A results pick names a point of the undeformed, unexploded geometry. A pick without a " +
+                   "precision keeps the one of the view it is first resolved in.",
                    Arguments = "point: list[float], select_by: str, angle_deg: float = None, " +
                                "direction: list[float] = None, part_ids: list[int] = None, " +
                                "completely_inside: bool = False, operation: str = None, precision: float = None, " +
@@ -119,15 +121,17 @@ namespace APIs.Python
             return this;
         }
 
-        [PythonAPI("Inverts what the selection has selected so far. Everything of the target type that " +
-                   "is not selected becomes selected, and the other way round.", Returns = "Selection")]
+        [PythonAPI("Inverts what the selection has selected so far. Everything of the target type on the " +
+                   "active parts, hidden parts included, that is not selected becomes selected, and the other " +
+                   "way round.", Returns = "Selection")]
         public SelectionAPI invert()
         {
             _service.AddInvert(this);
             return this;
         }
 
-        [PythonAPI("Adds every visible active node, element or surface. Operation is None, Add, Subtract or Intersect.",
+        [PythonAPI("Adds every node, element or surface of the active parts, hidden parts included. Operation is " +
+                   "None, Add, Subtract or Intersect.",
                    Arguments = "operation: str = 'Add'", Returns = "Selection")]
         public SelectionAPI add_all(object operation = null)
         {

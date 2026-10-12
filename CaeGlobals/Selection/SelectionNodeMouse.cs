@@ -28,6 +28,7 @@ namespace CaeGlobals
         private double _angle;                                          //ISerializable
         private double[][] _partOffsets;                                //ISerializable
         private double _precision;                                      //ISerializable
+        private bool _pickedOnUndeformedGeometry;                       //ISerializable
 
 
         // Properties                                                                                                               
@@ -39,6 +40,11 @@ namespace CaeGlobals
         public double Angle { get { return _angle; } set { _angle = value; } }        
         public double[][] PartOffsets { get { return _partOffsets; } }
         public double Precision { get { return _precision; } set { _precision = value; } }
+        public bool PickedOnUndeformedGeometry
+        {
+            get { return _pickedOnUndeformedGeometry; }
+            set { _pickedOnUndeformedGeometry = value; }
+        }
         public bool IsGeometryBased { get { return _selectBy.IsGeometryBased(); } }
 
 
@@ -57,6 +63,7 @@ namespace CaeGlobals
             _angle = angle;
             _partOffsets = partOffsets;
             _precision = -1;
+            _pickedOnUndeformedGeometry = true;
         }
         public SelectionNodeMouse(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -65,6 +72,8 @@ namespace CaeGlobals
             _selectionDirection = null; // Compatibility for version v0.9.0
             _partOffsets = null;        // Compatibility for version v0.9.0
             _completelyInside = false;  // Compatibility for version v0.9.0
+            // Compatibility for version v3.0.0: a results pick was recorded on the deformed display
+            _pickedOnUndeformedGeometry = false;
             //
             foreach (SerializationEntry entry in info)
             {
@@ -86,6 +95,8 @@ namespace CaeGlobals
                         _partOffsets = (double[][])entry.Value; break;
                     case "_precision":
                         _precision = (double)entry.Value; break;
+                    case "_pickedOnUndeformedGeometry":
+                        _pickedOnUndeformedGeometry = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -152,6 +163,7 @@ namespace CaeGlobals
             info.AddValue("_angle", _angle, typeof(double));
             info.AddValue("_partOffsets", _partOffsets, typeof(double[][]));
             info.AddValue("_precision", _precision, typeof(double));
+            info.AddValue("_pickedOnUndeformedGeometry", _pickedOnUndeformedGeometry, typeof(bool));
         }
 
 

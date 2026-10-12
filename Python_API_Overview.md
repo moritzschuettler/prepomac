@@ -2792,11 +2792,11 @@ resolves the way it resolves a mouse click.
 | `pmx.create.selection_by_pick(view, target, point, select_by, angle_deg=None, direction=None, part_ids=None, completely_inside=False, precision=None, part_offsets=None)` | Creates a selection from a point pick. |
 | `pmx.create.selection_by_area(view, target, planes, select_by, angle_deg=None, part_ids=None, completely_inside=False, part_offsets=None)` | Creates a selection from an area pick. Every row of `planes` is `[ox, oy, oz, nx, ny, nz]`, and a normal points **out** of the volume. |
 | `pmx.create.selection_by_box(view, target, corner1, corner2, select_by, part_ids=None, completely_inside=False, part_offsets=None)` | The six plane form of `selection_by_area`, given by two opposite corners. |
-| `pmx.create.selection_all(view, target)` | Creates a selection of everything the view holds. |
+| `pmx.create.selection_all(view, target)` | Creates a selection of everything the active parts of the view hold, hidden parts included. |
 | `selection.add_by_ids(source, ids, operation=None)`, `add_by_pick(point, select_by, angle_deg=None, ..., operation=None)`, `add_by_area(planes, select_by, angle_deg=None, ..., operation=None)` | Adds another item to a selection. |
 | `selection.add_by_box(corner1, corner2, select_by, part_ids=None, completely_inside=False, operation=None, part_offsets=None)` | Adds an axis aligned box, the six plane form of `add_by_area`. |
-| `selection.add_all(operation='Add')` | Adds everything the view holds. |
-| `selection.invert()` | Inverts what the selection has selected so far. |
+| `selection.add_all(operation='Add')` | Adds everything the active parts of the view hold, hidden parts included. |
+| `selection.invert()` | Inverts what the selection has selected so far, over the active parts, hidden parts included. |
 | `selection.configure(...)`, `selection.get_options()` | The recorded selection options. |
 
 Every item a selection carries names the set operation that joins it to what came before:
@@ -2847,7 +2847,7 @@ top = pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 
 all_but_top = pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 'Node').invert()
 ```
 
-Four things to know about how the application resolves a selection:
+Six things to know about how the application resolves a selection:
 
 - **A point pick takes the nearest entity.** A point that does not lie on the model still resolves, to
   whatever is closest, so a mistyped coordinate selects the wrong face rather than failing. An **area
@@ -2856,10 +2856,19 @@ Four things to know about how the application resolves a selection:
 - **Only the named parts are searched.** `part_ids` limits a pick; when it is not given the whole mesh
   is searched, which is the useful default for "whatever lies under this point". A pick that names
   its part and one that searches every part resolve to the same entity.
-- **`precision` and `part_offsets` are part of a recorded pick.** The application takes the precision
-  from the current view the first time a geometry pick is resolved, and the offsets are what an
-  exploded view moved the parts by. A script that reproduces a recorded pick passes both, so that the
-  same point resolves the same way whatever the view is now.
+- **`precision` and `part_offsets` are part of a recorded pick.** A point pick made without a precision
+  takes the one of the current view the first time it is resolved - when the item it defines is added -
+  and keeps it, so a later zoom does not change what it selects, and the journal writes it out. The
+  offsets are what an exploded view moved the parts by. A script that reproduces a recorded pick passes
+  both, so that the same point resolves the same way whatever the view is now.
+- **A results pick names the undeformed geometry.** The point of a `'results'` pick is a point of the
+  undeformed, unexploded parts, and it is carried onto the deformed display when it is resolved, so the
+  plotted increment, the deformation scale and an exploded view do not change what it selects. A click
+  on the deformed display is recorded the same way. An area pick is still resolved on the display.
+- **Hiding a part changes the view, not the model.** `selection_all`, `add_all`, `invert` and node,
+  element and part IDs cover every active part, hidden ones included, and a stored selection resolves
+  to the same items whether a part is shown or hidden. A new pick still searches only the visible
+  parts, as a mouse click does.
 - **A pick and an invert are resolved by the application**, not by the API, because only it can turn a
   point into IDs or know what the complement of a selection is. They therefore need a live
   application, and are rejected in a results only API context.
@@ -2872,7 +2881,7 @@ Four things to know about how the application resolves a selection:
 | `target` | Immutable resulting item type. |
 | `count` | Number of source IDs. |
 | `add_by_ids(source, ids, operation=None, geometry_select_mode='SelectId')` | Adds another compatible ID source. The select mode applies only to geometry source IDs. An edge or a surface ID counts from 1 on its part; 0 or a negative ID is refused. |
-| `add_all(operation='Add')` | Adds everything the view holds. |
+| `add_all(operation='Add')` | Adds everything the active parts of the view hold, hidden parts included. |
 | `configure(max_geometry_ids=None, max_item_ids=None, limit_to=None, shell_edges_only=None, enable_shell_edge_faces=None)` | Records the selection options and returns the selection. |
 | `get_options()` | The recorded selection options, as a `dict[str, Any]`. |
 | `get_sources()` | Returns the source types as `StringList`. |

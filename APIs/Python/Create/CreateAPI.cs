@@ -57,7 +57,9 @@ namespace APIs.Python
                    "application selects what lies under it, the same way a mouse pick does. It survives a " +
                    "mesh change, because the pick is resolved again rather than replayed from IDs. The " +
                    "nearest entity is picked, so a point that does not lie on the model still resolves, " +
-                   "and part_ids limits which parts are searched.",
+                   "and part_ids limits which parts are searched. A results pick names a point of the " +
+                   "undeformed, unexploded geometry. A pick without a precision keeps the one of the view it " +
+                   "is first resolved in.",
                    Arguments = "view: str, target: str, point: list[float], select_by: str, " +
                                "angle_deg: float = None, direction: list[float] = None, " +
                                "part_ids: list[int] = None, completely_inside: bool = False, precision: float = None, " +
@@ -112,7 +114,8 @@ namespace APIs.Python
                                                   completely_inside, part_offsets);
         }
 
-        [PythonAPI("Selects every visible active node, element or surface in the requested view.",
+        [PythonAPI("Selects every node, element or surface of the active parts in the requested view, hidden parts " +
+                   "included, because hiding a part changes the view and not the model.",
                    Arguments = "view: str, target: str", Returns = "Selection")]
         public SelectionAPI selection_all(object view, object target)
         {

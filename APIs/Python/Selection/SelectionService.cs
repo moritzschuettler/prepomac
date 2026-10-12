@@ -598,21 +598,22 @@ namespace APIs.Python
             }
             return geometryIds.ToArray();
         }
+        // Typed IDs are kept on a hidden part, as the application keeps them when it resolves the selection again
         private static void ValidateDirectIds(int[] ids, FeMesh mesh, string source)
         {
-            HashSet<int> visibleIds = new HashSet<int>();
+            HashSet<int> activeIds = new HashSet<int>();
             foreach (var entry in mesh.Parts)
             {
                 BasePart part = entry.Value;
-                if (!IsSelectable(part)) continue;
-                if (source == "nodes" && part.NodeLabels != null) visibleIds.UnionWith(part.NodeLabels);
-                else if (source == "elements" && part.Labels != null) visibleIds.UnionWith(part.Labels);
-                else if (source == "parts") visibleIds.Add(part.PartId);
+                if (part == null || !part.Active) continue;
+                if (source == "nodes" && part.NodeLabels != null) activeIds.UnionWith(part.NodeLabels);
+                else if (source == "elements" && part.Labels != null) activeIds.UnionWith(part.Labels);
+                else if (source == "parts") activeIds.Add(part.PartId);
             }
             foreach (int id in ids)
             {
-                if (!visibleIds.Contains(id))
-                    throw new PythonAPIException("The visible " + source.TrimEnd('s') + " ID " + id +
+                if (!activeIds.Contains(id))
+                    throw new PythonAPIException("The active " + source.TrimEnd('s') + " ID " + id +
                                                  " does not exist in the selected view.");
             }
         }

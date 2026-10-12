@@ -4202,6 +4202,15 @@ namespace CaeMesh
             }
             return ids.ToArray();
         }
+        public int[] GetActivePartIds()
+        {
+            List<int> ids = new List<int>();
+            foreach (var entry in _parts)
+            {
+                if (entry.Value.Active) ids.Add(entry.Value.PartId);
+            }
+            return ids.ToArray();
+        }
         public string[] GetVisibleAndActivePartNames()
         {
             // Find the part
@@ -6925,6 +6934,10 @@ namespace CaeMesh
         }
         public int[] GetVisibleVisualizationFaceIds(bool shellFrontFace = true)
         {
+            return GetActiveVisualizationFaceIds(true, shellFrontFace);
+        }
+        public int[] GetActiveVisualizationFaceIds(bool onlyVisible, bool shellFrontFace = true)
+        {
             // Get all visualization cell ids
             int elementId;
             int vtkCellId;
@@ -6934,7 +6947,7 @@ namespace CaeMesh
             //
             foreach (var entry in _parts)
             {
-                if (entry.Value.Active && entry.Value.Visible)
+                if (entry.Value.Active && (entry.Value.Visible || !onlyVisible))
                 {
                     for (int i = 0; i < entry.Value.Visualization.CellIds.Length; i++)
                     {
@@ -9602,6 +9615,14 @@ namespace CaeMesh
         public int[] GetVisibleNodeIds()
         {
             return GetVisibleNodeIdsSet().ToArray();
+        }
+        public int[] GetActiveNodeIds()
+        {
+            return GetVisibilityCache().GetActiveNodeIds().ToArray();
+        }
+        public int[] GetActiveElementIds()
+        {
+            return GetVisibilityCache().GetActiveElementIds().ToArray();
         }
         private HashSet<int> GetVisibleNodeIdsSet()
         {

@@ -13716,6 +13716,10 @@ namespace PrePoMax
             else if (_currentView == ViewGeometryModelResults.Results) return _allResults.CurrentResult.Mesh.GetVisibleNodeIds();
             else throw new NotSupportedException();
         }
+        private int[] GetActiveNodeIds()
+        {
+            return DisplayedMesh.GetActiveNodeIds();
+        }
         public int[] GetAllOuterNodeIds()
         {
             HashSet<int> outerNodes = new HashSet<int>();
@@ -13808,6 +13812,10 @@ namespace PrePoMax
             else if (_currentView == ViewGeometryModelResults.Results) return
                     _allResults.CurrentResult.Mesh.GetVisibleElementIds();
             else throw new NotSupportedException();
+        }
+        private int[] GetActiveElementIds()
+        {
+            return DisplayedMesh.GetActiveElementIds();
         }
         public FeElement GetElement(int elementId)
         {
@@ -15216,9 +15224,9 @@ namespace PrePoMax
         {
             return _model.Mesh.RemoveSurfaces(surfaceNames, out _, out _);
         }
-        private int[] GetVisibleFaceIds()
+        private int[] GetActiveFaceIds()
         {
-            return DisplayedMesh.GetVisibleVisualizationFaceIds();
+            return DisplayedMesh.GetActiveVisualizationFaceIds(false);
         }
         // Update
         private void ReselectSurface(FeSurface surface, bool updateParents)
@@ -22008,12 +22016,26 @@ namespace PrePoMax
                         // Exploded view - save offsets
                         if (IsExplodedViewActive()) pickedPartOffsets = mesh.GetPartOffsetsFromPartNames(pickedPartNames);
                     }
+                    // A point picked on the results is recorded where it lies on the undeformed, unexploded geometry
+                    bool pickedOnUndeformedGeometry = true;
+                    if (_currentView == ViewGeometryModelResults.Results && pickedPoint != null)
+                    {
+                        double[] undeformedPoint;
+                        if (TryMapResultPoint(pickedPoint, pickedPartIds, true, out undeformedPoint))
+                        {
+                            pickedPoint = undeformedPoint;
+                            pickedPartOffsets = null;
+                        }
+                        else pickedOnUndeformedGeometry = false;
+                    }
                     //
-                    SelectionNode selectionNode = new SelectionNodeMouse(pickedPoint, selectionDirection,
-                                                                         planeParameters, completelyInside,
-                                                                         selectOperation, pickedPartIds,
-                                                                         pickedPartOffsets, selectBy,
-                                                                         selectAngle);
+                    SelectionNodeMouse pickedNode = new SelectionNodeMouse(pickedPoint, selectionDirection,
+                                                                           planeParameters, completelyInside,
+                                                                           selectOperation, pickedPartIds,
+                                                                           pickedPartOffsets, selectBy,
+                                                                           selectAngle);
+                    pickedNode.PickedOnUndeformedGeometry = pickedOnUndeformedGeometry;
+                    SelectionNode selectionNode = pickedNode;
                     // Change geometry selection to IDs if needed
                     if (selectionNode is SelectionNodeMouse snm && snm.IsGeometryBased &&
                         _geometrySelectMode == GeometrySelectModeEnum.SelectId)
@@ -22249,7 +22271,7 @@ namespace PrePoMax
             // In order for a picked selection to work the selection must be performed
             _selection = selection.DeepCopy(true, false);
             int[] ids = GetSelectionIds();
-            CopyResolvedPickPartIds(_selection, selection);
+            CopyResolvedPicks(_selection, selection);
             _selection.Clear();
             //
             return ids;
@@ -22370,18 +22392,18 @@ namespace PrePoMax
         private int[] GetIdsFromSelectionNodeInvert(SelectionNodeInvert selectionNodeInvert, HashSet<int> selectedIds)
         {
             HashSet<int> allIds;
-            //
+            // Hiding a part is a view action, so the parts it hides stay in what a stored selection resolves to
             if (_selection.SelectItem == vtkSelectItem.Node)
             {
-                allIds = new HashSet<int>(GetVisibleNodeIds());
+                allIds = new HashSet<int>(GetActiveNodeIds());
             }
             else if (_selection.SelectItem == vtkSelectItem.Element)
             {
-                allIds = new HashSet<int>(GetVisibleElementIds());
+                allIds = new HashSet<int>(GetActiveElementIds());
             }
             else if (_selection.SelectItem == vtkSelectItem.Surface)
             {
-                allIds = new HashSet<int>(GetVisibleFaceIds());
+                allIds = new HashSet<int>(GetActiveFaceIds());
             }
             else throw new NotSupportedException();
             //
@@ -22395,9 +22417,9 @@ namespace PrePoMax
             //
             if (selectionNodeIds.SelectAll)
             {
-                if (_selection.SelectItem == vtkSelectItem.Node) ids = GetVisibleNodeIds();
-                else if (_selection.SelectItem == vtkSelectItem.Element) ids = GetVisibleElementIds();
-                else if (_selection.SelectItem == vtkSelectItem.Surface) ids = GetVisibleFaceIds();
+                if (_selection.SelectItem == vtkSelectItem.Node) ids = GetActiveNodeIds();
+                else if (_selection.SelectItem == vtkSelectItem.Element) ids = GetActiveElementIds();
+                else if (_selection.SelectItem == vtkSelectItem.Surface) ids = GetActiveFaceIds();
                 else throw new NotSupportedException();
             }
             else
@@ -22413,10 +22435,10 @@ namespace PrePoMax
                     }
                     else
                     {
-                        if (_selection.SelectItem == vtkSelectItem.Node) ids = GetVisibleNodeIds();
-                        else if (_selection.SelectItem == vtkSelectItem.Element) ids = GetVisibleElementIds();
-                        else if (_selection.SelectItem == vtkSelectItem.Surface) ids = GetVisibleFaceIds();
-                        else if (_selection.SelectItem == vtkSelectItem.Part) ids = DisplayedMesh.GetVisiblePartIds();
+                        if (_selection.SelectItem == vtkSelectItem.Node) ids = GetActiveNodeIds();
+                        else if (_selection.SelectItem == vtkSelectItem.Element) ids = GetActiveElementIds();
+                        else if (_selection.SelectItem == vtkSelectItem.Surface) ids = GetActiveFaceIds();
+                        else if (_selection.SelectItem == vtkSelectItem.Part) ids = DisplayedMesh.GetActivePartIds();
                         else throw new NotSupportedException();
                         //
                         ids = selectionNodeIds.ItemIds.Intersect(ids).ToArray();
@@ -22440,9 +22462,20 @@ namespace PrePoMax
         public int[] GetIdsFromSelectionNodeMouse(SelectionNodeMouse selectionNodeMouse)
         {
             int[] ids;
+            // A point pick keeps the precision of the view it was first resolved in, so that no later view
+            // resolves it differently
+            if (selectionNodeMouse.PickedPoint != null && selectionNodeMouse.Precision <= 0)
+                selectionNodeMouse.Precision = _form.GetSelectionPrecision();
             // Get offset
             bool allZero;
-            double[][] offsets = GetRelativePartOffsets(selectionNodeMouse, out allZero);
+            double[][] offsets;
+            double[] resultDisplayOffset;
+            if (TryGetResultDisplayOffset(selectionNodeMouse, out resultDisplayOffset))
+            {
+                offsets = new double[][] { resultDisplayOffset };
+                allZero = false;
+            }
+            else offsets = GetRelativePartOffsets(selectionNodeMouse, out allZero);
             // Pick a point
             if (selectionNodeMouse.PickedPoint != null)
             {
@@ -22526,7 +22559,6 @@ namespace PrePoMax
                 selectionNodeMouse.PartIds.Length != 1) return true;
             //
             FeMesh mesh = DisplayedMesh;
-            if (selectionNodeMouse.Precision == -1) selectionNodeMouse.Precision = _form.GetSelectionPrecision();
             double tolerance = selectionNodeMouse.Precision;
             double[] pickedPoint = selectionNodeMouse.PickedPoint;
             int recordedPartId = selectionNodeMouse.PartIds[0];
@@ -22610,15 +22642,18 @@ namespace PrePoMax
                                     string.Join(", ", selectionNodeMouse.PartIds) + " skips the part ids " +
                                     string.Join(", ", missingPartIds) + ", which no longer exist.");
         }
-        private static void CopyResolvedPickPartIds(Selection resolvedSelection, Selection selection)
+        private static void CopyResolvedPicks(Selection resolvedSelection, Selection selection)
         {
             if (resolvedSelection.Nodes.Count != selection.Nodes.Count) return;
             //
             for (int i = 0; i < selection.Nodes.Count; i++)
             {
-                if (resolvedSelection.Nodes[i] is SelectionNodeMouse resolvedNode &&
-                    selection.Nodes[i] is SelectionNodeMouse node &&
-                    resolvedNode.PickedPoint != null && resolvedNode.PartIds != null && resolvedNode.PartIds.Length == 1 &&
+                if (!(resolvedSelection.Nodes[i] is SelectionNodeMouse resolvedNode) ||
+                    !(selection.Nodes[i] is SelectionNodeMouse node) || resolvedNode.PickedPoint == null) continue;
+                //
+                if (node.Precision <= 0 && resolvedNode.Precision > 0) node.Precision = resolvedNode.Precision;
+                //
+                if (resolvedNode.PartIds != null && resolvedNode.PartIds.Length == 1 &&
                     node.PartIds != null && node.PartIds.Length == 1 && node.PartIds[0] != resolvedNode.PartIds[0])
                 {
                     double[] partOffset = node.PartOffsets == null ? null : node.PartOffsets[0];
@@ -22667,10 +22702,6 @@ namespace PrePoMax
         private int[] GetIdsAtPointFromGeometrySelection(SelectionNodeMouse selectionNodeMouse)
         {
             // Geometry selection - get geometry Ids
-            // The first time the selectionNodeMouse.Precision equals -1; if so set the Precision for all future queries
-            double precision = _form.GetSelectionPrecision();
-            if (selectionNodeMouse.Precision == -1) selectionNodeMouse.Precision = precision;
-            //
             double[] pickedPoint = selectionNodeMouse.PickedPoint;
             double[] selectionDirection = selectionNodeMouse.SelectionDirection;
             vtkSelectBy selectBy = selectionNodeMouse.SelectBy;
@@ -22684,7 +22715,7 @@ namespace PrePoMax
                 if (nearestPartIds == null || nearestPartIds.Length == 0) return new int[0];
                 selectionOnPartId = nearestPartIds[0];
             }
-            precision = selectionNodeMouse.Precision;
+            double precision = selectionNodeMouse.Precision;
             //
             int[] ids;
             if (selectBy == vtkSelectBy.Geometry)
@@ -23112,6 +23143,51 @@ namespace PrePoMax
             }
             //
             return partOffsets;
+        }
+        /// <summary>
+        /// A point pick of the results view is recorded on the undeformed and unexploded geometry, so that the
+        /// deformation scale, the increment and the exploded view of a later resolution cannot move it. The offset
+        /// carries it onto the material point the results view displays now. A pick of an older file was
+        /// recorded on the display it was made on and a pick with part offsets on an exploded display; both are
+        /// resolved there, as before.
+        /// </summary>
+        private bool TryGetResultDisplayOffset(SelectionNodeMouse selectionNodeMouse, out double[] offset)
+        {
+            offset = null;
+            if (_currentView != ViewGeometryModelResults.Results || _allResults.CurrentResult == null ||
+                selectionNodeMouse.PickedPoint == null || !selectionNodeMouse.PickedOnUndeformedGeometry ||
+                selectionNodeMouse.PartOffsets != null) return false;
+            //
+            double[] displayedPoint;
+            if (!TryMapResultPoint(selectionNodeMouse.PickedPoint, selectionNodeMouse.PartIds, false,
+                                   out displayedPoint)) return false;
+            //
+            offset = new double[] { displayedPoint[0] - selectionNodeMouse.PickedPoint[0],
+                                    displayedPoint[1] - selectionNodeMouse.PickedPoint[1],
+                                    displayedPoint[2] - selectionNodeMouse.PickedPoint[2] };
+            return true;
+        }
+        private bool TryMapResultPoint(double[] point, int[] partIds, bool fromDisplayToUndeformed,
+                                       out double[] mappedPoint)
+        {
+            mappedPoint = null;
+            if (_allResults.CurrentResult == null || partIds == null || partIds.Length == 0) return false;
+            //
+            FeMesh mesh = _allResults.CurrentResult.Mesh;
+            Dictionary<int, FeNode> undeformedNodes = _allResults.CurrentResult.UndeformedNodes;
+            if (mesh == null || undeformedNodes == null) return false;
+            //
+            List<BasePart> parts = new List<BasePart>();
+            BasePart part;
+            foreach (int partId in partIds)
+            {
+                part = mesh.GetPartFromId(partId);
+                if (part != null) parts.Add(part);
+            }
+            if (fromDisplayToUndeformed)
+                return SurfacePointMapper.TryMapPoint(point, parts, mesh.Nodes, undeformedNodes, out mappedPoint);
+            else
+                return SurfacePointMapper.TryMapPoint(point, parts, undeformedNodes, mesh.Nodes, out mappedPoint);
         }
         //
         private int GetGeometryId(double[] point, double[] selectionDirection, int selectionOnPartId, double precision)

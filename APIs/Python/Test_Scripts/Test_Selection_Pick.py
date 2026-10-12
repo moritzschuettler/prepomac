@@ -96,6 +96,31 @@ def test_pick_arguments():
                  "a two value point must be rejected")
 
 
+def test_pick_keeps_its_precision():
+    # A pick made without a precision keeps the one of the view it is first resolved in, so a later zoom
+    # does not change what it selects when the pick is resolved again. Zoomed out, a point near the top
+    # edge of the cube takes the edge; zoomed in, the same point would take the top face
+    part = pmx.model.parts.first()
+    try:
+        pmx.view.look_at([0.5, 0.5, 0.5], 5.0)
+        node_set = pmx.model.node_sets.add(PREFIX + "Edge",
+                                           pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.05, 1.0],
+                                                                        'Geometry'))
+        edge = sorted(list(node_set.get_node_ids()))
+        check(edge == [5, 6], "zoomed out, the point near the edge picked " + str(edge))
+        pmx.view.look_at([0.5, 0.5, 0.5], 0.5)
+        check(sorted(list(pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.05, 1.0], 'Geometry')
+                          .get_ids())) == [5, 6, 7, 8], "zoomed in, the point near the edge must pick the face")
+        # Deactivating and activating the part resolves the stored pick again, in the zoomed in view
+        pmx.model.parts.deactivate([part.name])
+        pmx.model.parts.activate([part.name])
+        node_set = pmx.model.node_sets[PREFIX + "Edge"]
+        check(sorted(list(node_set.get_node_ids())) == edge,
+              "the stored pick followed the zoom: " + str(sorted(list(node_set.get_node_ids()))))
+    finally:
+        pmx.view.zoom_to_fit()
+
+
 def test_pick_combines_with_ids():
     # A selection holds picks and ID items together
     selection = pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.5, 1.0], 'Surface')
@@ -160,6 +185,7 @@ def main():
     clean()
     test_pick_resolves()
     test_pick_arguments()
+    test_pick_keeps_its_precision()
     test_pick_combines_with_ids()
     test_area_pick()
     test_invert()

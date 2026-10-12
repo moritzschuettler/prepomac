@@ -2,7 +2,8 @@
 #The PrePoMax object is available as 'pmx'
 #
 #Checks the selection algebra and the recorded selection options: the set operations a selection can
-#carry, select all, the picking options and the area form. A meshed model must be open.
+#carry, select all, that hiding a part leaves what a stored selection resolves to unchanged, the picking
+#options and the area form. A meshed model must be open.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Selection_Correctness.py -g No -x Yes -w <dir>
 #
@@ -79,6 +80,43 @@ def test_select_all():
     selection.add_all()
     check(len(ids(selection)) == pmx.model.nodes.count, "adding everything back failed")
     check_raises(lambda: selection.add_all('Invert'), "Invert is not a set operation and must be rejected")
+
+
+def test_hidden_part_stays_selected():
+    # Hiding a part changes the view and not the model, so a stored selection resolves to the same items
+    # whether the part is shown or hidden, and a selection made while it is hidden covers it as well
+    part_name = pmx.model.parts.first().name
+    count = pmx.model.nodes.count
+    expected = {"PyTest_All_Shown": count, "PyTest_Ids_Shown": 2, "PyTest_Inverted_Shown": count - 2,
+                "PyTest_All_Hidden": count, "PyTest_Ids_Hidden": 2}
+    pmx.model.node_sets.add("PyTest_All_Shown", pmx.create.selection_all('femodel', 'nodes'))
+    pmx.model.node_sets.add("PyTest_Ids_Shown", pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2]))
+    pmx.model.node_sets.add("PyTest_Inverted_Shown",
+                            pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2]).invert())
+    pmx.model.parts.hide([part_name])
+    try:
+        check(len(ids(pmx.create.selection_all('femodel', 'nodes'))) == count,
+              "select all must cover the hidden part")
+        pmx.model.node_sets.add("PyTest_All_Hidden", pmx.create.selection_all('femodel', 'nodes'))
+        pmx.model.node_sets.add("PyTest_Ids_Hidden",
+                                pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2]))
+        # Deactivating and activating the part resolves every stored selection again while it is hidden
+        pmx.model.parts.deactivate([part_name])
+        pmx.model.parts.activate([part_name])
+        for name in expected:
+            node_set = pmx.model.node_sets[name]
+            check(node_set.valid and node_set.count == expected[name],
+                  name + " resolved to " + str(node_set.count) + " nodes with the part hidden, expected " +
+                  str(expected[name]))
+        pmx.model.parts.show([part_name])
+        pmx.model.parts.deactivate([part_name])
+        pmx.model.parts.activate([part_name])
+        for name in expected:
+            check(pmx.model.node_sets[name].count == expected[name],
+                  name + " changed when the part was shown again")
+    finally:
+        pmx.model.parts.show([part_name])
+        pmx.model.node_sets.remove([name for name in expected if pmx.model.node_sets.contains(name)])
 
 
 def test_options():
@@ -221,6 +259,7 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     test_set_operations()
     test_select_all()
+    test_hidden_part_stays_selected()
     test_options()
     test_repeated_picks()
     test_area()
