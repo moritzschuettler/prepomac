@@ -762,7 +762,8 @@ namespace CaeResults
         }
         static private bool IsReferencePointResultElement(FrdFeDescriptorId feDescriptorId, int[] frdNodeIds)
         {
-            // The input file gives the node of a reference point a spring to itself only so the node reaches the results
+            // The input file gives the node of a point mass on a moved reference point a spring to itself, which is no
+            // element of the mesh
             return feDescriptorId == FrdFeDescriptorId.BeamLinear && frdNodeIds.Length == 2 && frdNodeIds[0] == frdNodeIds[1];
         }
         static private void AddMaterialElementId(int elementId, int materialID, HashSet<int> gapMaterialIds,

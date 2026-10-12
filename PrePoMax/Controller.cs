@@ -1705,8 +1705,8 @@ namespace PrePoMax
                 if (!fromFileOpenMenu)
                 {
                     _allResults.CurrentResult.CopyFeatureItemsFromMesh(_model.Mesh, (int)ViewGeometryModelResults.Results);
-                    _allResults.CurrentResult.SetReferencePointResultNodes(
-                        CalculixFileWriter.GetReferencePointDirections(_model).Keys);
+                    _allResults.CurrentResult.SetReferencePointMotions(CalculixFileWriter.GetReferencePointMotions(_model),
+                                                                       _model.Mesh.Nodes);
                 }
                 //
                 ResumeExplodedViews(false); // must be here after the parts were mapped
@@ -19761,42 +19761,17 @@ namespace PrePoMax
                       "Continue?";
                 if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
             }
-            // Check for boundary conditions on distributing coupling reference points
+            // Check for boundary conditions and point masses on distributing coupling reference points
             if (femSolver == FEMSolverEnum.Calculix)
             {
-                HashSet<string> distributingReferencePointNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var entry in _model.Constraints)
+                msg = GetDistributingCouplingReferencePointWarning();
+                if (msg != null)
                 {
-                    if (entry.Value.Active && entry.Value is DistributingCoupling distributingCoupling &&
-                        distributingCoupling.ReferencePointName != null)
-                        distributingReferencePointNames.Add(distributingCoupling.ReferencePointName);
-                }
-                if (distributingReferencePointNames.Count > 0)
-                {
-                    List<string> ignoredBoundaryConditions = new List<string>();
-                    foreach (var step in _model.StepCollection.StepsList)
-                    {
-                        if (!step.Active) continue;
-                        foreach (var entry in step.BoundaryConditions)
-                        {
-                            BoundaryCondition boundaryCondition = entry.Value;
-                            if (boundaryCondition.Active &&
-                                boundaryCondition.RegionType == RegionTypeEnum.ReferencePointName &&
-                                distributingReferencePointNames.Contains(boundaryCondition.RegionName))
-                                ignoredBoundaryConditions.Add(step.Name + ": " + boundaryCondition.Name +
-                                                              " (" + boundaryCondition.RegionName + ")");
-                        }
-                    }
-                    if (ignoredBoundaryConditions.Count > 0)
-                    {
-                        ignoredBoundaryConditions.Sort(StringComparer.OrdinalIgnoreCase);
-                        msg = "The following boundary conditions are assigned to reference points used by " +
-                              "distributing coupling constraints and will have no effect in CalculiX:" +
-                              Environment.NewLine + Environment.NewLine +
-                              string.Join(Environment.NewLine, ignoredBoundaryConditions) +
-                              Environment.NewLine + Environment.NewLine + "Continue?";
-                        if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.Cancel) return false;
-                    }
+                    // A run nobody can answer is warned and goes on
+                    if (MessageBoxes.Mode != MessageBoxModeEnum.Interactive || MessageBoxes.IsNonInteractiveThread)
+                        MessageBoxes.ShowWarning(msg);
+                    else if (MessageBoxes.ShowWarningQuestionOKCancel(msg + Environment.NewLine + Environment.NewLine +
+                                                                      "Continue?") == DialogResult.Cancel) return false;
                 }
             }
             // Check for contacts of different type
@@ -19859,6 +19834,54 @@ namespace PrePoMax
                 }
             }
             return true;
+        }
+        private string GetDistributingCouplingReferencePointWarning()
+        {
+            // CalculiX does not compute the motion of the reference point of a distributing coupling, so a boundary
+            // condition or a point mass on it does nothing
+            HashSet<string> distributingReferencePointNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in _model.Constraints)
+            {
+                if (entry.Value.Active && entry.Value is DistributingCoupling distributingCoupling &&
+                    distributingCoupling.ReferencePointName != null)
+                    distributingReferencePointNames.Add(distributingCoupling.ReferencePointName);
+            }
+            if (distributingReferencePointNames.Count == 0) return null;
+            //
+            List<string> boundaryConditions = new List<string>();
+            foreach (var step in _model.StepCollection.StepsList)
+            {
+                if (!step.Active) continue;
+                foreach (var entry in step.BoundaryConditions)
+                {
+                    BoundaryCondition boundaryCondition = entry.Value;
+                    if (boundaryCondition.Active && boundaryCondition.RegionType == RegionTypeEnum.ReferencePointName &&
+                        distributingReferencePointNames.Contains(boundaryCondition.RegionName))
+                        boundaryConditions.Add(step.Name + ": " + boundaryCondition.Name + " (" +
+                                               boundaryCondition.RegionName + ")");
+                }
+            }
+            List<string> pointMasses = new List<string>();
+            foreach (var entry in _model.Sections)
+            {
+                if (entry.Value is PointMassSection pointMassSection && pointMassSection.Active &&
+                    pointMassSection.RegionType == RegionTypeEnum.ReferencePointName &&
+                    distributingReferencePointNames.Contains(pointMassSection.RegionName))
+                    pointMasses.Add(pointMassSection.Name + " (" + pointMassSection.RegionName + ")");
+            }
+            if (boundaryConditions.Count == 0 && pointMasses.Count == 0) return null;
+            //
+            boundaryConditions.Sort(StringComparer.OrdinalIgnoreCase);
+            pointMasses.Sort(StringComparer.OrdinalIgnoreCase);
+            string msg = "The following items are assigned to reference points used by distributing coupling " +
+                         "constraints and will have no effect in CalculiX:";
+            if (boundaryConditions.Count > 0)
+                msg += Environment.NewLine + Environment.NewLine + "Boundary conditions:" + Environment.NewLine +
+                       string.Join(Environment.NewLine, boundaryConditions);
+            if (pointMasses.Count > 0)
+                msg += Environment.NewLine + Environment.NewLine + "Point masses:" + Environment.NewLine +
+                       string.Join(Environment.NewLine, pointMasses);
+            return msg;
         }
         private bool DeleteFilesBeforeJobRun(string inputFileName, AnalysisJob job)
         {
@@ -25475,7 +25498,7 @@ namespace PrePoMax
             {
                 FeReferencePoint referencePoint = entry.Value;
                 if (referencePoint.Active && referencePoint.Visible && referencePoint.Valid && !referencePoint.Internal &&
-                    result.TryGetReferencePointResultNodeId(referencePoint, out _)) referencePoints.Add(referencePoint);
+                    result.HasReferencePointMotion(referencePoint)) referencePoints.Add(referencePoint);
             }
             if (referencePoints.Count == 0) return;
             //

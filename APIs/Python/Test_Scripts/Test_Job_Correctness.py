@@ -11,9 +11,12 @@
 #too long for CalculiX, which the input file shortens, and reads their history back under the item names.
 #It solves a spinning plate with a frequency and a complex frequency step and checks that the complex modes are
 #read back as increments numbered from 1 that hold their frequencies, with and without fields before them. On the plate
-#and on a 2D ring it checks that a reference point a rigid body or a kinematic coupling moves is read back with the
-#displacements CalculiX prints for it, without a node or an element of its own in the result mesh, and that a point
-#mass on it solves a frequency step with one of its directions held, and that the printed history of the modes of a
+#and on a 2D ring it checks that the results move a reference point with the nodes it is connected to: a point a rigid
+#body or a kinematic coupling moves by the displacements CalculiX prints for it, also turned by a large angle, and in
+#the directions a kinematic coupling couples, and the point of a distributing coupling, offset and centred, by the
+#weighted mean motion and rotation of the coupled nodes, all without a node or an element of their own in the result
+#mesh. A point mass on a moved point solves a frequency step with one of its directions held, a boundary condition and
+#a point mass on the point of a distributing coupling do not stop the run, and the printed history of the modes of a
 #frequency step after a static step is read back one entry per mode at its frequency.
 #Last, it replaces the cube by an axisymmetric ring and checks that a point spring, a surface spring, the
 #reaction history, the reaction heat flux and body heating of both result files, the participation factor and the
@@ -510,9 +513,18 @@ def test_complex_frequency_modes(work):
         pmx.model.node_sets.remove([clamp])
 
 
-def check_reference_point_displacements(result, point_name, coordinates, dat_file_name, step_factors=None):
-    # The displacements CalculiX prints for the node of the point, increment by increment and mode by mode, are the
-    # ones the results file holds for it, times the factor of the step
+def displacement_scale(result, step_id, increment_id, node_ids):
+    # The largest nodal displacement of the increment, which a computed point is compared against, since a mode leaves a
+    # point that barely moves at the noise of the results file
+    return max(math.sqrt(sum(result.get_nodal_value(step_id, increment_id, "DISP", component, node_id) ** 2
+                             for component in ["U1", "U2", "U3"])) for node_id in node_ids)
+
+
+def check_reference_point_displacements(result, point_name, coordinates, dat_file_name, node_ids, step_factors=None,
+                                        tolerance=1e-5, free_directions=()):
+    # The results compute the motion of the point from the nodes it is connected to, and it is the one CalculiX prints
+    # for the node of the point, increment by increment and mode by mode, times the factor of the step. A direction a
+    # kinematic coupling leaves free is not computed: the point stays undeformed in it and its value is refused
     with open(dat_file_name) as dat_file:
         printed = [[float(value) for value in values.split()] for values in
                    re.findall(r"displacements \(vx,vy,vz\) for set " + re.escape(point_name.upper()) +
@@ -525,19 +537,93 @@ def check_reference_point_displacements(result, point_name, coordinates, dat_fil
             check(count < len(printed), "the reference point " + point_name + " has more increments than the " +
                   str(len(printed)) + " printed displacements")
             printed[count] = [value * factor for value in printed[count]]
+            allowed = tolerance * max(displacement_scale(result, step_id, increment_id, node_ids), 1e-12)
             deformed = list(point.get_deformed_coordinates(step_id, increment_id))
             for i in range(3):
-                check(abs(deformed[i] - coordinates[i] - printed[count][i]) <= 1e-5 * max(abs(printed[count][i]), 1e-6),
+                expected = 0.0 if i in free_directions else printed[count][i]
+                check(abs(deformed[i] - coordinates[i] - expected) <= allowed,
                       "the reference point " + point_name + " is at " + str(deformed) + " in step " + str(step_id) +
                       ", increment " + str(increment_id) + " instead of the printed displacement " +
                       str(printed[count]) + " from " + str(coordinates))
-            value = point.get_nodal_value(step_id, increment_id, "DISP", "U2")
-            check(abs(value - printed[count][1]) <= 1e-5 * max(abs(printed[count][1]), 1e-6),
-                  "the value U2 of the reference point " + point_name + " is " + str(value) + " instead of " +
-                  str(printed[count][1]))
+            for i in free_directions:
+                check_raises(lambda: point.get_nodal_value(step_id, increment_id, "DISP", "U" + str(i + 1)),
+                             "the free direction U" + str(i + 1) + " of the reference point " + point_name +
+                             " was not refused")
+            if 1 not in free_directions:
+                value = point.get_nodal_value(step_id, increment_id, "DISP", "U2")
+                check(abs(value - printed[count][1]) <= allowed,
+                      "the value U2 of the reference point " + point_name + " is " + str(value) + " instead of " +
+                      str(printed[count][1]))
             count += 1
     check(count > 0 and count == len(printed), "the reference point " + point_name + " has " + str(count) +
           " increments with results and " + str(len(printed)) + " printed displacements")
+
+
+def solve_three(matrix, rhs):
+    def determinant(m):
+        return (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+                m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]))
+    solution = []
+    for k in range(3):
+        replaced = [[rhs[i] if j == k else matrix[i][j] for j in range(3)] for i in range(3)]
+        solution.append(determinant(replaced) / determinant(matrix))
+    return solution
+
+
+def follower_displacement(result, step_id, increment_id, weights, point, two_d):
+    # The weighted mean displacement of the nodes plus their least squares small rotation about their weighted centre
+    # times the lever arm of the point
+    coordinates = dict((node_id, result.get_nodal_coordinates(node_id)) for node_id in weights)
+    displacements = dict((node_id, [result.get_nodal_value(step_id, increment_id, "DISP", component, node_id)
+                                    for component in ["U1", "U2", "U3"]]) for node_id in weights)
+    center = [sum(weight * coordinates[node_id][i] for node_id, weight in weights.items()) for i in range(3)]
+    mean = [sum(weight * displacements[node_id][i] for node_id, weight in weights.items()) for i in range(3)]
+    arms = dict((node_id, [coordinates[node_id][i] - center[i] for i in range(3)]) for node_id in weights)
+    relative = dict((node_id, [displacements[node_id][i] - mean[i] for i in range(3)]) for node_id in weights)
+    if two_d:
+        rotation = [0.0, 0.0, sum(weight * (arms[n][0] * relative[n][1] - arms[n][1] * relative[n][0])
+                                  for n, weight in weights.items()) /
+                    sum(weight * (arms[n][0] ** 2 + arms[n][1] ** 2) for n, weight in weights.items())]
+    else:
+        inertia = [[sum(weight * ((sum(a * a for a in arms[n]) if i == j else 0) - arms[n][i] * arms[n][j])
+                        for n, weight in weights.items()) for j in range(3)] for i in range(3)]
+        moment = [sum(weight * (arms[n][(i + 1) % 3] * relative[n][(i + 2) % 3] -
+                                arms[n][(i + 2) % 3] * relative[n][(i + 1) % 3]) for n, weight in weights.items())
+                  for i in range(3)]
+        rotation = solve_three(inertia, moment)
+    arm = [point[i] - center[i] for i in range(3)]
+    return [mean[i] + rotation[(i + 1) % 3] * arm[(i + 2) % 3] - rotation[(i + 2) % 3] * arm[(i + 1) % 3]
+            for i in range(3)]
+
+
+def check_distributing_point_displacements(result, point_name, coordinates, weights, node_ids, two_d=False):
+    # CalculiX does not move the point of a distributing coupling, which follows the mean of the coupled nodes,
+    # weighted by their share of the surface, and their rotation times its lever arm, increment by increment and mode
+    # by mode
+    point = result.mesh.reference_points[point_name]
+    count = 0
+    for step_id in result.steps.get_ids():
+        for increment_id in [i for i in result.steps[step_id].increments.get_ids() if i > 0]:
+            allowed = 1e-5 * max(displacement_scale(result, step_id, increment_id, node_ids), 1e-12)
+            expected = follower_displacement(result, step_id, increment_id, weights, coordinates, two_d)
+            deformed = list(point.get_deformed_coordinates(step_id, increment_id))
+            for i, component in enumerate(["U1", "U2", "U3"]):
+                value = point.get_nodal_value(step_id, increment_id, "DISP", component)
+                check(abs(value - expected[i]) <= allowed and
+                      abs(deformed[i] - coordinates[i] - expected[i]) <= allowed,
+                      "the reference point " + point_name + " has " + component + " " + str(value) + " and is at " +
+                      str(deformed) + " in step " + str(step_id) + ", increment " + str(increment_id) +
+                      " instead of following the coupled nodes by " + str(expected))
+            count += 1
+    check(count > 1, "the reference point " + point_name + " has results in only " + str(count) + " increments")
+
+
+def find_point_springs(name, work):
+    # A point mass on a point that a constraint moves goes on a node of its own, held by a spring of no stiffness
+    with open(os.path.join(work, name + ".inp")) as input_file:
+        text = input_file.read()
+    return text, re.findall(r"\*Element, Type=SPRING2, Elset=Internal_Reference_Point_Mass\s+\d+, (\d+), (\d+)", text,
+                            re.I)
 
 
 def check_frequency_history_after_static(result, set_name):
@@ -565,10 +651,11 @@ def check_reference_point_mesh(result, number_of_nodes):
 
 
 def test_reference_point_results(work):
-    # CalculiX writes into the results file only the nodes of elements, so the input gives a reference point that a
-    # rigid body or a kinematic coupling moves a node of its own, tied to it and held by a spring of no stiffness,
-    # whose displacements the results read back as those of the point. A point mass on such a point goes on that
-    # node, so a frequency step solves with one direction of the point held, which stopped CalculiX before
+    # The results move a reference point with the nodes it is connected to, computed from their displacements: by the
+    # rigid motion of a rigid body or a kinematic coupling, which is the motion CalculiX prints for the point, and by
+    # the weighted mean motion and rotation of the nodes of a distributing coupling, which CalculiX does not compute.
+    # The input gives a point no node of its own, unless a constraint moves it and it carries a point mass, which goes
+    # on a node held by a spring of no stiffness, so that a frequency step solves with one direction of the point held
     part = pmx.model.parts.first()
     pmx.model.materials.add(PREFIX + "Steel_Points", [pmx.create.elastic(210000, 0.3), pmx.create.density(7.85e-9)])
     pmx.model.sections.add_solid(PREFIX + "Points_Section", PREFIX + "Steel_Points",
@@ -581,7 +668,8 @@ def test_reference_point_results(work):
     coordinates = [50.0, 20.0, 1.0]
     pmx.model.reference_points.add(moved, coordinates)
     pmx.model.reference_points.add(free, [0.0, 50.0, 1.0])
-    constraint, mass = PREFIX + "Points_Constraint", PREFIX + "Points_Mass"
+    constraint, mass, held = PREFIX + "Points_Constraint", PREFIX + "Points_Mass", PREFIX + "Points_Held"
+    nodes = list(range(1, 51))
     try:
         pmx.model.constraints.add_rigid_body(constraint, moved, pmx.create.region('NodeSetName', tip))
         pmx.model.sections.add_point_mass(mass, pmx.create.region('ReferencePointName', moved), 1e-3)
@@ -589,8 +677,7 @@ def test_reference_point_results(work):
         frequency = pmx.model.steps.add_frequency(PREFIX + "Points_Frequency", number_of_frequencies=3)
         for step in [static, frequency]:
             step.bcs.add_fixed(PREFIX + "Points_Fixed", pmx.create.region('NodeSetName', clamp))
-            step.bcs.add_displacement_rotation(PREFIX + "Points_Held", pmx.create.region('ReferencePointName', moved),
-                                               u1=0)
+            step.bcs.add_displacement_rotation(held, pmx.create.region('ReferencePointName', moved), u1=0)
             step.history_outputs.add_nodal(PREFIX + "Points_Output", pmx.create.region('ReferencePointName', moved),
                                            ["U"])
         static.loads.add_concentrated_force(PREFIX + "Points_Force", pmx.create.region('ReferencePointName', moved),
@@ -598,28 +685,78 @@ def test_reference_point_results(work):
         name = PREFIX + "Points_Rigid"
         result, _, _ = run_and_open(name, work)
         check_reference_point_mesh(result, 50)
-        check_reference_point_displacements(result, moved, coordinates, os.path.join(work, name + ".dat"))
+        check_reference_point_displacements(result, moved, coordinates, os.path.join(work, name + ".dat"), nodes)
         check_frequency_history_after_static(result, moved)
         check_raises(lambda: result.mesh.reference_points[free].get_deformed_coordinates(1, 1),
-                     "a reference point that nothing moves has no displacement in the results file")
-        with open(os.path.join(work, name + ".inp")) as input_file:
-            text = input_file.read()
-        springs = re.findall(r"\*Element, Type=SPRING2, Elset=Internal_Reference_Point_Results\s+\d+, (\d+), (\d+)",
-                             text, re.I)
+                     "a reference point that nothing moves has a displacement")
+        check_raises(lambda: result.mesh.reference_points[moved].get_nodal_value(1, 1, "STRESS", "S11"),
+                     "a field other than the displacement of a reference point was not refused")
+        text, springs = find_point_springs(name, work)
         masses = re.findall(r"\*Element, Type=Mass, Elset=" + PREFIX + r"Points_Mass\S*\s+\d+, (\d+)", text, re.I)
         check(len(springs) == 1 and springs[0][0] == springs[0][1] and masses == [springs[0][0]],
               "the moved point has no node of its own carrying its mass: springs " + str(springs) + ", masses " +
               str(masses))
-        # A kinematic coupling moves its point too
+        # A kinematic coupling moves its point too, which without a mass gets no node of its own
         pmx.model.sections.remove([mass])
         pmx.model.constraints.remove([constraint])
-        frequency.bcs.remove([PREFIX + "Points_Held"])
-        static.bcs.remove([PREFIX + "Points_Held"])
+        for step in [static, frequency]:
+            step.bcs.remove([held])
         pmx.model.constraints.add_kinematic_coupling(constraint, moved, pmx.create.region('SurfaceName', tip_surface))
         name = PREFIX + "Points_Coupled"
         result, _, _ = run_and_open(name, work)
         check_reference_point_mesh(result, 50)
-        check_reference_point_displacements(result, moved, coordinates, os.path.join(work, name + ".dat"))
+        check_reference_point_displacements(result, moved, coordinates, os.path.join(work, name + ".dat"), nodes)
+        check(find_point_springs(name, work)[1] == [], "a point without a mass got a node of its own")
+        # A kinematic coupling that leaves a direction free moves the point in the others
+        pmx.model.constraints.remove([constraint])
+        pmx.model.constraints.add_kinematic_coupling(constraint, moved, pmx.create.region('SurfaceName', tip_surface),
+                                                     u3=False)
+        for step in [static, frequency]:
+            step.bcs.add_displacement_rotation(held, pmx.create.region('ReferencePointName', moved), u3=0)
+        name = PREFIX + "Points_Coupled_Partly"
+        result, _, _ = run_and_open(name, work)
+        check_reference_point_displacements(result, moved, coordinates, os.path.join(work, name + ".dat"), nodes,
+                                            free_directions=(2,))
+        check_raises(lambda: result.mesh.reference_points[moved].get_nodal_value(1, 1, "DISP", "ALL"),
+                     "the magnitude of a point with a free direction was not refused")
+        # The point of a distributing coupling follows the coupled nodes, weighted by their share of the surface: the
+        # four rectangles of the tip give a corner node of the tip a sixteenth and the other nodes an eighth. Its
+        # boundary condition and its mass, which do nothing in CalculiX, are warned about and do not stop the run,
+        # and the mass stays on the point
+        pmx.model.constraints.remove([constraint])
+        pmx.model.constraints.add_distributing_coupling(constraint, moved,
+                                                        pmx.create.region('SurfaceName', tip_surface))
+        pmx.model.sections.add_point_mass(mass, pmx.create.region('ReferencePointName', moved), 1e-3)
+        weights = dict((node_id, 1.0 / 16 if node_id in (5, 25, 30, 50) else 1.0 / 8) for node_id in range(5, 51, 5))
+        for point_coordinates, label in [(coordinates, "Offset"), ([40.0, 20.0, 1.0], "Centred")]:
+            pmx.model.reference_points.replace(moved, coordinates=point_coordinates)
+            name = PREFIX + "Points_Distributed_" + label
+            result, _, _ = run_and_open(name, work)
+            check_reference_point_mesh(result, 50)
+            check_distributing_point_displacements(result, moved, point_coordinates, weights, nodes)
+            text, springs = find_point_springs(name, work)
+            masses = re.findall(r"\*Element, Type=Mass, Elset=" + PREFIX + r"Points_Mass\S*\s+\d+, (\d+)", text, re.I)
+            points = re.findall(r"\*Nset, Nset=" + PREFIX + r"Moved_Point_Ref_\d+\s+(\d+)", text, re.I)
+            check(springs == [] and len(masses) == 1 and masses == points,
+                  "the point of the distributing coupling does not keep its mass: springs " + str(springs) +
+                  ", masses " + str(masses) + ", points " + str(points))
+        # A rigid body that turns by a large angle moves its point 20 mm above the tip with the rotation itself
+        pmx.model.sections.remove([mass])
+        pmx.model.constraints.remove([constraint])
+        pmx.model.steps.remove([static.name, frequency.name])
+        lever = [40.0, 20.0, 21.0]
+        pmx.model.reference_points.replace(moved, coordinates=lever)
+        pmx.model.constraints.add_rigid_body(constraint, moved, pmx.create.region('NodeSetName', tip))
+        turn = pmx.model.steps.add_static(PREFIX + "Points_Turn", nlgeom=True, incrementation_type='Direct',
+                                          time_period=1.0, initial_time_increment=0.25, max_increments=100)
+        turn.bcs.add_fixed(PREFIX + "Points_Fixed", pmx.create.region('NodeSetName', clamp))
+        turn.bcs.add_displacement_rotation(PREFIX + "Points_Turned", pmx.create.region('ReferencePointName', moved),
+                                           ur2=0.6)
+        turn.history_outputs.add_nodal(PREFIX + "Points_Output", pmx.create.region('ReferencePointName', moved), ["U"])
+        name = PREFIX + "Points_Turned"
+        result, _, _ = run_and_open(name, work)
+        check_reference_point_displacements(result, moved, lever, os.path.join(work, name + ".dat"), nodes,
+                                            tolerance=1e-4)
     finally:
         pmx.model.constraints.remove([name for name in pmx.model.constraints.get_names() if name.startswith(PREFIX)])
         pmx.model.reference_points.remove([moved, free])
@@ -628,14 +765,15 @@ def test_reference_point_results(work):
 
 
 def test_two_d_reference_point_results(work):
-    # A 2D model moves the node of a reference point in plane and holds it out of plane
-    part_name = pmx.model.parts.first().name
-    point, rigid_body = PREFIX + "Ring_Point", PREFIX + "Ring_Rigid"
+    # A 2D model moves a reference point in plane. The radial displacement CalculiX writes for the nodes of an
+    # axisymmetric model is that of the 2 degree segment, smaller by the cosine of 1 degree than the one it prints for
+    # the point, so the points of an axisymmetric model are compared to 3e-4. The point of a distributing coupling
+    # follows the coupled edges weighted by their length, since CalculiX applies a 2D distributing coupling to other
+    # nodes
+    point, constraint, held = PREFIX + "Ring_Point", PREFIX + "Ring_Rigid", PREFIX + "Ring_Point_Held"
     coordinates = [15.0, 4.0, 0.0]
     add_ring_section(PREFIX + "Ring_Steel", [pmx.create.elastic(210000, 0.3), pmx.create.density(7.85e-9)])
     pmx.model.reference_points.add(point, coordinates)
-    pmx.model.constraints.add_rigid_body(rigid_body, point,
-                                         pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [11, 12, 13, 14, 15]))
     static = pmx.model.steps.add_static(PREFIX + "Ring_Point_Static")
     frequency = pmx.model.steps.add_frequency(PREFIX + "Ring_Point_Frequency", number_of_frequencies=2)
     for step in [static, frequency]:
@@ -644,19 +782,60 @@ def test_two_d_reference_point_results(work):
                                        ["U"])
     static.loads.add_concentrated_force(PREFIX + "Ring_Point_Force", pmx.create.region('ReferencePointName', point),
                                         f1=10, f2=-20)
+    nodes = list(range(1, 16))
     try:
         for model_space in ["PlaneStrain", "Axisymmetric"]:
             pmx.model.properties.replace(model_space=model_space)
-            name = PREFIX + model_space + "_Point"
-            result, frequency_step_id, _ = run_and_open(name, work)
-            check_reference_point_mesh(result, 15)
+            tolerance = 3e-4 if model_space == "Axisymmetric" else 1e-5
             # The .dat file prints the modes of an axisymmetric model for the mass of the segment
-            step_factors = {frequency_step_id: 1 / math.sqrt(180)} if model_space == "Axisymmetric" else None
-            check_reference_point_displacements(result, point, coordinates, os.path.join(work, name + ".dat"),
-                                                step_factors)
+            step_factors = {2: 1 / math.sqrt(180)} if model_space == "Axisymmetric" else None
+            for kind in ["Rigid", "Coupled_Partly", "Coupled_Undetermined", "Distributed"]:
+                if constraint in pmx.model.constraints.get_names():
+                    pmx.model.constraints.remove([constraint])
+                for step in [static, frequency]:
+                    if held in step.bcs.get_names():
+                        step.bcs.remove([held])
+                if kind == "Rigid":
+                    pmx.model.constraints.add_rigid_body(constraint, point,
+                                                         pmx.create.selection_by_ids('femodel', 'nodes', 'nodes',
+                                                                                     [11, 12, 13, 14, 15]))
+                elif kind.startswith("Coupled"):
+                    # The top edge moves in the direction U1 as the point does when it turns about the point, which lies
+                    # above the edge, so coupling U1 alone does not determine the motion of the point
+                    free = 0 if kind == "Coupled_Partly" else 1
+                    pmx.model.constraints.add_kinematic_coupling(constraint, point,
+                                                                 pmx.create.region('SurfaceName', PREFIX + "Ring_Top"),
+                                                                 u1=free != 0, u2=free != 1)
+                    for step in [static, frequency]:
+                        step.bcs.add_displacement_rotation(held, pmx.create.region('ReferencePointName', point),
+                                                           **{"u" + str(free + 1): 0})
+                else:
+                    pmx.model.constraints.add_distributing_coupling(constraint, point,
+                                                                    pmx.create.region('SurfaceName',
+                                                                                      PREFIX + "Ring_Top"))
+                name = PREFIX + model_space + "_Point_" + kind
+                result, frequency_step_id, _ = run_and_open(name, work)
+                check_reference_point_mesh(result, 15)
+                check(frequency_step_id == 2, "the frequency step of " + name + " is " + str(frequency_step_id))
+                if kind == "Distributed":
+                    weights = {11: 0.125, 12: 0.25, 13: 0.25, 14: 0.25, 15: 0.125}
+                    check_distributing_point_displacements(result, point, coordinates, weights, nodes, two_d=True)
+                elif kind == "Coupled_Undetermined":
+                    deformed = list(result.mesh.reference_points[point].get_deformed_coordinates(1, 1))
+                    check(deformed == coordinates, "the point whose motion the coupled nodes do not determine is at " +
+                          str(deformed) + " instead of staying at " + str(coordinates))
+                    for component in ["U1", "U2"]:
+                        check_raises(lambda: result.mesh.reference_points[point].get_nodal_value(1, 1, "DISP",
+                                                                                                 component),
+                                     "the value " + component + " the coupled nodes do not determine was not refused")
+                else:
+                    check_reference_point_displacements(result, point, coordinates, os.path.join(work, name + ".dat"),
+                                                        nodes, step_factors, tolerance,
+                                                        (0,) if kind == "Coupled_Partly" else ())
     finally:
         pmx.model.properties.replace(model_space='Axisymmetric')
-        pmx.model.constraints.remove([rigid_body])
+        if constraint in pmx.model.constraints.get_names():
+            pmx.model.constraints.remove([constraint])
         pmx.model.reference_points.remove([point])
 
 

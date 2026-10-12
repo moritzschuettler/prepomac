@@ -247,6 +247,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalElastic.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalElasticEngineeringConstants.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalElasticLamina.cs" />
+    <Compile Include="FileInOut\Output\Calculix\CalDistributingWeights.cs" />
     <Compile Include="FileInOut\Output\Calculix\CalReferencePoint.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalRigidBody.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalSolidSection.cs" />

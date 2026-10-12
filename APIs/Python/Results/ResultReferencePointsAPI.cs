@@ -10,6 +10,7 @@
 using CaeGlobals;
 using CaeMesh;
 using CaeResults;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -325,12 +326,66 @@ namespace APIs.Python
             if (!fieldData.Valid)
                 throw new PythonAPIException("The field '" + fieldName + "' does not exist for step " + stepId +
                                              ", increment " + incrementId + ".");
-            float value;
-            if (!result.TryGetReferencePointValue(point, fieldData, out value))
-                throw new PythonAPIException("The result reference point '" + point.Name + "' has no values in the " +
-                                             "results file, which holds only a reference point that a rigid body or " +
-                                             "a kinematic coupling moves.");
-            return value;
+            string[] fieldNames = new string[] { FOFieldNames.Disp, FOFieldNames.DispR };
+            string[] componentNames = new string[] { FOComponentNames.U1, FOComponentNames.U2, FOComponentNames.U3 };
+            string displacementFieldName = fieldNames.FirstOrDefault(n => n.Equals(fieldData.Name,
+                                                                                    StringComparison.OrdinalIgnoreCase));
+            int direction = Array.FindIndex(componentNames, n => n.Equals(fieldData.Component,
+                                                                          StringComparison.OrdinalIgnoreCase));
+            if (displacementFieldName == null ||
+                (direction < 0 && !FOComponentNames.All.Equals(fieldData.Component, StringComparison.OrdinalIgnoreCase)))
+                throw new PythonAPIException("Only the displacement of the result reference point '" + point.Name +
+                                             "' is computed, from the nodes it is connected to: the field DISP or DISPR " +
+                                             "with the component U1, U2, U3 or ALL, not " + fieldData.Name + " " +
+                                             fieldData.Component + ".");
+            bool[] computed;
+            double[] displacement = GetDisplacement(point, result, stepId, incrementId, displacementFieldName,
+                                                    out computed);
+            for (int i = 0; i < 3; i++)
+            {
+                if ((i == direction || direction < 0) && !computed[i])
+                    throw new PythonAPIException(GetNotComputedReason(point, componentNames[i]) +
+                                                 (direction < 0 ? " The magnitude ALL is therefore not computed either."
+                                                                : ""));
+            }
+            if (direction >= 0) return (float)displacement[direction];
+            return (float)Math.Sqrt(displacement[0] * displacement[0] + displacement[1] * displacement[1] +
+                                    displacement[2] * displacement[2]);
+        }
+        private string GetNotComputedReason(FeReferencePoint point, string componentName)
+        {
+            int direction = componentName == FOComponentNames.U1 ? 0 : componentName == FOComponentNames.U2 ? 1 : 2;
+            if (!point.Motion.IsDirectionFollowed(direction))
+                return "The kinematic coupling of the result reference point '" + point.Name + "' does not couple the " +
+                       "direction of " + componentName + ", in which the point is free and its displacement is not " +
+                       "computed.";
+            return "The nodes the result reference point '" + point.Name + "' is connected to do not determine its " +
+                   componentName + ": a rotation about the point moves them in the directions they follow it as its " +
+                   "translation does, so the displacement " + componentName + " is not computed.";
+        }
+        internal double[] GetDeformedCoordinates(string name, int stepId, int incrementId)
+        {
+            FeResults result = ResolveResult();
+            FeReferencePoint point = ResolveReferencePoint(name);
+            new ResultDataService(_resultResolver).ValidateComponent(_resultName, result, stepId, incrementId,
+                                                                     FOFieldNames.Disp, FOComponentNames.U1);
+            double[] coordinates = point.Coor();
+            double[] displacement = GetDisplacement(point, result, stepId, incrementId, FOFieldNames.Disp, out _);
+            for (int i = 0; i < 3; i++) coordinates[i] += displacement[i];
+            return coordinates;
+        }
+        private double[] GetDisplacement(FeReferencePoint point, FeResults result, int stepId, int incrementId,
+                                         string fieldName, out bool[] computed)
+        {
+            double[] displacement;
+            if (!result.TryGetReferencePointDisplacement(point, fieldName, stepId, incrementId, out displacement,
+                                                         out computed))
+                throw new PythonAPIException("The result reference point '" + point.Name + "' has no displacement. " +
+                                             "A reference point moves with the nodes of the rigid body, the kinematic " +
+                                             "coupling or the distributing coupling of the analysed model that uses it, " +
+                                             "when the results are opened with the model and hold those nodes; any " +
+                                             "other stays undeformed.");
+            return displacement;
         }
         internal FeReferencePoint ResolveReferencePoint(string name)
         {

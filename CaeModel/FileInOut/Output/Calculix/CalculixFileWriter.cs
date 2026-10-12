@@ -139,10 +139,10 @@ namespace FileInOut.Output
         //
         static public List<CalculixKeyword> GetAllKeywords(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
                                                            Dictionary<int, double[]> deformations = null,
-                                                           bool referencePointResultNodes = true)
+                                                           bool referencePointMassNodes = true)
         {
             List<CalculixKeyword> keywords = GetModelKeywords(model, convertPyramidsTo, deformations, false,
-                                                              referencePointResultNodes);
+                                                              referencePointMassNodes);
             // Overrides use indices from the generated tree, before user keywords shift visual positions.
             ApplyKeywordOverrides(keywords, model.CalculixKeywordOverrides);
             // Add user keywords
@@ -160,7 +160,7 @@ namespace FileInOut.Output
         static public List<CalculixKeyword> GetModelKeywords(FeModel model, ConvertPyramidsToEnum convertPyramidsTo,
                                                              Dictionary<int, double[]> deformations = null,
                                                              bool addAllMaterials = false,
-                                                             bool referencePointResultNodes = true)
+                                                             bool referencePointMassNodes = true)
         {
             // Clone surfaces
             OrderedDictionary<string, FeSurface> originalSurfaces = model.Mesh.Surfaces;
@@ -197,12 +197,12 @@ namespace FileInOut.Output
                 GetCoordinateSystemNodeSet(model, referencePoints, ref coordinateSystemNodeSets);
                 // Fix pyramid surfaces
                 FixPyramidSurfaces(model, convertPyramidsTo, ref replacedElements, ref additionalElementSetNames);
-                // Prepare reference point result nodes - only CalculiX needs them
-                if (referencePointResultNodes)
-                    GetReferencePointResultNodes(model, referencePoints, ref maxNodeId, ref maxElementId, ref additionalNodes,
-                                                 ref additionalNodeSets, ref additionalElementKeywords,
-                                                 ref additionalSectionData, ref additionalBoundaryConditions,
-                                                 ref equationParameters);
+                // Prepare the nodes of the point masses on moved reference points - only CalculiX needs them
+                if (referencePointMassNodes)
+                    GetReferencePointMassNodes(model, referencePoints, ref maxNodeId, ref maxElementId, ref additionalNodes,
+                                               ref additionalNodeSets, ref additionalElementKeywords,
+                                               ref additionalSectionData, ref additionalBoundaryConditions,
+                                               ref equationParameters);
                 // Prepare mass sections
                 GetMassSections(model, referencePoints, ref maxNodeId, ref maxElementId, ref additionalNodes,
                                 ref additionalNodeSets, ref additionalElementKeywords, ref additionalElementSetNames,
@@ -719,7 +719,7 @@ namespace FileInOut.Output
                             maxElementId++;
                             // The node of its own of a moved reference point carries the mass, since its spring gives
                             // CalculiX the matrix entries a mass element lacks for a held direction of the point
-                            massNodeId = referencePoints[referencePoint.Name].ResultNodeId;
+                            massNodeId = referencePoints[referencePoint.Name].MassNodeId;
                             if (massNodeId <= 0)
                                 massNodeId = GetMassElementNodeId(nodeId, new double[] { referencePoint.X.Value,
                                                                                          referencePoint.Y.Value,
@@ -906,23 +906,33 @@ namespace FileInOut.Output
                 maxElementId = elementId;
             }
         }
-        static private void GetReferencePointResultNodes(FeModel model,
-                                                         Dictionary<string, CalReferencePoint> referencePoints,
-                                                         ref int maxNodeId, ref int maxElementId,
-                                                         ref List<FeNode> additionalNodes,
-                                                         ref List<FeNodeSet> additionalNodeSets,
-                                                         ref List<CalElement> additionalElementKeywords,
-                                                         ref List<SectionData> additionalSectionData,
-                                                         ref List<BoundaryCondition> additionalBoundaryConditions,
-                                                         ref List<double[]> equationParameters)
+        static private void GetReferencePointMassNodes(FeModel model,
+                                                       Dictionary<string, CalReferencePoint> referencePoints,
+                                                       ref int maxNodeId, ref int maxElementId,
+                                                       ref List<FeNode> additionalNodes,
+                                                       ref List<FeNodeSet> additionalNodeSets,
+                                                       ref List<CalElement> additionalElementKeywords,
+                                                       ref List<SectionData> additionalSectionData,
+                                                       ref List<BoundaryCondition> additionalBoundaryConditions,
+                                                       ref List<double[]> equationParameters)
         {
-            // CalculiX writes into the results file only the nodes of elements, leaving out the elements of one node, so
-            // a reference point a constraint moves gets a node of its own at its coordinates, in the order of the points,
-            // with a spring of no stiffness from the node to itself. The node is tied to the reference point in the
-            // directions the constraint moves it and held in the others, because a spring on the reference point node
-            // would give it degrees of freedom that nothing holds, which a solver cannot solve. CalculiX does not compute
-            // the motion of the reference point of a distributing coupling
+            // A point mass on a reference point that a constraint moves goes on a node of its own at the coordinates of
+            // the point, with a spring of no stiffness from the node to itself, which gives CalculiX the matrix entries a
+            // mass element lacks for a held direction of the point, so a frequency step with a boundary condition on the
+            // point solves. The node is tied to the reference point in the directions the constraint moves it and held in
+            // the others, because a spring on the reference point node would give it degrees of freedom that nothing
+            // holds, which a solver cannot solve
             if (model.Mesh == null) return;
+            //
+            HashSet<string> massReferencePointNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in model.Sections)
+            {
+                if (entry.Value is PointMassSection pointMassSection &&
+                    pointMassSection.RegionType == RegionTypeEnum.ReferencePointName &&
+                    IsMassSectionRegionPresent(model, pointMassSection, referencePoints))
+                    massReferencePointNames.Add(pointMassSection.RegionName);
+            }
+            if (massReferencePointNames.Count == 0) return;
             //
             Dictionary<string, HashSet<int>> referencePointDirections = GetReferencePointDirections(model);
             List<FeElement> elements = new List<FeElement>();
@@ -935,7 +945,8 @@ namespace FileInOut.Output
             foreach (var entry in model.Mesh.ReferencePoints)
             {
                 referencePoint = entry.Value;
-                if (!referencePoints.TryGetValue(entry.Key, out calReferencePoint) ||
+                if (!massReferencePointNames.Contains(entry.Key) ||
+                    !referencePoints.TryGetValue(entry.Key, out calReferencePoint) ||
                     !referencePointDirections.TryGetValue(entry.Key, out directions)) continue;
                 //
                 maxNodeId++;
@@ -961,21 +972,21 @@ namespace FileInOut.Output
                 maxElementId++;
                 elements.Add(new LinearSpringElement(maxElementId, new int[] { maxNodeId, maxNodeId }));
                 resultNodeIds.Add(maxNodeId);
-                calReferencePoint.ResultNodeId = maxNodeId;
+                calReferencePoint.MassNodeId = maxNodeId;
             }
             if (elements.Count == 0) return;
             // Elements
             HashSet<string> reservedElementSetNames = model.Mesh.GetReservedElementSetNames();
-            string name = "Internal_Reference_Point_Results";
+            string name = "Internal_Reference_Point_Mass";
             if (reservedElementSetNames.Contains(name)) name = reservedElementSetNames.GetNextNumberedKey(name);
             additionalElementKeywords.Add(new CalElement(FeElementTypeSpring.SPRING2.ToString(), name, elements));
             additionalSectionData.Add(new LinearSpringSectionData("LinearSpringSection", name, 1, 1, 0));
             // Boundary conditions - the spring also gives the nodes a temperature, which a thermal step must hold
             HashSet<string> nodeSetNames = new HashSet<string>(model.Mesh.NodeSets.Keys);
             foreach (var additionalNodeSet in additionalNodeSets) nodeSetNames.Add(additionalNodeSet.Name);
-            string allNodesName = GetReferencePointResultNodeSetName(nodeSetNames);
+            string allNodesName = GetReferencePointMassNodeSetName(nodeSetNames);
             additionalNodeSets.Add(new FeNodeSet(allNodesName, resultNodeIds.ToArray()));
-            additionalBoundaryConditions.Add(new TemperatureBC("Reference_Point_Results_Temperature", allNodesName,
+            additionalBoundaryConditions.Add(new TemperatureBC("Reference_Point_Mass_Temperature", allNodesName,
                                                                RegionTypeEnum.NodeSetName, 0, false));
             DisplacementRotation displacementRotation;
             foreach (var entry in heldDirectionsNodeIds)
@@ -983,10 +994,10 @@ namespace FileInOut.Output
                 if (entry.Value.Count == resultNodeIds.Count) name = allNodesName;
                 else
                 {
-                    name = GetReferencePointResultNodeSetName(nodeSetNames);
+                    name = GetReferencePointMassNodeSetName(nodeSetNames);
                     additionalNodeSets.Add(new FeNodeSet(name, entry.Value.ToArray()));
                 }
-                displacementRotation = new DisplacementRotation("Reference_Point_Results_BC_" + entry.Key, name,
+                displacementRotation = new DisplacementRotation("Reference_Point_Mass_BC_" + entry.Key, name,
                                                                 RegionTypeEnum.NodeSetName, false, false, 0);
                 if (entry.Key.Contains("1")) displacementRotation.U1.SetEquationFromValue(0);
                 if (entry.Key.Contains("2")) displacementRotation.U2.SetEquationFromValue(0);
@@ -994,14 +1005,14 @@ namespace FileInOut.Output
                 additionalBoundaryConditions.Add(displacementRotation);
             }
         }
-        static private string GetReferencePointResultNodeSetName(HashSet<string> nodeSetNames)
+        static private string GetReferencePointMassNodeSetName(HashSet<string> nodeSetNames)
         {
-            string name = "Internal_Reference_Point_Results_NodeSet";
+            string name = "Internal_Reference_Point_Mass_NodeSet";
             if (nodeSetNames.Contains(name)) name = nodeSetNames.GetNextNumberedKey(name);
             nodeSetNames.Add(name);
             return name;
         }
-        static public Dictionary<string, HashSet<int>> GetReferencePointDirections(FeModel model)
+        static private Dictionary<string, HashSet<int>> GetReferencePointDirections(FeModel model)
         {
             // The translations of a reference point node that the active constraints move, in plane in a 2D model
             int maxDirection = model.Properties.ModelSpace.IsTwoD() ? 2 : 3;
@@ -1039,6 +1050,155 @@ namespace FileInOut.Output
                 }
             }
             return referencePointDirections;
+        }
+        static public Dictionary<string, FeReferencePointMotion> GetReferencePointMotions(FeModel model)
+        {
+            // The nodes whose motion moves a reference point in the results: the region of a rigid body, the surface of a
+            // kinematic coupling in the directions it couples, and the surface of a distributing coupling weighted as
+            // CalculiX distributes the load of the point. A point that constraints of different kinds move gets none
+            Dictionary<string, FeReferencePointMotion> motions =
+                new Dictionary<string, FeReferencePointMotion>(StringComparer.OrdinalIgnoreCase);
+            if (model.Mesh == null) return motions;
+            //
+            bool twoD = model.Properties.ModelSpace.IsTwoD();
+            Dictionary<string, Dictionary<int, double>> allNodeWeights =
+                new Dictionary<string, Dictionary<int, double>>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, string> kinds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, bool[]> allDirections = new Dictionary<string, bool[]>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> excludedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<int, double> nodeWeights;
+            Dictionary<int, double> existingNodeWeights;
+            bool[] directions;
+            string referencePointName;
+            string kind;
+            foreach (var entry in model.Constraints)
+            {
+                if (!entry.Value.Active) continue;
+                //
+                directions = new bool[] { true, true, true };
+                if (entry.Value is RigidBody rigidBody)
+                {
+                    referencePointName = rigidBody.ReferencePointName;
+                    nodeWeights = GetUniformNodeWeights(model, rigidBody.RegionName, rigidBody.RegionType);
+                    kind = "Rigid body";
+                }
+                else if (entry.Value is KinematicCoupling kinematicCoupling)
+                {
+                    referencePointName = kinematicCoupling.ReferencePointName;
+                    nodeWeights = GetUniformNodeWeights(model, kinematicCoupling.RegionName, kinematicCoupling.RegionType);
+                    directions = new bool[] { kinematicCoupling.U1, kinematicCoupling.U2, kinematicCoupling.U3 && !twoD };
+                    kind = "Kinematic coupling " + directions[0] + directions[1] + directions[2];
+                }
+                else if (entry.Value is DistributingCoupling distributingCoupling)
+                {
+                    referencePointName = distributingCoupling.ReferencePointName;
+                    nodeWeights = GetDistributingCouplingNodeWeights(model, distributingCoupling.RegionName,
+                                                                     distributingCoupling.RegionType, twoD);
+                    kind = "Distributing coupling";
+                }
+                else continue;
+                //
+                if (referencePointName == null || excludedNames.Contains(referencePointName)) continue;
+                // Rigid bodies and kinematic couplings of the same directions move the point with all their nodes
+                if (nodeWeights == null || nodeWeights.Count == 0 || !(directions[0] || directions[1] || directions[2]) ||
+                    (kinds.TryGetValue(referencePointName, out string existingKind) &&
+                     (existingKind != kind || kind == "Distributing coupling")))
+                {
+                    excludedNames.Add(referencePointName);
+                    allNodeWeights.Remove(referencePointName);
+                    continue;
+                }
+                //
+                if (allNodeWeights.TryGetValue(referencePointName, out existingNodeWeights))
+                {
+                    foreach (var nodeWeight in nodeWeights) existingNodeWeights[nodeWeight.Key] = nodeWeight.Value;
+                }
+                else
+                {
+                    allNodeWeights.Add(referencePointName, nodeWeights);
+                    kinds.Add(referencePointName, kind);
+                    allDirections.Add(referencePointName, directions);
+                }
+            }
+            //
+            int[] nodeIds;
+            double[] weights;
+            foreach (var entry in allNodeWeights)
+            {
+                if (!model.Mesh.ReferencePoints.ContainsKey(entry.Key)) continue;
+                //
+                nodeIds = entry.Value.Keys.ToArray();
+                Array.Sort(nodeIds);
+                weights = new double[nodeIds.Length];
+                for (int i = 0; i < nodeIds.Length; i++) weights[i] = entry.Value[nodeIds[i]];
+                motions.Add(entry.Key, new FeReferencePointMotion(nodeIds, weights, allDirections[entry.Key], twoD));
+            }
+            return motions;
+        }
+        static private Dictionary<int, double> GetUniformNodeWeights(FeModel model, string regionName,
+                                                                     RegionTypeEnum regionType)
+        {
+            FeNodeSet nodeSet = null;
+            FeSurface surface;
+            if (regionName == null) return null;
+            else if (regionType == RegionTypeEnum.NodeSetName) model.Mesh.NodeSets.TryGetValue(regionName, out nodeSet);
+            else if (regionType == RegionTypeEnum.SurfaceName && model.Mesh.Surfaces.TryGetValue(regionName, out surface) &&
+                     surface.NodeSetName != null)
+                model.Mesh.NodeSets.TryGetValue(surface.NodeSetName, out nodeSet);
+            if (nodeSet == null || nodeSet.Labels == null) return null;
+            //
+            Dictionary<int, double> nodeWeights = new Dictionary<int, double>();
+            foreach (int nodeId in nodeSet.Labels)
+            {
+                if (model.Mesh.Nodes.ContainsKey(nodeId)) nodeWeights[nodeId] = 1;
+            }
+            return nodeWeights;
+        }
+        static private Dictionary<int, double> GetDistributingCouplingNodeWeights(FeModel model, string regionName,
+                                                                                  RegionTypeEnum regionType, bool twoD)
+        {
+            // The share of the area of each node of the faces of solid elements as CalculiX computes it, of the other
+            // faces and of the edges of a 2D model by its share of the face or the edge length; CalculiX applies a
+            // distributing coupling of a 2D model to other nodes, so its own weights are not followed there
+            FeSurface surface;
+            if (regionType == RegionTypeEnum.SurfaceName && model.Mesh.Surfaces.TryGetValue(regionName, out surface) &&
+                surface.Type == FeSurfaceType.Element && surface.ElementFaces != null)
+            {
+                try
+                {
+                    CalDistributingWeights distributingWeights = new CalDistributingWeights();
+                    FeElementSet elementSet;
+                    FeElement element;
+                    MeshPart part;
+                    bool calculixFace;
+                    foreach (var entry in surface.ElementFaces)
+                    {
+                        if (!model.Mesh.ElementSets.TryGetValue(entry.Value, out elementSet)) continue;
+                        //
+                        foreach (int elementId in elementSet.Labels)
+                        {
+                            if (!model.Mesh.Elements.TryGetValue(elementId, out element)) continue;
+                            part = model.Mesh.GetPartFromId(element.PartId) as MeshPart;
+                            // Converting the pyramids changes their faces
+                            calculixFace = !twoD && element is FeElement3D && part != null &&
+                                           !part.ElementTypes.Contains(typeof(LinearPyramidElement)) &&
+                                           !part.ElementTypes.Contains(typeof(ParabolicPyramidElement)) &&
+                                           distributingWeights.AddFace(GetElementTypeName(part, element), element.NodeIds,
+                                                                       (int)entry.Key, model.Mesh.Nodes);
+                            if (!calculixFace)
+                                distributingWeights.AddFaceArea(element.GetNodeIdsFromFaceName(entry.Key),
+                                                                element.GetEquivalentForcesFromFaceName(entry.Key),
+                                                                element.GetArea(entry.Key, model.Mesh.Nodes));
+                        }
+                    }
+                    Dictionary<int, double> nodeWeights = distributingWeights.GetNodeWeights();
+                    if (nodeWeights != null) return nodeWeights;
+                }
+                catch (NotSupportedException) { }
+                catch (NotImplementedException) { }
+            }
+            // Equal weights where the faces give none
+            return GetUniformNodeWeights(model, regionName, regionType);
         }
         static private void GetCompressionOnlyConstraintData(FeModel model, ref int maxNodeId, ref int maxElementId,
                                                              ref List<FeNode> additionalNodes,
@@ -1567,55 +1727,7 @@ namespace FileInOut.Output
                     foreach (int elementId in part.Labels)
                     {
                         element = model.Mesh.Elements[elementId];
-                        if (part.LinearTriaType != FeElementTypeLinearTria.None &&
-                            element is LinearTriangleElement)
-                            type = part.LinearTriaType.ToString();
-                        else if (part.LinearQuadType != FeElementTypeLinearQuad.None &&
-                            element is LinearQuadrilateralElement)
-                            type = part.LinearQuadType.ToString();
-                        else if (part.LinearTetraType != FeElementTypeLinearTetra.None &&
-                            element is LinearTetraElement)
-                            type = part.LinearTetraType.ToString();
-                        else if (part.LinearPyramidType != FeElementTypeLinearPyramid.None &&
-                            element is LinearPyramidElement)
-                            type = part.LinearPyramidType.ToString();
-                        else if (part.LinearWedgeType != FeElementTypeLinearWedge.None &&
-                            element is LinearWedgeElement)
-                            type = part.LinearWedgeType.ToString();
-                        else if (part.LinearWedgeType == FeElementTypeLinearWedge.None &&   //
-                            element is LinearWedgeElement)                                  // converted pyramids
-                            type = FeElementTypeLinearWedge.C3D6.ToString();                //
-                        else if (part.LinearHexaType == FeElementTypeLinearHexa.None &&     //
-                            element is LinearHexaElement)                                   // converted pyramids
-                            type = FeElementTypeLinearHexa.C3D8.ToString();                 //
-                        else if (part.LinearHexaType != FeElementTypeLinearHexa.None &&
-                            element is LinearHexaElement)
-                            type = part.LinearHexaType.ToString();
-                        else if (part.ParabolicTriaType != FeElementTypeParabolicTria.None &&
-                            element is ParabolicTriangleElement)
-                            type = part.ParabolicTriaType.ToString();
-                        else if (part.ParabolicQuadType != FeElementTypeParabolicQuad.None &&
-                            element is ParabolicQuadrilateralElement)
-                            type = part.ParabolicQuadType.ToString();
-                        else if (part.ParabolicTetraType != FeElementTypeParabolicTetra.None &&
-                            element is ParabolicTetraElement)
-                            type = part.ParabolicTetraType.ToString();
-                        else if (part.ParabolicPyramidType != FeElementTypeParabolicPyramid.None &&
-                            element is ParabolicPyramidElement)
-                            type = part.ParabolicPyramidType.ToString();
-                        else if (part.ParabolicWedgeType != FeElementTypeParabolicWedge.None &&
-                            element is ParabolicWedgeElement)
-                            type = part.ParabolicWedgeType.ToString();
-                        else if (part.ParabolicWedgeType == FeElementTypeParabolicWedge.None && //
-                            element is ParabolicWedgeElement)                                   // converted pyramids
-                            type = FeElementTypeParabolicWedge.C3D15.ToString();                //
-                        else if (part.ParabolicHexaType == FeElementTypeParabolicHexa.None &&   //
-                            element is ParabolicHexaElement)                                    // converted pyramids
-                            type = FeElementTypeParabolicHexa.C3D20.ToString();                 //
-                        else if (part.ParabolicHexaType != FeElementTypeParabolicHexa.None &&
-                            element is ParabolicHexaElement)
-                            type = part.ParabolicHexaType.ToString();
-                        else throw new NotImplementedException();
+                        type = GetElementTypeName(part, element);
                         // Add element to the corresponding type
                         if (elementTypes.TryGetValue(type, out elements)) elements.Add(element);
                         else elementTypes.Add(type, new List<FeElement>() { element });
@@ -1630,6 +1742,58 @@ namespace FileInOut.Output
                 // Additional elements
                 AppendAdditionalElements(additionalElementKeywords, parent);
             }
+        }
+        static private string GetElementTypeName(MeshPart part, FeElement element)
+        {
+            if (part.LinearTriaType != FeElementTypeLinearTria.None &&
+                element is LinearTriangleElement)
+                return part.LinearTriaType.ToString();
+            else if (part.LinearQuadType != FeElementTypeLinearQuad.None &&
+                element is LinearQuadrilateralElement)
+                return part.LinearQuadType.ToString();
+            else if (part.LinearTetraType != FeElementTypeLinearTetra.None &&
+                element is LinearTetraElement)
+                return part.LinearTetraType.ToString();
+            else if (part.LinearPyramidType != FeElementTypeLinearPyramid.None &&
+                element is LinearPyramidElement)
+                return part.LinearPyramidType.ToString();
+            else if (part.LinearWedgeType != FeElementTypeLinearWedge.None &&
+                element is LinearWedgeElement)
+                return part.LinearWedgeType.ToString();
+            else if (part.LinearWedgeType == FeElementTypeLinearWedge.None &&   //
+                element is LinearWedgeElement)                                  // converted pyramids
+                return FeElementTypeLinearWedge.C3D6.ToString();                //
+            else if (part.LinearHexaType == FeElementTypeLinearHexa.None &&     //
+                element is LinearHexaElement)                                   // converted pyramids
+                return FeElementTypeLinearHexa.C3D8.ToString();                 //
+            else if (part.LinearHexaType != FeElementTypeLinearHexa.None &&
+                element is LinearHexaElement)
+                return part.LinearHexaType.ToString();
+            else if (part.ParabolicTriaType != FeElementTypeParabolicTria.None &&
+                element is ParabolicTriangleElement)
+                return part.ParabolicTriaType.ToString();
+            else if (part.ParabolicQuadType != FeElementTypeParabolicQuad.None &&
+                element is ParabolicQuadrilateralElement)
+                return part.ParabolicQuadType.ToString();
+            else if (part.ParabolicTetraType != FeElementTypeParabolicTetra.None &&
+                element is ParabolicTetraElement)
+                return part.ParabolicTetraType.ToString();
+            else if (part.ParabolicPyramidType != FeElementTypeParabolicPyramid.None &&
+                element is ParabolicPyramidElement)
+                return part.ParabolicPyramidType.ToString();
+            else if (part.ParabolicWedgeType != FeElementTypeParabolicWedge.None &&
+                element is ParabolicWedgeElement)
+                return part.ParabolicWedgeType.ToString();
+            else if (part.ParabolicWedgeType == FeElementTypeParabolicWedge.None && //
+                element is ParabolicWedgeElement)                                   // converted pyramids
+                return FeElementTypeParabolicWedge.C3D15.ToString();                //
+            else if (part.ParabolicHexaType == FeElementTypeParabolicHexa.None &&   //
+                element is ParabolicHexaElement)                                    // converted pyramids
+                return FeElementTypeParabolicHexa.C3D20.ToString();                 //
+            else if (part.ParabolicHexaType != FeElementTypeParabolicHexa.None &&
+                element is ParabolicHexaElement)
+                return part.ParabolicHexaType.ToString();
+            else throw new NotImplementedException();
         }
         static private void AppendAdditionalElements(List<CalElement> additionalElementKeywords, CalculixKeyword parent)
         {

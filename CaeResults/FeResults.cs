@@ -52,8 +52,6 @@ namespace CaeResults
         [NonSerialized]
         private bool[] _resultNodesOutsideMesh;                 // [resultsId] - null until computed
         [NonSerialized]
-        private Dictionary<int, FeNode> _nodesOutsideMesh;      // the nodes of the results file no element holds
-        [NonSerialized]
         private float _scale;
         [NonSerialized]
         private int _stepId;
@@ -786,12 +784,6 @@ namespace CaeResults
         public void SetMesh(FeMesh mesh, Dictionary<int, int> nodeIdsLookUp)
         {
             _mesh = new FeMesh(mesh, mesh.Parts.Keys.ToArray());
-            // The nodes no element holds are the result nodes of the reference points
-            _nodesOutsideMesh = new Dictionary<int, FeNode>();
-            foreach (var entry in mesh.Nodes)
-            {
-                if (!_mesh.Nodes.ContainsKey(entry.Key)) _nodesOutsideMesh.Add(entry.Key, entry.Value);
-            }
             //
             List<BasePart> parts = new List<BasePart>();
             foreach (var entry in _mesh.Parts)
@@ -898,7 +890,8 @@ namespace CaeResults
         }
         private bool[] GetResultNodesOutsideMesh()
         {
-            // The results file also holds the result nodes of the reference points, which no element of the mesh holds
+            // The results file also holds the nodes of the point masses on moved reference points, which no element of
+            // the mesh holds
             if (_resultNodesOutsideMesh == null)
             {
                 List<int> resultNodeIds = new List<int>();
@@ -923,7 +916,7 @@ namespace CaeResults
         }
         private float GetMeshComponentAbsMax(Field field, string componentName)
         {
-            // The deformation scale follows the mesh as it did before the results file held the reference points
+            // The deformation scale follows the mesh, without the nodes of the point masses
             bool[] outsideMesh = GetResultNodesOutsideMesh();
             float[] values = outsideMesh.Length == 0 ? null : field.GetComponentValues(componentName);
             if (values == null) return field.GetComponentAbsMax(componentName);
@@ -6840,76 +6833,105 @@ namespace CaeResults
                 }
             }
         }
-        public void SetReferencePointResultNodes(ICollection<string> movedReferencePointNames)
+        public void SetReferencePointMotions(IDictionary<string, FeReferencePointMotion> motions, IDictionary<int, FeNode> nodes)
         {
-            // The input file gives each reference point that a constraint moves a node of its own, in the order of the
-            // reference points and at their coordinates, which no element holds
-            List<int> nodeIds = new List<int>();
-            if (_nodesOutsideMesh != null)
-            {
-                foreach (var entry in _nodesOutsideMesh)
-                {
-                    if (TryGetResultNodeId(entry.Key, out _)) nodeIds.Add(entry.Key);
-                }
-            }
-            nodeIds.Sort();
-            //
-            int index = 0;
+            // A reference point is moved with the nodes of the model that move it, which the results must hold at the same
+            // coordinates; a results file in text holds the coordinates to six digits
             double size = Math.Max(_mesh.BoundingBox.GetDiagonal(), 1E-6);
+            FeReferencePointMotion motion;
+            FeNode modelNode;
+            FeNode resultNode;
             double tolerance;
-            HashSet<string> moved = new HashSet<string>(movedReferencePointNames, StringComparer.OrdinalIgnoreCase);
+            bool valid;
             foreach (var entry in _mesh.ReferencePoints)
             {
-                FeReferencePoint referencePoint = entry.Value;
-                referencePoint.ResultNodeId = 0;
-                if (!moved.Contains(referencePoint.Name)) continue;
-                // A results file in text holds the coordinates to six digits
-                double[] coor = referencePoint.Coor();
-                tolerance = 1E-4 * Math.Max(size, Math.Max(Math.Abs(coor[0]), Math.Max(Math.Abs(coor[1]), Math.Abs(coor[2]))));
-                for (int i = index; i < nodeIds.Count; i++)
+                entry.Value.Motion = null;
+                if (!motions.TryGetValue(entry.Key, out motion)) continue;
+                //
+                valid = true;
+                foreach (int nodeId in motion.NodeIds)
                 {
-                    FeNode node = _nodesOutsideMesh[nodeIds[i]];
-                    if (Math.Abs(node.X - coor[0]) <= tolerance && Math.Abs(node.Y - coor[1]) <= tolerance &&
-                        Math.Abs(node.Z - coor[2]) <= tolerance)
+                    if (!nodes.TryGetValue(nodeId, out modelNode) || _undeformedNodes == null ||
+                        !_undeformedNodes.TryGetValue(nodeId, out resultNode) || !TryGetResultNodeId(nodeId, out _))
                     {
-                        referencePoint.ResultNodeId = node.Id;
-                        index = i + 1;
+                        valid = false;
+                        break;
+                    }
+                    tolerance = 1E-4 * Math.Max(size, Math.Max(Math.Abs(modelNode.X),
+                                                               Math.Max(Math.Abs(modelNode.Y), Math.Abs(modelNode.Z))));
+                    if (!modelNode.IsEqual(resultNode, tolerance))
+                    {
+                        valid = false;
                         break;
                     }
                 }
+                if (valid) entry.Value.Motion = motion;
             }
         }
-        public bool TryGetReferencePointResultNodeId(FeReferencePoint referencePoint, out int resultNodeId)
+        public bool HasReferencePointMotion(FeReferencePoint referencePoint)
         {
-            // The results file holds the node of a reference point, which no element of the mesh holds
-            resultNodeId = -1;
-            int nodeId = referencePoint.ResultNodeId;
-            return nodeId > 0 && _undeformedNodes != null && !_undeformedNodes.ContainsKey(nodeId) &&
-                   TryGetResultNodeId(nodeId, out resultNodeId);
+            return referencePoint.Motion != null;
         }
         public double[] GetDeformedReferencePointCoor(FeReferencePoint referencePoint, float scale, int stepId,
                                                       int stepIncrementId)
         {
             double[] coor = referencePoint.Coor();
-            if (scale != 0 && TryGetReferencePointResultNodeId(referencePoint, out int resultNodeId))
+            if (scale != 0 && referencePoint.Motion != null &&
+                TryGetReferencePointDisplacement(referencePoint, stepId, stepIncrementId,
+                                                 GetNodalMeshDeformations(stepId, stepIncrementId),
+                                                 out double[] displacement, out _))
             {
-                float[][] deformations = GetNodalMeshDeformations(stepId, stepIncrementId);
-                if (deformations != null && resultNodeId < deformations[0].Length)
-                {
-                    for (int i = 0; i < 3; i++) coor[i] += scale * deformations[i][resultNodeId];
-                }
+                for (int i = 0; i < 3; i++) coor[i] += scale * displacement[i];
             }
             return coor;
         }
-        public bool TryGetReferencePointValue(FeReferencePoint referencePoint, FieldData fieldData, out float value)
+        public bool TryGetReferencePointDisplacement(FeReferencePoint referencePoint, string fieldName, int stepId,
+                                                     int stepIncrementId, out double[] displacement, out bool[] computed)
         {
-            value = 0;
-            if (!TryGetReferencePointResultNodeId(referencePoint, out _)) return false;
+            displacement = null;
+            computed = null;
+            if (fieldName != FOFieldNames.Disp && fieldName != FOFieldNames.DispR) return false;
             //
-            float[] values = GetValues(fieldData, new int[] { referencePoint.ResultNodeId });
-            if (values == null || values.Length != 1) return false;
+            return TryGetReferencePointDisplacement(referencePoint, stepId, stepIncrementId,
+                                                    GetNodalMeshDeformations(fieldName, stepId, stepIncrementId),
+                                                    out displacement, out computed);
+        }
+        private bool TryGetReferencePointDisplacement(FeReferencePoint referencePoint, int stepId, int stepIncrementId,
+                                                      float[][] deformations, out double[] displacement,
+                                                      out bool[] computed)
+        {
+            // The point moves with the nodes it is connected to, computed from their displacements
+            displacement = null;
+            computed = null;
+            FeReferencePointMotion motion = referencePoint.Motion;
+            if (motion == null || deformations == null || _undeformedNodes == null) return false;
             //
-            value = values[0];
+            int resultNodeId;
+            int[] nodeIds = motion.NodeIds;
+            double[][] coor = new double[nodeIds.Length][];
+            double[][] displacements = new double[nodeIds.Length][];
+            FeNode node;
+            for (int i = 0; i < nodeIds.Length; i++)
+            {
+                if (!_undeformedNodes.TryGetValue(nodeIds[i], out node) || !TryGetResultNodeId(nodeIds[i], out resultNodeId) ||
+                    resultNodeId >= deformations[0].Length) return false;
+                //
+                coor[i] = node.Coor;
+                displacements[i] = new double[] { deformations[0][resultNodeId], deformations[1][resultNodeId],
+                                                  deformations[2][resultNodeId] };
+            }
+            return motion.TryGetDisplacement(referencePoint.Coor(), coor, displacements,
+                                             !IsStaticIncrement(stepId, stepIncrementId), out displacement,
+                                             out computed);
+        }
+        private bool IsStaticIncrement(int stepId, int stepIncrementId)
+        {
+            // A mode and a harmonic response are linear, while a static increment may rotate by any angle
+            foreach (var entry in _fields)
+            {
+                if (entry.Key.StepId == stepId && entry.Key.StepIncrementId == stepIncrementId)
+                    return entry.Key.StepType == StepTypeEnum.Static;
+            }
             return true;
         }
         //

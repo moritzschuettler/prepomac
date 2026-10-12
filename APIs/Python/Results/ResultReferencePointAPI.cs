@@ -9,7 +9,6 @@
 
 using APIs.Python.Model;
 using CaeMesh;
-using CaeResults;
 using System.Collections.Generic;
 
 namespace APIs.Python
@@ -57,9 +56,14 @@ namespace APIs.Python
             return PythonListConverter.ToPythonList(new double[] { referencePoint.X.Value, referencePoint.Y.Value,
                                                                    referencePoint.Z.Value });
         }
-        [PythonAPI("Returns one nodal field component value of the result reference point, as get_nodal_value of the " +
-                   "result returns it for a node. The results file holds a reference point that a rigid body or a " +
-                   "kinematic coupling moves, in the directions it moves it; any other is refused.",
+        [PythonAPI("Returns one displacement component of the result reference point, as get_nodal_value of the " +
+                   "result returns it for a node, computed from the displacements of the nodes the point is " +
+                   "connected to: the rigid motion of the region of a rigid body or of the surface of a kinematic " +
+                   "coupling, and the weighted mean motion of the surface of a distributing coupling with its " +
+                   "rotation times the lever arm of the point. Only the field DISP or DISPR with U1, U2, U3 or ALL " +
+                   "is computed. A direction a kinematic coupling does not couple, or that the coupled nodes do not " +
+                   "determine, is refused, and a point nothing moves, or of results opened without the model, has no " +
+                   "displacement and is refused.",
                    Arguments = "step_id: int, increment_id: int, field_name: str, component_name: str",
                    Returns = "float")]
         public float get_nodal_value(object step_id, object increment_id, object field_name, object component_name)
@@ -71,19 +75,15 @@ namespace APIs.Python
                                                   componentName);
         }
         [PythonAPI("Returns the true-scale deformed coordinates [x, y, z] of the result reference point using the " +
-                   "DISP field. The results view draws the point deformed as it draws the mesh. A reference point " +
-                   "the results file does not hold is refused, as by get_nodal_value.",
+                   "DISP field, as the results view draws the point. A direction get_nodal_value does not compute " +
+                   "stays undeformed. A point that has no displacement is refused, as by get_nodal_value.",
                    Arguments = "step_id: int, increment_id: int", Returns = "list[float]")]
         public object get_deformed_coordinates(object step_id, object increment_id)
         {
             int stepId = PythonValueConverter.ToInt(step_id, "step_id");
             int incrementId = PythonValueConverter.ToInt(increment_id, "increment_id");
-            double[] coordinates = Resolve().Coor();
-            string[] componentNames = new string[] { FOComponentNames.U1, FOComponentNames.U2, FOComponentNames.U3 };
-            for (int i = 0; i < componentNames.Length; i++)
-                coordinates[i] += _referencePoints.GetNodalValue(_referencePointName, stepId, incrementId,
-                                                                 FOFieldNames.Disp, componentNames[i]);
-            return PythonListConverter.ToPythonList(coordinates);
+            return PythonListConverter.ToPythonList(_referencePoints.GetDeformedCoordinates(_referencePointName, stepId,
+                                                                                            incrementId));
         }
         [PythonAPI("Returns the coordinate expressions the result reference point was entered with, without " +
                    "evaluating them, under the argument coordinates as a list [x, y, z]. The coordinates are " +
