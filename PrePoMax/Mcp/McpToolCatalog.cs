@@ -202,7 +202,8 @@ namespace PrePoMax.Mcp
                 "time.sleep, a socket, input() - is not interrupted until it returns, so the answer may say it has " +
                 "not stopped yet. Code that catches the interrupt - a bare except - keeps running, and meshing of " +
                 "several parts may start its next mesher: cancel it again, since every cancel delivers a new " +
-                "interrupt and stops the mesher running then. The answer says only what happened: isInterrupted when the interrupt was delivered, " +
+                "interrupt and stops the mesher running then. The answer says only what happened: isInterrupted " +
+                "when the interrupt was delivered, " +
                 "isInterruptPending while it waits - for such an operation to return, or for a call that has not " +
                 "reached its Python yet, which then does not run it and ends with a KeyboardInterrupt error or " +
                 "with the refusal it meets first, such as busy. The commands it recorded " +
