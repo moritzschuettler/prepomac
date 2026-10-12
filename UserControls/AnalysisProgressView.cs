@@ -95,7 +95,7 @@ namespace UserControls
         {
             GraphPane pane = _convergenceGraph.GraphPane;
             ConfigureGraphPane(pane);
-            pane.XAxis.Title.Text = "Comulative iteration";
+            pane.XAxis.Title.Text = "Cumulative iteration";
             pane.YAxis.Title.Text = "Percent (log)";
             pane.YAxis.Type = AxisType.Log;
             pane.YAxis.Scale.MajorStep = 3;
