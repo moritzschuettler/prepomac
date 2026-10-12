@@ -2688,7 +2688,8 @@ namespace CaeResults
                     // There is no data
                     fieldData = GetFieldData(FOFieldNames.None, FOComponentNames.None, -1, -1);
                 }
-                else if (fieldData.StepType == StepTypeEnum.Frequency)
+                else if (fieldData.StepType == StepTypeEnum.Frequency ||
+                         fieldData.StepType == StepTypeEnum.ComplexFrequency)
                 {
                     stepIncrementId = GetStepIncrementIds(stepId).First();
                     fieldData = GetFieldData(name, component, stepId, stepIncrementId);
@@ -6642,7 +6643,8 @@ namespace CaeResults
         //
         public float[] GetAnimationScaleRatios(FieldData fData, int numFrames)
         {
-            if (fData.StepType == StepTypeEnum.Frequency || fData.StepType == StepTypeEnum.Buckling)
+            if (fData.StepType == StepTypeEnum.Frequency || fData.StepType == StepTypeEnum.ComplexFrequency ||
+                fData.StepType == StepTypeEnum.Buckling)
                 return GetRelativeModalScales(numFrames);
             else return GetRelativeScales(numFrames);
         }

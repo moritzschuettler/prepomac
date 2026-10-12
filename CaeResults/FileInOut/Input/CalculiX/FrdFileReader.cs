@@ -842,6 +842,17 @@ namespace CaeResults
                 // -5  DFDN        1    1    1    0                                          
                 // -5  DFDNFIL     1    1    2    0                                          
 
+                // COMPLEX FREQUENCY
+
+                //    1PSTEP                         7           0           2
+                //    1PGM                1.000000E+00
+                //    1PGK                3.000308E+08
+                //    1PHID                         -1
+                //    1PSUBC                         0
+                //    1PMODE                         1
+                //  100CL  107 2756.785988         162                     3    7           1
+                // -4  DISP        4    1
+
             }
             //
             string line;
@@ -897,12 +908,14 @@ namespace CaeResults
             // Steady state dynamics
             if (methodId == 1 && stepIncrementId == 0)
                 type = StepTypeEnum.SteadyStateDynamics;
-            // Sensitivity
+            // Complex frequency and sensitivity
             if (type == StepTypeEnum.Static && methodId == 3)   // method 3 is also used for last iterations type
             {
-                // A frequency step without field outputs leaves no field before the complex frequency ones
-                if (prevFieldData == null || prevFieldData.StepType == StepTypeEnum.Frequency ||
-                    prevFieldData.StepType == StepTypeEnum.FrequencySensitivity)
+                // A complex frequency block is a mode shape and carries its mode number, a sensitivity block does not
+                if (modeNumber >= 0) type = StepTypeEnum.ComplexFrequency;
+                // A frequency step without field outputs leaves no field before the sensitivity ones
+                else if (prevFieldData == null || prevFieldData.StepType == StepTypeEnum.Frequency ||
+                         prevFieldData.StepType == StepTypeEnum.FrequencySensitivity)
                     type = StepTypeEnum.FrequencySensitivity;
             }
             //
@@ -914,6 +927,8 @@ namespace CaeResults
                 GetStepAndStepIncrementIds(type, 1, globalIncrementId, prevFieldData, out stepId, out stepIncrementId);
             else if (type == StepTypeEnum.FrequencySensitivity)
                 GetStepAndStepIncrementIds(type, 0, globalIncrementId, prevFieldData, out stepId, out stepIncrementId);
+            else if (type == StepTypeEnum.ComplexFrequency)
+                stepIncrementId = GetModeIncrementId(type, modeNumber, stepId, globalIncrementId, prevFieldData);
             // Check for modal analysis
             else if (record.Length > 5 && record[5].Contains("MODAL"))
             {
@@ -923,18 +938,7 @@ namespace CaeResults
                     record = lines[lineNum - 2].Split(splitter, StringSplitOptions.RemoveEmptyEntries); // 1PMODE
                     modeNumber = int.Parse(record[1]);
                 }
-                int freqNum = modeNumber;
-                // For cyclic frequency analyses PMODE restarts for every PHID. Use the
-                // globally increasing FRD increment to continue the numbering across
-                // PHIDs, while retaining PMODE for the first mode of each frequency step.
-                if (prevFieldData != null &&
-                    prevFieldData.StepType == StepTypeEnum.Frequency &&
-                    prevFieldData.StepId == stepId)
-                {
-                    stepIncrementId = prevFieldData.StepIncrementId +
-                                      globalIncrementId - prevFieldData.GlobalIncrementId;
-                }
-                else stepIncrementId = freqNum;
+                stepIncrementId = GetModeIncrementId(type, modeNumber, stepId, globalIncrementId, prevFieldData);
             }
             else if (type == StepTypeEnum.LastIterations)
             {
@@ -977,6 +981,16 @@ namespace CaeResults
                 stepId = prevFieldData.StepId;
                 stepIncrementId = prevFieldData.StepIncrementId;
             }
+        }
+        static private int GetModeIncrementId(StepTypeEnum type, int modeNumber, int stepId, int globalIncrementId,
+                                              FieldData prevFieldData)
+        {
+            // For cyclic frequency analyses PMODE restarts for every PHID. Use the
+            // globally increasing FRD increment to continue the numbering across
+            // PHIDs, while retaining PMODE for the first mode of each frequency step.
+            if (prevFieldData != null && prevFieldData.StepType == type && prevFieldData.StepId == stepId)
+                return prevFieldData.StepIncrementId + globalIncrementId - prevFieldData.GlobalIncrementId;
+            else return modeNumber;
         }
         static private float[][] GetFieldValuesData(string[] lines, ref int lineNum, bool constantWidth, int numOfVal,
                                                     Dictionary<int, int> nodeIdsLookUp, out List<string> components)

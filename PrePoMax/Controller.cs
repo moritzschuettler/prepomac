@@ -31024,7 +31024,8 @@ namespace PrePoMax
                 return ratios;
             }
             //
-            if (fieldData.StepType == StepTypeEnum.Frequency || fieldData.StepType == StepTypeEnum.Buckling)
+            if (fieldData.StepType == StepTypeEnum.Frequency || fieldData.StepType == StepTypeEnum.ComplexFrequency ||
+                fieldData.StepType == StepTypeEnum.Buckling)
             {
                 float ratio = 2f / (numFrames - 1);
                 for (int i = 0; i < numFrames; i++)
@@ -31660,7 +31661,8 @@ namespace PrePoMax
             string unit;
             if (_currentFieldData.StepType == StepTypeEnum.Static)
                 unit = _allResults.CurrentResult.UnitSystem.TimeUnitAbbreviation;
-            else if (_currentFieldData.StepType == StepTypeEnum.Frequency)
+            else if (_currentFieldData.StepType == StepTypeEnum.Frequency ||
+                     _currentFieldData.StepType == StepTypeEnum.ComplexFrequency)
                 unit = _allResults.CurrentResult.UnitSystem.FrequencyUnitAbbreviation;
             else if (_currentFieldData.StepType == StepTypeEnum.FrequencySensitivity)
                 unit = _allResults.CurrentResult.UnitSystem.FrequencyUnitAbbreviation;
@@ -31678,7 +31680,8 @@ namespace PrePoMax
             //
             int stepNumber = _currentFieldData.StepId;
             int incrementNumber = _currentFieldData.StepIncrementId;
-            if (_currentFieldData.StepType == StepTypeEnum.Frequency && _currentFieldData.ModeNumber >= 0)
+            if ((_currentFieldData.StepType == StepTypeEnum.Frequency ||
+                 _currentFieldData.StepType == StepTypeEnum.ComplexFrequency) && _currentFieldData.ModeNumber >= 0)
                 incrementNumber = _currentFieldData.ModeNumber;
             int nodalDiameter = _currentFieldData.NodalDiameter;
             //
@@ -31691,6 +31694,7 @@ namespace PrePoMax
             vtkMaxFieldDataType fieldType;
             if (fieldData.StepType == StepTypeEnum.Static) fieldType = vtkMaxFieldDataType.Static;
             else if (fieldData.StepType == StepTypeEnum.Frequency) fieldType = vtkMaxFieldDataType.Frequency;
+            else if (fieldData.StepType == StepTypeEnum.ComplexFrequency) fieldType = vtkMaxFieldDataType.Frequency;
             else if (fieldData.StepType == StepTypeEnum.FrequencySensitivity) fieldType = vtkMaxFieldDataType.FrequencySensitivity;
             else if (fieldData.StepType == StepTypeEnum.Buckling) fieldType = vtkMaxFieldDataType.Buckling;
             else if (fieldData.StepType == StepTypeEnum.SteadyStateDynamics) fieldType = vtkMaxFieldDataType.SteadyStateDynamic;

@@ -9,6 +9,8 @@
 #not running, opening the results of a running analysis or a missing results file, and removing or
 #renaming a running analysis or replacing the model while it runs. Then it solves the cube with item names
 #too long for CalculiX, which the input file shortens, and reads their history back under the item names.
+#It solves a spinning plate with a frequency and a complex frequency step and checks that the complex modes are
+#read back as increments numbered from 1 that hold their frequencies, with and without fields before them.
 #Last, it replaces the cube by an axisymmetric ring and checks that a point spring, a surface spring and the
 #reaction history are given for the full revolution, as the loads and the results file are.
 #
@@ -401,6 +403,92 @@ def test_long_names(work):
         pmx.model.node_sets.remove([node_set])
 
 
+def write_plate_mesh(file_name):
+    # A plate of 4 by 4 by 1 hexahedra, 40 by 40 by 2; the nodes at x = 0 are 1, 6, ... 46 and node 50 is the far
+    # top corner
+    lines = ["*NODE"]
+    for k in range(2):
+        for j in range(5):
+            for i in range(5):
+                lines.append("%d, %.6f, %.6f, %.6f" % (25 * k + 5 * j + i + 1, 10.0 * i, 10.0 * j, 2.0 * k))
+    lines.append("*ELEMENT, TYPE=C3D8, ELSET=" + PREFIX + "Plate")
+    for j in range(4):
+        for i in range(4):
+            first = 5 * j + i + 1
+            lines.append("%d, %d, %d, %d, %d, %d, %d, %d, %d" % (4 * j + i + 1, first, first + 1, first + 6, first + 5,
+                                                                 first + 25, first + 26, first + 31, first + 30))
+    with open(file_name, "w") as mesh_file:
+        mesh_file.write("\n".join(lines) + "\n")
+
+
+def solve_complex_frequency(name, work):
+    pmx.jobs.add(name, work_directory=work)
+    status = pmx.jobs[name].run(timeout=300)
+    check(status == "OK", "the complex frequency analysis " + name + " did not succeed, got " + status + "\n" +
+          pmx.jobs[name].get_output()[-3000:])
+    pmx.jobs.open_results(name)
+    result = pmx.results.current
+    modes = {}
+    for step_id in result.steps.get_ids():
+        increments = result.steps[step_id].increments
+        modes[step_id] = [(increment_id, increments[increment_id].step_time) for increment_id in increments.get_ids()]
+    return result, modes
+
+
+def test_complex_frequency_modes(work):
+    # The modes of a complex frequency step are read back as those of a frequency step are: increments numbered
+    # from 1 that hold their frequencies. CalculiX writes them in blocks of the analysis type of a frequency
+    # sensitivity, whose increment 0 holds the normals of the design, and they were read back as one
+    pmx.model.parts.remove([part.name for part in pmx.model.parts])
+    pmx.model.element_sets.remove(list(pmx.model.element_sets.get_names()))
+    mesh_file_name = os.path.join(work, PREFIX + "Plate.inp")
+    write_plate_mesh(mesh_file_name)
+    pmx.import_file(mesh_file_name)
+    part = pmx.model.parts.first()
+    pmx.model.materials.add(PREFIX + "Steel_Mass", [pmx.create.elastic(210000, 0.3), pmx.create.density(7.85e-9)])
+    pmx.model.sections.add_solid(PREFIX + "Plate_Section", PREFIX + "Steel_Mass",
+                                 pmx.create.selection_by_ids('femodel', 'elements', 'parts', [part.id]))
+    clamp = PREFIX + "Plate_Clamp"
+    pmx.model.node_sets.add(clamp, pmx.create.selection_by_ids('femodel', 'nodes', 'nodes',
+                                                               [1, 6, 11, 16, 21, 26, 31, 36, 41, 46]))
+    # CalculiX takes the speed of the Coriolis forces from the centrifugal load of the preceding static step
+    steps = pmx.model.steps
+    spin = steps.add_static(PREFIX + "Spin")
+    spin.bcs.add_fixed(PREFIX + "Plate_Fixed", pmx.create.region('NodeSetName', clamp))
+    spin.loads.add_centrifugal(PREFIX + "Speed", pmx.create.selection_by_ids('femodel', 'parts', 'parts', [part.id]),
+                               axis_point=[0, 0, 0], axis_direction=[0, 0, 1], rotational_speed=1000)
+    frequency = steps.add_frequency(PREFIX + "Frequency", number_of_frequencies=4, storage=True, perturbation=True,
+                                    copy_bcs_and_loads=True)
+    steps.add_complex_frequency(PREFIX + "Complex_Frequency", number_of_frequencies=3, perturbation=True,
+                                copy_bcs_and_loads=True)
+    try:
+        result, modes = solve_complex_frequency(PREFIX + "Complex_Frequency", work)
+        check(sorted(modes.keys()) == [1, 2, 3], "the steps of the complex frequency results are " + str(modes))
+        check([mode[0] for mode in modes[2]] == [1, 2, 3, 4], "the frequency modes are not the increments 1 to 4: " +
+              str(modes[2]))
+        check([mode[0] for mode in modes[3]] == [1, 2, 3], "the complex frequency modes are not the increments " +
+              "1 to 3: " + str(modes[3]))
+        # The Coriolis forces of the slowly spinning plate barely move the frequencies
+        for (increment_id, complex_frequency), (_, real_frequency) in zip(modes[3], modes[2]):
+            check(abs(complex_frequency - real_frequency) < 1e-3 * real_frequency,
+                  "the complex frequency mode " + str(increment_id) + " holds " + str(complex_frequency) +
+                  " instead of its frequency " + str(real_frequency))
+        check(abs(result.get_nodal_value(3, 1, 'DISP', 'U3', 50)) > 0, "the first complex frequency mode has no shape")
+        # Without the fields of the steps before, the complex frequency fields are the first of the file
+        for step in [spin, frequency]:
+            step.field_outputs.remove(list(step.field_outputs.get_names()))
+        result, modes_alone = solve_complex_frequency(PREFIX + "Complex_Frequency_Alone", work)
+        check(list(modes_alone.keys()) == [3] and len(modes_alone[3]) == len(modes[3]) and
+              all(alone[0] == mode[0] and abs(alone[1] - mode[1]) < 1e-6 * mode[1]
+                  for alone, mode in zip(modes_alone[3], modes[3])),
+              "the complex frequency modes written alone are read back as " + str(modes_alone) + " instead of " +
+              str({3: modes[3]}))
+        check(abs(result.get_nodal_value(3, 1, 'DISP', 'U3', 50)) > 0,
+              "the first complex frequency mode written alone has no shape")
+    finally:
+        pmx.model.node_sets.remove([clamp])
+
+
 def write_ring_mesh(file_name):
     # A ring of 4 by 2 axisymmetric elements from radius 10 to 20 and height 0 to 2; the bottom nodes are 1 to 5 and
     # the top nodes 11 to 15
@@ -508,6 +596,8 @@ def main():
         test_environment_variable_refusals()
         test_kill_and_open_results_refusals(work)
         test_long_names(work)
+        clean()
+        test_complex_frequency_modes(work)
         clean()
         test_axisymmetric_per_revolution(work)
         clean()

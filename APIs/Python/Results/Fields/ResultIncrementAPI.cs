@@ -25,7 +25,9 @@ namespace APIs.Python
         // Properties
         [PythonAPI("The result increment ID.", Returns = "int")]
         public int id { get { return _incrementId; } }
-        [PythonAPI("The stored result time for this increment.", Returns = "float")]
+        [PythonAPI("The stored result time for this increment. An increment of a frequency or complex frequency " +
+                   "step is a mode, numbered from 1, and stores its frequency; one of a buckling step stores its " +
+                   "buckling factor.", Returns = "float")]
         public float step_time { get { return _dataService.GetIncrementTime(_resultName, _stepId, _incrementId); } }
         [PythonAPI("Fields available for this increment.", Returns = "Fields")]
         public FieldsAPI fields { get { return _fields; } }
