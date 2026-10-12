@@ -34,8 +34,7 @@ namespace CaeMesh
                 if (part.PartType != PartType.Shell || part.Visualization == null) continue;
                 //
                 VisualizationData vis = part.Visualization;
-                foreach (var face in TransfiniteFaceDetector.Detect(geometry, part,
-                                                                    threeSided != TransfiniteThreeSidedEnum.No,
+                foreach (var face in TransfiniteFaceDetector.Detect(geometry, part, threeSided,
                                                                     fourSided, transfiniteAngleDeg))
                 {
                     int[] cellIds = vis.CellIdsByFace[face.FaceId];

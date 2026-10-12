@@ -15,13 +15,22 @@
 #  - The quarter cylinder again with transfinite_three_sided="Polar": the quarter disc is collapsed at the axis, as a
 #    revolution about the axis would mesh it, so the mesh is hexahedra and a fan of wedges around the axis, every
 #    wedge with an edge on the axis.
-#  - The box again with different numbers of elements set on the two opposite sides of its source: refused.
+#  - The box again with different numbers of elements set on the two opposite sides of its source: refused. And with
+#    a number of elements on one of them and an element size asking for five times as many on the other: refused,
+#    since the sweep would override the element size.
+#  - l_profile_fillet.brep, an L profile with a filleted inner corner, meshed with no items: its end faces are 3-sided,
+#    one side turning through the fillet, and three blocks of quads fold on them, so they are swept from as free
+#    sources rather than refused.
 #  - The split box and the quarter cylinder again with QuadWild meshing the sources, which are given the same faces.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Sweep_Transfinite.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
 
+import os
+import sys
+
+MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 SWEEP = "PyTest_Sweep"
 SIZE = "PyTest_Size"
 
@@ -241,11 +250,57 @@ def test_conflicting_counts(box):
     items.remove([SIZE + "_A", SIZE + "_B"])
 
 
+def test_size_against_count(box):
+    # An element size is kept by a number of elements close to the one it asks for; the sweep that would carry the
+    # number set on the opposite side over to it is refused instead
+    source = face_with_normal(box, 2, -1)
+    vertices = [list(c) for c in box.get_vertex_data().coordinates]
+    low = [min(c[i] for c in vertices) for i in range(3)]
+    high = [max(c[i] for c in vertices) for i in range(3)]
+    data = box.get_edge_data()
+    ids = [int(i) for i in data.ids]
+    centroids = [list(c) for c in data.centroids]
+    tolerance = 1e-6 * (high[0] - low[0])
+    along_x = [ids[i] for i in range(data.count) if abs(centroids[i][2] - low[2]) < tolerance and
+               (abs(centroids[i][1] - low[1]) < tolerance or abs(centroids[i][1] - high[1]) < tolerance)]
+    check(len(along_x) == 2, "the bottom of the box must have two edges along x: " + str(along_x))
+    length = high[0] - low[0]
+    items = pmx.model.mesh.setup_items
+    items.add_meshing_parameters(SIZE, pmx.create.selection_by_ids("geometry", "geometry", "parts", [box.id]),
+                                 relative_size=False, max_size=length / 4, min_size=length / 100)
+    items.add_local_mesh_size(SIZE + "_A", edge_selection(box, [along_x[0]]), number_of_elements=4)
+    items.add_local_mesh_size(SIZE + "_B", edge_selection(box, [along_x[1]]), element_size=length / 20)
+    try:
+        report = sweep(box, source)
+    except Exception as ex:
+        report = str(ex)
+    print("element size against a count:", report)
+    check("by its element size" in report and "but the sweep gives it 4" in report,
+          "the sweep that overrides an element size with the count of the opposite side must be refused: " + report)
+    items.remove([SIZE, SIZE + "_A", SIZE + "_B"])
+
+
+def test_l_profile():
+    # The end faces of an L profile with a filleted inner corner are 3-sided, one side turning through the fillet, and
+    # three blocks of quads fold on them; they are not structured sources then, and the profile is swept from them
+    before = set(pmx.model.geometry.parts.get_names())
+    pmx.import_file(os.path.join(MODELS, "l_profile_fillet.brep"))
+    profile = [part for part in pmx.model.geometry.parts if part.name not in before][0]
+    report = pmx.model.mesh.generate(profile.name)[profile.name]
+    check(report == "", "the L profile with no mesh items reported: " + report)
+    meshed = [part for part in pmx.model.parts if part.name == profile.name][0]
+    inverted = list(meshed.get_inverted_element_ids())
+    check(len(inverted) == 0, "the L profile has inverted elements: " + str(inverted[:10]))
+    print("the L profile:", meshed.element_count, "elements")
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     box = [part for part in pmx.model.geometry.parts if part.get_face_data().count == 6][0]
     cylinder = [part for part in pmx.model.geometry.parts if part.get_face_data().count == 5][0]
     test_conflicting_counts(box)
+    test_size_against_count(box)
+    test_l_profile()
     box = split_side_face(box)
     test_split_box(box)
     test_quarter_cylinder(cylinder)

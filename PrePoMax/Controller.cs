@@ -11181,6 +11181,70 @@ namespace PrePoMax
             defaultMeshingParameters.MinH = Tools.RoundToSignificantDigits(sumMin / sizePartCount, 2);
             return defaultMeshingParameters;
         }
+        /// <summary>
+        /// Refuses the meshing of the part when a local mesh size on it asks for elements its meshing parameters do not
+        /// allow: an element size below the minimum or above the maximum element size, or so many elements on an edge
+        /// that they are shorter than the minimum element size. Neither value is changed to fit, as both are the user's.
+        /// </summary>
+        private void CheckLocalMeshSizes(string partName, OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+        {
+            string[] meshablePartNames = GetMeshablePartNames(new string[] { partName });
+            HashSet<int> meshablePartIds = new HashSet<int>(_model.Geometry.GetPartIdsFomPartNames(meshablePartNames));
+            List<string> errors = new List<string>();
+            foreach (var entry in meshSetupItems)
+            {
+                if (!(entry.Value is LocalMeshSize localMeshSize) || !localMeshSize.Active || !localMeshSize.Valid ||
+                    localMeshSize.CreationIds == null) continue;
+                //
+                HashSet<string> checkedPartNames = new HashSet<string>();
+                foreach (int geometryId in localMeshSize.CreationIds)
+                {
+                    int[] itemTypePartId = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
+                    if (!meshablePartIds.Contains(itemTypePartId[2])) continue;
+                    //
+                    BasePart part = _model.Geometry.GetPartFromId(itemTypePartId[2]);
+                    MeshingParameters meshingParameters = GetPartMeshingParameters(part.Name, meshSetupItems);
+                    if (localMeshSize.Type == LocalMeshSizeTypeEnum.ElementSize)
+                    {
+                        if (!checkedPartNames.Add(part.Name)) continue;
+                        if (localMeshSize.MeshSize < meshingParameters.MinH)
+                            errors.Add("The element size " + localMeshSize.MeshSize + " of the local mesh size " +
+                                       localMeshSize.Name + " is smaller than the minimum element size " +
+                                       meshingParameters.MinH + " of the meshing parameters of " + part.Name + ".");
+                        else if (localMeshSize.MeshSize > meshingParameters.MaxH)
+                            errors.Add("The element size " + localMeshSize.MeshSize + " of the local mesh size " +
+                                       localMeshSize.Name + " is larger than the maximum element size " +
+                                       meshingParameters.MaxH + " of the meshing parameters of " + part.Name + ".");
+                    }
+                    else if (localMeshSize.Type == LocalMeshSizeTypeEnum.NumberOfElements)
+                    {
+                        GeometryType geometryType = (GeometryType)itemTypePartId[1];
+                        VisualizationData vis = part.Visualization;
+                        int[] edgeIds;
+                        if (geometryType.IsEdge()) edgeIds = new int[] { itemTypePartId[0] };
+                        else if (geometryType.IsSurface()) edgeIds = vis.FaceEdgeIds[itemTypePartId[0]];
+                        else if (geometryType == GeometryType.Part) edgeIds = Enumerable.Range(0, vis.EdgeCount).ToArray();
+                        else continue;
+                        //
+                        foreach (var edgeId in edgeIds)
+                        {
+                            double elementLength = vis.EdgeLengths[edgeId] / localMeshSize.NumOfElements;
+                            if (elementLength >= meshingParameters.MinH) continue;
+                            errors.Add("Edge " + (edgeId + 1) + " of " + part.Name + " is set to " +
+                                       localMeshSize.NumOfElements + " elements by the local mesh size " +
+                                       localMeshSize.Name + ", which makes them " + elementLength.ToString("G4") +
+                                       " long, shorter than the minimum element size " + meshingParameters.MinH +
+                                       " of the meshing parameters of " + part.Name + ".");
+                        }
+                    }
+                }
+            }
+            if (errors.Count == 0) return;
+            //
+            errors.Add("Change the local mesh sizes to lie between the minimum and the maximum element size, or change " +
+                       "those of the meshing parameters.");
+            throw new CaeException(string.Join(Environment.NewLine, errors.Distinct()));
+        }
         //
         public void GetMeshItemSizes(string partName, ref GmshData gmshData,
                                      OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
@@ -11211,9 +11275,6 @@ namespace PrePoMax
             GeometryType geometryType;
             int partId;
             BasePart part;
-            MeshingParameters meshingParameters;
-            double minH;
-            double maxH;
             int edgeId;
             double length;
             int numElements;
@@ -11243,22 +11304,19 @@ namespace PrePoMax
                     geometryType = (GeometryType)itemTypePartId[1];
                     partId = itemTypePartId[2];
                     part = _model.Geometry.GetPartFromId(partId);
-                    meshingParameters = GetPartMeshingParameters(part.Name, meshSetupItems);
-                    minH = meshingParameters.MinH;
-                    maxH = meshingParameters.MaxH;
                     //
                     if (geometryType == GeometryType.Vertex)
                     {
                         if (localMeshSize.Type == LocalMeshSizeTypeEnum.ElementSize)
                         {
                             vertexNodeId = part.Visualization.VertexNodeIds[itemId];
-                            gmshData.VertexNodeIdMeshSize[vertexNodeId] = localMeshSize.GetMeshSize(-1, minH, maxH);
+                            gmshData.VertexNodeIdMeshSize[vertexNodeId] = localMeshSize.GetMeshSize(-1);
                         }
                     }
                     else if (geometryType.IsEdge())
                     {
                         length = part.Visualization.EdgeLengths[itemId];
-                        numElements = localMeshSize.GetNumberOfElements(length, minH, maxH);
+                        numElements = localMeshSize.GetNumberOfElements(length);
                         //
                         gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(itemId, partId)] = numElements;
                         if (fixedCount) gmshData.FixedCountEdgeIds.Add(FeMesh.GmshTopologyId(itemId, partId));
@@ -11269,7 +11327,7 @@ namespace PrePoMax
                         {
                             edgeId = part.Visualization.FaceEdgeIds[itemId][i];
                             length = part.Visualization.EdgeLengths[edgeId];
-                            numElements = localMeshSize.GetNumberOfElements(length, minH, maxH);
+                            numElements = localMeshSize.GetNumberOfElements(length);
                             //
                             gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(edgeId, partId)] = numElements;
                             if (fixedCount) gmshData.FixedCountEdgeIds.Add(FeMesh.GmshTopologyId(edgeId, partId));
@@ -11283,7 +11341,7 @@ namespace PrePoMax
                             {
                                 edgeId = part.Visualization.FaceEdgeIds[i][j];
                                 length = part.Visualization.EdgeLengths[edgeId];
-                                numElements = localMeshSize.GetNumberOfElements(length, minH, maxH);
+                                numElements = localMeshSize.GetNumberOfElements(length);
                                 //
                                 gmshData.EdgeIdNumElements[FeMesh.GmshTopologyId(edgeId, partId)] = numElements;
                                 if (fixedCount) gmshData.FixedCountEdgeIds.Add(FeMesh.GmshTopologyId(edgeId, partId));
@@ -11309,6 +11367,7 @@ namespace PrePoMax
                 if (meshSetupItemsDict.ContainsKey(meshSetupItem.Name)) meshSetupItemsDict[meshSetupItem.Name] = meshSetupItem;
                 else meshSetupItemsDict.Add(meshSetupItem.Name, meshSetupItem);
             }
+            CheckLocalMeshSizes(partName, meshSetupItemsDict);
             //
             bool result;
             if (meshSetupItem is ShellQuadWild)
@@ -11511,6 +11570,7 @@ namespace PrePoMax
         }
         private GeneratedMeshData GenerateMesh(GeometryPart part, string workDirectory)
         {
+            CheckLocalMeshSizes(part.Name, _model.Geometry.MeshSetupItems);
             if (part.IsCADPart) return CreateMeshFromBrep(part, workDirectory);
             else return CreateMeshFromStl(part, workDirectory);
         }
@@ -12084,14 +12144,12 @@ namespace PrePoMax
             int[] itemTypePartIds;
             int[] edgeGeomIds = new int[1];
             double h;
-            double minH;
-            double maxH;
             double length;
             double[][] points;
             double[][][] lines;
             GeometryType geometryType;
-            MeshingParameters meshingParameters;
-            VisualizationData vis = part.Visualization;
+            BasePart edgePart;
+            VisualizationData vis;
             //
             foreach (var entry in localMeshSizes)
             {
@@ -12102,7 +12160,7 @@ namespace PrePoMax
                 {
                     // Get part ids of the mesh refinement
                     geometryIds = localMeshSize.CreationIds;
-                    if (geometryIds == null || geometryIds.Length == 0) break;
+                    if (geometryIds == null || geometryIds.Length == 0) continue;
                     // Filter geometry ids to the part being meshed
                     foreach (var geometryId in geometryIds)
                     {
@@ -12113,13 +12171,9 @@ namespace PrePoMax
                     // Export refinement only if it was created for the geometry to mesh
                     if (geometryIds.Length > 0)
                     {
-                        meshingParameters = GetPartMeshingParameters(part.Name, meshSetupItems);
-                        minH = meshingParameters.MinH;
-                        maxH = meshingParameters.MaxH;
-                        //
                         if (localMeshSize.Type == LocalMeshSizeTypeEnum.ElementSize)
                         {
-                            h = localMeshSize.GetMeshSize(-1, minH, maxH);
+                            h = localMeshSize.GetMeshSize(-1);
                             _model.Geometry.GetVertexAndEdgeCoorFromGeometryIds(geometryIds, h, false, out points, out lines);
                             //
                             numPoints += points.Length;
@@ -12138,9 +12192,12 @@ namespace PrePoMax
                                 itemTypePartIds = FeMesh.GetItemTypePartIdsFromGeometryId(geometryId);
                                 itemId = itemTypePartIds[0];
                                 geometryType = (GeometryType)itemTypePartIds[1];
+                                // The ids are those of the sub-part of a compound the item selects
+                                edgePart = _model.Geometry.GetPartFromId(itemTypePartIds[2]);
+                                vis = edgePart.Visualization;
                                 //
                                 if (geometryType == GeometryType.Vertex) edgeIds = new int[0];
-                                if (geometryType.IsEdge()) edgeIds = new int[] { itemId };
+                                else if (geometryType.IsEdge()) edgeIds = new int[] { itemId };
                                 else if (geometryType.IsSurface()) edgeIds = vis.FaceEdgeIds[itemId];
                                 else if (geometryType == GeometryType.Part)
                                 {
@@ -12151,9 +12208,9 @@ namespace PrePoMax
                                 //
                                 foreach (var edgeId in edgeIds)
                                 {
-                                    edgeGeomIds[0] = FeMesh.GetGeometryId(edgeId, (int)GeometryType.Edge, part.PartId);
-                                    length = part.Visualization.EdgeLengths[edgeId];
-                                    h = localMeshSize.GetMeshSize(length, minH, maxH);
+                                    edgeGeomIds[0] = FeMesh.GetGeometryId(edgeId, (int)GeometryType.Edge, edgePart.PartId);
+                                    length = vis.EdgeLengths[edgeId];
+                                    h = localMeshSize.GetMeshSize(length);
                                     //
                                     _model.Geometry.GetVertexAndEdgeCoorFromGeometryIds(edgeGeomIds, h, false,
                                                                                         out points, out lines);
@@ -12942,7 +12999,7 @@ namespace PrePoMax
                     if (_defaultMeshTypesDisabled)
                     {
                         MeshingParameters meshingParameters = GetPartMeshingParameters(meshedPartName);
-                        return _model.Geometry.GetTransfiniteShellFaces(part, meshingParameters.IsTransfiniteThreeSided,
+                        return _model.Geometry.GetTransfiniteShellFaces(part, meshingParameters.TransfiniteThreeSided,
                                                                         meshingParameters.TransfiniteFourSided,
                                                                         meshingParameters.TransfiniteAngleDeg);
                     }
@@ -12950,15 +13007,15 @@ namespace PrePoMax
                 }
                 //
                 if (mesherSetupItem is ShellGmsh shellGmsh)
-                    return _model.Geometry.GetTransfiniteShellFaces(part, shellGmsh.IsTransfiniteThreeSided,
+                    return _model.Geometry.GetTransfiniteShellFaces(part, shellGmsh.TransfiniteThreeSided,
                                                                     shellGmsh.TransfiniteFourSided,
                                                                     shellGmsh.TransfiniteAngleDeg);
                 else if (mesherSetupItem is ShellQuadWild shellQuadWild)
-                    return _model.Geometry.GetTransfiniteShellFaces(part, shellQuadWild.IsTransfiniteThreeSided,
+                    return _model.Geometry.GetTransfiniteShellFaces(part, shellQuadWild.TransfiniteThreeSided,
                                                                     shellQuadWild.TransfiniteFourSided,
                                                                     shellQuadWild.TransfiniteAngleDeg);
                 else if (mesherSetupItem is NetgenMesh netgenMesh)
-                    return _model.Geometry.GetTransfiniteShellFaces(part, netgenMesh.IsTransfiniteThreeSided,
+                    return _model.Geometry.GetTransfiniteShellFaces(part, netgenMesh.TransfiniteThreeSided,
                                                                     netgenMesh.TransfiniteFourSided,
                                                                     netgenMesh.TransfiniteAngleDeg);
                 else return null;

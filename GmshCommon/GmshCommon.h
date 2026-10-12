@@ -931,6 +931,10 @@ namespace GmshCommon {
                 {
                     gmsh::model::mesh::setOrder(order);
                 }
+                static inline void RenumberElements()
+                {
+                    gmsh::model::mesh::renumberElements();
+                }
                 static void GetSizes(array<System::Tuple<int, int>^>^ dimTags,
                     [System::Runtime::InteropServices::Out] array<double>^% sizes)
                 {

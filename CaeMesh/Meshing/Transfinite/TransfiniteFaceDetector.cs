@@ -21,21 +21,23 @@ namespace CaeMesh
     /// face may have its sharpest corner below that range, since its singular point moves towards that corner.
     /// Each corner and each joint of a side is judged on its own, so a face is also held to the grid its sides span:
     /// a side chained through many nearly straight joints can still wind far across the face, and a grid stretched
-    /// between it and the other sides folds.
+    /// between it and the other sides folds. A three-sided face is held to the grid of the layout it is meshed by.
     /// </summary>
     public static class TransfiniteFaceDetector
     {
         // Variables
         private const double _cornerAngleToleranceDeg = 0.1;
         private const int _foldCheckDivisions = 16;
+        private const double _heightFieldMinCosine = 0.05;
 
 
         // Methods
-        public static TransfiniteFace[] Detect(FeMesh mesh, BasePart part, bool threeSided, bool fourSided,
-                                               double transfiniteAngleDeg)
+        public static TransfiniteFace[] Detect(FeMesh mesh, BasePart part, TransfiniteThreeSidedEnum threeSided,
+                                               bool fourSided, double transfiniteAngleDeg)
         {
             VisualizationData vis = part.Visualization;
-            if (vis == null || vis.FaceCount == 0 || vis.FaceEdgeIds == null || (!threeSided && !fourSided))
+            if (vis == null || vis.FaceCount == 0 || vis.FaceEdgeIds == null ||
+                (threeSided == TransfiniteThreeSidedEnum.No && !fourSided))
                 return new TransfiniteFace[0];
             //
             Dictionary<int, int[]> edgeIdVertexIds = new Dictionary<int, int[]>();
@@ -48,8 +50,8 @@ namespace CaeMesh
             }
             return transfiniteFaces.ToArray();
         }
-        public static bool[] GetTransfiniteFaceFlags(FeMesh mesh, BasePart part, bool threeSided, bool fourSided,
-                                                     double transfiniteAngleDeg)
+        public static bool[] GetTransfiniteFaceFlags(FeMesh mesh, BasePart part, TransfiniteThreeSidedEnum threeSided,
+                                                     bool fourSided, double transfiniteAngleDeg)
         {
             bool[] transfinite = new bool[part.Visualization.FaceCount];
             foreach (var transfiniteFace in Detect(mesh, part, threeSided, fourSided, transfiniteAngleDeg))
@@ -81,9 +83,9 @@ namespace CaeMesh
             };
             return face.GetPolarCornerIndex(face.SideEdgeIds.Select(side => side.Sum(getEdgeLength)).ToArray());
         }
-        private static TransfiniteFace DetectFace(FeMesh mesh, VisualizationData vis, int faceId, bool threeSided,
-                                                  bool fourSided, double transfiniteAngleDeg,
-                                                  Dictionary<int, int[]> edgeIdVertexIds)
+        private static TransfiniteFace DetectFace(FeMesh mesh, VisualizationData vis, int faceId,
+                                                  TransfiniteThreeSidedEnum threeSided, bool fourSided,
+                                                  double transfiniteAngleDeg, Dictionary<int, int[]> edgeIdVertexIds)
         {
             int[] faceEdgeIds = vis.FaceEdgeIds[faceId];
             if (faceEdgeIds == null || faceEdgeIds.Length < 3) return null;
@@ -109,7 +111,8 @@ namespace CaeMesh
             {
                 if (anglesDeg[k] <= maxCornerAngleDeg) corners.Add(k);
             }
-            if (!((corners.Count == 4 && fourSided) || (corners.Count == 3 && threeSided))) return null;
+            if (!((corners.Count == 4 && fourSided) ||
+                  (corners.Count == 3 && threeSided != TransfiniteThreeSidedEnum.No))) return null;
             //
             int sharpest = corners.OrderBy(k => anglesDeg[k]).First();
             foreach (var k in corners)
@@ -139,23 +142,26 @@ namespace CaeMesh
                 sideEdgeIds[c] = side.ToArray();
             }
             TransfiniteFace transfiniteFace = new TransfiniteFace(faceId, cornerNodeIds, cornerAnglesDeg, sideEdgeIds);
-            if (DoesGridFold(mesh, vis, loopEdgeIds, loopVertexIds, corners, transfiniteFace)) return null;
+            bool polar = threeSided == TransfiniteThreeSidedEnum.Polar;
+            if (DoesGridFold(mesh, vis, loopEdgeIds, loopVertexIds, corners, transfiniteFace, polar)) return null;
             return transfiniteFace;
         }
         /// <summary>
         /// Whether the structured grid the sides of a face span folds. The sides are sampled at equal steps of their
         /// length, and the grid is their transfinite interpolation: between the four sides of a four-sided face, and
-        /// for a three-sided face its polar grid, collapsed into the corner GetPolarCornerIndex picks, whose lines
-        /// follow the sides however thin the face. A cell turned against a neighbour - their normals pointing to
-        /// opposite sides - is a fold. A curved face turns its cells gradually, and neighbours never face apart; only
-        /// a side that winds across the grid turns one over.
+        /// for a three-sided face meshed by a polar grid that grid, collapsed into the corner GetPolarCornerIndex
+        /// picks, whose lines follow the sides however thin the face. A cell turned against a neighbour - their
+        /// normals pointing to opposite sides - is a fold. A curved face turns its cells gradually, and neighbours
+        /// never face apart; only a side that winds across the grid turns one over. A three-sided face meshed by
+        /// three blocks of quads is checked by the mapping itself, see DoesThreeBlockGridFold.
         /// </summary>
         private static bool DoesGridFold(FeMesh mesh, VisualizationData vis, int[] loopEdgeIds, int[] loopVertexIds,
-                                         List<int> corners, TransfiniteFace transfiniteFace)
+                                         List<int> corners, TransfiniteFace transfiniteFace, bool polarThreeSided)
         {
             int m = _foldCheckDivisions;
             int n = loopEdgeIds.Length;
             int numOfSides = corners.Count;
+            List<double[]>[] polylines = new List<double[]>[numOfSides];
             double[][][] sides = new double[numOfSides][][];
             double[] sideLengths = new double[numOfSides];
             for (int c = 0; c < numOfSides; c++)
@@ -172,6 +178,7 @@ namespace CaeMesh
                     k = (k + 1) % n;
                 }
                 while (k != end);
+                polylines[c] = polyline;
                 sides[c] = Resample(polyline, m, out sideLengths[c]);
                 if (sides[c] == null) return false;
             }
@@ -179,11 +186,131 @@ namespace CaeMesh
             if (numOfSides == 4)
                 return DoesTransfiniteGridFold(sides[0], sides[1], sides[2].Reverse().ToArray(),
                                                sides[3].Reverse().ToArray());
+            if (!polarThreeSided)
+                return DoesThreeBlockGridFold(mesh, vis, transfiniteFace.FaceId, polylines, sideLengths);
             //
             int polar = transfiniteFace.GetPolarCornerIndex(sideLengths);
             double[][] collapsed = Enumerable.Repeat(sides[polar][0], m + 1).ToArray();
             double[][] opposite = sides[(polar + 2) % 3].Reverse().ToArray();
             return DoesTransfiniteGridFold(sides[polar], sides[(polar + 1) % 3], opposite, collapsed);
+        }
+        /// <summary>
+        /// Whether the three blocks of quads of a three-sided face fold, mapped by ThreeBlockMapping as every mesher
+        /// maps them. Its sides are divided in proportion to their lengths, and the parameters of the boundary nodes
+        /// are their positions in the plane of the boundary loop, which for a planar face is what the surface gives
+        /// up to the frame the mapping fits. A face that turns back over that plane is not judged, as the mapping in
+        /// the plane would not be the one on the surface.
+        /// </summary>
+        private static bool DoesThreeBlockGridFold(FeMesh mesh, VisualizationData vis, int faceId,
+                                                   List<double[]>[] polylines, double[] sideLengths)
+        {
+            int[] counts = GetThreeBlockSideCounts(sideLengths, 3 * _foldCheckDivisions);
+            if (counts == null) return false;
+            //
+            double[][][] sideXyz = new double[3][][];
+            for (int k = 0; k < 3; k++)
+            {
+                double length;
+                sideXyz[k] = Resample(polylines[k], counts[k], out length);
+                if (sideXyz[k] == null) return false;
+            }
+            // The plane of the boundary loop by Newell's method
+            double[] normal = new double[3];
+            double[] centre = new double[3];
+            int numOfPoints = 0;
+            for (int k = 0; k < 3; k++)
+            {
+                for (int i = 0; i < counts[k]; i++)
+                {
+                    double[] a = sideXyz[k][i];
+                    double[] b = sideXyz[k][i + 1];
+                    normal[0] += (a[1] - b[1]) * (a[2] + b[2]);
+                    normal[1] += (a[2] - b[2]) * (a[0] + b[0]);
+                    normal[2] += (a[0] - b[0]) * (a[1] + b[1]);
+                    for (int d = 0; d < 3; d++) centre[d] += a[d];
+                    numOfPoints++;
+                }
+            }
+            double normalLength = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+            if (normalLength == 0) return false;
+            for (int d = 0; d < 3; d++)
+            {
+                normal[d] /= normalLength;
+                centre[d] /= numOfPoints;
+            }
+            if (!IsHeightFieldOverPlane(mesh, vis, faceId, normal)) return false;
+            //
+            double[] axis1 = Math.Abs(normal[0]) < 0.9 ? new double[] { 1, 0, 0 } : new double[] { 0, 1, 0 };
+            double along = axis1[0] * normal[0] + axis1[1] * normal[1] + axis1[2] * normal[2];
+            for (int d = 0; d < 3; d++) axis1[d] -= along * normal[d];
+            double axis1Length = Math.Sqrt(axis1[0] * axis1[0] + axis1[1] * axis1[1] + axis1[2] * axis1[2]);
+            for (int d = 0; d < 3; d++) axis1[d] /= axis1Length;
+            double[] axis2 = new double[] { normal[1] * axis1[2] - normal[2] * axis1[1],
+                                            normal[2] * axis1[0] - normal[0] * axis1[2],
+                                            normal[0] * axis1[1] - normal[1] * axis1[0] };
+            double[][][] sideUv = new double[3][][];
+            for (int k = 0; k < 3; k++)
+            {
+                sideUv[k] = sideXyz[k].Select(point =>
+                {
+                    double[] r = new double[] { point[0] - centre[0], point[1] - centre[1], point[2] - centre[2] };
+                    return new double[] { r[0] * axis1[0] + r[1] * axis1[1] + r[2] * axis1[2],
+                                          r[0] * axis2[0] + r[1] * axis2[1] + r[2] * axis2[2] };
+                }).ToArray();
+            }
+            return ThreeBlockMapping.Map(sideUv, sideXyz, null).NumberOfFoldedQuads > 0;
+        }
+        /// <summary>
+        /// Numbers of elements on the three sides in proportion to their lengths, about the given total, that three
+        /// blocks of quads can fill, or null when the sides allow none.
+        /// </summary>
+        private static int[] GetThreeBlockSideCounts(double[] sideLengths, int total)
+        {
+            double sum = sideLengths.Sum();
+            if (!(sum > 0)) return null;
+            //
+            int[] counts = sideLengths.Select(length => Math.Max(1, (int)Math.Round(total * length / sum))).ToArray();
+            int longest = 0;
+            int shortest = 0;
+            for (int k = 1; k < 3; k++)
+            {
+                if (counts[k] > counts[longest]) longest = k;
+                if (counts[k] < counts[shortest]) shortest = k;
+            }
+            int others = counts.Sum() - counts[longest];
+            if (counts[longest] > others - 2) counts[longest] = others - 2;
+            if (counts.Sum() % 2 != 0) counts[shortest]++;
+            return TransfiniteSideTriple.AreCountsValid(counts) ? counts : null;
+        }
+        /// <summary>
+        /// Whether every cell of the face faces the same side of the plane with the given normal, so that the face
+        /// lies over the plane without turning back.
+        /// </summary>
+        private static bool IsHeightFieldOverPlane(FeMesh mesh, VisualizationData vis, int faceId, double[] normal)
+        {
+            if (vis.CellIdsByFace == null || faceId >= vis.CellIdsByFace.Length) return false;
+            //
+            bool front = false;
+            bool back = false;
+            foreach (var cellId in vis.CellIdsByFace[faceId])
+            {
+                int[] cell = vis.Cells[cellId];
+                double[] a = mesh.Nodes[cell[0]].Coor;
+                double[] b = mesh.Nodes[cell[1]].Coor;
+                double[] c = mesh.Nodes[cell[2]].Coor;
+                double[] ab = new double[] { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+                double[] ac = new double[] { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
+                double[] cross = new double[] { ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2],
+                                                ab[0] * ac[1] - ab[1] * ac[0] };
+                double crossLength = Math.Sqrt(cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]);
+                if (crossLength == 0) continue;
+                //
+                double cosine = (cross[0] * normal[0] + cross[1] * normal[1] + cross[2] * normal[2]) / crossLength;
+                if (cosine > _heightFieldMinCosine) front = true;
+                else if (cosine < -_heightFieldMinCosine) back = true;
+                else return false;
+            }
+            return front != back;
         }
         /// <summary>
         /// Whether the transfinite (Coons) grid between four sides sampled at the same number of points folds. The

@@ -4514,7 +4514,7 @@ namespace CaeMesh
                 BasePart part = _parts[partName];
                 if (faceTopologyIds == null && part.PartType != PartType.Shell) continue;
                 //
-                foreach (var face in TransfiniteFaceDetector.Detect(this, part, gmshSetupItem.IsTransfiniteThreeSided,
+                foreach (var face in TransfiniteFaceDetector.Detect(this, part, gmshSetupItem.TransfiniteThreeSided,
                                                                     gmshSetupItem.TransfiniteFourSided,
                                                                     gmshSetupItem.TransfiniteAngleDeg))
                 {
@@ -5159,7 +5159,8 @@ namespace CaeMesh
         /// <summary>
         /// Which faces of a shell part are meshed by a structured grid, by the one definition all meshers follow.
         /// </summary>
-        public bool[] GetTransfiniteShellFaces(BasePart part, bool threeSided, bool fourSided, double transfiniteAngleDeg)
+        public bool[] GetTransfiniteShellFaces(BasePart part, TransfiniteThreeSidedEnum threeSided, bool fourSided,
+                                               double transfiniteAngleDeg)
         {
             return TransfiniteFaceDetector.GetTransfiniteFaceFlags(this, part, threeSided, fourSided, transfiniteAngleDeg);
         }

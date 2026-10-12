@@ -46,10 +46,15 @@ namespace CaeMesh
         private Dictionary<int, int> _surfaceIdPolarCornerIndex = new Dictionary<int, int>();
         private bool _sweepRecombine;
         private const int _intervalTimeoutSeconds = 20;
+        // An element size the user set is kept by a number of elements up to this factor off the one it asks for, which
+        // is as far as a structured grid lowers an edge beside a free face
+        private const double _elementSizeCountFactor = 1.25;
         private SweepCountConflictException _intervalConflict;
         private const double _chosenCountWeight = 1000;
         private const double _quadWildDownWeight = 100;
         private HashSet<int> _userPinnedEdgeIds;
+        // The numbers of elements the element sizes the user set on edges ask for
+        private Dictionary<int, int> _sizedEdgeIdNumElements = new Dictionary<int, int>();
         private HashSet<int> _quadWildSourceIds = new HashSet<int>();
         private HashSet<int> _fullQuadSourceIds = new HashSet<int>();
         private HashSet<int> _tetrahedralSurfaceIds = new HashSet<int>();
@@ -255,12 +260,9 @@ namespace CaeMesh
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
                         SetTransfiniteSurfaces(gsi.IsTransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume,
                                                gsi.TransfiniteAngleDeg, recombine, algorithmRecombine);
-                    // Optimization On/Off
-                    int optimize = 1;
-                    if (gsi.OptimizeFirstOrderShell == GmshOptimizeFirstOrderShellEnum.None &&
-                        gsi.OptimizeFirstOrderSolid == GmshOptimizeFirstOrderSolidEnum.None &&
-                        gsi.OptimizeHighOrder == GmshOptimizeHighOrderEnum.None) optimize = 0;  
-                    Gmsh.Option.SetNumber("Mesh.Optimize", optimize);
+                    // gmsh's own tetrahedron optimization stays on whatever optimizer is chosen: without it the
+                    // tetrahedral mesh keeps zero volume slivers. It leaves transfinite and extruded volumes alone
+                    Gmsh.Option.SetNumber("Mesh.Optimize", 1);
                     //
                     if (gsi is ShellGmsh)
                         ShellGmsh(gsi, _gmshData.Preview);
@@ -302,6 +304,10 @@ namespace CaeMesh
                 }
                 // Quality of the mesh that is about to be written, for every setup item type
                 if (!_gmshData.Preview) ReportMeshQuality();
+                // The mesh parts of a compound are read in the order of their lowest element ids, so the elements must
+                // follow the order of the volumes. Setting the second order renumbers them, the first order keeps the
+                // volumes a sweep meshes first ahead of the others
+                Gmsh.Model.Mesh.RenumberElements();
                 // Output
                 Gmsh.Write(_gmshData.InpFileName);
                 if (_intervalConflict != null) WriteSweepCountConflict(_intervalConflict);
@@ -438,6 +444,7 @@ namespace CaeMesh
                 {
                     numOfElements = (int)(numOfElements / sf);
                     edgeIdNumberOfElements[edgeId] = numOfElements;
+                    if (!IsFixedEdgeCount(edgeId)) _sizedEdgeIdNumElements[edgeId] = numOfElements;
                     // Sweep edge sizes. A layer whose sweep lines are cut into several edges is left to the
                     // sweep, which shares a count pinned on one piece out over the levels of the line in
                     // PrepareWallEdges; copied onto the full-length edges of such a layer the count would be
@@ -4219,6 +4226,7 @@ namespace CaeMesh
             IntervalProblem intervalProblem = GetSweepIntervalProblem(walls, chains, chainBlockIndices,
                                                                       directionEdgeIdNumOfElements);
             IntervalSolution solution = SolveSweepIntervals(intervalProblem);
+            if (_intervalConflict == null) solution = CheckSweepElementSizes(intervalProblem, solution);
             Dictionary<int, int> edgeIdNumOfElements = solution.EdgeIdNumOfElements;
             directionEdgeIdNumOfElements = walls.SelectMany(wall => wall.DirectionEdgeIds).Distinct()
                                                 .ToDictionary(edgeId => edgeId, edgeId => edgeIdNumOfElements[edgeId]);
@@ -4286,6 +4294,48 @@ namespace CaeMesh
             message.AppendLine();
             message.Append("Change the number of elements set on these edges, or select the source surfaces by hand.");
             return RefuseSweepCounts(message.ToString(), conflicts, relaxed);
+        }
+        /// <summary>
+        /// Refuses the sweep when its counts do not keep an element size the user set on an edge, naming the numbers of
+        /// elements set on the edges the rows of the sweep tie it to, which are what it gave way to.
+        /// </summary>
+        private IntervalSolution CheckSweepElementSizes(IntervalProblem problem, IntervalSolution solution)
+        {
+            int count;
+            int minCount;
+            int maxCount;
+            Dictionary<int, int> parent = new Dictionary<int, int>();
+            foreach (var row in problem.Rows)
+            {
+                int[] rowEdgeIds = row.Sides.SelectMany(side => side).ToArray();
+                for (int i = 1; i < rowEdgeIds.Length; i++) Unite(parent, rowEdgeIds[0], rowEdgeIds[i]);
+            }
+            List<string> lines = new List<string>();
+            List<IntervalRow> conflictRows = new List<IntervalRow>();
+            foreach (var entry in _sizedEdgeIdNumElements.OrderBy(entry => entry.Key))
+            {
+                if (!solution.EdgeIdNumOfElements.TryGetValue(entry.Key, out count)) continue;
+                GetElementSizeCountRange(entry.Value, out minCount, out maxCount);
+                if (count >= minCount && count <= maxCount) continue;
+                //
+                int root = Find(parent, entry.Key);
+                int[] fixedEdgeIds = problem.EdgeIdFixedCount.Keys.Where(edgeId => Find(parent, edgeId) == root)
+                                                             .OrderBy(edgeId => edgeId).ToArray();
+                List<IntervalRow> rows = problem.Rows.Where(row => row.Sides.Any(side => side.Contains(entry.Key))).ToList();
+                conflictRows.AddRange(rows);
+                lines.Add("Edge " + entry.Key + " is given " + entry.Value + " elements by its element size, which " +
+                          minCount + " to " + maxCount + " elements keep, but the sweep gives it " + count +
+                          (fixedEdgeIds.Length > 0 ? ", tied by " + string.Join(", ", rows.Select(row => row.Name)) +
+                           " to the numbers of elements set on " +
+                           string.Join(", ", fixedEdgeIds.Select(edgeId => "Edge " + edgeId + " (" +
+                                                                         problem.EdgeIdFixedCount[edgeId] + ")")) : "") +
+                          ".");
+            }
+            if (lines.Count == 0) return solution;
+            //
+            return RefuseSweepCounts("Sweep: " + string.Join(Environment.NewLine, lines) + Environment.NewLine +
+                                     "Set element sizes and numbers of elements that agree along the sweep, or select " +
+                                     "the source surfaces by hand.", conflictRows, solution);
         }
         /// <summary>
         /// Refuses the sweep with the message. A preview keeps the counts closest to the rows that cannot be kept instead,
@@ -4962,8 +5012,8 @@ namespace CaeMesh
             // Get groups of connected edges
             List<Graph<GmshEdge>> edgeGroups = edgeGraph.GetConnectedSubgraphs();
             // The sweep shares the numbers of elements pinned on its edges out over its walls itself
-            if (_sweepBlocks == null && _gmshData.EdgeIdsBySweepLayer == null)
-                CheckPinnedTransfiniteEdgeCounts(surfaceIdSurface, transfiniteThreeSided, transfiniteFourSided);
+            bool sweep = _sweepBlocks != null || _gmshData.EdgeIdsBySweepLayer != null;
+            if (!sweep) CheckPinnedTransfiniteEdgeCounts(surfaceIdSurface, transfiniteThreeSided, transfiniteFourSided);
             //
             int min;
             int max;
@@ -4972,7 +5022,9 @@ namespace CaeMesh
             int numOfElements;
             int numOfNodes;
             int avgNumOfNodes;
-            HashSet<int> groupEdgeIds;
+            int fixedNumOfNodes;
+            List<int> sizedEdgeIds = new List<int>();
+            List<string> sizeConflicts = new List<string>();
             IntPtr[] nodeTagsIntPtr;
             double[] coor;
             // Create edge mesh to get the number of nodes for each edge
@@ -4986,8 +5038,9 @@ namespace CaeMesh
                 min = int.MaxValue;
                 max = -int.MaxValue;
                 maxByRefinement = -int.MaxValue;
+                fixedNumOfNodes = -1;
+                sizedEdgeIds.Clear();
                 sum = 0;
-                groupEdgeIds = new HashSet<int>();
                 //
                 foreach (var edgeNodeFromGroup in edgeGroup.Nodes)
                 {
@@ -4996,6 +5049,8 @@ namespace CaeMesh
                     {
                         numOfNodes = numOfElements + 1;
                         if (numOfNodes > maxByRefinement) maxByRefinement = numOfNodes;
+                        if (IsFixedEdgeCount(edgeNodeFromGroup.Value.Id)) fixedNumOfNodes = numOfNodes;
+                        else sizedEdgeIds.Add(edgeNodeFromGroup.Value.Id);
                     }
                     else
                     {
@@ -5015,6 +5070,14 @@ namespace CaeMesh
                 if (maxByRefinement > 0) avgNumOfNodes = maxByRefinement;
                 else avgNumOfNodes = (int)Math.Round((double)sum / edgeGroup.Nodes.Count, 0, MidpointRounding.AwayFromZero);
                 //avgNumOfNodes = (int)Math.Round((min + max) / 2.0, 0, MidpointRounding.AwayFromZero);
+                // A number of elements the user set is kept, and so is an element size, within the range of numbers that
+                // keeps it; the sweep keeps both in its own solve
+                if (!sweep && maxByRefinement > 0)
+                {
+                    string conflict = GetGroupCount(edgeGroup.Nodes.Select(node => node.Value.Id).ToArray(), fixedNumOfNodes,
+                                                    sizedEdgeIds, surfaceIdSurface, ref avgNumOfNodes);
+                    if (conflict != null) sizeConflicts.Add(conflict);
+                }
                 //
                 foreach (var edgeNodeFromGroup in edgeGroup.Nodes)
                 {
@@ -5035,6 +5098,11 @@ namespace CaeMesh
                     edgeIdNumOfNodes[edgeNodeFromGroup.Value.Id] = avgNumOfNodes;
                 }
             }
+            // The error is named by the caller
+            if (sizeConflicts.Count > 0)
+                throw new CaeException(string.Join(Environment.NewLine, sizeConflicts) + Environment.NewLine +
+                                       "Set element sizes and numbers of elements that agree on these edges, or switch " +
+                                       "off the transfinite meshing of the 3-sided and 4-sided surfaces.");
             if (_threeBlockPrisms.Count > 0) BalanceThreeBlockPrismCaps(edgeGroups, edgeIdNumOfNodes);
             // Sweep mesh layers
             int count;
@@ -5590,6 +5658,64 @@ namespace CaeMesh
             throw new CaeException(string.Join(Environment.NewLine, conflicts) + Environment.NewLine +
                                    "Set the same number of elements on these edges, or switch off the transfinite " +
                                    "meshing of the 3-sided and 4-sided surfaces.");
+        }
+        /// <summary>
+        /// Sets the number of nodes of a group of edges a structured grid divides equally by the sizes the user set on
+        /// them: the number of elements set on one of them, or else the number the element sizes set on them keep, the
+        /// most they ask for where they keep several. Returns the conflict when an element size is not kept, else null.
+        /// </summary>
+        private string GetGroupCount(int[] groupEdgeIds, int fixedNumOfNodes, List<int> sizedEdgeIds,
+                                     Dictionary<int, GmshSurface> surfaceIdSurface, ref int numOfNodes)
+        {
+            int minCount;
+            int maxCount;
+            int lowest = 1;
+            int highest = int.MaxValue;
+            int most = 0;
+            foreach (var edgeId in sizedEdgeIds)
+            {
+                int numOfElements = _gmshData.EdgeIdNumElements[edgeId];
+                GetElementSizeCountRange(numOfElements, out minCount, out maxCount);
+                lowest = Math.Max(lowest, minCount);
+                highest = Math.Min(highest, maxCount);
+                most = Math.Max(most, numOfElements);
+            }
+            int count = fixedNumOfNodes > 0 ? fixedNumOfNodes - 1 : Math.Max(lowest, Math.Min(most, highest));
+            numOfNodes = count + 1;
+            if (sizedEdgeIds.Count == 0 || (count >= lowest && count <= highest)) return null;
+            //
+            double sf = GetMeshSizeFactor((GmshAlgorithmMesh2DEnum)(int)Gmsh.Option.GetNumber("Mesh.Algorithm"));
+            Func<int, int> shown = number => (int)Math.Round(number * sf);
+            List<string> items = new List<string>();
+            foreach (var edgeId in groupEdgeIds.OrderBy(id => id))
+            {
+                int numOfElements;
+                if (!_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements)) continue;
+                if (IsFixedEdgeCount(edgeId))
+                {
+                    items.Add("Edge " + edgeId + " set to " + shown(numOfElements) + " elements");
+                    continue;
+                }
+                GetElementSizeCountRange(numOfElements, out minCount, out maxCount);
+                items.Add("Edge " + edgeId + " given " + shown(numOfElements) + " elements by its element size, which " +
+                          shown(minCount) + " to " + shown(maxCount) + " elements keep");
+            }
+            int[] surfaceIds = surfaceIdSurface.Values.Where(surface => surface.Transfinite &&
+                                                                        surface.EdgeIds.Any(groupEdgeIds.Contains))
+                                                      .Select(surface => surface.Id).OrderBy(id => id).ToArray();
+            return "The sizes set on edges a structured grid divides equally cannot all be kept (" +
+                   string.Join("; ", items) + "), which are linked through the opposite sides of " +
+                   string.Join(", ", surfaceIds.Select(id => "Surface " + id)) + ".";
+        }
+        /// <summary>
+        /// The numbers of elements that keep the element size the user set on an edge, which asks for numOfElements:
+        /// up to _elementSizeCountFactor off it, and one element off it at least.
+        /// </summary>
+        private static void GetElementSizeCountRange(int numOfElements, out int minCount, out int maxCount)
+        {
+            minCount = Math.Max(1, Math.Min(numOfElements - 1,
+                                            (int)Math.Ceiling(numOfElements / _elementSizeCountFactor - 1E-9)));
+            maxCount = Math.Max(numOfElements + 1, (int)Math.Floor(numOfElements * _elementSizeCountFactor + 1E-9));
         }
         /// <summary>
         /// Meshes free every face with a corner sharper than 180° minus the threshold angle or flatter than the

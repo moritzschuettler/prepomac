@@ -5,6 +5,12 @@
 #script is run against an imported geometry rather than an imported mesh. A sweep mesh item is only
 #defined on a CAD solid, so box_and_cylinder.brep is imported for the checks that need one.
 #
+#The gmsh tetrahedra of revolve_sphere_top.brep must have no element of zero volume, which gmsh leaves when its own
+#optimization is off. On the box of box_and_cylinder.brep the local mesh sizes are kept or refused, never changed: a
+#number of elements coarser than the maximum element size is kept, and an element size outside the minimum and the
+#maximum element size, a number of elements making them shorter than the minimum, and sizes that the structured
+#faces of the gmsh tetrahedral mesh cannot all keep on the edges they link are refused.
+#
 #  PrePoMax.com -f cube.stl -u MM_TON_S_C --script Test_Model_Meshing.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
@@ -156,12 +162,91 @@ def test_meshing(part_name, selection):
     pmx.model.mesh.setup_items.remove([MESHING_PARAMETERS_NAME])
 
 
+def generate_report(part_name):
+    """What meshing the part reports, the refusal included: a call that meshes no part raises it."""
+    try:
+        return pmx.model.mesh.generate(part_name)[part_name]
+    except Exception as ex:
+        return str(ex)
+
+
+def test_gmsh_tetrahedra_without_slivers():
+    # gmsh's own optimization of the tetrahedra was switched off when no optimizer was chosen, the default, and
+    # left tetrahedra of zero volume; this one came out with one
+    items = pmx.model.mesh.setup_items
+    before = list(pmx.model.geometry.parts.get_names())
+    pmx.import_file(os.path.join(MODELS, "revolve_sphere_top.brep"))
+    part = [part for part in pmx.model.geometry.parts if part.name not in before][0]
+    selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id])
+    items.add_meshing_parameters(MESHING_PARAMETERS_NAME, selection, relative_size=False, max_size=4.5,
+                                 min_size=0.225, second_order=True)
+    items.add_tetrahedral_gmsh("PyTest_Gmsh", selection)
+    report = generate_report(part.name)
+    check(report == "", "the gmsh tetrahedra of " + part.name + " reported: " + report)
+    meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name][0]
+    inverted = list(meshed.get_inverted_element_ids())
+    check(len(inverted) == 0, "the gmsh tetrahedra of " + part.name + " have degenerate elements: " + str(inverted))
+    items.remove([MESHING_PARAMETERS_NAME, "PyTest_Gmsh"])
+
+
+def test_local_mesh_sizes_kept():
+    # A size the user set is never changed to fit: an element size outside the minimum and the maximum element size,
+    # so many elements that they are shorter than the minimum, and sizes the structured faces of the gmsh tetrahedral
+    # mesh cannot all keep on the edges they link are refused, naming them
+    items = pmx.model.mesh.setup_items
+    box = import_cad_box()
+    data = box.get_edge_data()
+    by_length = {}
+    for edge_id, geometry_id, length in zip([int(i) for i in data.ids], [int(i) for i in data.geometry_ids],
+                                            [float(l) for l in data.lengths]):
+        by_length.setdefault(round(length, 6), []).append((edge_id, geometry_id))
+    length = max(key for key, edges in by_length.items() if len(edges) >= 2)
+    (first, first_geometry_id), (second, _) = by_length[length][0:2]
+    selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [box.id])
+    items.add_meshing_parameters(MESHING_PARAMETERS_NAME, selection, relative_size=False, max_size=length / 4,
+                                 min_size=length / 100, second_order=False)
+    items.add_tetrahedral_gmsh("PyTest_Gmsh", selection)
+
+    def edge(edge_id):
+        return pmx.create.selection_by_ids('geometry', 'geometry', 'edges', {box.id: [edge_id]})
+
+    def refusal(sizes, expected, what):
+        for k, (edge_id, element_size, number_of_elements) in enumerate(sizes):
+            items.add_local_mesh_size("PyTest_Edge_%d" % k, edge(edge_id), element_size=element_size,
+                                      number_of_elements=number_of_elements)
+        report = generate_report(box.name)
+        print("refused:", what, "-", report.replace("\n", " ")[0:300])
+        check(expected in report and "   at " not in report, what + " must be refused naming the conflict: " + report)
+        items.remove(["PyTest_Edge_%d" % k for k in range(len(sizes))])
+
+    items.add_local_mesh_size("PyTest_Edge_0", edge(first), number_of_elements=3)
+    report = generate_report(box.name)
+    check(report == "", "a number of elements coarser than the maximum element size must be kept: " + report)
+    count = pmx.create.selection_by_ids('femodel', 'nodes', 'geometry', [first_geometry_id]).preview().count - 1
+    check(count == 3, "the edge set to 3 elements has " + str(count))
+    items.remove(["PyTest_Edge_0"])
+    #
+    refusal([(first, None, 3), (second, length / 20, None)], "cannot all be kept",
+            "a number of elements against an element size on edges a structured face links")
+    refusal([(first, length / 5, None), (second, length / 20, None)], "cannot all be kept",
+            "two element sizes on edges a structured face links")
+    refusal([(first, length / 200, None)], "smaller than the minimum element size",
+            "an element size below the minimum element size")
+    refusal([(first, length / 2, None)], "larger than the maximum element size",
+            "an element size above the maximum element size")
+    refusal([(first, None, 200)], "shorter than the minimum element size",
+            "a number of elements making them shorter than the minimum element size")
+    items.remove([MESHING_PARAMETERS_NAME, "PyTest_Gmsh"])
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     part_name, selection = get_part_selection()
     test_setup_items(part_name, selection)
     test_dialog_targets(part_name)
     test_meshing(part_name, selection)
+    test_gmsh_tetrahedra_without_slivers()
+    test_local_mesh_sizes_kept()
     print("TEST PASSED")
 
 

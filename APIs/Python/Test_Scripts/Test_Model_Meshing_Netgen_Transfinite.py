@@ -21,6 +21,10 @@
 #    and a fan of triangles around the centre.
 #  - blind_holes.brep with one cap deleted: the face with the holes is meshed free, the others structured. It is
 #    meshed with triangles: Netgen's parallel quad-dominated meshing of a free face fails now and then.
+#  - l_profile_fillet.brep: a solid L profile with a filleted inner corner, whose end faces are 3-sided with one side
+#    turning through the fillet. Three blocks of quads would fold on them, so with the Mapped layout they are meshed
+#    free and the solid meshes, where Netgen refused it. With no structured faces at all, a number of elements set on
+#    an edge five times the maximum element size long is still kept.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Netgen_Transfinite.py -g No -x Yes -w <dir>
 #
@@ -165,6 +169,38 @@ def check_pinned_edges(part):
     items.remove(["PyTest_Edge_A", "PyTest_Edge_B"])
 
 
+def check_l_profile():
+    """The L profile with a filleted inner corner: its end faces are 3-sided, a side turning through the fillet, and the
+    three blocks of quads would fold on them, so with the Mapped layout they are meshed free and the solid meshes. A
+    number of elements set on an edge is kept with no structured faces as well, however much coarser than the
+    maximum element size."""
+    before = set(pmx.model.geometry.parts.get_names())
+    pmx.import_file(os.path.join(MODELS, "l_profile_fillet.brep"))
+    profile = [part for part in pmx.model.geometry.parts if part.name not in before][0]
+    items = pmx.model.mesh.setup_items
+    items.add_netgen_mesh(NETGEN + "_L", part_selection(profile), transfinite_three_sided="Mapped",
+                          transfinite_four_sided=True)
+    mesh(profile)
+    meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == profile.name][0]
+    inverted = list(meshed.get_inverted_element_ids())
+    check(len(inverted) == 0, "the L profile has inverted elements: " + str(inverted[:10]))
+    items.remove([NETGEN + "_L"])
+    #
+    data = profile.get_edge_data()
+    longest = max(range(data.count), key=lambda i: float(data.lengths[i]))
+    edge_id = int(list(data.ids)[longest])
+    length = float(data.lengths[longest])
+    items.add_meshing_parameters(NETGEN + "_Size", part_selection(profile), relative_size=False, max_size=length / 20,
+                                 min_size=length / 200, second_order=False)
+    items.add_netgen_mesh(NETGEN + "_L", part_selection(profile))
+    items.add_local_mesh_size("PyTest_Edge_L", edge_selection(profile, edge_id), number_of_elements=4)
+    mesh(profile)
+    geometry_id = int(list(data.geometry_ids)[longest])
+    count = pmx.create.selection_by_ids("femodel", "nodes", "geometry", [geometry_id]).preview().count - 1
+    check(count == 4, "the edge set to 4 elements five times the maximum element size long has " + str(count))
+    items.remove([NETGEN + "_L", NETGEN + "_Size", "PyTest_Edge_L"])
+
+
 def split_side_face(part):
     vertices = [list(c) for c in part.get_vertex_data().coordinates]
     low = [min(c[i] for c in vertices) for i in range(3)]
@@ -219,6 +255,7 @@ def main():
     netgen(holes, False)
     kinds = mesh(holes)
     check(list(kinds.keys()) == ["triangle"], "the shell with holes must be meshed by triangles: " + str(kinds))
+    check_l_profile()
     print("TEST PASSED")
 
 

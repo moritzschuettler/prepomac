@@ -979,7 +979,7 @@ rejects a setup item without creation data. The target follows the item type, as
 | Member | Description |
 | --- | --- |
 | `add_meshing_parameters(name, selection, ...)` | Meshing parameters. Every value that is not given keeps the application default. |
-| `add_local_mesh_size(name, selection, element_size=None, number_of_elements=None)` | A local mesh size. Exactly one of the two values is given. |
+| `add_local_mesh_size(name, selection, element_size=None, number_of_elements=None)` | A local mesh size. Exactly one of the two values is given. The mesh keeps it or `generate` refuses the part, naming the conflict: an element size outside the minimum and the maximum element size of the meshing parameters, a number of elements that makes them shorter than the minimum, and sizes a structured grid or a sweep cannot keep on the edges it links are refused, never changed. A number of elements coarser than the maximum element size is kept. |
 | `add_shell_mmg(name, selection, ...)` | An MMG shell mesh item. It selects MMG for STL shell parts and defines its geometry approximation. |
 | `add_thicken_shell_mesh(name, selection, thickness, number_of_layers=1, offset=0, keep_model_edges=False)` | Thickens a shell mesh. |
 | `add_netgen_mesh(name, selection, number_of_optimize_steps_2d=None, number_of_optimize_steps_3d=None, quad_dominated=None, transfinite_three_sided=None, transfinite_four_sided=None, transfinite_angle_deg=None)` | A Netgen mesh item for solid and shell parts - tetrahedra on a solid, triangles or a quad-dominated mesh on a shell. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen alone; it meshes the 3-sided and 4-sided faces free by default (`transfinite_three_sided='No'`, `transfinite_four_sided=False`). It asks for Netgen on a solid part whose geometry would otherwise be meshed transfinitely or swept. A part meshed by Netgen without this item uses its default values. |
@@ -3295,7 +3295,7 @@ Single result increment.
 | Member | Description |
 | --- | --- |
 | `id` | Increment ID. |
-| `step_time` | Step time for this increment. |
+| `step_time` | Step time for this increment. An increment of a frequency or complex frequency step is a mode, numbered from 1, and stores its frequency; one of a buckling step stores its buckling factor. |
 | `fields` | Field outputs available for this increment. |
 
 

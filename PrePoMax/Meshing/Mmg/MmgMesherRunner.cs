@@ -244,8 +244,7 @@ namespace PrePoMax
                     GeometryType geometryType = (GeometryType)itemTypePartIds[1];
                     if (localMeshSize.Type == LocalMeshSizeTypeEnum.ElementSize)
                     {
-                        double meshSize = localMeshSize.GetMeshSize(-1, meshingParameters.MinH,
-                                                                   meshingParameters.MaxH);
+                        double meshSize = localMeshSize.GetMeshSize(-1);
                         SetNodeMeshSize(nodeIdMeshSize,
                                         _controller.Model.Geometry.GetNodeIdsFromGeometryId(geometryId), meshSize);
                     }
@@ -265,8 +264,7 @@ namespace PrePoMax
                         foreach (int edgeId in edgeIds)
                         {
                             double edgeLength = selectedPart.Visualization.EdgeLengths[edgeId];
-                            double meshSize = localMeshSize.GetMeshSize(edgeLength, meshingParameters.MinH,
-                                                                       meshingParameters.MaxH);
+                            double meshSize = localMeshSize.GetMeshSize(edgeLength);
                             int edgeGeometryId = FeMesh.GetGeometryId(edgeId, (int)GeometryType.Edge,
                                                                      selectedPart.PartId);
                             SetNodeMeshSize(nodeIdMeshSize,

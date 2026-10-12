@@ -18,6 +18,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace PrePoMax
@@ -314,16 +315,16 @@ namespace PrePoMax
             else return false;
         }
         /// <summary>
-        /// The file of the structured faces of a CAD part, by the one definition all meshers follow, or null when
-        /// Netgen lays no structured grid. The numbers of elements the user set on the edges are written with it.
+        /// The file of the structured faces of a CAD part, by the one definition all meshers follow, and of the numbers of
+        /// elements the user set on its edges, which Netgen divides those edges into whatever the element size; null
+        /// when Netgen lays no structured grid and no number is set.
         /// </summary>
         private string WriteTransfiniteFile(GeometryPart part, MeshingParameters meshingParameters, string workDirectory,
                                             OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             string fileName = Path.Combine(workDirectory, Globals.TransfiniteFacesFileName);
             if (File.Exists(fileName)) File.Delete(fileName);
-            if ((!meshingParameters.IsTransfiniteThreeSided && !meshingParameters.TransfiniteFourSided) ||
-                !part.IsCADPart) return null;
+            if (!part.IsCADPart) return null;
             // The solids of a compound in the order its brep holds them
             BasePart[] parts;
             if (part is CompoundGeometryPart compoundPart)
@@ -342,11 +343,18 @@ namespace PrePoMax
                     pinnedEdgeCounts[entry.Key] = entry.Value;
                 }
             }
+            bool transfinite = meshingParameters.IsTransfiniteThreeSided || meshingParameters.TransfiniteFourSided;
+            if (!transfinite && pinnedEdgeCounts.Count == 0) return null;
+            //
             if (!NetgenTransfiniteFile.Write(fileName, _controller.Model.Geometry, parts,
                                              meshingParameters.TransfiniteThreeSided,
                                              meshingParameters.TransfiniteFourSided,
                                              meshingParameters.TransfiniteAngleDeg, pinnedEdgeCounts))
             {
+                if (pinnedEdgeCounts.Count > 0)
+                    throw new CaeException("The edges of the compound part " + part.Name + " cannot be matched to the " +
+                                           "solids Netgen meshes, so Netgen cannot keep the numbers of elements set on " +
+                                           "them. Mesh the part by another mesher.");
                 _controller.Form.WriteDataToOutput("The surfaces of the compound part " + part.Name + " cannot be " +
                                                    "matched to the solids Netgen meshes, so Netgen meshes them " +
                                                    "without structured faces.");
@@ -530,8 +538,12 @@ namespace PrePoMax
                               "\"" + meshParametersFileName + "\" " +
                               "\"" + localMeshSizesFileName + "\"";
             //
-            JobStatus jobStatus = _controller.JobRunner.Run(part.Name, executable, argument, workDirectory,
-                                                 _controller.Form.WriteDataToOutput);
+            StringBuilder output = new StringBuilder();
+            JobStatus jobStatus = _controller.JobRunner.Run(part.Name, executable, argument, workDirectory, data =>
+            {
+                lock (output) output.Append(data);
+                _controller.Form.WriteDataToOutput(data);
+            });
             // Job completed
             if (jobStatus == JobStatus.OK)
             {
@@ -542,7 +554,48 @@ namespace PrePoMax
                     SmoothShaded = true
                 };
             }
-            else throw new CaeException("Mesh generation failed.");
+            else
+            {
+                string text;
+                lock (output) text = output.ToString();
+                throw new CaeException(GetMeshGenerationFailedMessage(part, text));
+            }
+        }
+        /// <summary>
+        /// Netgen lists the faces it could not mesh after its surface meshing, each with the reason, and the reason
+        /// given for a structured face names the surface. The faces of a part of its own are numbered as its surfaces;
+        /// those of a compound are numbered across its solids.
+        /// </summary>
+        private static string GetMeshGenerationFailedMessage(GeometryPart part, string output)
+        {
+            List<string> reasons = new List<string>();
+            bool faceList = false;
+            foreach (var line in output.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (line.StartsWith("SURFACE MESHING ERROR OCCURRED IN"))
+                {
+                    faceList = true;
+                    continue;
+                }
+                if (!faceList) continue;
+                //
+                Match match = Regex.Match(line, @"^Face (\d+)(?:: (.*))?$");
+                if (!match.Success)
+                {
+                    faceList = false;
+                    continue;
+                }
+                string face = part is CompoundGeometryPart ? "Face " + match.Groups[1].Value :
+                                                             "Surface " + match.Groups[1].Value + " of " + part.Name;
+                string reason = match.Groups[2].Success ? match.Groups[2].Value : null;
+                if (reason == null) reason = face + " could not be meshed.";
+                else if (reason.IndexOf("surface ", StringComparison.OrdinalIgnoreCase) < 0) reason = face + ": " + reason;
+                if (!reasons.Contains(reason)) reasons.Add(reason);
+            }
+            //
+            string message = "Mesh generation failed.";
+            foreach (var reason in reasons) message += Environment.NewLine + reason;
+            return message;
         }
     }
 }

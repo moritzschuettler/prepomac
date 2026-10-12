@@ -105,48 +105,23 @@ namespace CaeMesh
             _meshSize = 1;
             _numOfElements = 2;
         }
-        public int GetNumberOfElements(double edgeLength, double minH, double maxH)
+        // The sizes are the user's and are never fitted to the meshing parameters: a size they do not allow refuses the
+        // meshing before it starts
+        public int GetNumberOfElements(double edgeLength)
         {
             if (_type == LocalMeshSizeTypeEnum.ElementSize)
             {
-                double size = _meshSize;
-                if (size < minH) size = minH;
-                else if (size > maxH) size = maxH;
-                //
-                int numElements = (int)Math.Round(edgeLength / size, 0, MidpointRounding.AwayFromZero);
+                int numElements = (int)Math.Round(edgeLength / _meshSize, 0, MidpointRounding.AwayFromZero);
                 if (numElements < 1) numElements = 1;
                 return numElements;
             }
-            else if (_type == LocalMeshSizeTypeEnum.NumberOfElements)
-            {
-                // The global maximum size must not force more elements onto the edge than were asked
-                // for; an explicit count is the whole point of this type. Only the global minimum
-                // size limits it, and a minimum of zero means no limit at all
-                int numElements = _numOfElements;
-                if (minH > 0)
-                {
-                    int maxNumElements = (int)Math.Round(edgeLength / minH, 0, MidpointRounding.AwayFromZero);
-                    if (numElements > maxNumElements) numElements = maxNumElements;
-                }
-                if (numElements < 1) numElements = 1;
-                return numElements;
-            }
+            else if (_type == LocalMeshSizeTypeEnum.NumberOfElements) return _numOfElements;
             else throw new NotSupportedException();
         }
-        public double GetMeshSize(double edgeLength, double minH, double maxH)
+        public double GetMeshSize(double edgeLength)
         {
-            if (_type == LocalMeshSizeTypeEnum.ElementSize)
-            {
-                if (_meshSize < minH) return minH;
-                else if (_meshSize > maxH) return maxH;
-                else return _meshSize;
-            }
-            else if (_type == LocalMeshSizeTypeEnum.NumberOfElements)
-            {
-                double size = edgeLength / _numOfElements;
-                if (size < minH) return minH;
-                else return size;
-            }
+            if (_type == LocalMeshSizeTypeEnum.ElementSize) return _meshSize;
+            else if (_type == LocalMeshSizeTypeEnum.NumberOfElements) return edgeLength / _numOfElements;
             else throw new NotSupportedException();
         }
         public LocalMeshSize DeepCopy()

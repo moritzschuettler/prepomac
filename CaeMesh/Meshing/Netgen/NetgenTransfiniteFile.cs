@@ -52,8 +52,7 @@ namespace CaeMesh
             }
             foreach (var part in parts)
             {
-                foreach (var face in TransfiniteFaceDetector.Detect(geometry, part,
-                                                                    threeSided != TransfiniteThreeSidedEnum.No,
+                foreach (var face in TransfiniteFaceDetector.Detect(geometry, part, threeSided,
                                                                     fourSided, transfiniteAngleDeg))
                 {
                     // A face two solids share is meshed once
@@ -78,6 +77,17 @@ namespace CaeMesh
                                 edgeLines.Add(kernelId, "edge " + (edgeId + 1) + " of " + part.Name);
                         }
                     }
+                }
+            }
+            // Netgen divides every edge with a number set into that many elements, on a structured face or not
+            foreach (var part in parts)
+            {
+                for (int edgeId = 0; edgeId < part.Visualization.EdgeCount; edgeId++)
+                {
+                    topologyId = FeMesh.GmshTopologyId(edgeId, part.PartId);
+                    if (pinnedEdgeCounts == null || !pinnedEdgeCounts.ContainsKey(topologyId) ||
+                        !edgeKernelIds.TryGetValue(topologyId, out kernelId) || edgeLines.ContainsKey(kernelId)) continue;
+                    edgeLines.Add(kernelId, "edge " + (edgeId + 1) + " of " + part.Name);
                 }
             }
             //

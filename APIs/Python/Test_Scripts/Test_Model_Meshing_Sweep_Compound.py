@@ -49,7 +49,8 @@
 #and overlapping, so no orientation avoids an imprint inside a target that nothing on the source is swept
 #onto. sweep_plate_overhang.brep has the upper block reaching past an edge of the plate. The plate of neither
 #is swept - it has to be split before it can be - so the automatic sweep sweeps the blocks and meshes the
-#plate by tetrahedra.
+#plate by tetrahedra. The overhanging plate is meshed at the first order as well, where every mesh part must fill
+#its own cell, and then at either order again with a boundary condition on a face of the plate.
 #
 #sweep_bent_plate.brep is a plate bent along a cylinder, with a bore through each of its two wings. Its
 #front face is a plane, the cylinder of the bend and a plane again, and the bores make every other face a
@@ -97,6 +98,8 @@ import sys
 
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 SWEEP_NAME = "PyTest_Sweep"
+PARAMETERS_NAME = "PyTest_Parameters"
+STEP_NAME = "PyTest_Step"
 
 
 def check(condition, message):
@@ -352,6 +355,42 @@ def test_plate_imprinted_on_both_sides():
         check(items[SWEEP_NAME].valid, "the automatic sweep of " + file_name + " is not valid")
         mesh_with_tetrahedral_cells(solids, compound, 1, "the automatic sweep of " + file_name)
         items.remove([SWEEP_NAME])
+
+
+def check_cell_volumes(solids, what):
+    volumes = dict((part.name, part.volume) for part in pmx.model.parts)
+    for solid in solids:
+        check(solid.name in volumes and abs(volumes[solid.name] - solid.volume) < 1e-3 * solid.volume,
+              "%s: the mesh part %s must fill its cell of volume %g, the mesh parts hold %s" %
+              (what, solid.name, solid.volume, str(volumes)))
+
+
+def test_cells_at_either_order():
+    # The cells of a compound are read from the mesh in the order of their lowest element ids. The sweep meshes the
+    # swept cells before the plate, and only setting the second order renumbered the elements by volume, so a first
+    # order mesh gave each mesh part the elements of another cell. A boundary condition on a face of the plate then
+    # pointed at nodes the next mesh, of the other order, did not have
+    items = pmx.model.mesh.setup_items
+    solids, compound = import_geometry("sweep_plate_overhang.brep")
+    selection = pmx.create.selection_by_ids('geometry', 'parts', 'parts', [compound.id])
+    items.add_meshing_parameters(PARAMETERS_NAME, selection, second_order=False)
+    items.add_sweep_mesh(SWEEP_NAME, selection)
+    report = pmx.model.mesh.generate(compound.name)
+    check(report[compound.name] == "", "the first order sweep of the overhanging plate reported: " + report[compound.name])
+    check_cell_volumes(solids, "the first order sweep of the overhanging plate")
+    #
+    plate = max(solids, key=lambda solid: solid.volume)
+    face = pmx.create.selection_by_ids('femodel', 'geometry', 'geometry', [plate.get_face_data().geometry_ids[0]])
+    step = pmx.model.steps.add_static(STEP_NAME)
+    step.bcs.add_fixed("PyTest_Fixed", face)
+    for second_order in (True, False):
+        items.replace_meshing_parameters(PARAMETERS_NAME, second_order=second_order)
+        what = "the overhanging plate meshed again at order %d" % (2 if second_order else 1)
+        report = pmx.model.mesh.generate(compound.name)
+        check(report[compound.name] == "", what + " reported: " + report[compound.name])
+        check_cell_volumes(solids, what)
+    pmx.model.steps.remove([STEP_NAME])
+    items.remove([SWEEP_NAME, PARAMETERS_NAME])
 
 
 def test_bent_plate():
@@ -659,6 +698,7 @@ def main():
     test_perpendicular_bores()
     test_two_parts_apart()
     test_plate_imprinted_on_both_sides()
+    test_cells_at_either_order()
     test_spline_edges_and_round_post()
     test_bent_plate()
     test_geometric_constraints()
