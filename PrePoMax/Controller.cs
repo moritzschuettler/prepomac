@@ -12352,6 +12352,12 @@ namespace PrePoMax
         {
             if (_jobRunner.Kill("Cancel button clicked.")) _form.SetStateReady(Globals.MeshingText);
         }
+        // Called from the connection thread of a cancelled automation call, so the window is left to the operation
+        // that ran the executable, which resets its state as it ends
+        public bool StopExecutableJobOfCancelledCall()
+        {
+            return _jobRunner.Kill("The automation call was cancelled.");
+        }
 
         #endregion #################################################################################################################
 

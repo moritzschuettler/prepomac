@@ -1815,6 +1815,47 @@ def check_cancel(client):
           "before the loop kept, a finished call not reported as interrupted")
 
 
+def check_cancel_meshing(client):
+    """A cancel stops the mesher a call waits for, so meshing that would take minutes ends at once."""
+    result = client.result("exec", {"source": "pmx.new_model('ThreeD', 'MM_TON_S_C', discard_changes=True)"})
+    check(not result["failed"], "the new model must be made: " + result["error"])
+    # A Netgen mesh of the box at a 120th of its diagonal runs for more than a minute
+    source = os.linesep.join([
+        "import math",
+        "pmx.import_file(r'" + os.path.join(MODELS, "box_and_cylinder.brep") + "')",
+        "cancel_part = list(pmx.model.geometry.parts)[0]",
+        "box = cancel_part.get_bounding_box()",
+        "size = math.sqrt((box[1] - box[0]) ** 2 + (box[3] - box[2]) ** 2 + (box[5] - box[4]) ** 2) / 120",
+        "selection = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [cancel_part.id])",
+        "pmx.model.mesh.setup_items.add_meshing_parameters('cancel_fine', selection, max_size=size, min_size=size)",
+        "pmx.model.mesh.setup_items.add_netgen_mesh('cancel_netgen', selection)"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the box must be set up for a long mesh: " + result["error"])
+    answer = client.result("exec", {"source": "pmx.model.mesh.generate(cancel_part.name)", "timeout": 1})
+    call_id = check_running_answer(answer, "exec", "a long mesh must be answered as running")
+    # The mesher starts once the files it reads are written, so the call is cancelled until one stops it
+    deadline = time.time() + 30
+    while True:
+        result = client.result("cancel", {"call_id": call_id})
+        if result["isMesherStopped"] or result["isFinished"]:
+            break
+        check(time.time() < deadline, "no cancel found the mesher running: " + str(result))
+        time.sleep(1)
+    check(result["isMesherStopped"], "the cancel must stop the mesher: " + str(result))
+    check("mesher" in result["message"] and "was stopped" in result["message"],
+          "the message must say the mesher was stopped: " + result["message"])
+    stopped = time.time()
+    answer = client.result("wait", {"call_id": call_id, "timeout": 60})
+    check(time.time() - stopped < 20, "the call must end soon after its mesher was stopped")
+    check("running" not in answer and answer["failed"] and answer.get("cancelled") is True,
+          "the cancelled meshing must have failed: " + str(answer))
+    meshed = client.result("eval", {"expression": "[part.name for part in pmx.model.parts]"})
+    check(meshed["value"] == [], "nothing may be meshed: " + str(meshed))
+    status = client.result("status")
+    check(status["isIdle"], "the session must be idle once the meshing stopped: " + status["busyReason"])
+    print("cancel: a mesher running for minutes was stopped and the call ended with nothing meshed")
+
+
 def check_cancel_before_python(client):
     """A call cancelled before its Python starts is told the interrupt is pending, and never runs it."""
     status = client.result("status")
@@ -1937,6 +1978,7 @@ def main():
         client = session.connect()
         check_long_calls(client)
         check_cancel(client)
+        check_cancel_meshing(client)
         check_output_cap(client)
     finally:
         session.close()

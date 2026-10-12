@@ -18,9 +18,11 @@ namespace PrePoMax.Rpc
     // is the one holding it. It changes nothing in the model itself, so read only mode does not refuse it.
     //
     // The call is interrupted where Python can be interrupted - at its next statement - so an operation of the
-    // application it is inside, such as meshing, finishes first, and a blocking wait - time.sleep, a socket,
-    // input() - returns first. Each cancel delivers an interrupt of its own, so a call whose code caught the
-    // one before is reached by the next. The call then ends the way a failed call ends, and its answer is
+    // application it is inside, such as an import, finishes first, and a blocking wait - time.sleep, a socket,
+    // input() - returns first. A mesher the operation waits for is stopped, as the Cancel button of the window
+    // stops it, so meshing ends at once with nothing meshed from that run on. Each cancel delivers an interrupt
+    // and stops a mesher of its own, so a call whose code caught the one before, or that went on to the next
+    // mesher run, is reached by the next. The call then ends the way a failed call ends, and its answer is
     // collected with wait like any other: the commands it recorded before it was stopped stay in the history
     // and are listed there.
     public static class RpcCancelMethod
@@ -62,6 +64,9 @@ namespace PrePoMax.Rpc
             int startInterruptsBefore = call.StartInterruptCount;
             bool isDelivered;
             bool isRequested = call.Cancel(out isDelivered);
+            // A mesher holds the call outside Python, where the interrupt cannot reach it until the mesher ends
+            bool isMesherStopped = wasRunning && !call.IsFinished && server.Controller != null &&
+                                   server.Controller.StopExecutableJobOfCancelledCall();
             bool isFinished = call.Wait(FinishWaitMilliseconds);
             bool hasReachedPython = call.HasReachedPython;
             // A call that reached its Python only while the finish was waited for was interrupted as it started it
@@ -77,8 +82,13 @@ namespace PrePoMax.Rpc
             // A call that finished - one that met the cancel before its Python started, say - has nothing pending
             writer.WriteValue("isInterruptPending", isRequested && !isDelivered && !isFinished);
             writer.WriteValue("isFinished", isFinished);
-            writer.WriteValue("message", GetMessage(call.Id, wasRunning, isRequested, isDelivered, isFinished,
-                                                    hasReachedPython, isInterruptedAtStart));
+            writer.WriteValue("isMesherStopped", isMesherStopped);
+            string message = GetMessage(call.Id, wasRunning, isRequested, isDelivered, isFinished, hasReachedPython,
+                                        isInterruptedAtStart);
+            if (isMesherStopped)
+                message = "The mesher call " + call.Id.ToString(CultureInfo.InvariantCulture) + " was waiting for " +
+                          "was stopped, so its meshing ends with nothing meshed from that run on. " + message;
+            writer.WriteValue("message", message);
             writer.EndObject();
             return writer.ToString();
         }
@@ -91,9 +101,9 @@ namespace PrePoMax.Rpc
             //
             string recorded = " The commands it recorded before it stopped stay in the command history; its answer " +
                               "lists them, and the user can remove them in Edit - Edit History.";
-            string notInterruptible = "An operation of PrePoMax it is inside - meshing, an import, a regeneration - " +
-                                      "cannot be interrupted and finishes first, and a blocking wait - time.sleep, a " +
-                                      "socket, input() - returns first.";
+            string notInterruptible = "An operation of PrePoMax it is inside - an import, a regeneration - cannot be " +
+                                      "interrupted and finishes first, a mesher it waits for is stopped by every " +
+                                      "cancel, and a blocking wait - time.sleep, a socket, input() - returns first.";
             if (isInterruptedAtStart)
             {
                 return call + " was interrupted as its Python started, so none of its Python ran" +
@@ -131,7 +141,8 @@ namespace PrePoMax.Rpc
             {
                 return call + " is inside an operation of PrePoMax that holds Python - meshing, an import, a " +
                        "regeneration - so the interrupt has not been delivered yet; it is raised when that operation " +
-                       "returns to Python. " + collect + recorded;
+                       "returns to Python. A mesher the operation waits for is stopped by every cancel. " + collect +
+                       recorded;
             }
             if (isFinished)
             {

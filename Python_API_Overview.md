@@ -458,11 +458,13 @@ them would. Copy it to `<project>/.claude/skills/prepomax/SKILL.md` to have it i
 - **A call that should not finish is cancelled.** `cancel` - `cancel_call` over MCP - with the
   `callId` raises `KeyboardInterrupt` in the Python of that call. It is never serialized behind the
   call it stops, and read only mode does not refuse it, because it changes nothing in the model. The
-  interrupt lands at the next Python statement: an operation of the application the call is inside -
-  meshing, an import, a regeneration - cannot be interrupted and finishes first, and a blocking
-  wait - `time.sleep`, a socket, `input()` - is not interrupted until it returns. Every cancel delivers a
-  new interrupt, so a call whose code caught the last one - a bare `except:` - is stopped by
-  cancelling it again. The answer says what actually happened: `isInterrupted` when the interrupt was
+  interrupt lands at the next Python statement. A mesher the call waits for is stopped, as the Cancel
+  button of the window stops it, so its meshing ends with nothing meshed from that run on and the answer
+  says `isMesherStopped`; any other operation of the application the call is inside - an import, a
+  regeneration - cannot be interrupted and finishes first, and a blocking wait - `time.sleep`, a
+  socket, `input()` - is not interrupted until it returns. Every cancel delivers a new interrupt and
+  stops the mesher running then, so a call whose code caught the last one - a bare `except:` - is
+  stopped by cancelling it again. The answer says what actually happened: `isInterrupted` when the interrupt was
   delivered, `isInterruptPending` while it waits - for an operation of the application to return, or
   for a call that has not reached its Python yet, which then does not run it and ends with the
   `KeyboardInterrupt` or with the refusal it meets first, such as busy - and `isFinished` whether the

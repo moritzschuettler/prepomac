@@ -162,11 +162,13 @@ it has run, and it goes on to the end and records its commands as usual.
   with `cancel_call` and its `callId`. It is answered within a few seconds, even while that call
   holds the session, and also in read only mode. The call stops at its next Python statement with a
   `KeyboardInterrupt` error - one that has not reached its Python yet does not run it, and ends with
-  that error or with the refusal it meets first, such as busy. An operation of PrePoMax it is
-  inside - meshing, an import, a regeneration - cannot be interrupted and finishes first, and a
-  blocking wait - `time.sleep`, a socket, `input()` - is not interrupted until it returns. Code that
-  catches the interrupt - a bare `except:` - keeps running; cancel again, as every cancel delivers a
-  new interrupt. What it recorded before it stopped stays in the history: collect its answer with
+  that error or with the refusal it meets first, such as busy. A mesher the call waits for is
+  stopped (`isMesherStopped`), so its meshing ends with nothing meshed from that run on. Any other
+  operation of PrePoMax it is inside - an import, a regeneration - cannot be interrupted and finishes
+  first, and a blocking wait - `time.sleep`, a socket, `input()` - is not interrupted until it
+  returns. Code that catches the interrupt - a bare `except:` - keeps running, and meshing of several
+  parts may start its next mesher; cancel again, as every cancel delivers a new interrupt and stops the
+  mesher running then. What it recorded before it stopped stays in the history: collect its answer with
   `get_call` and check `recordedCommands`.
 - Printed output is capped: an answer keeps the first 1,000,000 and the last 100,000 characters and
   says `[output truncated: N characters omitted]` between them. Print what you need, not everything.

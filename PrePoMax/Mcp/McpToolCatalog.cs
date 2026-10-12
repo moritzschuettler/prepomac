@@ -196,11 +196,13 @@ namespace PrePoMax.Mcp
                 "answered within a few seconds, also while that call holds the session, and in read only mode, " +
                 "because it changes nothing in the model itself.\n\n" +
                 "The call is interrupted at its next Python statement and ends with a KeyboardInterrupt error. " +
-                "An operation of PrePoMax it is inside - meshing, an import, a regeneration - cannot be " +
-                "interrupted and finishes first, and a blocking wait - time.sleep, a socket, input() - is not " +
-                "interrupted until it returns, so the answer may say it has not stopped yet. Code that catches the " +
-                "interrupt - a bare except - keeps running: cancel it again, since every cancel delivers a new " +
-                "interrupt. The answer says only what happened: isInterrupted when the interrupt was delivered, " +
+                "A mesher the call waits for is stopped, so its meshing ends with nothing meshed from that run " +
+                "on, and the answer says isMesherStopped. Any other operation of PrePoMax it is inside - an " +
+                "import, a regeneration - cannot be interrupted and finishes first, and a blocking wait - " +
+                "time.sleep, a socket, input() - is not interrupted until it returns, so the answer may say it has " +
+                "not stopped yet. Code that catches the interrupt - a bare except - keeps running, and meshing of " +
+                "several parts may start its next mesher: cancel it again, since every cancel delivers a new " +
+                "interrupt and stops the mesher running then. The answer says only what happened: isInterrupted when the interrupt was delivered, " +
                 "isInterruptPending while it waits - for such an operation to return, or for a call that has not " +
                 "reached its Python yet, which then does not run it and ends with a KeyboardInterrupt error or " +
                 "with the refusal it meets first, such as busy. The commands it recorded " +
