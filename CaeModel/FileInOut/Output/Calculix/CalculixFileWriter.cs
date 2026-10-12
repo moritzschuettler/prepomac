@@ -195,8 +195,9 @@ namespace FileInOut.Output
                 // Fix pyramid surfaces
                 FixPyramidSurfaces(model, convertPyramidsTo, ref replacedElements, ref additionalElementSetNames);
                 // Prepare mass sections
-                GetMassSections(model, referencePoints, ref maxElementId, ref additionalElementKeywords,
-                                ref additionalElementSetNames, ref additionalSectionData);
+                GetMassSections(model, referencePoints, ref maxNodeId, ref maxElementId, ref additionalNodes,
+                                ref additionalNodeSets, ref additionalElementKeywords, ref additionalElementSetNames,
+                                ref additionalSectionData, ref additionalBoundaryConditions, ref equationParameters);
                 // Prepare point springs
                 GetPointSprings(model, referencePoints, ref maxElementId, ref additionalElementKeywords,
                                 ref additionalElementSetNames, ref additionalSectionData);
@@ -607,11 +608,33 @@ namespace FileInOut.Output
                        referencePoints.ContainsKey(massSection.RegionName);
             return true;
         }
-        static private void GetMassSections(FeModel model, Dictionary<string, CalReferencePoint> referencePoints,
-                                            ref int maxElementId, ref List<CalElement> additionalElementKeywords,
-                                            ref HashSet<string> additionalElementSetNames,
-                                            ref List<SectionData> additionalSectionData)
+        static private int GetMassElementNodeId(int nodeId, double[] coor, bool twoD, ref int maxNodeId,
+                                                List<FeNode> additionalNodes, List<int> massNodeIds,
+                                                List<double[]> equationParameters)
         {
+            // CalculiX stops a frequency step on a mass element whose node has a constrained degree of freedom and no
+            // other element, which is every node of an expanded 2D element, so the mass is put on a node tied in plane
+            if (!twoD) return nodeId;
+            //
+            maxNodeId++;
+            additionalNodes.Add(new FeNode(maxNodeId, coor));
+            equationParameters.Add(new double[] { maxNodeId, 1, 1, nodeId, 1, -1 });
+            equationParameters.Add(new double[] { maxNodeId, 2, 1, nodeId, 2, -1 });
+            massNodeIds.Add(maxNodeId);
+            return maxNodeId;
+        }
+        static private void GetMassSections(FeModel model, Dictionary<string, CalReferencePoint> referencePoints,
+                                            ref int maxNodeId, ref int maxElementId, ref List<FeNode> additionalNodes,
+                                            ref List<FeNodeSet> additionalNodeSets,
+                                            ref List<CalElement> additionalElementKeywords,
+                                            ref HashSet<string> additionalElementSetNames,
+                                            ref List<SectionData> additionalSectionData,
+                                            ref List<BoundaryCondition> additionalBoundaryConditions,
+                                            ref List<double[]> equationParameters)
+        {
+            bool twoD = model.Properties.ModelSpace.IsTwoD();
+            int massNodeId;
+            List<int> massNodeIds = new List<int>();
             double aSum;
             double nodalMassFactor;
             double nodalMass;
@@ -651,7 +674,9 @@ namespace FileInOut.Output
                                 reservedElementSetNames.Add(name);
                                 // Element keyword
                                 maxElementId++;
-                                element = new MassElement(maxElementId, new int[] { nodeId });
+                                massNodeId = GetMassElementNodeId(nodeId, model.Mesh.Nodes[nodeId].Coor, twoD, ref maxNodeId,
+                                                                  additionalNodes, massNodeIds, equationParameters);
+                                element = new MassElement(maxElementId, new int[] { massNodeId });
                                 calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
                                 additionalElementKeywords.Add(calElement);
                                 elementIds.Add(maxElementId);
@@ -683,7 +708,12 @@ namespace FileInOut.Output
                             reservedElementSetNames.Add(name);
                             // Element keyword
                             maxElementId++;
-                            element = new MassElement(maxElementId, new int[] { nodeId });
+                            massNodeId = GetMassElementNodeId(nodeId, new double[] { referencePoint.X.Value,
+                                                                                     referencePoint.Y.Value,
+                                                                                     referencePoint.Z.Value },
+                                                              twoD, ref maxNodeId, additionalNodes, massNodeIds,
+                                                              equationParameters);
+                            element = new MassElement(maxElementId, new int[] { massNodeId });
                             calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
                             additionalElementKeywords.Add(calElement);
                             elementIds.Add(maxElementId);
@@ -714,7 +744,9 @@ namespace FileInOut.Output
                             reservedElementSetNames.Add(name);
                             // Element keyword
                             maxElementId++;
-                            element = new MassElement(maxElementId, new int[] { nodeId });
+                            massNodeId = GetMassElementNodeId(nodeId, model.Mesh.Nodes[nodeId].Coor, twoD, ref maxNodeId,
+                                                              additionalNodes, massNodeIds, equationParameters);
+                            element = new MassElement(maxElementId, new int[] { massNodeId });
                             calElement = new CalElement(FeElementType0D.Mass.ToString(), name, new List<FeElement> { element });
                             additionalElementKeywords.Add(calElement);
                             elementIds.Add(maxElementId);
@@ -736,6 +768,19 @@ namespace FileInOut.Output
                     }
                     else throw new NotSupportedException();
                 }
+            }
+            // Boundary conditions
+            if (massNodeIds.Count > 0)
+            {
+                HashSet<string> nodeSetNames = new HashSet<string>(model.Mesh.NodeSets.Keys);
+                foreach (var additionalNodeSet in additionalNodeSets) nodeSetNames.Add(additionalNodeSet.Name);
+                name = "Internal_All_Mass_Nodes_NodeSet";
+                if (nodeSetNames.Contains(name)) name = nodeSetNames.GetNextNumberedKey(name);
+                additionalNodeSets.Add(new FeNodeSet(name, massNodeIds.ToArray()));
+                DisplacementRotation dr = new DisplacementRotation("Mass_Nodes_BC", name, RegionTypeEnum.NodeSetName,
+                                                                   false, false, 0);
+                dr.U3.SetEquationFromValue(0);
+                additionalBoundaryConditions.Add(dr);
             }
         }
         static private double GetAxisymmetricSegmentFactor(FeModel model)

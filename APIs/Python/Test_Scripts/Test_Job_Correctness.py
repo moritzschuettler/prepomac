@@ -14,7 +14,8 @@
 #Last, it replaces the cube by an axisymmetric ring and checks that a point spring, a surface spring, the
 #reaction history, the reaction heat flux and body heating of both result files, the participation factor and the
 #effective masses, a compression only support and a distributed mass are given for the full revolution, as the
-#loads and the forces of the results file are. The section print of the ring is given for the full revolution for
+#loads and the forces of the results file are, and that a point and a distributed mass of the ring, axisymmetric and
+#in plane strain, solve in a frequency step at the hand computed frequency. The section print of the ring is given for the full revolution for
 #each element type, and left as CalculiX writes it when its elements are of types CalculiX writes for different angles.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Job_Correctness.py -g No -x Yes -w <dir>
@@ -768,6 +769,44 @@ def test_axisymmetric_gap_and_mass_per_revolution(work):
         pmx.model.constraints.remove([PREFIX + "Point_Spring"])
 
 
+def test_two_d_mass_frequency(work):
+    # CalculiX stops a frequency step on a mass whose node has a constrained degree of freedom and no other element,
+    # as every node of a 2D element has, so the mass goes on a tied node of its own. A stiff light ring held radially
+    # on five springs of 100 bounces with a point mass of 0.001 on each of its five top nodes, or a distributed mass of
+    # 0.005 on its top, at the frequency of one spring and one mass, axisymmetric and in plane strain
+    frequency = math.sqrt(100 / 1e-3) / (2 * math.pi)
+    part_name = pmx.model.parts.first().name
+    all_nodes = PREFIX + "Ring_All"
+    add_ring_section(PREFIX + "Stiff_Light", [pmx.create.elastic(1e9, 0), pmx.create.density(1e-15)])
+    pmx.model.node_sets.add(all_nodes, pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', list(range(1, 16))))
+    pmx.model.constraints.add_point_spring(PREFIX + "Point_Spring",
+                                           pmx.create.region('NodeSetName', PREFIX + "Ring_Bottom"), k2=100)
+    step = pmx.model.steps.add_frequency(PREFIX + "Ring_Mass_Frequency", number_of_frequencies=2)
+    step.bcs.add_displacement_rotation(PREFIX + "Ring_Radial", pmx.create.region('NodeSetName', all_nodes), u1=0)
+    masses = [("Point", lambda name: pmx.model.sections.add_point_mass(
+                  name, pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [11, 12, 13, 14, 15]), 1e-3)),
+              ("Distributed", lambda name: pmx.model.sections.add_distributed_mass(
+                  name, pmx.create.region('SurfaceName', PREFIX + "Ring_Top"), 5e-3))]
+    try:
+        for model_space, element_type in [("Axisymmetric", "CAX4"), ("PlaneStrain", "CPE4")]:
+            pmx.model.properties.replace(model_space=model_space)
+            check(pmx.model.parts.get_element_types(part_name)['linear_quad'] == element_type,
+                  "the ring of the " + model_space + " model has the element types " +
+                  str(pmx.model.parts.get_element_types(part_name)))
+            for kind, add_mass in masses:
+                add_mass(PREFIX + "Ring_Mass")
+                result, step_id, _ = run_and_open(PREFIX + model_space + "_" + kind + "_Mass_Frequency", work)
+                increments = result.steps[step_id].increments
+                first = increments[list(increments.get_ids())[0]].step_time
+                check(abs(first - frequency) < 1e-4 * frequency, "the " + kind.lower() + " mass of a " + model_space +
+                      " model gives the first frequency " + str(first) + " instead of " + str(frequency))
+                pmx.model.sections.remove([PREFIX + "Ring_Mass"])
+    finally:
+        pmx.model.properties.replace(model_space='Axisymmetric')
+        pmx.model.constraints.remove([PREFIX + "Point_Spring"])
+        pmx.model.node_sets.remove([all_nodes])
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
@@ -798,6 +837,8 @@ def main():
         test_axisymmetric_frequency_per_revolution(work)
         clean()
         test_axisymmetric_gap_and_mass_per_revolution(work)
+        clean()
+        test_two_d_mass_frequency(work)
         clean()
         test_axisymmetric_section_print_per_revolution(work)
         clean()
