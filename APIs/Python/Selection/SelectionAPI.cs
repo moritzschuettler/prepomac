@@ -46,9 +46,11 @@ namespace APIs.Python
         // Methods
         [PythonAPI("Adds IDs to the selection. Edges and surfaces use dict[part_id, list[item_id]], an item ID " +
                    "counting from 1 on its part; " +
-                   "nodes, elements, vertices, parts, and geometry use list[int]. The 'geometry' source " +
-                   "takes recorded geometry IDs unchanged; one naming a part that does not exist, no geometry " +
-                   "type, or an item its part does not have is refused naming 'ids' when the selection is used.",
+                   "nodes, elements, vertices, parts, geometry, and element_faces use list[int]. The 'geometry' " +
+                   "source takes recorded geometry IDs unchanged; one naming a part that does not exist, no " +
+                   "geometry type, or an item its part does not have is refused naming 'ids' when the selection " +
+                   "is used. The 'element_faces' source takes the element face IDs a 'surfaces' selection " +
+                   "resolves to.",
                    Arguments = "source: str, ids: list[int] or dict[int, list[int]], operation: str = None, " +
                                "geometry_select_mode: str = 'SelectId'", Returns = "Selection")]
         public SelectionAPI add_by_ids(object source, object ids, object operation = null,
@@ -90,7 +92,9 @@ namespace APIs.Python
 
         [PythonAPI("Adds an area pick to the selection. The planes bound the volume that is selected, " +
                    "every row being [ox, oy, oz, nx, ny, nz] of one plane, and a normal points out of " +
-                   "the volume. It is what a rubber band records, whose planes are the frustum it swept.",
+                   "the volume. It is what a rubber band records, whose planes are the frustum it swept. A " +
+                   "'results' area pick is resolved on the display when the item it defines is added and kept " +
+                   "as the IDs it selected there.",
                    Arguments = "planes: list[list[float]], select_by: str, angle_deg: float = None, " +
                                "part_ids: list[int] = None, completely_inside: bool = False, operation: str = None, " +
                                "part_offsets: list[list[float]] = None",
@@ -106,7 +110,8 @@ namespace APIs.Python
             return this;
         }
         [PythonAPI("Adds an axis aligned box to the selection, which is the six plane form of add_by_area. " +
-                   "The box is given by its two opposite corners.",
+                   "The box is given by its two opposite corners. A 'results' box is resolved on the display " +
+                   "when the item it defines is added and kept as the IDs it selected there.",
                    Arguments = "corner1: list[float], corner2: list[float], select_by: str, " +
                                "part_ids: list[int] = None, completely_inside: bool = False, operation: str = None, " +
                                "part_offsets: list[list[float]] = None",

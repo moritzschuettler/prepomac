@@ -2745,13 +2745,15 @@ pmx.view.annotations.show_min_max(shown[0], shown[1])
 
 Possible `view` values are `"geometry"`, `"femodel"`, and `"results"`.
 
-Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"edges"`, `"parts"`, `"geometry"`, and `"geometry_surfaces"`. Possible `source` values are `"nodes"`, `"elements"`, `"vertices"`, `"edges"`, `"surfaces"`, `"parts"`, and `"geometry"`.
+Possible `target` values are `"nodes"`, `"elements"`, `"surfaces"`, `"edges"`, `"parts"`, `"geometry"`, and `"geometry_surfaces"`. Possible `source` values are `"nodes"`, `"elements"`, `"vertices"`, `"edges"`, `"surfaces"`, `"parts"`, `"geometry"`, and `"element_faces"`.
 
 The view, the target and the source are matched regardless of case and of surrounding spaces, as every option string
 is, and the selection stores them in the lowercase
 spelling above, so `selection.view` and `selection.target` read back the same whichever way they were written.
 
-Nodes, elements, vertices, and parts use a list of IDs. Vertex IDs are the node IDs displayed by Query. Edge and surface IDs are 1-based within each part and use a part-to-ID mapping:
+Nodes, elements, vertices, parts and element faces use a list of IDs. Vertex IDs are the node IDs displayed by Query.
+An element face ID is `10 * element_id + face_index`, the ID a `'surfaces'` selection resolves to, and names an outer
+face of an active part. Edge and surface IDs are 1-based within each part and use a part-to-ID mapping:
 
 ```python
 selection = pmx.create.selection_by_ids(
@@ -2771,7 +2773,7 @@ Supported conversions:
 | --- | --- |
 | `nodes` | `nodes`, `vertices`, `edges`, `surfaces`, `parts` |
 | `elements` | `elements`, `surfaces`, `parts` |
-| `surfaces` | `surfaces`, `parts` |
+| `surfaces` | `surfaces`, `parts`, `element_faces` |
 | `edges` | `edges` |
 | `parts` | `vertices`, `edges`, `surfaces`, `parts` |
 | `geometry` | `vertices`, `edges`, `surfaces`, `parts` |
@@ -2893,7 +2895,12 @@ Seven things to know about how the application resolves a selection:
 - **A results pick names the undeformed geometry.** The point of a `'results'` pick is a point of the
   undeformed, unexploded parts, and it is carried onto the deformed display when it is resolved, so the
   plotted increment, the deformation scale and an exploded view do not change what it selects. A click
-  on the deformed display is recorded the same way. An area pick is still resolved on the display.
+  on the deformed display is recorded the same way. A `'results'` **area pick** is resolved on the display
+  as it is when the item it defines is added - a box or a rubber band takes what it encloses there - and
+  is recorded as the IDs it selected, of the selection's target, which the results mesh keeps. A later
+  scale, increment or exploded view, a regeneration and the journal, which writes it with `selection_by_ids`
+  (`element_faces` for a `'surfaces'` target, `geometry` for a geometry pick), all select the same items.
+  An area pick a history of an older version recorded is still resolved on the display.
 - **Hiding a part changes the view, not the model.** `selection_all`, `add_all`, `invert` and node,
   element and part IDs cover every active part, hidden ones included, and a stored selection resolves
   to the same items whether a part is shown or hidden. A new pick still searches only the visible

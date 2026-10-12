@@ -23,7 +23,8 @@ namespace APIs.Python
                                                                      "geometry", "geometry_surfaces" };
         public static readonly string[] AllTargetNames = new string[] { "nodes", "elements", "surfaces" };
         public static readonly string[] SourceNames = new string[] { "nodes", "elements", "vertices", "edges",
-                                                                     "surfaces", "parts", "geometry" };
+                                                                     "surfaces", "parts", "geometry",
+                                                                     "element_faces" };
         private readonly IMeshResolver _meshResolver;
         private readonly IPythonSelectionGateway _selectionGateway;
 
@@ -526,6 +527,12 @@ namespace APIs.Python
                 geometryBased = false;
                 return item.Ids;
             }
+            if (item.Source == "element_faces")
+            {
+                ValidateElementFaceIds(item.Ids, mesh);
+                geometryBased = false;
+                return item.Ids;
+            }
             // Geometry-based sources preserve their topology during command replay.
             geometryBased = true;
             if (item.Source == "vertices") return GetVertexGeometryIds(item.Ids, mesh);
@@ -624,6 +631,18 @@ namespace APIs.Python
                                                  " does not exist in the selected view.");
             }
         }
+        // An element face ID is 10 times the element ID plus the face index, as a surface target resolves to, and
+        // names a face on the outside of an active part
+        private static void ValidateElementFaceIds(int[] ids, FeMesh mesh)
+        {
+            HashSet<int> activeFaceIds = new HashSet<int>(mesh.GetActiveVisualizationFaceIds(false));
+            foreach (int id in ids)
+            {
+                if (!activeFaceIds.Contains(id))
+                    throw new PythonAPIException("The element face ID " + id + " in 'ids' names no outer face of an " +
+                                                 "active part in the selected view.");
+            }
+        }
         // A geometry ID packs an item index, a geometry type and a part ID, and the mesh decodes it without checks
         private static void ValidateGeometryIds(int[] geometryIds, FeMesh mesh)
         {
@@ -717,7 +736,8 @@ namespace APIs.Python
                                                 source == "surfaces" || source == "parts")) ||
                          (target == "elements" && (source == "elements" || source == "surfaces" ||
                                                    source == "parts")) ||
-                         (target == "surfaces" && (source == "surfaces" || source == "parts")) ||
+                         (target == "surfaces" && (source == "surfaces" || source == "parts" ||
+                                                   source == "element_faces")) ||
                          (target == "edges" && source == "edges") ||
                          (target == "parts" && (source == "vertices" || source == "edges" ||
                                                 source == "surfaces" || source == "parts")) ||

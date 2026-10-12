@@ -50,6 +50,7 @@ namespace PrePoMax.Python
             ViewGeometryModelResults previousView = _controller.CurrentView;
             try
             {
+                _controller.ReplaceResultAreaPicksWithIds(selection);
                 _controller.ApplySelectionLimits(selection);
                 return _controller.GetIdsFromSelection(selection);
             }

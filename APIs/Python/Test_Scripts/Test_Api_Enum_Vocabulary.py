@@ -286,7 +286,7 @@ def test_selection_names(members):
     unknown = [key for key in names.keys() if key.split(".")[-1] not in members]
     check(not unknown, "these selection name entries name an argument the API does not have: " + ", ".join(unknown))
     targets = ["nodes", "elements", "surfaces", "edges", "parts", "geometry", "geometry_surfaces"]
-    sources = ["nodes", "elements", "vertices", "edges", "surfaces", "parts", "geometry"]
+    sources = ["nodes", "elements", "vertices", "edges", "surfaces", "parts", "geometry", "element_faces"]
     expected = {("CreateAPI", "selection_by_ids", "target"): targets,
                 ("CreateAPI", "selection_by_ids", "source"): sources,
                 ("CreateAPI", "selection_by_pick", "target"): targets,

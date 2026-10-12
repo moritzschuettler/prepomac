@@ -25,11 +25,12 @@ EXTRACTED_NAME = "PyTest_History_extracted"
 XY_NAME = "PyTest_History_xy"
 TABLE_NAME = "PyTest_History_table"
 PICK_NAME = "PyTest_History_pick"
+AREA_NAME = "PyTest_History_area"
 
 # Derived outputs must be removed before the outputs their equations and sources reference.
 CLEANUP_ORDER = [EQUATION_NAME, XY_NAME, MERGED_NAME, EXTRACTED_NAME, TABLE_NAME, INTEGRATION_NAME,
                  ELEMENT_SIZE_NAME, MERGE_SOURCE_2_NAME, MERGE_SOURCE_1_NAME, FROM_FIELD_NAME,
-                 FROM_FIELD_OPTIONS_NAME, PICK_NAME]
+                 FROM_FIELD_OPTIONS_NAME, PICK_NAME, AREA_NAME, AREA_NAME + "-1"]
 
 
 def check(condition, message):
@@ -852,6 +853,47 @@ try:
     finally:
         pmx.view.deformation_type = deformation_type
     print("PASS: a results pick does not depend on the plotted deformation")
+
+    # AREA: the results mesh is never meshed again, so a results area pick is resolved on the display it is made
+    # on and kept as the IDs it selected there. On the Automatic5 display the squashed cube's top lies within the
+    # box, which holds nothing on the undeformed display; a duplicate resolves the stored selection again there
+    deformation_type = pmx.view.deformation_type
+    low, high = [-3, -3, 0.1], [3, 3, 0.3]
+    try:
+        pmx.view.deformation_type = "Undeformed"
+        undeformed = list(pmx.create.selection_by_box('results', 'nodes', low, high, 'Node').get_ids())
+        check(len(undeformed) == 0, "the box must hold no node of the undeformed display, got %s" % undeformed)
+        pmx.view.deformation_type = "Automatic5"
+        expected = sorted(list(pmx.create.selection_by_box('results', 'nodes', low, high, 'Node').get_ids()))
+        check(len(expected) > 0, "the box must hold the top nodes of the deformed display")
+        history_outputs.add_from_field(AREA_NAME, "DISP", [disp_component],
+                                       pmx.create.selection_by_box('results', 'nodes', low, high, 'Node'))
+        created_names.append(AREA_NAME)
+        pmx.view.deformation_type = "Undeformed"
+        history_outputs.duplicate([AREA_NAME])
+        created_names.append(AREA_NAME + "-1")
+        for name in [AREA_NAME, AREA_NAME + "-1"]:
+            component = history_outputs[name].fields["DISP"].components[disp_component]
+            entries = sorted(int(entry) for entry in component.get_entry_names())
+            check(entries == expected, "the history output %s of a box on the deformed display holds the nodes %s, "
+                                       "expected %s" % (name, entries, expected))
+        history_outputs.remove([AREA_NAME + "-1", AREA_NAME])
+        created_names.remove(AREA_NAME + "-1")
+        created_names.remove(AREA_NAME)
+        # The element faces a surface area pick is kept as are what the journal gives back through element_faces
+        pmx.view.deformation_type = "Automatic5"
+        faces = sorted(list(pmx.create.selection_by_box('results', 'surfaces', low, high, 'Node').get_ids()))
+        check(len(faces) > 0, "the box must hold the top faces of the deformed display")
+        pmx.view.deformation_type = "Undeformed"
+        given = sorted(list(pmx.create.selection_by_ids('results', 'surfaces', 'element_faces', faces).get_ids()))
+        check(given == faces, "the element faces %s selected %s" % (faces, given))
+        check_raises(lambda: pmx.create.selection_by_ids('results', 'surfaces', 'element_faces', [7]).get_ids(),
+                     "an element face ID of no element must be refused")
+        check_raises(lambda: pmx.create.selection_by_ids('results', 'nodes', 'element_faces', faces),
+                     "element faces must be refused for a nodes target")
+    finally:
+        pmx.view.deformation_type = deformation_type
+    print("PASS: a results area pick keeps the IDs it selected on the display it was made on")
 
     print("RESULT: all applicable result history-output command tests passed")
     print("TEST PASSED")

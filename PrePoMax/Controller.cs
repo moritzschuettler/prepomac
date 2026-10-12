@@ -21943,9 +21943,14 @@ namespace PrePoMax
                                                                            selectAngle);
                     pickedNode.PickedOnUndeformedGeometry = pickedOnUndeformedGeometry;
                     SelectionNode selectionNode = pickedNode;
+                    // An area picked on the results is recorded as the ids it selects on the display it was made on
+                    if (_currentView == ViewGeometryModelResults.Results && planeParameters != null)
+                    {
+                        selectionNode = GetIdsNodeFromAreaPick(pickedNode);
+                    }
                     // Change geometry selection to IDs if needed
-                    if (selectionNode is SelectionNodeMouse snm && snm.IsGeometryBased &&
-                        _geometrySelectMode == GeometrySelectModeEnum.SelectId)
+                    else if (selectionNode is SelectionNodeMouse snm && snm.IsGeometryBased &&
+                             _geometrySelectMode == GeometrySelectModeEnum.SelectId)
                     {
                         int[] ids = GetIdsFromSelectionNodeMouse(snm);
                         selectionNode = new SelectionNodeIds(selectOperation, false, ids, true, _geometrySelectMode);
@@ -23146,6 +23151,46 @@ namespace PrePoMax
             }
             //
             return partOffsets;
+        }
+        /// <summary>
+        /// The results mesh is never meshed again, so an area pick of the results view is recorded as the ids it
+        /// selects when it is made. Its frustum would select whatever lies in it on the display of a later resolution,
+        /// which the deformation scale, the increment and the exploded view change. An area pick of an older file
+        /// stays a frustum and is resolved on the display, as before.
+        /// </summary>
+        public void ReplaceResultAreaPicksWithIds(Selection selection)
+        {
+            if (GetSelectionView(selection) != ViewGeometryModelResults.Results || _allResults.CurrentResult == null)
+                return;
+            if (!selection.Nodes.Any(node => node is SelectionNodeMouse snm && snm.PlaneParameters != null)) return;
+            //
+            Selection previousSelection = _selection;
+            ViewGeometryModelResults previousView = _currentView;
+            try
+            {
+                _selection = selection.DeepCopy(false, false);
+                CurrentView = ViewGeometryModelResults.Results;
+                for (int i = 0; i < selection.Nodes.Count; i++)
+                {
+                    if (!(selection.Nodes[i] is SelectionNodeMouse areaPick) || areaPick.PlaneParameters == null) continue;
+                    // A pick of a target its select by cannot resolve stays a pick and resolves to nothing, as before
+                    try { selection.Nodes[i] = GetIdsNodeFromAreaPick(areaPick); }
+                    catch (NotSupportedException) { }
+                }
+            }
+            finally
+            {
+                _selection = previousSelection;
+                CurrentView = previousView;
+            }
+        }
+        private SelectionNodeIds GetIdsNodeFromAreaPick(SelectionNodeMouse areaPick)
+        {
+            int[] ids = GetIdsFromSelectionNodeMouse(areaPick);
+            if (areaPick.IsGeometryBased)
+                return new SelectionNodeIds(areaPick.SelectOperation, false, ids, true, GeometrySelectModeEnum.SelectId);
+            //
+            return new SelectionNodeIds(areaPick.SelectOperation, false, ids);
         }
         /// <summary>
         /// A point pick of the results view is recorded on the undeformed and unexploded geometry, so that the

@@ -56,6 +56,7 @@ EMITTED_NAME_EXCEPTIONS = {
     "femodel": "a selection view",
     "edges": "a selection target",
     "geometry_surfaces": "a selection target",
+    "element_faces": "a selection source",
     "axis_direction": "an argument name",
     "axis_point": "an argument name",
     "cavity_name": "an argument name",

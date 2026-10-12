@@ -33,11 +33,12 @@ namespace APIs.Python
         [PythonAPI("Creates an ID-based selection. Possible view values are 'geometry', 'femodel', and " +
                    "'results'. Possible target values are 'nodes', 'elements', 'surfaces', 'edges', 'parts', " +
                    "'geometry', and 'geometry_surfaces'. Possible source values are 'nodes', 'elements', " +
-                   "'vertices', 'edges', 'surfaces', 'parts', and 'geometry'. The 'geometry' source takes the " +
-                   "geometry IDs the application records for a geometry pick made in the Selection by ID mode, " +
-                   "and converts them to any target; an ID that names no part, no geometry type or no item of " +
-                   "its part is refused. The view, the target and the source are matched regardless of case " +
-                   "and surrounding spaces.",
+                   "'vertices', 'edges', 'surfaces', 'parts', 'geometry', and 'element_faces'. The 'geometry' " +
+                   "source takes the geometry IDs the application records for a geometry pick made in the " +
+                   "Selection by ID mode, and converts them to any target; an ID that names no part, no geometry " +
+                   "type or no item of its part is refused. The 'element_faces' source takes the element face " +
+                   "IDs a 'surfaces' selection resolves to, 10 times the element ID plus the face index. The " +
+                   "view, the target and the source are matched regardless of case and surrounding spaces.",
                    Arguments = "view: str, target: str, source: str, ids: list[int] or dict[int, list[int]], " +
                                "geometry_select_mode: str = 'SelectId'",
                    Returns = "Selection",
@@ -83,7 +84,8 @@ namespace APIs.Python
         [PythonAPI("Creates a selection from an area pick. The planes bound the volume that is " +
                    "selected, every row being [ox, oy, oz, nx, ny, nz] of one plane, and a normal points " +
                    "out of the volume. It is what a rubber band records, whose planes are the frustum it " +
-                   "swept; an axis aligned box is six planes.",
+                   "swept; an axis aligned box is six planes. A 'results' area pick is resolved on the display " +
+                   "when the item it defines is added and kept as the IDs it selected there.",
                    Arguments = "view: str, target: str, planes: list[list[float]], select_by: str, " +
                                "angle_deg: float = None, part_ids: list[int] = None, " +
                                "completely_inside: bool = False, part_offsets: list[list[float]] = None", Returns = "Selection")]
@@ -99,7 +101,8 @@ namespace APIs.Python
         }
 
         [PythonAPI("Creates a selection from an axis aligned box, which is the six plane form of " +
-                   "selection_by_area. The box is given by its two opposite corners.",
+                   "selection_by_area. The box is given by its two opposite corners. A 'results' box is resolved " +
+                   "on the display when the item it defines is added and kept as the IDs it selected there.",
                    Arguments = "view: str, target: str, corner1: list[float], corner2: list[float], " +
                                "select_by: str, part_ids: list[int] = None, " +
                                "completely_inside: bool = False, part_offsets: list[list[float]] = None",

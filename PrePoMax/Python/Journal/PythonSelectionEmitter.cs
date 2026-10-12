@@ -123,11 +123,13 @@ namespace PrePoMax.Python.Journal
         }
         // Only the sources the application stores unchanged can be given back to it. A geometry pick made
         // in the Selection by ID mode is recorded as geometry IDs, and node, element and part IDs stand
-        // for themselves; a raw surface or edge ID has no source of its own.
+        // for themselves, as element face IDs do - an area pick of the results view records them; a raw
+        // edge ID has no source of its own.
         private static string GetIdsSource(SelectionNodeIds node, string target)
         {
             if (node.IsGeometryBased) return "geometry";
             if (target == "nodes" || target == "elements" || target == "parts") return target;
+            if (target == "surfaces") return "element_faces";
             //
             throw new NotSupportedException("a selection of raw '" + target + "' IDs has no API source");
         }
