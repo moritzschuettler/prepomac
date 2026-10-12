@@ -757,7 +757,7 @@ names the format. `export_geometry` takes **geometry** parts, refuses a part wit
 writes it in does not exist, and refuses a part that is neither a solid nor a shell - an imported
 .stl body - for .mesh; `export_mesh` takes the parts of the **model mesh**, refuses the same parts
 for .mesh, and writes only their nodes and elements, which is how a part of a meshed model is handed to another program without its steps,
-loads and boundary conditions; `export_results` takes the parts of the **current result**. The
+loads and boundary conditions; `export_results` takes the parts of the **current result**, or of the one `result_name` names. The
 `format` argument is needed only when the extension does not name the format - an Abaqus .inp - or
 when the file should carry another extension; its values are the PascalCase format names, matched
 regardless of case and written by the journal in this spelling (`"Calculix"`, `"Abaqus"`, `"Gmsh"`,
@@ -2876,7 +2876,7 @@ Seven things to know about how the application resolves a selection:
   and is reported.
 - **Only the named parts are searched.** `part_ids` limits a pick; when it is not given the whole mesh
   is searched, which is the useful default for "whatever lies under this point". A pick that names
-  its part and one that searches every part resolve to the same entity. A point pick restricted by
+  its part and one that searches every part resolve to the same entity. A point pick given one part in
   `part_ids` stays on that part: it takes the nearest entity of the part even when another part lies
   nearer the point, the journal writes the part it was given, and where two parts share nodes it takes
   the faces and elements of its part only. A stored pick whose part no longer exists or is deactivated
@@ -3815,8 +3815,8 @@ result.history_outputs.add(output)
 Line integration integrates a field over geometry edges (works for both shell and solid parts).
 For 2D output (plane stress/strain or axisymmetric) set `cross_section` to apply the out-of-plane
 scaling; `"Thickness"` additionally uses the `thickness` argument, while `"Axisymmetric"` scales by
-`2*pi*r` (the radial coordinate is the X coordinate). An axisymmetric result is integrated with
-`"Axisymmetric"` when `cross_section` is not given:
+`2*pi*r` (the radial coordinate is the X coordinate). An axisymmetric result with a 2D mesh is
+integrated with `"Axisymmetric"` when `cross_section` is not given:
 
 ```python
 edges = pmx.create.selection_by_ids(
@@ -3847,7 +3847,7 @@ and the region total; `"FieldByGeometry"` instead sums the element integrals and
 over the whole region and divides the sums, so it returns a single `REGION` entry that is already the
 measure-weighted average (no Sum filter needed). `field_name` and `component_names` are refused for
 `"Geometry"`, which integrates no field, and read back as `None` there. The geometry result is reported in a single `SIZE` component; note that the cross section
-scaling changes its dimension, so a scaled line integral returns an area and a scaled surface integral a
+scaling changes its dimension, so a scaled line integral returns an area and a scaled volume integral a
 volume:
 
 ```python

@@ -53,8 +53,9 @@ names the habits.
   your client's own request timeout; for long work pass `timeout` 0 and wait with `get_call`. An
   answer your client gave up on is kept, and `get_status` lists it under `calls`.
   A call that should not finish - a loop that never ends - is stopped with `cancel_call` and its
-  `callId`: it stops at its next Python statement, but a PrePoMax operation it is inside, such as
-  meshing, finishes first. What it recorded before that stays in the history.
+  `callId`: it stops at its next Python statement, and a mesher it waits for is stopped, so that run
+  meshes nothing; any other PrePoMax operation it is inside, such as an import or a regeneration,
+  finishes first. What it recorded before that stays in the history.
 - **Nothing answers on the address** means PrePoMax is closed or its automation server is off. Ask
   the user to open it and switch on **Tools - Automation Server**. Retrying will not help, and there
   is nothing for you to start: the endpoint is served by the application itself.
