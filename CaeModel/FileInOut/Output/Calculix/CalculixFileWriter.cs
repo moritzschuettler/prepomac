@@ -34,6 +34,7 @@ namespace FileInOut.Output
     {
         // Variables                                                                                                                
         private const double SmallestEquationCoefficient = 1E-9;
+        private const double AxisymmetricSegmentsPerRevolution = 180;
         private static readonly Regex _nameTokenRegex = new Regex("[^,=\\s\"]+", RegexOptions.Compiled);
 
 
@@ -742,6 +743,11 @@ namespace FileInOut.Output
             if (model.Mesh != null)
             {
                 bool twoD = model.Properties.ModelSpace.IsTwoD();
+                // CalculiX expands an axisymmetric model into a 2 degree segment and scales the loads given for the full
+                // revolution, but not the springs
+                double stiffnessFactor = 1;
+                if (model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric)
+                    stiffnessFactor = 1 / AxisymmetricSegmentsPerRevolution;
                 int count;
                 int[] elementIds;
                 CalReferencePoint referencePoint;
@@ -822,7 +828,7 @@ namespace FileInOut.Output
                             model.Mesh.ElementSets.Add(elementSet.Name, elementSet);
                             additionalElementSetNames.Add(elementSet.Name);
                             additionalSectionData.Add(new LinearSpringSectionData("LinearSpringSection", name, directions[i],
-                                                                                  stiffnesses[i]));
+                                                                                  stiffnesses[i] * stiffnessFactor));
                             oneSpringElements.AddRange(newElements);
                         }
                     }

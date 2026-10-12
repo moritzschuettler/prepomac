@@ -1456,7 +1456,9 @@ namespace PrePoMax
                 if (_allResults.CurrentResult == null)
                     _allResults.Add(fileName, new FeResults(fileName, _model.UnitSystem));
                 // This is also called in AppendResults
-                HistoryResults results = (HistoryResults)OpenByFunction(fileName, parameters, ReadHistoryResults);
+                string resultHashName = _allResults.CurrentResult.HashName;
+                HistoryResults results = (HistoryResults)OpenByFunction(fileName, parameters,
+                                                                         f => ReadHistoryResults(f, resultHashName));
                 _allResults.CurrentResult.SetHistory(results);
                 // Wear
                 _allResults.CurrentResult.ComputeWear(_model.StepCollection.GetSlipWearStepIds(),
@@ -1750,7 +1752,7 @@ namespace PrePoMax
                 // Open .dat file
                 string datFileName = Path.GetFileNameWithoutExtension(results.FileName) + ".dat";
                 datFileName = Path.Combine(Path.GetDirectoryName(results.FileName), datFileName);
-                if (File.Exists(datFileName)) results.SetHistory(ReadHistoryResults(datFileName));
+                if (File.Exists(datFileName)) results.SetHistory(ReadHistoryResults(datFileName, results.HashName));
                 // Check if the meshes are the same and rename the parts
                 if (_allResults.CurrentResult.Mesh != null && results.Mesh != null)
                 {
@@ -1810,7 +1812,7 @@ namespace PrePoMax
             //
             return nodeSets;
         }
-        private HistoryResults ReadHistoryResults(string fileName)
+        private HistoryResults ReadHistoryResults(string fileName, string resultHashName)
         {
             string[] errors;
             List<string> modelNames = new List<string>();
@@ -1822,7 +1824,10 @@ namespace PrePoMax
                 modelNames.AddRange(_model.Mesh.Surfaces.Keys);
                 modelNames.AddRange(_model.Mesh.ReferencePoints.Keys);
             }
-            HistoryResults historyResults = DatFileReader.Read(fileName, modelNames, out errors);
+            // The .dat file does not tell an axisymmetric model apart, so the model the result was computed from does
+            bool axisymmetric = _model != null && _model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric &&
+                                _model.HashName == resultHashName;
+            HistoryResults historyResults = DatFileReader.Read(fileName, modelNames, axisymmetric, out errors);
             // Report errors
             if (errors != null && errors.Length > 0)
             {
@@ -19968,7 +19973,7 @@ namespace PrePoMax
                     results.Mesh.NodeSets.Add(entry.Key, entry.Value.DeepClone());
                 }
                 //
-                results.SetHistory(ReadHistoryResults(resultsFileDat));
+                results.SetHistory(ReadHistoryResults(resultsFileDat, results.HashName));
                 // Open .cel file
                 if (File.Exists(resultsFileCel))
                 {
@@ -20012,7 +20017,7 @@ namespace PrePoMax
                 //
                 _model.GetMaterialAssignments(out _);
                 //
-                results.SetHistory(ReadHistoryResults(resultsFileDat));
+                results.SetHistory(ReadHistoryResults(resultsFileDat, results.HashName));
                 //
                 int[] slipWearStepIds = _model.StepCollection.GetSlipWearStepIds();
                 if (results.ComputeWear(slipWearStepIds, _model.GetNodalSlipWearCoefficients(),

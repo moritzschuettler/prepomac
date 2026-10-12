@@ -7,12 +7,15 @@
 #that is the solver default follows a new name or solver while an edited one is kept. It also checks
 #the refusals: an invalid path, a blank environment variable, a kill of an analysis that is
 #not running, opening the results of a running analysis or a missing results file, and removing or
-#renaming a running analysis or replacing the model while it runs. Last, it solves the cube with item names
+#renaming a running analysis or replacing the model while it runs. Then it solves the cube with item names
 #too long for CalculiX, which the input file shortens, and reads their history back under the item names.
+#Last, it replaces the cube by an axisymmetric ring and checks that a point spring, a surface spring and the
+#reaction history are given for the full revolution, as the loads and the results file are.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Job_Correctness.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
+import math
 import os
 import re
 import shutil
@@ -398,6 +401,93 @@ def test_long_names(work):
         pmx.model.node_sets.remove([node_set])
 
 
+def write_ring_mesh(file_name):
+    # A ring of 4 by 2 axisymmetric elements from radius 10 to 20 and height 0 to 2; the bottom nodes are 1 to 5 and
+    # the top nodes 11 to 15
+    lines = ["*NODE"]
+    for j in range(3):
+        for i in range(5):
+            lines.append("%d, %.6f, %.6f, 0" % (5 * j + i + 1, 10.0 + 2.5 * i, 1.0 * j))
+    lines.append("*ELEMENT, TYPE=CAX4, ELSET=" + PREFIX + "Ring")
+    for j in range(2):
+        for i in range(4):
+            first = 5 * j + i + 1
+            lines.append("%d, %d, %d, %d, %d" % (4 * j + i + 1, first, first + 1, first + 6, first + 5))
+    with open(file_name, "w") as mesh_file:
+        mesh_file.write("\n".join(lines) + "\n")
+
+
+def run_and_open(name, work):
+    pmx.jobs.add(name, work_directory=work)
+    status = pmx.jobs[name].run(timeout=300)
+    check(status == "OK", "the axisymmetric analysis " + name + " did not succeed, got " + status + "\n" +
+          pmx.jobs[name].get_output()[-3000:])
+    pmx.jobs.open_results(name)
+    result = pmx.results.current
+    step_id = list(result.steps.get_ids())[-1]
+    return result, step_id, list(result.steps[step_id].increments.get_ids())[-1]
+
+
+def mean_top_displacement(result, step_id, increment_id):
+    return sum(result.get_nodal_value(step_id, increment_id, 'DISP', 'U2', node_id)
+               for node_id in range(11, 16)) / 5
+
+
+def test_axisymmetric_per_revolution(work):
+    # CalculiX solves an axisymmetric model as a 2 degree segment. The loads are given for the full revolution, and
+    # so are the springs and the totals CalculiX prints for the segment once they are read back
+    pmx.model.parts.remove([part.name for part in pmx.model.parts])
+    pmx.model.element_sets.remove(list(pmx.model.element_sets.get_names()))
+    pmx.model.properties.model_space = 'Axisymmetric'
+    mesh_file_name = os.path.join(work, PREFIX + "Ring.inp")
+    write_ring_mesh(mesh_file_name)
+    pmx.import_file(mesh_file_name)
+    part = pmx.model.parts.first()
+    check(pmx.model.parts.get_element_types(part.name)['linear_quad'] == 'CAX4', "the ring is not axisymmetric")
+    # A stiff ring moves as a whole, so its displacement is the load over the spring stiffness
+    pmx.model.materials.add(PREFIX + "Stiff", pmx.create.elastic(1e9, 0))
+    pmx.model.sections.add_solid(PREFIX + "Ring_Section", PREFIX + "Stiff",
+                                 pmx.create.selection_by_ids('femodel', 'elements', 'parts', [part.id]))
+    bottom = PREFIX + "Ring_Bottom"
+    pmx.model.node_sets.add(bottom, pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4, 5]))
+    bottom_edge = PREFIX + "Ring_Bottom_Edge"
+    pmx.model.surfaces.add(bottom_edge, pmx.create.selection_by_pick('femodel', 'surfaces', [15.0, 0.0, 0.0], 'Edge'))
+    top = PREFIX + "Ring_Top"
+    pmx.model.surfaces.add(top, pmx.create.selection_by_pick('femodel', 'surfaces', [15.0, 2.0, 0.0], 'Edge'))
+    step = pmx.model.steps.add_static(PREFIX + "Ring_Step")
+    revolved_area = math.pi * (20.0 ** 2 - 10.0 ** 2)
+    # A point spring: five springs of 100 carry the force of 1000
+    pmx.model.constraints.add_point_spring(PREFIX + "Point_Spring", pmx.create.region('NodeSetName', bottom), k2=100)
+    step.loads.add_concentrated_force(PREFIX + "Ring_Force", pmx.create.selection_by_ids('femodel', 'nodes', 'nodes',
+                                                                                        [13]), f2=-1000)
+    displacement = mean_top_displacement(*run_and_open(PREFIX + "Axi_Point_Spring", work))
+    check(abs(displacement + 2.0) < 1e-4, "the point spring of an axisymmetric model is not given for the full " +
+          "revolution: the displacement is " + str(displacement) + " instead of -2")
+    pmx.model.constraints.remove([PREFIX + "Point_Spring"])
+    step.loads.remove([PREFIX + "Ring_Force"])
+    # A surface spring takes its stiffness per area on the revolved surface, so a pressure of 1 on the same area
+    # moves the ring by 1 over the stiffness. CalculiX applies the pressure to the chords of its segment, which
+    # carry 0.02 % less than the revolved area
+    pmx.model.constraints.add_surface_spring(PREFIX + "Surface_Spring", pmx.create.region('SurfaceName', bottom_edge),
+                                             k2=10, stiffness_per_area=True)
+    step.loads.add_pressure(PREFIX + "Ring_Pressure", pmx.create.region('SurfaceName', top), 1.0)
+    displacement = mean_top_displacement(*run_and_open(PREFIX + "Axi_Surface_Spring", work))
+    check(abs(displacement + 0.1) < 1e-3 * 0.1, "the surface spring of an axisymmetric model is not given per area " +
+          "of the revolved surface: the displacement is " + str(displacement) + " instead of -0.1")
+    pmx.model.constraints.remove([PREFIX + "Surface_Spring"])
+    # The reactions the .dat file prints for the segment are read back for the full revolution, as the results file
+    # gives them
+    step.bcs.add_fixed(PREFIX + "Ring_Fixed", pmx.create.region('NodeSetName', bottom))
+    step.history_outputs.add_nodal(PREFIX + "Ring_Reactions", pmx.create.region('NodeSetName', bottom), ["RF"])
+    result, step_id, increment_id = run_and_open(PREFIX + "Axi_Reactions", work)
+    entries = result.get_history_output_entries(bottom.upper(), "FORCES", "RF2")
+    history = sum(entries[str(entry)].get_data().values[-1] for entry in entries.get_names())
+    field = sum(result.get_nodal_value(step_id, increment_id, 'FORC', 'F2', node_id) for node_id in range(1, 6))
+    check(abs(history - field) < 1e-5 * revolved_area and abs(history - revolved_area) < 1e-3 * revolved_area,
+          "the reaction history of an axisymmetric model is not given for the full revolution: " + str(history) +
+          " against the field " + str(field) + " and the load " + str(revolved_area))
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
@@ -418,6 +508,8 @@ def main():
         test_environment_variable_refusals()
         test_kill_and_open_results_refusals(work)
         test_long_names(work)
+        clean()
+        test_axisymmetric_per_revolution(work)
         clean()
     finally:
         # A failure may leave the sleeping solver running in the folder, which then cannot be removed

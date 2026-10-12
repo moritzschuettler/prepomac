@@ -7155,7 +7155,10 @@ namespace CaeModel
             {
                 double area;
                 Dictionary<int, double> nodalStiffnesses;
-                GetDistributedNodalValuesFromSurface(spring.RegionName, out nodalStiffnesses, out area);
+                if (_properties.ModelSpace == ModelSpaceEnum.Axisymmetric)
+                    GetRevolvedDistributedNodalValuesFromSurface(spring.RegionName, out nodalStiffnesses, out area);
+                else
+                    GetDistributedNodalValuesFromSurface(spring.RegionName, out nodalStiffnesses, out area);
                 //
                 if (spring.StiffnessPerArea) area = 1;      // account for the stiffness type
                 //
@@ -7532,6 +7535,84 @@ namespace CaeModel
                     }
                 }
             }
+        }
+        // The nodal shares of the surface revolved through the full circle, for which the loads of an axisymmetric model
+        // are given
+        public void GetRevolvedDistributedNodalValuesFromSurface(string surfaceName,
+                                                                 out Dictionary<int, double> nodalValues,
+                                                                 out double area)
+        {
+            nodalValues = new Dictionary<int, double>();
+            area = 0;
+            //
+            int[] nodeIds;
+            double[] nodalAreas;
+            FeElement element;
+            FeSurface surface = _mesh.Surfaces[surfaceName];
+            if (surface.ElementFaces == null) return;
+            //
+            foreach (var entry in surface.ElementFaces)
+            {
+                foreach (var elementId in _mesh.ElementSets[entry.Value].Labels)
+                {
+                    element = _mesh.Elements[elementId];
+                    nodeIds = element.GetNodeIdsFromFaceName(entry.Key);
+                    nodalAreas = GetRevolvedEdgeNodalAreas(nodeIds);
+                    //
+                    for (int i = 0; i < nodeIds.Length; i++)
+                    {
+                        area += nodalAreas[i];
+                        if (nodalValues.ContainsKey(nodeIds[i])) nodalValues[nodeIds[i]] += nodalAreas[i];
+                        else nodalValues.Add(nodeIds[i], nodalAreas[i]);
+                    }
+                }
+            }
+        }
+        private double[] GetRevolvedEdgeNodalAreas(int[] nodeIds)
+        {
+            if (nodeIds.Length != 2 && nodeIds.Length != 3)
+                throw new CaeException("A surface of an axisymmetric model must consist of element edges.");
+            // The integral of each shape function times the circumference along the edge, exact with three Gauss points
+            // for a straight edge. The nodes of a parabolic edge are its two end nodes followed by its midside node
+            double[] gaussPoints = new double[] { -Math.Sqrt(0.6), 0, Math.Sqrt(0.6) };
+            double[] gaussWeights = new double[] { 5.0 / 9.0, 8.0 / 9.0, 5.0 / 9.0 };
+            double[][] coor = new double[nodeIds.Length][];
+            for (int i = 0; i < nodeIds.Length; i++) coor[i] = _mesh.Nodes[nodeIds[i]].Coor;
+            //
+            double xi;
+            double r;
+            double dx;
+            double dy;
+            double[] n;
+            double[] dn;
+            double[] nodalAreas = new double[nodeIds.Length];
+            for (int g = 0; g < gaussPoints.Length; g++)
+            {
+                xi = gaussPoints[g];
+                if (nodeIds.Length == 2)
+                {
+                    n = new double[] { 0.5 * (1 - xi), 0.5 * (1 + xi) };
+                    dn = new double[] { -0.5, 0.5 };
+                }
+                else
+                {
+                    n = new double[] { 0.5 * xi * (xi - 1), 0.5 * xi * (xi + 1), 1 - xi * xi };
+                    dn = new double[] { xi - 0.5, xi + 0.5, -2 * xi };
+                }
+                //
+                r = 0;
+                dx = 0;
+                dy = 0;
+                for (int i = 0; i < nodeIds.Length; i++)
+                {
+                    r += n[i] * coor[i][0];
+                    dx += dn[i] * coor[i][0];
+                    dy += dn[i] * coor[i][1];
+                }
+                for (int i = 0; i < nodeIds.Length; i++)
+                    nodalAreas[i] += gaussWeights[g] * n[i] * 2 * Math.PI * r * Math.Sqrt(dx * dx + dy * dy);
+            }
+            return nodalAreas;
         }
         public CLoad[] GetNodalCLoadsFromImportedSurfaceTraction(ImportedSTLoad load)
         {

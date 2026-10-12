@@ -50,6 +50,31 @@ namespace CaeResults
         private const string _participationFactorsForModeKey = "P A R T I C I P A T I O N   F A C T O R S   F O R   M O D E";
         private const string _modalAssuranceCriteriumKey = "Modal Assurance Criterium";
         private const string _eigenmodeTurningDirectionKey = "E I G E N M O D E   T U R N I N G   D I R E C T I O N";
+        // CalculiX writes these totals of an axisymmetric model for its 2 degree segment, while the loads and the forces
+        // of the results file are given for the full revolution. The statistics of a contact print cover the segment, but
+        // those of a section print cover 1 degree for linear and 2 degrees for parabolic elements, so they are left alone
+        private const double _axisymmetricSegmentsPerRevolution = 180;
+        private static readonly HashSet<string> _axisymmetricSegmentFieldNames = new HashSet<string>()
+        {
+            HOFieldNames.Forces,
+            HOFieldNames.TotalForce,
+            HOFieldNames.ContactPrintEnergy,
+            HOFieldNames.ContactSpringEnergy,
+            HOFieldNames.Volume,
+            HOFieldNames.TotalVolume,
+            HOFieldNames.InternalEnergy,
+            HOFieldNames.TotalInternalEnergy,
+            HOFieldNames.KineticEnergy,
+            HOFieldNames.TotalKineticEnergy
+        };
+        private static readonly HashSet<string> _axisymmetricSegmentStatisticsFieldNames = new HashSet<string>()
+        {
+            HOFieldNames.TotalSurfaceForce,
+            HOFieldNames.MomentAboutOrigin,
+            HOFieldNames.MomentAboutCG,
+            HOFieldNames.SurfaceArea,
+            HOFieldNames.SurfaceLoads
+        };
         //
         private static readonly Dictionary<string, string> _compMapRP = new Dictionary<string, string>()
         {
@@ -131,7 +156,8 @@ namespace CaeResults
         };
 
         // Methods                                                                                                                  
-        static public HistoryResults Read(string fileName, IEnumerable<string> fullNames, out string[] errors)
+        static public HistoryResults Read(string fileName, IEnumerable<string> fullNames, bool axisymmetric,
+                                          out string[] errors)
         {
             errors = null;
             List<string> errorsList = new List<string>();
@@ -292,7 +318,7 @@ namespace CaeResults
                 allHistoryResults.AppendSets(frequencyHistoryOutput);
                 allHistoryResults.AppendSets(bucklingHistoryOutput);
                 //
-                HistoryResults historyOutput = GetHistoryOutput(dataSets.Values, hashSuffixFullNames);
+                HistoryResults historyOutput = GetHistoryOutput(dataSets.Values, hashSuffixFullNames, axisymmetric);
                 AddComplexFields(historyOutput);
                 AddStressComponents(historyOutput);
                 AddStrainComponents(historyOutput);
@@ -1388,7 +1414,7 @@ namespace CaeResults
             return value;
         }
         static private HistoryResults GetHistoryOutput(IEnumerable<DatDataSet> dataSets,
-                                                       Dictionary<string, string> hashSuffixFullNames)
+                                                       Dictionary<string, string> hashSuffixFullNames, bool axisymmetric)
         {
             HistoryResults historyOutput = new HistoryResults("HistoryOutput");
             HistoryResultSet set;
@@ -1401,12 +1427,16 @@ namespace CaeResults
             string valueId;
             string id;
             double time;
+            double factor;
             double[] values;
             //
             foreach (var dataSet in dataSets)
             {
                 repairedDataSet = RepairReferencePointDataSet(dataSet, hashSuffixFullNames);
                 //
+                factor = 1;
+                if (axisymmetric && IsAxisymmetricSegmentDataSet(repairedDataSet))
+                    factor = _axisymmetricSegmentsPerRevolution;
                 time = repairedDataSet.Time;
                 // Get or create a set
                 if (!historyOutput.Sets.TryGetValue(repairedDataSet.SetName, out set))
@@ -1474,15 +1504,15 @@ namespace CaeResults
                              field.Name == HOFieldNames.ContactPrintEnergy ||
                              field.Name == HOFieldNames.ContactSpringEnergy) && entries.Time.Contains(time))
                         {
-                            entries.SumValue(values[j + offset]);
+                            entries.SumValue(values[j + offset] * factor);
                         }
                         // Skip repeating
-                        else if (field.Name == HOFieldNames.TotalNumberOfContactElements && entries.Time.Contains(time)) 
+                        else if (field.Name == HOFieldNames.TotalNumberOfContactElements && entries.Time.Contains(time))
                         { }
                         // Add
                         else
                         {
-                            entries.Add(time, values[j + offset]);
+                            entries.Add(time, values[j + offset] * factor);
                         }
                     }
                 }
@@ -1504,6 +1534,19 @@ namespace CaeResults
             }
             //
             return historyOutput;
+        }
+        static private bool IsAxisymmetricSegmentDataSet(DatDataSet dataSet)
+        {
+            string fieldName = dataSet.FieldName;
+            if (fieldName.EndsWith(HOFieldNames.ComplexRealSuffix))
+                fieldName = fieldName.Substring(0, fieldName.Length - HOFieldNames.ComplexRealSuffix.Length);
+            else if (fieldName.EndsWith(HOFieldNames.ComplexImaginarySuffix))
+                fieldName = fieldName.Substring(0, fieldName.Length - HOFieldNames.ComplexImaginarySuffix.Length);
+            //
+            if (_axisymmetricSegmentFieldNames.Contains(fieldName)) return true;
+            // The contact statistics are named by both of their surfaces
+            return _axisymmetricSegmentStatisticsFieldNames.Contains(fieldName) && dataSet.BaseSetName != null &&
+                   dataSet.BaseSetName.Contains(_atSplitter[0]);
         }
         static private DatDataSet RepairReferencePointDataSet(DatDataSet dataSet, Dictionary<string, string> hashSuffixFullNames)
         {
