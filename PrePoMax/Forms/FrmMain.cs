@@ -10817,44 +10817,63 @@ namespace PrePoMax
         public void GetGeometryPickProperties(double[] point, out int elementId, out int[] edgeNodeIds,
                                               out int[] cellFaceNodeIds, string[] selectionPartNames = null)
         {
-            elementId = -1;
-            edgeNodeIds = null;
-            cellFaceNodeIds = null;
-            try
+            int pickedElementId = -1;
+            int[] pickedEdgeNodeIds = null;
+            int[] pickedCellFaceNodeIds = null;
+            // A command or a script resolves its picks on its own thread, while the user interface thread renders
+            // the same actors and camera, and VTK is not thread safe
+            InvokeIfRequired(() =>
             {
-                if (selectionPartNames != null) _vtk.SetSelectableActorsFilter(selectionPartNames);
-                _vtk.GetGeometryPickProperties(point, out elementId, out edgeNodeIds, out cellFaceNodeIds);
-            }
-            catch { }
-            finally
-            {
-                if (selectionPartNames != null) _vtk.SetSelectableActorsFilter(null);
-            }
+                try
+                {
+                    if (selectionPartNames != null) _vtk.SetSelectableActorsFilter(selectionPartNames);
+                    _vtk.GetGeometryPickProperties(point, out pickedElementId, out pickedEdgeNodeIds,
+                                                   out pickedCellFaceNodeIds);
+                }
+                catch { }
+                finally
+                {
+                    if (selectionPartNames != null) _vtk.SetSelectableActorsFilter(null);
+                }
+            });
+            elementId = pickedElementId;
+            edgeNodeIds = pickedEdgeNodeIds;
+            cellFaceNodeIds = pickedCellFaceNodeIds;
         }
         public void GetClosestCellsOnParts(double[] point, string[] partNames, out double[] distances,
                                            out double[][] normals)
         {
-            _vtk.GetClosestCellsOnActors(point, partNames, out distances, out normals);
+            double[] closestDistances = null;
+            double[][] closestNormals = null;
+            InvokeIfRequired(() => _vtk.GetClosestCellsOnActors(point, partNames, out closestDistances,
+                                                                out closestNormals));
+            distances = closestDistances;
+            normals = closestNormals;
         }
         public double GetSelectionPrecision()
         {
-            return _vtk.GetSelectionPrecision();
+            return InvokeIfRequired(() => _vtk.GetSelectionPrecision());
         }
         public void GetPointAndCellIdsInsideFrustum(double[][] planeParameters, string[] selectionPartNames,
                                                     out int[] pointIds, out int[] cellIds)
         {
-            cellIds = null;
-            pointIds = null;
-            try
+            int[] insidePointIds = null;
+            int[] insideCellIds = null;
+            InvokeIfRequired(() =>
             {
-                if (selectionPartNames != null) _vtk.SetSelectableActorsFilter(selectionPartNames);
-                _vtk.GetPointAndCellIdsInsideFrustum(planeParameters, out pointIds, out cellIds);
-            }
-            catch { }
-            finally
-            {
-                if (selectionPartNames != null) _vtk.SetSelectableActorsFilter(null);
-            }
+                try
+                {
+                    if (selectionPartNames != null) _vtk.SetSelectableActorsFilter(selectionPartNames);
+                    _vtk.GetPointAndCellIdsInsideFrustum(planeParameters, out insidePointIds, out insideCellIds);
+                }
+                catch { }
+                finally
+                {
+                    if (selectionPartNames != null) _vtk.SetSelectableActorsFilter(null);
+                }
+            });
+            pointIds = insidePointIds;
+            cellIds = insideCellIds;
         }
 
         #endregion  ################################################################################################################
@@ -11825,11 +11844,11 @@ namespace PrePoMax
         public double[] GetBoundingBox()
         {
             // xMin, xMax, yMin, yMax, zMin, zMax
-            return _vtk.GetBoundingBox();
+            return InvokeIfRequired(() => _vtk.GetBoundingBox());
         }
         public double[] GetBondingBoxSize()
         {
-            return _vtk.GetBoundingBoxSize();
+            return InvokeIfRequired(() => _vtk.GetBoundingBoxSize());
         }
         public string GetFileNameToOpen(string title)
         {
@@ -12290,7 +12309,7 @@ namespace PrePoMax
         }
         public bool AddAnimatedScalarFieldOn3DCells(vtkMaxActorData actorData)
         {
-            return _vtk.AddAnimatedScalarFieldOnCells(actorData);
+            return InvokeIfRequired(() => _vtk.AddAnimatedScalarFieldOnCells(actorData));
         }
         public void UpdateActorSurfaceScalarField(string actorName, float[] values, NodesExchangeData extremeNodes,
                                                   ResultFieldExchangeData resultField, bool update)
@@ -12400,7 +12419,7 @@ namespace PrePoMax
         //
         public bool ContainsActor(string actorName)
         {
-            return _vtk.ContainsActor(actorName);
+            return InvokeIfRequired(() => _vtk.ContainsActor(actorName));
         }
         public void HighlightActor(string actorName)
         {
@@ -12790,7 +12809,7 @@ namespace PrePoMax
         }
         public float GetAnimationScaleFactor(int frameNumber)
         {
-            return _vtk.GetAnimationScaleFactor(frameNumber);
+            return InvokeIfRequired(() => _vtk.GetAnimationScaleFactor(frameNumber));
         }
         public void SetAnimationAcceleration(bool animationAcceleration)
         {
@@ -12840,7 +12859,12 @@ namespace PrePoMax
         }
         public bool TryGetAnimationNodeData(int nodeId, out double[] coordinates, out float value)
         {
-            return _vtk.TryGetAnimationNodeData(nodeId, out coordinates, out value);
+            double[] nodeCoordinates = null;
+            float nodeValue = 0;
+            bool found = InvokeIfRequired(() => _vtk.TryGetAnimationNodeData(nodeId, out nodeCoordinates, out nodeValue));
+            coordinates = nodeCoordinates;
+            value = nodeValue;
+            return found;
         }
         public void ArrangeVisibleArrowWidgets()
         {
