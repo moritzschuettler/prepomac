@@ -277,6 +277,69 @@ def test_the_deformation():
     pmx.view.result_type = "ColorContours"
 
 
+# The heading of an exported .inp carries a hash of the moment it was written, so it is left out of the comparison
+def read_export(path):
+    with open(path, "r") as reader:
+        lines = [line for line in reader.read().splitlines() if not line.startswith("Hash:")]
+    os.remove(path)
+    return lines
+
+
+def test_the_exported_increment():
+    # An export records the result, the increment and the deformation scale factor it wrote, so that a
+    # regeneration writes the same file whatever the view shows then; those not given are the ones shown
+    result = pmx.results.current
+    part_name = list(result.mesh.parts.get_names())[0]
+    step_id = list(result.steps.get_ids())[0]
+    increment_ids = list(result.steps[step_id].increments.get_ids())
+    plotted = pmx.view.get_result_field()
+    deformation_type = pmx.view.deformation_type
+    deformation_factor = pmx.view.deformation_factor
+    file_name = os.path.join(TEMPORARY_FOLDER, "PyTest_Export.inp")
+    try:
+        pmx.view.set_result_increment(step_id, increment_ids[-1])
+        pmx.view.deformation_type = "UserDefined"
+        pmx.view.deformation_factor = 3.0
+        for extension in [".inp", ".stl"]:
+            shown_file_name = os.path.join(TEMPORARY_FOLDER, "PyTest_Export_Shown" + extension)
+            pmx.export_results(part_name, shown_file_name)
+            shown = read_export(shown_file_name)
+            # The view moves on, and the values given export what was shown before
+            pmx.view.set_result_increment(step_id, increment_ids[0])
+            pmx.view.deformation_factor = 1.0
+            given_file_name = os.path.join(TEMPORARY_FOLDER, "PyTest_Export_Given" + extension)
+            pmx.export_results(part_name, given_file_name, result_name=result.name, step_id=step_id,
+                               increment_id=increment_ids[-1], deformation_factor=3.0)
+            check(read_export(given_file_name) == shown,
+                  "an export given the shown values must write the shown file, whatever the view shows now")
+            pmx.export_results(part_name, given_file_name, step_id=step_id, increment_id=increment_ids[-1],
+                               deformation_factor=1.0)
+            check(read_export(given_file_name) != shown, "the deformation factor given must be the one exported")
+            pmx.view.set_result_increment(step_id, increment_ids[-1])
+            pmx.view.deformation_factor = 3.0
+        # The file name alone finds the result a replay in another work directory loaded
+        pmx.export_results(part_name, file_name, result_name=os.path.basename(result.name))
+        check(os.path.isfile(file_name), "the file name of the result must find it")
+        os.remove(file_name)
+        # What the result does not have is refused before anything is written
+        check_refused(lambda: pmx.export_results(part_name, file_name, result_name="PyTest_No_Such.frd"),
+                      ["'result_name'"], "an export of a result that is not loaded was accepted")
+        check_refused(lambda: pmx.export_results(part_name, file_name, step_id=999), ["999", "'step_id'"],
+                      "an export of a step the result does not have was accepted")
+        check_refused(lambda: pmx.export_results(part_name, file_name, increment_id=9999),
+                      ["9999", "'increment_id'"], "an export of an increment the result does not have was accepted")
+        check_refused(lambda: pmx.export_results(part_name, file_name, deformation_factor=1e39),
+                      ["'deformation_factor'"], "a deformation factor beyond the float range was accepted")
+        check_raises(lambda: pmx.export_results(part_name, file_name, deformation_factor="big"),
+                     "a deformation factor must be a number")
+        check_raises(lambda: pmx.export_results(part_name, file_name, step_id=1.5), "a step ID must be an integer")
+        check(not os.path.isfile(file_name), "a refused export wrote the file")
+    finally:
+        pmx.view.set_result_increment(plotted["step_id"], plotted["increment_id"])
+        pmx.view.deformation_type = deformation_type
+        pmx.view.deformation_factor = deformation_factor
+
+
 def test_the_legend_range():
     pmx.view.set_result_field("DISP", "U3")
     pmx.view.set_legend_range(-1.0, 1.0)
@@ -426,6 +489,7 @@ def main():
         test_a_redraw_keeps_the_plotted_field()
         test_the_plot_type()
         test_the_deformation()
+        test_the_exported_increment()
         test_the_legend_range()
         test_the_camera()
         test_the_annotations()

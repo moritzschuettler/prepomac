@@ -40,7 +40,9 @@ namespace APIs.Python
         void ExportTo3mf(string fileName, double edgeThicknessRatio);
         void ExportGeometry(string[] partNames, string fileName, GeometryExportFormatEnum format);
         void ExportMesh(string[] partNames, string fileName, MeshExportFormatEnum format);
-        void ExportResults(string[] partNames, string fileName, ResultsExportFormatEnum format);
+        // A value that is not given is the one the view shows
+        void ExportResults(string[] partNames, string fileName, ResultsExportFormatEnum format, string resultName,
+                           int? stepId, int? incrementId, float? deformationFactor);
         // Model properties
         void SetNewModelProperties(ModelSpaceEnum modelSpace, UnitSystemType unitSystemType);
         void ReplaceModelProperties(string newModelName, ModelProperties newModelProperties);

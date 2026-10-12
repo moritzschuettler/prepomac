@@ -746,7 +746,7 @@ model item.
 | `pmx.export_geometry(part_names, file_name, format=None)` | Exports the named geometry parts; the extension picks .stp/.step, .brep, .stl or .mesh (Mmg). |
 | `pmx.export_mesh(part_names, file_name, format=None)` | Exports the nodes and elements of the named mesh parts; the extension picks .inp (CalculiX, or `format="Abaqus"`), .msh (Gmsh), .mesh (Mmg) or .stl. |
 | `pmx.export_model(file_name, format=None)` | Exports the whole model as a solver input deck; .inp is CalculiX unless `format="Abaqus"`. |
-| `pmx.export_results(part_names, file_name, format=None)` | Exports the named parts of the current result in their deformed shape; the extension picks .inp (CalculiX mesh) or .stl. |
+| `pmx.export_results(part_names, file_name, format=None, result_name=None, step_id=None, increment_id=None, deformation_factor=None)` | Exports the named parts of a result in their deformed shape; the extension picks .inp (CalculiX mesh) or .stl. The result, its increment and the deformation scale factor are the ones the view shows unless given. |
 
 The four source based exports mirror the **File - Export** menu, whose items are Geometry, Mesh, Model
 and Results: the item names what is exported and the save dialog's filter, or the extension typed,
@@ -763,6 +763,17 @@ regardless of case and written by the journal in this spelling (`"Calculix"`, `"
 recorded before these four existed emits the old per format exports through them, except an .stl or
 Mmg export of the displayed view, whose source was never recorded and which the journal reports as
 unsupported.
+
+`export_results` writes the shape of one increment scaled by one factor. `result_name` is a name
+`pmx.results.get_names()` lists, or the file name alone of one loaded result, which finds the result
+a replay in another work directory loaded; `step_id` and `increment_id` are the result IDs
+`pmx.view.set_result_increment` takes, and an increment the result does not have is refused;
+`deformation_factor` multiplies the displacements, so 0 writes the undeformed shape and 1 the true
+one. Each one that is not given is the one the view shows - the current result, the plotted
+increment and the scale factor the deformation type gives, an automatic one included. The export
+records the values it used, and the journal writes all four, so a regeneration or a replay writes
+the same file whatever the view shows then. An export recorded before it stored them exports what
+the view shows when it is regenerated, as it always did.
 
 `"Step"` and `"Brep"` write one file per part, named `<file_name>_<part_name>`, and are what the
 extension alone selects. `"StepAssembly"` and `"BrepAssembly"` carry the same extensions but write

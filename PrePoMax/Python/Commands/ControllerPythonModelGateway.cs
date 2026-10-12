@@ -164,9 +164,31 @@ namespace PrePoMax.Python
         {
             _controller.ExportMeshPartsCommand(partNames, fileName, format);
         }
-        public void ExportResults(string[] partNames, string fileName, ResultsExportFormatEnum format)
+        // The increment a value that is not given names is the one the view shows, which another result may not have
+        public void ExportResults(string[] partNames, string fileName, ResultsExportFormatEnum format, string resultName,
+                                  int? stepId, int? incrementId, float? deformationFactor)
         {
-            _controller.ExportResultPartsCommand(partNames, fileName, format);
+            CaeResults.FieldData shownFieldData = _controller.CurrentFieldData;
+            if (resultName == null) resultName = _controller.AllResults.GetCurrentResultName();
+            int stepIdValue = stepId ?? (shownFieldData == null ? -1 : shownFieldData.StepId);
+            int incrementIdValue = incrementId ?? (shownFieldData == null ? -1 : shownFieldData.StepIncrementId);
+            //
+            Dictionary<int, int[]> existing = _controller.AllResults.GetResult(resultName).GetAllExistingIncrementIds();
+            int[] incrementIds;
+            if (!existing.TryGetValue(stepIdValue, out incrementIds))
+                throw new PythonAPIException("The result " + resultName + " has no step with the ID " + stepIdValue +
+                                             (stepId == null ? ", the step the view shows" : "") + ". Its step IDs " +
+                                             "are " + string.Join(", ", existing.Keys) + "; give 'step_id'.");
+            if (Array.IndexOf(incrementIds, incrementIdValue) < 0)
+                throw new PythonAPIException("The step " + stepIdValue + " of the result " + resultName + " has no " +
+                                             "increment with the ID " + incrementIdValue +
+                                             (incrementId == null ? ", the increment the view shows" : "") + ". Its " +
+                                             "increment IDs are " + string.Join(", ", incrementIds) + "; give " +
+                                             "'increment_id'.");
+            //
+            float deformationFactorValue = deformationFactor ?? _controller.GetScale();
+            _controller.ExportResultPartsCommand(partNames, fileName, format, resultName, stepIdValue, incrementIdValue,
+                                                 deformationFactorValue);
         }
         // Model properties
         public void SetNewModelProperties(ModelSpaceEnum modelSpace, UnitSystemType unitSystemType)

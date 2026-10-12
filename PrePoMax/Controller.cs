@@ -947,9 +947,19 @@ namespace PrePoMax
             CExportMeshParts comm = new CExportMeshParts(partNames, fileName, format);
             _commands.AddAndExecute(comm);
         }
+        // The export stores the result, the increment and the deformation scale factor the view shows, so that it is
+        // replayed the way it was made
         public void ExportResultPartsCommand(string[] partNames, string fileName, ResultsExportFormatEnum format)
         {
-            CExportResultParts comm = new CExportResultParts(partNames, fileName, format);
+            ExportResultPartsCommand(partNames, fileName, format, _allResults.GetCurrentResultName(),
+                                     _currentFieldData == null ? -1 : _currentFieldData.StepId,
+                                     _currentFieldData == null ? -1 : _currentFieldData.StepIncrementId, GetScale());
+        }
+        public void ExportResultPartsCommand(string[] partNames, string fileName, ResultsExportFormatEnum format,
+                                             string resultName, int stepId, int incrementId, float deformationFactor)
+        {
+            CExportResultParts comm = new CExportResultParts(partNames, fileName, format, resultName, stepId,
+                                                             incrementId, deformationFactor);
             _commands.AddAndExecute(comm);
         }
         
@@ -3090,6 +3100,11 @@ namespace PrePoMax
         }
         private void ExportPartsToStl(FeMesh mesh, string[] partNames, string fileName, ViewGeometryModelResults source)
         {
+            ExportPartsToStl(_allResults.CurrentResult, mesh, partNames, fileName, source, _currentFieldData);
+        }
+        private void ExportPartsToStl(FeResults result, FeMesh mesh, string[] partNames, string fileName,
+                                      ViewGeometryModelResults source, FieldData fieldData)
+        {
             SuppressExplodedView(partNames);
             //
             vtkMaxActorData data;
@@ -3107,7 +3122,7 @@ namespace PrePoMax
                 }
                 else if (source == ViewGeometryModelResults.Results)
                 {
-                    data = GetResultPartActorData((ResultPart)mesh.Parts[partNames[i]], _currentFieldData);
+                    data = GetResultPartActorData(result, (ResultPart)mesh.Parts[partNames[i]], fieldData);
                 }
                 else throw new NotSupportedException();
                 //
@@ -3197,12 +3212,16 @@ namespace PrePoMax
         //
         public void ExportDeformedPartsToCalculix(string[] partNames, string fileName)
         {
-            if (_allResults.CurrentResult != null && _allResults.CurrentResult.Mesh != null)
+            ExportDeformedPartsToCalculix(_allResults.CurrentResult, partNames, fileName);
+        }
+        private void ExportDeformedPartsToCalculix(FeResults result, string[] partNames, string fileName)
+        {
+            if (result != null && result.Mesh != null)
             {
                 SuppressExplodedView();
-                FeModel newModel = new FeModel("Deformed", _allResults.CurrentResult.UnitSystem, false);
+                FeModel newModel = new FeModel("Deformed", result.UnitSystem, false);
                 newModel.Properties.ModelSpace = ModelSpaceEnum.ThreeD;
-                newModel.Mesh.AddPartsFromMesh(_allResults.CurrentResult.Mesh, partNames, null, null, false, false);
+                newModel.Mesh.AddPartsFromMesh(result.Mesh, partNames, null, null, false, false);
                 // Change result parts to mesh parts
                 OrderedDictionary<string, BasePart> meshParts =
                     new OrderedDictionary<string, BasePart>("Base Parts", StringComparer.OrdinalIgnoreCase);
@@ -3343,25 +3362,54 @@ namespace PrePoMax
             if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null ||
                 _allResults.CurrentResult.Mesh.Parts == null)
                 throw new CaeException("There is no result to export.");
+            if (format == ResultsExportFormatEnum.Stl && _currentFieldData == null)
+                throw new CaeException("There is no result field to export the deformed parts with.");
+            //
+            ExportResultParts(partNames, fileName, format, _allResults.GetCurrentResultName(),
+                              _currentFieldData == null ? -1 : _currentFieldData.StepId,
+                              _currentFieldData == null ? -1 : _currentFieldData.StepIncrementId, GetScale());
+        }
+        public void ExportResultParts(string[] partNames, string fileName, ResultsExportFormatEnum format,
+                                      string resultName, int stepId, int incrementId, float deformationFactor)
+        {
+            string foundResultName = _allResults.FindResultName(resultName);
+            FeResults result = foundResultName == null ? null : _allResults.GetResult(foundResultName);
+            if (result == null || result.Mesh == null || result.Mesh.Parts == null)
+                throw new CaeException("There is no result " + resultName + " to export.");
             //
             foreach (var partName in partNames)
             {
-                if (!_allResults.CurrentResult.Mesh.Parts.ContainsKey(partName))
+                if (!result.Mesh.Parts.ContainsKey(partName))
                     throw new CaeException("The result part " + partName + " does not exist.");
             }
+            int[] incrementIds;
+            if (!result.GetAllExistingIncrementIds().TryGetValue(stepId, out incrementIds) ||
+                Array.IndexOf(incrementIds, incrementId) < 0)
+                throw new CaeException("The result " + foundResultName + " has no increment " + incrementId +
+                                       " in the step " + stepId + ".");
             //
-            switch (format)
+            try
             {
-                case ResultsExportFormatEnum.Calculix:
-                    ExportDeformedPartsToCalculix(partNames, fileName);
-                    break;
-                case ResultsExportFormatEnum.Stl:
-                    if (_currentFieldData == null)
-                        throw new CaeException("There is no result field to export the deformed parts with.");
-                    ExportPartsToStl(_allResults.CurrentResult.Mesh, partNames, fileName, ViewGeometryModelResults.Results);
-                    break;
-                default:
-                    throw new NotSupportedException();
+                result.SetMeshDeformation(deformationFactor, stepId, incrementId);
+                switch (format)
+                {
+                    case ResultsExportFormatEnum.Calculix:
+                        ExportDeformedPartsToCalculix(result, partNames, fileName);
+                        break;
+                    case ResultsExportFormatEnum.Stl:
+                        FieldData fieldData = new FieldData(FOFieldNames.None, FOComponentNames.None, stepId, incrementId);
+                        fieldData.Valid = false;
+                        ExportPartsToStl(result, result.Mesh, partNames, fileName, ViewGeometryModelResults.Results,
+                                         fieldData);
+                        break;
+                    default:
+                        throw new NotSupportedException();
+                }
+            }
+            finally
+            {
+                if (result == _allResults.CurrentResult && _currentFieldData != null)
+                    result.SetMeshDeformation(GetScale(), _currentFieldData.StepId, _currentFieldData.StepIncrementId);
             }
         }
         //
@@ -30262,18 +30310,22 @@ namespace PrePoMax
         }
         private vtkMaxActorData GetResultPartActorData(ResultPart part, FieldData fieldData)
         {
+            return GetResultPartActorData(_allResults.CurrentResult, part, fieldData);
+        }
+        private vtkMaxActorData GetResultPartActorData(FeResults result, ResultPart part, FieldData fieldData)
+        {
             if (part.Labels.Length == 0) return null;
             // Get visualization nodes and renumbered elements           
-            PartExchangeData actorResultData = _allResults.CurrentResult.GetVisualizationNodesCellsAndValues(part, fieldData);
+            PartExchangeData actorResultData = result.GetVisualizationNodesCellsAndValues(part, fieldData);
             // Model edges
             PartExchangeData modelEdgesResultData = null;
             if (part.PartType.HasEdges() && part.Visualization.EdgeCells != null)
             {
-                modelEdgesResultData = _allResults.CurrentResult.GetEdgesNodesAndCells(part, fieldData);
+                modelEdgesResultData = result.GetEdgesNodesAndCells(part, fieldData);
             }
             //
             vtkMaxActorData data = GetVtkData(actorResultData, modelEdgesResultData);
-            SetVolumeGridData(data, _allResults.CurrentResult.Mesh, part);
+            SetVolumeGridData(data, result.Mesh, part);
             data.Name = part.Name;
             GetPartColor(part, ref data.Color, ref data.BackfaceColor);
             data.ColorContours = _viewResultsType == ViewResultsTypeEnum.ColorContours &&

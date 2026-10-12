@@ -189,9 +189,37 @@ namespace APIs.Python.Model
             if (formatValue == ModelExportFormatEnum.Abaqus) _modelGateway.ExportToAbaqus(fullFileName);
             else _modelGateway.ExportToCalculix(fullFileName);
         }
-        public void ExportResults(object partNames, string fileName, string format)
+        // A value that is not given is the one the view shows, which the gateway reads
+        public void ExportResults(object partNames, string fileName, string format, string resultName, object stepId,
+                                  object incrementId, object deformationFactor)
         {
-            string[] names = ResolveResultPartNames(partNames);
+            string storedResultName = null;
+            FeMesh mesh;
+            if (resultName == null) mesh = GetCurrentResultMesh();
+            else
+            {
+                storedResultName = _resultResolver == null ? null : _resultResolver.FindResultName(resultName);
+                if (storedResultName == null)
+                    throw new PythonAPIException("The result '" + resultName + "' is not loaded. The argument " +
+                                                 "'result_name' takes the name pmx.results.get_names() lists, or " +
+                                                 "the file name of one loaded result.");
+                mesh = _resultResolver.ResolveResult(storedResultName).Mesh;
+            }
+            string[] names = PythonModelArgumentCheck.ToStoredPartNames(mesh, ToPartNames(partNames), "result");
+            int? stepIdValue = stepId == null ? (int?)null : PythonValueConverter.ToInt(stepId, "step_id");
+            int? incrementIdValue = incrementId == null ? (int?)null
+                                                        : PythonValueConverter.ToInt(incrementId, "increment_id");
+            float? factor = null;
+            if (deformationFactor != null)
+            {
+                double factorValue = PythonValueConverter.ToFiniteDouble(deformationFactor, "deformation_factor");
+                if (float.IsInfinity((float)factorValue))
+                    throw new PythonAPIException("The argument 'deformation_factor' must be within the range of a " +
+                                                 "single precision float, about 3.4e38: " +
+                                                 factorValue.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                                                 ".");
+                factor = (float)factorValue;
+            }
             string fullFileName = ResolveOutputFileName(fileName, "file_name");
             ResultsExportFormatEnum formatValue;
             if (format != null) formatValue = PythonValueConverter.ToEnum<ResultsExportFormatEnum>(format, "format");
@@ -200,7 +228,8 @@ namespace APIs.Python.Model
                                              "format. Use .inp or .stl, or give the argument 'format'.");
             //
             EnsureCommandsAvailable();
-            _modelGateway.ExportResults(names, fullFileName, formatValue);
+            _modelGateway.ExportResults(names, fullFileName, formatValue, storedResultName, stepIdValue, incrementIdValue,
+                                        factor);
         }
         //
         public string GetModelType()
@@ -636,14 +665,13 @@ namespace APIs.Python.Model
             string[] names = ToPartNames(partNames);
             return PythonModelArgumentCheck.ToStoredPartNames(_modelResolver.GetMesh(), names, "mesh");
         }
-        private string[] ResolveResultPartNames(object partNames)
+        private FeMesh GetCurrentResultMesh()
         {
-            string[] names = ToPartNames(partNames);
             FeMesh mesh = _resultResolver == null ? null : _resultResolver.GetCurrentResultMeshOrNull();
             if (mesh == null)
                 throw new PythonAPIException("No current result is selected.");
             //
-            return PythonModelArgumentCheck.ToStoredPartNames(mesh, names, "result");
+            return mesh;
         }
         private string ResolveExistingFileName(string fileName, string argumentName)
         {

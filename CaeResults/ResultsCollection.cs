@@ -155,6 +155,35 @@ namespace CaeResults
         {
             return _results.ContainsKey(name);
         }
+        // A result is named by the path it was loaded from, which another work directory changes, so a name that is
+        // not loaded finds the one loaded result of the same file name
+        public string FindResultName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            //
+            foreach (var entry in _results)
+            {
+                if (string.Equals(entry.Key, name, StringComparison.OrdinalIgnoreCase)) return entry.Key;
+            }
+            //
+            string fileName;
+            string foundName = null;
+            try
+            {
+                fileName = Path.GetFileName(name);
+                foreach (var entry in _results)
+                {
+                    if (!string.Equals(Path.GetFileName(entry.Key), fileName, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (foundName != null) return null;
+                    foundName = entry.Key;
+                }
+            }
+            catch (ArgumentException)
+            {
+                return null;
+            }
+            return foundName;
+        }
         public bool ContainsComplexResults()
         {
             foreach (var entry in _results)

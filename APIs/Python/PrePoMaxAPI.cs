@@ -245,15 +245,28 @@ namespace APIs.Python
             _documentService.ExportModel(fileName, formatText);
         }
 
-        [PythonAPI("Exports the named parts of the current result in their deformed shape using command history. " +
-                   "The file extension picks the format: .inp is a CalculiX mesh, .stl the deformed visualization " +
-                   "surface. Give 'format' to override the extension.",
-                   Arguments = "part_names: list[str] or str, file_name: str, format: str = None", Returns = "None")]
-        public void export_results(object part_names, object file_name, object format = null)
+        [PythonAPI("Exports the named parts of a result in their deformed shape using command history. The file " +
+                   "extension picks the format: .inp is a CalculiX mesh, .stl the deformed visualization surface. " +
+                   "Give 'format' to override the extension. The result, its increment and the deformation scale " +
+                   "factor are the ones the view shows unless given: result_name is a name pmx.results.get_names() " +
+                   "lists, or the file name of one loaded result; step_id and increment_id are the result step and " +
+                   "increment IDs pmx.view.set_result_increment takes; deformation_factor multiplies the " +
+                   "displacements, 0 for the undeformed shape. The export records the values it used, so a " +
+                   "regeneration writes the same file whatever the view shows then.",
+                   Arguments = "part_names: list[str] or str, file_name: str, format: str = None, " +
+                               "result_name: str = None, step_id: int = None, increment_id: int = None, " +
+                               "deformation_factor: float = None",
+                   Returns = "None",
+                   Example = "pmx.export_results('Solid_part-1', 'deformed.stl', step_id=1, increment_id=2, " +
+                             "deformation_factor=5)")]
+        public void export_results(object part_names, object file_name, object format = null, object result_name = null,
+                                   object step_id = null, object increment_id = null, object deformation_factor = null)
         {
             string fileName = PythonValueConverter.ToText(file_name, "file_name", false);
             string formatText = PythonValueConverter.ToText(format, "format", true);
-            _documentService.ExportResults(part_names, fileName, formatText);
+            string resultName = PythonValueConverter.ToText(result_name, "result_name", true);
+            _documentService.ExportResults(part_names, fileName, formatText, resultName, step_id, increment_id,
+                                           deformation_factor);
         }
         public override string ToString()
         {
