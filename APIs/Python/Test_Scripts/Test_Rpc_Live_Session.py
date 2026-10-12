@@ -27,7 +27,9 @@
 #constraint, contact pair and initial condition dialogs set. One more carries replaces that keep a
 #reference to a region, an amplitude, a distribution, a coordinate system, a reference point, a material,
 #a surface interaction or a contact pair a rename or a remove took away: the journal leaves it out, as the
-#API keeps it, while a name made again is written. One more carries a
+#API keeps it, while a name made again is written. A section, a node set surface and a reference point keep
+#such a reference also when it is given by the name they hold, and a new name that does not exist is still
+#refused. One more carries a
 #recorded script that binds selection_1, which must not change the journal lines after it, and the global
 #results file of a submodel, which must exist, so a cleared one is refused. A recorded script that fails part way must be
 #recorded with what it changed before the error and its journal must run it to that error and go on, a
@@ -1187,6 +1189,9 @@ def read_kept_references(client):
     outputs = step + ".history_outputs"
     constraints = "pmx.model.constraints"
     pair = "pmx.model.contact_pairs['kept_pair_2']"
+    sections = "pmx.model.sections"
+    surfaces = "pmx.model.surfaces"
+    points = "pmx.model.reference_points"
     expressions = [loads + "['kept_pressure'].region_name", loads + "['kept_pressure'].amplitude_name",
                    loads + "['kept_pressure'].get_value('distribution_name')",
                    loads + "['kept_pressure'].get_value('magnitude')",
@@ -1207,6 +1212,17 @@ def read_kept_references(client):
                    "pmx.model.initial_conditions['kept_temperature'].get_value('distribution_name')",
                    "pmx.model.initial_conditions['kept_temperature'].get_value('temperature')",
                    "pmx.model.distributions['kept_distribution_2'].coordinate_system_name",
+                   sections + "['kept_section_set_2'].region_name", sections + "['kept_section_set_2'].material_name",
+                   sections + "['kept_section_named_2'].region_name",
+                   sections + "['kept_section_named_2'].material_name",
+                   surfaces + "['kept_node_face'].node_set_name", surfaces + "['kept_node_face'].surface_type",
+                   surfaces + "['kept_node_named'].node_set_name", surfaces + "['kept_node_named'].surface_type",
+                   "sorted(" + points + "['kept_rp_region'].get_construction().items())",
+                   "sorted(" + points + "['kept_rp_named'].get_construction().items())",
+                   points + "['kept_rp_named'].name_visible",
+                   "[item.valid for item in [" + sections + "['kept_section_set_2'], " + sections +
+                   "['kept_section_named_2'], " + surfaces + "['kept_node_face'], " + surfaces +
+                   "['kept_node_named'], " + points + "['kept_rp_region'], " + points + "['kept_rp_named']]]",
                    "[item.valid for item in list(" + loads + ") + list(" + constraints + ") + list(" + outputs + ")]"]
     value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
     check(not value["failed"], "the kept references must be readable: " + value["error"])
@@ -1216,7 +1232,8 @@ def read_kept_references(client):
 def check_journal_of_kept_references(client):
     """A replace keeps a reference to a region, a distribution, an amplitude, a coordinate system, a reference point,
     a material, a surface interaction or a contact pair that a rename or a remove took away, and its journal must
-    leave that reference out rather than name what the replay does not find."""
+    leave that reference out rather than name what the replay does not find. A section, a node set surface and a
+    reference point keep it also when the replace names it as the item holds it."""
     model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
     result = client.result("exec", {"source": model + os.linesep +
                                               "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
@@ -1253,6 +1270,13 @@ def check_journal_of_kept_references(client):
         "coordinate_system_name='kept_cs')",
         "step.history_outputs.add_contact('kept_contact', 'kept_pair', ['CF'])",
         "step.history_outputs.add_element('kept_stress', region('ElementSetName', 'kept_elements'), ['S'])",
+        "pmx.model.sections.add_solid('kept_section_set', 'kept_material', region('ElementSetName', 'kept_elements'))",
+        "pmx.model.sections.add_solid('kept_section_named', 'kept_material', region('ElementSetName', "
+        "'kept_elements'))",
+        "pmx.model.surfaces.add_from_node_set('kept_node_face', 'kept_set')",
+        "pmx.model.surfaces.add_from_node_set('kept_node_named', 'kept_set')",
+        "pmx.model.reference_points.add_from_region('kept_rp_region', 'CenterOfGravity', 'NodeSetName', 'kept_gone')",
+        "pmx.model.reference_points.add_from_region('kept_rp_named', 'CenterOfGravity', 'NodeSetName', 'kept_gone')",
         # A name taken away and made again is a name the replay finds, so a replace that picks it names it
         "pmx.model.amplitudes.add('kept_again', [[0, 0], [1, 2]])",
         "step.loads.add_pressure('kept_named', face(5), 1, amplitude_name='kept_again')",
@@ -1281,10 +1305,39 @@ def check_journal_of_kept_references(client):
         "step.history_outputs.replace_contact('kept_contact', variables=['CF', 'CNUM'])",
         "step.history_outputs.replace_element('kept_stress', variables=['S', 'E'])",
         "pmx.model.initial_conditions.replace_temperature('kept_temperature', temperature=30)",
-        "pmx.model.distributions.replace_from_equation('kept_distribution_2', equation='=2')"])
+        "pmx.model.distributions.replace_from_equation('kept_distribution_2', equation='=2')",
+        "pmx.model.sections.replace_solid('kept_section_set', name='kept_section_set_2')",
+        "pmx.model.surfaces.replace_from_node_set('kept_node_face', surface_type='Node')",
+        "pmx.model.reference_points.replace_from_region('kept_rp_region', created_from='BoundingBoxCenter')",
+        # A reference given by the name the item already holds is kept the same way
+        "pmx.model.sections.replace_solid('kept_section_named', name='kept_section_named_2', "
+        "material_name='kept_material', region=region('ElementSetName', 'kept_elements'))",
+        "pmx.model.surfaces.replace_from_node_set('kept_node_named', node_set_name='kept_set', surface_type='Node')",
+        "pmx.model.reference_points.replace_from_region('kept_rp_named', region_type='NodeSetName', "
+        "region_name='kept_gone', name_visible=False)"])
     result = client.result("exec", {"source": source})
     check(not result["failed"], "the replaces that keep references must be accepted: " + result["error"])
+    # A new reference that does not exist is still refused, and records nothing
+    for refused in ["pmx.model.sections.replace_solid('kept_section_set_2', region=pmx.create.region("
+                    "'ElementSetName', 'kept_nowhere'))",
+                    "pmx.model.sections.replace_solid('kept_section_set_2', material_name='kept_nowhere')",
+                    "pmx.model.surfaces.replace_from_node_set('kept_node_face', node_set_name='kept_nowhere')",
+                    "pmx.model.reference_points.replace_from_region('kept_rp_region', region_name='kept_nowhere')",
+                    "pmx.model.reference_points.replace_from_region('kept_rp_region', region_type='SurfaceName')"]:
+        result = client.result("exec", {"source": refused})
+        check(result["failed"] and "does not exist" in result["error"],
+              refused + " must be refused as naming what does not exist: " + str(result))
+        check(len(result["recordedCommands"]) == 0, refused + " must record nothing: " + str(result))
     recorded = read_kept_references(client)
+    check(recorded[26:30] == ["kept_elements", "kept_material", "kept_elements", "kept_material"],
+          "the sections must keep their element set and material: " + str(recorded))
+    check(recorded[30:34] == ["kept_set", "Node", "kept_set", "Node"],
+          "the surfaces must keep their node set and take the new type: " + str(recorded))
+    check(recorded[34] == [["created_from", "BoundingBoxCenter"], ["region_name", "kept_gone"],
+                           ["region_type", "NodeSetName"]] and recorded[36] is False,
+          "the reference points must keep their node set and take the new values: " + str(recorded))
+    check(recorded[-2] == [False] * 6, "the sections, surfaces and reference points keeping a reference taken " +
+          "away must stay invalid: " + str(recorded))
     check(recorded[0:2] == ["kept_face", "kept_ramp"] and recorded[3] == 2,
           "the pressure must keep its references and take the new magnitude: " + str(recorded))
     check(recorded[7] == "kept_again", "the pressure must take the amplitude made again: " + str(recorded))
@@ -1306,7 +1359,10 @@ def check_journal_of_kept_references(client):
     for expected in ["amplitude_name='kept_again'", "replace_pressure('kept_pressure','kept_pressure',magnitude=2",
                      "replace_point_spring('kept_spring','kept_spring',k1=2", "slave_region=",
                      "replace_contact('kept_contact','kept_contact',variables=",
-                     "replace_temperature('kept_temperature','kept_temperature',temperature=30"]:
+                     "replace_temperature('kept_temperature','kept_temperature',temperature=30",
+                     "replace_solid('kept_section_set','kept_section_set_2')",
+                     "replace_from_node_set('kept_node_face','kept_node_face',surface_type='Node')",
+                     "replace_from_region('kept_rp_region','kept_rp_region','BoundingBoxCenter',"]:
         check(expected in replaces, expected + " is missing from the journal:" + os.linesep + journal_source)
     result = client.result("exec", {"source": model})
     check(not result["failed"], "the model must be cleared for the replay: " + result["error"])

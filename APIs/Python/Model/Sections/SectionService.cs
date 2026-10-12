@@ -82,6 +82,20 @@ namespace APIs.Python.Model
             //
             return material.Name;
         }
+        // A replace keeps a reference a rename or a remove took away, the section staying invalid, also when it
+        // is given by the name the section already holds
+        public bool IsKeptMissingMaterial(Section section, string materialName)
+        {
+            return PythonNameComparer.AreSame(materialName, section.MaterialName) &&
+                   !_modelResolver.GetModel().Materials.ContainsKey(section.MaterialName);
+        }
+        public bool IsKeptMissingRegion(Section section, object region)
+        {
+            RegionAPI named = region as RegionAPI;
+            if (named == null || named.RegionType != section.RegionType) return false;
+            //
+            return PythonNameComparer.AreSame(named.name, section.RegionName) && IsMissingRegion(section);
+        }
         // The solid, shell and membrane dialogs build an element set, and the solid one does it by
         // picking parts, so an element region accepts either target
         public void ApplyRegion(Section section, object region, string target)
@@ -99,8 +113,11 @@ namespace APIs.Python.Model
         }
         public void Replace(string oldName, Section section)
         {
-            string storedName = ResolveSection(oldName).Name;
-            EnsureCompatibleRegion(section);
+            Section existing = ResolveSection(oldName);
+            string storedName = existing.Name;
+            bool keptMissingRegion = section.RegionType == existing.RegionType &&
+                                     section.RegionName == existing.RegionName && IsMissingRegion(section);
+            if (!keptMissingRegion) EnsureCompatibleRegion(section);
             //
             EnsureCommandsAvailable();
             _modelGateway.ReplaceSection(storedName, section);
@@ -217,6 +234,23 @@ namespace APIs.Python.Model
             }
             //
             return false;
+        }
+        private bool IsMissingRegion(Section section)
+        {
+            if (section.RegionType == RegionTypeEnum.Selection || section.RegionName == null) return false;
+            //
+            FeMesh mesh = _modelResolver.GetModel().Mesh;
+            if (mesh == null) return true;
+            //
+            switch (section.RegionType)
+            {
+                case RegionTypeEnum.PartName: return !mesh.Parts.ContainsKey(section.RegionName);
+                case RegionTypeEnum.ElementSetName: return !mesh.ElementSets.ContainsKey(section.RegionName);
+                case RegionTypeEnum.NodeSetName: return !mesh.NodeSets.ContainsKey(section.RegionName);
+                case RegionTypeEnum.SurfaceName: return !mesh.Surfaces.ContainsKey(section.RegionName);
+                case RegionTypeEnum.ReferencePointName: return !mesh.ReferencePoints.ContainsKey(section.RegionName);
+                default: return false;
+            }
         }
         // A part selection carries part or geometry ids and an element selection element ids
         private static HashSet<BasePart> GetSelectedParts(FeMesh mesh, Section section)

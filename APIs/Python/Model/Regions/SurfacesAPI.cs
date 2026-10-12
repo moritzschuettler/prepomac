@@ -67,7 +67,8 @@ namespace APIs.Python.Model
             return this[nameText == null ? oldName : nameText];
         }
         [PythonAPI("Replaces an existing surface from a node set using command history. A value that is not " +
-                   "given is kept, the surface_type included.",
+                   "given is kept, the surface_type included. A node set a rename or a remove took away is kept " +
+                   "when it is not given or is given by the name the surface holds, and the surface stays invalid.",
                    Arguments = "old_name: str, name: str = None, node_set_name: str = None, " +
                                "surface_type: str = None",
                    Returns = "Surface")]

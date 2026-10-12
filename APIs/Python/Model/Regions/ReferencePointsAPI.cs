@@ -107,7 +107,9 @@ namespace APIs.Python.Model
             return this[nameText == null ? oldName : nameText];
         }
 
-        [PythonAPI("Replaces a reference point by a named region the way add_from_region does.",
+        [PythonAPI("Replaces a reference point by a named region the way add_from_region does. A region a " +
+                   "rename or a remove took away is kept when it is not given or is given by the type and the " +
+                   "name the point holds, and the point stays invalid.",
                    Arguments = "old_name: str, name: str = None, created_from: str = None, " +
                                "region_type: str = None, region_name: str = None, " +
                                "name_visible: bool = None, color: list[int] or str = None",

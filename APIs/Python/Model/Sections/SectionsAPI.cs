@@ -15,6 +15,9 @@ namespace APIs.Python.Model
     public class SectionsAPI : ModelItemsAPI<Section, SectionAPI>
     {
         // Variables
+        private const string KeptReferenceNote = " A reference a rename or a remove took away is kept when it is " +
+                                                 "not given or is given by the name the section holds, and the " +
+                                                 "section stays invalid.";
         private readonly SectionService _service;
 
 
@@ -129,7 +132,7 @@ namespace APIs.Python.Model
             return this[nameText];
         }
         //
-        [PythonAPI("Replaces a solid section, keeping every value that is not given.",
+        [PythonAPI("Replaces a solid section, keeping every value that is not given." + KeptReferenceNote,
                    Arguments = "old_name: str, name: str = None, material_name: str = None, " +
                                "region: Selection or Region = None, thickness: float = None",
                    Returns = "Section")]
@@ -145,7 +148,7 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, materialName, region, section, "elements");
         }
 
-        [PythonAPI("Replaces a shell section, keeping every value that is not given.",
+        [PythonAPI("Replaces a shell section, keeping every value that is not given." + KeptReferenceNote,
                    Arguments = "old_name: str, name: str = None, material_name: str = None, " +
                                "region: Selection or Region = None, thickness: float = None, " +
                                "offset: float = None",
@@ -164,7 +167,7 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, materialName, region, section, "elements");
         }
 
-        [PythonAPI("Replaces a membrane section, keeping every value that is not given.",
+        [PythonAPI("Replaces a membrane section, keeping every value that is not given." + KeptReferenceNote,
                    Arguments = "old_name: str, name: str = None, material_name: str = None, " +
                                "region: Selection or Region = None, thickness: float = None, " +
                                "offset: float = None",
@@ -183,7 +186,7 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, materialName, region, section, "elements");
         }
 
-        [PythonAPI("Replaces a point mass section, keeping every value that is not given.",
+        [PythonAPI("Replaces a point mass section, keeping every value that is not given." + KeptReferenceNote,
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
                                "mass: float = None", Returns = "Section")]
         public SectionAPI replace_point_mass(object old_name, object name = null, object region = null,
@@ -197,7 +200,8 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, null, region, section, "nodes");
         }
 
-        [PythonAPI("Replaces a distributed mass section, keeping every value that is not given.",
+        [PythonAPI("Replaces a distributed mass section, keeping every value that is not given." +
+                   KeptReferenceNote,
                    Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
                                "mass: float = None", Returns = "Section")]
         public SectionAPI replace_distributed_mass(object old_name, object name = null, object region = null,
@@ -262,10 +266,11 @@ namespace APIs.Python.Model
         {
             string newName = name == null ? section.Name : name;
             _service.ValidateNewName(newName, oldName);
-            string storedMaterialName = materialName == null ? null : _service.GetStoredMaterialName(materialName);
+            if (materialName != null && !_service.IsKeptMissingMaterial(section, materialName))
+                section.MaterialName = _service.GetStoredMaterialName(materialName);
             section.Name = newName;
-            if (storedMaterialName != null) section.MaterialName = storedMaterialName;
-            if (region != null) _service.ApplyRegion(section, region, target);
+            if (region != null && !_service.IsKeptMissingRegion(section, region))
+                _service.ApplyRegion(section, region, target);
             _service.Replace(oldName, section);
             //
             return this[newName];

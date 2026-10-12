@@ -1645,6 +1645,9 @@ with; otherwise the call is refused with `The section type and the section regio
 naming `region`. In a 3D model a solid section needs solid parts or solid elements, and a shell or a membrane
 section shell parts or shell elements. In a 2D model a solid section needs the parts of the 2D mesh or their
 elements, and a shell, a membrane or a point mass section is taken on a selection only, never on a named region.
+A replace that keeps a named region or a material a rename or a remove took away - one it is not given, or one
+given by the name the section holds - is accepted and not judged: the section keeps the reference and stays
+invalid, and the values the replace changes apply. A new region or material that does not exist is refused.
 
 A replacement is typed: replacing a solid section as a shell section is refused rather than silently
 turning it into one, with `The section 'X' is made by add_solid, so replace_shell cannot replace it.`
@@ -1712,7 +1715,7 @@ refuse to name it, naming the argument.
 | `add(name, selection, surface_type=None)` | Creates a surface from a selection. The selection target is `surfaces`. |
 | `add_from_node_set(name, node_set_name, surface_type=None)` | Creates a surface from an existing node set. |
 | `replace(old_name, name=None, selection=None, surface_type=None)` | Replaces an existing surface. A value that is not given is kept, the `surface_type` included. |
-| `replace_from_node_set(old_name, name=None, node_set_name=None, surface_type=None)` | Replaces a surface by another node set. A node set that is not given is the one the surface already uses, and the `surface_type` is kept when not given. |
+| `replace_from_node_set(old_name, name=None, node_set_name=None, surface_type=None)` | Replaces a surface by another node set. A node set that is not given is the one the surface already uses, and the `surface_type` is kept when not given. A node set a rename or a remove took away is kept, not given or given by the name the surface holds, and the surface stays invalid; a new node set that does not exist is refused. |
 
 `surface_type` is `Element`, a surface of element faces and the default, or `Node`, a surface of the nodes on those
 faces, as the dialog offers them. A load acts on an `Element` surface only: the load dialog lists no other, so a
@@ -1753,6 +1756,8 @@ arguments of `add_from_region`. `region_type` and `region_name` are `None` unles
 
 `replace_from_selection` and `replace_from_region` keep the stored selection or region only while the point is still of
 that kind. A replace that switches the kind drops the data of the old kind, so a later replace cannot bring it back.
+`replace_from_region` keeps a region a rename or a remove took away - not given, or given by the type and the name the
+point holds - and the point stays invalid; a new region that does not exist is refused.
 
 ### `CoordinateSystems`
 

@@ -234,7 +234,7 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument 'region_type' must be NodeSetName or SurfaceName.");
             if (regionName == null || regionName.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'region_name' must not be empty.");
-            string storedRegionName = GetStoredRegionName(region, regionName);
+            string storedRegionName = GetStoredRegionName(region, regionName, referencePoint);
             //
             referencePoint.CreatedFrom = mode;
             referencePoint.RegionType = region;
@@ -321,8 +321,9 @@ namespace APIs.Python.Model
                    mode == FeReferencePointCreatedFrom.BoundingBoxCenter;
         }
         // The controller follows a renamed or replaced region by comparing names exactly, so the name is
-        // stored in the model's own spelling rather than the caller's
-        private string GetStoredRegionName(RegionTypeEnum region, string regionName)
+        // stored in the model's own spelling rather than the caller's. A replace keeps the region a rename or a
+        // remove took away, the point staying invalid, also when it is given by the name the point already holds
+        private string GetStoredRegionName(RegionTypeEnum region, string regionName, FeReferencePoint referencePoint)
         {
             FeMesh mesh = GetMeshOrNull();
             NamedClass item = null;
@@ -339,6 +340,9 @@ namespace APIs.Python.Model
                     if (mesh.Surfaces.TryGetValue(regionName, out surface)) item = surface;
                 }
             }
+            if (item == null && IsRegionKind(referencePoint.CreatedFrom) && referencePoint.RegionType == region &&
+                PythonNameComparer.AreSame(regionName, referencePoint.RegionName))
+                return referencePoint.RegionName;
             if (item == null)
                 throw new PythonAPIException("The " + region + " '" + regionName + "' does not exist.");
             RefuseInternalArgument(item, region == RegionTypeEnum.NodeSetName ? "node set" : "surface", "region_name");

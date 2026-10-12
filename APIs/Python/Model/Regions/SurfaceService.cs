@@ -62,7 +62,7 @@ namespace APIs.Python.Model
         {
             ValidateNewName(name, null);
             FeSurfaceType type = ToSurfaceType(surfaceType, FeSurfaceType.Element);
-            FeSurface surface = BuildFromNodeSet(name, nodeSetName);
+            FeSurface surface = BuildFromNodeSet(name, nodeSetName, null);
             surface.Type = type;
             //
             EnsureCommandsAvailable();
@@ -100,7 +100,7 @@ namespace APIs.Python.Model
             // A node set surface is fully described by its node set, so it is built rather than cloned;
             // a node set that is not given is the one the surface already uses
             string keptNodeSetName = nodeSetName != null ? nodeSetName : GetKeptNodeSetName(existing);
-            FeSurface surface = BuildFromNodeSet(newName, keptNodeSetName);
+            FeSurface surface = BuildFromNodeSet(newName, keptNodeSetName, existing);
             surface.Type = type;
             //
             EnsureCommandsAvailable();
@@ -152,19 +152,28 @@ namespace APIs.Python.Model
             //
             return surface.CreatedFromNodeSetName;
         }
-        private FeSurface BuildFromNodeSet(string name, string nodeSetName)
+        // A replace keeps the node set a rename or a remove took away, the surface staying invalid, also when it is
+        // given by the name the surface already holds
+        private FeSurface BuildFromNodeSet(string name, string nodeSetName, FeSurface existing)
         {
             if (nodeSetName == null || nodeSetName.Trim().Length == 0)
                 throw new PythonAPIException("The argument 'node_set_name' must not be empty.");
             //
             FeMesh mesh = GetMeshOrNull();
             FeNodeSet nodeSet = null;
-            if (mesh == null || !mesh.NodeSets.TryGetValue(nodeSetName, out nodeSet))
-                throw new PythonAPIException("The node set '" + nodeSetName + "' does not exist.");
-            RefuseInternalArgument(nodeSet, "node set", "node_set_name");
+            string storedNodeSetName;
+            if (mesh != null && mesh.NodeSets.TryGetValue(nodeSetName, out nodeSet))
+            {
+                RefuseInternalArgument(nodeSet, "node set", "node_set_name");
+                storedNodeSetName = nodeSet.Name;
+            }
+            else if (existing != null && existing.CreatedFrom == FeSurfaceCreatedFrom.NodeSet &&
+                     PythonNameComparer.AreSame(nodeSetName, existing.CreatedFromNodeSetName))
+                storedNodeSetName = existing.CreatedFromNodeSetName;
+            else throw new PythonAPIException("The node set '" + nodeSetName + "' does not exist.");
             // The controller follows a renamed node set by comparing names exactly, so the surface stores the
             // model's own spelling rather than the caller's
-            FeSurface surface = new FeSurface(name, nodeSet.Name);
+            FeSurface surface = new FeSurface(name, storedNodeSetName);
             surface.CreatedFrom = FeSurfaceCreatedFrom.NodeSet;
             //
             return surface;
