@@ -197,5 +197,9 @@ namespace PrePoMax.Python
         {
             _controller.RemoveResultHistoryFieldsCommand(historyOutputName, fieldName, componentNames);
         }
+        public IntegrationScaleType GetDefaultResultIntegrationCrossSection()
+        {
+            return _controller.GetDefaultResultIntegrationCrossSection();
+        }
     }
 }

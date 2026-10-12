@@ -2982,8 +2982,14 @@ a contact or section print (`MOMENT_ABOUT_ORIGIN`, `MOMENT_ABOUT_CG`, and `TORQU
 masses and the total effective mass. The modes of a frequency and a complex frequency step are normalized to the mass
 of the full revolution, so the axial participation factor times the mode is 1 as in a 3D model of the same body: the
 displacements, stresses, strains, forces and contact values of a mode, in the .frd file and in the history CalculiX
-prints for it, are divided by the square root of 180, and its energies by 180. Buckling modes, which CalculiX
-normalizes to the stiffness of the segment, and the responses of the dynamic steps are not changed.
+prints for it, are divided by the square root of 180, and its energies by 180. The buckling modes, which CalculiX
+normalizes to the stiffness of the segment, are normalized to the stiffness of the revolution the same way, so the
+strain energy of a mode over the revolution is one half; the base state a buckling step writes before its modes and
+the buckling factors are not changed, nor are the responses of the dynamic steps. The history CalculiX prints for the
+modes of a step carries the total time, so it is read back at the frequency or the buckling factor of each mode, as
+the results file gives it. The contact energy of a slave face (`CONTACT_SPRING_ENERGY`, `CONTACT_PRINT_ENERGY`) is the
+sum of the values CalculiX prints for its contact elements, in every model space, while the contact stress and the
+relative contact displacement are their average.
 The input file writes the model space into its heading (`Model space: Axisymmetric`), which CalculiX copies into the
 .frd file, so a result is scaled whichever model is open, or none; a .dat file opened on its own takes the model space
 from the .frd file beside it. A result file without that line, written by an older version, is taken as axisymmetric
@@ -2991,8 +2997,10 @@ only when the open axisymmetric model is the one it was computed from. A section
 of that model, so without it the section print is left as CalculiX writes it, with a message. When the field output
 asks for 3D output (`output='ThreeD'`), or CalculiX expands the model on its own, the result mesh is the 2 degree
 segment of 3D elements: its fields (`FORC`, `RFL`) and part volumes are those of the segment, its modes are normalized
-to the mass of the full revolution as with 2D output, the .dat history is still given for 360 degrees, only the element sets of the model are copied to it - its node sets and surfaces do not match the
-new nodes - and an `"Axisymmetric"` cross section integration is refused.
+to the mass, and its buckling modes to the stiffness, of the full revolution as with 2D output, the .dat history is still given for 360 degrees, only the element sets of the model are copied to it - its node sets and surfaces do not match the
+new nodes - and an `"Axisymmetric"` cross section integration is refused. A line and a volume integration of a 2D
+axisymmetric result take the `"Axisymmetric"` cross section when none is given, so they too are given for the full
+revolution.
 
 ### `Result`
 
@@ -3728,7 +3736,7 @@ is found first, and otherwise the one history output whose name differs from it 
 | `contains(name)` | Checks whether the history output exists. |
 | `create_history_output_from_field(name, field_name, component_names, region)` | Creates a From Field draft. The region is a `Selection`, a `Region` (`NodeSetName` or `SurfaceName`), a result `NodeSet` or a result `Surface`. |
 | `create_history_output_from_equation(name, equation, unit="/")` | Creates a From History Output by Equation draft. |
-| `create_history_output_from_integration(name, integral_type, region, field_name=None, component_names=None, integral_result="Geometry", deformation_variable_name="Displacements", unit="/", cross_section="None", thickness=None)` | Creates a line, surface, or volume integration draft. The `region` is required: a `Selection`, a `Region`, a result `ElementSet` or a result `Surface`, as the table below allows. `integral_type` is `"Line"`, `"Surface"` or `"Volume"`. `integral_result` is `"Geometry"` (region size), `"Field"` (field integral), or `"FieldByGeometry"` (region average of the field); `field_name` and `component_names` are required for `"Field"` and `"FieldByGeometry"` and refused for `"Geometry"`. `cross_section` (`"None"`, `"Thickness"`, or `"Axisymmetric"`) is the out-of-plane scaling of 2D output; a line and a volume integral take it on a 2D and a 3D result alike, as the dialog does, except that adding an `"Axisymmetric"` one to a result with a 3D mesh is refused - an axisymmetric model written with 3D output is the 2 degree segment CalculiX computes, and is integrated with `"None"` - and a surface integral is never scaled and refuses any value but `"None"`. `thickness` is taken only with the `"Thickness"` cross section, where it defaults to 1.0, and refused otherwise. |
+| `create_history_output_from_integration(name, integral_type, region, field_name=None, component_names=None, integral_result="Geometry", deformation_variable_name="Displacements", unit="/", cross_section=None, thickness=None)` | Creates a line, surface, or volume integration draft. The `region` is required: a `Selection`, a `Region`, a result `ElementSet` or a result `Surface`, as the table below allows. `integral_type` is `"Line"`, `"Surface"` or `"Volume"`. `integral_result` is `"Geometry"` (region size), `"Field"` (field integral), or `"FieldByGeometry"` (region average of the field); `field_name` and `component_names` are required for `"Field"` and `"FieldByGeometry"` and refused for `"Geometry"`. `cross_section` (`"None"`, `"Thickness"`, or `"Axisymmetric"`) is the out-of-plane scaling of 2D output; a line and a volume integral take it on a 2D and a 3D result alike, as the dialog does, except that adding an `"Axisymmetric"` one to a result with a 3D mesh is refused - an axisymmetric model written with 3D output is the 2 degree segment CalculiX computes, and is integrated with `"None"` - and a volume integral over 3D elements refuses any value but `"None"`. When `cross_section` is not given it is `"Axisymmetric"` for a line and a volume integral of an axisymmetric result with a 2D mesh, which so gives the values of the full revolution as the other results of the model do, and `"None"` otherwise; pass `"None"` to get the plain 2D measure. The journal records the cross section the output was made with. A surface integral is never scaled and refuses any value but `"None"`, and integrates the faces of solid and shell elements only: a surface of a 2D result is made of element edges, so it is refused, and its edges are integrated with the line integral. `thickness` is taken only with the `"Thickness"` cross section, where it defaults to 1.0, and refused otherwise. |
 | `create_history_output_from_merged_histories(name, source1, source2, source3=None, source4=None)` | Creates a From Merged Histories draft that merges two to four history components into one history output. |
 | `create_history_output_from_extracted_entry(name, source, entry_name)` | Creates a From Extracted Entry draft that copies one named entry of a history component into its own history output. |
 | `create_history_output_xy(name, x_source, y_source)` | Creates an XY draft that plots the entries of the Y history component against the values of the X history component. |
@@ -3807,7 +3815,8 @@ result.history_outputs.add(output)
 Line integration integrates a field over geometry edges (works for both shell and solid parts).
 For 2D output (plane stress/strain or axisymmetric) set `cross_section` to apply the out-of-plane
 scaling; `"Thickness"` additionally uses the `thickness` argument, while `"Axisymmetric"` scales by
-`2*pi*r` (the radial coordinate is the X coordinate):
+`2*pi*r` (the radial coordinate is the X coordinate). An axisymmetric result is integrated with
+`"Axisymmetric"` when `cross_section` is not given:
 
 ```python
 edges = pmx.create.selection_by_ids(

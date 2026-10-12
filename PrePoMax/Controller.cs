@@ -1883,6 +1883,15 @@ namespace PrePoMax
             // computed from
             return IsModelResult(results) && _model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric;
         }
+        // A line or volume integral of an axisymmetric result is given for the full revolution, as its other values are,
+        // unless the result is the 3D segment of the revolution
+        public IntegrationScaleType GetDefaultResultIntegrationCrossSection()
+        {
+            FeResults results = CurrentResult;
+            if (results == null || !IsAxisymmetricResult(results) || results.IsMeshThreeDimensional())
+                return IntegrationScaleType.None;
+            return IntegrationScaleType.Axisymmetric;
+        }
         private void ScaleAxisymmetricSegmentFields(FeResults results)
         {
             if (!IsAxisymmetricResult(results)) return;
@@ -1894,7 +1903,8 @@ namespace PrePoMax
                                         "mesh is the 2 degree segment CalculiX computes. Its field values, such as the " +
                                         "forces and the reaction heat fluxes, and the part volumes are those of the " +
                                         "segment, while the history read from the .dat file is given for the full " +
-                                        "revolution. The modes are normalized to the mass of the full revolution.");
+                                        "revolution. The modes are normalized to the mass, and the buckling modes to " +
+                                        "the stiffness, of the full revolution.");
             }
             else FrdFileReader.ScaleAxisymmetricSegmentFields(results);
             // The participation factors are given for the full revolution, so are the modes, whatever the output

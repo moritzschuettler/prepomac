@@ -30,6 +30,7 @@ namespace PrePoMax
         private string[] _surfaceNames;
         private MultiChoiceContainer _componentContainer;
         private Dictionary<string, string[]> _filedNameComponentNames;
+        private IntegrationScaleType _defaultCrossSection;
 
 
         // Properties                                                                                                               
@@ -44,8 +45,10 @@ namespace PrePoMax
             get { return _historyOutput.IntegralType; }
             set
             {
+                IntegralTypeEnum previousIntegralType = _historyOutput.IntegralType;
                 _historyOutput.IntegralType = value;
                 if (value == IntegralTypeEnum.Surface) _historyOutput.CrossSection = IntegrationScaleType.None;
+                else if (previousIntegralType == IntegralTypeEnum.Surface) _historyOutput.CrossSection = _defaultCrossSection;
                 UpdateVisibility();
             }
         }
@@ -153,6 +156,7 @@ namespace PrePoMax
         {
             // The order is important
             _historyOutput = historyOutput;
+            _defaultCrossSection = IntegrationScaleType.None;
             //
             Dictionary<RegionTypeEnum, string> regionTypePropertyNamePairs = new Dictionary<RegionTypeEnum, string>();
             regionTypePropertyNamePairs.Add(RegionTypeEnum.Selection, nameof(SelectionHidden));
@@ -168,6 +172,11 @@ namespace PrePoMax
         public override ResultHistoryOutput GetBase()
         {
             return _historyOutput;
+        }
+        // The cross section a line or volume integral takes again when the integral type changes from Surface
+        public void SetDefaultCrossSection(IntegrationScaleType defaultCrossSection)
+        {
+            _defaultCrossSection = defaultCrossSection;
         }
         public void PopulateDropDownLists(string[] elementSetNames, string[] surfaceNames,
                                           Dictionary<string, string[]> filedNameComponentNames)

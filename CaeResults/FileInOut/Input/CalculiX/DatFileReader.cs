@@ -54,7 +54,8 @@ namespace CaeResults
         // of the results file are given for the full revolution. The statistics of a contact print cover the segment, but
         // those of a section print cover 1 degree for CAX4 and CAX8R elements and 2 degrees for the other types. The
         // modes are normalized to the mass of the segment, so the participation factors scale with its square root and
-        // the values of a mode with one over it. Over the revolution the moments and the radial and the out of plane
+        // the values of a mode with one over it, as do those of a buckling mode, normalized to the stiffness of the
+        // segment. Over the revolution the moments and the radial and the out of plane
         // directions of the participation factors and the effective masses cancel, so they are left for the segment
         private const double _axisymmetricSegmentsPerRevolution = 180;
         private static readonly HashSet<string> _axisymmetricSegmentFieldNames = new HashSet<string>()
@@ -117,6 +118,13 @@ namespace CaeResults
             HOFieldNames.TotalInternalEnergy,
             HOFieldNames.KineticEnergy,
             HOFieldNames.TotalKineticEnergy,
+            HOFieldNames.ContactPrintEnergy,
+            HOFieldNames.ContactSpringEnergy
+        };
+        // CalculiX prints a value for every contact element of a slave face. The energies of the face are their sum,
+        // while its displacements and stresses are their average
+        private static readonly HashSet<string> _contactFaceSumFieldNames = new HashSet<string>()
+        {
             HOFieldNames.ContactPrintEnergy,
             HOFieldNames.ContactSpringEnergy
         };
@@ -230,7 +238,7 @@ namespace CaeResults
                 DatDataSet newDataSet;
                 DatDataSet existingDataSet;
                 Dictionary<double, double> timeFrequency = null;
-                Dictionary<double, double> timeModeNumber = null;
+                Dictionary<double, double> timeBucklingFactor = null;
                 OrderedDictionary<string, DatDataSet> dataSets = new OrderedDictionary<string, DatDataSet>("DataSets");
                 //
                 HistoryResults allHistoryResults = new HistoryResults("HistoryOutput");
@@ -282,7 +290,7 @@ namespace CaeResults
                             nodalDiameter = -1;
                             stepKey = null;
                             timeFrequency = null;
-                            timeModeNumber = null;
+                            timeBucklingFactor = null;
                             //
                             eigenvalueNumber = -1;  // reset the eigenvalue number
                         }
@@ -317,24 +325,28 @@ namespace CaeResults
                                     //
                                     newDataSet.FieldName += HOFieldNames.ComplexImaginarySuffix;
                                 }
-                                // Fix the time if reported inside an eigenvalue number block from time to frequency
-                                if (eigenvalueNumber != -1 && newDataSet.Time == 1)   // 1 ... frequency
+                                // Inside an eigenvalue number block CalculiX prints the total time, the same for every
+                                // mode, so the time is changed to the frequency or the buckling factor of the block, as
+                                // the results file gives it
+                                if (eigenvalueNumber != -1 && stepKey != null)
                                 {
-                                    newDataSet.FrequencyMode = true;
+                                    double modeTime;
                                     if (timeFrequency == null)
                                         timeFrequency = GetTimeFrequencyPairs(frequencyHistoryOutput, stepKey);
-                                    // Change the frequency step time to frequency
-                                    if (timeFrequency != null)
-                                        newDataSet.Time = timeFrequency[newDataSet.Time + eigenvalueNumber - 1];
-                                }
-                                // Fix the time if reported inside an eigenvalue number block from time to frequency
-                                if (eigenvalueNumber != -1 && newDataSet.Time == 0)   // 0... buckling
-                                {
-                                    if (timeFrequency == null)
-                                        timeModeNumber = GetTimeModeNumberPairs(bucklingHistoryOutput, stepKey);
-                                    // Change the frequency step time to frequency
-                                    if (timeModeNumber != null)
-                                        newDataSet.Time = timeModeNumber[eigenvalueNumber];
+                                    if (timeBucklingFactor == null)
+                                        timeBucklingFactor = GetTimeBucklingFactorPairs(bucklingHistoryOutput, stepKey);
+                                    //
+                                    if (timeFrequency != null && timeFrequency.TryGetValue(eigenvalueNumber, out modeTime))
+                                    {
+                                        newDataSet.Mode = true;
+                                        newDataSet.Time = modeTime;
+                                    }
+                                    else if (timeBucklingFactor != null &&
+                                             timeBucklingFactor.TryGetValue(eigenvalueNumber, out modeTime))
+                                    {
+                                        newDataSet.Mode = true;
+                                        newDataSet.Time = modeTime;
+                                    }
                                 }
                                 // Add
                                 if (newDataSet.FieldName != HOFieldNames.Error)
@@ -1337,7 +1349,7 @@ namespace CaeResults
             //
             return timeFrequency;
         }
-        static private Dictionary<double, double> GetTimeModeNumberPairs(HistoryResults bucklingHistoryOutput, string stepKey)
+        static private Dictionary<double, double> GetTimeBucklingFactorPairs(HistoryResults bucklingHistoryOutput, string stepKey)
         {
             HistoryResultSet hrs;
             HistoryResultField hrf;
@@ -1345,13 +1357,13 @@ namespace CaeResults
             HistoryResultEntries hre;
             Dictionary<double, double> timeFrequency = null;
             //
-            if (bucklingHistoryOutput.Sets.TryGetValue(_stepNumberKey, out hrs) &&
+            if (bucklingHistoryOutput.Sets.TryGetValue(stepKey, out hrs) &&
                 hrs.Fields.TryGetValue(HOFieldNames.Buckling, out hrf) &&
                 hrf.Components.TryGetValue(HOComponentNames.BUCKLINGFACTOR, out hrc) &&
                 hrc.Entries.TryGetValue(HOComponentNames.BUCKLINGFACTOR, out hre))
             {
                 timeFrequency = new Dictionary<double, double>();
-                for (int i = 0; i < hre.Time.Count; i++) timeFrequency.Add(hre.Time[i], hre.Time[i]);
+                for (int i = 0; i < hre.Time.Count; i++) timeFrequency.Add(hre.Time[i], hre.Values[i]);
             }
             //
             return timeFrequency;
@@ -1590,6 +1602,7 @@ namespace CaeResults
             {
                 foreach (var fieldEntry in setEntry.Value.Fields)
                 {
+                    if (_contactFaceSumFieldNames.Contains(fieldEntry.Key)) continue;
                     foreach (var componentEntry in fieldEntry.Value.Components)
                     {
                         foreach (var entry in componentEntry.Value.Entries)
@@ -1604,7 +1617,7 @@ namespace CaeResults
         }
         static private double GetAxisymmetricModeFactor(DatDataSet dataSet)
         {
-            if (!dataSet.FrequencyMode) return 1;
+            if (!dataSet.Mode) return 1;
             if (_axisymmetricModeFieldNames.Contains(dataSet.FieldName))
                 return 1 / Math.Sqrt(_axisymmetricSegmentsPerRevolution);
             if (_axisymmetricModeEnergyFieldNames.Contains(dataSet.FieldName)) return 1 / _axisymmetricSegmentsPerRevolution;

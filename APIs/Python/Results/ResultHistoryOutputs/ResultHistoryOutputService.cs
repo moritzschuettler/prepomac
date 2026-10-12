@@ -85,7 +85,7 @@ namespace APIs.Python
             string deformationModelName = PythonDeformationVariable.ToModelName(deformationVariableName,
                                                                                 "deformation_variable_name");
             if (unit == null) throw new PythonAPIException("The argument 'unit' must not be None.");
-            IntegrationScaleType scale = ParseCrossSection(crossSection);
+            IntegrationScaleType scale = crossSection == null ? GetDefaultCrossSection(type) : ParseCrossSection(crossSection);
             double thicknessValue = 1.0;
             if (thickness != null)
             {
@@ -406,6 +406,8 @@ namespace APIs.Python
             string crossSectionError = result.GetIntegrationCrossSectionError(output.CrossSection);
             if (crossSectionError != null)
                 throw new PythonAPIException("The argument 'cross_section' cannot be Axisymmetric here. " + crossSectionError);
+            string regionError = result.GetIntegrationRegionError(output);
+            if (regionError != null) throw new PythonAPIException(regionError);
         }
         private static void ValidateFromMergedHistories(FeResults result,
                                                        ResultHistoryOutputFromMergedHistories output,
@@ -680,9 +682,14 @@ namespace APIs.Python
         }
         private static IntegrationScaleType ParseCrossSection(string crossSection)
         {
-            if (crossSection == null) return IntegrationScaleType.None;
-            //
             return PythonValueConverter.ToEnum<IntegrationScaleType>(crossSection, "cross_section");
+        }
+        // The cross section the dialog proposes, so a script that leaves it out gets the values the dialog gives
+        private IntegrationScaleType GetDefaultCrossSection(IntegralTypeEnum integralType)
+        {
+            if (integralType == IntegralTypeEnum.Surface || _commandGateway == null) return IntegrationScaleType.None;
+            //
+            return _commandGateway.GetDefaultResultIntegrationCrossSection();
         }
         private static void ValidateCrossSection(IntegralTypeEnum integralType, IntegrationScaleType crossSection,
                                                  double thickness)

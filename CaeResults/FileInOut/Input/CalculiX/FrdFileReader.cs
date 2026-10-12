@@ -67,8 +67,9 @@ namespace CaeResults
         // concentrated heat fluxes and the forces of the results file are given for the full revolution
         private const float _axisymmetricSegmentsPerRevolution = 180;
         private static readonly string[] _axisymmetricSegmentFieldNames = new string[] { FOFieldNames.Rfl };
-        // The modes of a frequency step are normalized to the mass of the segment, 1/180 of the mass of the revolution.
-        // Buckling modes are normalized to the stiffness, and the responses of the dynamic steps are not modes
+        // The modes of a frequency step are normalized to the mass of the segment, 1/180 of the mass of the revolution,
+        // and the buckling modes to its stiffness, 1/180 of the stiffness of the revolution. The responses of the dynamic
+        // steps are not modes, and neither is the base state a buckling step writes at time 0
         private static readonly StepTypeEnum[] _massNormalizedModeStepTypes = new StepTypeEnum[]
         {
             StepTypeEnum.Frequency,
@@ -101,9 +102,14 @@ namespace CaeResults
         {
             float factor = (float)(1 / Math.Sqrt(_axisymmetricSegmentsPerRevolution));
             foreach (var fieldName in _axisymmetricModeFieldNames)
-                results.ScaleFieldValues(fieldName, factor, _massNormalizedModeStepTypes);
+                results.ScaleFieldValues(fieldName, factor, IsAxisymmetricMode);
             foreach (var fieldName in _axisymmetricModeEnergyFieldNames)
-                results.ScaleFieldValues(fieldName, factor * factor, _massNormalizedModeStepTypes);
+                results.ScaleFieldValues(fieldName, factor * factor, IsAxisymmetricMode);
+        }
+        static private bool IsAxisymmetricMode(FieldData fieldData)
+        {
+            if (fieldData.StepType == StepTypeEnum.Buckling) return fieldData.Time != 0;
+            return _massNormalizedModeStepTypes.Contains(fieldData.StepType);
         }
         static public void ReadHeading(string fileName, out string hashName, out string modelSpace)
         {

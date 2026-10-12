@@ -815,12 +815,12 @@ namespace CaeResults
             //
             InitializeUndeformedNodes();
         }
-        public void ScaleFieldValues(string fieldName, float factor, ICollection<StepTypeEnum> stepTypes = null)
+        public void ScaleFieldValues(string fieldName, float factor, Func<FieldData, bool> isScaled = null)
         {
             HashSet<Field> scaledFields = new HashSet<Field>();
             foreach (var entry in _fields)
             {
-                if (entry.Key.Name == fieldName && (stepTypes == null || stepTypes.Contains(entry.Key.StepType)) &&
+                if (entry.Key.Name == fieldName && (isScaled == null || isScaled(entry.Key)) &&
                     scaledFields.Add(entry.Value)) entry.Value.ScaleComponentValues(factor);
             }
         }
@@ -5369,18 +5369,68 @@ namespace CaeResults
                 return GetHistorySetFromIntegrationByLine(resultHistoryOutput);
             else throw new NotSupportedException();
         }
+        public string GetIntegrationRegionError(ResultHistoryOutputFromIntegration resultHistoryOutput)
+        {
+            if (resultHistoryOutput.IntegralType == IntegralTypeEnum.Surface)
+            {
+                int[] faceIds = GetIntegrationFaceIds(resultHistoryOutput);
+                if (faceIds == null) return null;
+                //
+                HashSet<FeSurfaceFaceTypes> faceTypes = _mesh.GetSurfaceFaceTypesFromFaceIds(faceIds);
+                faceTypes.Remove(FeSurfaceFaceTypes.SolidFaces);
+                faceTypes.Remove(FeSurfaceFaceTypes.ShellFaces);
+                if (faceTypes.Count == 0) return null;
+                //
+                return "The Surface integral integrates over the faces of solid and shell elements, but the region " +
+                       "holds the edges of 2D, shell or beam elements. Integrate edges with the Line integral, which " +
+                       "takes the cross section of a 2D model.";
+            }
+            else if (resultHistoryOutput.IntegralType == IntegralTypeEnum.Volume)
+            {
+                int[] elementIds = GetIntegrationElementIds(resultHistoryOutput);
+                if (elementIds == null) return null;
+                //
+                FeElement element;
+                foreach (int elementId in elementIds)
+                {
+                    element = _mesh.Elements[elementId];
+                    if (element is FeElement3D && resultHistoryOutput.CrossSection != IntegrationScaleType.None)
+                        return "The " + resultHistoryOutput.CrossSection + " cross section scales the out-of-plane " +
+                               "direction of 2D elements, but the region holds 3D elements, which are integrated " +
+                               "without a cross section.";
+                    if (!(element is FeElement2D || element is FeElement3D ||
+                          element is LinearBeamElement || element is ParabolicBeamElement))
+                        return "The Volume integral integrates over solid, shell, 2D and beam elements, but the region " +
+                               "holds the " + element.GetType().Name + " " + elementId + ", which cannot be integrated.";
+                }
+            }
+            return null;
+        }
+        private int[] GetIntegrationFaceIds(ResultHistoryOutputFromIntegration resultHistoryOutput)
+        {
+            if (resultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
+                return _mesh.Surfaces[resultHistoryOutput.RegionName].FaceIds;
+            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
+                return resultHistoryOutput.CreationIds;
+            else throw new NotSupportedException();
+        }
+        private int[] GetIntegrationElementIds(ResultHistoryOutputFromIntegration resultHistoryOutput)
+        {
+            if (resultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName)
+                return _mesh.ElementSets[resultHistoryOutput.RegionName].Labels;
+            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
+                return resultHistoryOutput.CreationIds;
+            return null;
+        }
         private HistoryResultSet GetHistorySetFromIntegrationBySurface(ResultHistoryOutputFromIntegration resultHistoryOutput)
         {
             if (resultHistoryOutput.IntegralType != IntegralTypeEnum.Surface) throw new NotSupportedException();
             // Collect face ids
-            int[] faceIds = null;
-            if (resultHistoryOutput.RegionType == RegionTypeEnum.SurfaceName)
-                faceIds = _mesh.Surfaces[resultHistoryOutput.RegionName].FaceIds;
-            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
-                faceIds = resultHistoryOutput.CreationIds;
-            else throw new NotSupportedException();
-            //
+            int[] faceIds = GetIntegrationFaceIds(resultHistoryOutput);
             if (faceIds == null) return null;
+            //
+            string regionError = GetIntegrationRegionError(resultHistoryOutput);
+            if (regionError != null) throw new CaeException(regionError);
             //
             int[] nodeIds;
             Dictionary<FeFaceName, List<int>> elementSets;
@@ -5414,13 +5464,11 @@ namespace CaeResults
         {
             if (resultHistoryOutput.IntegralType != IntegralTypeEnum.Volume) throw new NotSupportedException();
             // Collect element ids
-            int[] elementIds = null;
-            if (resultHistoryOutput.RegionType == RegionTypeEnum.ElementSetName)
-                elementIds = _mesh.ElementSets[resultHistoryOutput.RegionName].Labels;
-            else if (resultHistoryOutput.RegionType == RegionTypeEnum.Selection)
-                elementIds = resultHistoryOutput.CreationIds;
-            //
+            int[] elementIds = GetIntegrationElementIds(resultHistoryOutput);
             if (elementIds == null) return null;
+            //
+            string regionError = GetIntegrationRegionError(resultHistoryOutput);
+            if (regionError != null) throw new CaeException(regionError);
             // The integration element is the element itself
             int[] nodeIds = _mesh.GetNodeIdsFromElementIds(elementIds);
             Dictionary<string, FeElement> namedElements = new Dictionary<string, FeElement>();

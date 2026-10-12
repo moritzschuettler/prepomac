@@ -13,7 +13,8 @@
 #read back as increments numbered from 1 that hold their frequencies, with and without fields before them. On the plate
 #and on a 2D ring it checks that a reference point a rigid body or a kinematic coupling moves is read back with the
 #displacements CalculiX prints for it, without a node or an element of its own in the result mesh, and that a point
-#mass on it solves a frequency step with one of its directions held.
+#mass on it solves a frequency step with one of its directions held, and that the printed history of the modes of a
+#frequency step after a static step is read back one entry per mode at its frequency.
 #Last, it replaces the cube by an axisymmetric ring and checks that a point spring, a surface spring, the
 #reaction history, the reaction heat flux and body heating of both result files, the participation factor and the
 #effective masses, a compression only support and a distributed mass are given for the full revolution, as the
@@ -21,13 +22,18 @@
 #in plane strain, solve in a frequency step at the hand computed frequency. The modes of the ring are normalized to the
 #mass of the revolution, with 2D and 3D output, in the fields and the printed history, so the axial participation
 #factor times the mode is 1, while the radial and rotational participation, which cancels over the revolution, is left
-#for the segment. The section print of the ring is given for the full revolution for
-#each element type, and left as CalculiX writes it when its elements are of types CalculiX writes for different angles;
-#its moments, which cancel over the revolution, are always left as CalculiX writes them.
+#for the segment. The buckling modes of the ring are normalized to the stiffness of the revolution, so the strain
+#energy of a mode is one half, in the history and in the field, after a static step too. The section print of the ring
+#is given for the full revolution for each element type, and left as CalculiX writes it when its elements are of types
+#CalculiX writes for different angles; its moments, which cancel over the revolution, are always left as CalculiX
+#writes them.
 #With 3D output the ring is the 2 degree segment: its fields are those of the segment, its .dat history is given for the
 #full revolution, the node sets and surfaces of the model are not copied onto it, and an axisymmetric cross section is
-#refused. Last, the results of the ring are opened as another model's, and a .dat file on its own, and are still given
-#for the full revolution, since the results file names the model space; a file that does not name it is not scaled.
+#refused and not the default. The results of the ring are opened as another model's, and a .dat file on its own, and are
+#still given for the full revolution, since the results file names the model space; a file that does not name it is not
+#scaled. Last, two rings in contact give the contact energy of a slave face as the sum of its contact elements for the
+#full revolution and its contact stress as their average, a line and a volume integral of the 2D result are given for
+#the full revolution unless the cross section None is asked for, and a surface integral of its edges is refused.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Job_Correctness.py -g No -x Yes -w <dir>
 #
@@ -534,6 +540,23 @@ def check_reference_point_displacements(result, point_name, coordinates, dat_fil
           " increments with results and " + str(len(printed)) + " printed displacements")
 
 
+def check_frequency_history_after_static(result, set_name):
+    # CalculiX prints the history of every mode of a frequency step with the total time, which is 2 after a static
+    # step, so the modes are told apart by their frequencies, one entry each, and none is lost
+    set_names = [name for name in result.history_outputs.get_names() if str(name).upper() == set_name.upper()]
+    check(len(set_names) == 1, "the history of " + set_name + " is missing: " +
+          str(list(result.history_outputs.get_names())))
+    entries = result.get_history_output_entries(set_names[0], "DISPLACEMENTS", "U2")
+    times = list(entries[str(entries.get_names()[0])].get_data().time)
+    step_ids = list(result.steps.get_ids())
+    frequencies = [result.steps[step_ids[-1]].increments[increment_id].step_time
+                   for increment_id in result.steps[step_ids[-1]].increments.get_ids() if increment_id > 0]
+    check(len(frequencies) == 3 and len(times) == 1 + len(frequencies) and
+          all(abs(a - b) <= 1e-5 * b for a, b in zip(times[1:], frequencies)),
+          "the history of the modes of a frequency step after a static step is " + str(times) + " instead of the " +
+          "static time and the frequencies " + str(frequencies))
+
+
 def check_reference_point_mesh(result, number_of_nodes):
     # The node of a point is no node of the result mesh, and its spring of no length no element
     check(len(result.mesh.parts) == 1, "the result mesh has the parts " + str(list(result.mesh.parts.get_names())))
@@ -576,6 +599,7 @@ def test_reference_point_results(work):
         result, _, _ = run_and_open(name, work)
         check_reference_point_mesh(result, 50)
         check_reference_point_displacements(result, moved, coordinates, os.path.join(work, name + ".dat"))
+        check_frequency_history_after_static(result, moved)
         check_raises(lambda: result.mesh.reference_points[free].get_deformed_coordinates(1, 1),
                      "a reference point that nothing moves has no displacement in the results file")
         with open(os.path.join(work, name + ".inp")) as input_file:
@@ -834,6 +858,10 @@ def test_axisymmetric_three_d_output(work):
                      cross_section="Axisymmetric")),
                  "an axisymmetric cross section was accepted on the 3D output of an axisymmetric model")
     check(volume not in list(outputs.get_names()), "a refused integration was added to the result")
+    draft = outputs.create_history_output_from_integration(
+        volume, "Volume", pmx.create.selection_by_ids('results', 'elements', 'parts', [1]))
+    check(draft.cross_section == "None", "the 3D output of an axisymmetric model is integrated with the cross " +
+          "section " + draft.cross_section + " when none is given, instead of None")
     pmx.model.steps.remove([PREFIX + "Ring_Step_3D"])
     # The reaction heat flux of the segment
     step = pmx.model.steps.add_heat_transfer(PREFIX + "Ring_Heat_3D", steady_state=True)
@@ -901,6 +929,116 @@ def test_axisymmetric_results_of_another_model(work):
           abs(history + revolved_area / 180) < 1e-3 * revolved_area / 180,
           "a results file that does not name its model space was taken as axisymmetric beside another model: " +
           str(field) + " and " + str(history))
+
+
+def write_two_ring_mesh(file_name):
+    # Two rings of write_ring_mesh, the second one on top of the first from height 2 to 4
+    lines = ["*NODE"]
+    elements = []
+    for ring in range(2):
+        for j in range(3):
+            for i in range(5):
+                lines.append("%d, %.6f, %.6f, 0" % (100 * ring + 5 * j + i + 1, 10.0 + 2.5 * i, 2.0 * ring + 1.0 * j))
+        elements.append("*ELEMENT, TYPE=CAX4, ELSET=" + PREFIX + "Ring_" + str(ring + 1))
+        for j in range(2):
+            for i in range(4):
+                first = 100 * ring + 5 * j + i + 1
+                elements.append("%d, %d, %d, %d, %d" % (100 * ring + 4 * j + i + 1, first, first + 1, first + 6,
+                                                        first + 5))
+    with open(file_name, "w") as mesh_file:
+        mesh_file.write("\n".join(lines + elements) + "\n")
+
+
+def read_dat_contact_energies(dat_file_name):
+    # The energies CalculiX prints for the contact elements of the last time, summed by slave element and face
+    with open(dat_file_name) as dat_file:
+        block = dat_file.read().split("contact spring energy")[-1].split("\n\n\n")[0]
+    energies = {}
+    for line in block.splitlines()[1:]:
+        values = line.split()
+        if len(values) == 3:
+            key = values[0] + "_" + values[1]
+            energies[key] = energies.get(key, 0.0) + float(values[2])
+    return energies
+
+
+def test_axisymmetric_contact_energy_and_integration(work):
+    # CalculiX prints a contact energy for every contact element of a slave face, and the energy of the face is their
+    # sum, while its contact stress is their average. The pressure of 1 on the upper ring closes the contact of
+    # stiffness 1e6 by 1e-6 over the revolved area, which stores half of the pressure times the closure times the area.
+    # A line and a volume integral of the 2D result are given for the full revolution unless asked otherwise, as its
+    # other values are, and a surface of the 2D result, which is made of element edges, is integrated as a line
+    revolved_area = math.pi * (20.0 ** 2 - 10.0 ** 2)
+    for collection in [pmx.model.surfaces, pmx.model.node_sets]:
+        names = [name for name in collection.get_names() if name.startswith(PREFIX)]
+        if names:
+            collection.remove(names)
+    pmx.model.parts.remove([part.name for part in pmx.model.parts])
+    pmx.model.element_sets.remove(list(pmx.model.element_sets.get_names()))
+    mesh_file_name = os.path.join(work, PREFIX + "Two_Rings.inp")
+    write_two_ring_mesh(mesh_file_name)
+    pmx.import_file(mesh_file_name)
+    pmx.model.materials.add(PREFIX + "Steel_Contact", pmx.create.elastic(210000, 0.3))
+    pmx.model.sections.add_solid(PREFIX + "Rings_Section", PREFIX + "Steel_Contact",
+                                 pmx.create.selection_by_ids('femodel', 'elements', 'parts',
+                                                             [part.id for part in pmx.model.parts]))
+    surfaces = {}
+    for name, height in [("Lower_Bottom", 0.0), ("Lower_Top", 1.99), ("Upper_Bottom", 2.01), ("Upper_Top", 4.0)]:
+        surfaces[name] = PREFIX + name
+        pmx.model.surfaces.add(surfaces[name], pmx.create.selection_by_pick('femodel', 'surfaces',
+                                                                            [15.0, height, 0.0], 'Edge'))
+    bottom = PREFIX + "Rings_Bottom"
+    pmx.model.node_sets.add(bottom, pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4, 5]))
+    interaction, contact = PREFIX + "Rings_Linear", PREFIX + "Rings_Contact"
+    pmx.model.surface_interactions.add(interaction, [pmx.create.surface_behavior('Linear', k=1e6)])
+    pmx.model.contact_pairs.add(contact, interaction, pmx.create.region('SurfaceName', surfaces["Lower_Top"]),
+                                pmx.create.region('SurfaceName', surfaces["Upper_Bottom"]), method='SurfaceToSurface')
+    step = pmx.model.steps.add_static(PREFIX + "Rings_Step")
+    step.bcs.add_fixed(PREFIX + "Rings_Fixed", pmx.create.region('NodeSetName', bottom))
+    step.loads.add_pressure(PREFIX + "Rings_Pressure", pmx.create.region('SurfaceName', surfaces["Upper_Top"]), 1.0)
+    step.history_outputs.add_contact(PREFIX + "Rings_Contact_Output", contact, ["CELS", "CSTR"])
+    try:
+        name = PREFIX + "Axi_Contact"
+        result, _, _ = run_and_open(name, work)
+        printed = read_dat_contact_energies(os.path.join(work, name + ".dat"))
+        entries = result.get_history_output_entries("ALL_CONTACT_ELEMENTS", "CONTACT_SPRING_ENERGY", "ENERGY")
+        read = {str(entry): entries[str(entry)].get_data().values[-1] for entry in entries.get_names()}
+        check(len(printed) == 4 and sorted(read) == sorted(printed) and
+              all(abs(read[key] - 180 * printed[key]) <= 1e-6 * read[key] for key in printed),
+              "the contact energy of a slave face is not the sum of its contact elements for the full revolution: " +
+              str(read) + " against the printed " + str(printed))
+        energy = 0.5 * 1.0 * 1e-6 * revolved_area
+        check(abs(sum(read.values()) - energy) < 0.1 * energy, "the contact energy of the rings is " +
+              str(sum(read.values())) + " instead of about " + str(energy))
+        entries = result.get_history_output_entries("ALL_CONTACT_ELEMENTS", "CONTACT_STRESS", "PRESS")
+        pressures = [entries[str(entry)].get_data().values[-1] for entry in entries.get_names()]
+        check(len(pressures) == 4 and all(abs(pressure - 1) < 0.02 for pressure in pressures),
+              "the contact stress of a slave face is not the average of its contact elements: " + str(pressures))
+        # The integrals of the 2D result
+        outputs = result.history_outputs
+        edges = pmx.create.selection_by_pick('results', 'edges', [15.0, 0.0, 0.0], 'Geometry', part_ids=[1])
+        elements = pmx.create.selection_by_ids('results', 'elements', 'parts', [1])
+        for integral_type, region, plain, revolved in [("Line", edges, 10.0, revolved_area),
+                                                       ("Volume", elements, 20.0, 2 * revolved_area)]:
+            draft = outputs.create_history_output_from_integration(PREFIX + integral_type, integral_type, region)
+            check(draft.cross_section == "Axisymmetric", "a " + integral_type + " integral of an axisymmetric " +
+                  "result takes the cross section " + draft.cross_section + " when none is given")
+            outputs.add(draft)
+            outputs.add_from_integration(PREFIX + integral_type + "_Plain", integral_type, region, cross_section="None")
+            for output_name, expected in [(PREFIX + integral_type, revolved),
+                                          (PREFIX + integral_type + "_Plain", plain)]:
+                size = history_entries_total(pmx.results.current, output_name, "GEOMETRY", "SIZE")
+                check(abs(size - expected) < 1e-3 * expected, "the " + integral_type + " integral " + output_name +
+                      " of the axisymmetric result is " + str(size) + " instead of " + str(expected))
+        names_before = list(outputs.get_names())
+        for region in [pmx.create.region('SurfaceName', surfaces["Lower_Bottom"]),
+                       pmx.create.selection_by_pick('results', 'surfaces', [15.0, 0.0, 0.0], 'Edge')]:
+            check_raises(lambda: outputs.add_from_integration(PREFIX + "Surface", "Surface", region),
+                         "a surface integral of the edges of a 2D result was accepted")
+        check(list(outputs.get_names()) == names_before, "a refused integration was added to the result")
+    finally:
+        pmx.model.contact_pairs.remove([contact])
+        pmx.model.surface_interactions.remove([interaction])
 
 
 def run_ring_section_print(name, work):
@@ -1088,6 +1226,83 @@ def test_axisymmetric_frequency_per_revolution(work):
                           "as CalculiX prints it: " + str(total) + " instead of " + str(rows["TOTAL"][index]))
 
 
+def read_frd_displacements(frd_file_name, node_id):
+    # The X displacement of the node in every DISP block of the results file, with the time of the block
+    values = []
+    with open(frd_file_name) as frd_file:
+        lines = frd_file.read().splitlines()
+    time = None
+    for index, line in enumerate(lines):
+        if line.strip().startswith("100CL"):
+            time = float(line.split()[2])
+        elif line.strip().startswith("-4  DISP"):
+            for data_line in lines[index + 1:]:
+                if data_line.startswith(" -3"):
+                    break
+                if data_line.startswith(" -1") and int(data_line[3:13]) == node_id:
+                    values.append((time, float(data_line[13:25])))
+    return values
+
+
+def test_axisymmetric_buckling_per_revolution(work):
+    # CalculiX normalizes the buckling modes to the stiffness of its 2 degree segment, so they are read back divided
+    # by the square root of 180, normalized to the stiffness of the revolution: the strain energy of a mode over the
+    # revolution is one half, in the printed history and in the energy field integrated over the revolution, which
+    # the volume integral of an axisymmetric result is when no cross section is given. The base state of the step is
+    # no mode and the buckling factors are left as they are, and a static step before the buckling one changes none of
+    # it
+    add_ring_section(PREFIX + "Steel_Buckling", pmx.create.elastic(210000, 0.3))
+    part_id = pmx.model.parts.first().id
+    static = pmx.model.steps.add_static(PREFIX + "Ring_Preload")
+    step = pmx.model.steps.add_buckle(PREFIX + "Ring_Buckle", number_of_buckling_factors=2)
+    for item in [static, step]:
+        item.bcs.add_fixed(PREFIX + "Ring_Fixed", pmx.create.region('NodeSetName', PREFIX + "Ring_Bottom"))
+        item.loads.add_pressure(PREFIX + "Ring_Pressure", pmx.create.region('SurfaceName', PREFIX + "Ring_Top"), 100.0)
+    step.field_outputs.replace_element('EF-Output-1', variables=['S', 'E', 'ENER'])
+    step.history_outputs.add_element(PREFIX + "Ring_Energy",
+                                     pmx.create.selection_by_ids('femodel', 'elements', 'parts', [part_id]),
+                                     ["ELSE"], totals_type="Only")
+    name = PREFIX + "Axi_Buckle"
+    result, step_id, _ = run_and_open(name, work)
+    set_name = [set_name for set_name in result.history_outputs.get_names() if str(set_name).startswith("STEP_")][0]
+    factors = result.get_history_output_entries(set_name, "BUCKLING", "BUCKLING_FACTOR")
+    factors = list(factors[str(factors.get_names()[0])].get_data().values)
+    increments = result.steps[step_id].increments
+    times = [increments[increment_id].step_time for increment_id in increments.get_ids()]
+    check(len(times) == 3 and times[0] == 0 and len(factors) == 2 and
+          all(abs(a - b) < 1e-4 * b for a, b in zip(times[1:], factors)),
+          "the buckling step reads back the increments " + str(times) + " for the buckling factors " + str(factors))
+    # The displacements of the results file
+    printed = read_frd_displacements(os.path.join(work, name + ".frd"), 13)[-3:]
+    read = [result.get_nodal_value(step_id, increment_id, 'DISP', 'U1', 13) for increment_id in increments.get_ids()]
+    expected = [printed[0][1]] + [value / math.sqrt(180) for _, value in printed[1:]]
+    check(all(abs(a - b) <= 1e-5 * max(abs(b), 1e-12) for a, b in zip(read, expected)) and abs(expected[1]) > 0,
+          "the buckling modes of an axisymmetric model are not normalized to the stiffness of the revolution: the " +
+          "displacements " + str(read) + " instead of " + str(expected) + ", the base state as printed")
+    # The strain energy of the modes in the history and in the field
+    entries = [name for name in result.history_outputs.get_names() if
+               "TOTAL_INTERNAL_ENERGY" in list(result.history_outputs[name].fields.get_names())]
+    energy = result.get_history_output_entries(entries[0], "TOTAL_INTERNAL_ENERGY", "SE")
+    energy = list(energy[str(energy.get_names()[0])].get_data().values)
+    outputs = result.history_outputs
+    outputs.add_from_integration(PREFIX + "Ring_Mode_Energy", "Volume",
+                                 pmx.create.selection_by_ids('results', 'elements', 'parts', [part_id]),
+                                 field_name="ENER", component_names=["ENER"], integral_result="Field")
+    entries = pmx.results.current.get_history_output_entries(PREFIX + "Ring_Mode_Energy", "ENER", "ENER")
+    integrated = {}
+    for entry in entries.get_names():
+        data = entries[str(entry)].get_data()
+        for time, value in zip(data.time, data.values):
+            integrated[time] = integrated.get(time, 0.0) + value
+    integrated = [integrated[time] for time in sorted(integrated) if time in times]
+    # The field is the energy density averaged at the nodes of the coarse ring, so it integrates to within 2 %
+    check(len(energy) == 3 and len(integrated) == 3 and abs(energy[0] - integrated[0]) < 1e-2 * energy[0] and
+          all(abs(value - 0.5) < 1e-3 for value in energy[1:]) and
+          all(abs(value - 0.5) < 1e-2 for value in integrated[1:]),
+          "the strain energy of the buckling modes of an axisymmetric model over the revolution is " + str(energy) +
+          " in the history and " + str(integrated) + " in the field instead of one half, after the base state")
+
+
 def test_axisymmetric_gap_and_mass_per_revolution(work):
     # A compression only support acts on the 2 degree segment like a spring, so its stiffness is given for the full
     # revolution. The gap is closed by a nonlinear step, as a linear one takes half its stiffness at the closure
@@ -1199,6 +1414,8 @@ def main():
         clean()
         test_axisymmetric_frequency_per_revolution(work)
         clean()
+        test_axisymmetric_buckling_per_revolution(work)
+        clean()
         test_axisymmetric_gap_and_mass_per_revolution(work)
         clean()
         test_two_d_mass_frequency(work)
@@ -1208,6 +1425,8 @@ def main():
         test_axisymmetric_section_print_per_revolution(work)
         clean()
         test_axisymmetric_results_of_another_model(work)
+        clean()
+        test_axisymmetric_contact_energy_and_integration(work)
     finally:
         # A failure may leave the sleeping solver running in the folder, which then cannot be removed
         for job in list(pmx.jobs):

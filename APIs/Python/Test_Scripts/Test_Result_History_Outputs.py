@@ -404,8 +404,17 @@ try:
         check_raises(lambda: history_outputs.add_from_integration(name=refused_name, integral_type="Volume",
                                                                   region=None),
                      "an integration without a region was accepted")
+        # A cross section scales the out-of-plane direction of 2D elements, which solid elements do not have
+        check_raises(lambda: history_outputs.add_from_integration(
+                         name=refused_name, integral_type="Volume", region=volume_region,
+                         cross_section="Thickness", thickness=2.0),
+                     "a Volume integral over solid elements took the Thickness cross_section")
         check(get_history_output_names(history_outputs) == names_before,
               "a refused integration left a history output behind")
+        # A 3D result is integrated without a cross section when none is given
+        draft = history_outputs.create_history_output_from_integration(
+            name=INTEGRATION_NAME, integral_type="Volume", region=volume_region)
+        check(draft.cross_section == "None", "the default cross section of a 3D result is " + draft.cross_section)
         # The dialog offers the cross section of a Line and a Volume integral on any result, so a 3D
         # result takes it too, and the thickness reads back only where it applies
         draft = history_outputs.create_history_output_from_integration(

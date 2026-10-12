@@ -149,8 +149,13 @@ namespace APIs.Python
                    "output; the Line and Volume integrals take it on a 2D and a 3D result alike, as the " +
                    "dialog does, except that adding an Axisymmetric one to a result with a 3D mesh is refused: an " +
                    "axisymmetric model written with 3D output is the 2 degree segment CalculiX computes, and is " +
-                   "integrated without a cross section. The Surface " +
-                   "integral refuses any value but None. The thickness argument is taken only with the " +
+                   "integrated without a cross section. A Volume integral over 3D elements refuses any value but " +
+                   "None. When cross_section is not given it is Axisymmetric for a Line and a Volume integral of " +
+                   "an axisymmetric result with a 2D mesh, which so gives the values of the full revolution as " +
+                   "its other results do, and None otherwise; 'None' given explicitly keeps the plain 2D measure. " +
+                   "The Surface integral refuses any value but None, and integrates the faces of solid and shell " +
+                   "elements only: a surface of a 2D result, made of element edges, is refused, and its edges are " +
+                   "integrated with the Line integral. The thickness argument is taken only with the " +
                    "Thickness cross_section, where it defaults to 1.0. Possible " +
                    "deformation_variable_name values are Displacements, Forces, SurfaceNormals, WearDepths, " +
                    "MeshDeformation, DispDef and DispDefDepth.",
@@ -159,7 +164,7 @@ namespace APIs.Python
                                "field_name: str = None, component_names: list[str] = None, " +
                                "integral_result: str = 'Geometry', " +
                                "deformation_variable_name: str = 'Displacements', " +
-                               "unit: str = '/', cross_section: str = 'None', thickness: float = None",
+                               "unit: str = '/', cross_section: str = None, thickness: float = None",
                    Returns = "HistoryOutputFromIntegrationDraft")]
         public ResultHistoryOutputFromIntegrationDraftAPI create_history_output_from_integration(
             object name, object integral_type, object region, object field_name = null,
@@ -176,7 +181,7 @@ namespace APIs.Python
                 PythonValueConverter.ToTextOrDefault(deformation_variable_name, "Displacements",
                                                      "deformation_variable_name");
             string unitText = PythonValueConverter.ToTextOrDefault(unit, "/", "unit");
-            string crossSection = PythonValueConverter.ToTextOrDefault(cross_section, "None", "cross_section");
+            string crossSection = PythonValueConverter.ToText(cross_section, "cross_section", true);
             return _service.CreateFromIntegration(nameText, integralType, fieldName, component_names, region,
                                                   integralResult, deformationVariableName, unitText,
                                                   crossSection, thickness);
@@ -385,7 +390,7 @@ namespace APIs.Python
                                "field_name: str = None, component_names: list[str] = None, " +
                                "integral_result: str = 'Geometry', " +
                                "deformation_variable_name: str = 'Displacements', " +
-                               "unit: str = '/', cross_section: str = 'None', thickness: float = None, " +
+                               "unit: str = '/', cross_section: str = None, thickness: float = None, " +
                                "filter1: HistoryOutputFilter = None, filter2: HistoryOutputFilter = None",
                    Returns = "HistoryOutput")]
         public ResultHistoryOutputAPI add_from_integration(
@@ -404,7 +409,7 @@ namespace APIs.Python
                 PythonValueConverter.ToTextOrDefault(deformation_variable_name, "Displacements",
                                                      "deformation_variable_name");
             string unitText = PythonValueConverter.ToTextOrDefault(unit, "/", "unit");
-            string crossSection = PythonValueConverter.ToTextOrDefault(cross_section, "None", "cross_section");
+            string crossSection = PythonValueConverter.ToText(cross_section, "cross_section", true);
             ResultHistoryOutputFilterAPI filter1Value =
                 PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
             ResultHistoryOutputFilterAPI filter2Value =
@@ -436,7 +441,7 @@ namespace APIs.Python
                 PythonValueConverter.ToTextOrDefault(deformation_variable_name, "Displacements",
                                                      "deformation_variable_name");
             string unitText = PythonValueConverter.ToTextOrDefault(unit, "/", "unit");
-            string crossSection = PythonValueConverter.ToTextOrDefault(cross_section, "None", "cross_section");
+            string crossSection = PythonValueConverter.ToText(cross_section, "cross_section", true);
             ResultHistoryOutputFilterAPI filter1Value =
                 PythonValueConverter.ToApiObject<ResultHistoryOutputFilterAPI>(filter1, "filter1", true);
             ResultHistoryOutputFilterAPI filter2Value =

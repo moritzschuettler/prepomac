@@ -60,5 +60,7 @@ namespace APIs.Python
         void RemoveResultHistoryOutputs(string[] resultHistoryOutputNames);
         void RemoveResultHistoryFields(string historyOutputName, string[] fieldNames);
         void RemoveResultHistoryComponents(string historyOutputName, string fieldName, string[] componentNames);
+        // The cross section the dialog proposes for a line or volume integral of the current result
+        IntegrationScaleType GetDefaultResultIntegrationCrossSection();
     }
 }

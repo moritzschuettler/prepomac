@@ -283,6 +283,8 @@ namespace PrePoMax.Forms
                 string crossSectionError =
                     _controller.CurrentResult.GetIntegrationCrossSectionError(rhofiCrossSection.CrossSection);
                 if (crossSectionError != null) throw new CaeException(crossSectionError);
+                string regionError = _controller.CurrentResult.GetIntegrationRegionError(rhofiCrossSection);
+                if (regionError != null) throw new CaeException(regionError);
             }
             // Check equation
             if (ResultHistoryOutput is ResultHistoryOutputFromEquation rhofe)
@@ -422,6 +424,7 @@ namespace PrePoMax.Forms
                     CheckMissingValueRef(ref deformationVariableNames, vrhofi.DeformationVariableName,
                                          s => { vrhofi.DeformationVariableName = s; });
                     // Populate
+                    vrhofi.SetDefaultCrossSection(_controller.GetDefaultResultIntegrationCrossSection());
                     vrhofi.PopulateDropDownLists(elementSetNames, surfaceNames, filedNameComponentNames);
                 }
                 else if (_viewResultHistoryOutput is ViewResultHistoryOutputFromAffineFit vrhoaf)
@@ -507,7 +510,9 @@ namespace PrePoMax.Forms
             ResultHistoryOutputFromIntegration rhofi =
                 new ResultHistoryOutputFromIntegration(GetHistoryOutputName("From_Integration"), IntegralTypeEnum.Line,
                                                        "", RegionTypeEnum.Selection, fieldData.Name, null, defVar);
+            rhofi.CrossSection = _controller.GetDefaultResultIntegrationCrossSection();
             ViewResultHistoryOutputFromIntegration vrhofi = new ViewResultHistoryOutputFromIntegration(rhofi);
+            vrhofi.SetDefaultCrossSection(rhofi.CrossSection);
             vrhofi.PopulateDropDownLists(elementSetNames, surfaceNames, filedNameComponentNames);
             item.Tag = vrhofi;
             lvTypes.Items.Add(item);
