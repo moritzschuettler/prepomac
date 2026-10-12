@@ -144,7 +144,11 @@ runs again, by Regenerate, Undo, Redo or a batch regeneration, finds the files o
 `name_2.ext`. A file the session read after writing it - an import, a result file, a parameters file -
 is read from where the replay wrote it. `pmx.work_directory` raises when the session has none, so
 replay with `-w`. An analysis the history added by default where one already existed is written as a
-comment.
+comment. An item keeps its reference to a region, an amplitude, a distribution, a coordinate system, a
+reference point, a material, a surface interaction or a contact pair that a rename or a remove took away
+after it was made, and a replace keeps a reference it is not given, so a replace of such an item is
+written without that reference - the positional arguments after it by keyword - and the replay keeps it
+as the session did, rather than refuse a name that no longer exists.
 
 A journal holds the whole history from the empty model it starts with - the history of an opened
 `.pmx` begins with the clear of its own new model - so replay it without `-f`; opening the model

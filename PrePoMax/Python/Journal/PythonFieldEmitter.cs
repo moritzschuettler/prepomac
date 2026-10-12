@@ -116,9 +116,11 @@ namespace PrePoMax.Python.Journal
             else throw new NotSupportedException("the distribution type " + distribution.GetType().Name +
                                                  " has no API form");
             // A replace keeps the coordinate system it is not given, so the global one is written out there
-            if (oldName != null ||
-                distribution.CoordinateSystemName != CaeMesh.CoordinateSystem.DefaultCoordinateSystemName)
-                arguments.Add("coordinate_system_name=" + PythonValueFormatter.Text(distribution.CoordinateSystemName));
+            string coordinateSystemName = writer.KeptReference("pmx.model.coordinate_systems",
+                                                               distribution.CoordinateSystemName, oldName != null);
+            if (coordinateSystemName != null &&
+                (oldName != null || coordinateSystemName != CaeMesh.CoordinateSystem.DefaultCoordinateSystemName))
+                arguments.Add("coordinate_system_name=" + PythonValueFormatter.Text(coordinateSystemName));
             //
             writer.Statement(writer.Call(collection, method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, distribution);
@@ -129,36 +131,41 @@ namespace PrePoMax.Python.Journal
         {
             const string collection = "pmx.model.initial_conditions";
             if (condition is InitialVelocity initialVelocity) condition = ToTranslationalVelocity(initialVelocity);
-            string region = PythonRegionEmitter.Emit(writer, condition.RegionName, condition.RegionType,
-                                                     condition.CreationData);
+            bool replace = oldName != null;
+            string region = PythonRegionEmitter.EmitKept(writer, condition.RegionName, condition.RegionType,
+                                                         condition.CreationData, replace);
             List<string> arguments = new List<string>();
             if (oldName != null) arguments.Add(PythonValueFormatter.Text(oldName));
             arguments.Add(PythonValueFormatter.Text(condition.Name));
-            arguments.Add(region);
+            PythonJournalWriter.AddPositional(arguments, "region", region);
             //
             string verb = oldName == null ? "add" : "replace";
             string method;
             if (condition is InitialTemperature temperature)
             {
                 method = verb + "_temperature";
-                arguments.Add(PythonValueFormatter.Equation(temperature.Temperature));
-                if (!string.IsNullOrEmpty(temperature.DistributionName))
-                    arguments.Add("distribution_name=" +
-                                  PythonValueFormatter.Text(temperature.DistributionName));
+                PythonJournalWriter.AddPositional(arguments, "temperature",
+                                                  PythonValueFormatter.Equation(temperature.Temperature));
+                string distributionName = writer.KeptReference("pmx.model.distributions",
+                                                               temperature.DistributionName, replace);
+                if (!string.IsNullOrEmpty(distributionName))
+                    arguments.Add("distribution_name=" + PythonValueFormatter.Text(distributionName));
             }
             else if (condition is InitialTranslationalVelocity translational)
             {
                 method = verb + "_translational_velocity";
-                arguments.Add(PythonValueFormatter.Equation(translational.V1));
-                arguments.Add(PythonValueFormatter.Equation(translational.V2));
-                arguments.Add(PythonValueFormatter.Equation(translational.V3));
+                PythonJournalWriter.AddPositional(arguments, "v1", PythonValueFormatter.Equation(translational.V1));
+                PythonJournalWriter.AddPositional(arguments, "v2", PythonValueFormatter.Equation(translational.V2));
+                PythonJournalWriter.AddPositional(arguments, "v3", PythonValueFormatter.Equation(translational.V3));
             }
             else if (condition is InitialAngularVelocity angular)
             {
                 method = verb + "_angular_velocity";
-                arguments.Add(Point(angular.X, angular.Y, angular.Z));
-                arguments.Add(Point(angular.N1, angular.N2, angular.N3));
-                arguments.Add(PythonValueFormatter.Equation(angular.RotationalSpeed));
+                PythonJournalWriter.AddPositional(arguments, "axis_point", Point(angular.X, angular.Y, angular.Z));
+                PythonJournalWriter.AddPositional(arguments, "axis_direction",
+                                                  Point(angular.N1, angular.N2, angular.N3));
+                PythonJournalWriter.AddPositional(arguments, "rotational_speed",
+                                                  PythonValueFormatter.Equation(angular.RotationalSpeed));
             }
             else throw new NotSupportedException("the initial condition type " + condition.GetType().Name +
                                                  " has no API form");

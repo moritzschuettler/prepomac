@@ -29,8 +29,11 @@ namespace PrePoMax.Python.Journal
         }
         private static void Emit(PythonJournalWriter writer, string verb, string oldName, Section section)
         {
-            string region = PythonRegionEmitter.Emit(writer, section.RegionName, section.RegionType,
-                                                     section.CreationData);
+            bool replace = oldName != null;
+            string region = PythonRegionEmitter.EmitKept(writer, section.RegionName, section.RegionType,
+                                                         section.CreationData, replace);
+            string materialName = writer.KeptReference("pmx.model.materials", section.MaterialName, replace);
+            string material = materialName == null ? null : PythonValueFormatter.Text(materialName);
             List<string> arguments = new List<string>();
             if (oldName != null) arguments.Add(PythonValueFormatter.Text(oldName));
             arguments.Add(PythonValueFormatter.Text(section.Name));
@@ -39,8 +42,8 @@ namespace PrePoMax.Python.Journal
             if (section is SolidSection solidSection)
             {
                 method = verb + "_solid";
-                arguments.Add(PythonValueFormatter.Text(section.MaterialName));
-                arguments.Add(region);
+                PythonJournalWriter.AddPositional(arguments, "material_name", material);
+                PythonJournalWriter.AddPositional(arguments, "region", region);
                 // Only a 2D solid section writes its thickness, and add_solid refuses one in a 3D model
                 if (solidSection.TwoD)
                     arguments.Add("thickness=" + PythonValueFormatter.Equation(solidSection.Thickness));
@@ -48,29 +51,29 @@ namespace PrePoMax.Python.Journal
             else if (section is ShellSection shellSection)
             {
                 method = verb + "_shell";
-                arguments.Add(PythonValueFormatter.Text(section.MaterialName));
-                arguments.Add(region);
+                PythonJournalWriter.AddPositional(arguments, "material_name", material);
+                PythonJournalWriter.AddPositional(arguments, "region", region);
                 arguments.Add("thickness=" + PythonValueFormatter.Equation(shellSection.Thickness));
                 arguments.Add("offset=" + PythonValueFormatter.Equation(shellSection.Offset));
             }
             else if (section is MembraneSection membraneSection)
             {
                 method = verb + "_membrane";
-                arguments.Add(PythonValueFormatter.Text(section.MaterialName));
-                arguments.Add(region);
+                PythonJournalWriter.AddPositional(arguments, "material_name", material);
+                PythonJournalWriter.AddPositional(arguments, "region", region);
                 arguments.Add("thickness=" + PythonValueFormatter.Equation(membraneSection.Thickness));
                 arguments.Add("offset=" + PythonValueFormatter.Equation(membraneSection.Offset));
             }
             else if (section is PointMassSection pointMassSection)
             {
                 method = verb + "_point_mass";
-                arguments.Add(region);
+                PythonJournalWriter.AddPositional(arguments, "region", region);
                 arguments.Add("mass=" + PythonValueFormatter.Equation(pointMassSection.Mass));
             }
             else if (section is DistributedMassSection distributedMassSection)
             {
                 method = verb + "_distributed_mass";
-                arguments.Add(region);
+                PythonJournalWriter.AddPositional(arguments, "region", region);
                 arguments.Add("mass=" + PythonValueFormatter.Equation(distributedMassSection.Mass));
             }
             else throw new NotSupportedException("the section type " + section.GetType().Name +

@@ -40,16 +40,22 @@ namespace PrePoMax.Python.Journal
         public static void ContactPair(PythonJournalWriter writer, string oldName, ContactPair contactPair)
         {
             const string collection = "pmx.model.contact_pairs";
-            string master = MasterRegion(writer, contactPair.MasterRegionName, contactPair.MasterRegionType,
-                                         contactPair.MasterCreationData);
-            string slave = PythonRegionEmitter.Emit(writer, contactPair.SlaveRegionName,
-                                                    contactPair.SlaveRegionType, contactPair.SlaveCreationData);
+            bool replace = oldName != null;
+            string master = PythonRegionEmitter.EmitKept(writer, contactPair.MasterRegionName,
+                                                         contactPair.MasterRegionType, contactPair.MasterCreationData,
+                                                         replace);
+            string slave = PythonRegionEmitter.EmitKept(writer, contactPair.SlaveRegionName,
+                                                        contactPair.SlaveRegionType, contactPair.SlaveCreationData,
+                                                        replace);
+            string interactionName = writer.KeptReference("pmx.model.surface_interactions",
+                                                          contactPair.SurfaceInteractionName, replace);
             List<string> arguments = new List<string>();
             if (oldName != null) arguments.Add(PythonValueFormatter.Text(oldName));
             arguments.Add(PythonValueFormatter.Text(contactPair.Name));
-            arguments.Add(PythonValueFormatter.Text(contactPair.SurfaceInteractionName));
-            arguments.Add(master);
-            arguments.Add(slave);
+            PythonJournalWriter.AddPositional(arguments, "surface_interaction_name",
+                                              interactionName == null ? null : PythonValueFormatter.Text(interactionName));
+            PythonJournalWriter.AddPositional(arguments, "master_region", master);
+            PythonJournalWriter.AddPositional(arguments, "slave_region", slave);
             arguments.Add("method=" + PythonValueFormatter.Text(contactPair.Method.ToString()));
             // Only NodeToSurface takes small sliding, so an add leaves it out for the other methods; a replace
             // keeps the small sliding it is not given and refuses another method over a kept one, so it always
@@ -95,7 +101,7 @@ namespace PrePoMax.Python.Journal
         {
             if (constraint is CyclicSymmetry cyclicSymmetry)
             {
-                AddMasterSlave(writer, arguments, constraint);
+                AddMasterSlave(writer, arguments, constraint, replace);
                 // The expansion region is discarded below two graph sectors, so it is emitted only when
                 // the model kept it, whether it is a selection or a named element set
                 bool hasExpansionRegion = cyclicSymmetry.CreationData != null ||
@@ -107,9 +113,10 @@ namespace PrePoMax.Python.Journal
                     PythonRegionEmitter.RefuseSelectionOtherThanParts(cyclicSymmetry.CreationData,
                                                                       "the expansion region of the cyclic symmetry '" +
                                                                       cyclicSymmetry.Name + "'");
-                    arguments.Add("region=" + PythonRegionEmitter.Emit(writer, cyclicSymmetry.RegionName,
-                                                                       cyclicSymmetry.RegionType,
-                                                                       cyclicSymmetry.CreationData));
+                    string region = PythonRegionEmitter.EmitKept(writer, cyclicSymmetry.RegionName,
+                                                                 cyclicSymmetry.RegionType, cyclicSymmetry.CreationData,
+                                                                 replace);
+                    if (region != null) arguments.Add("region=" + region);
                 }
                 arguments.Add("axis_point=" + Point(cyclicSymmetry.X, cyclicSymmetry.Y, cyclicSymmetry.Z));
                 arguments.Add("axis_direction=" + Point(cyclicSymmetry.N1, cyclicSymmetry.N2,
@@ -123,13 +130,13 @@ namespace PrePoMax.Python.Journal
             }
             if (constraint is Tie tie)
             {
-                AddMasterSlave(writer, arguments, constraint);
+                AddMasterSlave(writer, arguments, constraint, replace);
                 AddTieValues(arguments, tie, replace);
                 return "tie";
             }
             if (constraint is Joint joint)
             {
-                AddMasterSlave(writer, arguments, constraint);
+                AddMasterSlave(writer, arguments, constraint, replace);
                 arguments.Add("joint_type=" + PythonValueFormatter.Text(joint.JointType.ToString()));
                 // A centre picked in the viewport is emitted as the coordinates it resolved to, which is what
                 // the picking produced and what a script can reproduce
@@ -154,7 +161,7 @@ namespace PrePoMax.Python.Journal
             }
             if (constraint is DistributingCoupling distributing)
             {
-                AddCouplingArguments(writer, arguments, distributing);
+                AddCouplingArguments(writer, arguments, distributing, replace);
                 AddFlag(arguments, "u1", distributing.U1);
                 AddFlag(arguments, "u2", distributing.U2);
                 AddFlag(arguments, "u3", distributing.U3);
@@ -165,7 +172,7 @@ namespace PrePoMax.Python.Journal
             }
             if (constraint is KinematicCoupling kinematic)
             {
-                AddCouplingArguments(writer, arguments, kinematic);
+                AddCouplingArguments(writer, arguments, kinematic, replace);
                 AddFlag(arguments, "u1", kinematic.U1);
                 AddFlag(arguments, "u2", kinematic.U2);
                 AddFlag(arguments, "u3", kinematic.U3);
@@ -173,16 +180,16 @@ namespace PrePoMax.Python.Journal
             }
             if (constraint is RigidBody rigidBody)
             {
-                arguments.Add(PythonValueFormatter.Text(rigidBody.ReferencePointName));
-                arguments.Add(PythonRegionEmitter.Emit(writer, rigidBody.RegionName, rigidBody.RegionType,
-                                                       rigidBody.CreationData));
+                AddReferencePointAndRegion(writer, arguments, rigidBody.ReferencePointName, rigidBody.RegionName,
+                                           rigidBody.RegionType, rigidBody.CreationData, replace);
                 return "rigid_body";
             }
             if (constraint is CompressionOnly compressionOnly)
             {
-                arguments.Add(PythonRegionEmitter.Emit(writer, compressionOnly.RegionName,
-                                                       compressionOnly.RegionType,
-                                                       compressionOnly.CreationData));
+                PythonJournalWriter.AddPositional(arguments, "region",
+                                                  PythonRegionEmitter.EmitKept(writer, compressionOnly.RegionName,
+                                                                               compressionOnly.RegionType,
+                                                                               compressionOnly.CreationData, replace));
                 arguments.Add("clearance=" + PythonValueFormatter.Equation(compressionOnly.Clearance));
                 AddDefaultable(arguments, "spring_stiffness=", compressionOnly.SpringStiffness, replace);
                 AddDefaultable(arguments, "tensile_force_at_negative_infinity=",
@@ -193,14 +200,14 @@ namespace PrePoMax.Python.Journal
             }
             if (constraint is SurfaceSpring surfaceSpring)
             {
-                AddSpringArguments(writer, arguments, surfaceSpring);
+                AddSpringArguments(writer, arguments, surfaceSpring, replace);
                 arguments.Add("stiffness_per_area=" +
                               PythonValueFormatter.Format(surfaceSpring.StiffnessPerArea));
                 return "surface_spring";
             }
             if (constraint is PointSpring pointSpring)
             {
-                AddSpringArguments(writer, arguments, pointSpring);
+                AddSpringArguments(writer, arguments, pointSpring, replace);
                 return "point_spring";
             }
             //
@@ -229,12 +236,16 @@ namespace PrePoMax.Python.Journal
             arguments.Add(argument + "=" + PythonValueFormatter.Channels(color));
         }
         private static void AddMasterSlave(PythonJournalWriter writer, List<string> arguments,
-                                           Constraint constraint)
+                                           Constraint constraint, bool replace)
         {
-            arguments.Add(MasterRegion(writer, constraint.MasterRegionName, constraint.MasterRegionType,
-                                       constraint.MasterCreationData));
-            arguments.Add(PythonRegionEmitter.Emit(writer, constraint.SlaveRegionName,
-                                                   constraint.SlaveRegionType, constraint.SlaveCreationData));
+            PythonJournalWriter.AddPositional(arguments, "master_region",
+                                              PythonRegionEmitter.EmitKept(writer, constraint.MasterRegionName,
+                                                                           constraint.MasterRegionType,
+                                                                           constraint.MasterCreationData, replace));
+            PythonJournalWriter.AddPositional(arguments, "slave_region",
+                                              PythonRegionEmitter.EmitKept(writer, constraint.SlaveRegionName,
+                                                                           constraint.SlaveRegionType,
+                                                                           constraint.SlaveCreationData, replace));
         }
         private static void AddTieValues(List<string> arguments, Tie tie, bool replace)
         {
@@ -256,17 +267,30 @@ namespace PrePoMax.Python.Journal
             arguments.Add(argument + PythonValueFormatter.Equation(value));
         }
         private static void AddCouplingArguments(PythonJournalWriter writer, List<string> arguments,
-                                                 Coupling coupling)
+                                                 Coupling coupling, bool replace)
         {
-            arguments.Add(PythonValueFormatter.Text(coupling.ReferencePointName));
-            arguments.Add(PythonRegionEmitter.Emit(writer, coupling.RegionName, coupling.RegionType,
-                                                   coupling.CreationData));
+            AddReferencePointAndRegion(writer, arguments, coupling.ReferencePointName, coupling.RegionName,
+                                       coupling.RegionType, coupling.CreationData, replace);
+        }
+        private static void AddReferencePointAndRegion(PythonJournalWriter writer, List<string> arguments,
+                                                       string referencePointName, string regionName,
+                                                       CaeGlobals.RegionTypeEnum regionType,
+                                                       CaeGlobals.Selection creationData, bool replace)
+        {
+            string region = PythonRegionEmitter.EmitKept(writer, regionName, regionType, creationData, replace);
+            referencePointName = writer.KeptReference("pmx.model.reference_points", referencePointName, replace);
+            PythonJournalWriter.AddPositional(arguments, "reference_point_name",
+                                              referencePointName == null ? null :
+                                              PythonValueFormatter.Text(referencePointName));
+            PythonJournalWriter.AddPositional(arguments, "region", region);
         }
         private static void AddSpringArguments(PythonJournalWriter writer, List<string> arguments,
-                                               SpringConstraint spring)
+                                               SpringConstraint spring, bool replace)
         {
-            arguments.Add(PythonRegionEmitter.Emit(writer, spring.RegionName, spring.RegionType,
-                                                   spring.CreationData));
+            PythonJournalWriter.AddPositional(arguments, "region",
+                                              PythonRegionEmitter.EmitKept(writer, spring.RegionName,
+                                                                           spring.RegionType, spring.CreationData,
+                                                                           replace));
             AddStiffness(arguments, "k1", spring.K1);
             AddStiffness(arguments, "k2", spring.K2);
             AddStiffness(arguments, "k3", spring.K3);
@@ -280,11 +304,6 @@ namespace PrePoMax.Python.Journal
         private static void AddFlag(List<string> arguments, string name, bool value)
         {
             arguments.Add(name + "=" + PythonValueFormatter.Format(value));
-        }
-        private static string MasterRegion(PythonJournalWriter writer, string regionName,
-                                           CaeGlobals.RegionTypeEnum regionType, CaeGlobals.Selection creationData)
-        {
-            return PythonRegionEmitter.Emit(writer, regionName, regionType, creationData);
         }
         private static string GetPropertyMaker(SurfaceInteractionProperty property)
         {

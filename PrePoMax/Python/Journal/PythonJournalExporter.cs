@@ -101,6 +101,10 @@ namespace PrePoMax.Python.Journal
         }
         private static void EmitCommand(PythonJournalWriter writer, Command command)
         {
+            if (command is IImportFileCommand || command is COpenFile || command is CClear ||
+                command is CRunPythonScript)
+                writer.ForgetRemovedNames();
+            //
             try
             {
                 command.ToPython(writer);

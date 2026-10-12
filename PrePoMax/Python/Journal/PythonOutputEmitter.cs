@@ -69,28 +69,32 @@ namespace PrePoMax.Python.Journal
             {
                 // A contact history output names a contact pair rather than a region of the mesh
                 method = verb + "_contact";
-                arguments.Add(PythonValueFormatter.Text(output.RegionName));
-                arguments.Add(PythonValueFormatter.Flags(contact.Variables));
+                string contactPairName = writer.KeptReference("pmx.model.contact_pairs", output.RegionName,
+                                                              oldName != null);
+                PythonJournalWriter.AddPositional(arguments, "contact_pair_name",
+                                                  contactPairName == null ? null :
+                                                  PythonValueFormatter.Text(contactPairName));
+                AddVariables(arguments, PythonValueFormatter.Flags(contact.Variables));
             }
             else
             {
-                string region = PythonRegionEmitter.Emit(writer, output.RegionName, output.RegionType,
-                                                         output.CreationData);
-                arguments.Add(region);
+                string region = PythonRegionEmitter.EmitKept(writer, output.RegionName, output.RegionType,
+                                                             output.CreationData, oldName != null);
+                PythonJournalWriter.AddPositional(arguments, "region", region);
                 if (output is NodalHistoryOutput nodal)
                 {
                     method = verb + "_nodal";
-                    arguments.Add(PythonValueFormatter.Flags(nodal.Variables));
+                    AddVariables(arguments, PythonValueFormatter.Flags(nodal.Variables));
                 }
                 else if (output is ElementHistoryOutput element)
                 {
                     method = verb + "_element";
-                    arguments.Add(PythonValueFormatter.Flags(element.Variables));
+                    AddVariables(arguments, PythonValueFormatter.Flags(element.Variables));
                 }
                 else if (output is SectionHistoryOutput section)
                 {
                     method = verb + "_section";
-                    arguments.Add(PythonValueFormatter.Flags(section.Variables));
+                    AddVariables(arguments, PythonValueFormatter.Flags(section.Variables));
                 }
                 else throw new NotSupportedException("the history output type " + output.GetType().Name +
                                                      " has no API form");
@@ -126,14 +130,18 @@ namespace PrePoMax.Python.Journal
             else
             {
                 method = verb + "_temperature";
-                arguments.Add(PythonRegionEmitter.Emit(writer, field.RegionName, field.RegionType,
-                                                       field.CreationData));
-                arguments.Add(PythonValueFormatter.Equation(temperature.Temperature));
-                if (!string.IsNullOrEmpty(temperature.DistributionName))
-                    arguments.Add("distribution_name=" +
-                                  PythonValueFormatter.Text(temperature.DistributionName));
+                PythonJournalWriter.AddPositional(arguments, "region",
+                                                  PythonRegionEmitter.EmitKept(writer, field.RegionName,
+                                                                               field.RegionType, field.CreationData,
+                                                                               oldName != null));
+                PythonJournalWriter.AddPositional(arguments, "temperature",
+                                                  PythonValueFormatter.Equation(temperature.Temperature));
+                string distributionName = writer.KeptReference("pmx.model.distributions", temperature.DistributionName,
+                                                               oldName != null);
+                if (!string.IsNullOrEmpty(distributionName))
+                    arguments.Add("distribution_name=" + PythonValueFormatter.Text(distributionName));
                 // A temperature read from a file is written without an amplitude, so only this form takes one
-                PythonStepItemEmitter.AddAmplitude(arguments, field.AmplitudeName);
+                PythonStepItemEmitter.AddAmplitude(writer, arguments, field.AmplitudeName, oldName != null);
             }
             DefinedTemperature defaultField = new DefinedTemperature("Default", null,
                                                                      CaeGlobals.RegionTypeEnum.Selection, 0);
@@ -142,6 +150,10 @@ namespace PrePoMax.Python.Journal
             writer.Statement(writer.Call(collection, method, arguments.ToArray()));
             PythonModelItemEmitter.EmitState(writer, collection, field);
             writer.CountEmittedCommand();
+        }
+        private static void AddVariables(List<string> arguments, string variables)
+        {
+            PythonJournalWriter.AddPositional(arguments, "variables", variables);
         }
     }
 }

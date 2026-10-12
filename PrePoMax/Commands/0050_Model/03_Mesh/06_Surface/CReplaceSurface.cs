@@ -49,10 +49,13 @@ namespace PrePoMax.Commands
             string surfaceType = "surface_type=" + PythonValueFormatter.Text(_newSurface.Type.ToString());
             if (_newSurface.CreatedFrom == FeSurfaceCreatedFrom.NodeSet)
             {
+                // A replace keeps the node set it is not given, so one a rename or a remove took away is left out
+                string nodeSetName = writer.KeptReference("pmx.model.node_sets", _newSurface.CreatedFromNodeSetName,
+                                                          true);
                 writer.Statement(writer.Call("pmx.model.surfaces", "replace_from_node_set",
                                              PythonValueFormatter.Text(_oldSurfaceName),
                                              PythonValueFormatter.Text(_newSurface.Name),
-                                             PythonValueFormatter.Text(_newSurface.CreatedFromNodeSetName),
+                                             nodeSetName == null ? null : PythonValueFormatter.Text(nodeSetName),
                                              surfaceType));
                 PythonModelItemEmitter.EmitState(writer, "pmx.model.surfaces", _newSurface);
                 writer.CountEmittedCommand();

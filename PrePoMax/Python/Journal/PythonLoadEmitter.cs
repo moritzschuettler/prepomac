@@ -19,7 +19,12 @@ namespace PrePoMax.Python.Journal
     // the speed, and the axisymmetric flag from the model space.
     public static class PythonLoadEmitter
     {
-        // Methods                                                                                                                  
+        // Variables
+        private const string Amplitudes = "pmx.model.amplitudes";
+        private const string Distributions = "pmx.model.distributions";
+
+
+        // Methods                                                                                                                 
         public static void Add(PythonJournalWriter writer, string stepName, Load load)
         {
             Emit(writer, stepName, "add", null, load);
@@ -35,20 +40,21 @@ namespace PrePoMax.Python.Journal
             if (load is GravityLoad || load is CentrifLoad || load is BodyFlux)
                 PythonRegionEmitter.RefuseSelectionOtherThanParts(load.CreationData, "the region of the load '" +
                                                                                     load.Name + "'");
-            string region = PythonRegionEmitter.Emit(writer, load.RegionName, load.RegionType, load.CreationData);
+            bool replace = oldName != null;
+            string region = PythonRegionEmitter.EmitKept(writer, load.RegionName, load.RegionType, load.CreationData,
+                                                         replace);
             List<string> arguments = new List<string>();
             if (oldName != null) arguments.Add(PythonValueFormatter.Text(oldName));
             arguments.Add(PythonValueFormatter.Text(load.Name));
-            arguments.Add(region);
+            PythonJournalWriter.AddPositional(arguments, "region", region);
             //
-            bool replace = oldName != null;
-            string method = verb + "_" + AddTypeArguments(arguments, load, replace);
+            string method = verb + "_" + AddTypeArguments(writer, arguments, load, replace);
             //
-            PythonStepItemEmitter.AddAmplitude(arguments, load.AmplitudeName);
+            PythonStepItemEmitter.AddAmplitude(writer, arguments, load.AmplitudeName, replace);
             // The dialog offers a coordinate system for a concentrated force and a surface traction only, and the
             // API refuses one elsewhere
             if (load is CLoad || load is STLoad)
-                PythonStepItemEmitter.AddCoordinateSystem(arguments, load.CoordinateSystemName);
+                PythonStepItemEmitter.AddCoordinateSystem(writer, arguments, load.CoordinateSystemName, replace);
             // A pre-tension is complex in a steady state dynamics step, but the solver input carries no phase for it
             PythonStepItemEmitter.AddPhase(arguments, load.Complex && !(load is PreTensionLoad), load.PhaseDeg);
             PythonStepItemEmitter.AddColor(arguments, load.Color, DefaultColor(), replace);
@@ -59,7 +65,8 @@ namespace PrePoMax.Python.Journal
         }
         // A replace keeps every value it is not given, so what an add leaves to the default - a flag that is off,
         // the surface normal - is written out on a replace
-        private static string AddTypeArguments(List<string> arguments, Load load, bool replace)
+        private static string AddTypeArguments(PythonJournalWriter writer, List<string> arguments, Load load,
+                                               bool replace)
         {
             if (load is CLoad concentratedForce)
             {
@@ -77,9 +84,12 @@ namespace PrePoMax.Python.Journal
             }
             if (load is ImportedPressure importedPressure)
             {
-                arguments.Add(PythonValueFormatter.Path(importedPressure.FileName));
-                arguments.Add(PythonValueFormatter.Text(importedPressure.PressureTime));
-                arguments.Add(PythonValueFormatter.Text(importedPressure.PressureVariableName));
+                PythonJournalWriter.AddPositional(arguments, "file_name",
+                                                  PythonValueFormatter.Path(importedPressure.FileName));
+                PythonJournalWriter.AddPositional(arguments, "pressure_time",
+                                                  PythonValueFormatter.Text(importedPressure.PressureTime));
+                PythonJournalWriter.AddPositional(arguments, "pressure_variable_name",
+                                                  PythonValueFormatter.Text(importedPressure.PressureVariableName));
                 arguments.Add("interpolator_type=" +
                               PythonValueFormatter.Text(importedPressure.InterpolatorType.ToString()));
                 arguments.Add("magnitude_factor=" + PythonValueFormatter.Equation(importedPressure.MagnitudeFactor));
@@ -102,8 +112,9 @@ namespace PrePoMax.Python.Journal
             }
             if (load is DLoad pressure)
             {
-                arguments.Add(PythonValueFormatter.Equation(pressure.Magnitude));
-                AddName(arguments, "distribution_name", pressure.DistributionName);
+                AddMagnitude(arguments, pressure.Magnitude);
+                AddName(arguments, "distribution_name",
+                        writer.KeptReference(Distributions, pressure.DistributionName, replace));
                 return "pressure";
             }
             if (load is STLoad surfaceTraction)
@@ -121,12 +132,13 @@ namespace PrePoMax.Python.Journal
                     AddComponent(arguments, "p2", surfaceTraction.P2);
                     AddComponent(arguments, "p3", surfaceTraction.P3);
                 }
-                AddName(arguments, "distribution_name", surfaceTraction.DistributionName);
+                AddName(arguments, "distribution_name",
+                        writer.KeptReference(Distributions, surfaceTraction.DistributionName, replace));
                 return "surface_traction";
             }
             if (load is ShellEdgeLoad shellEdge)
             {
-                arguments.Add(PythonValueFormatter.Equation(shellEdge.Magnitude));
+                AddMagnitude(arguments, shellEdge.Magnitude);
                 return "shell_edge_load";
             }
             if (load is GravityLoad gravity)
@@ -146,8 +158,7 @@ namespace PrePoMax.Python.Journal
             if (load is PreTensionLoad preTension)
             {
                 bool isDisplacement = preTension.Type == PreTensionLoadType.Displacement;
-                arguments.Add(PythonValueFormatter.Equation(isDisplacement ? preTension.DisplacementMagnitude
-                                                                           : preTension.ForceMagnitude));
+                AddMagnitude(arguments, isDisplacement ? preTension.DisplacementMagnitude : preTension.ForceMagnitude);
                 if (!preTension.AutoComputeDirection)
                     arguments.Add("direction=" + Point(preTension.X, preTension.Y, preTension.Z));
                 else if (replace) arguments.Add("auto_direction=True");
@@ -156,39 +167,45 @@ namespace PrePoMax.Python.Journal
             }
             if (load is CFlux concentratedFlux)
             {
-                arguments.Add(PythonValueFormatter.Equation(concentratedFlux.Magnitude));
+                AddMagnitude(arguments, concentratedFlux.Magnitude);
                 if (concentratedFlux.AddFlux) arguments.Add("add_flux=True");
                 else if (replace) arguments.Add("add_flux=False");
                 return "concentrated_flux";
             }
             if (load is DFlux surfaceFlux)
             {
-                arguments.Add(PythonValueFormatter.Equation(surfaceFlux.Magnitude));
+                AddMagnitude(arguments, surfaceFlux.Magnitude);
                 return "surface_flux";
             }
             if (load is BodyFlux bodyFlux)
             {
-                arguments.Add(PythonValueFormatter.Equation(bodyFlux.Magnitude));
+                AddMagnitude(arguments, bodyFlux.Magnitude);
                 return "body_flux";
             }
             if (load is FilmHeatTransfer film)
             {
-                arguments.Add(PythonValueFormatter.Equation(film.SinkTemperature));
-                arguments.Add(PythonValueFormatter.Equation(film.FilmCoefficient));
-                AddName(arguments, "coefficient_amplitude_name", film.CoefficientAmplitudeName);
+                PythonJournalWriter.AddPositional(arguments, "sink_temperature",
+                                                  PythonValueFormatter.Equation(film.SinkTemperature));
+                PythonJournalWriter.AddPositional(arguments, "film_coefficient",
+                                                  PythonValueFormatter.Equation(film.FilmCoefficient));
+                AddName(arguments, "coefficient_amplitude_name",
+                        writer.KeptReference(Amplitudes, film.CoefficientAmplitudeName, replace));
                 return "film_heat_transfer";
             }
             if (load is RadiationHeatTransfer radiation)
             {
-                arguments.Add(PythonValueFormatter.Equation(radiation.SinkTemperature));
-                arguments.Add(PythonValueFormatter.Equation(radiation.Emissivity));
+                PythonJournalWriter.AddPositional(arguments, "sink_temperature",
+                                                  PythonValueFormatter.Equation(radiation.SinkTemperature));
+                PythonJournalWriter.AddPositional(arguments, "emissivity",
+                                                  PythonValueFormatter.Equation(radiation.Emissivity));
                 if (radiation.CavityRadiation)
                 {
                     arguments.Add("cavity_radiation=True");
                     AddName(arguments, "cavity_name", radiation.CavityName);
                 }
                 else if (replace) arguments.Add("cavity_radiation=False");
-                AddName(arguments, "emissivity_amplitude_name", radiation.EmissivityAmplitudeName);
+                AddName(arguments, "emissivity_amplitude_name",
+                        writer.KeptReference(Amplitudes, radiation.EmissivityAmplitudeName, replace));
                 return "radiation_heat_transfer";
             }
             // Kept only so that older files still open; the API offers no load that reads a traction field
@@ -198,6 +215,10 @@ namespace PrePoMax.Python.Journal
                                                 "that reads a surface traction from a file");
             //
             throw new NotSupportedException("the load type " + load.GetType().Name + " has no API form");
+        }
+        private static void AddMagnitude(List<string> arguments, EquationContainer magnitude)
+        {
+            PythonJournalWriter.AddPositional(arguments, "magnitude", PythonValueFormatter.Equation(magnitude));
         }
         // A component that is not applied carries a NaN, and leaving the argument out is what the API
         // takes for that

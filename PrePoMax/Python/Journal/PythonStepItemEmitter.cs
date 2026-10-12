@@ -23,14 +23,18 @@ namespace PrePoMax.Python.Journal
         {
             return "pmx.model.steps[" + PythonValueFormatter.Text(stepName) + "]." + collection;
         }
-        public static void AddAmplitude(List<string> arguments, string amplitudeName)
+        public static void AddAmplitude(PythonJournalWriter writer, List<string> arguments, string amplitudeName,
+                                        bool replace)
         {
+            amplitudeName = writer.KeptReference("pmx.model.amplitudes", amplitudeName, replace);
             if (string.IsNullOrEmpty(amplitudeName)) return;
             //
             arguments.Add("amplitude_name=" + PythonValueFormatter.Text(amplitudeName));
         }
-        public static void AddCoordinateSystem(List<string> arguments, string coordinateSystemName)
+        public static void AddCoordinateSystem(PythonJournalWriter writer, List<string> arguments,
+                                               string coordinateSystemName, bool replace)
         {
+            coordinateSystemName = writer.KeptReference("pmx.model.coordinate_systems", coordinateSystemName, replace);
             if (string.IsNullOrEmpty(coordinateSystemName)) return;
             //
             arguments.Add("coordinate_system_name=" + PythonValueFormatter.Text(coordinateSystemName));

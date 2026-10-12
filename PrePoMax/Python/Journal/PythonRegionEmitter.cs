@@ -37,6 +37,34 @@ namespace PrePoMax.Python.Journal
             return PythonJournalWriter.Join("pmx.create.region", PythonValueFormatter.Text(regionType.ToString()),
                                             PythonValueFormatter.Text(regionName));
         }
+        // A replace keeps the region it is not given, so a named region a rename or a remove took away earlier in
+        // the history is left out, as a null, rather than named
+        public static string EmitKept(PythonJournalWriter writer, string regionName, RegionTypeEnum regionType,
+                                      Selection creationData, bool replace)
+        {
+            if (replace && IsRemoved(writer, regionName, regionType, creationData)) return null;
+            //
+            return Emit(writer, regionName, regionType, creationData);
+        }
+        public static bool IsRemoved(PythonJournalWriter writer, string regionName, RegionTypeEnum regionType,
+                                     Selection creationData)
+        {
+            if (creationData != null && creationData.Nodes != null && creationData.Nodes.Count > 0) return false;
+            //
+            return writer.IsRemoved(GetCollection(regionType), regionName);
+        }
+        // A part is not followed: meshing and the geometry operations make parts under names the journal never writes
+        private static string GetCollection(RegionTypeEnum regionType)
+        {
+            switch (regionType)
+            {
+                case RegionTypeEnum.NodeSetName: return "pmx.model.node_sets";
+                case RegionTypeEnum.ElementSetName: return "pmx.model.element_sets";
+                case RegionTypeEnum.SurfaceName: return "pmx.model.surfaces";
+                case RegionTypeEnum.ReferencePointName: return "pmx.model.reference_points";
+                default: return null;
+            }
+        }
         // A gravity, a centrifugal and a body flux load and the expansion region of a cyclic symmetry are picked as
         // parts, which is all the API takes for them, so a selection of another target an older API recorded would
         // only be refused when the journal replays

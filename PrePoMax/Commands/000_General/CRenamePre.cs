@@ -60,6 +60,7 @@ namespace PrePoMax.Commands
             string collection = PythonCollectionResolver.GetCollection(_itemType, _stepName, _view);
             writer.Statement(writer.Call(collection, "rename", PythonValueFormatter.Text(_itemName),
                                          PythonValueFormatter.Text(_newName)));
+            writer.RenameName(collection, _itemName, _newName);
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()

@@ -34,6 +34,7 @@ namespace PrePoMax.Python.Journal
         private string _sessionStartFileName;
         private readonly Dictionary<string, string> _outputFileNames;
         private readonly HashSet<string> _usedOutputFileNames;
+        private readonly Dictionary<string, HashSet<string>> _removedNames;
 
 
         // Properties                                                                                                               
@@ -84,6 +85,7 @@ namespace PrePoMax.Python.Journal
             _writesToWorkDirectory = false;
             _outputFileNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             _usedOutputFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _removedNames = new Dictionary<string, HashSet<string>>();
         }
 
 
@@ -186,8 +188,87 @@ namespace PrePoMax.Python.Journal
                 return globalFileName;
             }
         }
+        // A replace keeps a reference it is not given, and the model keeps a reference to an item that a rename or a
+        // remove took away after it was made, so a replace leaves such a reference out rather than name an item the
+        // API does not find. The names taken away are kept per collection as the script writes them.
+        public bool IsRemoved(string collection, string name)
+        {
+            if (collection == null || string.IsNullOrEmpty(name)) return false;
+            //
+            HashSet<string> removedNames;
+            return _removedNames.TryGetValue(collection, out removedNames) &&
+                   removedNames.Contains(PythonValueFormatter.Text(name));
+        }
+        public string KeptReference(string collection, string name, bool replace)
+        {
+            return replace && IsRemoved(collection, name) ? null : name;
+        }
+        public void RemoveNames(string collection, string[] names)
+        {
+            if (collection == null || names == null) return;
+            //
+            foreach (string name in names)
+            {
+                if (name != null) RemoveName(collection, PythonValueFormatter.Text(name));
+            }
+        }
+        public void RenameName(string collection, string oldName, string newName)
+        {
+            if (collection == null || oldName == null || newName == null) return;
+            //
+            string oldText = PythonValueFormatter.Text(oldName);
+            string newText = PythonValueFormatter.Text(newName);
+            HashSet<string> removedNames;
+            if (_removedNames.TryGetValue(collection, out removedNames)) removedNames.Remove(newText);
+            if (!string.Equals(oldText, newText, StringComparison.OrdinalIgnoreCase)) RemoveName(collection, oldText);
+        }
+        // An imported file or a recorded script can add items under names the journal never writes
+        public void ForgetRemovedNames()
+        {
+            _removedNames.Clear();
+        }
+        private void RemoveName(string collection, string nameText)
+        {
+            HashSet<string> removedNames;
+            if (!_removedNames.TryGetValue(collection, out removedNames))
+            {
+                removedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                _removedNames.Add(collection, removedNames);
+            }
+            removedNames.Add(nameText);
+        }
+        // An add or a replace naming an item brings its name back, a replace given a new name takes the old one
+        // away, and a duplicate or a merge adds items under names it does not write
+        private void TrackRemovedNames(string collection, string method, string[] arguments)
+        {
+            if (collection == null || method == null || arguments == null) return;
+            //
+            if (method == "duplicate" || method.StartsWith("merge"))
+            {
+                _removedNames.Remove(collection);
+                return;
+            }
+            if (!method.StartsWith("add") && !method.StartsWith("replace")) return;
+            //
+            HashSet<string> removedNames;
+            if (_removedNames.TryGetValue(collection, out removedNames))
+            {
+                foreach (string argument in arguments)
+                {
+                    if (argument != null) removedNames.Remove(argument);
+                }
+            }
+            if (method.StartsWith("replace") && arguments.Length >= 2 && IsText(arguments[0]) && IsText(arguments[1]) &&
+                !string.Equals(arguments[0], arguments[1], StringComparison.OrdinalIgnoreCase))
+                RemoveName(collection, arguments[0]);
+        }
+        private static bool IsText(string argument)
+        {
+            return argument != null && argument.StartsWith("'");
+        }
         public string Call(string target, string method, params string[] arguments)
         {
+            TrackRemovedNames(target, method, arguments);
             string call = Join(method, arguments);
             if (string.IsNullOrEmpty(target)) return call;
             //
@@ -207,6 +288,13 @@ namespace PrePoMax.Python.Journal
         public void Assign(string variableName, string expression)
         {
             Statement(variableName + " = " + expression);
+        }
+        // A positional argument a replace leaves out is held as a null, and every positional argument after it is
+        // written by its keyword
+        public static void AddPositional(List<string> arguments, string keyword, string value)
+        {
+            if (value != null && arguments.Contains(null)) arguments.Add(keyword + "=" + value);
+            else arguments.Add(value);
         }
         // A null argument is one the caller chose to leave at its default, so it is left out
         public static string ArgumentList(params string[] arguments)

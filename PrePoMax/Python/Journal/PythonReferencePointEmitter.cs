@@ -56,8 +56,13 @@ namespace PrePoMax.Python.Journal
             {
                 method = verb + "_from_region";
                 arguments.Add(PythonValueFormatter.Text(createdFrom.ToString()));
-                arguments.Add(PythonValueFormatter.Text(referencePoint.RegionType.ToString()));
-                arguments.Add(PythonValueFormatter.Text(referencePoint.RegionName));
+                // A replace keeps the region it is not given, so one a rename or a remove took away is left out
+                if (oldName == null || !PythonRegionEmitter.IsRemoved(writer, referencePoint.RegionName,
+                                                                      referencePoint.RegionType, null))
+                {
+                    arguments.Add(PythonValueFormatter.Text(referencePoint.RegionType.ToString()));
+                    arguments.Add(PythonValueFormatter.Text(referencePoint.RegionName));
+                }
             }
             else throw new NotSupportedException("a reference point created from " + createdFrom +
                                                  " has no API form");

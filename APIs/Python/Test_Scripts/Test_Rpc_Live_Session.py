@@ -21,7 +21,10 @@
 #distribution, the coordinate system of a distribution, the shifts of an amplitude, fixed degrees of
 #freedom, values taken back to Default, and a material whose values are expressions. One more carries
 #Element and Node surfaces, a contact adjustment size taken back to Default and the colors the
-#constraint, contact pair and initial condition dialogs set. One more carries a
+#constraint, contact pair and initial condition dialogs set. One more carries replaces that keep a
+#reference to a region, an amplitude, a distribution, a coordinate system, a reference point, a material,
+#a surface interaction or a contact pair a rename or a remove took away: the journal leaves it out, as the
+#API keeps it, while a name made again is written. One more carries a
 #recorded script that binds selection_1, which must not change the journal lines after it, and the global
 #results file of a submodel, which must exist, so a cleared one is refused. A recorded script that fails part way must be
 #recorded with what it changed before the error and its journal must run it to that error and go on, a
@@ -1100,6 +1103,143 @@ def check_journal_of_dialog_appearance(client):
     print("journal: the surface types, the Default adjustment and the dialog colors replay to " + str(replayed))
 
 
+def read_kept_references(client):
+    step = "pmx.model.steps['kept_step']"
+    loads = step + ".loads"
+    outputs = step + ".history_outputs"
+    constraints = "pmx.model.constraints"
+    pair = "pmx.model.contact_pairs['kept_pair_2']"
+    expressions = [loads + "['kept_pressure'].region_name", loads + "['kept_pressure'].amplitude_name",
+                   loads + "['kept_pressure'].get_value('distribution_name')",
+                   loads + "['kept_pressure'].get_value('magnitude')",
+                   loads + "['kept_force'].region_name", loads + "['kept_force'].coordinate_system_name",
+                   loads + "['kept_force'].get_value('f1')",
+                   loads + "['kept_named'].amplitude_name",
+                   constraints + "['kept_rigid'].get_value('reference_point_name')",
+                   constraints + "['kept_rigid'].region_name", "list(" + constraints + "['kept_rigid'].color)",
+                   constraints + "['kept_spring'].region_name", constraints + "['kept_spring'].get_value('k1')",
+                   "pmx.model.sections['kept_section_2'].material_name",
+                   pair + ".surface_interaction_name", pair + ".master_region_name", pair + ".slave_region_name",
+                   pair + ".adjust",
+                   outputs + "['kept_contact'].get_value('contact_pair_name')",
+                   "sorted(" + outputs + "['kept_contact'].get_value('variables'))",
+                   outputs + "['kept_stress'].region_name",
+                   "sorted(" + outputs + "['kept_stress'].get_value('variables'))",
+                   "pmx.model.initial_conditions['kept_temperature'].region_name",
+                   "pmx.model.initial_conditions['kept_temperature'].get_value('distribution_name')",
+                   "pmx.model.initial_conditions['kept_temperature'].get_value('temperature')",
+                   "pmx.model.distributions['kept_distribution_2'].coordinate_system_name",
+                   "[item.valid for item in list(" + loads + ") + list(" + constraints + ") + list(" + outputs + ")]"]
+    value = client.result("eval", {"expression": "[" + ", ".join(expressions) + "]"})
+    check(not value["failed"], "the kept references must be readable: " + value["error"])
+    return value["value"]
+
+
+def check_journal_of_kept_references(client):
+    """A replace keeps a reference to a region, a distribution, an amplitude, a coordinate system, a reference point,
+    a material, a surface interaction or a contact pair that a rename or a remove took away, and its journal must
+    leave that reference out rather than name what the replay does not find."""
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": model + os.linesep +
+                                              "pmx.import_file(r'" + os.path.join(MODELS, "cube.inp") + "')"})
+    check(not result["failed"], "the new model must be built: " + result["error"])
+    source = os.linesep.join([
+        "def face(face_id):",
+        "    return pmx.create.selection_by_ids('femodel', 'surfaces', 'surfaces', {1: [face_id]})",
+        "region = pmx.create.region",
+        "pmx.model.materials.add('kept_material', [pmx.create.elastic(210000, 0.3)])",
+        "pmx.model.sections.add_solid('kept_section', 'kept_material', pmx.create.selection_by_ids('femodel', "
+        "'elements', 'parts', [pmx.model.parts.first().id]))",
+        "pmx.model.node_sets.add('kept_set', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))",
+        "pmx.model.node_sets.add('kept_gone', pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [5, 6, 7, 8]))",
+        "pmx.model.element_sets.add('kept_elements', pmx.create.selection_by_ids('femodel', 'elements', 'elements', "
+        "[1]))",
+        "pmx.model.surfaces.add('kept_face', face(1))",
+        "pmx.model.surfaces.add('kept_master', face(3))",
+        "pmx.model.surfaces.add('kept_slave', face(4))",
+        "pmx.model.amplitudes.add('kept_ramp', [[0, 0], [1, 1]])",
+        "pmx.model.coordinate_systems.add('kept_cs', [0, 0, 0], [1, 0, 0], [0, 1, 0])",
+        "pmx.model.distributions.add_from_equation('kept_distribution', '=1', coordinate_system_name='kept_cs')",
+        "pmx.model.reference_points.add('kept_rp', [0, 0, 2])",
+        "pmx.model.constraints.add_rigid_body('kept_rigid', 'kept_rp', region('NodeSetName', 'kept_set'))",
+        "pmx.model.constraints.add_point_spring('kept_spring', region('NodeSetName', 'kept_gone'), k1=1)",
+        "pmx.model.surface_interactions.add('kept_si', [pmx.create.surface_behavior('Hard')])",
+        "pmx.model.contact_pairs.add('kept_pair', 'kept_si', region('SurfaceName', 'kept_master'), "
+        "region('SurfaceName', 'kept_slave'))",
+        "pmx.model.initial_conditions.add_temperature('kept_temperature', region('NodeSetName', 'kept_set'), 20, "
+        "distribution_name='kept_distribution')",
+        "step = pmx.model.steps.add_static('kept_step')",
+        "step.loads.add_pressure('kept_pressure', region('SurfaceName', 'kept_face'), 1, amplitude_name='kept_ramp', "
+        "distribution_name='kept_distribution')",
+        "step.loads.add_concentrated_force('kept_force', region('NodeSetName', 'kept_gone'), f1=1, "
+        "coordinate_system_name='kept_cs')",
+        "step.history_outputs.add_contact('kept_contact', 'kept_pair', ['CF'])",
+        "step.history_outputs.add_element('kept_stress', region('ElementSetName', 'kept_elements'), ['S'])",
+        # A name taken away and made again is a name the replay finds, so a replace that picks it names it
+        "pmx.model.amplitudes.add('kept_again', [[0, 0], [1, 2]])",
+        "step.loads.add_pressure('kept_named', face(5), 1, amplitude_name='kept_again')",
+        "pmx.model.amplitudes.rename('kept_again', 'kept_again_2')",
+        "pmx.model.amplitudes.add('kept_again', [[0, 0], [1, 3]])",
+        "pmx.model.materials.rename('kept_material', 'kept_material_2')",
+        "pmx.model.element_sets.rename('kept_elements', 'kept_elements_2')",
+        "pmx.model.surfaces.rename('kept_face', 'kept_face_2')",
+        "pmx.model.surfaces.rename('kept_master', 'kept_master_2')",
+        "pmx.model.amplitudes.rename('kept_ramp', 'kept_ramp_2')",
+        "pmx.model.coordinate_systems.rename('kept_cs', 'kept_cs_2')",
+        "pmx.model.distributions.rename('kept_distribution', 'kept_distribution_2')",
+        "pmx.model.reference_points.rename('kept_rp', 'kept_rp_2')",
+        "pmx.model.surface_interactions.rename('kept_si', 'kept_si_2')",
+        "pmx.model.contact_pairs.rename('kept_pair', 'kept_pair_2')",
+        "pmx.model.node_sets.rename('kept_set', 'kept_set_2')",
+        "pmx.model.node_sets.remove(['kept_gone'])",
+        # Each replace changes one value and keeps the references that no longer resolve
+        "step.loads.replace_pressure('kept_pressure', magnitude=2)",
+        "step.loads.replace_concentrated_force('kept_force', f1=3)",
+        "step.loads.replace_pressure('kept_named', amplitude_name='kept_again')",
+        "pmx.model.constraints.replace_rigid_body('kept_rigid', color='Red')",
+        "pmx.model.constraints.replace_point_spring('kept_spring', k1=2)",
+        "pmx.model.sections.replace_solid('kept_section', name='kept_section_2')",
+        "pmx.model.contact_pairs.replace('kept_pair_2', adjust=True)",
+        "step.history_outputs.replace_contact('kept_contact', variables=['CF', 'CNUM'])",
+        "step.history_outputs.replace_element('kept_stress', variables=['S', 'E'])",
+        "pmx.model.initial_conditions.replace_temperature('kept_temperature', temperature=30)",
+        "pmx.model.distributions.replace_from_equation('kept_distribution_2', equation='=2')"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the replaces that keep references must be accepted: " + result["error"])
+    recorded = read_kept_references(client)
+    check(recorded[0:2] == ["kept_face", "kept_ramp"] and recorded[3] == 2,
+          "the pressure must keep its references and take the new magnitude: " + str(recorded))
+    check(recorded[7] == "kept_again", "the pressure must take the amplitude made again: " + str(recorded))
+    check(recorded[-1].count(True) == 1, "every item keeping a reference taken away must be invalid, and only " +
+          "the one naming the amplitude made again valid: " + str(recorded))
+    result = client.result("history", {"include_journal": True})
+    journal = result["journal"]
+    check(journal["refusedCommandCount"] == 0, "nothing may be refused: " + str(journal["refusals"]))
+    check(journal["isInline"], "a short journal must come back inline")
+    journal_source = journal["source"]
+    compact = re.sub(r"\s+", "", journal_source)
+    last_removal = "pmx.model.node_sets.remove(['kept_gone'])"
+    check(last_removal in compact, last_removal + " is missing from the journal:" + os.linesep + journal_source)
+    replaces = compact[compact.find(last_removal) + len(last_removal):]
+    for name in ["kept_material", "kept_elements", "kept_face", "kept_master", "kept_ramp", "kept_cs",
+                 "kept_distribution", "kept_rp", "kept_si", "kept_pair", "kept_set", "kept_gone"]:
+        check("'" + name + "'" not in replaces, "a replace must leave out the reference to " + name + ":" +
+              os.linesep + journal_source)
+    for expected in ["amplitude_name='kept_again'", "replace_pressure('kept_pressure','kept_pressure',magnitude=2",
+                     "replace_point_spring('kept_spring','kept_spring',k1=2", "slave_region=",
+                     "replace_contact('kept_contact','kept_contact',variables=",
+                     "replace_temperature('kept_temperature','kept_temperature',temperature=30"]:
+        check(expected in replaces, expected + " is missing from the journal:" + os.linesep + journal_source)
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal of the kept references must replay: " + result["error"] +
+          os.linesep + journal_source)
+    replayed = read_kept_references(client)
+    check(replayed == recorded, "the replayed values differ: " + str(replayed) + " against " + str(recorded))
+    print("journal: replaces keeping references that were renamed or removed replay to " + str(replayed))
+
+
 def read_script_states(client):
     sets = "pmx.model.node_sets"
     expressions = ["sorted(int(i) for i in " + sets + "['script_" + name + "'].get_node_ids())"
@@ -1741,6 +1881,7 @@ def main():
         check_journal_of_step_values(client)
         check_journal_of_dialog_values(client)
         check_journal_of_dialog_appearance(client)
+        check_journal_of_kept_references(client)
         check_journal_of_script_and_properties(client)
         check_journal_of_failed_script(client)
         check_journal_of_missing_section(client)

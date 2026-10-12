@@ -20,7 +20,11 @@ namespace PrePoMax.Python.Journal
     // degrees of freedom are named in free_dofs and a submodel flag that is off is written out.
     public static class PythonBoundaryConditionEmitter
     {
-        // Methods                                                                                                                  
+        // Variables
+        private const string Distributions = "pmx.model.distributions";
+
+
+        // Methods                                                                                                                 
         public static void Add(PythonJournalWriter writer, string stepName, BoundaryCondition condition)
         {
             Emit(writer, stepName, "add", null, condition);
@@ -34,13 +38,13 @@ namespace PrePoMax.Python.Journal
                                  BoundaryCondition condition)
         {
             string collection = PythonStepItemEmitter.GetCollection(stepName, "bcs");
-            string region = PythonRegionEmitter.Emit(writer, condition.RegionName, condition.RegionType,
-                                                     condition.CreationData);
             bool replace = oldName != null;
+            string region = PythonRegionEmitter.EmitKept(writer, condition.RegionName, condition.RegionType,
+                                                         condition.CreationData, replace);
             List<string> arguments = new List<string>();
             if (replace) arguments.Add(PythonValueFormatter.Text(oldName));
             arguments.Add(PythonValueFormatter.Text(condition.Name));
-            arguments.Add(region);
+            PythonJournalWriter.AddPositional(arguments, "region", region);
             //
             string method;
             if (condition is FixedBC)
@@ -58,10 +62,13 @@ namespace PrePoMax.Python.Journal
                 AddDegreeOfFreedom(arguments, "ur3", displacementRotation.UR3);
                 AddFixedDegreesOfFreedom(arguments, displacementRotation);
                 if (replace) AddFreeDegreesOfFreedom(arguments, displacementRotation);
-                if (replace || displacementRotation.DistributionName != Distribution.DefaultDistributionName)
-                    arguments.Add("distribution_name=" + PythonValueFormatter.Text(displacementRotation.DistributionName));
-                PythonStepItemEmitter.AddAmplitude(arguments, condition.AmplitudeName);
-                PythonStepItemEmitter.AddCoordinateSystem(arguments, condition.CoordinateSystemName);
+                string distributionName = writer.KeptReference(Distributions, displacementRotation.DistributionName,
+                                                               replace);
+                if (distributionName != null &&
+                    (replace || distributionName != Distribution.DefaultDistributionName))
+                    arguments.Add("distribution_name=" + PythonValueFormatter.Text(distributionName));
+                PythonStepItemEmitter.AddAmplitude(writer, arguments, condition.AmplitudeName, replace);
+                PythonStepItemEmitter.AddCoordinateSystem(writer, arguments, condition.CoordinateSystemName, replace);
                 PythonStepItemEmitter.AddPhase(arguments, condition.Complex, condition.PhaseDeg);
             }
             else if (condition is SubmodelBC submodel)
@@ -79,9 +86,10 @@ namespace PrePoMax.Python.Journal
             {
                 method = verb + "_temperature";
                 arguments.Add("temperature=" + PythonValueFormatter.Equation(temperature.Temperature));
-                if (!string.IsNullOrEmpty(temperature.DistributionName))
-                    arguments.Add("distribution_name=" + PythonValueFormatter.Text(temperature.DistributionName));
-                PythonStepItemEmitter.AddAmplitude(arguments, condition.AmplitudeName);
+                string distributionName = writer.KeptReference(Distributions, temperature.DistributionName, replace);
+                if (!string.IsNullOrEmpty(distributionName))
+                    arguments.Add("distribution_name=" + PythonValueFormatter.Text(distributionName));
+                PythonStepItemEmitter.AddAmplitude(writer, arguments, condition.AmplitudeName, replace);
             }
             else throw new NotSupportedException("the boundary condition type " + condition.GetType().Name +
                                                  " has no API form");

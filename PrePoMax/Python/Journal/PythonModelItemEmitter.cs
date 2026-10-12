@@ -42,6 +42,7 @@ namespace PrePoMax.Python.Journal
         public static void Remove(PythonJournalWriter writer, string collection, string[] names)
         {
             writer.Statement(writer.Call(collection, "remove", PythonValueFormatter.List(names)));
+            writer.RemoveNames(collection, names);
             writer.CountEmittedCommand();
         }
         public static void Duplicate(PythonJournalWriter writer, string collection, string[] names)
