@@ -4,7 +4,9 @@
 #Checks translating, rotating, mirroring and scaling geometry parts. A move replaces each part in
 #place, so it keeps its name, its part id and its faces in the same order, and only its position
 #changes; a copy or a pattern adds new parts and leaves the original where it was. A mirror must leave
-#a solid the right way out, which the positive volume says.
+#a solid the right way out, which the positive volume says. A pick moves with its part: with a moved mesh
+#part, back to the geometry when the part is meshed again, and with a moved geometry part, which keeps the mesh
+#setup items defined on it.
 #
 #box_and_cylinder.brep holds two CAD solids; cube.stl is imported for the STL parts.
 #
@@ -243,6 +245,73 @@ def test_compound(names):
                        "converting a compound sub-part to a shell must be refused")
 
 
+def test_selections_follow_the_move(name):
+    # A pick moves with its part. A mesh part moved in place takes the picks made on it along, and meshing its
+    # geometry part again puts the mesh back on the geometry and the picks with it. A geometry part moved in place
+    # keeps the mesh setup items defined on it, by ID and by pick, and its mesh takes the picks along once it is
+    # meshed again
+    setup_items = pmx.model.mesh.setup_items
+    node_sets = pmx.model.node_sets
+    part_id = parts()[name].id
+    box = parts()[name].get_bounding_box()
+    top = [(box[0] + box[1]) / 2, (box[2] + box[3]) / 2, box[5]]
+    setup_items.add_meshing_parameters("PyTest_MP", pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part_id]),
+                                       max_size=10, second_order=False)
+    setup_items.add_local_mesh_size("PyTest_LS", pmx.create.selection_by_pick('geometry', 'geometry', top,
+                                                                             'GeometrySurface'), element_size=5)
+    face_ids = list(setup_items["PyTest_LS"].get_geometry_ids())
+    set_names = ["PyTest_Top_Pick", "PyTest_Top_Box"]
+    try:
+        pmx.model.mesh.generate(name)
+        node_count = pmx.model.nodes.count
+        node_sets.add(set_names[0], pmx.create.selection_by_pick('femodel', 'nodes', top, 'GeometrySurface'))
+        node_sets.add(set_names[1], pmx.create.selection_by_box('femodel', 'nodes', [box[0] - 1, box[2] - 1, box[5] - 0.1],
+                                                                [box[1] + 1, box[3] + 1, box[5] + 0.1], 'Node'))
+        top_count = node_sets[set_names[0]].count
+        top_center = list(node_sets[set_names[0]].get_center_of_gravity())
+        check(top_count > 0 and node_sets[set_names[1]].count == top_count, "the pick and the box must find the top face")
+
+        def check_top(offset, message):
+            for set_name in set_names:
+                node_set = node_sets[set_name]
+                check(node_set.valid and node_set.count == top_count,
+                      message + ": " + set_name + " holds " + str(node_set.count) + " nodes instead of " + str(top_count))
+                check_close(list(node_set.get_center_of_gravity()), [c + o for c, o in zip(top_center, offset)],
+                            message + ": " + set_name + " is not on the top face")
+
+        def check_setup_items(message):
+            check(setup_items["PyTest_MP"].valid and list(setup_items["PyTest_MP"].get_geometry_ids()) == [part_id],
+                  message + ": the meshing parameters lost their part")
+            check(setup_items["PyTest_LS"].valid and list(setup_items["PyTest_LS"].get_geometry_ids()) == face_ids,
+                  message + ": the local mesh size lost its face")
+        # A mesh part moved and meshed again
+        pmx.model.parts.translate(name, [0, 0, 5])
+        check_top([0, 0, 5], "after the mesh part was moved")
+        pmx.model.mesh.generate(name)
+        check_top([0, 0, 0], "after the moved mesh part was meshed again")
+        pmx.model.parts.rotate(name, [0, 0, 0], [0, 0, 1], 90)
+        pmx.model.mesh.generate(name)
+        check_top([0, 0, 0], "after the rotated mesh part was meshed again")
+        # A geometry part moved and meshed again
+        parts().translate(name, [10, 0, 0])
+        check_setup_items("after the geometry part was moved")
+        check_top([0, 0, 0], "after the geometry part was moved and before it was meshed")
+        pmx.model.mesh.generate(name)
+        check(pmx.model.nodes.count == node_count, "the moved geometry part was meshed without its mesh setup items")
+        check_top([10, 0, 0], "after the moved geometry part was meshed again")
+        # Both, the mesh first
+        pmx.model.parts.translate(name, [0, 3, 0])
+        parts().translate(name, [-10, 0, 0])
+        check_setup_items("after the geometry part was moved back")
+        check_top([10, 3, 0], "after the mesh part and the geometry part were moved")
+        pmx.model.mesh.generate(name)
+        check_top([0, 0, 0], "after the moved geometry part was meshed again")
+    finally:
+        node_sets.remove([set_name for set_name in set_names if node_sets.contains(set_name)])
+        setup_items.remove(["PyTest_MP", "PyTest_LS"])
+        if pmx.model.parts.contains(name): pmx.model.parts.remove(name)
+
+
 def test_refusals(name):
     check_raises(lambda: parts().rotate(name, [0, 0, 0], [0, 0, 0], 45), "a zero rotation axis must be refused")
     check_raises(lambda: parts().mirror(name, [0, 0, 0], [0, 0, 0]), "a zero mirror normal must be refused")
@@ -261,6 +330,7 @@ def main():
     test_rotate(name)
     test_mirror(name)
     test_scale(name)
+    test_selections_follow_the_move(name)
     test_stl()
     test_compound(names[:2])
     print("TEST PASSED")

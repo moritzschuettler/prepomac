@@ -67,8 +67,10 @@ namespace APIs.Python
                    "Geometry, GeometryVertex, GeometryEdge, GeometrySurface, GeometryEdgeAngle, " +
                    "GeometrySurfaceAngle and GeometryPart. The angle_deg applies to the angle based modes. " +
                    "The nearest entity is picked, so a point that does not lie on the model still resolves. " +
-                   "A results pick names a point of the undeformed, unexploded geometry. A pick without a " +
-                   "precision keeps the one of the view it is first resolved in.",
+                   "A point pick given one part in part_ids stays on that part, and takes only its faces and " +
+                   "elements where it shares nodes with another part. A results pick names a point of the " +
+                   "undeformed, unexploded geometry. A pick without a precision keeps the one of the view it is " +
+                   "first resolved in.",
                    Arguments = "point: list[float], select_by: str, angle_deg: float = None, " +
                                "direction: list[float] = None, part_ids: list[int] = None, " +
                                "completely_inside: bool = False, operation: str = None, precision: float = None, " +
@@ -158,10 +160,12 @@ namespace APIs.Python
         {
             return new StringListAPI(_items.Select(item => item.Source).Distinct().ToArray());
         }
-        [PythonAPI("Sets the persisted selection-construction options the application applies to every pick of " +
-                   "this selection, during editing and replay, and returns the selection. max_geometry_ids and " +
-                   "max_item_ids cap the number of geometry ids and of items the selection holds: a pick that " +
-                   "would exceed the cap is dropped, a cap of 1 makes each pick replace the previous one, and " +
+        [PythonAPI("Sets the persisted selection-construction options the application applies to every pick and " +
+                   "ID item of this selection, in the order they were added, as it applies them to the clicks of " +
+                   "a dialog, and returns the selection. An item a limit refuses is left out of the selection and " +
+                   "of the item it creates. max_geometry_ids and " +
+                   "max_item_ids cap the number of geometry ids and of target items the selection holds: an item " +
+                   "that would exceed the cap is dropped, a cap of 1 makes each item replace the previous one, and " +
                    "-1, the default of a new selection, means unlimited. limit_to keeps every pick on the parts " +
                    "of the first one: None (the default) takes any part, FirstPart only the first part, " +
                    "FirstGeometryType only parts of its part type, such as solid or shell, and FirstMesherType " +

@@ -10,6 +10,7 @@
 using System;
 using System.Globalization;
 using System.Text;
+using CaeGlobals;
 
 namespace PrePoMax
 {
@@ -71,6 +72,15 @@ namespace PrePoMax
         {
             return new GeometryTransform(GeometryTransformTypeEnum.Scale, scaleCenter, null, 0, scaleFactors,
                                          copy ? 1 : 0);
+        }
+        public AffineTransform GetAffineTransform()
+        {
+            if (_type == GeometryTransformTypeEnum.Translate) return AffineTransform.Translation(_direction);
+            else if (_type == GeometryTransformTypeEnum.Rotate)
+                return AffineTransform.Rotation(_point, _direction, _angleRad);
+            else if (_type == GeometryTransformTypeEnum.Mirror) return AffineTransform.Mirror(_point, _direction);
+            else if (_type == GeometryTransformTypeEnum.Scale) return AffineTransform.Scaling(_point, _factors);
+            else throw new NotSupportedException();
         }
         public string GetDefinition()
         {

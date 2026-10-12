@@ -114,7 +114,9 @@ namespace APIs.Python.Model
 
         [PythonAPI("Translates the named parts using command history. A number of copies of 0 moves the parts, and " +
                    "a larger number keeps them and creates that many copies, copy k translated k times. The " +
-                   "vector components must be finite.",
+                   "vector components must be finite. A move takes the stored picks made on the parts along; " +
+                   "a mesh part meshed again from its geometry part takes them back, and a geometry part keeps " +
+                   "the mesh setup items defined on it. Rotate, mirror and scale do the same.",
                    Arguments = "part_names: list[str] or str, translate_vector: list[float], " +
                                "number_of_copies: int = 0", Returns = "None",
                    Example = "pmx.model.parts.translate('Solid-1', [0, 0, 10])")]

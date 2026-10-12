@@ -32,6 +32,8 @@ namespace CaeMesh
         protected PartMassProperties _massProperties;
         [OptionalField]
         protected GeometryMetadata _geometryMetadata;
+        [OptionalField]
+        protected AffineTransform _geometryToMeshTransform;
         //
         [NonSerialized]
         protected VisualizationData _visualization;
@@ -52,6 +54,12 @@ namespace CaeMesh
         public double[] Offset { get { return _offset; } set { _offset = value; } }
         public PartMassProperties MassProperties { get { return _massProperties; } set { _massProperties = value; } }
         public GeometryMetadata GeometryMetadata { get { return _geometryMetadata; } set { _geometryMetadata = value; } }
+        // Where a mesh part was moved to from the geometry it was meshed from; null while it lies on that geometry
+        public AffineTransform GeometryToMeshTransform
+        {
+            get { return _geometryToMeshTransform; }
+            set { _geometryToMeshTransform = value; }
+        }
         //
         public VisualizationData Visualization { get { return _visualization; } set { _visualization = value; } }
 
@@ -70,6 +78,7 @@ namespace CaeMesh
             _offset = new double[3];
             _massProperties = new PartMassProperties(false);
             _geometryMetadata = null;
+            _geometryToMeshTransform = null;
             //
             if (IsSolid()) _partType = PartType.Solid;
             else if (IsShell()) _partType = PartType.Shell;
@@ -99,6 +108,7 @@ namespace CaeMesh
             //
             _massProperties = part.MassProperties.DeepClone();
             _geometryMetadata = part.GeometryMetadata != null ? part.GeometryMetadata.DeepCopy() : null;
+            _geometryToMeshTransform = part.GeometryToMeshTransform;
         }
 
 

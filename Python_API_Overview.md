@@ -1152,6 +1152,12 @@ Every `part_names` argument accepts a single name or a list of names.
 | `rotate(part_names, rotate_center, rotate_axis, rotate_angle_deg, number_of_copies=0)` | Rotates the parts about an axis; the angle is in degrees and right handed about the axis. |
 | `mirror(part_names, mirror_point, mirror_direction, copy=False)` | Mirrors the parts over the plane through the point with the direction as its normal. |
 | `scale(part_names, scale_center, scale_factors, copy=False)` | Scales the parts. Every point, vector, factor and angle of the four transforms must be finite; a NaN or an infinity is refused naming the argument, a component as `scale_factors[1]`. |
+
+A transform that moves the parts in place, without copies, takes the stored picks made on them along. A mesh part
+remembers where it was moved from its geometry part, so meshing the geometry part again, which puts the mesh back
+on the geometry, takes those picks back to it. A geometry part keeps its name and part id, the mesh setup items
+defined on it keep their selections - a pick moves with the part and an ID keeps naming it - and the picks on its
+mesh move with the new mesh when it is meshed again.
 | `get_element_type_names()` | The names of the 14 element type slots a part carries, for example `linear_tetra`. |
 | `get_element_types(part_name)` | The element type of every slot of a part, as a `dict[str, str]` of slot name to element type name, for example `{'linear_tetra': 'C3D4'}` - the form `set_element_type` and `replace_properties` take. The part type is not a slot, and only the element kinds the part contains are listed. |
 | `set_element_type(part_names, element_type, value)` | Sets one element type slot using command history. A value that names no element type of the slot is refused, and so is `None`. An element kind the part does not contain is refused with an error naming the kinds it has. |
@@ -2811,17 +2817,23 @@ selection.add_by_ids('nodes', [1, 4], operation='Intersect')
 ```
 
 `configure` records the options the selection was made with and returns the selection, so it chains.
-The application applies them to every pick of the selection, while editing and on replay, and an option that is
-not given keeps its current value:
+The application applies them to every pick and every ID item of the selection, in the order they were added,
+the way it applies them to the clicks of a dialog - whenever the selection is resolved, and on replay - and an
+option that is not given keeps its current value. Where it is called in the chain does not matter. An item a
+limit refuses is left out of the selection, so the item it creates and the journal hold only the items that
+were kept; a selection that keeps none is refused, saying that its limits left out its picks:
 
-- `max_geometry_ids` and `max_item_ids` cap the number of geometry ids and of items the selection holds. A pick
-  that would exceed the cap is dropped, a cap of `1` makes each pick replace the previous one, and `-1`, the
-  default of a new selection, means unlimited. Any other value below `1` is refused, naming the argument.
+- `max_geometry_ids` and `max_item_ids` cap the number of geometry ids and of items the selection holds. An item
+  that would exceed the cap is dropped, a cap of `1` makes each item replace the previous one, and `-1`, the
+  default of a new selection, means unlimited. The items are those of the target, so on a `'nodes'` target
+  `max_item_ids=1` refuses a surface pick of many nodes. Any other value below `1` is refused, naming the
+  argument.
 - `limit_to` keeps every pick on the parts of the first one: `None` (the default) takes any part, `FirstPart`
   only the first part, `FirstGeometryType` only parts of its part type, such as solid or shell, and
   `FirstMesherType` only parts meshed by its mesher. It is matched in any case.
 - `shell_edges_only` limits a pick to shell edge faces and `enable_shell_edge_faces` lets a pick take them; both
-  are off by default.
+  are off by default. `shell_edges_only` is a limit like the ones above; while a selection has none of them,
+  `enable_shell_edge_faces` changes nothing.
 
 `get_options()` reads them back.
 
@@ -2847,7 +2859,7 @@ top = pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 
 all_but_top = pmx.create.selection_by_box('femodel', 'nodes', [0, 0, 0.9], [1, 1, 1.1], 'Node').invert()
 ```
 
-Six things to know about how the application resolves a selection:
+Seven things to know about how the application resolves a selection:
 
 - **A point pick takes the nearest entity.** A point that does not lie on the model still resolves, to
   whatever is closest, so a mistyped coordinate selects the wrong face rather than failing. An **area
@@ -2855,7 +2867,17 @@ Six things to know about how the application resolves a selection:
   and is reported.
 - **Only the named parts are searched.** `part_ids` limits a pick; when it is not given the whole mesh
   is searched, which is the useful default for "whatever lies under this point". A pick that names
-  its part and one that searches every part resolve to the same entity.
+  its part and one that searches every part resolve to the same entity. A point pick restricted by
+  `part_ids` stays on that part: it takes the nearest entity of the part even when another part lies
+  nearer the point, the journal writes the part it was given, and where two parts share nodes it takes
+  the faces and elements of its part only. A stored pick whose part no longer exists or is deactivated
+  is skipped, with a message in the output, rather than moved to another part. Only a pick without
+  `part_ids`, or a mouse click, is moved to the part that carries the point when its part changed.
+- **A pick moves with its part.** Translating, rotating, mirroring or scaling a mesh part in place moves the
+  stored picks made on it, and meshing the geometry part again, which puts the mesh back on the geometry,
+  takes them back with it. Moving a geometry part in place moves the picks of the mesh setup items defined
+  on it and keeps those that name it by ID; the picks on its mesh move when the part is meshed again. A
+  journal and a regenerated history resolve them the same way.
 - **`precision` and `part_offsets` are part of a recorded pick.** A point pick made without a precision
   takes the one of the current view the first time it is resolved - when the item it defines is added -
   and keeps it, so a later zoom does not change what it selects, and the journal writes it out. The
@@ -2882,7 +2904,7 @@ Six things to know about how the application resolves a selection:
 | `count` | Number of source IDs. |
 | `add_by_ids(source, ids, operation=None, geometry_select_mode='SelectId')` | Adds another compatible ID source. The select mode applies only to geometry source IDs. An edge or a surface ID counts from 1 on its part; 0 or a negative ID is refused. |
 | `add_all(operation='Add')` | Adds everything the active parts of the view hold, hidden parts included. |
-| `configure(max_geometry_ids=None, max_item_ids=None, limit_to=None, shell_edges_only=None, enable_shell_edge_faces=None)` | Records the selection options and returns the selection. |
+| `configure(max_geometry_ids=None, max_item_ids=None, limit_to=None, shell_edges_only=None, enable_shell_edge_faces=None)` | Records the selection options and returns the selection. The limits apply to its items as they apply to the clicks of a dialog, and an item they refuse is left out. |
 | `get_options()` | The recorded selection options, as a `dict[str, Any]`. |
 | `get_sources()` | Returns the source types as `StringList`. |
 | `get_ids()` | Resolves the selection against the current mesh and returns the IDs as `IntList`. |

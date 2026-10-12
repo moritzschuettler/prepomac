@@ -5181,6 +5181,8 @@ namespace PrePoMax
             HashSet<string> oldPartNames = CaptureOrderedDictionaryItemNamesForGroupPlacement(
                 _model.Geometry.Parts, targetGroupId);
             bool copy = transform.NumberOfCopies > 0;
+            Dictionary<string, Selection> meshSetupItemSelections = null;
+            if (!copy) meshSetupItemSelections = GetMeshSetupItemSelections();
             // Split parts to groups
             GeometryPart geometryPart;
             List<string> cadPartNames = new List<string>();
@@ -5286,7 +5288,68 @@ namespace PrePoMax
             //
             DrawGeometry(false);
             //
+            if (!copy) FollowGeometryTransform(partNames, transform.GetAffineTransform(), meshSetupItemSelections);
+            //
             CheckAndUpdateModelValidity();
+        }
+        private Dictionary<string, Selection> GetMeshSetupItemSelections()
+        {
+            Dictionary<string, Selection> selections = new Dictionary<string, Selection>();
+            foreach (var entry in _model.Geometry.MeshSetupItems)
+            {
+                if (entry.Value.CreationData != null) selections.Add(entry.Key, entry.Value.CreationData.DeepCopy(true, false));
+            }
+            return selections;
+        }
+        /// <summary>
+        /// A moved geometry part keeps its name and part id, so the mesh setup items defined on it keep their selections:
+        /// a pick moves with the part and an id keeps naming the same part or face. Replacing the part in place drops the
+        /// selections that name it by part id, so they are restored from the selections taken before the move. The mesh
+        /// of the part stays where it was until the part is meshed again, and the part records the move, so that the picks
+        /// on the mesh move with the new mesh.
+        /// </summary>
+        private void FollowGeometryTransform(string[] partNames, AffineTransform transform,
+                                             Dictionary<string, Selection> meshSetupItemSelections)
+        {
+            HashSet<string> movedPartNames = new HashSet<string>();
+            HashSet<int> movedPartIds = new HashSet<int>();
+            BasePart part;
+            foreach (var partName in partNames)
+            {
+                movedPartNames.Add(partName);
+                if (_model.Geometry.Parts.TryGetValue(partName, out part) && part is CompoundGeometryPart compoundPart)
+                {
+                    movedPartNames.UnionWith(compoundPart.SubPartNames);
+                    movedPartNames.UnionWith(compoundPart.GetSplitSubPartNames());
+                    movedPartIds.UnionWith(compoundPart.GetSplitSubPartIds());
+                }
+            }
+            foreach (var partName in movedPartNames)
+            {
+                if (_model.Geometry.Parts.TryGetValue(partName, out part)) movedPartIds.Add(part.PartId);
+            }
+            //
+            Dictionary<int, AffineTransform> partIdTransforms = new Dictionary<int, AffineTransform>();
+            foreach (var partId in movedPartIds) partIdTransforms.Add(partId, transform);
+            MeshSetupItem meshSetupItem;
+            foreach (var entry in meshSetupItemSelections)
+            {
+                if (!_model.Geometry.MeshSetupItems.TryGetValue(entry.Key, out meshSetupItem)) continue;
+                //
+                TransformSelection(entry.Value, partIdTransforms);
+                meshSetupItem.CreationData = entry.Value;
+                ReplaceMeshSetupItem(meshSetupItem.Name, meshSetupItem, false);
+            }
+            //
+            if (_model.Mesh == null) return;
+            AffineTransform inverse = transform.Inverse();
+            foreach (var entry in _model.Mesh.Parts)
+            {
+                part = entry.Value;
+                if (!movedPartNames.Contains(entry.Key) || !movedPartIds.Contains(part.PartId)) continue;
+                part.GeometryToMeshTransform = part.GeometryToMeshTransform == null ? inverse :
+                                               inverse.Then(part.GeometryToMeshTransform);
+            }
         }
         /// <summary>
         /// A copy of a split compound is split as the compound is, but it is a body of its own, so each of its sub
@@ -11778,6 +11841,7 @@ namespace PrePoMax
                 ViewGeometryModelResults view = ViewGeometryModelResults.Model;
                 string[] names = meshPartNamesToRemove.ToArray();
                 _annotations.RemoveCurrentArrowAnnotationsByParts(names, view);
+                ReturnSelectionsToRemeshedParts(names);
                 _model.Mesh.RemoveParts(names, out _, true);
                 // The node and element sets of an earlier QuadWild debug visualization
                 foreach (GeneratedMeshData generatedMesh in generatedMeshes)
@@ -14199,7 +14263,8 @@ namespace PrePoMax
                 GetLastOrderedDictionaryItemParentGroupId(_model.Mesh.Parts, partNames);
             SuppressExplodedView();
             //
-            if (numberOfCopies == -1) TranslateSelectionsContainingParts(partNames, translateVector);
+            if (numberOfCopies == -1)
+                TransformSelectionsContainingParts(partNames, AffineTransform.Translation(translateVector));
             //
             string[] translatedPartNames = _model.Mesh.TranslateParts(partNames, translateVector, numberOfCopies,
                                                                       _model.GetReservedPartNames(),
@@ -14228,7 +14293,9 @@ namespace PrePoMax
                 GetLastOrderedDictionaryItemParentGroupId(_model.Mesh.Parts, partNames);
             SuppressExplodedView();
             //
-            if (numberOfCopies == -1) RotateSelectionsContainingParts(partNames, rotateCenter, rotateAxis, rotateAngle);
+            if (numberOfCopies == -1)
+                TransformSelectionsContainingParts(partNames, AffineTransform.Rotation(rotateCenter, rotateAxis,
+                                                                                       rotateAngle));
             //
             string[] rotatedPartNames = _model.Mesh.RotateParts(partNames, rotateCenter, rotateAxis, rotateAngle, numberOfCopies,
                                                                 _model.GetReservedPartNames(), _model.GetReservedPartIds());
@@ -14253,7 +14320,7 @@ namespace PrePoMax
                 GetLastOrderedDictionaryItemParentGroupId(_model.Mesh.Parts, partNames);
             SuppressExplodedView();
             //
-            if (!copy) MirrorSelectionsContainingParts(partNames, mirrorPoint, mirrorDirection);
+            if (!copy) TransformSelectionsContainingParts(partNames, AffineTransform.Mirror(mirrorPoint, mirrorDirection));
             //
             string[] mirroredPartNames = _model.Mesh.MirrorParts(partNames, mirrorPoint, mirrorDirection, copy,
                                                                  _model.GetReservedPartNames(),
@@ -14282,7 +14349,7 @@ namespace PrePoMax
             bool explodedViewActive = IsExplodedViewActive();
             if (explodedViewActive) TurnExplodedViewOnOff(false);
             //
-            if (!copy) ScaleSelectionsContainingParts(partNames, scaleCenter, scaleFactors);
+            if (!copy) TransformSelectionsContainingParts(partNames, AffineTransform.Scaling(scaleCenter, scaleFactors));
             //
             string[] scaledPartNames = _model.Mesh.ScaleParts(partNames, scaleCenter, scaleFactors, copy,
                                                               _model.GetReservedPartNames(),
@@ -14399,226 +14466,56 @@ namespace PrePoMax
             return removedPartIds;
         }
         //
-        private void TranslateSelectionsContainingParts(string[] partNames, double[] translateVector)
+        // A pick follows the mesh part it was made on, and the part records where it was moved to from its geometry part,
+        // so that a new mesh of the geometry part takes the picks back to it
+        private void TransformSelectionsContainingParts(string[] partNames, AffineTransform transform)
         {
             BasePart part;
-            for (int i = 0; i < partNames.Length; i++)
+            Dictionary<int, AffineTransform> partIdTransforms = new Dictionary<int, AffineTransform>();
+            foreach (var partName in partNames)
             {
-                part = _model.Mesh.Parts[partNames[i]];
-                //
-                foreach (var entry in _model.Mesh.NodeSets)
-                {
-                    TranslateSelection(entry.Value.CreationData, part.PartId, translateVector);
-                }
-                //
-                foreach (var entry in _model.Mesh.ElementSets)
-                {
-                    TranslateSelection(entry.Value.CreationData, part.PartId, translateVector);
-                }
-                //
-                foreach (var entry in _model.Mesh.Surfaces)
-                {
-                    TranslateSelection(entry.Value.CreationData, part.PartId, translateVector);
-                }
+                part = _model.Mesh.Parts[partName];
+                partIdTransforms[part.PartId] = transform;
+                part.GeometryToMeshTransform = part.GeometryToMeshTransform == null ? transform :
+                                               part.GeometryToMeshTransform.Then(transform);
             }
+            TransformModelSelections(partIdTransforms);
         }
-        
-        private void RotateSelectionsContainingParts(string[] partNames, double[] rotateCenter, double[] rotateAxis,
-                                                     double rotateAngle)
+        // A new mesh lies on its geometry part, so the picks that followed the old mesh away from it go back with it
+        private void ReturnSelectionsToRemeshedParts(string[] meshPartNames)
         {
             BasePart part;
-            for (int i = 0; i < partNames.Length; i++)
+            Dictionary<int, AffineTransform> partIdTransforms = new Dictionary<int, AffineTransform>();
+            foreach (var partName in meshPartNames)
             {
-                part = _model.Mesh.Parts[partNames[i]];
-                //
-                foreach (var entry in _model.Mesh.NodeSets)
-                {
-                    RotateSelection(entry.Value.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
-                }
-                //
-                foreach (var entry in _model.Mesh.ElementSets)
-                {
-                    RotateSelection(entry.Value.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
-                }
-                //
-                foreach (var entry in _model.Mesh.Surfaces)
-                {
-                    RotateSelection(entry.Value.CreationData, part.PartId, rotateCenter, rotateAxis, rotateAngle);
-                }
+                if (!_model.Mesh.Parts.TryGetValue(partName, out part) || part.GeometryToMeshTransform == null ||
+                    part.GeometryToMeshTransform.IsIdentity) continue;
+                partIdTransforms[part.PartId] = part.GeometryToMeshTransform.Inverse();
             }
+            if (partIdTransforms.Count > 0) TransformModelSelections(partIdTransforms);
         }
-        private void MirrorSelectionsContainingParts(string[] partNames, double[] mirrorPoint, double[] mirrorDirection)
+        private void TransformModelSelections(Dictionary<int, AffineTransform> partIdTransforms)
         {
-            BasePart part;
-            for (int i = 0; i < partNames.Length; i++)
-            {
-                part = _model.Mesh.Parts[partNames[i]];
-                //
-                foreach (var entry in _model.Mesh.NodeSets)
-                {
-                    MirrorSelection(entry.Value.CreationData, part.PartId, mirrorPoint, mirrorDirection);
-                }
-                //
-                foreach (var entry in _model.Mesh.ElementSets)
-                {
-                    MirrorSelection(entry.Value.CreationData, part.PartId, mirrorPoint, mirrorDirection);
-                }
-                //
-                foreach (var entry in _model.Mesh.Surfaces)
-                {
-                    MirrorSelection(entry.Value.CreationData, part.PartId, mirrorPoint, mirrorDirection);
-                }
-            }
+            foreach (var entry in _model.Mesh.NodeSets) TransformSelection(entry.Value.CreationData, partIdTransforms);
+            foreach (var entry in _model.Mesh.ElementSets) TransformSelection(entry.Value.CreationData, partIdTransforms);
+            foreach (var entry in _model.Mesh.Surfaces) TransformSelection(entry.Value.CreationData, partIdTransforms);
         }
-        private void ScaleSelectionsContainingParts(string[] partNames, double[] scaleCenter, double[] scaleFactors)
+        // A pick on several parts is moved once, with the first of its parts that moves
+        private static void TransformSelection(Selection selection, Dictionary<int, AffineTransform> partIdTransforms)
         {
-            BasePart part;
-            for (int i = 0; i < partNames.Length; i++)
-            {
-                part = _model.Mesh.Parts[partNames[i]];
-                //
-                foreach (var entry in _model.Mesh.NodeSets)
-                {
-                    ScaleSelection(entry.Value.CreationData, part.PartId, scaleCenter, scaleFactors);
-                }
-                //
-                foreach (var entry in _model.Mesh.ElementSets)
-                {
-                    ScaleSelection(entry.Value.CreationData, part.PartId, scaleCenter, scaleFactors);
-                }
-                //
-                foreach (var entry in _model.Mesh.Surfaces)
-                {
-                    ScaleSelection(entry.Value.CreationData, part.PartId, scaleCenter, scaleFactors);
-                }
-            }
-        }
-        //
-        private void TranslateSelection(Selection selection, int partId, double[] translateVector)
-        {
-            double[] point = new double[3];
+            if (selection == null) return;
             //
-            if (selection != null)
+            AffineTransform transform;
+            foreach (var node in selection.Nodes)
             {
-                foreach (var node in selection.Nodes)
+                if (!(node is SelectionNodeMouse snm) || snm.PartIds == null) continue;
+                //
+                foreach (int partId in snm.PartIds)
                 {
-                    if (node is SelectionNodeMouse snm && snm.PartIds.Contains(partId))
+                    if (partIdTransforms.TryGetValue(partId, out transform))
                     {
-                        if (snm.PickedPoint != null)
-                        {
-                            FeMesh.TranslatePoint(snm.PickedPoint, translateVector);
-                        }
-                        else if (snm.PlaneParameters != null)
-                        {
-                            for (int i = 0; i < snm.PlaneParameters.Length; i++)
-                            {
-                                Array.Copy(snm.PlaneParameters[i], 0, point, 0, 3);
-                                //
-                                FeMesh.TranslatePoint(point, translateVector);
-                                //
-                                Array.Copy(point, 0, snm.PlaneParameters[i], 0, 3);
-                            }
-                        }
-                        else throw new NotSupportedException();
-                    }
-                }
-            }
-        }
-        private void RotateSelection(Selection selection, int partId, double[] rotateCenter, double[] rotateAxis,
-                                     double rotateAngle)
-        {
-            double[] point = new double[3];
-            double[] normal = new double[3];
-            //
-            if (selection != null)
-            {
-                foreach (var node in selection.Nodes)
-                {
-                    if (node is SelectionNodeMouse snm && snm.PartIds.Contains(partId))
-                    {
-                        if (snm.PickedPoint != null)
-                        {
-                            FeMesh.RotatePoint(snm.PickedPoint, rotateCenter, rotateAxis, rotateAngle);
-                        }
-                        else if (snm.PlaneParameters != null)
-                        {
-                            for (int i = 0; i < snm.PlaneParameters.Length; i++)
-                            {
-                                Array.Copy(snm.PlaneParameters[i], 0, point, 0, 3);
-                                Array.Copy(snm.PlaneParameters[i], 3, normal, 0, 3);
-                                //
-                                FeMesh.RotatePoint(point, rotateCenter, rotateAxis, rotateAngle);
-                                FeMesh.RotatePoint(normal, rotateCenter, rotateAxis, rotateAngle);
-                                //
-                                Array.Copy(point, 0, snm.PlaneParameters[i], 0, 3);
-                                Array.Copy(normal, 0, snm.PlaneParameters[i], 3, 3);
-                            }
-                        }
-                        else throw new NotSupportedException();
-                    }
-                }
-            }
-        }
-        private void MirrorSelection(Selection selection, int partId, double[] mirrorPoint, double[] mirrorDirection)
-        {
-            double[] point = new double[3];
-            double[] normal = new double[3];
-            //
-            if (selection != null)
-            {
-                foreach (var node in selection.Nodes)
-                {
-                    if (node is SelectionNodeMouse snm && snm.PartIds.Contains(partId))
-                    {
-                        if (snm.PickedPoint != null)
-                        {
-                            FeMesh.MirrorPoint(snm.PickedPoint, mirrorPoint, mirrorDirection);
-                        }
-                        else if (snm.PlaneParameters != null)
-                        {
-                            for (int i = 0; i < snm.PlaneParameters.Length; i++)
-                            {
-                                Array.Copy(snm.PlaneParameters[i], 0, point, 0, 3);
-                                Array.Copy(snm.PlaneParameters[i], 3, normal, 0, 3);
-                                //
-                                FeMesh.MirrorPoint(point, mirrorPoint, mirrorDirection);
-                                FeMesh.MirrorPoint(normal, mirrorPoint, mirrorDirection);
-                                //
-                                Array.Copy(point, 0, snm.PlaneParameters[i], 0, 3);
-                                Array.Copy(normal, 0, snm.PlaneParameters[i], 3, 3);
-                            }
-                        }
-                        else throw new NotSupportedException();
-                    }
-                }
-            }
-        }
-        private void ScaleSelection(Selection selection, int partId, double[] scaleCenter, double[] scaleFactors)
-        {
-            double[] point = new double[3];
-            //
-            if (selection != null)
-            {
-                foreach (var node in selection.Nodes)
-                {
-                    if (node is SelectionNodeMouse snm && snm.PartIds.Contains(partId))
-                    {
-                        if (snm.PickedPoint != null)
-                        {
-                            FeMesh.ScalePoint(snm.PickedPoint, scaleCenter, scaleFactors);
-                        }
-                        else if (snm.PlaneParameters != null)
-                        {
-                            for (int i = 0; i < snm.PlaneParameters.Length; i++)
-                            {
-                                Array.Copy(snm.PlaneParameters[i], 0, point, 0, 3);
-                                //
-                                FeMesh.ScalePoint(point, scaleCenter, scaleFactors);
-                                //
-                                Array.Copy(point, 0, snm.PlaneParameters[i], 0, 3);
-                            }
-                        }
-                        else throw new NotSupportedException();
+                        snm.Transform(transform);
+                        break;
                     }
                 }
             }
@@ -22107,9 +22004,7 @@ namespace PrePoMax
             // Get selected ids
             HashSet<int> selectedIds = new HashSet<int>();
             int[] ids = GetIdsFromSelectionNode(node, ref selectedIds);
-            int[] afterIds = null;
             FeMesh mesh = DisplayedMesh;
-            FeElement element;
             // Check for errors    
             if (node is SelectionNodeIds)
             {
@@ -22161,6 +22056,17 @@ namespace PrePoMax
                 }
                 else ClearSelectionHistoryAndCallSelectionChanged();   // Before adding all clear selection
             }
+            //
+            AddSelectionNodeWithinLimits(node, ids, mesh);
+            //
+            if (callSelectionChanged) _form.SelectionChanged();
+            //
+            if (highlight) HighlightSelection();
+        }
+        private void AddSelectionNodeWithinLimits(SelectionNode node, int[] ids, FeMesh mesh)
+        {
+            int[] afterIds = null;
+            FeElement element;
             // Limit selection to shell edges, parts, geometry type
             int elementId;
             int vtkCellId;
@@ -22249,10 +22155,6 @@ namespace PrePoMax
                     if (ids.Length > _selection.MaxNumberOfGeometryIds) _selection.RemoveLast(true);
                 }
             }
-            //
-            if (callSelectionChanged) _form.SelectionChanged();
-            //
-            if (highlight) HighlightSelection();
         }
         public void RemoveLastSelectionNode()
         {
@@ -22266,6 +22168,41 @@ namespace PrePoMax
             _form.SetStateReady("Undo selection...");
         }
         //
+        /// <summary>
+        /// Builds a selection given whole, as a script gives it, pick by pick under the limits it is configured with,
+        /// the way the clicks of a dialog build one: a pick a limit refuses is left out, and under a limit of one item
+        /// each pick replaces the ones before it.
+        /// </summary>
+        public void ApplySelectionLimits(Selection selection)
+        {
+            if (!selection.HasPickLimits || selection.Nodes.Count == 0) return;
+            //
+            Selection previousSelection = _selection;
+            ViewGeometryModelResults previousView = _currentView;
+            try
+            {
+                _selection = selection.DeepCopy(false, false);
+                CurrentView = GetSelectionView(_selection);
+                FeMesh mesh = DisplayedMesh;
+                if (mesh == null) return;
+                //
+                int[] ids;
+                HashSet<int> selectedIds;
+                foreach (SelectionNode node in selection.Nodes)
+                {
+                    if (node is SelectionNodeIds selectionNodeIds && selectionNodeIds.SelectAll) _selection.Clear();
+                    selectedIds = new HashSet<int>();
+                    ids = GetIdsFromSelectionNode(node, ref selectedIds);
+                    AddSelectionNodeWithinLimits(node, ids ?? new int[0], mesh);
+                }
+                selection.Nodes = _selection.Nodes;
+            }
+            finally
+            {
+                _selection = previousSelection;
+                CurrentView = previousView;
+            }
+        }
         public int[] GetIdsFromSelection(Selection selection)
         {
             // In order for a picked selection to work the selection must be performed
@@ -22551,12 +22488,30 @@ namespace PrePoMax
         /// can name another part after a regeneration, so a pick its recorded part no longer carries is resolved
         /// on the nearest active part, whatever the visibility, and among the parts within the pick precision of
         /// the nearest one a part facing the view wins. The resolved part id is written into the pick. Returns
-        /// false if no active part is left to carry the pick.
+        /// false if no active part is left to carry the pick. A pick a script restricted to a part stays on it, and
+        /// one a script made on every part is recorded on the part it lands on, as a click is, so that it can follow
+        /// that part when the part is moved.
         /// </summary>
         private bool TryResolvePickedPart(SelectionNodeMouse selectionNodeMouse)
         {
-            if (selectionNodeMouse.PickedPoint == null || selectionNodeMouse.PartIds == null ||
-                selectionNodeMouse.PartIds.Length != 1) return true;
+            if (selectionNodeMouse.PickedPoint == null || selectionNodeMouse.PartIds == null) return true;
+            if (selectionNodeMouse.PartIds.Length > 1)
+            {
+                if (!selectionNodeMouse.PartIdsGiven)
+                {
+                    int[] partIdAtPoint = GetPartIdAtPoint(selectionNodeMouse);
+                    int index = partIdAtPoint == null || partIdAtPoint.Length != 1 ? -1 :
+                                Array.IndexOf(selectionNodeMouse.PartIds, partIdAtPoint[0]);
+                    if (index >= 0)
+                    {
+                        double[] partOffset = selectionNodeMouse.PartOffsets == null ? null :
+                                              selectionNodeMouse.PartOffsets[index];
+                        selectionNodeMouse.SetSinglePartSelection(partIdAtPoint[0], partOffset);
+                    }
+                }
+                return true;
+            }
+            if (selectionNodeMouse.PartIds.Length != 1) return true;
             //
             FeMesh mesh = DisplayedMesh;
             double tolerance = selectionNodeMouse.Precision;
@@ -22565,6 +22520,14 @@ namespace PrePoMax
             BasePart recordedPart = mesh.GetPartFromId(recordedPartId);
             double[] distances;
             double[][] normals;
+            //
+            if (selectionNodeMouse.PartIdsGiven)
+            {
+                if (recordedPart != null && recordedPart.Active) return true;
+                _form.WriteDataToOutput("Selection: the pick restricted to the part id " + recordedPartId +
+                                        " is skipped, because no active part has that id.");
+                return false;
+            }
             //
             if (recordedPart != null)
             {
@@ -22653,10 +22616,12 @@ namespace PrePoMax
                 //
                 if (node.Precision <= 0 && resolvedNode.Precision > 0) node.Precision = resolvedNode.Precision;
                 //
-                if (resolvedNode.PartIds != null && resolvedNode.PartIds.Length == 1 &&
-                    node.PartIds != null && node.PartIds.Length == 1 && node.PartIds[0] != resolvedNode.PartIds[0])
+                if (resolvedNode.PartIds != null && resolvedNode.PartIds.Length == 1 && node.PartIds != null &&
+                    (node.PartIds.Length != 1 || node.PartIds[0] != resolvedNode.PartIds[0]))
                 {
-                    double[] partOffset = node.PartOffsets == null ? null : node.PartOffsets[0];
+                    int index = Math.Max(0, Array.IndexOf(node.PartIds, resolvedNode.PartIds[0]));
+                    double[] partOffset = node.PartOffsets == null || index >= node.PartOffsets.Length ? null :
+                                          node.PartOffsets[index];
                     node.SetSinglePartSelection(resolvedNode.PartIds[0], partOffset);
                 }
             }
@@ -22826,7 +22791,8 @@ namespace PrePoMax
             if (selectBy == vtkSelectBy.Node)
             {
                 int nodeId = mesh.GetCellFaceNodeIdClosestToPoint(pickedPoint, cellFaceNodeIds);
-                return mesh.GetElementIdsFromNodeIds(new int[] { nodeId }, false, false, false);
+                return KeepElementsOfGivenParts(mesh.GetElementIdsFromNodeIds(new int[] { nodeId }, false, false, false),
+                                                selectionNodeMouse);
             }
             else if (selectBy == vtkSelectBy.Element)
             {
@@ -22835,22 +22801,26 @@ namespace PrePoMax
             else if (selectBy == vtkSelectBy.Edge)
             {
                 int[] nodeIds = mesh.GetEdgeNodeIds(elementId, edgeNodeIds);
-                return mesh.GetElementIdsFromNodeIds(nodeIds, true, false, false);
+                return KeepElementsOfGivenParts(mesh.GetElementIdsFromNodeIds(nodeIds, true, false, false),
+                                                selectionNodeMouse);
             }
             else if (selectBy == vtkSelectBy.Surface)
             {
                 int[] nodeIds = mesh.GetSurfaceNodeIds(elementId, cellFaceNodeIds);
-                return mesh.GetElementIdsFromNodeIds(nodeIds, false, true, false);
+                return KeepElementsOfGivenParts(mesh.GetElementIdsFromNodeIds(nodeIds, false, true, false),
+                                                selectionNodeMouse);
             }
             else if (selectBy == vtkSelectBy.EdgeAngle)
             {
                 int[] nodeIds = mesh.GetEdgeByAngleNodeIds(elementId, edgeNodeIds, selectionNodeMouse.Angle);
-                return mesh.GetElementIdsFromNodeIds(nodeIds, true, false, false);
+                return KeepElementsOfGivenParts(mesh.GetElementIdsFromNodeIds(nodeIds, true, false, false),
+                                                selectionNodeMouse);
             }
             else if (selectBy == vtkSelectBy.SurfaceAngle)
             {
                 int[] nodeIds = mesh.GetSurfaceByAngleNodeIds(elementId, cellFaceNodeIds, selectionNodeMouse.Angle);
-                return mesh.GetElementIdsFromNodeIds(nodeIds, false, true, false);
+                return KeepElementsOfGivenParts(mesh.GetElementIdsFromNodeIds(nodeIds, false, true, false),
+                                                selectionNodeMouse);
             }
             else if (selectBy == vtkSelectBy.Part)
             {
@@ -22874,31 +22844,54 @@ namespace PrePoMax
             if (selectionNodeMouse.SelectBy == vtkSelectBy.Node)
             {
                 elementIds = mesh.GetElementIdsFromNodeIds(ids, false, false, false);
+                elementIds = KeepElementsOfGivenParts(elementIds, selectionNodeMouse);
                 ids = mesh.GetVisualizationFaceIds(ids, elementIds, false, false, faceSide);
             }
             else if (selectionNodeMouse.SelectBy == vtkSelectBy.Element)
             {
                 elementIds = mesh.GetElementIdsFromNodeIds(ids, false, false, true);
+                elementIds = KeepElementsOfGivenParts(elementIds, selectionNodeMouse);
                 ids = mesh.GetVisualizationFaceIds(ids, elementIds, false, true, faceSide);
             }
             else if (selectionNodeMouse.SelectBy == vtkSelectBy.Part)
             {
                 elementIds = mesh.GetElementIdsFromNodeIds(ids, false, true, false);
+                elementIds = KeepElementsOfGivenParts(elementIds, selectionNodeMouse);
                 ids = mesh.GetVisualizationFaceIds(ids, elementIds, false, true, faceSide);
             }
             else if (selectionNodeMouse.SelectBy == vtkSelectBy.Edge ||
                      selectionNodeMouse.SelectBy == vtkSelectBy.EdgeAngle)
             {
                 elementIds = mesh.GetElementIdsFromNodeIds(ids, true, false, false);
+                elementIds = KeepElementsOfGivenParts(elementIds, selectionNodeMouse);
                 ids = mesh.GetVisualizationFaceIds(ids, elementIds, true, false, faceSide);
             }
             else if (selectionNodeMouse.SelectBy == vtkSelectBy.Surface ||
                      selectionNodeMouse.SelectBy == vtkSelectBy.SurfaceAngle)
             {
                 elementIds = mesh.GetElementIdsFromNodeIds(ids, false, true, false);
+                elementIds = KeepElementsOfGivenParts(elementIds, selectionNodeMouse);
                 ids = mesh.GetVisualizationFaceIds(ids, elementIds, false, true, faceSide);
             }
             return ids;
+        }
+        // Parts that share nodes share the faces and the edges through them, so a pick a script restricted to
+        // parts keeps only the elements of those parts
+        private int[] KeepElementsOfGivenParts(int[] elementIds, SelectionNodeMouse selectionNodeMouse)
+        {
+            if (!selectionNodeMouse.PartIdsGiven || selectionNodeMouse.PartIds == null || elementIds == null)
+                return elementIds;
+            //
+            FeElement element;
+            FeMesh mesh = DisplayedMesh;
+            HashSet<int> partIds = new HashSet<int>(selectionNodeMouse.PartIds);
+            List<int> keptElementIds = new List<int>();
+            foreach (int elementId in elementIds)
+            {
+                if (mesh.Elements.TryGetValue(elementId, out element) && partIds.Contains(element.PartId))
+                    keptElementIds.Add(elementId);
+            }
+            return keptElementIds.ToArray();
         }
         private int[] GetPartIdAtPoint(SelectionNodeMouse selectionNodeMouse)
         {

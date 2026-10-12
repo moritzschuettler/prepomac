@@ -100,6 +100,15 @@ namespace CaeGlobals
             get { return _enableShellEdgeFaceSelection; }
             set { _enableShellEdgeFaceSelection = value; }
         }
+        // The options that leave a pick out of the selection or let it replace the picks before it
+        public bool HasPickLimits
+        {
+            get
+            {
+                return _maxNumberOfGeometryIds > 0 || _maxNumberOfItemIds > 0 || _limitSelectionToFirstPart ||
+                       _limitSelectionToFirstGeometryType || _limitSelectionToFirstMesherType || _limitSelectionToShellEdges;
+            }
+        }
 
 
         // Constructors                                                                                                             

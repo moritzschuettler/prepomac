@@ -57,9 +57,11 @@ namespace APIs.Python
                    "application selects what lies under it, the same way a mouse pick does. It survives a " +
                    "mesh change, because the pick is resolved again rather than replayed from IDs. The " +
                    "nearest entity is picked, so a point that does not lie on the model still resolves, " +
-                   "and part_ids limits which parts are searched. A results pick names a point of the " +
-                   "undeformed, unexploded geometry. A pick without a precision keeps the one of the view it " +
-                   "is first resolved in.",
+                   "and part_ids limits which parts are searched. A point pick given one part stays on that " +
+                   "part, and takes only its faces and elements where it shares nodes with another part. A " +
+                   "pick moves with a mesh part that is moved and back when the part is meshed again. A " +
+                   "results pick names a point of the undeformed, unexploded geometry. A pick without a " +
+                   "precision keeps the one of the view it is first resolved in.",
                    Arguments = "view: str, target: str, point: list[float], select_by: str, " +
                                "angle_deg: float = None, direction: list[float] = None, " +
                                "part_ids: list[int] = None, completely_inside: bool = False, precision: float = None, " +

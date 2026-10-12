@@ -16,7 +16,8 @@ namespace APIs.Python
     {
         int GetViewId(string view);
         FeMesh GetMesh(string view);
-        // A pick names a point in space, so only the application can turn it into IDs
+        // A pick names a point in space, so only the application can turn it into IDs. The application also
+        // applies the limits the selection is configured with, leaving out of it the picks they refuse
         int[] ResolveSelectionIds(Selection selection);
         void Highlight(Selection selection);
         void ClearHighlight();

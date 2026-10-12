@@ -3,11 +3,16 @@
 #
 #Checks the selection algebra and the recorded selection options: the set operations a selection can
 #carry, select all, that hiding a part leaves what a stored selection resolves to unchanged, the picking
-#options and the area form. A meshed model must be open.
+#options and that their limits apply to the picks, that a pick keeps the part_ids it is given, also where two
+#parts share nodes (sweep_side2.brep is imported for that), and the area form. A meshed model must be open.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Selection_Correctness.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
+
+import os
+
+MODELS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Models")
 
 # The box around the top face of the unit cube, as the six outward planes a rubber band records
 TOP_FACE_PLANES = [[0, 0, 0.9, 0, 0, -1], [0, 0, 1.1, 0, 0, 1],
@@ -182,6 +187,109 @@ def test_multiple_part_pick():
     parts.remove(second.name)
 
 
+def part_node_ids(part_id):
+    return set(pmx.create.selection_by_ids('femodel', 'nodes', 'parts', [part_id]).get_ids())
+
+
+def test_given_part_ids_are_kept():
+    # A pick restricted to a part stays on it, even where another part lies nearer the point, and the item it
+    # creates records that part
+    parts = pmx.model.parts
+    first = parts.first()
+    parts.translate(first.name, [10, 0, 0], number_of_copies=1)
+    second = parts.last()
+    try:
+        on_first = [0.5, 0.5, 1.0]
+        selection = pmx.create.selection_by_pick('femodel', 'nodes', on_first, 'Surface', part_ids=[second.id],
+                                                 precision=0.01)
+        picked = set(ids(selection))
+        check(len(picked) > 0 and picked <= part_node_ids(second.id),
+              "a pick restricted to part " + str(second.id) + " selected " + str(sorted(picked)))
+        node_set = pmx.model.node_sets.add("PyTest_Given_Part", selection)
+        check(set(node_set.get_node_ids()) == picked, "the stored pick moved to another part")
+        # The part stays given when the stored pick is resolved again
+        parts.deactivate([first.name])
+        parts.activate([first.name])
+        check(set(pmx.model.node_sets["PyTest_Given_Part"].get_node_ids()) == picked,
+              "the stored pick moved to another part when it was resolved again")
+        # Without part_ids the pick takes the part under the point
+        check(set(ids(pmx.create.selection_by_pick('femodel', 'nodes', on_first, 'Surface', precision=0.01))) <=
+              part_node_ids(first.id), "a pick without part_ids must take the part under the point")
+        pmx.model.node_sets.remove("PyTest_Given_Part")
+    finally:
+        parts.remove(second.name)
+
+
+def test_limits_apply():
+    # The limits a selection is configured with apply to its picks one by one, as to the clicks of a dialog
+    parts = pmx.model.parts
+    first = parts.first()
+    parts.translate(first.name, [10, 0, 0], number_of_copies=1)
+    second = parts.last()
+    try:
+        first_top = set([5, 6, 7, 8])
+        second_top = set(ids(pmx.create.selection_by_pick('femodel', 'nodes', [10.5, 0.5, 1.0], 'Surface',
+                                                          part_ids=[second.id])))
+
+        def two_picks(**options):
+            selection = pmx.create.selection_by_pick('femodel', 'nodes', [0.5, 0.5, 1.0], 'Surface')
+            return selection.configure(**options).add_by_pick([10.5, 0.5, 1.0], 'Surface')
+        check(set(ids(two_picks())) == first_top | second_top, "two picks without limits must take both faces")
+        check(set(ids(two_picks(limit_to='FirstPart'))) == first_top,
+              "limit_to='FirstPart' must leave out the pick on the other part")
+        check(set(ids(two_picks(max_geometry_ids=1))) == second_top,
+              "max_geometry_ids=1 must let the last pick replace the first")
+        check(set(ids(two_picks(max_item_ids=4))) == first_top,
+              "max_item_ids=4 must leave out the pick that would exceed it")
+        check(set(ids(pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3])
+                      .configure(max_item_ids=2).add_by_ids('nodes', [4]))) == set([4]),
+              "a cap must apply to ID items as well")
+        # The item created keeps only what the limits kept, and a selection they empty is refused saying so
+        node_set = pmx.model.node_sets.add("PyTest_Limited", two_picks(limit_to='FirstPart'))
+        check(set(node_set.get_node_ids()) == first_top, "the stored selection did not keep its limits")
+        pmx.model.node_sets.remove("PyTest_Limited")
+        names_before = list(pmx.model.node_sets.get_names())
+        message = raised_message(lambda: pmx.model.node_sets.add("PyTest_Limited", two_picks(max_item_ids=1)))
+        check(message is not None and "limits" in message,
+              "a selection its limits empty must be refused naming them: " + str(message))
+        check(list(pmx.model.node_sets.get_names()) == names_before, "a refused node set was recorded")
+    finally:
+        parts.remove(second.name)
+
+
+def test_given_part_ids_on_shared_nodes():
+    # Two boxes meshed as one compound share the nodes of their common wall, so a pick restricted to one of
+    # them must take the faces and elements of that box only
+    names_before = list(pmx.model.geometry.parts.get_names())
+    mesh_parts_before = list(pmx.model.parts.get_names())
+    pmx.import_file(os.path.join(MODELS, "sweep_side2.brep"))
+    added = [name for name in pmx.model.geometry.parts.get_names() if name not in names_before]
+    compounds = [name for name in added if pmx.model.geometry.parts[name].part_type == "Compound"]
+    try:
+        check(len(compounds) == 1, "sweep_side2.brep must be imported as one compound, not " + str(added))
+        pmx.model.mesh.generate(compounds)
+        boxes = [part for part in pmx.model.parts if part.name not in mesh_parts_before]
+        check(len(boxes) == 2, "the compound must give two mesh parts, not " + str(len(boxes)))
+        wall = [5.0, 5.0, 3.0]
+        for part in boxes:
+            for target, mode in [('surfaces', 'Surface'), ('elements', 'Surface'), ('surfaces', 'Node'),
+                                 ('elements', 'SurfaceAngle')]:
+                angle = 30 if mode == 'SurfaceAngle' else None
+                selection = pmx.create.selection_by_pick('femodel', target, wall, mode, angle_deg=angle,
+                                                         part_ids=[part.id], precision=0.01)
+                if target == 'surfaces':
+                    element_ids = set(face_id // 10 for face_id in ids(selection))
+                else:
+                    element_ids = set(ids(selection))
+                part_elements = set(pmx.create.selection_by_ids('femodel', 'elements', 'parts', [part.id]).get_ids())
+                check(len(element_ids) > 0 and element_ids <= part_elements,
+                      "a " + mode + " pick of " + target + " restricted to part " + str(part.id) +
+                      " took elements of the other box")
+    finally:
+        pmx.model.parts.remove([name for name in pmx.model.parts.get_names() if name not in mesh_parts_before])
+        pmx.model.geometry.parts.remove(compounds if len(compounds) == 1 else added)
+
+
 def test_geometry_source():
     # A geometry pick made in the Selection by ID mode is recorded as geometry IDs, so the API must be
     # able to take those IDs back unchanged and convert them to any target
@@ -264,8 +372,11 @@ def main():
     test_repeated_picks()
     test_area()
     test_multiple_part_pick()
+    test_given_part_ids_are_kept()
+    test_limits_apply()
     test_geometry_source()
     test_case_insensitive_names()
+    test_given_part_ids_on_shared_nodes()
     print("TEST PASSED")
 
 

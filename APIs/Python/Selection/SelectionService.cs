@@ -476,6 +476,9 @@ namespace APIs.Python
                 else selectedIds.UnionWith(itemIds);
             }
             //
+            // The limits apply pick by pick, as they do to the clicks of a dialog, which only the application can do
+            if (compiled.HasPickLimits) needsApplication = true;
+            int numberOfPicks = compiled.Nodes.Count;
             int[] ids;
             if (needsApplication)
             {
@@ -486,6 +489,10 @@ namespace APIs.Python
                 ids = _selectionGateway.ResolveSelectionIds(compiled);
             }
             else ids = selectedIds.OrderBy(id => id).ToArray();
+            if (ids.Length == 0 && !allowEmpty && compiled.Nodes.Count < numberOfPicks)
+                throw new PythonAPIException("The selection does not resolve to any item, because the limits it is " +
+                                             "configured with left out " + (numberOfPicks - compiled.Nodes.Count) +
+                                             " of its " + numberOfPicks + " picks. See get_options().");
             if (ids.Length == 0 && !allowEmpty)
                 throw new PythonAPIException("The selection does not resolve to any visible and active items in the '" +
                                              selection.view + "' view.");

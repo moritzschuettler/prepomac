@@ -65,6 +65,7 @@ namespace APIs.Python
             SelectionNodeMouse node = new SelectionNodeMouse(_point, _direction, _planeParameters, _completelyInside,
                                                               selectOperation, partIds, _partOffsets, _selectBy, _angle);
             node.Precision = _precision;
+            node.PartIdsGiven = _partIds != null;
             return node.DeepClone();
         }
         public override string ToString()

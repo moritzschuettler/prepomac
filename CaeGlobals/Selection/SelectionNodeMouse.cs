@@ -29,6 +29,7 @@ namespace CaeGlobals
         private double[][] _partOffsets;                                //ISerializable
         private double _precision;                                      //ISerializable
         private bool _pickedOnUndeformedGeometry;                       //ISerializable
+        private bool _partIdsGiven;                                     //ISerializable
 
 
         // Properties                                                                                                               
@@ -45,6 +46,8 @@ namespace CaeGlobals
             get { return _pickedOnUndeformedGeometry; }
             set { _pickedOnUndeformedGeometry = value; }
         }
+        // Part ids a script restricts the pick to, which no resolution may replace by another part
+        public bool PartIdsGiven { get { return _partIdsGiven; } set { _partIdsGiven = value; } }
         public bool IsGeometryBased { get { return _selectBy.IsGeometryBased(); } }
 
 
@@ -64,6 +67,7 @@ namespace CaeGlobals
             _partOffsets = partOffsets;
             _precision = -1;
             _pickedOnUndeformedGeometry = true;
+            _partIdsGiven = false;
         }
         public SelectionNodeMouse(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -74,6 +78,7 @@ namespace CaeGlobals
             _completelyInside = false;  // Compatibility for version v0.9.0
             // Compatibility for version v3.0.0: a results pick was recorded on the deformed display
             _pickedOnUndeformedGeometry = false;
+            _partIdsGiven = false;      // Compatibility for version v3.0.0
             //
             foreach (SerializationEntry entry in info)
             {
@@ -97,6 +102,8 @@ namespace CaeGlobals
                         _precision = (double)entry.Value; break;
                     case "_pickedOnUndeformedGeometry":
                         _pickedOnUndeformedGeometry = (bool)entry.Value; break;
+                    case "_partIdsGiven":
+                        _partIdsGiven = (bool)entry.Value; break;
                     default:
                         break;
                 }
@@ -150,6 +157,36 @@ namespace CaeGlobals
                 }
             }
         }
+        // A transformed direction or plane normal keeps its length, which the picking may depend on
+        public void Transform(AffineTransform transform)
+        {
+            if (_pickedPoint != null) _pickedPoint = transform.TransformPoint(_pickedPoint);
+            if (_selectionDirection != null)
+                _selectionDirection = ScaleToLength(transform.TransformDirection(_selectionDirection),
+                                                    _selectionDirection);
+            if (_planeParameters != null)
+            {
+                for (int i = 0; i < _planeParameters.Length; i++)
+                {
+                    double[] origin = new double[] { _planeParameters[i][0], _planeParameters[i][1],
+                                                     _planeParameters[i][2] };
+                    double[] normal = new double[] { _planeParameters[i][3], _planeParameters[i][4],
+                                                     _planeParameters[i][5] };
+                    origin = transform.TransformPoint(origin);
+                    normal = ScaleToLength(transform.TransformNormal(normal), normal);
+                    _planeParameters[i] = new double[] { origin[0], origin[1], origin[2], normal[0], normal[1], normal[2] };
+                }
+            }
+        }
+        private static double[] ScaleToLength(double[] vector, double[] lengthOf)
+        {
+            double length = Math.Sqrt(vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]);
+            double targetLength = Math.Sqrt(lengthOf[0] * lengthOf[0] + lengthOf[1] * lengthOf[1] +
+                                            lengthOf[2] * lengthOf[2]);
+            if (length == 0) return vector;
+            return new double[] { vector[0] * targetLength / length, vector[1] * targetLength / length,
+                                  vector[2] * targetLength / length };
+        }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {
@@ -164,6 +201,7 @@ namespace CaeGlobals
             info.AddValue("_partOffsets", _partOffsets, typeof(double[][]));
             info.AddValue("_precision", _precision, typeof(double));
             info.AddValue("_pickedOnUndeformedGeometry", _pickedOnUndeformedGeometry, typeof(bool));
+            info.AddValue("_partIdsGiven", _partIdsGiven, typeof(bool));
         }
 
 
