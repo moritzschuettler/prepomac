@@ -7,12 +7,14 @@
 #that is the solver default follows a new name or solver while an edited one is kept. It also checks
 #the refusals: an invalid path, a blank environment variable, a kill of an analysis that is
 #not running, opening the results of a running analysis or a missing results file, and removing or
-#renaming a running analysis or replacing the model while it runs.
+#renaming a running analysis or replacing the model while it runs. Last, it solves the cube with item names
+#too long for CalculiX, which the input file shortens, and reads their history back under the item names.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Job_Correctness.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -338,6 +340,64 @@ def test_kill_and_open_results_refusals(work):
     check(job.status == "Killed", "the killed analysis has the status " + job.status)
 
 
+def long_name(base, length):
+    return (PREFIX + base + "_" + "LongDescriptiveName" * 5)[:length]
+
+
+def test_long_names(work):
+    # CalculiX keeps 80 characters of a name and loses one of 80 in its .dat output, while the names the input
+    # file derives from an item name add a prefix or a suffix. Such a name is written shortened with a hash
+    node_set = long_name("Bottom", 80)
+    point = long_name("RP", 78)
+    rigid_body = long_name("Rigid", 78)
+    step = pmx.model.steps[PREFIX + "Step"]
+    pmx.model.node_sets.add(node_set, pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [1, 2, 3, 4]))
+    pmx.model.reference_points.add(point, [0.5, 0.5, 1.0])
+    pmx.model.constraints.add_rigid_body(rigid_body, point,
+                                         pmx.create.selection_by_ids('femodel', 'nodes', 'nodes', [5, 6, 7, 8]))
+    step.bcs.add_fixed(long_name("Fix", 79), pmx.create.region('NodeSetName', node_set))
+    step.loads.add_concentrated_force(long_name("Force", 78), pmx.create.region('ReferencePointName', point),
+                                      f3=-1000)
+    step.loads.add_pressure(long_name("Pressure", 75),
+                            pmx.create.selection_by_pick('femodel', 'surfaces', [1.0, 0.5, 0.5], 'Surface'), 1.0)
+    step.history_outputs.add_nodal(long_name("Point_Output", 77), pmx.create.region('ReferencePointName', point),
+                                   ["U", "RF"])
+    step.history_outputs.add_nodal(long_name("Bottom_Output", 80), pmx.create.region('NodeSetName', node_set),
+                                   ["RF"])
+    name = PREFIX + "Long_Names"
+    pmx.jobs.add(name, work_directory=work)
+    try:
+        status = pmx.jobs[name].run(timeout=300)
+        check(status == "OK", "the analysis with long names did not succeed, got " + status + "\n" +
+              pmx.jobs[name].get_output()[-3000:])
+        with open(os.path.join(work, name + ".inp")) as input_file:
+            lines = [line for line in input_file.read().splitlines() if not line.startswith("**")]
+        names = [token for line in lines for token in re.split(r'[,=\s"]+', line)]
+        too_long = [token for token in names if len(token) > 79]
+        check(not too_long, "the input file holds names longer than CalculiX accepts: " + str(too_long))
+        check(node_set[:60] in "".join(lines) and node_set not in "".join(lines),
+              "the node set name was not written shortened")
+        # The history output is read back under the names the model gives the node set and the reference point
+        pmx.jobs.open_results(name)
+        result = pmx.results.current
+        history_names = [str(history_name) for history_name in result.history_outputs.get_names()]
+        check(node_set.upper() in history_names and point.upper() in history_names,
+              "the history of the long names was not read back under them: " + str(history_names))
+        point_history = result.history_outputs[point.upper()]
+        components = [str(component) for component in point_history.fields["DISPLACEMENTS"].components.get_names()]
+        check("UR1" in components, "the rotation node of the reference point was not recognized: " + str(components))
+        entries = result.get_history_output_entries(node_set.upper(), "FORCES", "RF3")
+        reaction = sum(entries[str(entry)].get_data().values[-1] for entry in entries.get_names())
+        check(abs(reaction - 1000) < 1e-3, "the reaction of the fixed nodes is not the applied force: " + str(reaction))
+    finally:
+        pmx.jobs.remove(name)
+        for collection in [step.history_outputs, step.loads, step.bcs]:
+            collection.remove([item for item in collection.get_names() if item.startswith(PREFIX)])
+        pmx.model.constraints.remove([rigid_body])
+        pmx.model.reference_points.remove([point])
+        pmx.model.node_sets.remove([node_set])
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
@@ -357,6 +417,7 @@ def main():
         test_invalid_paths()
         test_environment_variable_refusals()
         test_kill_and_open_results_refusals(work)
+        test_long_names(work)
         clean()
     finally:
         # A failure may leave the sleeping solver running in the folder, which then cannot be removed

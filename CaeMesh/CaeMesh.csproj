@@ -125,6 +125,7 @@
     <Compile Include="FeGroup.cs" />
     <Compile Include="FeMesh.cs" />
     <Compile Include="FeReferencePoint.cs" />
+    <Compile Include="CalculixNameShortener.cs" />
     <Compile Include="MeshVisibilityCache.cs" />
     <Compile Include="Geometry\GeometrySelection.cs" />
     <Compile Include="GeometryMetadata\GeometryMetadata.cs" />

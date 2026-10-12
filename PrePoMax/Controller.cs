@@ -1813,7 +1813,16 @@ namespace PrePoMax
         private HistoryResults ReadHistoryResults(string fileName)
         {
             string[] errors;
-            HistoryResults historyResults = DatFileReader.Read(fileName, out errors);
+            List<string> modelNames = new List<string>();
+            if (_model != null && _model.Mesh != null)
+            {
+                modelNames.AddRange(_model.Mesh.Parts.Keys);
+                modelNames.AddRange(_model.Mesh.NodeSets.Keys);
+                modelNames.AddRange(_model.Mesh.ElementSets.Keys);
+                modelNames.AddRange(_model.Mesh.Surfaces.Keys);
+                modelNames.AddRange(_model.Mesh.ReferencePoints.Keys);
+            }
+            HistoryResults historyResults = DatFileReader.Read(fileName, modelNames, out errors);
             // Report errors
             if (errors != null && errors.Length > 0)
             {

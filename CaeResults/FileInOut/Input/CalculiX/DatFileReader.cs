@@ -131,7 +131,7 @@ namespace CaeResults
         };
 
         // Methods                                                                                                                  
-        static public HistoryResults Read(string fileName, out string[] errors)
+        static public HistoryResults Read(string fileName, IEnumerable<string> fullNames, out string[] errors)
         {
             errors = null;
             List<string> errorsList = new List<string>();
@@ -140,6 +140,7 @@ namespace CaeResults
             {
                 string[] lines = Tools.ReadAllLines(fileName, true);
                 //
+                Dictionary<string, string> hashSuffixFullNames = CalculixNameShortener.GetHashSuffixFullNames(fullNames);
                 Dictionary<string, string> repairedSetNames = new Dictionary<string, string>();
                 //
                 bool steadyStateDynamics;
@@ -231,7 +232,7 @@ namespace CaeResults
                             else
                             {
                                 // Read the dataset
-                                newDataSet = GetDatDataSet(dataSetLines, repairedSetNames);
+                                newDataSet = GetDatDataSet(dataSetLines, repairedSetNames, hashSuffixFullNames);
                                 if (stepId != -1) newDataSet.StepId = stepId;
                                 if (incrementId != -1) newDataSet.IncrementId = incrementId;
                                 if (newDataSet.SetName == _participationFactorsForFrequencyKey) continue;
@@ -291,7 +292,7 @@ namespace CaeResults
                 allHistoryResults.AppendSets(frequencyHistoryOutput);
                 allHistoryResults.AppendSets(bucklingHistoryOutput);
                 //
-                HistoryResults historyOutput = GetHistoryOutput(dataSets.Values);
+                HistoryResults historyOutput = GetHistoryOutput(dataSets.Values, hashSuffixFullNames);
                 AddComplexFields(historyOutput);
                 AddStressComponents(historyOutput);
                 AddStrainComponents(historyOutput);
@@ -830,6 +831,19 @@ namespace CaeResults
                 if (start > 0) lines[i] = lines[i].Substring(0, start);
             }
         }
+        static private string GetFullSetName(string setName, Dictionary<string, string> hashSuffixFullNames)
+        {
+            if (hashSuffixFullNames.Count == 0) return setName;
+            //
+            string fullName;
+            string[] names = setName.Split(_atSplitter, StringSplitOptions.None);
+            for (int i = 0; i < names.Length; i++)
+            {
+                fullName = CalculixNameShortener.GetFullName(names[i], hashSuffixFullNames);
+                if (fullName != names[i]) names[i] = fullName.ToUpper();
+            }
+            return string.Join(_atSplitter[0], names);
+        }
         static private string RepairSetName(string setName, Dictionary<string, string> repairedSetNames)
         {
             string[] tmp;
@@ -1258,7 +1272,8 @@ namespace CaeResults
             //
             return timeFrequency;
         }
-        static private DatDataSet GetDatDataSet(string[] dataSetLines, Dictionary<string, string> repairedSetNames)
+        static private DatDataSet GetDatDataSet(string[] dataSetLines, Dictionary<string, string> repairedSetNames,
+                                                Dictionary<string, string> hashSuffixFullNames)
         {
             try
             {
@@ -1288,8 +1303,8 @@ namespace CaeResults
                 componentNames = tmp2.ToList();
                 //
                 tmp2 = tmp[2].Split(_dataSplitter, StringSplitOptions.RemoveEmptyEntries);
-                dataSet.BaseSetName = tmp2[0];
-                dataSet.SetName = RepairSetName(tmp2[0].Trim(), repairedSetNames);
+                dataSet.BaseSetName = GetFullSetName(tmp2[0], hashSuffixFullNames);
+                dataSet.SetName = RepairSetName(GetFullSetName(tmp2[0].Trim(), hashSuffixFullNames), repairedSetNames);
                 dataSet.Time = double.Parse(tmp2[1]);
                 //
                 int length;
@@ -1372,7 +1387,8 @@ namespace CaeResults
             }
             return value;
         }
-        static private HistoryResults GetHistoryOutput(IEnumerable<DatDataSet> dataSets)
+        static private HistoryResults GetHistoryOutput(IEnumerable<DatDataSet> dataSets,
+                                                       Dictionary<string, string> hashSuffixFullNames)
         {
             HistoryResults historyOutput = new HistoryResults("HistoryOutput");
             HistoryResultSet set;
@@ -1389,7 +1405,7 @@ namespace CaeResults
             //
             foreach (var dataSet in dataSets)
             {
-                repairedDataSet = RepairReferencePointDataSet(dataSet);
+                repairedDataSet = RepairReferencePointDataSet(dataSet, hashSuffixFullNames);
                 //
                 time = repairedDataSet.Time;
                 // Get or create a set
@@ -1489,20 +1505,20 @@ namespace CaeResults
             //
             return historyOutput;
         }
-        static private DatDataSet RepairReferencePointDataSet(DatDataSet dataSet)
+        static private DatDataSet RepairReferencePointDataSet(DatDataSet dataSet, Dictionary<string, string> hashSuffixFullNames)
         {
             string setName = dataSet.SetName;
             string[] tmp;
             // Ref node
-            tmp = setName.ToUpper().Split(new string[] { FeReferencePoint.RefName.ToUpper() }, 
+            tmp = setName.ToUpper().Split(new string[] { FeReferencePoint.RefName.ToUpper() },
                                           StringSplitOptions.RemoveEmptyEntries);
-            if (tmp.Length == 2) dataSet.SetName = tmp[0];
+            if (tmp.Length == 2) dataSet.SetName = GetFullSetName(tmp[0], hashSuffixFullNames);
             // Rot node
             tmp = setName.ToUpper().Split(new string[] { FeReferencePoint.RotName.ToUpper() },
                                           StringSplitOptions.RemoveEmptyEntries);
             if (tmp.Length == 2)
             {
-                dataSet.SetName = tmp[0];
+                dataSet.SetName = GetFullSetName(tmp[0], hashSuffixFullNames);
                 for (int i = 0; i < dataSet.ComponentNames.Length; i++)
                 {
                     dataSet.ComponentNames[i] = _compMapRP[dataSet.ComponentNames[i]];

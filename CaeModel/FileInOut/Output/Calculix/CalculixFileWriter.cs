@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
@@ -33,6 +34,7 @@ namespace FileInOut.Output
     {
         // Variables                                                                                                                
         private const double SmallestEquationCoefficient = 1E-9;
+        private static readonly Regex _nameTokenRegex = new Regex("[^,=\\s\"]+", RegexOptions.Compiled);
 
 
         // Methods                                                                                                                  
@@ -361,7 +363,7 @@ namespace FileInOut.Output
                     bool usedByRigidBody = rigidBodyReferencePointNames.Contains(rp.Name);
                     bool usedByCoupling = couplingReferencePointNames.Contains(rp.Name);
                     // Check name
-                    rp.RefNodeSetName = rp.Name + FeReferencePoint.RefName + id + 1;
+                    rp.RefNodeSetName = GetReferencePointNodeSetName(rp.Name, FeReferencePoint.RefName + id + 1);
                     if (allNodeSetNames.Contains(rp.RefNodeSetName))
                         rp.RefNodeSetName = allNodeSetNames.GetNextNumberedKey(rp.RefNodeSetName);
                     rpNodeSet = new FeNodeSet(rp.RefNodeSetName, new int[] { id + 1 });
@@ -379,7 +381,7 @@ namespace FileInOut.Output
                     // Only a rigid body needs the auxiliary CalculiX rotation node.
                     if (usedByRigidBody)
                     {
-                        rp.RotNodeSetName = rp.Name + FeReferencePoint.RotName + id + 1;
+                        rp.RotNodeSetName = GetReferencePointNodeSetName(rp.Name, FeReferencePoint.RotName + id + 1);
                         if (allNodeSetNames.Contains(rp.RotNodeSetName))
                             rp.RotNodeSetName = allNodeSetNames.GetNextNumberedKey(rp.RotNodeSetName);
                         rpNodeSet = new FeNodeSet(rp.RotNodeSetName, new int[] { id + 1 });
@@ -401,6 +403,12 @@ namespace FileInOut.Output
                 //
                 maxNodeId = id;
             }
+        }
+        static private string GetReferencePointNodeSetName(string referencePointName, string suffix)
+        {
+            // Results reading finds the reference point by the suffix, so only the reference point name is shortened
+            return CalculixNameShortener.GetShortenedName(referencePointName, CalculixNameShortener.MaxNameLength - suffix.Length) +
+                   suffix;
         }
         static private void GetCoordinateSystemNodeSet(FeModel model, Dictionary<string, CalReferencePoint> referencePoints,
                                                        ref Dictionary<CoordinateSystem, HashSet<string>> coordinateSystemNodeSets)
@@ -1233,13 +1241,46 @@ namespace FileInOut.Output
         }
         static private void WriteKeywordRecursively(StringBuilder sb, CalculixKeyword keyword)
         {
-            sb.Append(keyword.GetKeywordString());
-            sb.Append(keyword.GetDataString());
+            sb.Append(ShortenLongNames(keyword.GetKeywordString()));
+            sb.Append(ShortenLongNames(keyword.GetDataString()));
             //
             foreach (var childKeyword in keyword.Keywords)
             {
                 WriteKeywordRecursively(sb, childKeyword);
             }
+        }
+        static private string ShortenLongNames(string text)
+        {
+            if (text == null || !ContainsLongNameCharacterRun(text)) return text;
+            //
+            string[] lines = text.Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].TrimStart().StartsWith("**")) continue;
+                lines[i] = _nameTokenRegex.Replace(lines[i], ShortenLongNameToken);
+            }
+            return string.Join("\n", lines);
+        }
+        static private bool ContainsLongNameCharacterRun(string text)
+        {
+            int runLength = 0;
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (!CalculixNameShortener.IsNameCharacter(text[i])) runLength = 0;
+                else if (++runLength > CalculixNameShortener.MaxNameLength) return true;
+            }
+            return false;
+        }
+        static private string ShortenLongNameToken(Match match)
+        {
+            string token = match.Value;
+            if (token.Length <= CalculixNameShortener.MaxNameLength) return token;
+            //
+            foreach (char character in token)
+            {
+                if (!CalculixNameShortener.IsNameCharacter(character)) return token;
+            }
+            return CalculixNameShortener.GetShortenedName(token);
         }
         //
         static private string[] GetAllSubmodelNodeSetNames(FeModel model)
