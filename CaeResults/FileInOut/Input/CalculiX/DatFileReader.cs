@@ -52,7 +52,8 @@ namespace CaeResults
         private const string _eigenmodeTurningDirectionKey = "E I G E N M O D E   T U R N I N G   D I R E C T I O N";
         // CalculiX writes these totals of an axisymmetric model for its 2 degree segment, while the loads and the forces
         // of the results file are given for the full revolution. The statistics of a contact print cover the segment, but
-        // those of a section print cover 1 degree for linear and 2 degrees for parabolic elements, so they are left alone
+        // those of a section print cover 1 degree for CAX4 and CAX8R elements and 2 degrees for the other types. The
+        // modes are normalized to the mass of the segment, so the participation factors scale with its square root
         private const double _axisymmetricSegmentsPerRevolution = 180;
         private static readonly HashSet<string> _axisymmetricSegmentFieldNames = new HashSet<string>()
         {
@@ -65,7 +66,21 @@ namespace CaeResults
             HOFieldNames.InternalEnergy,
             HOFieldNames.TotalInternalEnergy,
             HOFieldNames.KineticEnergy,
-            HOFieldNames.TotalKineticEnergy
+            HOFieldNames.TotalKineticEnergy,
+            HOFieldNames.HeatGeneration,
+            HOFieldNames.TotalHeatGeneration,
+            HOFieldNames.BodyHeating,
+            HOFieldNames.TotalBodyHeating
+        };
+        private static readonly Dictionary<string, double> _axisymmetricSectionPrintSegmentsPerRevolution =
+            new Dictionary<string, double>()
+        {
+            { FeElementTypeLinearTria.CAX3.ToString(), 180 },
+            { FeElementTypeParabolicTria.CAX6.ToString(), 180 },
+            { FeElementTypeLinearQuad.CAX4.ToString(), 360 },
+            { FeElementTypeLinearQuad.CAX4R.ToString(), 180 },
+            { FeElementTypeParabolicQuad.CAX8.ToString(), 180 },
+            { FeElementTypeParabolicQuad.CAX8R.ToString(), 360 }
         };
         private static readonly HashSet<string> _axisymmetricSegmentStatisticsFieldNames = new HashSet<string>()
         {
@@ -156,10 +171,12 @@ namespace CaeResults
         };
 
         // Methods                                                                                                                  
-        static public HistoryResults Read(string fileName, IEnumerable<string> fullNames, bool axisymmetric,
-                                          out string[] errors)
+        static public HistoryResults Read(string fileName, IEnumerable<string> fullNames, FeMesh axisymmetricMesh,
+                                          out string[] errors, out string[] unscaledSectionMessages)
         {
             errors = null;
+            unscaledSectionMessages = null;
+            bool axisymmetric = axisymmetricMesh != null;
             List<string> errorsList = new List<string>();
             //
             if (fileName != null && File.Exists(fileName))
@@ -211,8 +228,8 @@ namespace CaeResults
                                 timeFrequency = null;
                             }
                             else if (stepKey == null) stepKey = GetFrequencyHistorySetName(stepId, nodalDiameter);
-                            frequencyHistoryOutput.AppendSets(GetFrequencyDatDataSets(dataSetLines, stepId,
-                                                                                     nodalDiameter));
+                            frequencyHistoryOutput.AppendSets(GetFrequencyDatDataSets(dataSetLines, stepId, nodalDiameter,
+                                                                                     axisymmetric));
                         }
                         else if (dataSetLines[0] == _eigenmodeTurningDirectionKey)
                         {
@@ -318,7 +335,10 @@ namespace CaeResults
                 allHistoryResults.AppendSets(frequencyHistoryOutput);
                 allHistoryResults.AppendSets(bucklingHistoryOutput);
                 //
-                HistoryResults historyOutput = GetHistoryOutput(dataSets.Values, hashSuffixFullNames, axisymmetric);
+                List<string> unscaledSectionMessagesList = new List<string>();
+                HistoryResults historyOutput = GetHistoryOutput(dataSets.Values, hashSuffixFullNames, axisymmetricMesh,
+                                                                unscaledSectionMessagesList);
+                unscaledSectionMessages = unscaledSectionMessagesList.ToArray();
                 AddComplexFields(historyOutput);
                 AddStressComponents(historyOutput);
                 AddStrainComponents(historyOutput);
@@ -965,10 +985,12 @@ namespace CaeResults
             }
             return -1;
         }
-        static private HistoryResults GetFrequencyDatDataSets(string[] dataSetLines, int stepId, int nodalDiameter)
+        static private HistoryResults GetFrequencyDatDataSets(string[] dataSetLines, int stepId, int nodalDiameter,
+                                                              bool axisymmetric)
         {
             int len;
             int firstDataRowId = 1;
+            double factor = 1;
             string mode;
             string timeFrequency;
             string entryName = null;
@@ -1022,6 +1044,7 @@ namespace CaeResults
                 componentNames = new string[] { HOComponentNames.XCOMPONENT, HOComponentNames.YCOMPONENT,
                                                 HOComponentNames.ZCOMPONENT, HOComponentNames.XROTATION,
                                                 HOComponentNames.YROTATION, HOComponentNames.ZROTATION };
+                if (axisymmetric) factor = Math.Sqrt(_axisymmetricSegmentsPerRevolution);
             }
             else if (dataSetLines[0] == _effectiveModalMassKey)
             {
@@ -1029,6 +1052,7 @@ namespace CaeResults
                 //
                 historyResultFieldName = HOFieldNames.Factor;
                 //
+                if (axisymmetric) factor = _axisymmetricSegmentsPerRevolution;
                 entryName = HOFieldNames.EffectiveModalMass;
                 componentNames = new string[] { HOComponentNames.XCOMPONENT, HOComponentNames.YCOMPONENT,
                                                 HOComponentNames.ZCOMPONENT, HOComponentNames.XROTATION,
@@ -1040,6 +1064,7 @@ namespace CaeResults
                 //
                 historyResultFieldName = HOFieldNames.Factor;
                 //
+                if (axisymmetric) factor = _axisymmetricSegmentsPerRevolution;
                 entryName = HOFieldNames.TotalEffectiveMass;
                 componentNames = new string[] { HOComponentNames.XCOMPONENT, HOComponentNames.YCOMPONENT,
                                                 HOComponentNames.ZCOMPONENT, HOComponentNames.XROTATION,
@@ -1127,8 +1152,8 @@ namespace CaeResults
                         if (delta == 1) time = values[row][0];
                         else time = row + 1;
                         //
-                        if (double.IsNaN(time)) totalHistoryResultEntries.Add(1, values[row][col]);
-                        else historyResultEntries.Add(time, values[row][col]);
+                        if (double.IsNaN(time)) totalHistoryResultEntries.Add(1, values[row][col] * factor);
+                        else historyResultEntries.Add(time, values[row][col] * factor);
                     }
                     historyResultComponent.Entries.Add(historyResultEntries.Name, historyResultEntries);
                     if (totalHistoryResultEntries.Time.Count > 0)
@@ -1414,8 +1439,10 @@ namespace CaeResults
             return value;
         }
         static private HistoryResults GetHistoryOutput(IEnumerable<DatDataSet> dataSets,
-                                                       Dictionary<string, string> hashSuffixFullNames, bool axisymmetric)
+                                                       Dictionary<string, string> hashSuffixFullNames,
+                                                       FeMesh axisymmetricMesh, List<string> unscaledSectionMessages)
         {
+            Dictionary<string, double> sectionPrintFactors = new Dictionary<string, double>();
             HistoryResults historyOutput = new HistoryResults("HistoryOutput");
             HistoryResultSet set;
             HistoryResultField field;
@@ -1435,8 +1462,9 @@ namespace CaeResults
                 repairedDataSet = RepairReferencePointDataSet(dataSet, hashSuffixFullNames);
                 //
                 factor = 1;
-                if (axisymmetric && IsAxisymmetricSegmentDataSet(repairedDataSet))
-                    factor = _axisymmetricSegmentsPerRevolution;
+                if (axisymmetricMesh != null)
+                    factor = GetAxisymmetricSegmentsPerRevolution(repairedDataSet, axisymmetricMesh, sectionPrintFactors,
+                                                                  unscaledSectionMessages);
                 time = repairedDataSet.Time;
                 // Get or create a set
                 if (!historyOutput.Sets.TryGetValue(repairedDataSet.SetName, out set))
@@ -1535,7 +1563,9 @@ namespace CaeResults
             //
             return historyOutput;
         }
-        static private bool IsAxisymmetricSegmentDataSet(DatDataSet dataSet)
+        static private double GetAxisymmetricSegmentsPerRevolution(DatDataSet dataSet, FeMesh axisymmetricMesh,
+                                                                   Dictionary<string, double> sectionPrintFactors,
+                                                                   List<string> unscaledSectionMessages)
         {
             string fieldName = dataSet.FieldName;
             if (fieldName.EndsWith(HOFieldNames.ComplexRealSuffix))
@@ -1543,10 +1573,92 @@ namespace CaeResults
             else if (fieldName.EndsWith(HOFieldNames.ComplexImaginarySuffix))
                 fieldName = fieldName.Substring(0, fieldName.Length - HOFieldNames.ComplexImaginarySuffix.Length);
             //
-            if (_axisymmetricSegmentFieldNames.Contains(fieldName)) return true;
+            if (_axisymmetricSegmentFieldNames.Contains(fieldName)) return _axisymmetricSegmentsPerRevolution;
+            if (!_axisymmetricSegmentStatisticsFieldNames.Contains(fieldName) || dataSet.BaseSetName == null) return 1;
             // The contact statistics are named by both of their surfaces
-            return _axisymmetricSegmentStatisticsFieldNames.Contains(fieldName) && dataSet.BaseSetName != null &&
-                   dataSet.BaseSetName.Contains(_atSplitter[0]);
+            if (dataSet.BaseSetName.Contains(_atSplitter[0])) return _axisymmetricSegmentsPerRevolution;
+            //
+            double factor;
+            if (!sectionPrintFactors.TryGetValue(dataSet.BaseSetName, out factor))
+            {
+                string message;
+                factor = GetAxisymmetricSectionPrintSegmentsPerRevolution(axisymmetricMesh, dataSet.BaseSetName,
+                                                                          dataSet.SetName, out message);
+                if (message != null) unscaledSectionMessages.Add(message);
+                sectionPrintFactors.Add(dataSet.BaseSetName, factor);
+            }
+            return factor;
+        }
+        static private double GetAxisymmetricSectionPrintSegmentsPerRevolution(FeMesh mesh, string surfaceName,
+                                                                               string historySetName, out string message)
+        {
+            message = null;
+            FeSurface surface = null;
+            foreach (var entry in mesh.Surfaces)
+            {
+                if (entry.Key.ToUpper() == surfaceName.ToUpper())
+                {
+                    surface = entry.Value;
+                    break;
+                }
+            }
+            if (surface != null && !surface.Name.StartsWith(Globals.InternalName)) surfaceName = surface.Name;
+            else surfaceName = historySetName;
+            string messageStart = "The section print history " + surfaceName + " of the axisymmetric model is left for " +
+                                  "the part of the revolution CalculiX writes it for, since ";
+            if (surface == null || surface.ElementFaces == null)
+            {
+                message = messageStart + "the surface was not found in the model.";
+                return 1;
+            }
+            //
+            string typeName;
+            FeElement element;
+            FeElementSet elementSet;
+            HashSet<string> typeNames = new HashSet<string>();
+            foreach (var entry in surface.ElementFaces)
+            {
+                if (!mesh.ElementSets.TryGetValue(entry.Value, out elementSet)) continue;
+                foreach (var elementId in elementSet.Labels)
+                {
+                    if (!mesh.Elements.TryGetValue(elementId, out element)) continue;
+                    typeName = GetAxisymmetricElementTypeName(mesh.GetPartFromId(element.PartId) as MeshPart, element);
+                    if (typeName != null) typeNames.Add(typeName);
+                    else typeNames.Add(element.GetType().Name);
+                }
+            }
+            //
+            double factor;
+            HashSet<double> factors = new HashSet<double>();
+            List<string> typeDescriptions = new List<string>();
+            foreach (var name in typeNames.OrderBy(n => n))
+            {
+                if (_axisymmetricSectionPrintSegmentsPerRevolution.TryGetValue(name, out factor))
+                {
+                    factors.Add(factor);
+                    typeDescriptions.Add(name + " for " + (360 / factor) + (factor == 360 ? " degree" : " degrees"));
+                }
+                else
+                {
+                    factors.Add(double.NaN);
+                    typeDescriptions.Add(name + " for an unknown angle");
+                }
+            }
+            if (factors.Count == 1 && !double.IsNaN(factors.First())) return factors.First();
+            //
+            if (typeNames.Count == 0) message = messageStart + "the surface has no elements.";
+            else message = messageStart + "CalculiX writes its element types for different or unknown angles: " +
+                           string.Join(", ", typeDescriptions) + ".";
+            return 1;
+        }
+        static private string GetAxisymmetricElementTypeName(MeshPart part, FeElement element)
+        {
+            if (part == null) return null;
+            if (element is LinearTriangleElement) return part.LinearTriaType.ToString();
+            if (element is ParabolicTriangleElement) return part.ParabolicTriaType.ToString();
+            if (element is LinearQuadrilateralElement) return part.LinearQuadType.ToString();
+            if (element is ParabolicQuadrilateralElement) return part.ParabolicQuadType.ToString();
+            return null;
         }
         static private DatDataSet RepairReferencePointDataSet(DatDataSet dataSet, Dictionary<string, string> hashSuffixFullNames)
         {

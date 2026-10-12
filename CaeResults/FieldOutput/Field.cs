@@ -213,6 +213,15 @@ namespace CaeResults
         {
             _components.Replace(name, name, newComponent);
         }
+        public void ScaleComponentValues(float factor)
+        {
+            foreach (var entry in _components)
+            {
+                if (entry.Value.Values == null) continue;
+                for (int i = 0; i < entry.Value.Values.Length; i++) entry.Value.Values[i] *= factor;
+                entry.Value.UpdateMaxMin();
+            }
+        }
         public FieldComponent RemoveComponent(string name)
         {
             FieldComponent removedComponent;

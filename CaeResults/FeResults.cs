@@ -799,6 +799,14 @@ namespace CaeResults
             //
             InitializeUndeformedNodes();
         }
+        public void ScaleFieldValues(string fieldName, float factor)
+        {
+            HashSet<Field> scaledFields = new HashSet<Field>();
+            foreach (var entry in _fields)
+            {
+                if (entry.Key.Name == fieldName && scaledFields.Add(entry.Value)) entry.Value.ScaleComponentValues(factor);
+            }
+        }
         public string[] AddPartsFromMesh(FeMesh mesh, string[] partNames)
         {
             _mesh.Nodes = _undeformedNodes;

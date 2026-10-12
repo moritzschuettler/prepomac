@@ -63,9 +63,18 @@ namespace CaeResults
         private static readonly int _massMaterialId = -3;
         //
         private static HashSet<int[]> _bemaNodeIds;
+        // CalculiX writes the reaction heat flux of an axisymmetric model for its 2 degree segment, while the loads, the
+        // concentrated heat fluxes and the forces of the results file are given for the full revolution
+        private const float _axisymmetricSegmentsPerRevolution = 180;
+        private static readonly string[] _axisymmetricSegmentFieldNames = new string[] { FOFieldNames.Rfl };
 
 
         // Methods                                                                                                                  
+        static public void ScaleAxisymmetricSegmentFields(FeResults results)
+        {
+            foreach (var fieldName in _axisymmetricSegmentFieldNames)
+                results.ScaleFieldValues(fieldName, _axisymmetricSegmentsPerRevolution);
+        }
         static public FeResults Read(string fileName)
         {
             if (fileName != null && File.Exists(fileName))

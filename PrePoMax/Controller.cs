@@ -1435,6 +1435,8 @@ namespace PrePoMax
             {
                 results = (FeResults)OpenByFunction(fileName, parameters, FrdFileReader.Read);
                 if (results != null) results.FileName = fileName;    // fix file name if a copy was used
+                if (results != null && IsAxisymmetricModelResult(results.HashName))
+                    FrdFileReader.ScaleAxisymmetricSegmentFields(results);
             }
             //
             bool resultsExist = results != null && results.Mesh != null;
@@ -1749,6 +1751,7 @@ namespace PrePoMax
             else
             {
                 FeResults results = FrdFileReader.Read(fileName);
+                if (IsAxisymmetricModelResult(results.HashName)) FrdFileReader.ScaleAxisymmetricSegmentFields(results);
                 // Open .dat file
                 string datFileName = Path.GetFileNameWithoutExtension(results.FileName) + ".dat";
                 datFileName = Path.Combine(Path.GetDirectoryName(results.FileName), datFileName);
@@ -1824,10 +1827,14 @@ namespace PrePoMax
                 modelNames.AddRange(_model.Mesh.Surfaces.Keys);
                 modelNames.AddRange(_model.Mesh.ReferencePoints.Keys);
             }
-            // The .dat file does not tell an axisymmetric model apart, so the model the result was computed from does
-            bool axisymmetric = _model != null && _model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric &&
-                                _model.HashName == resultHashName;
-            HistoryResults historyResults = DatFileReader.Read(fileName, modelNames, axisymmetric, out errors);
+            string[] unscaledSectionMessages;
+            FeMesh axisymmetricMesh = IsAxisymmetricModelResult(resultHashName) ? _model.Mesh : null;
+            HistoryResults historyResults = DatFileReader.Read(fileName, modelNames, axisymmetricMesh, out errors,
+                                                               out unscaledSectionMessages);
+            if (unscaledSectionMessages != null)
+            {
+                foreach (string message in unscaledSectionMessages) _form.WriteDataToOutput(message);
+            }
             // Report errors
             if (errors != null && errors.Length > 0)
             {
@@ -1840,6 +1847,12 @@ namespace PrePoMax
                                          "Please see the output window for more details.");
             }
             return historyResults;
+        }
+        private bool IsAxisymmetricModelResult(string resultHashName)
+        {
+            // The result files do not tell an axisymmetric model apart, so the model the result was computed from does
+            return _model != null && _model.Mesh != null && _model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric &&
+                   _model.HashName == resultHashName;
         }
         // Read pmx
         private void GetPmxFileVersion(string fileName, out string programmNameVersion, out string suffix)

@@ -11,8 +11,11 @@
 #too long for CalculiX, which the input file shortens, and reads their history back under the item names.
 #It solves a spinning plate with a frequency and a complex frequency step and checks that the complex modes are
 #read back as increments numbered from 1 that hold their frequencies, with and without fields before them.
-#Last, it replaces the cube by an axisymmetric ring and checks that a point spring, a surface spring and the
-#reaction history are given for the full revolution, as the loads and the results file are.
+#Last, it replaces the cube by an axisymmetric ring and checks that a point spring, a surface spring, the
+#reaction history, the reaction heat flux and body heating of both result files, the participation factor and the
+#effective masses, a compression only support and a distributed mass are given for the full revolution, as the
+#loads and the forces of the results file are. The section print of the ring is given for the full revolution for
+#each element type, and left as CalculiX writes it when its elements are of types CalculiX writes for different angles.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Job_Correctness.py -g No -x Yes -w <dir>
 #
@@ -576,6 +579,195 @@ def test_axisymmetric_per_revolution(work):
           " against the field " + str(field) + " and the load " + str(revolved_area))
 
 
+def history_total(result, set_name, field_name, component_name):
+    entries = result.get_history_output_entries(set_name, field_name, component_name)
+    return entries[str(entries.get_names()[0])].get_data().values[-1]
+
+
+def add_ring_section(material_name, properties):
+    # The ring of test_axisymmetric_per_revolution, which clean leaves without a material and a section
+    pmx.model.materials.add(material_name, properties)
+    pmx.model.sections.add_solid(PREFIX + "Ring_Section", material_name,
+                                 pmx.create.selection_by_ids('femodel', 'elements', 'parts',
+                                                             [pmx.model.parts.first().id]))
+
+
+def test_axisymmetric_thermal_per_revolution(work):
+    # CalculiX writes the reaction heat flux and the body heating for the 2 degree segment into both files, while
+    # the heat fluxes are given for the full revolution, and so they are read back
+    revolved_area = math.pi * (20.0 ** 2 - 10.0 ** 2)
+    bottom = PREFIX + "Ring_Bottom"
+    add_ring_section(PREFIX + "Conductor", [pmx.create.thermal_conductivity(50.0)])
+    step = pmx.model.steps.add_heat_transfer(PREFIX + "Ring_Heat", steady_state=True)
+    step.bcs.add_temperature(PREFIX + "Ring_Cold", pmx.create.region('NodeSetName', bottom), 0.0)
+    step.loads.add_surface_flux(PREFIX + "Ring_Flux", pmx.create.region('SurfaceName', PREFIX + "Ring_Top"), 1.0)
+    step.history_outputs.add_nodal(PREFIX + "Ring_Heat_Flow", pmx.create.region('NodeSetName', bottom), ["RFL"],
+                                   totals_type="Yes")
+    result, step_id, increment_id = run_and_open(PREFIX + "Axi_Heat", work)
+    history = history_total(result, bottom.upper(), "TOTAL_HEAT_GENERATION", "RFL")
+    field = sum(result.get_nodal_value(step_id, increment_id, 'RFL', 'RFL', node_id) for node_id in range(1, 6))
+    check(abs(history - field) < 1e-5 * revolved_area and abs(history + revolved_area) < 1e-3 * revolved_area,
+          "the reaction heat flux of an axisymmetric model is not given for the full revolution: the history is " +
+          str(history) + " and the field " + str(field) + " against the flux " + str(-revolved_area))
+    step.loads.remove([PREFIX + "Ring_Flux"])
+    part_id = pmx.model.parts.first().id
+    step.loads.add_body_flux(PREFIX + "Ring_Body_Flux", pmx.create.selection_by_ids('femodel', 'parts', 'parts',
+                                                                                    [part_id]), 1.0)
+    step.history_outputs.add_element(PREFIX + "Ring_Body_Heating",
+                                     pmx.create.selection_by_ids('femodel', 'elements', 'parts', [part_id]),
+                                     ["EBHE"], totals_type="Only")
+    result, _, _ = run_and_open(PREFIX + "Axi_Body_Heat", work)
+    heating = [history_total(result, name, "TOTAL_BODY_HEATING", "BHE") for name in result.history_outputs.get_names()
+               if "TOTAL_BODY_HEATING" in list(result.history_outputs[name].fields.get_names())]
+    check(len(heating) == 1 and abs(heating[0] - 2 * revolved_area) < 1e-3 * revolved_area,
+          "the body heating of an axisymmetric model is not given for the full revolution: " + str(heating) +
+          " instead of " + str(2 * revolved_area))
+
+
+def run_ring_section_print(name, work):
+    # The section print of the bottom edge carries the pressure of 1 on the top, both given for the full revolution
+    step = pmx.model.steps.add_static(PREFIX + "Ring_Section_Step")
+    step.bcs.add_displacement_rotation(PREFIX + "Ring_Axial", pmx.create.region('NodeSetName', PREFIX + "Ring_Bottom"),
+                                       u2=0)
+    step.loads.add_pressure(PREFIX + "Ring_Pressure", pmx.create.region('SurfaceName', PREFIX + "Ring_Top"), 1.0)
+    step.history_outputs.add_section(PREFIX + "Ring_Section_Print",
+                                     pmx.create.region('SurfaceName', PREFIX + "Ring_Bottom_Edge"), ["SOF", "SOAREA"])
+    result, _, _ = run_and_open(name, work)
+    set_name = (PREFIX + "Ring_Bottom_Edge").upper()
+    area = history_total(result, set_name, "SURFACE_AREA", "A")
+    force = history_total(result, set_name, "TOTAL_SURFACE_FORCE", "FY")
+    pmx.model.steps.remove([PREFIX + "Ring_Section_Step"])
+    return area, force
+
+
+def write_mixed_ring_mesh(file_name):
+    # The ring of write_ring_mesh with triangles from radius 10 to 15 and quadrilaterals from 15 to 20, in one part
+    lines = ["*NODE"]
+    for j in range(3):
+        for i in range(5):
+            lines.append("%d, %.6f, %.6f, 0" % (5 * j + i + 1, 10.0 + 2.5 * i, 1.0 * j))
+    quadrilaterals = ["*ELEMENT, TYPE=CAX4, ELSET=" + PREFIX + "Ring"]
+    triangles = ["*ELEMENT, TYPE=CAX3, ELSET=" + PREFIX + "Ring"]
+    for j in range(2):
+        for i in range(4):
+            first = 5 * j + i + 1
+            if i < 2:
+                triangles.append("%d, %d, %d, %d" % (len(triangles) + 100, first, first + 1, first + 6))
+                triangles.append("%d, %d, %d, %d" % (len(triangles) + 100, first, first + 6, first + 5))
+            else:
+                quadrilaterals.append("%d, %d, %d, %d, %d" % (len(quadrilaterals), first, first + 1, first + 6,
+                                                              first + 5))
+    with open(file_name, "w") as mesh_file:
+        mesh_file.write("\n".join(lines + quadrilaterals + triangles) + "\n")
+
+
+def test_axisymmetric_section_print_per_revolution(work):
+    # CalculiX writes the section print of CAX4 and CAX8R elements for 1 degree and of the other axisymmetric types
+    # for 2 degrees; it is read back for the full revolution, unless the section spans types of different angles
+    revolved_area = math.pi * (20.0 ** 2 - 10.0 ** 2)
+    add_ring_section(PREFIX + "Steel", pmx.create.elastic(210000, 0.3))
+    for element_type in ["CAX4", "CAX4R"]:
+        pmx.model.parts.set_element_type([pmx.model.parts.first().name], 'linear_quad', element_type)
+        area, force = run_ring_section_print(PREFIX + "Axi_Section_" + element_type, work)
+        check(abs(area - revolved_area) < 1e-3 * revolved_area and abs(force - revolved_area) < 1e-2 * revolved_area,
+              "the section print of " + element_type + " elements of an axisymmetric model is not given for the " +
+              "full revolution: the area is " + str(area) + " and the force " + str(force) + " instead of " +
+              str(revolved_area))
+    # A part of triangles and quadrilaterals
+    pmx.model.sections.remove([PREFIX + "Ring_Section"])
+    pmx.model.surfaces.remove([PREFIX + "Ring_Bottom_Edge", PREFIX + "Ring_Top"])
+    pmx.model.node_sets.remove([PREFIX + "Ring_Bottom"])
+    pmx.model.parts.remove([part.name for part in pmx.model.parts])
+    pmx.model.element_sets.remove(list(pmx.model.element_sets.get_names()))
+    mesh_file_name = os.path.join(work, PREFIX + "Mixed_Ring.inp")
+    write_mixed_ring_mesh(mesh_file_name)
+    pmx.import_file(mesh_file_name)
+    part = pmx.model.parts.first()
+    pmx.model.sections.add_solid(PREFIX + "Mixed_Ring_Section", PREFIX + "Steel",
+                                 pmx.create.selection_by_ids('femodel', 'elements', 'parts', [part.id]))
+    pmx.model.node_sets.add(PREFIX + "Ring_Bottom", pmx.create.selection_by_ids('femodel', 'nodes', 'nodes',
+                                                                                [1, 2, 3, 4, 5]))
+    pmx.model.surfaces.add(PREFIX + "Ring_Bottom_Edge",
+                           pmx.create.selection_by_pick('femodel', 'surfaces', [15.0, 0.0, 0.0], 'Edge'))
+    pmx.model.surfaces.add(PREFIX + "Ring_Top", pmx.create.selection_by_pick('femodel', 'surfaces', [15.0, 2.0, 0.0],
+                                                                             'Edge'))
+    check(pmx.model.parts.get_element_types(part.name) == {'linear_tria': 'CAX3', 'linear_quad': 'CAX4'},
+          "the mixed ring has the element types " + str(pmx.model.parts.get_element_types(part.name)))
+    # CAX3 for 2 degrees and CAX4 for 1 degree: no single factor is right, so the history is left as CalculiX gives it
+    segment_area = math.pi * (15.0 ** 2 - 10.0 ** 2) / 180 + math.pi * (20.0 ** 2 - 15.0 ** 2) / 360
+    area, _ = run_ring_section_print(PREFIX + "Axi_Section_CAX3_CAX4", work)
+    check(abs(area - segment_area) < 1e-3 * segment_area, "the section print of CAX3 and CAX4 elements of an " +
+          "axisymmetric model is not left as CalculiX writes it: the area is " + str(area) + " instead of " +
+          str(segment_area))
+    pmx.model.parts.set_element_type([part.name], 'linear_quad', 'CAX4R')
+    area, force = run_ring_section_print(PREFIX + "Axi_Section_CAX3_CAX4R", work)
+    check(abs(area - revolved_area) < 1e-3 * revolved_area and abs(force - revolved_area) < 5e-2 * revolved_area,
+          "the section print of CAX3 and CAX4R elements of an axisymmetric model is not given for the full " +
+          "revolution: the area is " + str(area) + " and the force " + str(force) + " instead of " +
+          str(revolved_area))
+
+
+def test_axisymmetric_frequency_per_revolution(work):
+    # CalculiX normalizes the modes to the mass of its 2 degree segment. The free ring moves along the axis as a
+    # whole in its first mode, which carries the whole mass of the revolved ring as its effective mass, and its
+    # participation factor is the square root of that mass
+    density = 7.85e-9
+    mass = density * math.pi * (20.0 ** 2 - 10.0 ** 2) * 2.0
+    add_ring_section(PREFIX + "Steel_Mass", [pmx.create.elastic(210000, 0.3), pmx.create.density(density)])
+    pmx.model.steps.add_frequency(PREFIX + "Ring_Frequency", number_of_frequencies=3)
+    result, _, _ = run_and_open(PREFIX + "Axi_Frequency", work)
+    set_name = [name for name in result.history_outputs.get_names() if str(name).startswith("STEP_")][0]
+    values = {}
+    for component in ["PARTICIPATION_FACTORS", "EFFECTIVE_MODAL_MASS", "TOTAL_EFFECTIVE_MASS"]:
+        entries = result.get_history_output_entries(set_name, "FACTOR", component)
+        values[component] = entries["Y_COMPONENT"].get_data().values[0]
+    check(abs(abs(values["PARTICIPATION_FACTORS"]) - math.sqrt(mass)) < 1e-3 * math.sqrt(mass) and
+          abs(values["EFFECTIVE_MODAL_MASS"] - mass) < 1e-3 * mass and
+          abs(values["TOTAL_EFFECTIVE_MASS"] - mass) < 1e-3 * mass,
+          "the participation factor, the effective modal mass and the total effective mass of an axisymmetric " +
+          "model are not given for the full revolution: " + str(values) + " for the mass " + str(mass))
+
+
+def test_axisymmetric_gap_and_mass_per_revolution(work):
+    # A compression only support acts on the 2 degree segment like a spring, so its stiffness is given for the full
+    # revolution. The gap is closed by a nonlinear step, as a linear one takes half its stiffness at the closure
+    revolved_area = math.pi * (20.0 ** 2 - 10.0 ** 2)
+    add_ring_section(PREFIX + "Stiff_Light", [pmx.create.elastic(1e9, 0), pmx.create.density(1e-15)])
+    pmx.model.constraints.add_compression_only(PREFIX + "Ring_Support",
+                                               pmx.create.region('SurfaceName', PREFIX + "Ring_Bottom_Edge"),
+                                               spring_stiffness=1000)
+    step = pmx.model.steps.add_static(PREFIX + "Ring_Support_Step", nlgeom=True)
+    step.loads.add_pressure(PREFIX + "Ring_Pressure", pmx.create.region('SurfaceName', PREFIX + "Ring_Top"), 1.0)
+    displacement = mean_top_displacement(*run_and_open(PREFIX + "Axi_Gap", work))
+    check(abs(displacement + revolved_area / 1000) < 1e-3 * revolved_area / 1000, "the compression only support of " +
+          "an axisymmetric model is not given for the full revolution: the displacement is " + str(displacement) +
+          " instead of " + str(-revolved_area / 1000))
+    pmx.model.constraints.remove([PREFIX + "Ring_Support"])
+    pmx.model.steps.remove([PREFIX + "Ring_Support_Step"])
+    # CalculiX itself scales a mass for the segment, as it does a load. A distributed mass of 0.05 on the ring, carried
+    # by five springs of 100, moves it by 0.1 under a gravity of 1000, and it is spread by the revolved area
+    pmx.model.constraints.add_point_spring(PREFIX + "Point_Spring",
+                                           pmx.create.region('NodeSetName', PREFIX + "Ring_Bottom"), k2=100)
+    pmx.model.sections.add_distributed_mass(PREFIX + "Ring_Mass",
+                                            pmx.create.region('SurfaceName', PREFIX + "Ring_Top"), 0.05)
+    step = pmx.model.steps.add_static(PREFIX + "Ring_Mass_Step")
+    step.loads.add_gravity(PREFIX + "Ring_Gravity", pmx.create.region('MassSection', PREFIX + "Ring_Mass"), f2=-1000)
+    try:
+        displacement = mean_top_displacement(*run_and_open(PREFIX + "Axi_Mass", work))
+        check(abs(displacement + 0.1) < 1e-4, "the distributed mass of an axisymmetric model is not given for the " +
+              "full revolution: the displacement is " + str(displacement) + " instead of -0.1")
+        with open(os.path.join(work, PREFIX + "Axi_Mass.inp")) as input_file:
+            masses = {int(node_id): float(value) for node_id, value in
+                      re.findall(r"\*Mass, Elset=" + PREFIX + r"Ring_Mass_NID_(\d+)\s+(\S+)", input_file.read(), re.I)}
+        # The node at radius 10 takes the revolved area of the half edge next to it, 2 pi 2.5 (2 10 + 12.5) / 6 of
+        # 2 pi 150, and the node at radius 20 2 pi 2.5 (2 20 + 17.5) / 6
+        inner, outer = 0.05 * 2.5 * 32.5 / 6 / 150, 0.05 * 2.5 * 57.5 / 6 / 150
+        check(abs(masses.get(11, 0) - inner) < 1e-6 and abs(masses.get(15, 0) - outer) < 1e-6,
+              "the distributed mass of an axisymmetric model is not spread by the revolved area: " + str(masses))
+    finally:
+        pmx.model.constraints.remove([PREFIX + "Point_Spring"])
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     clean()
@@ -600,6 +792,14 @@ def main():
         test_complex_frequency_modes(work)
         clean()
         test_axisymmetric_per_revolution(work)
+        clean()
+        test_axisymmetric_thermal_per_revolution(work)
+        clean()
+        test_axisymmetric_frequency_per_revolution(work)
+        clean()
+        test_axisymmetric_gap_and_mass_per_revolution(work)
+        clean()
+        test_axisymmetric_section_print_per_revolution(work)
         clean()
     finally:
         # A failure may leave the sleeping solver running in the folder, which then cannot be removed

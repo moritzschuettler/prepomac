@@ -700,7 +700,10 @@ namespace FileInOut.Output
                         elementIds = new List<int>();
                         surface = model.Mesh.Surfaces[dms.RegionName];
                         nodeSet = model.Mesh.NodeSets[surface.NodeSetName];
-                        model.GetDistributedNodalValuesFromSurface(surface.Name, out nodalValues, out aSum);
+                        if (model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric)
+                            model.GetRevolvedDistributedNodalValuesFromSurface(surface.Name, out nodalValues, out aSum);
+                        else
+                            model.GetDistributedNodalValuesFromSurface(surface.Name, out nodalValues, out aSum);
                         nodalMassFactor = dms.Mass.Value / aSum;
                         //
                         foreach (var nodeId in nodeSet.Labels)
@@ -735,6 +738,13 @@ namespace FileInOut.Output
                 }
             }
         }
+        static private double GetAxisymmetricSegmentFactor(FeModel model)
+        {
+            // CalculiX expands an axisymmetric model into a 2 degree segment and scales the loads and the masses given for
+            // the full revolution, but not the springs and the gaps
+            if (model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric) return 1 / AxisymmetricSegmentsPerRevolution;
+            return 1;
+        }
         static private void GetPointSprings(FeModel model, Dictionary<string, CalReferencePoint> referencePoints, ref int maxElementId,
                                             ref List<CalElement> additionalElementKeywords,
                                             ref HashSet<string> additionalElementSetNames,
@@ -743,11 +753,7 @@ namespace FileInOut.Output
             if (model.Mesh != null)
             {
                 bool twoD = model.Properties.ModelSpace.IsTwoD();
-                // CalculiX expands an axisymmetric model into a 2 degree segment and scales the loads given for the full
-                // revolution, but not the springs
-                double stiffnessFactor = 1;
-                if (model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric)
-                    stiffnessFactor = 1 / AxisymmetricSegmentsPerRevolution;
+                double stiffnessFactor = GetAxisymmetricSegmentFactor(model);
                 int count;
                 int[] elementIds;
                 CalReferencePoint referencePoint;
@@ -855,6 +861,8 @@ namespace FileInOut.Output
             HashSet<string> elementIdsHash = new HashSet<string>();
             //
             bool twoD = model.Properties.ModelSpace.IsTwoD();
+            bool axisymmetric = model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric;
+            double segmentFactor = GetAxisymmetricSegmentFactor(model);
             bool shellEdgeFace;
             bool shellElement;
             bool nonLinear = false;
@@ -899,15 +907,18 @@ namespace FileInOut.Output
                         //
                         nodeIdNodeNormals.Clear();
                         surface = model.Mesh.Surfaces[co.MasterRegionName];
-                        model.GetDistributedNodalValuesFromSurface(surface.Name, out nodeIdNodeWeight, out area);
+                        if (axisymmetric)
+                            model.GetRevolvedDistributedNodalValuesFromSurface(surface.Name, out nodeIdNodeWeight, out area);
+                        else
+                            model.GetDistributedNodalValuesFromSurface(surface.Name, out nodeIdNodeWeight, out area);
                         //
                         nodeStiffnessPerArea = co.SpringStiffness.Value;
                         if (double.IsNaN(nodeStiffnessPerArea)) nodeStiffnessPerArea = GapSectionData.InitialSpringStiffness;
-                        nodeStiffnessPerArea = nodeStiffnessPerArea / area;
+                        nodeStiffnessPerArea = nodeStiffnessPerArea * segmentFactor / area;
                         //
                         nodeForcePerArea = co.TensileForceAtNegativeInfinity.Value;
                         if (double.IsNaN(nodeForcePerArea)) nodeForcePerArea = GapSectionData.InitialTensileForceAtNegativeInfinity;
-                        nodeForcePerArea = nodeForcePerArea / area;
+                        nodeForcePerArea = nodeForcePerArea * segmentFactor / area;
                         //
                         offset = co.Offset.Value;
                         //
