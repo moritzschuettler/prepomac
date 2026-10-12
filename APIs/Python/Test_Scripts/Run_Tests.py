@@ -30,7 +30,7 @@ limit is given SCRIPT_TIMEOUT.
 
 The model files named by the headers live in Models, next to this script. A header that names
 PyTest_Job.frd depends on Test_Analysis.py, which solves the cube and writes that file into the work
-directory, so those tests are run last and a filter that selects one without the other is refused.
+directory, so those tests are run last, and a filter that selects one of them also runs Test_Analysis.py.
 
 A run that expects exit code 0 must print TEST PASSED, and a run that expects any other code must not,
 because the failure it expects has to end the script before it gets there.
@@ -39,7 +39,10 @@ The offline checks run first: every Audit_*.py script, which checks the API sour
 against each other, and the unit tests of this runner. They need no PrePoMax, take about a second,
 and count as tests of the run; a filter selects them by name like any other test.
 
-    python Run_Tests.py [--exe <PrePoMax.com>] [--work <directory>] [--filter <substring>]
+A filter is a part of a script name, ignoring case; several filters select every script that matches any of them,
+so the groups a change can reach run together, e.g. --filter Test_Job Test_Result Audit_.
+
+    python Run_Tests.py [--exe <PrePoMax.com>] [--work <directory>] [--filter <substring> ...]
 
 The process exit code is 0 when every test met its expectation.
 """
@@ -74,6 +77,7 @@ PROCESS_TIMEOUT_MARGIN = 60
 PROCESS_TIMEOUT = SCRIPT_TIMEOUT + PROCESS_TIMEOUT_MARGIN
 OFFLINE_TIMEOUT = 120
 OFFLINE_RUNNER_TESTS = "test_runner_offline.py"
+RESULT_WRITER = "Test_Analysis.py"
 
 
 class Test(object):
@@ -182,27 +186,40 @@ def report_problems(report, report_checks):
     return problems
 
 
-def collect(filter_text):
+def matches(name, filter_texts):
+    if not filter_texts:
+        return True
+    if isinstance(filter_texts, str):
+        filter_texts = [filter_texts]
+    return any(text.lower() in name.lower() for text in filter_texts)
+
+
+def read_tests(name):
+    runs = read_header(os.path.join(HERE, name))
+    return [Test(os.path.join(HERE, name), switches, expected_code, report_checks, index, len(runs))
+            for index, (switches, expected_code, report_checks) in enumerate(runs, 1)]
+
+
+def collect(filter_texts):
     tests = []
     for name in sorted(os.listdir(HERE)):
         if not name.startswith("Test_") or not name.endswith(".py"):
             continue
-        if filter_text and filter_text.lower() not in name.lower():
+        if not matches(name, filter_texts):
             continue
-        runs = read_header(os.path.join(HERE, name))
-        for index, (switches, expected_code, report_checks) in enumerate(runs, 1):
-            tests.append(Test(os.path.join(HERE, name), switches, expected_code, report_checks, index, len(runs)))
-    if any(test.needs_result for test in tests) and not any(test.name == "Test_Analysis.py" for test in tests):
-        raise RuntimeError("result tests require Test_Analysis.py in the same run")
+        tests.extend(read_tests(name))
+    # The result tests read the model Test_Analysis.py solves, so selecting one selects it too
+    if any(test.needs_result for test in tests) and not any(test.name == RESULT_WRITER for test in tests):
+        tests.extend(read_tests(RESULT_WRITER))
     # A test that reads the solved model runs after the one that writes it
     return sorted(tests, key=lambda test: (test.needs_result, test.name, test.index))
 
 
-def collect_offline(filter_text):
+def collect_offline(filter_texts):
     """The checks that run without PrePoMax: the audits, and the unit tests of this runner."""
     names = [name for name in sorted(os.listdir(HERE)) if name.startswith("Audit_") and name.endswith(".py")]
     names.append(OFFLINE_RUNNER_TESTS)
-    return [name for name in names if not filter_text or filter_text.lower() in name.lower()]
+    return [name for name in names if matches(name, filter_texts)]
 
 
 def run_offline(name):
@@ -297,7 +314,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exe", default=DEFAULT_EXE)
     parser.add_argument("--work", default=None)
-    parser.add_argument("--filter", default=None)
+    parser.add_argument("--filter", nargs="+", default=None)
     args = parser.parse_args()
     try:
         tests = collect(args.filter)

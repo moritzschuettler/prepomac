@@ -238,6 +238,16 @@ class OfflineCheckTests(unittest.TestCase):
         self.assertEqual(["Audit_API_Documentation.py"], Run_Tests.collect_offline("api_documentation"))
         self.assertEqual([], Run_Tests.collect_offline("Model_BCs"))
 
+    def test_several_filters_select_every_script_matching_any_of_them(self):
+        names = sorted(set(test.name for test in Run_Tests.collect(["Model_BCs", "model_loads"])))
+        self.assertEqual(["Test_Model_BCs.py", "Test_Model_Loads.py"], names)
+        self.assertEqual(["Audit_API_Coverage.py", "Audit_API_Documentation.py"],
+                         Run_Tests.collect_offline(["api_coverage", "API_Documentation"]))
+
+    def test_a_result_test_brings_the_analysis_that_writes_its_model(self):
+        tests = Run_Tests.collect(["Test_Api_View_Results"])
+        self.assertEqual(["Test_Analysis.py", "Test_Api_View_Results.py"], [test.name for test in tests])
+
 
 class FixtureTests(unittest.TestCase):
     def test_a_stale_solved_model_is_removed(self):
