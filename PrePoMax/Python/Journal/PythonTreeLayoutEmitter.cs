@@ -20,7 +20,8 @@ namespace PrePoMax.Python.Journal
     {
         // Methods                                                                                                                  
         public static void Emit(PythonJournalWriter writer, ViewGeometryModelResults view, Type itemType,
-                                string parentName, OrderedDictionaryItemLayout<string> layout)
+                                string parentName, OrderedDictionaryItemLayout<string> layout,
+                                Dictionary<Guid, string> compoundPartGroupNames)
         {
             string viewName = GetViewName(view);
             string itemTypeName = ControllerPythonModelGateway.GetTreeItemTypeName(itemType);
@@ -30,10 +31,13 @@ namespace PrePoMax.Python.Journal
             writer.Statement(writer.Call("pmx.model.tree", "set_layout",
                                          PythonValueFormatter.Text(viewName),
                                          PythonValueFormatter.Text(itemTypeName),
-                                         FormatEntries(layout == null ? null : layout.Nodes),
+                                         FormatEntries(layout == null ? null : layout.Nodes, compoundPartGroupNames),
                                          stepName));
         }
-        private static string FormatEntries(IEnumerable<OrderedDictionaryItemNode<string>> nodes)
+        // The group a compound part's mesh is gathered in gets a new id whenever the compound is made, so it is
+        // written as the id the compound carries when the journal runs
+        private static string FormatEntries(IEnumerable<OrderedDictionaryItemNode<string>> nodes,
+                                            Dictionary<Guid, string> compoundPartGroupNames)
         {
             List<string> entries = new List<string>();
             if (nodes != null)
@@ -46,9 +50,16 @@ namespace PrePoMax.Python.Journal
                         continue;
                     }
                     //
+                    string compoundPartName;
+                    string groupId;
+                    if (compoundPartGroupNames != null &&
+                        compoundPartGroupNames.TryGetValue(node.Id, out compoundPartName))
+                        groupId = "pmx.model.geometry.parts.get(" + PythonValueFormatter.Text(compoundPartName) +
+                                  ").mesh_group_id";
+                    else groupId = PythonValueFormatter.Text(node.Id.ToString());
                     entries.Add("{'group_name': " + PythonValueFormatter.Text(node.Name) +
-                                ", 'group_id': " + PythonValueFormatter.Text(node.Id.ToString()) +
-                                ", 'items': " + FormatEntries(node.Children) + "}");
+                                ", 'group_id': " + groupId +
+                                ", 'items': " + FormatEntries(node.Children, compoundPartGroupNames) + "}");
                 }
             }
             return "[" + string.Join(", ", entries) + "]";

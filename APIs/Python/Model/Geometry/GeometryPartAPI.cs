@@ -56,6 +56,15 @@ namespace APIs.Python.Model
         {
             get { return new StringListAPI(_service.GetCellNames(_partName)); }
         }
+        [PythonAPI("The id of the group of the femodel parts tree that gathers the mesh parts of a compound part, " +
+                   "the group_id the tree calls take. The group is there once the compound is meshed into more " +
+                   "than one part. The id is a new one whenever the compound is made again, as a regeneration or " +
+                   "a replayed journal makes it, so read it here rather than keep it. None for a part that is not " +
+                   "a compound.", Returns = "str or None")]
+        public string mesh_group_id
+        {
+            get { return _service.GetMeshGroupId(_partName); }
+        }
 
 
         // Constructors

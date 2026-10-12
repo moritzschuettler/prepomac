@@ -1419,7 +1419,13 @@ of any other compound once `group_split_cells` grouped its cells, which `rename_
 empty for any other part, an imported or `add_compound` compound not grouped yet included. `get_split_cell_names(sub_part_name)`
 lists the cells of one of them as a `StringList`, which `group_split_cells` takes. `cell_names` (a `StringList`)
 lists every solid of a compound part, the cells of a split or grouped one and the sub-parts of any other, and is
-empty for a part that is not a compound.
+empty for a part that is not a compound. `mesh_group_id` (a `str`, or `None` for a part that is not a compound) is
+the id of the group of the `femodel` parts tree that gathers the mesh parts of a compound, the `group_id` the
+`pmx.model.tree` calls take; the group is there once the compound is meshed into more than one part. The id is a
+new one whenever the compound is made again, by a regeneration or a replayed journal, so a script reads it rather
+than keeps it. A recorded tree layout finds that group by the name the compound had when the layout was recorded,
+so a renamed compound group stays renamed after a regeneration, and the journal writes its id as
+`pmx.model.geometry.parts.get(<compound name>).mesh_group_id`.
 
 `ModelPart` adds `get_inverted_element_ids()`, an `IntList` of the IDs of the inverted or degenerate solid elements
 of the part - those with a scaled Jacobian at a corner that is zero or negative. Meshing keeps such

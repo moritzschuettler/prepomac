@@ -195,6 +195,13 @@ namespace APIs.Python.Model
             //
             return (string[])compoundPart.SubPartNames.Clone();
         }
+        public string GetMeshGroupId(string partName)
+        {
+            CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;
+            if (compoundPart == null || compoundPart.LinkedGroupId == System.Guid.Empty) return null;
+            //
+            return compoundPart.LinkedGroupId.ToString();
+        }
         public void RenameSplitSubPart(string partName, string oldName, string newName)
         {
             CompoundGeometryPart compoundPart = ResolvePart(partName) as CompoundGeometryPart;

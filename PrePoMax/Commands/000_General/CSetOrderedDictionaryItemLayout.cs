@@ -9,6 +9,8 @@
 
 using CaeGlobals;
 using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 
 using PrePoMax.Python.Journal;
@@ -23,22 +25,28 @@ namespace PrePoMax.Commands
         private string _parentName;
         private OrderedDictionaryItemLayout<string> _itemLayout;
         private string _details;
+        [OptionalField]
+        private Dictionary<Guid, string> _compoundPartGroupNames;
 
 
         public OrderedDictionaryItemLayoutCommandData(Type itemType, ViewGeometryModelResults view, string parentName,
-                                                      OrderedDictionaryItemLayout<string> itemLayout, string details)
+                                                      OrderedDictionaryItemLayout<string> itemLayout,
+                                                      Dictionary<Guid, string> compoundPartGroupNames, string details)
         {
             _itemType = itemType;
             _view = view;
             _parentName = parentName;
             _itemLayout = new OrderedDictionaryItemLayout<string>(itemLayout.Nodes);
+            _compoundPartGroupNames = compoundPartGroupNames == null
+                                      ? null : new Dictionary<Guid, string>(compoundPartGroupNames);
             _details = details;
         }
 
 
         public bool Execute(Controller receiver)
         {
-            receiver.SetOrderedDictionaryItemLayout(_itemType, _view, _parentName, _itemLayout);
+            receiver.SetOrderedDictionaryItemLayout(_itemType, _view, _parentName, _itemLayout,
+                                                    _compoundPartGroupNames);
             return true;
         }
         public string GetDetails()
@@ -47,7 +55,7 @@ namespace PrePoMax.Commands
         }
         public void ToPython(PythonJournalWriter writer)
         {
-            PythonTreeLayoutEmitter.Emit(writer, _view, _itemType, _parentName, _itemLayout);
+            PythonTreeLayoutEmitter.Emit(writer, _view, _itemType, _parentName, _itemLayout, _compoundPartGroupNames);
         }
     }
 
@@ -62,10 +70,11 @@ namespace PrePoMax.Commands
 
         public CSetOrderedDictionaryItemLayout(string name, Type itemType, ViewGeometryModelResults view,
                                                string parentName, OrderedDictionaryItemLayout<string> itemLayout,
-                                               string details)
+                                               Dictionary<Guid, string> compoundPartGroupNames, string details)
             : base(name)
         {
-            _data = new OrderedDictionaryItemLayoutCommandData(itemType, view, parentName, itemLayout, details);
+            _data = new OrderedDictionaryItemLayoutCommandData(itemType, view, parentName, itemLayout,
+                                                               compoundPartGroupNames, details);
         }
 
 
@@ -94,29 +103,34 @@ namespace PrePoMax.Commands
         private OrderedDictionaryItemLayout<string> _geometryLayout;
         private OrderedDictionaryItemLayout<string> _modelLayout;
         private string _details;
+        [OptionalField]
+        private Dictionary<Guid, string> _compoundPartGroupNames;
 
 
         public CSetLinkedPartGroupLayouts(string name, OrderedDictionaryItemLayout<string> geometryLayout,
-                                          OrderedDictionaryItemLayout<string> modelLayout, string details)
+                                          OrderedDictionaryItemLayout<string> modelLayout,
+                                          Dictionary<Guid, string> compoundPartGroupNames, string details)
             : base(name)
         {
             _geometryLayout = new OrderedDictionaryItemLayout<string>(geometryLayout.Nodes);
             _modelLayout = new OrderedDictionaryItemLayout<string>(modelLayout.Nodes);
+            _compoundPartGroupNames = compoundPartGroupNames == null
+                                      ? null : new Dictionary<Guid, string>(compoundPartGroupNames);
             _details = details;
         }
 
 
         public override bool Execute(Controller receiver)
         {
-            receiver.SetLinkedPartGroupLayouts(_geometryLayout, _modelLayout);
+            receiver.SetLinkedPartGroupLayouts(_geometryLayout, _modelLayout, _compoundPartGroupNames);
             return true;
         }
         public override void ToPython(PythonJournalWriter writer)
         {
             PythonTreeLayoutEmitter.Emit(writer, ViewGeometryModelResults.Geometry, typeof(CaeMesh.BasePart),
-                                         null, _geometryLayout);
+                                         null, _geometryLayout, _compoundPartGroupNames);
             PythonTreeLayoutEmitter.Emit(writer, ViewGeometryModelResults.Model, typeof(CaeMesh.BasePart),
-                                         null, _modelLayout);
+                                         null, _modelLayout, _compoundPartGroupNames);
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()
@@ -139,7 +153,7 @@ namespace PrePoMax.Commands
                                                      OrderedDictionaryItemLayout<string> itemLayout, string details)
             : base(name)
         {
-            _data = new OrderedDictionaryItemLayoutCommandData(itemType, view, parentName, itemLayout, details);
+            _data = new OrderedDictionaryItemLayoutCommandData(itemType, view, parentName, itemLayout, null, details);
         }
 
 

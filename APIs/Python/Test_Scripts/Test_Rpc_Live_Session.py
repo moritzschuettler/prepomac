@@ -17,7 +17,10 @@
 #same deck. A fourth carries
 #successive tree layout changes - nested groups, every group removed, ungrouped items reordered - physical
 #constants made undefined and a deactivated part; pmx.open and pmx.results.open each refuse the file the
-#other one opens. Another carries the values only the dialogs set before the API took them: a vector
+#other one opens. The group of a compound's mesh, whose id is a new one whenever the compound is made, is
+#renamed, named by a later command, renamed with its compound and reordered: its journal and a batch
+#regeneration (-r) of the saved model must both rebuild it. Another carries the values only the dialogs set
+#before the API took them: a vector
 #distribution, the coordinate system of a distribution, the shifts of an amplitude, fixed degrees of
 #freedom, values taken back to Default, and a material whose values are expressions. One more carries
 #Element and Node surfaces, a contact adjustment size taken back to Default and the colors the
@@ -893,6 +896,81 @@ def check_journal_of_layouts(client):
     replayed = read_layout_states(client)
     check(replayed == recorded, "the replayed layouts differ: " + str(replayed) + " against " + str(recorded))
     print("journal: the tree layouts, constants and part activity replay to " + str(replayed))
+
+
+COMPOUND_GROUP_STATE = ("[list(pmx.model.geometry.parts.get_names()), str(pmx.model.tree.get_layout('femodel', "
+                        "'parts')), pmx.model.geometry.parts.get('tree_casing').mesh_group_id]")
+
+
+def read_compound_group_state(client):
+    """The part names, the femodel part layout without its group ids, and whether the compound names its group."""
+    value = client.result("eval", {"expression": COMPOUND_GROUP_STATE})
+    check(not value["failed"], "the compound group must be readable: " + value["error"])
+    names, layout, group_id = value["value"]
+    check(group_id is not None and "'group_id': '" + group_id + "'" in layout,
+          "mesh_group_id must be the id of the group of the compound's mesh: " + str(group_id) + " in " + layout)
+    return [names, re.sub(r"'group_id': '[0-9a-fA-F-]+'", "'group_id': ?", layout)]
+
+
+def check_journal_of_compound_group(client):
+    """The group of a compound's mesh gets a new id whenever the compound is made, so a rename of it must replay."""
+    directory = tempfile.mkdtemp(prefix="rpc_compound_group_")
+    saved = os.path.join(directory, "compound_group.pmx")
+    model = "pmx.new_model('ThreeD', 'MM_TON_S_C')"
+    result = client.result("exec", {"source": os.linesep.join([
+        model,
+        "pmx.import_file(r'" + os.path.join(MODELS, "sweep_stack3.brep") + "')",
+        "pmx.model.mesh.generate([name for name in pmx.model.geometry.parts.get_names() "
+        "if name.startswith('Compound')])"])})
+    check(not result["failed"], "the compound must be meshed: " + result["error"])
+    # The group renamed renames its compound, which a later command then names; the compound renamed later takes
+    # its group along, and a layout recorded after that names the compound by its new name
+    source = os.linesep.join([
+        "tree = pmx.model.tree",
+        "group = [entry for entry in tree.get_layout('femodel', 'parts') if isinstance(entry, dict)][0]",
+        "tree.rename_group('femodel', 'parts', group['group_id'], 'tree_housing')",
+        "pmx.model.mesh.generate('tree_housing')",
+        "pmx.model.geometry.parts.rename('tree_housing', 'tree_casing')",
+        "tree.move_items('femodel', 'parts', ['Solid_part-1'])"])
+    result = client.result("exec", {"source": source})
+    check(not result["failed"], "the compound group must be renamed: " + result["error"])
+    recorded = read_compound_group_state(client)
+    check("tree_casing" in recorded[0] and "'group_name': 'tree_casing'" in recorded[1] and
+          recorded[1].startswith("['Solid_part-1'"), "the compound group was not renamed and reordered: " +
+          str(recorded))
+    result = client.result("history", {"include_journal": True})
+    journal_source = result["journal"]["source"]
+    check(result["journal"]["refusedCommandCount"] == 0, "nothing may be refused: " +
+          str(result["journal"]["refusals"]))
+    for expected in [".get('Compound-1').mesh_group_id", ".get('tree_casing').mesh_group_id"]:
+        check(expected in journal_source, "the journal must name the group by its compound, " + expected +
+              " is missing:" + os.linesep + journal_source)
+    result = client.result("exec", {"source": "pmx.save(r'" + saved + "')"})
+    check(not result["failed"], "the model must be saved: " + result["error"])
+    # The journal replayed makes the compound again, and with it a group of another id
+    result = client.result("exec", {"source": model})
+    check(not result["failed"], "the model must be cleared for the replay: " + result["error"])
+    result = client.result("exec", {"source": journal_source})
+    check(not result["failed"], "the journal of the compound group must replay: " + result["error"] + os.linesep +
+          journal_source)
+    replayed = read_compound_group_state(client)
+    check(replayed == recorded, "the replayed compound group differs: " + str(replayed) + " against " +
+          str(recorded))
+    # A regeneration skips a mesh of a part it cannot find and still ends successfully, so the model it writes
+    # is what is checked
+    completed = subprocess.run([sys.executable, "-r", saved, "-o", "Yes", "-g", "No", "-x", "Yes", "-w", directory,
+                                "--noSettingsSave", "--timeout", str(CHILD_TIMEOUT)],
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=CHILD_TIMEOUT + 60)
+    output = completed.stdout.decode("utf-8", "replace")
+    check(completed.returncode == 0, "the regeneration must exit with 0, not " + str(completed.returncode) + ": " +
+          output)
+    check("does not exist" not in output, "the regeneration lost the compound group: " + output)
+    result = client.result("exec", {"source": "pmx.open(r'" + saved + "', discard_changes=True)"})
+    check(not result["failed"], "the regenerated model must open: " + result["error"])
+    regenerated = read_compound_group_state(client)
+    check(regenerated == recorded, "the regenerated compound group differs: " + str(regenerated) + " against " +
+          str(recorded))
+    print("journal: the renamed compound group replays and regenerates to " + str(regenerated))
 
 
 def check_result_file_opening(client):
@@ -1886,6 +1964,7 @@ def main():
         check_journal_of_failed_script(client)
         check_journal_of_missing_section(client)
         check_journal_of_layouts(client)
+        check_journal_of_compound_group(client)
         check_result_file_opening(client)
         check_journal_round_trip(client)
         check_journal_of_output_files(client)

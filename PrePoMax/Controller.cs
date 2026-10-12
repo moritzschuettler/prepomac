@@ -21378,7 +21378,9 @@ namespace PrePoMax
                         view == ViewGeometryModelResults.Geometry ? newLayout : renamedLinkedLayout;
                     OrderedDictionaryItemLayout<string> modelLayout =
                         view == ViewGeometryModelResults.Model ? newLayout : renamedLinkedLayout;
-                    command = new CSetLinkedPartGroupLayouts(commandName, geometryLayout, modelLayout, details);
+                    command = new CSetLinkedPartGroupLayouts(commandName, geometryLayout, modelLayout,
+                                                             GetCompoundPartGroupNames(geometryLayout, modelLayout),
+                                                             details);
                 }
             }
             //
@@ -21389,7 +21391,9 @@ namespace PrePoMax
                                                                         change.ParentName, newLayout, details);
                 else
                     command = new CSetOrderedDictionaryItemLayout(commandName, change.ItemType, view,
-                                                                  change.ParentName, newLayout, details);
+                                                                  change.ParentName, newLayout,
+                                                                  partLayout ? GetCompoundPartGroupNames(newLayout) : null,
+                                                                  details);
             }
             _commands.AddAndExecute(command);
         }
@@ -21404,7 +21408,50 @@ namespace PrePoMax
             CreateOrderedDictionaryItemLayoutPreview(_model.Mesh.Parts, modelLayout, "Linked part group layout preview");
             //
             _commands.AddAndExecute(new CSetLinkedPartGroupLayouts("Set tree layout", geometryLayout, modelLayout,
+                                                                   GetCompoundPartGroupNames(geometryLayout,
+                                                                                             modelLayout),
                                                                    _model.Mesh.Parts.Keys.Count + " items"));
+        }
+        private Dictionary<Guid, string> GetCompoundPartGroupNames(params OrderedDictionaryItemLayout<string>[] layouts)
+        {
+            if (_model.Geometry?.Parts == null) return null;
+            //
+            HashSet<Guid> groupIds = new HashSet<Guid>();
+            foreach (OrderedDictionaryItemLayout<string> layout in layouts) AddOrderedDictionaryGroupIds(layout.Nodes, groupIds);
+            Dictionary<Guid, string> compoundPartGroupNames = new Dictionary<Guid, string>();
+            foreach (BasePart part in _model.Geometry.Parts.Values)
+            {
+                if (part is CompoundGeometryPart compoundPart && groupIds.Contains(compoundPart.LinkedGroupId))
+                    compoundPartGroupNames[compoundPart.LinkedGroupId] = compoundPart.Name;
+            }
+            return compoundPartGroupNames.Count == 0 ? null : compoundPartGroupNames;
+        }
+        private static void AddOrderedDictionaryGroupIds(IEnumerable<OrderedDictionaryItemNode<string>> nodes,
+                                                         HashSet<Guid> groupIds)
+        {
+            foreach (OrderedDictionaryItemNode<string> node in nodes)
+            {
+                if (!node.IsGroup) continue;
+                //
+                groupIds.Add(node.Id);
+                AddOrderedDictionaryGroupIds(node.Children, groupIds);
+            }
+        }
+        // A compound part gets a new mesh group id whenever it is made again, so a recorded layout finds the
+        // group by the name the compound had when the layout was recorded, and by its id only when that is unknown
+        private OrderedDictionaryItemLayout<string> ResolveCompoundPartGroupIds(
+            OrderedDictionaryItemLayout<string> layout, Dictionary<Guid, string> compoundPartGroupNames)
+        {
+            if (compoundPartGroupNames == null || _model.Geometry?.Parts == null) return layout;
+            //
+            Dictionary<Guid, Guid> groupIdMap = new Dictionary<Guid, Guid>();
+            foreach (KeyValuePair<Guid, string> entry in compoundPartGroupNames)
+            {
+                if (_model.Geometry.Parts.TryGetValue(entry.Value, out BasePart part) &&
+                    part is CompoundGeometryPart compoundPart && compoundPart.LinkedGroupId != entry.Key)
+                    groupIdMap[entry.Key] = compoundPart.LinkedGroupId;
+            }
+            return groupIdMap.Count == 0 ? layout : layout.GetLayoutWithGroupIds(groupIdMap);
         }
         private static OrderedDictionaryItemLayout<string> CreateRenamedGroupLayout(
             IOrderedDictionaryItemLayout<string> dictionary, Guid groupId, string newName)
@@ -21425,8 +21472,10 @@ namespace PrePoMax
             return preview;
         }
         public void SetOrderedDictionaryItemLayout(Type itemType, ViewGeometryModelResults view, string parentName,
-                                                   OrderedDictionaryItemLayout<string> itemLayout)
+                                                   OrderedDictionaryItemLayout<string> itemLayout,
+                                                   Dictionary<Guid, string> compoundPartGroupNames)
         {
+            itemLayout = ResolveCompoundPartGroupIds(itemLayout, compoundPartGroupNames);
             IOrderedDictionaryItemLayout<string> dictionary =
                 GetOrderedDictionaryItemLayout(itemType, view, parentName);
             if (view == ViewGeometryModelResults.Model && typeof(BasePart).IsAssignableFrom(itemType))
@@ -21438,11 +21487,14 @@ namespace PrePoMax
             _form?.RegenerateTree(false);
         }
         public void SetLinkedPartGroupLayouts(OrderedDictionaryItemLayout<string> geometryLayout,
-                                              OrderedDictionaryItemLayout<string> modelLayout)
+                                              OrderedDictionaryItemLayout<string> modelLayout,
+                                              Dictionary<Guid, string> compoundPartGroupNames)
         {
             if (_model.Geometry?.Parts == null || _model.Mesh?.Parts == null)
                 throw new InvalidOperationException("The linked part-group layouts are not available.");
             //
+            geometryLayout = ResolveCompoundPartGroupIds(geometryLayout, compoundPartGroupNames);
+            modelLayout = ResolveCompoundPartGroupIds(modelLayout, compoundPartGroupNames);
             OrderedDictionaryItemLayout<string> oldModelLayout = _model.Mesh.Parts.GetItemLayoutSnapshot();
             _model.Geometry.Parts.SetItemLayout(geometryLayout);
             SynchronizeCompoundPartGroupRenames(oldModelLayout.Nodes, modelLayout.Nodes);

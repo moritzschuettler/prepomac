@@ -133,6 +133,15 @@ namespace CaeGlobals
         {
             return new OrderedDictionaryItemNode<TKey>(_id, _nodeType, _key, _name, _children);
         }
+        internal OrderedDictionaryItemNode<TKey> DeepCopy(IDictionary<Guid, Guid> groupIdMap)
+        {
+            Guid id;
+            if (!IsGroup || !groupIdMap.TryGetValue(_id, out id)) id = _id;
+            //
+            List<OrderedDictionaryItemNode<TKey>> children = new List<OrderedDictionaryItemNode<TKey>>();
+            foreach (OrderedDictionaryItemNode<TKey> child in _children) children.Add(child.DeepCopy(groupIdMap));
+            return new OrderedDictionaryItemNode<TKey>(id, _nodeType, _key, _name, children);
+        }
         internal static string ValidateGroupName(string name)
         {
             if (String.IsNullOrWhiteSpace(name)) throw new ArgumentException("The group name must not be empty.", "name");
@@ -168,6 +177,14 @@ namespace CaeGlobals
         }
 
 
+        public OrderedDictionaryItemLayout<TKey> GetLayoutWithGroupIds(IDictionary<Guid, Guid> groupIdMap)
+        {
+            if (groupIdMap == null) throw new ArgumentNullException("groupIdMap");
+            //
+            List<OrderedDictionaryItemNode<TKey>> nodes = new List<OrderedDictionaryItemNode<TKey>>();
+            foreach (OrderedDictionaryItemNode<TKey> node in _nodes) nodes.Add(node.DeepCopy(groupIdMap));
+            return new OrderedDictionaryItemLayout<TKey>(nodes);
+        }
         internal List<OrderedDictionaryItemNode<TKey>> MutableNodes
         {
             get { return _nodes; }
