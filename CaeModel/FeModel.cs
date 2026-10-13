@@ -5464,6 +5464,7 @@ namespace CaeModel
             Dictionary<int, HashSet<int>> vertexIdEdgeIds = maps.GetVertexIdEdgeIds(part);
             HashSet<int> chainEdgeIds = new HashSet<int>();
             Dictionary<int, double> vertexIdChainLength = new Dictionary<int, double>();
+            List<int[]> chainStartEdgeVertexIds = new List<int[]>();
             foreach (var vertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()).OrderBy(id => id))
             {
                 foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
@@ -5509,6 +5510,7 @@ namespace CaeModel
                         double length;
                         vertexIdChainLength.TryGetValue(vertexId, out length);
                         vertexIdChainLength[vertexId] = Math.Max(length, chainLength);
+                        chainStartEdgeVertexIds.Add(new int[] { edgeId, vertexId });
                     }
                 }
             }
@@ -5544,29 +5546,87 @@ namespace CaeModel
             // one another smoothly - the two walls of a slot and the rounded bottom between them - has vertices
             // no edge leaves, and the length across the body behind them is never seen: the chains report the
             // width of the prongs and nothing of the way from the bottom of the slot to the end of the part.
-            // So the sweep lines are measured across the source as well, from its cells into the material
+            // So the sweep lines are measured across the source as well, from its cells into the material. A block
+            // turning about an axis lengthens its lines with the distance from the axis, as the chains above allow,
+            // and the lines measured straight across its source report the same; there they are compared by the angle
+            // they turn through about the axis, which is what one element layer count has to suit
+            Vec3D axisPoint;
+            Vec3D axisDirection;
+            GetSweepTurnAxis(vis, chainStartEdgeVertexIds, 1E-3 * part.BoundingBox.GetDiagonal(), out axisPoint,
+                             out axisDirection);
             double minSampledLength;
             double maxSampledLength;
-            if (SampleSweepLengths(vis, sourceSurfaceIdsArray, targetSurfaceIds, out minSampledLength,
-                                   out maxSampledLength) && minSampledLength < 0.5 * maxSampledLength)
+            if (SampleSweepLengths(vis, sourceSurfaceIdsArray, targetSurfaceIds, axisPoint, axisDirection,
+                                   out minSampledLength, out maxSampledLength) &&
+                minSampledLength < 0.5 * maxSampledLength)
             {
                 return "The sweep lines measured across the sweep source surface/s (" +
-                       GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") differ in length by more than half, so " +
-                       "one element layer count cannot suit them all. Select the source surfaces by hand, or split " +
-                       "the part so that each piece is swept on its own.";
+                       GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") differ in " +
+                       (axisDirection != null ? "the angle they turn through about the sweep axis" : "length") +
+                       " by more than half, so one element layer count cannot suit them all. Select the source " +
+                       "surfaces by hand, or split the part so that each piece is swept on its own.";
             }
             //
             return null;
+        }
+        /// <summary>
+        /// The axis a block turns about: the line every chain leaving the source starts along as a circular arc
+        /// of. A chain starting along a straight line has none, and neither has a block in which fewer than two
+        /// chains start along a circle; a chain starting along any other curve is not asked.
+        /// </summary>
+        private void GetSweepTurnAxis(VisualizationData vis, List<int[]> chainStartEdgeVertexIds, double tolerance,
+                                      out Vec3D axisPoint, out Vec3D axisDirection)
+        {
+            axisPoint = null;
+            axisDirection = null;
+            if (vis.EdgeTypes == null) return;
+            //
+            int numOfArcs = 0;
+            Vec3D point = null;
+            Vec3D direction = null;
+            foreach (var edgeVertexIds in chainStartEdgeVertexIds)
+            {
+                GeomCurveType edgeType = vis.EdgeTypes[edgeVertexIds[0]];
+                if (edgeType == GeomCurveType.Line) return;
+                if (edgeType != GeomCurveType.Circle) continue;
+                //
+                double r;
+                double arcAngleDeg;
+                double[] center;
+                double[] normal;
+                vis.GetArcEdgeDataForEdgeId(edgeVertexIds[0], new HashSet<int>() { edgeVertexIds[1] }, _geometry.Nodes,
+                                            out r, out arcAngleDeg, out center, out normal);
+                if (center == null || r <= 0 || double.IsInfinity(r) || double.IsNaN(r)) return;
+                Vec3D arcCenter = new Vec3D(center);
+                Vec3D arcDirection = new Vec3D(normal);
+                if (arcDirection.Len == 0) return;
+                arcDirection.Normalize();
+                //
+                if (direction == null)
+                {
+                    point = arcCenter;
+                    direction = arcDirection;
+                }
+                else if (Vec3D.CrossProduct(arcDirection, direction).Len > _sweepTurnAxisSine ||
+                         Vec3D.CrossProduct(arcCenter - point, direction).Len > tolerance) return;
+                numOfArcs++;
+            }
+            if (numOfArcs < 2) return;
+            //
+            axisPoint = point;
+            axisDirection = direction;
         }
         /// <summary>
         /// The shortest and the longest sweep line measured across the source: from the centroid of a source
         /// cell along the inward normal of the cell to the first cell of the part the line meets, for up to a
         /// hundred cells spread over the source. Only a line ending on a target surface is measured - a line
         /// ending on a wall belongs to a body that bends, and the straight line says nothing of its length.
+        /// With an axis the block turns about, a line is measured by the angle between its ends about the axis.
         /// False when no line reached a target.
         /// </summary>
         private bool SampleSweepLengths(VisualizationData vis, int[] sourceSurfaceIds, int[] targetSurfaceIds,
-                                        out double minLength, out double maxLength)
+                                        Vec3D axisPoint, Vec3D axisDirection, out double minLength,
+                                        out double maxLength)
         {
             minLength = double.MaxValue;
             maxLength = 0;
@@ -5639,6 +5699,15 @@ namespace CaeModel
                     }
                 }
                 if (nearestSurfaceId < 0 || !targetSurfaceIdSet.Contains(nearestSurfaceId)) continue;
+                if (axisDirection != null)
+                {
+                    Vec3D start = origin - axisPoint;
+                    Vec3D end = origin + nearest * direction - axisPoint;
+                    start = start - Vec3D.DotProduct(start, axisDirection) * axisDirection;
+                    end = end - Vec3D.DotProduct(end, axisDirection) * axisDirection;
+                    if (start.Len == 0 || end.Len == 0) continue;
+                    nearest = Math.Atan2(Vec3D.CrossProduct(start, end).Len, Vec3D.DotProduct(start, end));
+                }
                 minLength = Math.Min(minLength, nearest);
                 maxLength = Math.Max(maxLength, nearest);
             }
@@ -5785,6 +5854,8 @@ namespace CaeModel
         // How fast the length of the sweep lines may change across the source: a block bending through a full turn
         // lengthens them by two pi for every unit of distance from the inside of the bend to the outside
         private const double _maxSweepLengthGradient = 2 * Math.PI;
+        // The sine of the angle between two arcs of a block that still turn about one axis, about half a degree
+        private const double _sweepTurnAxisSine = 1E-2;
         private static readonly double _wallChainsCosine = Math.Cos(45 * Math.PI / 180);
         private const double _wallChainsLengthTolerance = 0.05;
         private const string _swallowedWallError = "A sweep side surface was taken for a target surface.";
