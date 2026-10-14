@@ -5555,22 +5555,28 @@ namespace CaeModel
             // So the sweep lines are measured across the source as well, from its cells into the material. A block
             // turning about an axis lengthens its lines with the distance from the axis, as the chains above allow,
             // and the lines measured straight across its source report the same; there they are compared by the angle
-            // they turn through about the axis, which is what one element layer count has to suit
+            // they turn through about the axis, which is what one element layer count has to suit. Lines that differ
+            // only as a linear function of where they leave the source - a taper, a wedge - end on a target that is
+            // an affine image of the source, which the morph of the layers reproduces exactly whatever the lengths;
+            // the lines of a slot, a step or a groove depart from any linear function, and the layers fold there
             Vec3D axisPoint;
             Vec3D axisDirection;
             GetSweepTurnAxis(vis, chainStartEdgeVertexIds, 1E-3 * part.BoundingBox.GetDiagonal(), out axisPoint,
                              out axisDirection);
             double minSampledLength;
             double maxSampledLength;
+            double linearDeviation;
             if (SampleSweepLengths(vis, sourceSurfaceIdsArray, targetSurfaceIds, axisPoint, axisDirection,
-                                   out minSampledLength, out maxSampledLength) &&
-                minSampledLength < 0.5 * maxSampledLength)
+                                   out minSampledLength, out maxSampledLength, out linearDeviation) &&
+                minSampledLength < 0.5 * maxSampledLength &&
+                linearDeviation > _maxSweepLengthDeviation * maxSampledLength)
             {
                 return "The sweep lines measured across the sweep source surface/s (" +
                        GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") differ in " +
                        (axisDirection != null ? "the angle they turn through about the sweep axis" : "length") +
-                       " by more than half, so one element layer count cannot suit them all. Select the source " +
-                       "surfaces by hand, or split the part so that each piece is swept on its own.";
+                       " by more than half, and not as a taper changes them, so one element layer count cannot suit " +
+                       "them all. Select the source surfaces by hand, or split the part so that each piece is swept " +
+                       "on its own.";
             }
             //
             return null;
@@ -5628,14 +5634,18 @@ namespace CaeModel
         /// hundred cells spread over the source. Only a line ending on a target surface is measured - a line
         /// ending on a wall belongs to a body that bends, and the straight line says nothing of its length.
         /// With an axis the block turns about, a line is measured by the angle between its ends about the axis.
-        /// False when no line reached a target.
+        /// linearDeviation is the largest departure of a measured line from the linear function of the point it
+        /// leaves the source at that fits them all best. False when no line reached a target.
         /// </summary>
         private bool SampleSweepLengths(VisualizationData vis, int[] sourceSurfaceIds, int[] targetSurfaceIds,
                                         Vec3D axisPoint, Vec3D axisDirection, out double minLength,
-                                        out double maxLength)
+                                        out double maxLength, out double linearDeviation)
         {
             minLength = double.MaxValue;
             maxLength = 0;
+            linearDeviation = 0;
+            List<Vec3D> origins = new List<Vec3D>();
+            List<double> lengths = new List<double>();
             if (vis.Cells == null || vis.CellIdsByFace == null) return false;
             //
             HashSet<int> sourceSurfaceIdSet = new HashSet<int>(sourceSurfaceIds);
@@ -5716,8 +5726,71 @@ namespace CaeModel
                 }
                 minLength = Math.Min(minLength, nearest);
                 maxLength = Math.Max(maxLength, nearest);
+                origins.Add(origin);
+                lengths.Add(nearest);
             }
+            linearDeviation = GetLinearFitDeviation(origins, lengths);
             return maxLength > 0;
+        }
+        /// <summary>
+        /// The largest difference between a value and the linear function of position that fits the values best, by
+        /// least squares. A position may vary in fewer than three directions - the points of a plane - so the fit is
+        /// pulled lightly towards no change in the directions the points do not span.
+        /// </summary>
+        private static double GetLinearFitDeviation(List<Vec3D> points, List<double> values)
+        {
+            int count = points.Count;
+            if (count == 0) return 0;
+            Vec3D center = new Vec3D();
+            double meanValue = 0;
+            for (int i = 0; i < count; i++)
+            {
+                center = center + points[i];
+                meanValue += values[i];
+            }
+            center = (1.0 / count) * center;
+            meanValue /= count;
+            //
+            double[,] matrix = new double[3, 3];
+            double[] rightSide = new double[3];
+            for (int i = 0; i < count; i++)
+            {
+                double[] q = (points[i] - center).Coor;
+                for (int r = 0; r < 3; r++)
+                {
+                    rightSide[r] += q[r] * (values[i] - meanValue);
+                    for (int c = 0; c < 3; c++) matrix[r, c] += q[r] * q[c];
+                }
+            }
+            double regularization = 1E-6 * (matrix[0, 0] + matrix[1, 1] + matrix[2, 2]) + 1E-30;
+            for (int r = 0; r < 3; r++) matrix[r, r] += regularization;
+            double[] slope = SolveSymmetric3x3(matrix, rightSide);
+            //
+            double deviation = 0;
+            for (int i = 0; i < count; i++)
+            {
+                double[] q = (points[i] - center).Coor;
+                double fitted = meanValue + slope[0] * q[0] + slope[1] * q[1] + slope[2] * q[2];
+                deviation = Math.Max(deviation, Math.Abs(values[i] - fitted));
+            }
+            return deviation;
+        }
+        private static double[] SolveSymmetric3x3(double[,] m, double[] b)
+        {
+            double det = m[0, 0] * (m[1, 1] * m[2, 2] - m[1, 2] * m[2, 1]) -
+                         m[0, 1] * (m[1, 0] * m[2, 2] - m[1, 2] * m[2, 0]) +
+                         m[0, 2] * (m[1, 0] * m[2, 1] - m[1, 1] * m[2, 0]);
+            if (det == 0) return new double[3];
+            double[] x = new double[3];
+            for (int k = 0; k < 3; k++)
+            {
+                double[,] mk = (double[,])m.Clone();
+                for (int r = 0; r < 3; r++) mk[r, k] = b[r];
+                x[k] = (mk[0, 0] * (mk[1, 1] * mk[2, 2] - mk[1, 2] * mk[2, 1]) -
+                        mk[0, 1] * (mk[1, 0] * mk[2, 2] - mk[1, 2] * mk[2, 0]) +
+                        mk[0, 2] * (mk[1, 0] * mk[2, 1] - mk[1, 1] * mk[2, 0])) / det;
+            }
+            return x;
         }
         private static bool DoesRayHitBox(Vec3D origin, Vec3D direction, double[] min, double[] max, double maxDistance)
         {
@@ -5862,6 +5935,8 @@ namespace CaeModel
         private const double _maxSweepLengthGradient = 2 * Math.PI;
         // The sine of the angle between two arcs of a block that still turn about one axis, about half a degree
         private const double _sweepTurnAxisSine = 1E-2;
+        // How far the sweep lines measured across the source may depart from a taper, as a share of the longest
+        private const double _maxSweepLengthDeviation = 0.05;
         private static readonly double _wallChainsCosine = Math.Cos(45 * Math.PI / 180);
         private const double _wallChainsLengthTolerance = 0.05;
         private const string _swallowedWallError = "A sweep side surface was taken for a target surface.";
