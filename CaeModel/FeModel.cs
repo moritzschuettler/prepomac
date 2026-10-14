@@ -5465,6 +5465,10 @@ namespace CaeModel
             HashSet<int> chainEdgeIds = new HashSet<int>();
             Dictionary<int, double> vertexIdChainLength = new Dictionary<int, double>();
             List<int[]> chainStartEdgeVertexIds = new List<int[]>();
+            BoundingBox sourceBox = new BoundingBox();
+            foreach (var vertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()))
+                sourceBox.IncludeCoor(_geometry.Nodes[vertexId].Coor);
+            double sourceDiagonal = sourceBox.GetDiagonal();
             foreach (var vertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()).OrderBy(id => id))
             {
                 foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
@@ -5478,8 +5482,10 @@ namespace CaeModel
                                      chainEdgeIds, out lastEdgeId, out lastVertexId, out chainLength);
                     Vec3D chord = new Vec3D(_geometry.Nodes[lastVertexId].Coor) -
                                   new Vec3D(_geometry.Nodes[vertexId].Coor);
-                    // A chain that ends near where it began has run around the body rather than across it
-                    if (chainLength > 0 && chord.Len < 0.3 * chainLength)
+                    // A chain that ends near where it began has run around the body rather than across it. Near is
+                    // within the size of the source: a coil runs a long way round as well, but it ends far from
+                    // where it began
+                    if (chainLength > 0 && chord.Len < 0.3 * chainLength && chord.Len < sourceDiagonal)
                     {
                         return "The edge chain following the sweep direction from " + GetSweepEdgeName(part, edgeId) +
                                " turns back on itself instead of running from the source surface/s (" +
