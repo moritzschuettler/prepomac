@@ -3838,9 +3838,12 @@ namespace CaeModel
             // with the block rather than that there is none
             bool reachedTarget;
             string[] reachedTargetErrors = new string[numOfCells];
+            // The sources of every cell refused only for a loft between outlines that are not alike
+            List<Tuple<int, HashSet<int>, bool>>[] unlikeSources = new List<Tuple<int, HashSet<int>, bool>>[numOfCells];
             for (int i = 0; i < numOfCells; i++)
             {
                 candidates[i] = new List<SweepCellCandidate>();
+                unlikeSources[i] = new List<Tuple<int, HashSet<int>, bool>>();
                 seedErrors[i] = new List<KeyValuePair<HashSet<int>, string>>();
                 foreach (var seedSurfaceIds in GetSeedSurfaceIds(sweptParts[i]))
                     pendingSources.Enqueue(new Tuple<int, HashSet<int>, bool>(i, seedSurfaceIds, false));
@@ -3859,11 +3862,13 @@ namespace CaeModel
                                                   new HashSet<int>(), stamp);
                 }
                 //
+                bool unlikeEnds;
                 SweepCellCandidate candidate = CreateSweepCellCandidate(part, pending.Item2, pending.Item3,
-                                                                        twinSurfaceIds, maps, faceTypes, out error,
-                                                                        out reachedTarget);
+                                                                        twinSurfaceIds, maps, faceTypes, false,
+                                                                        out error, out reachedTarget, out unlikeEnds);
                 if (candidate == null)
                 {
+                    if (unlikeEnds) unlikeSources[cell].Add(pending);
                     if (!pending.Item3 && reachedTarget && reachedTargetErrors[cell] == null)
                         reachedTargetErrors[cell] = error;
                     if (!pending.Item3)
@@ -3894,6 +3899,21 @@ namespace CaeModel
                                                                                neighbourSideSurfaceId, twinEdgeIds);
                     if (continuingIds.Count > 0)
                         pendingSources.Enqueue(new Tuple<int, HashSet<int>, bool>(neighbour, continuingIds, true));
+                }
+            }
+            // A cell left with no way of its own takes the lofts between outlines that are not alike
+            for (int i = 0; i < numOfCells; i++)
+            {
+                if (candidates[i].Count > 0) continue;
+                foreach (var pending in unlikeSources[i])
+                {
+                    SweepCellCandidate candidate = CreateSweepCellCandidate(sweptParts[i], pending.Item2, pending.Item3,
+                                                                            twinSurfaceIds, maps, faceTypes, true,
+                                                                            out error, out reachedTarget, out _);
+                    if (candidate == null || candidates[i].Any(other =>
+                            other.SourceSurfaceIds.SetEquals(candidate.SourceSurfaceIds) &&
+                            other.TargetSurfaceIds.SetEquals(candidate.TargetSurfaceIds))) continue;
+                    candidates[i].Add(candidate);
                 }
             }
             if (numOfCells == 1 && candidates[0].Count > 0)
@@ -4026,7 +4046,8 @@ namespace CaeModel
         private SweepCellCandidate CreateSweepCellCandidate(GeometryPart part, HashSet<int> seedSurfaceIds,
                                                             bool derived, Dictionary<int, int> twinSurfaceIds,
                                                             SweepPartMaps maps, Dictionary<int, GeomFaceType> faceTypes,
-                                                            out string error, out bool reachedTarget)
+                                                            bool allowUnlikeEnds, out string error,
+                                                            out bool reachedTarget, out bool unlikeEnds)
         {
             VisualizationData vis = part.Visualization;
             Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = maps.GetSurfaceIdSurfaceNeighbourIds(part);
@@ -4046,7 +4067,17 @@ namespace CaeModel
                 () => ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds));
             error = validation.Error;
             reachedTarget = validation.ReachedTarget;
+            unlikeEnds = validation.UnlikeEnds;
             if (error != null) return null;
+            // A loft between outlines that are not alike is taken only by a part that has no other way
+            if (unlikeEnds && !allowUnlikeEnds)
+            {
+                error = "The sweep target surface/s (" + GetSweepSurfaceNames(part, validation.TargetSurfaceIds) +
+                        ") are not the shape of the sweep source surface/s (" +
+                        GetSweepSurfaceNames(part, sourceSurfaceIds) + ") carried along the sweep direction. " +
+                        "Select the source surfaces by hand, or split the part so that each piece is swept on its own.";
+                return null;
+            }
             //
             int[] sideSurfaceIds;
             int[] targetSurfaceIds;
@@ -5104,10 +5135,11 @@ namespace CaeModel
                                           SweepPartMaps maps, Dictionary<int, int> twinSurfaceIds,
                                           out int[] sideSurfaceIds, out int[] targetSurfaceIds,
                                           out List<int[]> layerSideSurfaceIds, out int[] directionEdgeIds,
-                                          out bool reachedTarget)
+                                          out bool reachedTarget, out bool unlikeEnds)
         {
             directionEdgeIds = null;
             reachedTarget = false;
+            unlikeEnds = false;
             //
             VisualizationData vis = part.Visualization;
             int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
@@ -5142,7 +5174,8 @@ namespace CaeModel
                             targetSurfaceIds.Length > 0;
             if (error == null)
             {
-                error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, targetSurfaceIds, sideSurfaceIds, maps);
+                error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, targetSurfaceIds, sideSurfaceIds, maps,
+                                                   out unlikeEnds);
                 if (error == null)
                 {
                     HashSet<int> ringDirectionEdgeIds = new HashSet<int>();
@@ -5180,7 +5213,7 @@ namespace CaeModel
                                     out chainTargetSurfaceIds, out chainEdgeIds) != null) return error;
             reachedTarget = true;
             error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, chainTargetSurfaceIds,
-                                               chainSideSurfaceIds, maps);
+                                               chainSideSurfaceIds, maps, out unlikeEnds);
             if (error == null)
                 error = GetUnpairedTargetEdgesError(part, sourceSurfaceIds, chainSideSurfaceIds, chainTargetSurfaceIds,
                                                     chainEdgeIds);
@@ -5200,11 +5233,12 @@ namespace CaeModel
             int[] directionEdgeIds;
             List<int[]> layerSideSurfaceIds;
             bool reachedTarget;
+            bool unlikeEnds;
             string error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds,
                                               out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds,
-                                              out directionEdgeIds, out reachedTarget);
+                                              out directionEdgeIds, out reachedTarget, out unlikeEnds);
             return new SweepBlockValidation(error, sideSurfaceIds, targetSurfaceIds, layerSideSurfaceIds,
-                                            directionEdgeIds, reachedTarget);
+                                            directionEdgeIds, reachedTarget, unlikeEnds);
         }
         /// <summary>
         /// Refuses a block whose target is divided into several surfaces along an edge the source does not carry.
@@ -5397,8 +5431,9 @@ namespace CaeModel
         /// </summary>
         private string ValidateSweepBlockGeometry(GeometryPart part, HashSet<int> sourceSurfaceIds,
                                                   int[] targetSurfaceIds, int[] sideSurfaceIds,
-                                                  SweepPartMaps maps)
+                                                  SweepPartMaps maps, out bool unlikeEnds)
         {
+            unlikeEnds = false;
             // A block the transfinite mesher accepts carries the same structured grid whichever of its faces
             // the sweep starts from, so none of the measurements below has anything to refuse on it. They
             // would refuse a curved block swept from its inner face to its outer one, where the target is the
@@ -5439,7 +5474,11 @@ namespace CaeModel
             }
             // The target of a sweep is the source carried along the sweep lines, so it is a similar shape
             // however strongly the sweep tapers: the square root of its area ratio and its perimeter ratio
-            // then report the same scale. A target that is the rest of the body reports two different ones
+            // then report the same scale. A target that is the rest of the body reports two different ones. So does
+            // a loft between outlines that are not alike - a bore widening faster than the outside of the tube - but
+            // its ends lie as flat as each other: the area of an end against the area its outline spans, which a
+            // target bulging over the rest of the body far exceeds, and which for alike ends is the same measure.
+            // Such a block sweeps, but the search takes it only where the part has no way between alike ends
             if (vis.FaceAreas != null && vis.EdgeLengths != null && targetSurfaceIds.Length > 0)
             {
                 double sourceArea = sourceSurfaceIdsArray.Sum(id => vis.FaceAreas[id]);
@@ -5451,11 +5490,17 @@ namespace CaeModel
                     double scale = Math.Sqrt(targetArea / sourceArea) * sourcePerimeter / targetPerimeter;
                     if (scale < 0.8 || scale > 1.25)
                     {
-                        return "The sweep target surface/s (" + GetSweepSurfaceNames(part, targetSurfaceIds) + ") are " +
-                               "not the shape of the sweep source surface/s (" +
-                               GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") carried along the sweep " +
-                               "direction. Select the source surfaces by hand, or split the part so that each piece " +
-                               "is swept on its own.";
+                        double flatnessRatio = GetSweepEndFlatness(vis, targetSurfaceIds) /
+                                               GetSweepEndFlatness(vis, sourceSurfaceIdsArray);
+                        if (flatnessRatio >= 0.8 * 0.8 && flatnessRatio <= 1.25 * 1.25) unlikeEnds = true;
+                        else
+                        {
+                            return "The sweep target surface/s (" + GetSweepSurfaceNames(part, targetSurfaceIds) +
+                                   ") are not the shape of the sweep source surface/s (" +
+                                   GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") carried along the sweep " +
+                                   "direction. Select the source surfaces by hand, or split the part so that each " +
+                                   "piece is swept on its own.";
+                        }
                     }
                 }
             }
@@ -5469,6 +5514,7 @@ namespace CaeModel
             foreach (var vertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()))
                 sourceBox.IncludeCoor(_geometry.Nodes[vertexId].Coor);
             double sourceDiagonal = sourceBox.GetDiagonal();
+            HashSet<int> targetVertexIds = vis.GetVertexNodeIdsForSurfaceIds(targetSurfaceIds);
             foreach (var vertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()).OrderBy(id => id))
             {
                 foreach (var edgeId in vertexIdEdgeIds[vertexId].OrderBy(id => id))
@@ -5511,11 +5557,16 @@ namespace CaeModel
                                "entering it, so the source and the target surface/s are the wrong way round.";
                     }
                     //
+                    // A chain measures the length of its sweep line only when it reaches the target; one that stops
+                    // where the wall turns by more than a chain may - the flare of a horn - measured part of it
                     if (chainLength > 0)
                     {
-                        double length;
-                        vertexIdChainLength.TryGetValue(vertexId, out length);
-                        vertexIdChainLength[vertexId] = Math.Max(length, chainLength);
+                        if (targetVertexIds.Contains(lastVertexId))
+                        {
+                            double length;
+                            vertexIdChainLength.TryGetValue(vertexId, out length);
+                            vertexIdChainLength[vertexId] = Math.Max(length, chainLength);
+                        }
                         chainStartEdgeVertexIds.Add(new int[] { edgeId, vertexId });
                     }
                 }
@@ -5895,6 +5946,34 @@ namespace CaeModel
                 foreach (var edgeId in loop) perimeter += vis.EdgeLengths[edgeId];
             }
             return perimeter;
+        }
+        /// <summary>
+        /// The area of a group of surfaces against the area its outline spans: one for a flat group, more for one
+        /// that bulges. The spanned area is the length of the sum of the oriented areas of its cells, which only the
+        /// outline decides, and infinity when the outline spans none, as round a whole cylinder.
+        /// </summary>
+        private double GetSweepEndFlatness(VisualizationData vis, int[] surfaceIds)
+        {
+            double area = 0;
+            Vec3D orientedArea = new Vec3D();
+            foreach (var surfaceId in surfaceIds)
+            {
+                foreach (var cellId in vis.CellIdsByFace[surfaceId])
+                {
+                    int[] cell = vis.Cells[cellId];
+                    if (cell.Length < 3) continue;
+                    int numCorners = cell.Length == 3 || cell.Length == 6 ? 3 : 4;
+                    Vec3D a = new Vec3D(_geometry.Nodes[cell[0]].Coor);
+                    for (int i = 1; i < numCorners - 1; i++)
+                    {
+                        Vec3D cross = 0.5 * Vec3D.CrossProduct(new Vec3D(_geometry.Nodes[cell[i]].Coor) - a,
+                                                               new Vec3D(_geometry.Nodes[cell[i + 1]].Coor) - a);
+                        area += cross.Len;
+                        orientedArea = orientedArea + cross;
+                    }
+                }
+            }
+            return orientedArea.Len > 0 ? area / orientedArea.Len : double.PositiveInfinity;
         }
         private static string GetSweepSideHoleError(BasePart part, int surfaceId)
         {

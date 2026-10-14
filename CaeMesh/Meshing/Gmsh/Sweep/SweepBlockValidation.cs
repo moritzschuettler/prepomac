@@ -31,6 +31,7 @@ namespace CaeMesh
         private readonly List<int[]> _layerSideSurfaceIds;
         private readonly int[] _directionEdgeIds;
         private readonly bool _reachedTarget;
+        private readonly bool _unlikeEnds;
         private HashSet<int> _wallEdgeIds;
         private bool? _prismatic;
         private int[][][] _layerGroupEdgeIds;
@@ -47,14 +48,21 @@ namespace CaeMesh
         /// error names what is wrong with a block that is there rather than that no block could be found.
         /// </summary>
         public bool ReachedTarget { get { return _reachedTarget; } }
+        /// <summary>
+        /// Whether the source and the target outline shapes that are not alike - a loft between them rather than a
+        /// taper - which the search takes only for a part that has no other way.
+        /// </summary>
+        public bool UnlikeEnds { get { return _unlikeEnds; } }
 
 
         // Constructors                                                                                                             
         public SweepBlockValidation(string error, int[] sideSurfaceIds, int[] targetSurfaceIds,
-                                    List<int[]> layerSideSurfaceIds, int[] directionEdgeIds, bool reachedTarget)
+                                    List<int[]> layerSideSurfaceIds, int[] directionEdgeIds, bool reachedTarget,
+                                    bool unlikeEnds)
         {
             _error = error;
             _reachedTarget = reachedTarget;
+            _unlikeEnds = unlikeEnds;
             _sideSurfaceIds = sideSurfaceIds;
             _targetSurfaceIds = targetSurfaceIds;
             _layerSideSurfaceIds = layerSideSurfaceIds;
