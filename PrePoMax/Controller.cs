@@ -9934,15 +9934,14 @@ namespace PrePoMax
                         kernelFaceIds = new List<int>();
                         kernelFaceIdsBySolid.Add(solidNumber, kernelFaceIds);
                     }
-                    faceId = itemTypePartIds[0] + 1;
+                    faceId = GetSplitGeometryKernelId(id);
                     if (!kernelFaceIds.Contains(faceId)) kernelFaceIds.Add(faceId);
                 }
                 // Solid surface
                 else if (part != null && part is GeometryPart gp1 && gp1.IsCADPart &&
                          (part.PartType == PartType.Solid || part.PartType == PartType.SolidAsShell))
                 {
-                    // One-based CAD face numbering
-                    faceId = itemTypePartIds[0] + 1;
+                    faceId = GetSplitGeometryKernelId(id);
                     if (partIdFaceIds.TryGetValue(partId, out faceIds)) faceIds.Add(faceId);
                     else partIdFaceIds.Add(partId, new HashSet<int>() { faceId });
                 }

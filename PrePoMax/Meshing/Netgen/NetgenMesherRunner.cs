@@ -325,11 +325,7 @@ namespace PrePoMax
             string fileName = Path.Combine(workDirectory, Globals.TransfiniteFacesFileName);
             if (File.Exists(fileName)) File.Delete(fileName);
             if (!part.IsCADPart) return null;
-            // The solids of a compound in the order its brep holds them
-            BasePart[] parts;
-            if (part is CompoundGeometryPart compoundPart)
-                parts = compoundPart.SubPartNames.Select(name => _controller.Model.Geometry.Parts[name]).ToArray();
-            else parts = new BasePart[] { part };
+            BasePart[] parts = GetBrepSolidParts(part);
             //
             GmshData sizes = new GmshData();
             _controller.GetMeshItemSizes(part.Name, ref sizes, meshSetupItems);
@@ -563,13 +559,22 @@ namespace PrePoMax
                 throw new CaeException(GetMeshGenerationFailedMessage(part, text));
             }
         }
+        // The solids of a compound in the order its brep holds them
+        private BasePart[] GetBrepSolidParts(GeometryPart part)
+        {
+            if (part is CompoundGeometryPart compoundPart)
+                return compoundPart.SubPartNames.Select(name => _controller.Model.Geometry.Parts[name]).ToArray();
+            return new BasePart[] { part };
+        }
         /// <summary>
         /// Netgen lists the faces it could not mesh after its surface meshing, each with the reason, and the reason
-        /// given for a structured face names the surface. The faces of a part of its own are numbered as its surfaces;
-        /// those of a compound are numbered across its solids.
+        /// given for a structured face names the surface. Netgen numbers the faces as the modelling kernel does, which
+        /// the surfaces of a part follow only while none is missing from its geometry, so a face is named by the
+        /// surfaces built from it and by its Netgen number.
         /// </summary>
-        private static string GetMeshGenerationFailedMessage(GeometryPart part, string output)
+        private string GetMeshGenerationFailedMessage(GeometryPart part, string output)
         {
+            Dictionary<int, List<string>> surfaceNamesByFaceNumber = GetSurfaceNamesByNetgenFaceNumber(part);
             List<string> reasons = new List<string>();
             bool faceList = false;
             foreach (var line in output.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
@@ -587,17 +592,53 @@ namespace PrePoMax
                     faceList = false;
                     continue;
                 }
-                string face = part is CompoundGeometryPart ? "Face " + match.Groups[1].Value :
-                                                             "Surface " + match.Groups[1].Value + " of " + part.Name;
+                int faceNumber = int.Parse(match.Groups[1].Value);
+                List<string> surfaceNames;
+                string face;
+                if (surfaceNamesByFaceNumber.TryGetValue(faceNumber, out surfaceNames))
+                {
+                    face = string.Join(" and ", surfaceNames) + " (Netgen face " + faceNumber + ")";
+                    face = char.ToUpper(face[0]) + face.Substring(1);
+                }
+                else face = "Netgen face " + faceNumber + " of " + part.Name + " (matches no surface of the part)";
                 string reason = match.Groups[2].Success ? match.Groups[2].Value : null;
                 if (reason == null) reason = face + " could not be meshed.";
-                else if (reason.IndexOf("surface ", StringComparison.OrdinalIgnoreCase) < 0) reason = face + ": " + reason;
+                else if (!Regex.IsMatch(reason, @"\bsurface \d+ of ", RegexOptions.IgnoreCase)) reason = face + ": " + reason;
                 if (!reasons.Contains(reason)) reasons.Add(reason);
             }
             //
             string message = "Mesh generation failed.";
             foreach (var reason in reasons) message += Environment.NewLine + reason;
             return message;
+        }
+        // A face two solids of a compound share is built into a surface of each
+        private Dictionary<int, List<string>> GetSurfaceNamesByNetgenFaceNumber(GeometryPart part)
+        {
+            Dictionary<int, List<string>> surfaceNamesByFaceNumber = new Dictionary<int, List<string>>();
+            BasePart[] parts = GetBrepSolidParts(part);
+            Dictionary<int, int> faceKernelIds;
+            Dictionary<int, int> edgeKernelIds;
+            if (parts.Any(solidPart => solidPart.Visualization == null) ||
+                !NetgenKernelIds.Get(_controller.Model.Geometry, parts, out faceKernelIds, out edgeKernelIds))
+                return surfaceNamesByFaceNumber;
+            //
+            int faceNumber;
+            List<string> surfaceNames;
+            foreach (var solidPart in parts)
+            {
+                for (int surfaceId = 0; surfaceId < solidPart.Visualization.FaceCount; surfaceId++)
+                {
+                    if (!faceKernelIds.TryGetValue(FeMesh.GmshTopologyId(surfaceId, solidPart.PartId), out faceNumber))
+                        continue;
+                    if (!surfaceNamesByFaceNumber.TryGetValue(faceNumber, out surfaceNames))
+                    {
+                        surfaceNames = new List<string>();
+                        surfaceNamesByFaceNumber.Add(faceNumber, surfaceNames);
+                    }
+                    surfaceNames.Add("surface " + (surfaceId + 1) + " of " + solidPart.Name);
+                }
+            }
+            return surfaceNamesByFaceNumber;
         }
     }
 }
