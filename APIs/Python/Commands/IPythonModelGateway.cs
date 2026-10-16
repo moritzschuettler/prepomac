@@ -93,6 +93,11 @@ namespace APIs.Python
         void ReplaceSection(string oldSectionName, Section section);
         void DuplicateSections(string[] sectionNames);
         void RemoveSections(string[] sectionNames);
+        //
+        void AddMaterialOrientation(MaterialOrientation materialOrientation);
+        void ReplaceMaterialOrientation(string oldMaterialOrientationName, MaterialOrientation materialOrientation);
+        void DuplicateMaterialOrientations(string[] materialOrientationNames);
+        void RemoveMaterialOrientations(string[] materialOrientationNames);
         // Constraints
         void AddConstraint(Constraint constraint);
         void ReplaceConstraint(string oldConstraintName, Constraint constraint);

@@ -294,6 +294,7 @@ namespace PrePoMax.Python
             if (IsItemType(itemType, "coordinate_systems")) return typeof(CaeMesh.CoordinateSystem);
             if (IsItemType(itemType, "materials")) return typeof(Material);
             if (IsItemType(itemType, "sections")) return typeof(Section);
+            if (IsItemType(itemType, "material_orientations")) return typeof(MaterialOrientation);
             if (IsItemType(itemType, "constraints")) return typeof(CaeModel.Constraint);
             if (IsItemType(itemType, "surface_interactions")) return typeof(SurfaceInteraction);
             if (IsItemType(itemType, "contact_pairs")) return typeof(ContactPair);
@@ -323,6 +324,7 @@ namespace PrePoMax.Python
             if (itemType == typeof(CaeMesh.CoordinateSystem)) return "coordinate_systems";
             if (itemType == typeof(Material)) return "materials";
             if (itemType == typeof(Section)) return "sections";
+            if (itemType == typeof(MaterialOrientation)) return "material_orientations";
             if (itemType == typeof(CaeModel.Constraint)) return "constraints";
             if (itemType == typeof(SurfaceInteraction)) return "surface_interactions";
             if (itemType == typeof(ContactPair)) return "contact_pairs";
@@ -477,6 +479,23 @@ namespace PrePoMax.Python
         public void RemoveSections(string[] sectionNames)
         {
             _controller.RemoveSectionsCommand(sectionNames);
+        }
+        // Material orientations
+        public void AddMaterialOrientation(MaterialOrientation materialOrientation)
+        {
+            _controller.AddMaterialOrientationCommand(materialOrientation);
+        }
+        public void ReplaceMaterialOrientation(string oldMaterialOrientationName, MaterialOrientation materialOrientation)
+        {
+            _controller.ReplaceMaterialOrientationCommand(oldMaterialOrientationName, materialOrientation);
+        }
+        public void DuplicateMaterialOrientations(string[] materialOrientationNames)
+        {
+            _controller.DuplicateMaterialOrientationsCommand(materialOrientationNames);
+        }
+        public void RemoveMaterialOrientations(string[] materialOrientationNames)
+        {
+            _controller.RemoveMaterialOrientationsCommand(materialOrientationNames);
         }
         // Node sets
         // Constraints

@@ -153,6 +153,7 @@ namespace PrePoMax
         private FrmCoordinateSystem _frmCoordinateSystem;
         private FrmMaterial _frmMaterial;
         private FrmSection _frmSection;
+        private FrmMaterialOrientation _frmMaterialOrientation;
         private FrmConstraint _frmConstraint;
         private FrmSurfaceInteraction _frmSurfaceInteraction;
         private FrmContactPair _frmContactPair;
@@ -630,6 +631,9 @@ namespace PrePoMax
                 //
                 _frmSection = new FrmSection(_controller);
                 AddFormToAllForms(_frmSection);
+                //
+                _frmMaterialOrientation = new FrmMaterialOrientation(_controller);
+                AddFormToAllForms(_frmMaterialOrientation);
                 //
                 _frmConstraint = new FrmConstraint(_controller);
                 AddFormToAllForms(_frmConstraint);
@@ -1331,6 +1335,7 @@ namespace PrePoMax
                 else if (nodeName == _modelTree.ModelCoordinateSystemsName) tsmiCreateModelCoordinateSystem_Click(null, null);
                 else if (nodeName == _modelTree.MaterialsName) tsmiCreateMaterial_Click(null, null);
                 else if (nodeName == _modelTree.SectionsName) tsmiCreateSection_Click(null, null);
+                else if (nodeName == _modelTree.MaterialOrientationsName) tsmiCreateMaterialOrientation_Click(null, null);
                 else if (nodeName == _modelTree.ConstraintsName) tsmiCreateConstraint_Click(null, null);
                 else if (nodeName == _modelTree.SurfaceInteractionsName) tsmiCreateSurfaceInteraction_Click(null, null);
                 else if (nodeName == _modelTree.ContactPairsName) tsmiCreateContactPair_Click(null, null);
@@ -1377,6 +1382,7 @@ namespace PrePoMax
                 else if (namedClass is CoordinateSystem) EditModelCoordinateSystem(namedClass.Name);
                 else if (namedClass is Material) EditMaterial(namedClass.Name);
                 else if (namedClass is Section) EditSection(namedClass.Name);
+                else if (namedClass is MaterialOrientation) EditMaterialOrientation(namedClass.Name);
                 else if (namedClass is CaeModel.Constraint) EditConstraint(namedClass.Name);
                 else if (namedClass is SurfaceInteraction) EditSurfaceInteraction(namedClass.Name);
                 else if (namedClass is ContactPair) EditContactPair(namedClass.Name);
@@ -1440,6 +1446,7 @@ namespace PrePoMax
                 //
                 ApplyActionOnItems<Material>(items, DuplicateMaterials);
                 ApplyActionOnItems<Section>(items, DuplicateSections);
+                ApplyActionOnItems<MaterialOrientation>(items, DuplicateMaterialOrientations);
                 ApplyActionOnItems<CaeModel.Constraint>(items, DuplicateConstraints);
                 ApplyActionOnItems<SurfaceInteraction>(items, DuplicateSurfaceInteractions);
                 ApplyActionOnItems<ContactPair>(items, DuplicateContactPairs);
@@ -1606,6 +1613,7 @@ namespace PrePoMax
                 ApplyActionOnItems<CoordinateSystem>(items, DeleteModelCoordinateSystems);
                 ApplyActionOnItems<Material>(items, DeleteMaterials);
                 ApplyActionOnItems<Section>(items, DeleteSections);
+                ApplyActionOnItems<MaterialOrientation>(items, DeleteMaterialOrientations);
                 ApplyActionOnItems<CaeModel.Constraint>(items, DeleteConstraints);
                 ApplyActionOnItems<SurfaceInteraction>(items, DeleteSurfaceInteractions);
                 ApplyActionOnItems<ContactPair>(items, DeleteContactPairs);
@@ -6318,6 +6326,82 @@ namespace PrePoMax
 
         #endregion  ################################################################################################################
 
+        #region Material orientation menu  #########################################################################################
+        internal void tsmiCreateMaterialOrientation_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateMaterialOrientation();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiEditMaterialOrientation_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Material Orientations", _controller.GetAllMaterialOrientations(), EditMaterialOrientation);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDuplicateMaterialOrientation_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Material Orientations", _controller.GetAllMaterialOrientations(),
+                                       DuplicateMaterialOrientations);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDeleteMaterialOrientation_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Material Orientations", _controller.GetAllMaterialOrientations(),
+                                       DeleteMaterialOrientations);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        //
+        private void CreateMaterialOrientation()
+        {
+            if (_controller.Model.Mesh == null) return;
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmMaterialOrientation);
+            ShowForm(_frmMaterialOrientation, "Create Material Orientation", null);
+        }
+        private void EditMaterialOrientation(string materialOrientationName)
+        {
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmMaterialOrientation);
+            ShowForm(_frmMaterialOrientation, "Edit Material Orientation", materialOrientationName);
+        }
+        private void DuplicateMaterialOrientations(string[] materialOrientationNames)
+        {
+            _controller.DuplicateMaterialOrientationsCommand(materialOrientationNames);
+        }
+        private void DeleteMaterialOrientations(string[] materialOrientationNames)
+        {
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected material orientations?" + Environment.NewLine
+                                                 + materialOrientationNames.ToRows()) == DialogResult.OK)
+            {
+                _controller.RemoveMaterialOrientationsCommand(materialOrientationNames);
+            }
+        }
+
+        #endregion  ################################################################################################################
+
         #region Interaction menu  ##################################################################################################
 
         #region Constraint menu  ###################################################################################################
@@ -10787,6 +10871,8 @@ namespace PrePoMax
             if (_frmReferencePoint != null && _frmReferencePoint.Visible) _frmReferencePoint.SelectionChanged(ids);
             if (_frmCoordinateSystem != null && _frmCoordinateSystem.Visible) _frmCoordinateSystem.SelectionChanged(ids);
             if (_frmSection != null && _frmSection.Visible) _frmSection.SelectionChanged(ids);
+            if (_frmMaterialOrientation != null && _frmMaterialOrientation.Visible)
+                _frmMaterialOrientation.SelectionChanged(ids);
             if (_frmConstraint != null && _frmConstraint.Visible) _frmConstraint.SelectionChanged(ids);
             if (_frmContactPair != null && _frmContactPair.Visible) _frmContactPair.SelectionChanged(ids);
             if (_frmInitialCondition != null && _frmInitialCondition.Visible) _frmInitialCondition.SelectionChanged(ids);
@@ -12332,6 +12418,10 @@ namespace PrePoMax
                                               double symbolSize, vtkRendererLayer layer)
         {
             InvokeIfRequired(_vtk.AddCoordinateSystemSymbol, origin, axisDirections, labels, symbolSize, layer);
+        }
+        public void AddMaterialAxesSymbol(double[] origin, double[][] axisDirections, string[] labels, double symbolSize)
+        {
+            InvokeIfRequired(_vtk.AddMaterialAxesSymbol, origin, axisDirections, labels, symbolSize);
         }
         public void AddCaptionActor(string name, string caption, Color color, double[] position,
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)

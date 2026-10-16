@@ -80,6 +80,7 @@
     <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\Load\AbqShellEdgeLoad.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\Step\Load\Imported\AbqImportedPressureLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalTransform.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalOrientation.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalAmplitude.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalPhysicalConstants.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalAdditional.cs" />
@@ -172,6 +173,7 @@
     <Compile Include="Sections\LinearSpringSectionData.cs" />
     <Compile Include="Sections\SectionData.cs" />
     <Compile Include="Sections\ShellSection.cs" />
+    <Compile Include="Orientations\MaterialOrientation.cs" />
     <Compile Include="Constraints\PointSpring.cs" />
     <Compile Include="Constraints\CompressionOnly.cs" />
     <Compile Include="Sections\DistributedMassSection.cs" />
@@ -241,6 +243,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalSTLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalMomentLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\CalculixFileWriter.cs" />
+    <Compile Include="FileInOut\Output\Calculix\ShellOrientationGroup.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalDensity.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalCLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalElementSet.cs" />

@@ -230,6 +230,8 @@ namespace APIs.Python
             types.Add("surface_type", typeof(FeSurfaceType));
             // Materials
             types.Add("hardening", typeof(PlasticHardening));
+            // Material orientations
+            types.Add("reference_axis", typeof(MaterialOrientationAxisEnum));
             // Steps, loads and interactions
             types.Add("incrementation_type", typeof(IncrementationTypeEnum));
             types.Add("solver_type", typeof(SolverTypeEnum));

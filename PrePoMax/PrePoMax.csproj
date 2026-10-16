@@ -129,6 +129,7 @@
     <Compile Include="Python\Journal\PythonBoundaryConditionEmitter.cs" />
     <Compile Include="Python\Journal\PythonJobEmitter.cs" />
     <Compile Include="Python\Journal\PythonSectionEmitter.cs" />
+    <Compile Include="Python\Journal\PythonMaterialOrientationEmitter.cs" />
     <Compile Include="Python\Journal\PythonMaterialEmitter.cs" />
     <Compile Include="Python\Journal\PythonParameterEmitter.cs" />
     <Compile Include="Python\Journal\PythonRegionEmitter.cs" />
@@ -383,6 +384,10 @@
     <Compile Include="Commands\0061_Material\CReplaceMaterial.cs" />
     <Compile Include="Commands\0062_Section\CAddSection.cs" />
     <Compile Include="Commands\0062_Section\CRemoveSections.cs" />
+    <Compile Include="Commands\0063_MaterialOrientation\CAddMaterialOrientation.cs" />
+    <Compile Include="Commands\0063_MaterialOrientation\CDuplicateMaterialOrientations.cs" />
+    <Compile Include="Commands\0063_MaterialOrientation\CRemoveMaterialOrientations.cs" />
+    <Compile Include="Commands\0063_MaterialOrientation\CReplaceMaterialOrientation.cs" />
     <Compile Include="Commands\0073_ContactPair\CDuplicateContactPairs.cs" />
     <Compile Include="Commands\0075_Amplitude\CDuplicateAmplitudes.cs" />
     <Compile Include="Commands\0076_InitialCondition\CDuplicateInitialConditions.cs" />
@@ -691,6 +696,7 @@
     <Compile Include="Forms\41_Material\ViewThermalExpansion.cs" />
     <Compile Include="Forms\41_Material\ViewElasticWithDensity.cs" />
     <Compile Include="Forms\42_Section\ViewShellSection.cs" />
+    <Compile Include="Forms\42_MaterialOrientation\ViewMaterialOrientation.cs" />
     <Compile Include="Forms\44_SurfaceInteraction\DataPoints\GapConductanceDataPoint.cs" />
     <Compile Include="Forms\44_SurfaceInteraction\DataPoints\PressureOverclosureDataPoint.cs" />
     <Compile Include="Forms\44_SurfaceInteraction\ListViewItemComparer.cs" />
@@ -858,6 +864,9 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\42_Section\FrmSection.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\42_MaterialOrientation\FrmMaterialOrientation.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\43_Constraint\FrmConstraint.cs">
@@ -1175,6 +1184,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\42_Section\FrmSection.resx">
       <DependentUpon>FrmSection.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\42_MaterialOrientation\FrmMaterialOrientation.resx">
+      <DependentUpon>FrmMaterialOrientation.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\43_Constraint\FrmConstraint.resx">
       <DependentUpon>FrmConstraint.cs</DependentUpon>

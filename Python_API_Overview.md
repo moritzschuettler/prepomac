@@ -832,6 +832,7 @@ Reached as `pmx.model`. It mirrors the application model tree, so `results`, `jo
 | `initial_conditions` | The initial conditions of the model. |
 | `materials` | The materials of the model. |
 | `sections` | The sections of the model. |
+| `material_orientations` | The material orientations of the shell elements of the model. |
 | `constraints` | The constraints of the model. |
 | `surface_interactions` | The surface interactions of the model. |
 | `contact_pairs` | The contact pairs of the model. |
@@ -941,8 +942,8 @@ operation on model or geometry parts refuses a part named twice in `part_names` 
 A collection is indexed **by name only**. Positional access is `list(collection)[index]` or
 `get_names()`, because two indexers cannot be resolved from the Python side. `duplicate`,
 `activate` and `deactivate` raise a clear error in the areas that have no such command - parameters
-cannot be duplicated, and only materials, initial conditions, constraints, contact pairs, mesh setup
-items, model parts, steps and the step content can be activated and deactivated. Each item of those
+cannot be duplicated, and only materials, material orientations, initial conditions, constraints, contact pairs,
+mesh setup items, model parts, steps and the step content can be activated and deactivated. Each item of those
 collections reads its state back as `active`.
 
 ### `Geometry`
@@ -1659,6 +1660,34 @@ turning it into one, with `The section 'X' is made by add_solid, so replace_shel
 `get_equations()`, the expressions `thickness`, `offset` and `mass` were entered with, as a `dict[str, str]`; a value
 entered as a plain number is left out, and the property of the same name returns it.
 
+### `MaterialOrientations`
+
+The material axes of shell elements, which the solver uses for an orthotropic material. A shell section whose
+elements a material orientation covers is written with an `*ORIENTATION` per group of elements whose axes agree;
+an element no orientation covers keeps the solver default, the global x axis projected onto the shell.
+
+| Member | Description |
+| --- | --- |
+| `add(name, region, coordinate_system_name=None, reference_axis=None, rotation_angle_deg=0, symbol_density=50)` | Adds a material orientation. The region is a selection or a named region of shell parts or shell elements; the selection target is `elements` or `parts`. `reference_axis` is `X`, `Y` or `Z` and defaults to `X`; `coordinate_system_name` defaults to `Global`. `symbol_density` is the density of the material axes symbols shown when the orientation is highlighted, as a percentage of the full density, which does not depend on the mesh size; a whole number from 0 to 100. |
+| `replace(old_name, name=None, region=None, coordinate_system_name=None, reference_axis=None, rotation_angle_deg=None, symbol_density=None)` | Replaces a material orientation. A value that is not given is kept. |
+
+The reference axis of the coordinate system - at the point of the element for a cylindrical one - is projected
+onto every shell element at the point CalculiX uses, the centre of a quadrilateral and the first node of a
+triangle, and becomes the material axis 1; axis 3 is the shell normal given by the node order, and axis 2 completes
+the right-handed system. A reference axis closer than 0.1 degrees to the normal is replaced by the z axis of the
+coordinate system, or by its x axis when the reference axis is the z axis, as the solver does. `rotation_angle_deg`
+turns axis 1 about the normal.
+
+As the dialog does, a region that is not made of shell parts or shell elements is refused, on an add and on the
+orientation a replace ends with. Where regions overlap, an element takes the later active orientation, as a later
+section does, and overlapping makes no orientation invalid. A replace that keeps a named region or a coordinate system a rename or a remove took
+away - one it is not given, or one given by the name the orientation holds - is accepted: the orientation keeps the
+reference and stays invalid.
+
+`MaterialOrientation` exposes `name`, `region_name`, `region_type`, `coordinate_system_name`, `reference_axis`,
+`rotation_angle_deg`, `symbol_density`, `active`, `valid` and `get_equations()`, the expression `rotation_angle_deg` was entered with,
+as a `dict[str, str]`; a value entered as a plain number is left out, and the property of the same name returns it.
+
 ```python
 elements = pmx.create.selection_by_ids('femodel', 'elements', 'elements', [1, 2, 3])
 pmx.model.sections.add_solid('Sec-1', 'Steel', elements)
@@ -1837,7 +1866,7 @@ returns the collections a view supports:
 | View | `item_type` |
 | --- | --- |
 | `geometry` | `parts`, `mesh_setup_items` |
-| `femodel` | `parts`, `node_sets`, `element_sets`, `surfaces`, `reference_points`, `coordinate_systems`, `materials`, `sections`, `constraints`, `surface_interactions`, `contact_pairs`, `distributions`, `amplitudes`, `initial_conditions`, `jobs`, and the step owned `history_outputs`, `field_outputs`, `boundary_conditions`, `loads`, `defined_fields` |
+| `femodel` | `parts`, `node_sets`, `element_sets`, `surfaces`, `reference_points`, `coordinate_systems`, `materials`, `sections`, `material_orientations`, `constraints`, `surface_interactions`, `contact_pairs`, `distributions`, `amplitudes`, `initial_conditions`, `jobs`, and the step owned `history_outputs`, `field_outputs`, `boundary_conditions`, `loads`, `defined_fields` |
 | `results` | `parts`, `node_sets`, `element_sets`, `surfaces`, `reference_points`, `coordinate_systems` |
 
 A step owned collection also takes `step_name`, the step that owns it; every other collection refuses

@@ -16017,6 +16017,164 @@ namespace PrePoMax
 
         #endregion #################################################################################################################
 
+        #region Material orientation menu   ########################################################################################
+        // COMMANDS ********************************************************************************
+        public void AddMaterialOrientationCommand(MaterialOrientation materialOrientation)
+        {
+            CAddMaterialOrientation comm = new CAddMaterialOrientation(materialOrientation);
+            _commands.AddAndExecute(comm);
+        }
+        public void ReplaceMaterialOrientationCommand(string oldMaterialOrientationName, MaterialOrientation newMaterialOrientation)
+        {
+            CReplaceMaterialOrientation comm = new CReplaceMaterialOrientation(oldMaterialOrientationName,
+                                                                               newMaterialOrientation);
+            _commands.AddAndExecute(comm);
+        }
+        public void DuplicateMaterialOrientationsCommand(string[] materialOrientationNames)
+        {
+            CDuplicateMaterialOrientations comm = new CDuplicateMaterialOrientations(materialOrientationNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveMaterialOrientationsCommand(string[] materialOrientationNames)
+        {
+            CRemoveMaterialOrientations comm = new CRemoveMaterialOrientations(materialOrientationNames);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
+        public string[] GetMaterialOrientationNames()
+        {
+            return _model.MaterialOrientations.Keys.ToArray();
+        }
+        public void AddMaterialOrientation(MaterialOrientation materialOrientation)
+        {
+            BeginUpdateBatch();
+            try
+            {
+                ConvertSelectionBasedMaterialOrientation(materialOrientation);
+                //
+                _model.MaterialOrientations.Add(materialOrientation.Name, materialOrientation);
+                _form.AddTreeNode(ViewGeometryModelResults.Model, materialOrientation, null);
+                //
+                FeModelUpdate(UpdateType.Check);
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
+        }
+        public MaterialOrientation GetMaterialOrientation(string materialOrientationName)
+        {
+            return _model.MaterialOrientations[materialOrientationName];
+        }
+        public MaterialOrientation[] GetAllMaterialOrientations()
+        {
+            return _model.MaterialOrientations.Values.ToArray();
+        }
+        public void ReplaceMaterialOrientation(string oldMaterialOrientationName, MaterialOrientation materialOrientation)
+        {
+            BeginUpdateBatch();
+            try
+            {
+                DeleteSelectionBasedMaterialOrientationSets(oldMaterialOrientationName);
+                ConvertSelectionBasedMaterialOrientation(materialOrientation);
+                //
+                if (_model.MaterialOrientations.Replace(oldMaterialOrientationName, materialOrientation.Name,
+                                                        materialOrientation))
+                {
+                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldMaterialOrientationName, materialOrientation,
+                                         null);
+                    FeModelUpdate(UpdateType.Check);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
+        }
+        public void RenameMaterialOrientation(string oldMaterialOrientationName, string newMaterialOrientationName)
+        {
+            MaterialOrientation materialOrientation = _model.MaterialOrientations[oldMaterialOrientationName];
+            materialOrientation.Name = newMaterialOrientationName;
+            ReplaceMaterialOrientation(oldMaterialOrientationName, materialOrientation);
+        }
+        public void DuplicateMaterialOrientations(string[] materialOrientationNames)
+        {
+            BeginUpdateBatch();
+            try
+            {
+                MaterialOrientation newMaterialOrientation;
+                foreach (var name in materialOrientationNames)
+                {
+                    newMaterialOrientation = _model.MaterialOrientations[name].DeepClone();
+                    newMaterialOrientation.Name = NamedClass.GetNameWithoutLastValue(newMaterialOrientation.Name);
+                    newMaterialOrientation.Name = _model.MaterialOrientations.GetNextNumberedKey(newMaterialOrientation.Name);
+                    if (newMaterialOrientation.CreationData != null)
+                        newMaterialOrientation.RegionType = RegionTypeEnum.Selection;
+                    AddMaterialOrientation(newMaterialOrientation);
+                    PlaceDuplicatedOrderedDictionaryItem(_model.MaterialOrientations, name, newMaterialOrientation,
+                                                         ViewGeometryModelResults.Model);
+                }
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
+        }
+        public void RemoveMaterialOrientations(string[] materialOrientationNames)
+        {
+            foreach (var name in materialOrientationNames)
+            {
+                DeleteSelectionBasedMaterialOrientationSets(name);
+                _model.MaterialOrientations.Remove(name);
+                _form.RemoveTreeNode<MaterialOrientation>(ViewGeometryModelResults.Model, name, null);
+            }
+            //
+            FeModelUpdate(UpdateType.Check);
+        }
+        public void ActivateDeactivateMaterialOrientation(string materialOrientationName, bool active)
+        {
+            MaterialOrientation materialOrientation = _model.MaterialOrientations[materialOrientationName];
+            materialOrientation.Active = active;
+            //
+            _form.UpdateTreeNode(ViewGeometryModelResults.Model, materialOrientationName, materialOrientation, null);
+            //
+            FeModelUpdate(UpdateType.Check);
+        }
+        //
+        private void ConvertSelectionBasedMaterialOrientation(MaterialOrientation materialOrientation)
+        {
+            // Create a named set and convert a selection to a named set
+            if (materialOrientation.RegionType == RegionTypeEnum.Selection)
+            {
+                string name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets, materialOrientation.Name);
+                bool createdByPart = materialOrientation.CreationData != null &&
+                                     materialOrientation.CreationData.SelectItem == vtkSelectItem.Part;
+                FeElementSet elementSet = new FeElementSet(name, materialOrientation.CreationIds, createdByPart);
+                elementSet.CreationData = materialOrientation.CreationData.DeepCopy(true, false);
+                elementSet.Internal = true;
+                elementSet.ParentMultiRegion = materialOrientation;
+                AddElementSet(elementSet);
+                //
+                materialOrientation.RegionName = name;
+                materialOrientation.RegionType = RegionTypeEnum.ElementSetName;
+            }
+            // Clear the creation data if not used
+            else
+            {
+                materialOrientation.CreationData = null;
+                materialOrientation.CreationIds = null;
+            }
+        }
+        private void DeleteSelectionBasedMaterialOrientationSets(string oldMaterialOrientationName)
+        {
+            // Delete previously created sets
+            MaterialOrientation materialOrientation = GetMaterialOrientation(oldMaterialOrientationName);
+            if (materialOrientation.CreationData != null && materialOrientation.RegionName != null)
+                RemoveElementSets(new string[] { materialOrientation.RegionName }, false);
+        }
+
+        #endregion #################################################################################################################
+
         #region Constraint menu   ##################################################################################################
         // COMMANDS ********************************************************************************
         public void AddConstraintCommand(Constraint constraint, bool update = true)
@@ -21672,6 +21830,7 @@ namespace PrePoMax
                 else if (typeof(CoordinateSystem).IsAssignableFrom(itemType)) dictionary = _model.Mesh.CoordinateSystems;
                 else if (typeof(Material).IsAssignableFrom(itemType)) dictionary = _model.Materials;
                 else if (typeof(Section).IsAssignableFrom(itemType)) dictionary = _model.Sections;
+                else if (typeof(MaterialOrientation).IsAssignableFrom(itemType)) dictionary = _model.MaterialOrientations;
                 else if (typeof(CaeModel.Constraint).IsAssignableFrom(itemType)) dictionary = _model.Constraints;
                 else if (typeof(SurfaceInteraction).IsAssignableFrom(itemType)) dictionary = _model.SurfaceInteractions;
                 else if (typeof(ContactPair).IsAssignableFrom(itemType)) dictionary = _model.ContactPairs;
@@ -21787,6 +21946,7 @@ namespace PrePoMax
             if (item is MeshSetupItem msi) ActivateDeactivateMeshSetupItem(msi.Name, activate);
             else if (item is MeshPart mp) ActivateDeactivateModelPart(mp.Name, activate);
             else if (item is Material ma) ActivateDeactivateMaterials(ma.Name, activate);
+            else if (item is MaterialOrientation mo) ActivateDeactivateMaterialOrientation(mo.Name, activate);
             else if (item is Constraint co) ActivateDeactivateConstraint(co.Name, activate);
             else if (item is ContactPair cp) ActivateDeactivateContactPair(cp.Name, activate);
             else if (item is InitialCondition ic) ActivateDeactivateInitialCondition(ic.Name, activate);
@@ -21855,6 +22015,8 @@ namespace PrePoMax
                     return CheckName(item.Name, newName, GetMaterialNames(), "material");
                 else if (item is Section)
                     return CheckName(item.Name, newName, GetSectionNames(), "section");
+                else if (item is MaterialOrientation)
+                    return CheckName(item.Name, newName, GetMaterialOrientationNames(), "material orientation");
                 else if (item is Constraint)
                     return CheckName(item.Name, newName, GetConstraintNames(), "constraint");
                 else if (item is SurfaceInteraction)
@@ -21932,6 +22094,7 @@ namespace PrePoMax
                 else if (itemType == typeof(CoordinateSystem)) RenameModelCoordinateSystem(itemName, newName);
                 else if (itemType == typeof(Material)) RenameMaterial(itemName, newName);
                 else if (typeof(Section).IsAssignableFrom(itemType)) RenameSection(itemName, newName);
+                else if (itemType == typeof(MaterialOrientation)) RenameMaterialOrientation(itemName, newName);
                 else if (typeof(Constraint).IsAssignableFrom(itemType)) RenameConstraint(itemName, newName);
                 else if (itemType == typeof(SurfaceInteraction)) RenameSurfaceInteraction(itemName, newName);
                 else if (itemType == typeof(ContactPair)) RenameContactPair(itemName, newName);
@@ -29288,6 +29451,10 @@ namespace PrePoMax
                             HighlightReferencePoint(sec.RegionName);
                         else throw new NotSupportedException();
                     }
+                    else if (obj is MaterialOrientation mo)
+                    {
+                        HighlightMaterialOrientation(mo);
+                    }
                     else if (obj is Constraint c)
                     {
                         HighlightConstraint(c.Name);
@@ -29906,6 +30073,110 @@ namespace PrePoMax
         public void HighlightCoordinateSystem(CoordinateSystem coordinateSystem)
         {
             DrawCoordinateSystem(coordinateSystem, vtkRendererLayer.Selection);
+        }
+        // Highlights the outline of the region of the material orientation and draws the material axes 1, 2 and 3 at
+        // the shell elements as coordinate system symbols that keep the colors of their axes
+        public void HighlightMaterialOrientation(MaterialOrientation materialOrientation)
+        {
+            int[] elementIds = null;
+            if (materialOrientation.RegionType == RegionTypeEnum.Selection && materialOrientation.CreationIds != null)
+            {
+                if (materialOrientation.CreationData != null &&
+                    materialOrientation.CreationData.SelectItem == vtkSelectItem.Part)
+                {
+                    List<int> partElementIds = new List<int>();
+                    BasePart part;
+                    foreach (int geometryId in materialOrientation.CreationIds)
+                    {
+                        part = _model.Mesh.GetPartFromId(FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2]);
+                        if (part != null) partElementIds.AddRange(part.Labels);
+                    }
+                    elementIds = partElementIds.ToArray();
+                }
+                else elementIds = materialOrientation.CreationIds;
+            }
+            else if (_model.IsMaterialOrientationRegionValid(materialOrientation))
+                elementIds = _model.GetElementIdsOfRegion(materialOrientation);
+            //
+            if (elementIds != null && elementIds.Length > 0)
+            {
+                string prefixName = materialOrientation.Name + Globals.NameSeparator;
+                DrawElementOutline(prefixName + "Outline", elementIds, _settings.Pre.PrimaryHighlightColor,
+                                   vtkRendererLayer.Selection);
+                DrawMaterialOrientationAxes(materialOrientation, elementIds);
+            }
+        }
+        private void DrawElementOutline(string name, int[] elementIds, Color color, vtkRendererLayer layer)
+        {
+            List<int[]> edgeCells = new List<int[]>();
+            foreach (BasePart part in _model.Mesh.CreateBasePartsByTypeFromElementIds(elementIds, false))
+            {
+                foreach (var freeEdgeId in part.Visualization.GetFreeEdgeIds())
+                {
+                    foreach (var edgeCellId in part.Visualization.EdgeCellIdsByEdge[freeEdgeId])
+                        edgeCells.Add(part.Visualization.EdgeCells[edgeCellId]);
+                }
+            }
+            if (edgeCells.Count == 0) return;
+            //
+            vtkMaxActorData data = new vtkMaxActorData();
+            _model.Mesh.GetNodesAndCellsForEdges(edgeCells.ToArray(), out data.Geometry.Nodes.Ids,
+                                                 out data.Geometry.Nodes.Coor, out data.Geometry.Cells.CellNodeIds,
+                                                 out data.Geometry.Cells.Types);
+            data.Name = name;
+            data.Color = color;
+            data.Layer = layer;
+            data.CanHaveElementEdges = true;
+            data.Pickable = false;
+            //
+            ApplyLighting(data);
+            _form.Add3DCells(data);
+        }
+        private void DrawMaterialOrientationAxes(MaterialOrientation materialOrientation, int[] elementIds)
+        {
+            if (materialOrientation.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName &&
+                !_model.Mesh.CoordinateSystems.ContainsKey(materialOrientation.CoordinateSystemName)) return;
+            //
+            HashSet<int> visiblePartIds = new HashSet<int>();
+            foreach (var entry in _model.Mesh.Parts)
+            {
+                if (entry.Value.Active && entry.Value.Visible) visiblePartIds.Add(entry.Value.PartId);
+            }
+            //
+            bool fallbackUsed;
+            double[] point;
+            double[] normal;
+            double[][] axes;
+            FeElement element;
+            List<double[]> points = new List<double[]>();
+            List<double[][]> allAxes = new List<double[][]>();
+            List<bool> fallbacks = new List<bool>();
+            foreach (int elementId in elementIds)
+            {
+                if (!_model.Mesh.Elements.TryGetValue(elementId, out element)) continue;
+                if (!visiblePartIds.Contains(element.PartId)) continue;
+                if (!MaterialOrientationCalculator.TryGetShellPointAndNormal(_model.Mesh, element, out point, out normal))
+                    continue;
+                axes = materialOrientation.GetElementAxes(_model.Mesh, element, 0, out fallbackUsed);
+                points.Add(point);
+                allAxes.Add(axes);
+                fallbacks.Add(fallbackUsed);
+            }
+            //
+            // The full density shows the symbols of a spatial resolution that does not depend on the mesh size, and a
+            // lower one an evenly distributed share of them
+            int[] fullIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(points.ToArray(), 6, null);
+            double[][] fullPoints = new double[fullIds.Length][];
+            for (int i = 0; i < fullIds.Length; i++) fullPoints[i] = points[fullIds[i]];
+            int targetCount = (int)Math.Ceiling(fullIds.Length * materialOrientation.SymbolDensity / 100.0);
+            int[] sampleIds = SpatialPointSampler.GetSampleIndicesByCount(fullPoints, targetCount, null);
+            for (int i = 0; i < sampleIds.Length; i++) sampleIds[i] = fullIds[sampleIds[i]];
+            // Axis 1 is labeled 1* where the reference axis was too close to the normal and was replaced
+            string[] labels = new string[] { "1", "2", "3" };
+            string[] replacedLabels = new string[] { "1*", "2", "3" };
+            int symbolSize = _settings.Pre.SymbolSize;
+            foreach (int id in sampleIds)
+                _form.AddMaterialAxesSymbol(points[id], allAxes[id], fallbacks[id] ? replacedLabels : labels, symbolSize);
         }
         public void HighlightConstraint(string constraintName)
         {

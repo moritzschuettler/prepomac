@@ -23,6 +23,8 @@ namespace FileInOut.Output.Calculix
     {
         // Variables                                                                                                                
         private ShellSection _section;
+        private string _elementSetName;
+        private string _orientationName;
 
 
         // Properties                                                                                                               
@@ -30,8 +32,14 @@ namespace FileInOut.Output.Calculix
 
         // Constructor                                                                                                              
         public CalShellSection(ShellSection section)
+            : this(section, section.RegionName, null)
+        {
+        }
+        public CalShellSection(ShellSection section, string elementSetName, string orientationName)
         {
             _section = section;
+            _elementSetName = elementSetName;
+            _orientationName = orientationName;
         }
 
 
@@ -39,7 +47,8 @@ namespace FileInOut.Output.Calculix
         public override string GetKeywordString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("*Shell section, Elset={0}, Material={1}", _section.RegionName, _section.MaterialName);
+            sb.AppendFormat("*Shell section, Elset={0}, Material={1}", _elementSetName, _section.MaterialName);
+            if (_orientationName != null) sb.AppendFormat(", Orientation={0}", _orientationName);
             if (!double.IsNaN(_section.Offset.Value)) sb.AppendFormat(", Offset={0}", _section.Offset.Value.ToCalculiX16String());
             sb.AppendLine();
             //

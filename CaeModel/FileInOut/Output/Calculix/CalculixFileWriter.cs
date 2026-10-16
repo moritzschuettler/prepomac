@@ -2010,23 +2010,67 @@ namespace FileInOut.Output
         {
             if (model.Mesh != null)
             {
-                foreach (var entry in model.Sections) AppendSection(entry.Value, parent);
+                Dictionary<int, MaterialOrientation> elementOrientations = model.GetElementMaterialOrientations();
+                foreach (var entry in model.Sections) AppendSection(model, entry.Value, elementOrientations, parent);
                 //
                 AppendAdditionalSections(additionalSectionData, parent);
             }
         }
-        static private void AppendSection(Section section, CalculixKeyword parent)
+        static private void AppendSection(FeModel model, Section section,
+                                          Dictionary<int, MaterialOrientation> elementOrientations, CalculixKeyword parent)
         {
             if (section.Active)
             {
                 if (section is SolidSection ss) parent.AddKeyword(new CalSolidSection(ss));
-                else if (section is ShellSection shs) parent.AddKeyword(new CalShellSection(shs));
+                else if (section is ShellSection shs) AppendShellSection(model, shs, elementOrientations, parent);
                 else if (section is MembraneSection ms) parent.AddKeyword(new CalMembraneSection(ms));
                 else if (section is PointMassSection pms) { }
                 else if (section is DistributedMassSection dms) { }
                 else throw new NotSupportedException();
             }
             else parent.AddKeyword(new CalDeactivated(section.Name));
+        }
+        static private void AppendShellSection(FeModel model, ShellSection section,
+                                               Dictionary<int, MaterialOrientation> elementOrientations,
+                                               CalculixKeyword parent)
+        {
+            List<int> unorientedElementIds = null;
+            List<ShellOrientationGroup> groups = null;
+            if (elementOrientations.Count > 0)
+                groups = ShellOrientationGroup.Create(model, model.GetElementIdsOfRegion(section), elementOrientations,
+                                                      out unorientedElementIds);
+            //
+            if (groups == null || groups.Count == 0)
+            {
+                parent.AddKeyword(new CalShellSection(section));
+                return;
+            }
+            //
+            HashSet<string> usedNames = new HashSet<string>(model.Mesh.ElementSets.Keys, StringComparer.OrdinalIgnoreCase);
+            usedNames.UnionWith(model.Mesh.Parts.Keys);
+            string name;
+            double[][] axes;
+            for (int i = 0; i < groups.Count; i++)
+            {
+                name = GetUniqueName(section.Name + "_Orientation-" + (i + 1), usedNames);
+                axes = groups[i].GetAxes(0);
+                parent.AddKeyword(new CalElementSet(new FeElementSet(name, groups[i].ElementIds.ToArray())));
+                parent.AddKeyword(new CalOrientation(name, axes[0], axes[1]));
+                parent.AddKeyword(new CalShellSection(section, name, name));
+            }
+            if (unorientedElementIds.Count > 0)
+            {
+                name = GetUniqueName(section.Name + "_No_Orientation", usedNames);
+                parent.AddKeyword(new CalElementSet(new FeElementSet(name, unorientedElementIds.ToArray())));
+                parent.AddKeyword(new CalShellSection(section, name, null));
+            }
+        }
+        static private string GetUniqueName(string name, HashSet<string> usedNames)
+        {
+            string uniqueName = name;
+            for (int i = 2; usedNames.Contains(uniqueName); i++) uniqueName = name + "_" + i;
+            usedNames.Add(uniqueName);
+            return uniqueName;
         }
         static private void AppendAdditionalSections(List<SectionData> additionalSectionData, CalculixKeyword parent)
         {

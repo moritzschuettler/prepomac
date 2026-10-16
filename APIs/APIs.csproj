@@ -173,6 +173,9 @@
     <Compile Include="Python\Model\Sections\SectionAPI.cs" />
     <Compile Include="Python\Model\Sections\SectionService.cs" />
     <Compile Include="Python\Model\Sections\SectionsAPI.cs" />
+    <Compile Include="Python\Model\Orientations\MaterialOrientationAPI.cs" />
+    <Compile Include="Python\Model\Orientations\MaterialOrientationService.cs" />
+    <Compile Include="Python\Model\Orientations\MaterialOrientationsAPI.cs" />
     <Compile Include="Python\Model\ModelAPI.cs" />
     <Compile Include="Python\Model\Common\ModelItemsAPI.cs" />
     <Compile Include="Python\Model\Common\ModelResolver.cs" />

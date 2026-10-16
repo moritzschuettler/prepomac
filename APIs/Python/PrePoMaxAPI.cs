@@ -110,6 +110,8 @@ namespace APIs.Python
                 new FieldServices(_modelResolver, selectionService, modelGateway, fileNameResolver);
             SectionService sectionService =
                 new SectionService(_modelResolver, selectionService, modelGateway);
+            MaterialOrientationService materialOrientationService =
+                new MaterialOrientationService(_modelResolver, selectionService, modelGateway);
             GeometryPartService geometryPartService =
                 new GeometryPartService(_modelResolver, selectionService, meshGateway, modelGateway);
             ModelPartService modelPartService =
@@ -125,7 +127,8 @@ namespace APIs.Python
             _model = new ModelAPI(_modelResolver, _documentService, parameterService, geometryPartService,
                                   modelPartService, meshSetupItemService, meshToolService,
                                   meshEditService, materialService,
-                                  sectionService, fieldServices, regionServices, stepService,
+                                  sectionService, materialOrientationService, fieldServices, regionServices,
+                                  stepService,
                                   stepContentServices, surfaceInteractionService, contactPairService,
                                   constraintService);
             _selection = new SelectionFactoryAPI(selectionService);

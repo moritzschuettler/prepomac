@@ -79,6 +79,7 @@ namespace vtkControl
         private vtkMaxCoorSysWidget _coorSysWidget;
         private vtkMaxCoorSysSymbols _coorSysSymbols;
         private vtkMaxCoorSysSymbols _coorSysSelectionSymbols;
+        private vtkMaxCoorSysSymbols _materialAxesSelectionSymbols;
         private vtkMaxScaleWidget _scaleWidget;
         private vtkLookupTable _lookupTable;
         private vtkMaxScalarBarWidget _scalarBarWidget;
@@ -2447,6 +2448,10 @@ namespace vtkControl
             _coorSysSelectionSymbols.SetTextProperty(CreateNewTextProperty());
             _coorSysSelectionSymbols.SetOverrideColor(_primaryHighlightColor);
             _coorSysSelectionSymbols.SetRenderer(_selectionRenderer);
+            // Material axes keep the colors of their axes over the highlight
+            _materialAxesSelectionSymbols = new vtkMaxCoorSysSymbols();
+            _materialAxesSelectionSymbols.SetTextProperty(CreateNewTextProperty());
+            _materialAxesSelectionSymbols.SetRenderer(_selectionRenderer);
 
             // Add the actors to the scene
             //Hexahedron();
@@ -4199,6 +4204,12 @@ namespace vtkControl
             if (layer == vtkRendererLayer.Selection)
                 _coorSysSelectionSymbols.AddSymbol(origin, axisDirections, labels, symbolSize);
             else _coorSysSymbols.AddSymbol(origin, axisDirections, labels, symbolSize);
+        }
+        public void AddMaterialAxesSymbol(double[] origin, double[][] axisDirections, string[] labels, double symbolSize)
+        {
+            if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
+            //
+            _materialAxesSelectionSymbols.AddSymbol(origin, axisDirections, labels, symbolSize);
         }
         public void AddCaptionActor(string name, string caption, Color color, double[] position,
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)
@@ -9298,6 +9309,7 @@ namespace vtkControl
             //
             _selectedActors.Clear();
             if (_coorSysSelectionSymbols != null) _coorSysSelectionSymbols.Clear();
+            if (_materialAxesSelectionSymbols != null) _materialAxesSelectionSymbols.Clear();
             //
             RenderScene();
         }

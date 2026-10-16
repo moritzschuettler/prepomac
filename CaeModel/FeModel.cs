@@ -43,6 +43,7 @@ namespace CaeModel
         private EquationParameterCollection _parameters;                                        //ISerializable
         private OrderedDictionary<string, Material> _materials;                                 //ISerializable
         private OrderedDictionary<string, Section> _sections;                                   //ISerializable
+        private OrderedDictionary<string, MaterialOrientation> _materialOrientations;           //ISerializable
         private OrderedDictionary<string, Constraint> _constraints;                             //ISerializable
         private OrderedDictionary<string, SurfaceInteraction> _surfaceInteractions;             //ISerializable
         private OrderedDictionary<string, ContactPair> _contactPairs;                           //ISerializable
@@ -71,6 +72,7 @@ namespace CaeModel
         public EquationParameterCollection Parameters { get { return _parameters; } }
         public OrderedDictionary<string, Material> Materials { get { return _materials; } }
         public OrderedDictionary<string, Section> Sections { get { return _sections; } }
+        public OrderedDictionary<string, MaterialOrientation> MaterialOrientations { get { return _materialOrientations; } }
         public OrderedDictionary<string, Constraint> Constraints { get { return _constraints; } }
         public OrderedDictionary<string, SurfaceInteraction> SurfaceInteractions { get { return _surfaceInteractions; } }
         public OrderedDictionary<string, ContactPair> ContactPairs { get { return _contactPairs; } }
@@ -116,6 +118,7 @@ namespace CaeModel
             _parameters = new EquationParameterCollection();
             _materials = new OrderedDictionary<string, Material>("Materials", sc);
             _sections = new OrderedDictionary<string, Section>("Sections", sc);
+            _materialOrientations = new OrderedDictionary<string, MaterialOrientation>("Material Orientations", sc);
             _constraints = new OrderedDictionary<string, Constraint>("Constraints", sc);
             _surfaceInteractions = new OrderedDictionary<string, SurfaceInteraction>("Surface Tractions", sc);
             _contactPairs = new OrderedDictionary<string, ContactPair>("Contact Pairs", sc);
@@ -146,6 +149,7 @@ namespace CaeModel
             _parameters = copy._parameters;
             _materials = copy._materials;
             _sections = copy._sections;
+            _materialOrientations = copy._materialOrientations;
             _constraints = copy._constraints;
             _surfaceInteractions = copy._surfaceInteractions;
             _contactPairs = copy._contactPairs;
@@ -180,6 +184,8 @@ namespace CaeModel
             _userViews = new OrderedDictionary<string, UserViewParameters>("User Views", sc);
             // Compatibility for models saved before CalculiX keyword overrides were introduced
             _calculixKeywordOverrides = new List<Calculix.CalculixKeywordOverride>();
+            // Compatibility for models saved before material orientations were introduced
+            _materialOrientations = new OrderedDictionary<string, MaterialOrientation>("Material Orientations", sc);
             //
             foreach (SerializationEntry entry in info)
             {
@@ -242,6 +248,8 @@ namespace CaeModel
                         _contactPairs = (OrderedDictionary<string, ContactPair>)entry.Value; break;
                     case "_distributions":
                         _distributions = (OrderedDictionary<string, Distribution>)entry.Value; break;
+                    case "_materialOrientations":
+                        _materialOrientations = (OrderedDictionary<string, MaterialOrientation>)entry.Value; break;
                     case "_amplitudes":
                         _amplitudes = (OrderedDictionary<string, Amplitude>)entry.Value; break;
                     case "_initialConditions":
@@ -366,6 +374,22 @@ namespace CaeModel
                 //
                 SetItemValidity(null, section, valid, items);
                 if (!valid && section.Active) invalidItems.Add("Section: " + section.Name);
+            }
+            // Material orientations
+            MaterialOrientation materialOrientation;
+            foreach (var entry in _materialOrientations)
+            {
+                materialOrientation = entry.Value;
+                // Region
+                valid = IsMaterialOrientationRegionValid(materialOrientation) && RegionValid(materialOrientation);
+                // Coordinate system
+                if (materialOrientation.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName &&
+                    !_mesh.CoordinateSystems.ContainsValidKey(materialOrientation.CoordinateSystemName)) valid = false;
+                // Check equations
+                valid &= materialOrientation.TryCheckEquations();
+                //
+                SetItemValidity(null, materialOrientation, valid, items);
+                if (!valid && materialOrientation.Active) invalidItems.Add("Material orientation: " + materialOrientation.Name);
             }
             // Constraints
             Constraint constraint;
@@ -1247,6 +1271,43 @@ namespace CaeModel
                 item.Valid = validity;
                 items.Add(new Tuple<NamedClass, string>(item, stepName));
             }
+        }
+        public bool IsMaterialOrientationRegionValid(MaterialOrientation materialOrientation)
+        {
+            return (materialOrientation.RegionType == RegionTypeEnum.PartName &&
+                    _mesh.Parts.ContainsValidKey(materialOrientation.RegionName)) ||
+                   (materialOrientation.RegionType == RegionTypeEnum.ElementSetName &&
+                    _mesh.ElementSets.ContainsValidKey(materialOrientation.RegionName));
+        }
+        public int[] GetElementIdsOfRegion(IMultiRegion region)
+        {
+            if (region.RegionType == RegionTypeEnum.PartName)
+                return _mesh.Parts[region.RegionName].Labels;
+            else if (region.RegionType == RegionTypeEnum.ElementSetName)
+            {
+                FeElementSet elementSet = _mesh.ElementSets[region.RegionName];
+                if (!elementSet.CreatedFromParts) return elementSet.Labels;
+                //
+                List<int> elementIds = new List<int>();
+                foreach (var partName in _mesh.GetPartNamesFromPartIds(elementSet.Labels))
+                    elementIds.AddRange(_mesh.Parts[partName].Labels);
+                return elementIds.ToArray();
+            }
+            else throw new NotSupportedException();
+        }
+        // Returns the active material orientation of every element that one covers; where regions overlap, the later
+        // orientation applies, as a later section does
+        public Dictionary<int, MaterialOrientation> GetElementMaterialOrientations()
+        {
+            Dictionary<int, MaterialOrientation> elementOrientations = new Dictionary<int, MaterialOrientation>();
+            foreach (var entry in _materialOrientations)
+            {
+                if (!entry.Value.Active || !entry.Value.Valid) continue;
+                //
+                foreach (int elementId in GetElementIdsOfRegion(entry.Value))
+                    elementOrientations[elementId] = entry.Value;
+            }
+            return elementOrientations;
         }
         public bool RegionValid(IMultiRegion multiRegion)
         {
@@ -8740,6 +8801,8 @@ namespace CaeModel
             info.AddValue("_parameters", _parameters, typeof(EquationParameterCollection));
             info.AddValue("_materials", _materials, typeof(OrderedDictionary<string, Material>));
             info.AddValue("_sections", _sections, typeof(OrderedDictionary<string, Section>));
+            info.AddValue("_materialOrientations", _materialOrientations,
+                          typeof(OrderedDictionary<string, MaterialOrientation>));
             info.AddValue("_constraints", _constraints, typeof(OrderedDictionary<string, Constraint>));
             info.AddValue("_surfaceInteractions", _surfaceInteractions, typeof(OrderedDictionary<string, SurfaceInteraction>));
             info.AddValue("_contactPairs", _contactPairs, typeof(OrderedDictionary<string, ContactPair>));

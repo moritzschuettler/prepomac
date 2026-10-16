@@ -371,6 +371,12 @@ namespace PrePoMax
             this.tsmiDuplicateSection = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerSection1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiDelete = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiMaterialOrientation = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiCreateMaterialOrientation = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditMaterialOrientation = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDuplicateMaterialOrientation = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiDividerMaterialOrientation1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiDeleteMaterialOrientation = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiInteraction = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiConstraint = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiCreateConstraint = new System.Windows.Forms.ToolStripMenuItem();
@@ -3299,7 +3305,8 @@ namespace PrePoMax
             this.tsmiProperty.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiMaterial,
             this.tsmiMaterialLibrary,
-            this.tsmiSection});
+            this.tsmiSection,
+            this.tsmiMaterialOrientation});
             this.tsmiProperty.Name = "tsmiProperty";
             this.tsmiProperty.Size = new System.Drawing.Size(64, 20);
             this.tsmiProperty.Text = "Property";
@@ -3427,6 +3434,53 @@ namespace PrePoMax
             this.tsmiDelete.Size = new System.Drawing.Size(124, 22);
             this.tsmiDelete.Text = "Delete";
             this.tsmiDelete.Click += new System.EventHandler(this.tsmiDelete_Click);
+            // 
+            // tsmiMaterialOrientation
+            // 
+            this.tsmiMaterialOrientation.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiCreateMaterialOrientation,
+            this.tsmiEditMaterialOrientation,
+            this.tsmiDuplicateMaterialOrientation,
+            this.tsmiDividerMaterialOrientation1,
+            this.tsmiDeleteMaterialOrientation});
+            this.tsmiMaterialOrientation.Image = global::PrePoMax.Properties.Resources.CoordinateSystem;
+            this.tsmiMaterialOrientation.Name = "tsmiMaterialOrientation";
+            this.tsmiMaterialOrientation.Size = new System.Drawing.Size(185, 22);
+            this.tsmiMaterialOrientation.Text = "Material Orientation";
+            // 
+            // tsmiCreateMaterialOrientation
+            // 
+            this.tsmiCreateMaterialOrientation.Name = "tsmiCreateMaterialOrientation";
+            this.tsmiCreateMaterialOrientation.Size = new System.Drawing.Size(124, 22);
+            this.tsmiCreateMaterialOrientation.Text = "Create";
+            this.tsmiCreateMaterialOrientation.Click += new System.EventHandler(this.tsmiCreateMaterialOrientation_Click);
+            // 
+            // tsmiEditMaterialOrientation
+            // 
+            this.tsmiEditMaterialOrientation.Name = "tsmiEditMaterialOrientation";
+            this.tsmiEditMaterialOrientation.Size = new System.Drawing.Size(124, 22);
+            this.tsmiEditMaterialOrientation.Text = "Edit";
+            this.tsmiEditMaterialOrientation.Click += new System.EventHandler(this.tsmiEditMaterialOrientation_Click);
+            // 
+            // tsmiDuplicateMaterialOrientation
+            // 
+            this.tsmiDuplicateMaterialOrientation.Name = "tsmiDuplicateMaterialOrientation";
+            this.tsmiDuplicateMaterialOrientation.Size = new System.Drawing.Size(124, 22);
+            this.tsmiDuplicateMaterialOrientation.Text = "Duplicate";
+            this.tsmiDuplicateMaterialOrientation.Click += new System.EventHandler(this.tsmiDuplicateMaterialOrientation_Click);
+            // 
+            // tsmiDividerMaterialOrientation1
+            // 
+            this.tsmiDividerMaterialOrientation1.Name = "tsmiDividerMaterialOrientation1";
+            this.tsmiDividerMaterialOrientation1.Size = new System.Drawing.Size(121, 6);
+            // 
+            // tsmiDeleteMaterialOrientation
+            // 
+            this.tsmiDeleteMaterialOrientation.Image = global::PrePoMax.Properties.Resources.Delete;
+            this.tsmiDeleteMaterialOrientation.Name = "tsmiDeleteMaterialOrientation";
+            this.tsmiDeleteMaterialOrientation.Size = new System.Drawing.Size(124, 22);
+            this.tsmiDeleteMaterialOrientation.Text = "Delete";
+            this.tsmiDeleteMaterialOrientation.Click += new System.EventHandler(this.tsmiDeleteMaterialOrientation_Click);
             // 
             // tsmiInteraction
             // 
@@ -5521,6 +5575,12 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiEditSection;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerSection1;
         private System.Windows.Forms.ToolStripMenuItem tsmiDelete;
+        private System.Windows.Forms.ToolStripMenuItem tsmiMaterialOrientation;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCreateMaterialOrientation;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditMaterialOrientation;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDuplicateMaterialOrientation;
+        private System.Windows.Forms.ToolStripSeparator tsmiDividerMaterialOrientation1;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDeleteMaterialOrientation;
         private System.Windows.Forms.ToolStripMenuItem tsmiLoad;
         private System.Windows.Forms.ToolStripMenuItem tsmiBC;
         private System.Windows.Forms.ToolStripMenuItem tsmiStepMenu;

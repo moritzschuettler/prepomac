@@ -155,6 +155,7 @@ namespace UserControls
         private TreeNode _modelCoordinateSystems;   //     3
         private TreeNode _materials;                //   2
         private TreeNode _sections;                 //   2
+        private TreeNode _materialOrientations;     //   2
         private TreeNode _constraints;              //   2
         private TreeNode _contacts;                 //   2
         private TreeNode _surfaceInteractions;      //      3
@@ -194,6 +195,7 @@ namespace UserControls
         private string _modelCoordinateSystemsName = "Coordinate Systems";
         private string _materialsName = "Materials";
         private string _sectionsName = "Sections";
+        private string _materialOrientationsName = "Material Orientations";
         private string _constraintsName = "Constraints";
         private string _contactsName = "Contacts";
         private string _surfaceInteractionsName = "Surface Interactions";
@@ -292,6 +294,7 @@ namespace UserControls
         public string ModelCoordinateSystemsName { get { return _modelCoordinateSystemsName; } }
         public string MaterialsName { get { return _materialsName; } }
         public string SectionsName { get { return _sectionsName; } }
+        public string MaterialOrientationsName { get { return _materialOrientationsName; } }
         public string ConstraintsName { get { return _constraintsName; } }
         public string SurfaceInteractionsName { get { return _surfaceInteractionsName; } }
         public string ContactPairsName { get { return _contactPairsName; } }
@@ -417,6 +420,7 @@ namespace UserControls
             _modelCoordinateSystems = cltvModel.Nodes.Find(_modelCoordinateSystemsName, true)[0];
             _materials = cltvModel.Nodes.Find(_materialsName, true)[0];
             _sections = cltvModel.Nodes.Find(_sectionsName, true)[0];
+            _materialOrientations = cltvModel.Nodes.Find(_materialOrientationsName, true)[0];
             _constraints = cltvModel.Nodes.Find(_constraintsName, true)[0];
             _contacts = cltvModel.Nodes.Find(_contactsName, true)[0];
             _surfaceInteractions = cltvModel.Nodes.Find(_surfaceInteractionsName, true)[0];
@@ -455,6 +459,7 @@ namespace UserControls
             _modelCoordinateSystems.StateImageKey = "CoordinateSystem";
             _materials.StateImageKey = "Material";
             _sections.StateImageKey = "Section";
+            _materialOrientations.StateImageKey = "CoordinateSystem";
             _constraints.StateImageKey = "Constraints";
             _surfaceInteractions.StateImageKey = "SurfaceInteractions";
             _contactPairs.StateImageKey = "ContactPairs";
@@ -3367,6 +3372,7 @@ namespace UserControls
             _modelCoordinateSystems.Nodes.Clear();
             _materials.Nodes.Clear();
             _sections.Nodes.Clear();
+            _materialOrientations.Nodes.Clear();
             _constraints.Nodes.Clear();
             _contacts.Nodes.Clear();
             _surfaceInteractions.Nodes.Clear();
@@ -3392,6 +3398,7 @@ namespace UserControls
             _modelCoordinateSystems.Text = _modelCoordinateSystemsName;
             _materials.Text = _materialsName;
             _sections.Text = _sectionsName;
+            _materialOrientations.Text = _materialOrientationsName;
             _constraints.Text = _constraintsName;
             _surfaceInteractions.Text = _surfaceInteractionsName;
             _contactPairs.Text = _contactPairsName;
@@ -3418,6 +3425,7 @@ namespace UserControls
             _modelFeatures.Nodes.Add(_modelCoordinateSystems);
             _model.Nodes.Add(_materials);
             _model.Nodes.Add(_sections);
+            _model.Nodes.Add(_materialOrientations);
             _model.Nodes.Add(_constraints);
             _model.Nodes.Add(_contacts);
             _contacts.Nodes.Add(_surfaceInteractions);
@@ -3695,6 +3703,8 @@ namespace UserControls
                     AddObjectsToNode(_materialsName, _materials, model.Materials);
                     // Sections
                     AddObjectsToNode(_sectionsName, _sections, model.Sections);
+                    // Material orientations
+                    AddObjectsToNode(_materialOrientationsName, _materialOrientations, model.MaterialOrientations);
                     // Constraints
                     AddObjectsToNode(_constraintsName, _constraints, model.Constraints);
                     // Surface interactions
@@ -3893,6 +3903,13 @@ namespace UserControls
                 else if (item is Section)
                 {
                     parent = _sections;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is MaterialOrientation)
+                {
+                    parent = _materialOrientations;
                     node = parent.Nodes.Add(item.Name);
                     node.Name = node.Text;
                     node.Tag = item;
@@ -5040,6 +5057,7 @@ namespace UserControls
             else if (node.Name == _modelCoordinateSystemsName) return true;
             else if (node.Name == _materialsName) return true;
             else if (node.Name == _sectionsName) return true;
+            else if (node.Name == _materialOrientationsName) return true;
             else if (node.Name == _constraintsName) return true;
             else if (node.Name == _surfaceInteractionsName) return true;
             else if (node.Name == _contactPairsName) return true;
@@ -5077,6 +5095,7 @@ namespace UserControls
             else if (node.Tag is CoordinateSystem) return true;
             else if (node.Tag is Material) return true;
             else if (node.Tag is Section) return true;
+            else if (node.Tag is MaterialOrientation) return true;
             else if (node.Tag is Constraint) return true;
             else if (node.Tag is SurfaceInteraction) return true;
             else if (node.Tag is ContactPair) return true;
@@ -5107,6 +5126,7 @@ namespace UserControls
             else if (node.TreeView == cltvModel && node.Tag is CoordinateSystem) return true;
             else if (node.Tag is Material) return true;
             else if (node.Tag is Section) return true;
+            else if (node.Tag is MaterialOrientation) return true;
             else if (node.Tag is Constraint) return true;
             else if (node.Tag is SurfaceInteraction) return true;
             else if (node.Tag is ContactPair) return true;
@@ -5171,6 +5191,7 @@ namespace UserControls
             if (node.Tag is MeshSetupItem) return true;
             else if (node.Tag is MeshPart) return true;
             else if (node.Tag is Material) return true;
+            else if (node.Tag is MaterialOrientation) return true;
             else if (node.Tag is Constraint) return true;
             else if (node.Tag is ContactPair) return true;
             else if (node.Tag is InitialCondition) return true;

@@ -30,6 +30,7 @@ namespace APIs.Python.Model
         private readonly InitialConditionsAPI _initialConditions;
         private readonly MaterialsAPI _materials;
         private readonly SectionsAPI _sections;
+        private readonly MaterialOrientationsAPI _materialOrientations;
         private readonly NodeSetsAPI _nodeSets;
         private readonly ElementSetsAPI _elementSets;
         private readonly SurfacesAPI _surfaces;
@@ -70,6 +71,8 @@ namespace APIs.Python.Model
         public MaterialsAPI materials { get { return _materials; } }
         [PythonAPI("The sections of the model.", Returns = "Sections")]
         public SectionsAPI sections { get { return _sections; } }
+        [PythonAPI("The material orientations of the shell elements of the model.", Returns = "MaterialOrientations")]
+        public MaterialOrientationsAPI material_orientations { get { return _materialOrientations; } }
         [PythonAPI("The node sets of the model.", Returns = "NodeSets")]
         public NodeSetsAPI node_sets { get { return _nodeSets; } }
         [PythonAPI("The element sets of the model.", Returns = "ElementSets")]
@@ -100,6 +103,7 @@ namespace APIs.Python.Model
                           ModelPartService modelPartService, MeshSetupItemService meshSetupItemService,
                           MeshToolService meshToolService, MeshEditService meshEditService,
                           MaterialService materialService, SectionService sectionService,
+                          MaterialOrientationService materialOrientationService,
                           FieldServices fieldServices,
                           RegionServices regionServices, StepService stepService,
                           StepContentServices stepContentServices,
@@ -120,6 +124,7 @@ namespace APIs.Python.Model
             _initialConditions = new InitialConditionsAPI(fieldServices.InitialConditions);
             _materials = new MaterialsAPI(materialService);
             _sections = new SectionsAPI(sectionService);
+            _materialOrientations = new MaterialOrientationsAPI(materialOrientationService);
             _nodeSets = new NodeSetsAPI(regionServices.NodeSets);
             _elementSets = new ElementSetsAPI(regionServices.ElementSets, meshEditService);
             _surfaces = new SurfacesAPI(regionServices.Surfaces);

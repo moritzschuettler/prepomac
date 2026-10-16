@@ -46,6 +46,7 @@ namespace PrePoMax.Python.Journal
             if (Is<MeshSetupItem>(itemType)) return PythonMeshSetupEmitter.SetupItems;
             if (Is<Material>(itemType)) return "pmx.model.materials";
             if (Is<Section>(itemType)) return "pmx.model.sections";
+            if (Is<MaterialOrientation>(itemType)) return "pmx.model.material_orientations";
             if (Is<Constraint>(itemType)) return "pmx.model.constraints";
             if (Is<SurfaceInteraction>(itemType)) return "pmx.model.surface_interactions";
             if (Is<ContactPair>(itemType)) return "pmx.model.contact_pairs";
