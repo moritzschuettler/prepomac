@@ -4069,6 +4069,12 @@ namespace CaeModel
             reachedTarget = validation.ReachedTarget;
             unlikeEnds = validation.UnlikeEnds;
             if (error != null) return null;
+            // A block that would sweep poorly is left to a source selected by hand
+            if (validation.QualityError != null)
+            {
+                error = validation.QualityError;
+                return null;
+            }
             // A loft between outlines that are not alike is taken only by a part that has no other way
             if (unlikeEnds && !allowUnlikeEnds)
             {
@@ -4770,7 +4776,8 @@ namespace CaeModel
                 // A block is validated once per source and read again by every propagation reaching the source
                 SweepBlockValidation validation = maps.GetSweepBlockValidation(part, sourceSurfaceIds, twinSurfaceIds != null,
                     () => ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds));
-                error = validation.Error;
+                // A source the user selected is swept from however poorly it sweeps; one derived for it is not
+                error = validation.Error ?? (derived ? validation.QualityError : null);
                 validation.CopyTo(out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds, out int[] directionEdgeIds);
                 if (error != null)
                 {
@@ -5135,11 +5142,12 @@ namespace CaeModel
                                           SweepPartMaps maps, Dictionary<int, int> twinSurfaceIds,
                                           out int[] sideSurfaceIds, out int[] targetSurfaceIds,
                                           out List<int[]> layerSideSurfaceIds, out int[] directionEdgeIds,
-                                          out bool reachedTarget, out bool unlikeEnds)
+                                          out bool reachedTarget, out bool unlikeEnds, out string qualityError)
         {
             directionEdgeIds = null;
             reachedTarget = false;
             unlikeEnds = false;
+            qualityError = null;
             //
             VisualizationData vis = part.Visualization;
             int[] sourceSurfaceIdsArray = sourceSurfaceIds.ToArray();
@@ -5175,7 +5183,7 @@ namespace CaeModel
             if (error == null)
             {
                 error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, targetSurfaceIds, sideSurfaceIds, maps,
-                                                   out unlikeEnds);
+                                                   out unlikeEnds, out qualityError);
                 if (error == null)
                 {
                     HashSet<int> ringDirectionEdgeIds = new HashSet<int>();
@@ -5184,11 +5192,11 @@ namespace CaeModel
                     {
                         foreach (var edgeIds in group) ringDirectionEdgeIds.UnionWith(edgeIds);
                     }
-                    error = GetWallChainsError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
-                                               ringDirectionEdgeIds, maps);
-                    if (error == null)
-                        error = GetUnreachedWallsError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
-                                                       ringDirectionEdgeIds, maps);
+                    if (qualityError == null)
+                        qualityError = GetWallChainsError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
+                                                          ringDirectionEdgeIds, maps);
+                    error = GetUnreachedWallsError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
+                                                   ringDirectionEdgeIds, maps);
                     if (error == null)
                         error = GetUnpairedTargetEdgesError(part, sourceSurfaceIds, sideSurfaceIds, targetSurfaceIds,
                                                             ringDirectionEdgeIds);
@@ -5213,7 +5221,7 @@ namespace CaeModel
                                     out chainTargetSurfaceIds, out chainEdgeIds) != null) return error;
             reachedTarget = true;
             error = ValidateSweepBlockGeometry(part, sourceSurfaceIds, chainTargetSurfaceIds,
-                                               chainSideSurfaceIds, maps, out unlikeEnds);
+                                               chainSideSurfaceIds, maps, out unlikeEnds, out qualityError);
             if (error == null)
                 error = GetUnpairedTargetEdgesError(part, sourceSurfaceIds, chainSideSurfaceIds, chainTargetSurfaceIds,
                                                     chainEdgeIds);
@@ -5234,11 +5242,13 @@ namespace CaeModel
             List<int[]> layerSideSurfaceIds;
             bool reachedTarget;
             bool unlikeEnds;
+            string qualityError;
             string error = ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds,
                                               out sideSurfaceIds, out targetSurfaceIds, out layerSideSurfaceIds,
-                                              out directionEdgeIds, out reachedTarget, out unlikeEnds);
+                                              out directionEdgeIds, out reachedTarget, out unlikeEnds,
+                                              out qualityError);
             return new SweepBlockValidation(error, sideSurfaceIds, targetSurfaceIds, layerSideSurfaceIds,
-                                            directionEdgeIds, reachedTarget, unlikeEnds);
+                                            directionEdgeIds, reachedTarget, unlikeEnds, qualityError);
         }
         /// <summary>
         /// Refuses a block whose target is divided into several surfaces along an edge the source does not carry.
@@ -5431,9 +5441,11 @@ namespace CaeModel
         /// </summary>
         private string ValidateSweepBlockGeometry(GeometryPart part, HashSet<int> sourceSurfaceIds,
                                                   int[] targetSurfaceIds, int[] sideSurfaceIds,
-                                                  SweepPartMaps maps, out bool unlikeEnds)
+                                                  SweepPartMaps maps, out bool unlikeEnds,
+                                                  out string qualityError)
         {
             unlikeEnds = false;
+            qualityError = null;
             // A block the transfinite mesher accepts carries the same structured grid whichever of its faces
             // the sweep starts from, so none of the measurements below has anything to refuse on it. They
             // would refuse a curved block swept from its inner face to its outer one, where the target is the
@@ -5622,12 +5634,12 @@ namespace CaeModel
                 minSampledLength < 0.5 * maxSampledLength &&
                 linearDeviation > _maxSweepLengthDeviation * maxSampledLength)
             {
-                return "The sweep lines measured across the sweep source surface/s (" +
-                       GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") differ in " +
-                       (axisDirection != null ? "the angle they turn through about the sweep axis" : "length") +
-                       " by more than half, and not as a taper changes them, so one element layer count cannot suit " +
-                       "them all. Select the source surfaces by hand, or split the part so that each piece is swept " +
-                       "on its own.";
+                qualityError = "The sweep lines measured across the sweep source surface/s (" +
+                               GetSweepSurfaceNames(part, sourceSurfaceIdsArray) + ") differ in " +
+                               (axisDirection != null ? "the angle they turn through about the sweep axis" : "length") +
+                               " by more than half, and not as a taper changes them, so one element layer count " +
+                               "cannot suit them all. Select the source surfaces by hand, or split the part so that " +
+                               "each piece is swept on its own.";
             }
             //
             return null;
@@ -6572,7 +6584,7 @@ namespace CaeModel
         {
             SweepBlockValidation validation = maps.GetSweepBlockValidation(part, sourceSurfaceIds, false,
                 () => ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, null));
-            if (validation.Error != null) return;
+            if (validation.Error != null || validation.QualityError != null) return;
             int[] targetSurfaceIds = validation.TargetSurfaceIds;
             if (targetSurfaceIds == null || targetSurfaceIds.Length < 2) return;
             //
@@ -6594,7 +6606,7 @@ namespace CaeModel
             //
             SweepBlockValidation extendedValidation = maps.GetSweepBlockValidation(part, extendedSourceSurfaceIds, false,
                 () => ValidateSweepBlock(part, extendedSourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, null));
-            if (extendedValidation.Error != null) return;
+            if (extendedValidation.Error != null || extendedValidation.QualityError != null) return;
             int[] extendedTargetSurfaceIds = extendedValidation.TargetSurfaceIds;
             if (extendedTargetSurfaceIds == null ||
                 extendedTargetSurfaceIds.Length >= targetSurfaceIds.Length) return;

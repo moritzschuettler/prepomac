@@ -32,6 +32,7 @@ namespace CaeMesh
         private readonly int[] _directionEdgeIds;
         private readonly bool _reachedTarget;
         private readonly bool _unlikeEnds;
+        private readonly string _qualityError;
         private HashSet<int> _wallEdgeIds;
         private bool? _prismatic;
         private int[][][] _layerGroupEdgeIds;
@@ -53,16 +54,23 @@ namespace CaeMesh
         /// taper - which the search takes only for a part that has no other way.
         /// </summary>
         public bool UnlikeEnds { get { return _unlikeEnds; } }
+        /// <summary>
+        /// Why the block would sweep poorly although it can be swept - the sweep lines measured across the source
+        /// departing from a taper, the two sides of a wall along the sweep running different ways - or null. The
+        /// automatic search refuses such a block; a source selected by hand is swept from.
+        /// </summary>
+        public string QualityError { get { return _qualityError; } }
 
 
         // Constructors                                                                                                             
         public SweepBlockValidation(string error, int[] sideSurfaceIds, int[] targetSurfaceIds,
                                     List<int[]> layerSideSurfaceIds, int[] directionEdgeIds, bool reachedTarget,
-                                    bool unlikeEnds)
+                                    bool unlikeEnds, string qualityError)
         {
             _error = error;
             _reachedTarget = reachedTarget;
             _unlikeEnds = unlikeEnds;
+            _qualityError = qualityError;
             _sideSurfaceIds = sideSurfaceIds;
             _targetSurfaceIds = targetSurfaceIds;
             _layerSideSurfaceIds = layerSideSurfaceIds;
