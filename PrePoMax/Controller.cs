@@ -11230,13 +11230,13 @@ namespace PrePoMax
             MeshingParameters defaultMeshingParameters = GetDefaultMeshingParameters("Default");
             double factorMax = defaultMeshingParameters.FactorMax;
             double factorMin = defaultMeshingParameters.FactorMin;
-            BoundingBox boundingBox = part.BoundingBox;
+            BoundingBox boundingBox = GetPartNodesBoundingBox(part);
             string[] sizePartNames = GetMeshingSizePartNames(partName);
             if (sizePartNames.Length > 1)
             {
                 boundingBox = new BoundingBox();
                 foreach (string sizePartName in sizePartNames)
-                    boundingBox.IncludeBox(_model.Geometry.Parts[sizePartName].BoundingBox);
+                    boundingBox.IncludeBox(GetPartNodesBoundingBox(_model.Geometry.Parts[sizePartName]));
             }
             double diagonal = boundingBox.GetDiagonal();
             //
@@ -11244,6 +11244,31 @@ namespace PrePoMax
             defaultMeshingParameters.MinH = Tools.RoundToSignificantDigits(diagonal * factorMin, 2);
             //
             return defaultMeshingParameters;
+        }
+        /// <summary>
+        /// The box of the nodes a part is drawn with, without the offset an exploded view puts on it. The box a CAD part
+        /// carries is the one the CAD kernel gives its faces, which round a B-spline face spans its whole control net and
+        /// can be far larger than the part, so a default element size taken from it comes out too large.
+        /// </summary>
+        private BoundingBox GetPartNodesBoundingBox(BasePart part)
+        {
+            Dictionary<int, FeNode> nodes = part is GeometryPart ? _model.Geometry?.Nodes : _model.Mesh?.Nodes;
+            BasePart[] boxedParts = part is CompoundGeometryPart compoundPart
+                                    ? compoundPart.SubPartNames.Select(name => _model.Geometry.Parts[name]).ToArray()
+                                    : new BasePart[] { part };
+            BoundingBox boundingBox = new BoundingBox();
+            FeNode node;
+            foreach (var boxedPart in boxedParts)
+            {
+                if (nodes == null || boxedPart.NodeLabels == null) continue;
+                double[] offset = boxedPart.Offset != null ? boxedPart.Offset : new double[3];
+                foreach (var nodeId in boxedPart.NodeLabels)
+                {
+                    if (!nodes.TryGetValue(nodeId, out node)) continue;
+                    boundingBox.IncludeCoor(new double[] { node.X - offset[0], node.Y - offset[1], node.Z - offset[2] });
+                }
+            }
+            return boundingBox.MinX <= boundingBox.MaxX ? boundingBox : part.BoundingBox;
         }
         private string[] GetMeshingSizePartNames(string partName)
         {
