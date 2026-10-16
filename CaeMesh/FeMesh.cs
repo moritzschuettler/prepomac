@@ -2760,14 +2760,12 @@ namespace CaeMesh
             int[] newSurfaceIds;
             int[] oldSurfaceIds;
             GeomFaceType[] partFaceTypes;
-            int surfaceCount;
             int oneSurfCount;
             //
             vis = part.Visualization;
             // Skip wire parts
             if (vis.CellIdsByFace == null) return null;
             //
-            surfaceCount = 0;
             newSurfaceIds = new int[vis.CellIdsByFace.Length];
             oldSurfaceIds = new int[vis.CellIdsByFace.Length];
             partFaceTypes = new GeomFaceType[vis.CellIdsByFace.Length];
@@ -2832,16 +2830,16 @@ namespace CaeMesh
                     }
                 }
                 //
+                // A surface that is not found keeps its place with the kernel id 0, so the surfaces after it keep theirs
+                oldSurfaceIds[i] = i;
                 if (foundFirstKey != -1 || foundSecondKey != -1)
                 {
                     foundKey = foundFirstKey != -1 ? foundFirstKey : foundSecondKey;
                     //
-                    newSurfaceIds[surfaceCount] = foundKey;
-                    oldSurfaceIds[surfaceCount] = surfaceCount;
+                    newSurfaceIds[i] = foundKey;
                     //
-                    oldIdNewId.Add(surfaceCount, foundKey);
+                    oldIdNewId.Add(i, foundKey);
                     //
-                    surfaceCount++;
                     oneSurfCount++;
                 }
                 //
@@ -2924,7 +2922,6 @@ namespace CaeMesh
             int[] newEdgeIds;
             int[] oldEdgeIds;
             GeomCurveType[] partEdgeTypes;
-            int edgeCount;
             //
             vis = part.Visualization;
             // Skip wire parts
@@ -2946,7 +2943,6 @@ namespace CaeMesh
             // Split edges with midpoints
             if (SplitVisualizationEdges(vis, targetEdgeIdNodeIds, targetNodeIdEdgeIds)) ComputeEdgeLengths(part);
             //
-            edgeCount = 0;
             newEdgeIds = new int[vis.EdgeCellIdsByEdge.Length];
             oldEdgeIds = new int[vis.EdgeCellIdsByEdge.Length];
             partEdgeTypes = new GeomCurveType[vis.EdgeCellIdsByEdge.Length];
@@ -2998,16 +2994,16 @@ namespace CaeMesh
                     }
                 }
                 //
+                // An edge that is not found keeps its place with the kernel id 0, so the edges after it keep theirs
+                oldEdgeIds[entry.Key] = entry.Key;
                 if (foundFirstKey != -1 || foundSecondKey != -1)
                 {
                     foundKey = foundFirstKey != -1 ? foundFirstKey : foundSecondKey;
                     //
-                    newEdgeIds[edgeCount] = foundKey;
-                    oldEdgeIds[edgeCount] = edgeCount;
+                    newEdgeIds[entry.Key] = foundKey;
                     //
-                    oldIdNewId.Add(edgeCount, foundKey);
+                    oldIdNewId.Add(entry.Key, foundKey);
                     //
-                    edgeCount++;
                     oneEdgeCount++;
                 }
                 //

@@ -47,7 +47,9 @@ and BRepMesh silently drops whole faces. It divides a copy in which every face h
 own, because faces a split cut from one face share its surface and the pcurves of the edges between
 them, and dividing one of them left the other without pcurves on those edges. It warns on stdout about
 every face it could not
-triangulate. Its `BREP_MESH` reads the optional `transfinite_faces`, `transfinite_angle` and
+triangulate. A face BRepMesh triangulated only in part, because the polylines of its edges cross in its
+parameter space, is meshed again with its edges divided finer, so a thin face along long curved edges reaches
+PrePoMax whole with all its edges. Its `BREP_MESH` reads the optional `transfinite_faces`, `transfinite_angle` and
 `transfinite_filename` entries of the mesh parameters file. The file names the structured faces PrePoMax
 finds by the one definition all its meshers follow - every face with its sides as chains of edges, the
 numbers of elements set on edges and the names messages use - and Netgen then finds none of its own: it

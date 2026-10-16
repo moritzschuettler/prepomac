@@ -341,7 +341,6 @@ namespace FileInOut.Input
             //
             int edgeId;
             int[] key;
-            int[] edgeNodeIdsArr;
             HashSet<int> edgeNodeIds = new HashSet<int>();
             HashSet<int> edgeNodeIdsOut;
             //
@@ -373,30 +372,17 @@ namespace FileInOut.Input
                     //
                     edgeNodeIds.Add(nodeIds[0]);
                     edgeNodeIds.Add(nodeIds[1]);
-                    //
-                    if (internalEdge && nodeIds[0] != nodeIds[1])
+                    // Only the segments of the polyline are edge elements. A face the kernel triangulated only in
+                    // part has free triangle edges that join polyline nodes far apart, and as edge elements they
+                    // close loops along the edge that split it into overlapping visualization edges
+                    if (nodeIds[0] != nodeIds[1])
                     {
                         key = nodeIds[0] < nodeIds[1] ? new int[] { nodeIds[0], nodeIds[1] } :
                               new int[] { nodeIds[1], nodeIds[0] };
-                        if (triangleEdgeKeys.Contains(key) && !freeEdgeKeys.Contains(key))
+                        if (freeEdgeKeys.Contains(key) || (internalEdge && triangleEdgeKeys.Contains(key)))
                         {
                             id = internalId + offsetElementId;
-                            elements.Add(id, new LinearBeamElement(id, key));
-                            internalId++;
-                        }
-                    }
-                }
-                edgeNodeIdsArr = edgeNodeIds.ToArray();
-                for (int j = 0; j < edgeNodeIdsArr.Length; j++)
-                {
-                    for (int k = j + 1; k < edgeNodeIdsArr.Length; k++)
-                    {
-                        key = edgeNodeIdsArr[j] < edgeNodeIdsArr[k] ? new int[] { edgeNodeIdsArr[j], edgeNodeIdsArr[k] } :
-                              new int[] { edgeNodeIdsArr[k], edgeNodeIdsArr[j] };
-                        if (freeEdgeKeys.Contains(key))
-                        {
-                            id = internalId + offsetElementId;
-                            element = new LinearBeamElement(id, new int[] { edgeNodeIdsArr[j] , edgeNodeIdsArr[k] });
+                            element = new LinearBeamElement(id, key);
                             elements.Add(element.Id, element);
                             internalId++;
                         }
