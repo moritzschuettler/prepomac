@@ -91,7 +91,7 @@ namespace FileInOut.Input
                     FeMesh mesh = new FeMesh(nodes, elements, MeshRepresentation.Geometry, importOptions);
                     //
                     mesh.ConvertLineFeElementsToEdges(vertexNodeIds, true);
-                    MergeVisualizationFacesOfOneGeometryFace(mesh, elementIdSurfaceId);
+                    GroupVisualizationFacesByGeometryFace(mesh, elementIdSurfaceId);
                     //
                     Dictionary<string, Dictionary<int, int>> partLocalFaceIdSourceFaceId =
                         new Dictionary<string, Dictionary<int, int>>();
@@ -201,10 +201,13 @@ namespace FileInOut.Input
             }
         }
 
-        // An internal edge that runs from boundary to boundary cuts its face in the flood fill of the visualization
-        // faces, although the geometry face stays one. Merge such pieces again, so the visualization faces are the
+        // The visualization faces are flood filled over the cell edges that are not model edges, so they differ from the
+        // geometry faces in two ways. An internal edge that runs from boundary to boundary cuts its face, although the
+        // geometry face stays one. And two faces that both fill the sliver between a curved edge and its chords with
+        // triangles of the same nodes share a chord with four cells, so the flood fill leaks from one face into the
+        // other. Regroup the cells by the geometry face they were read from, so the visualization faces are the
         // geometry faces.
-        private static void MergeVisualizationFacesOfOneGeometryFace(FeMesh mesh, Dictionary<int, int> elementIdSurfaceId)
+        private static void GroupVisualizationFacesByGeometryFace(FeMesh mesh, Dictionary<int, int> elementIdSurfaceId)
         {
             foreach (var part in mesh.Parts.Values)
             {
@@ -214,30 +217,79 @@ namespace FileInOut.Input
                 //
                 int surfaceId;
                 int newFaceId;
+                bool split = false;
                 Dictionary<int, int> surfaceIdNewFaceId = new Dictionary<int, int>();
                 List<List<int>> faceCellIds = new List<List<int>>();
                 List<List<int>> faceEdgeIds = new List<List<int>>();
+                List<bool> splitFaces = new List<bool>();
                 for (int faceId = 0; faceId < vis.CellIdsByFace.Length; faceId++)
                 {
-                    // A face of unknown origin is kept as it is
-                    if (vis.CellIdsByFace[faceId].Length == 0 ||
-                        !elementIdSurfaceId.TryGetValue(vis.CellIds[vis.CellIdsByFace[faceId][0]], out surfaceId))
-                        surfaceId = -1 - faceId;
-                    //
-                    if (!surfaceIdNewFaceId.TryGetValue(surfaceId, out newFaceId))
+                    HashSet<int> faceNewFaceIds = new HashSet<int>();
+                    foreach (int cellId in vis.CellIdsByFace[faceId])
                     {
-                        newFaceId = faceCellIds.Count;
-                        surfaceIdNewFaceId.Add(surfaceId, newFaceId);
-                        faceCellIds.Add(new List<int>());
-                        faceEdgeIds.Add(new List<int>());
+                        // A cell of unknown origin stays in its face
+                        if (!elementIdSurfaceId.TryGetValue(vis.CellIds[cellId], out surfaceId)) surfaceId = -1 - faceId;
+                        //
+                        if (!surfaceIdNewFaceId.TryGetValue(surfaceId, out newFaceId))
+                        {
+                            newFaceId = faceCellIds.Count;
+                            surfaceIdNewFaceId.Add(surfaceId, newFaceId);
+                            faceCellIds.Add(new List<int>());
+                            faceEdgeIds.Add(new List<int>());
+                            splitFaces.Add(false);
+                        }
+                        faceCellIds[newFaceId].Add(cellId);
+                        faceNewFaceIds.Add(newFaceId);
                     }
-                    faceCellIds[newFaceId].AddRange(vis.CellIdsByFace[faceId]);
-                    foreach (int edgeId in vis.FaceEdgeIds[faceId])
+                    if (faceNewFaceIds.Count > 1)
                     {
-                        if (!faceEdgeIds[newFaceId].Contains(edgeId)) faceEdgeIds[newFaceId].Add(edgeId);
+                        split = true;
+                        foreach (int faceNewFaceId in faceNewFaceIds) splitFaces[faceNewFaceId] = true;
+                    }
+                    foreach (int faceNewFaceId in faceNewFaceIds)
+                    {
+                        foreach (int edgeId in vis.FaceEdgeIds[faceId])
+                        {
+                            if (!faceEdgeIds[faceNewFaceId].Contains(edgeId)) faceEdgeIds[faceNewFaceId].Add(edgeId);
+                        }
                     }
                 }
-                if (faceCellIds.Count == vis.CellIdsByFace.Length) continue;
+                if (!split && faceCellIds.Count == vis.CellIdsByFace.Length) continue;
+                // The edges of a face that was split are those that bound its own cells
+                if (split)
+                {
+                    int edgeId;
+                    int[] key;
+                    CompareIntArray comparer = new CompareIntArray();
+                    Dictionary<int[], int> edgeCellKeyEdgeId = new Dictionary<int[], int>(comparer);
+                    for (int i = 0; i < vis.EdgeCellIdsByEdge.Length; i++)
+                    {
+                        foreach (int edgeCellId in vis.EdgeCellIdsByEdge[i])
+                        {
+                            key = vis.EdgeCells[edgeCellId].ToArray();
+                            Array.Sort(key);
+                            if (!edgeCellKeyEdgeId.ContainsKey(key)) edgeCellKeyEdgeId.Add(key, i);
+                        }
+                    }
+                    //
+                    for (int i = 0; i < faceCellIds.Count; i++)
+                    {
+                        if (!splitFaces[i]) continue;
+                        //
+                        faceEdgeIds[i].Clear();
+                        foreach (int cellId in faceCellIds[i])
+                        {
+                            foreach (int[] cellEdge in FeMesh.GetVisualizationEdgeCells(vis.Cells[cellId],
+                                                                                      ElementFaceType.Face))
+                            {
+                                key = cellEdge.ToArray();
+                                Array.Sort(key);
+                                if (edgeCellKeyEdgeId.TryGetValue(key, out edgeId) && !faceEdgeIds[i].Contains(edgeId))
+                                    faceEdgeIds[i].Add(edgeId);
+                            }
+                        }
+                    }
+                }
                 //
                 vis.CellIdsByFace = faceCellIds.Select(cellIds => cellIds.ToArray()).ToArray();
                 vis.FaceEdgeIds = faceEdgeIds.Select(edgeIds => edgeIds.ToArray()).ToArray();
