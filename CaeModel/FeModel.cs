@@ -6016,6 +6016,8 @@ namespace CaeModel
         private const double _sweepTurnAxisSine = 1E-2;
         // How far the sweep lines measured across the source may depart from a taper, as a share of the longest
         private const double _maxSweepLengthDeviation = 0.05;
+        // The angle in degrees a chain through the edges following the sweep direction may turn by
+        private const double _layerEdgeChainAngle = 75;
         private static readonly double _wallChainsCosine = Math.Cos(45 * Math.PI / 180);
         private const double _wallChainsLengthTolerance = 0.05;
         private const string _swallowedWallError = "A sweep side surface was taken for a target surface.";
@@ -6331,11 +6333,12 @@ namespace CaeModel
         /// </summary>
         /// <summary>
         /// Refuses a block with a wall that touches neither its source nor its target and that no chain of the edges
-        /// following the sweep direction reaches from the source. The mesher sides such a wall by those chains alone -
-        /// from every source vertex along the edge that continues most smoothly, within the angle a swallowed wall
-        /// may turn by - and a wall they do not reach is left with neither side, which gmsh then refuses to mesh as
-        /// a structured grid, failing the whole compound. The rings of walls one half hole would sweep onto another
-        /// through a bent plate turn at every bend, and their chains stop at the first.
+        /// following the sweep direction reaches from the source: such a wall is left with neither side, which gmsh
+        /// then refuses to mesh as a structured grid, failing the whole compound. A chain runs from every source vertex
+        /// along the edge that continues most smoothly, and as only the edges the walk marked as following the sweep
+        /// direction are candidates, it may turn as far as a wall turns at a chamfer or a shoulder - the 49 degrees of
+        /// the chamfered hexagon of sweep_64 - without being led astray. The rings of walls one half hole would sweep
+        /// onto another through a bent plate turn at every bend, and their chains stop at the first.
         /// </summary>
         private string GetUnreachedWallsError(GeometryPart part, HashSet<int> sourceSurfaceIds, int[] wallSurfaceIds,
                                               int[] targetSurfaceIds, HashSet<int> directionEdgeIds, SweepPartMaps maps)
@@ -6347,7 +6350,7 @@ namespace CaeModel
             candidateEdgeIds.IntersectWith(directionEdgeIds);
             candidateEdgeIds.ExceptWith(sourceEdgeIds);
             Dictionary<int, HashSet<int>> vertexIdEdgeIds = maps.GetVertexIdEdgeIds(part);
-            double minCosine = Math.Cos(Globals.SweepSwallowedWallAngle * Math.PI / 180);
+            double minCosine = Math.Cos(_layerEdgeChainAngle * Math.PI / 180);
             //
             HashSet<int> reachedEdgeIds = new HashSet<int>();
             foreach (var startVertexId in vis.GetVertexNodeIdsForEdgeIds(sourceEdgeIds.ToArray()).OrderBy(id => id))
