@@ -3838,12 +3838,12 @@ namespace CaeModel
             // with the block rather than that there is none
             bool reachedTarget;
             string[] reachedTargetErrors = new string[numOfCells];
-            // The sources of every cell refused only for a loft between outlines that are not alike
-            List<Tuple<int, HashSet<int>, bool>>[] unlikeSources = new List<Tuple<int, HashSet<int>, bool>>[numOfCells];
+            // The sources of every cell refused only for a loft between outlines that are not alike or for sweeping poorly
+            List<Tuple<int, HashSet<int>, bool>>[] lastResortSources = new List<Tuple<int, HashSet<int>, bool>>[numOfCells];
             for (int i = 0; i < numOfCells; i++)
             {
                 candidates[i] = new List<SweepCellCandidate>();
-                unlikeSources[i] = new List<Tuple<int, HashSet<int>, bool>>();
+                lastResortSources[i] = new List<Tuple<int, HashSet<int>, bool>>();
                 seedErrors[i] = new List<KeyValuePair<HashSet<int>, string>>();
                 foreach (var seedSurfaceIds in GetSeedSurfaceIds(sweptParts[i]))
                     pendingSources.Enqueue(new Tuple<int, HashSet<int>, bool>(i, seedSurfaceIds, false));
@@ -3862,13 +3862,13 @@ namespace CaeModel
                                                   new HashSet<int>(), stamp);
                 }
                 //
-                bool unlikeEnds;
+                bool lastResortOnly;
                 SweepCellCandidate candidate = CreateSweepCellCandidate(part, pending.Item2, pending.Item3,
                                                                         twinSurfaceIds, maps, faceTypes, false,
-                                                                        out error, out reachedTarget, out unlikeEnds);
+                                                                        out error, out reachedTarget, out lastResortOnly);
                 if (candidate == null)
                 {
-                    if (unlikeEnds) unlikeSources[cell].Add(pending);
+                    if (lastResortOnly) lastResortSources[cell].Add(pending);
                     if (!pending.Item3 && reachedTarget && reachedTargetErrors[cell] == null)
                         reachedTargetErrors[cell] = error;
                     if (!pending.Item3)
@@ -3901,11 +3901,12 @@ namespace CaeModel
                         pendingSources.Enqueue(new Tuple<int, HashSet<int>, bool>(neighbour, continuingIds, true));
                 }
             }
-            // A cell left with no way of its own takes the lofts between outlines that are not alike
+            // A cell left with no way of its own takes the lofts between outlines that are not alike, and the blocks that
+            // would sweep poorly but whose ends cannot fold them
             for (int i = 0; i < numOfCells; i++)
             {
                 if (candidates[i].Count > 0) continue;
-                foreach (var pending in unlikeSources[i])
+                foreach (var pending in lastResortSources[i])
                 {
                     SweepCellCandidate candidate = CreateSweepCellCandidate(sweptParts[i], pending.Item2, pending.Item3,
                                                                             twinSurfaceIds, maps, faceTypes, true,
@@ -4046,8 +4047,8 @@ namespace CaeModel
         private SweepCellCandidate CreateSweepCellCandidate(GeometryPart part, HashSet<int> seedSurfaceIds,
                                                             bool derived, Dictionary<int, int> twinSurfaceIds,
                                                             SweepPartMaps maps, Dictionary<int, GeomFaceType> faceTypes,
-                                                            bool allowUnlikeEnds, out string error,
-                                                            out bool reachedTarget, out bool unlikeEnds)
+                                                            bool lastResort, out string error,
+                                                            out bool reachedTarget, out bool lastResortOnly)
         {
             VisualizationData vis = part.Visualization;
             Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds = maps.GetSurfaceIdSurfaceNeighbourIds(part);
@@ -4067,22 +4068,34 @@ namespace CaeModel
                 () => ValidateSweepBlock(part, sourceSurfaceIds, surfaceIdSurfaceNeighbourIds, maps, twinSurfaceIds));
             error = validation.Error;
             reachedTarget = validation.ReachedTarget;
-            unlikeEnds = validation.UnlikeEnds;
+            lastResortOnly = false;
             if (error != null) return null;
-            // A block that would sweep poorly is left to a source selected by hand
-            if (validation.QualityError != null)
+            // A loft between outlines that are not alike, and a block that would sweep poorly, are taken only by a part
+            // that has no other way, in the last pass of the search; a poor block then only when no crease of its ends
+            // and no break of its target can fold it
+            if (validation.QualityError != null || validation.UnlikeEnds)
             {
-                error = validation.QualityError;
-                return null;
-            }
-            // A loft between outlines that are not alike is taken only by a part that has no other way
-            if (unlikeEnds && !allowUnlikeEnds)
-            {
-                error = "The sweep target surface/s (" + GetSweepSurfaceNames(part, validation.TargetSurfaceIds) +
-                        ") are not the shape of the sweep source surface/s (" +
-                        GetSweepSurfaceNames(part, sourceSurfaceIds) + ") carried along the sweep direction. " +
-                        "Select the source surfaces by hand, or split the part so that each piece is swept on its own.";
-                return null;
+                if (!lastResort)
+                {
+                    lastResortOnly = true;
+                    error = validation.QualityError ??
+                            "The sweep target surface/s (" + GetSweepSurfaceNames(part, validation.TargetSurfaceIds) +
+                            ") are not the shape of the sweep source surface/s (" +
+                            GetSweepSurfaceNames(part, sourceSurfaceIds) + ") carried along the sweep direction. " +
+                            "Select the source surfaces by hand, or split the part so that each piece is swept on its " +
+                            "own.";
+                    return null;
+                }
+                if (validation.QualityError != null)
+                {
+                    string endsError = GetLastResortSweepEndsError(part, sourceSurfaceIds, validation.TargetSurfaceIds,
+                                                                   surfaceIdSurfaceNeighbourIds, maps);
+                    if (endsError != null)
+                    {
+                        error = validation.QualityError + " " + endsError;
+                        return null;
+                    }
+                }
             }
             //
             int[] sideSurfaceIds;
@@ -4138,6 +4151,37 @@ namespace CaeModel
             //
             return new SweepCellCandidate(partId, sourceSurfaceIds.ToArray(), sideSurfaceIds, targetSurfaceIds,
                                           prismatic, wallEdgeIds, vis.FaceEdgeIds, wallIdSideCentroids, blocks, score);
+        }
+        /// <summary>
+        /// Why a block refused for sweeping poorly cannot be taken even as the last way of a part: a target in more than
+        /// one piece, which a connected source cannot be carried onto without its sweep lines parting the ways the pieces
+        /// face, or two surfaces of the source or of the target meeting at a crease sharper than a leaning surface may
+        /// join a source at, across which the sweep lines of the two sides converge and fold - the source of a groove
+        /// swept through the thickness under it. Null when neither holds.
+        /// </summary>
+        private string GetLastResortSweepEndsError(GeometryPart part, HashSet<int> sourceSurfaceIds,
+                                                   int[] targetSurfaceIds,
+                                                   Dictionary<int, HashSet<int>> surfaceIdSurfaceNeighbourIds,
+                                                   SweepPartMaps maps)
+        {
+            if (!part.Visualization.AreSurfacesConnected(targetSurfaceIds, surfaceIdSurfaceNeighbourIds))
+            {
+                return "Its target surfaces are not connected.";
+            }
+            Dictionary<int[], double[]> surfaceIdPairAngles = maps.GetSurfaceIdPairAngles(_geometry, part);
+            foreach (var ends in new IEnumerable<int>[] { sourceSurfaceIds, targetSurfaceIds })
+            {
+                HashSet<int> endSurfaceIds = new HashSet<int>(ends);
+                foreach (var entry in surfaceIdPairAngles)
+                {
+                    if (!endSurfaceIds.Contains(entry.Key[0]) || !endSurfaceIds.Contains(entry.Key[1])) continue;
+                    if (entry.Value[0] <= Globals.SweepSourceAngle) continue;
+                    return "Its " + GetSweepSurfaceName(part, entry.Key[0]) + " and " +
+                           GetSweepSurfaceName(part, entry.Key[1]) + " meet at " + Math.Round(entry.Value[0]) +
+                           " degrees.";
+                }
+            }
+            return null;
         }
         /// <summary>
         /// The edges split into chains of edges that meet at a vertex.
