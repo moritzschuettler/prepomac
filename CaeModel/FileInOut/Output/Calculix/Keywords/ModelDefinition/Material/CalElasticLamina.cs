@@ -45,14 +45,16 @@ namespace FileInOut.Output.Calculix
             //
             for (int i = 0; i < data.Length; i++)
             {
-                // Complete the out-of-plane constants using the mapping from the PrePoMax composites fork:
-                // E3 = E2, v13 = v12 and v23 = v12.
+                // Complete the out-of-plane constants of a transversely isotropic lamina:
+                // E3 = E2, v13 = v12 and v23 = E2 / (2 G23) - 1.
+                double e2 = data[i][ElasticLamina.YoungsModulus2Id].Value;
+                double v23 = ElasticLamina.GetPoissonsRatio23(e2, data[i][ElasticLamina.ShearModulus23Id].Value);
                 sb.Append(data[i][ElasticLamina.YoungsModulus1Id].Value.ToCalculiX16String()).Append(", ");
-                sb.Append(data[i][ElasticLamina.YoungsModulus2Id].Value.ToCalculiX16String()).Append(", ");
-                sb.Append(data[i][ElasticLamina.YoungsModulus2Id].Value.ToCalculiX16String()).Append(", ");
+                sb.Append(e2.ToCalculiX16String()).Append(", ");
+                sb.Append(e2.ToCalculiX16String()).Append(", ");
                 sb.Append(data[i][ElasticLamina.PoissonsRatio12Id].Value.ToCalculiX16String()).Append(", ");
                 sb.Append(data[i][ElasticLamina.PoissonsRatio12Id].Value.ToCalculiX16String()).Append(", ");
-                sb.Append(data[i][ElasticLamina.PoissonsRatio12Id].Value.ToCalculiX16String()).Append(", ");
+                sb.Append(v23.ToCalculiX16String()).Append(", ");
                 sb.Append(data[i][ElasticLamina.ShearModulus12Id].Value.ToCalculiX16String()).Append(", ");
                 sb.Append(data[i][ElasticLamina.ShearModulus13Id].Value.ToCalculiX16String());
                 sb.Append(Environment.NewLine);

@@ -95,6 +95,15 @@ namespace PrePoMax.Python.Journal
             if (property is SlipWear slipWear)
                 return PythonJournalWriter.Join("pmx.create.slip_wear", Scalar(slipWear.Hardness, "hardness"),
                                                 Scalar(slipWear.WearCoefficient, "wear_coefficient"));
+            if (property is CompositeStrength strength)
+                return PythonJournalWriter.Join("pmx.create.composite_strength",
+                                                Scalar(strength.TensileStrength1, "tensile_strength_1"),
+                                                Scalar(strength.CompressiveStrength1, "compressive_strength_1"),
+                                                Scalar(strength.TensileStrength2, "tensile_strength_2"),
+                                                Scalar(strength.CompressiveStrength2, "compressive_strength_2"),
+                                                Scalar(strength.ShearStrength12, "shear_strength_12"),
+                                                Scalar(strength.ShearStrength23, "shear_strength_23"),
+                                                Scalar(strength.TsaiWuCoefficient, "tsai_wu_coefficient"));
             if (property is SpecificHeat specificHeat)
                 return PythonJournalWriter.Join("pmx.create.specific_heat",
                                                 Column(Used(specificHeat.SpecificHeatTemp, temperatureDependent, true),

@@ -199,6 +199,30 @@ namespace APIs.Python
             return new MaterialPropertyAPI(MaterialPropertyFactory.CreateSlipWear(hardness, wear_coefficient));
         }
 
+        [PythonAPI("Creates a composite strength material property: the ply strengths the composite failure " +
+                   "criteria use. Index 1 is the fiber direction and 2 the transverse direction; the " +
+                   "compressive strengths are positive values. tsai_wu_coefficient is the normalized Tsai-Wu " +
+                   "interaction coefficient F12*, larger than -1 and smaller than 1; it defaults to -0.5. The " +
+                   "solver does not use the property. Any value may be an equation string.",
+                   Arguments = "tensile_strength_1: float, compressive_strength_1: float, tensile_strength_2: float, " +
+                               "compressive_strength_2: float, shear_strength_12: float, shear_strength_23: float, " +
+                               "tsai_wu_coefficient: float = None",
+                   Returns = "MaterialProperty",
+                   Example = "pmx.create.composite_strength(2000, 1200, 50, 200, 70, 40)")]
+        public MaterialPropertyAPI composite_strength(object tensile_strength_1, object compressive_strength_1,
+                                                      object tensile_strength_2, object compressive_strength_2,
+                                                      object shear_strength_12, object shear_strength_23,
+                                                      object tsai_wu_coefficient = null)
+        {
+            return new MaterialPropertyAPI(MaterialPropertyFactory.CreateCompositeStrength(tensile_strength_1,
+                                                                                           compressive_strength_1,
+                                                                                           tensile_strength_2,
+                                                                                           compressive_strength_2,
+                                                                                           shear_strength_12,
+                                                                                           shear_strength_23,
+                                                                                           tsai_wu_coefficient));
+        }
+
         [PythonAPI("Creates a specific heat material property. Give one value, or a list of " +
                    "[specific_heat, temperature] rows. Any value may be an equation string.",
                    Arguments = "specific_heat: float or list[list[float]]",

@@ -56,6 +56,9 @@ namespace PrePoMax.Forms
             treeNode8,
             treeNode9,
             treeNode10});
+            System.Windows.Forms.TreeNode treeNode12 = new System.Windows.Forms.TreeNode("Composite Strength");
+            System.Windows.Forms.TreeNode treeNode13 = new System.Windows.Forms.TreeNode("Strength", new System.Windows.Forms.TreeNode[] {
+            treeNode12});
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.ListViewItem listViewItem1 = new System.Windows.Forms.ListViewItem("1");
             System.Windows.Forms.ListViewItem listViewItem2 = new System.Windows.Forms.ListViewItem("2");
@@ -137,11 +140,18 @@ namespace PrePoMax.Forms
             treeNode11.Name = "Thermal";
             treeNode11.Text = "Thermal";
             treeNode11.ToolTipText = "Thermal";
+            treeNode12.Name = "Composite Strength";
+            treeNode12.Text = "Composite Strength";
+            treeNode12.ToolTipText = "Ply strengths used by the composite failure criteria";
+            treeNode13.Name = "Strength";
+            treeNode13.Text = "Strength";
+            treeNode13.ToolTipText = "Strength";
             this.tvProperties.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
             treeNode3,
             treeNode5,
             treeNode7,
-            treeNode11});
+            treeNode11,
+            treeNode13});
             this.tvProperties.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.tvProperties.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelectSameLevel;
             this.tvProperties.Size = new System.Drawing.Size(192, 185);

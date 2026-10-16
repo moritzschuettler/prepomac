@@ -300,6 +300,7 @@
     <Compile Include="Materials\Elastic.cs" />
     <Compile Include="Materials\ElasticEngineeringConstants.cs" />
     <Compile Include="Materials\ElasticLamina.cs" />
+    <Compile Include="Materials\CompositeStrength.cs" />
     <Compile Include="Materials\MaterialProperty.cs" />
     <Compile Include="Materials\Material.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

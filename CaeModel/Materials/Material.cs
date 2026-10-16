@@ -88,6 +88,16 @@ namespace CaeModel
                     if (sw.Hardness.IsEquation()) return true;
                     if (sw.WearCoefficient.IsEquation()) return true;
                 }
+                else if (property is CompositeStrength cs)
+                {
+                    if (cs.TensileStrength1.IsEquation()) return true;
+                    if (cs.CompressiveStrength1.IsEquation()) return true;
+                    if (cs.TensileStrength2.IsEquation()) return true;
+                    if (cs.CompressiveStrength2.IsEquation()) return true;
+                    if (cs.ShearStrength12.IsEquation()) return true;
+                    if (cs.ShearStrength23.IsEquation()) return true;
+                    if (cs.TsaiWuCoefficient.IsEquation()) return true;
+                }
                 else if (property is Elastic el)
                 {
                     for (int i = 0; i < el.YoungsPoissonsTemp.Length; i++)

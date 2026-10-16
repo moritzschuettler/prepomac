@@ -604,11 +604,77 @@ def test_sections(material_name):
     return shell_part_name
 
 
+def exported_material_block(material_name):
+    export_file = os.path.join(tempfile.gettempdir(), "pytest_composite_materials.inp")
+    if os.path.isfile(export_file):
+        os.remove(export_file)
+    pmx.export_to_calculix(export_file)
+    with open(export_file, "r") as reader:
+        exported = reader.read()
+    os.remove(export_file)
+    block = exported.split("*Material, Name=" + material_name + "\n", 1)[1]
+    return block.split("*Material, Name=", 1)[0].split("**", 1)[0]
+
+
+def test_composite_strength():
+    materials = pmx.model.materials
+    ply = materials.add(PREFIX + "Ply", [pmx.create.elastic_lamina([[140000, 10000, 0.3, 5000, 5000, 3333.333333, 0]]),
+                                         pmx.create.composite_strength(2000, 1200, 50, 200, 70, 40)])
+    check(list(ply.get_property_types()) == ["elastic_lamina", "composite_strength"],
+          "the composite strength property was not stored: " + str(list(ply.get_property_types())))
+    # The interaction coefficient defaults to -0.5, and every value reads back under its maker argument
+    strength = list(ply.get_properties())[1]
+    expected = {"tensile_strength_1": 2000, "compressive_strength_1": 1200, "tensile_strength_2": 50,
+                "compressive_strength_2": 200, "shear_strength_12": 70, "shear_strength_23": 40,
+                "tsai_wu_coefficient": -0.5}
+    check(close(plain_values(strength), expected), "the strength values did not read back: " + str(plain_values(strength)))
+    check(close(plain_values(pmx.create.composite_strength(**strength.get_values())), expected),
+          "the strength values do not make the same property again")
+    materials.replace(PREFIX + "Ply", properties=materials[PREFIX + "Ply"].get_properties())
+    check(close(plain_values(list(materials[PREFIX + "Ply"].get_properties())[1]), expected),
+          "the strength did not round trip through replace")
+    custom = pmx.create.composite_strength(2000, 1200, 50, 200, 70, 40, tsai_wu_coefficient=-0.3)
+    check(close(custom.get_value("tsai_wu_coefficient"), -0.3), "a given interaction coefficient was not kept")
+    # A value the model refuses is refused by the maker, naming the argument
+    for maker, argument in [(lambda: pmx.create.composite_strength(0, 1200, 50, 200, 70, 40), "'tensile_strength_1'"),
+                            (lambda: pmx.create.composite_strength(2000, -1, 50, 200, 70, 40),
+                             "'compressive_strength_1'"),
+                            (lambda: pmx.create.composite_strength(2000, 1200, 50, 200, 70, 0), "'shear_strength_23'"),
+                            (lambda: pmx.create.composite_strength(2000, 1200, 50, 200, 70, 40,
+                                                                   tsai_wu_coefficient=1), "'tsai_wu_coefficient'"),
+                            (lambda: pmx.create.composite_strength(2000, 1200, 50, 200, 70, 40,
+                                                                   tsai_wu_coefficient=-1), "'tsai_wu_coefficient'")]:
+        message = raised_message(maker)
+        check(message is not None and argument in message,
+              "a strength the model refuses must be refused naming " + argument + ": " + str(message))
+    # The strength has no temperature, so it sits in a temperature dependent material as it is
+    materials.add(PREFIX + "Ply_T", [pmx.create.elastic_lamina([[140000, 10000, 0.3, 5000, 5000, 3500, 20],
+                                                                [130000, 9000, 0.3, 4500, 4500, 3000, 120]]),
+                                     pmx.create.composite_strength(2000, 1200, 50, 200, 70, 40)],
+                  temperature_dependent=True)
+    # The solver gets the lamina completed as transversely isotropic and no strength keyword
+    block = exported_material_block(PREFIX + "Ply")
+    keywords = [line.split(",")[0].strip() for line in block.splitlines() if line.startswith("*")]
+    check(keywords == ["*Elastic"], "the strength must not reach the solver input: " + str(keywords))
+    data = [float(v) for line in block.splitlines()[1:3] for v in line.split(",") if v.strip()]
+    e1, e2, e3, v12, v13, v23, g12, g13, g23 = data[:9]
+    check(close(e3, e2) and close(v13, v12), "the lamina was not completed with E3 = E2 and v13 = v12: " + str(data))
+    check(abs(v23 - (e2 / (2 * g23) - 1)) < 1e-6 and abs(v23 - 0.5) < 1e-6,
+          "the lamina v23 must follow from G23 as E2 / (2 G23) - 1: " + str(v23))
+    check("Composite" not in exported_material_block(PREFIX + "Ply_T"),
+          "the strength of a temperature dependent material must not reach the solver input")
+    # A G23 whose completed v23 makes the lamina unstable is refused, naming the argument
+    message = raised_message(lambda: pmx.create.elastic_lamina([[140000, 10000, 0.3, 5000, 5000, 2000, 0]]))
+    check(message is not None and "'constants'" in message and "v23" in message,
+          "a lamina whose completed v23 is unstable must be refused: " + str(message))
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     material_name = test_materials()
     test_material_properties()
     test_parametric_materials()
+    test_composite_strength()
     shell_part_name = test_sections(material_name)
     # A section references a material, so the sections go first
     clean(pmx.model.sections)

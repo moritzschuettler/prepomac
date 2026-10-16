@@ -1579,13 +1579,14 @@ pmx.model.initial_conditions.add_temperature('IC-1', nodes, 20)
 
 `Material` exposes `name`, `description`, `active`, `valid`, `temperature_dependent`, `property_count`, `get_properties()` and
 `get_property_types()`, which names every property after the `pmx.create` maker that makes it: `elastic`, `density`,
-`elastic_with_density`, `elastic_engineering_constants`, `elastic_lamina`, `plastic`, `slip_wear`, `specific_heat`,
-`thermal_conductivity` or `thermal_expansion`. `get_properties()` returns detached `MaterialProperty` copies as a plain Python list, and the
+`elastic_with_density`, `elastic_engineering_constants`, `elastic_lamina`, `plastic`, `slip_wear`,
+`composite_strength`, `specific_heat`, `thermal_conductivity` or `thermal_expansion`. `get_properties()` returns detached `MaterialProperty` copies as a plain Python list, and the
 list can be passed straight to `materials.replace`:
 `pmx.model.materials.replace('Steel', properties=pmx.model.materials['Steel'].get_properties())`.
 
 Every `pmx.create` property maker (`elastic`, `density`, `elastic_with_density`, `elastic_engineering_constants`,
-`elastic_lamina`, `plastic`, `slip_wear`, `specific_heat`, `thermal_conductivity`, `thermal_expansion`) returns a
+`elastic_lamina`, `plastic`, `slip_wear`, `composite_strength`, `specific_heat`, `thermal_conductivity`,
+`thermal_expansion`) returns a
 `MaterialProperty`:
 
 | Member | Description |
@@ -2444,13 +2445,14 @@ only makes the detached **parts** that those methods take as arguments, and reco
 | `elastic(youngs_modulus, poissons_ratio=None)` | Elastic property. Two values, or a list of `[E, v, temperature]` rows; `poissons_ratio` is required with a single `youngs_modulus`. Any value of this and of every other material property maker may be an equation string. |
 | `elastic_with_density(youngs_modulus, poissons_ratio, density)` | Combined elastic and density property. |
 | `elastic_engineering_constants(constants)` | Orthotropic elastic. Rows of `[E1, E2, E3, v12, v13, v23, G12, G13, G23, temperature]`, each physically stable, with strictly increasing temperatures. |
-| `elastic_lamina(constants)` | Lamina elastic. Rows of `[E1, E2, v12, G12, G13, G23, temperature]`, each physically stable, with strictly increasing temperatures. |
+| `elastic_lamina(constants)` | Lamina elastic. Rows of `[E1, E2, v12, G12, G13, G23, temperature]`, each physically stable, with strictly increasing temperatures. The solver gets a transversely isotropic material: E3 = E2, v13 = v12 and v23 = E2 / (2 G23) - 1, so a G23 that makes the completed constants unstable is refused. |
 | `density(density)` | Density. One value, or rows of `[density, temperature]`. |
 | `plastic(stress_strain, hardening=None)` | Plastic. Rows of `[stress, strain, temperature]`. `hardening` is `Isotropic`, `Kinematic` or `Combined` and defaults to `Isotropic`. |
 | `specific_heat(specific_heat)` | Specific heat. One value, or rows of `[value, temperature]`. |
 | `thermal_conductivity(thermal_conductivity)` | Thermal conductivity, same shape. |
 | `thermal_expansion(thermal_expansion, zero_temperature=None)` | Thermal expansion, same shape. `zero_temperature` is the temperature the expansion starts from and defaults to 20 in model units. |
 | `slip_wear(hardness, wear_coefficient)` | Slip wear property. |
+| `composite_strength(tensile_strength_1, compressive_strength_1, tensile_strength_2, compressive_strength_2, shear_strength_12, shear_strength_23, tsai_wu_coefficient=None)` | The ply strengths the composite failure criteria use; the solver does not use them. Index 1 is the fiber direction and 2 the transverse direction. Every strength must be larger than 0, the compressive ones given as positive values. `tsai_wu_coefficient` is the normalized Tsai-Wu interaction coefficient F12*, larger than -1 and smaller than 1, and defaults to -0.5. The property has no temperature. |
 | `region(region_type, name)` | Names an existing region of the model. Only the region types a named region of the model carries are taken; `None`, `NodeId`, `ElementId`, `Selection` and `ContactPair` are refused. |
 | `split_tool_line_by_two_points(points=None, splitter=None)` | A line drawn on the surfaces through two points, for `split_face` only. |
 | `split_tool_plane_by_three_points(points=None, splitter=None, offset=0)` | A plane through three points. |

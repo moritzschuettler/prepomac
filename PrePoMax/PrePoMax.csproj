@@ -917,6 +917,7 @@
     <Compile Include="Forms\41_Material\ViewElastic.cs" />
     <Compile Include="Forms\41_Material\ViewElasticEngineeringConstants.cs" />
     <Compile Include="Forms\41_Material\ViewElasticLamina.cs" />
+    <Compile Include="Forms\41_Material\ViewCompositeStrength.cs" />
     <Compile Include="Forms\41_Material\ViewMaterialProperty.cs" />
     <Compile Include="Forms\41_Material\ViewDensity.cs" />
     <Compile Include="Forms\42_Section\ViewSection.cs" />

@@ -99,6 +99,22 @@ namespace APIs.Python
             //
             return property;
         }
+        public static CompositeStrength CreateCompositeStrength(object tensileStrength1, object compressiveStrength1,
+                                                                object tensileStrength2, object compressiveStrength2,
+                                                                object shearStrength12, object shearStrength23,
+                                                                object tsaiWuCoefficient)
+        {
+            CompositeStrength property = new CompositeStrength(0, 0, 0, 0, 0, 0, CompositeStrength.DefaultTsaiWuCoefficient);
+            SetValue(property.TensileStrength1, tensileStrength1, "tensile_strength_1");
+            SetValue(property.CompressiveStrength1, compressiveStrength1, "compressive_strength_1");
+            SetValue(property.TensileStrength2, tensileStrength2, "tensile_strength_2");
+            SetValue(property.CompressiveStrength2, compressiveStrength2, "compressive_strength_2");
+            SetValue(property.ShearStrength12, shearStrength12, "shear_strength_12");
+            SetValue(property.ShearStrength23, shearStrength23, "shear_strength_23");
+            if (tsaiWuCoefficient != null) SetValue(property.TsaiWuCoefficient, tsaiWuCoefficient, "tsai_wu_coefficient");
+            //
+            return property;
+        }
         public static SpecificHeat CreateSpecificHeat(object specificHeat)
         {
             string[] argumentNames;

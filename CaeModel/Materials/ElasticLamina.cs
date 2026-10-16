@@ -139,8 +139,30 @@ namespace CaeModel
             double e1 = row[YoungsModulus1Id].Value;
             double e2 = row[YoungsModulus2Id].Value;
             double v12 = row[PoissonsRatio12Id].Value;
-            if (Math.Abs(v12) >= Math.Sqrt(e1 / e2))
+            double v23 = GetPoissonsRatio23(e2, row[ShearModulus23Id].Value);
+            double s11 = 1 / e1;
+            double s22 = 1 / e2;
+            double s12 = -v12 / e1;
+            double s23 = -v23 / e2;
+            double tolerance = Math.Max(s11, s22) * 1E-12;
+            // Cholesky factorization of the normal compliance block completed with E3 = E2 and v13 = v12.
+            double l11 = Math.Sqrt(s11);
+            double l21 = s12 / l11;
+            double diagonal22 = s22 - l21 * l21;
+            if (diagonal22 <= tolerance)
                 throw new CaeException("Lamina data point " + (rowId + 1) + " is not physically stable.");
+            //
+            double l22 = Math.Sqrt(diagonal22);
+            double l32 = (s23 - l21 * l21) / l22;
+            double diagonal33 = s22 - l21 * l21 - l32 * l32;
+            if (diagonal33 <= tolerance)
+                throw new CaeException("Lamina data point " + (rowId + 1) + " is not physically stable: the Poisson's " +
+                                       "ratio v23 = E2 / (2 G23) - 1 = " + v23.ToString("G6") + " that G23 implies " +
+                                       "is too large.");
+        }
+        public static double GetPoissonsRatio23(double youngsModulus2, double shearModulus23)
+        {
+            return youngsModulus2 / (2 * shearModulus23) - 1;
         }
         public void CheckTemperatures()
         {

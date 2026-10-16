@@ -1995,6 +1995,10 @@ namespace FileInOut.Output
                         {
                             calMaterial.AddKeyword(new CalSpecificHeat(sh, material.TemperatureDependent));
                         }
+                        else if (property is CompositeStrength)
+                        {
+                            // Evaluated by the composite failure results, not by the solver
+                        }
                         else throw new NotImplementedException();
                     }
                 }

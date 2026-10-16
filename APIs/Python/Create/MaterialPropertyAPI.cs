@@ -30,6 +30,7 @@ namespace APIs.Python
             { typeof(ElasticLamina), "elastic_lamina" },
             { typeof(Plastic), "plastic" },
             { typeof(SlipWear), "slip_wear" },
+            { typeof(CompositeStrength), "composite_strength" },
             { typeof(SpecificHeat), "specific_heat" },
             { typeof(ThermalConductivity), "thermal_conductivity" },
             { typeof(ThermalExpansion), "thermal_expansion" }
@@ -139,6 +140,16 @@ namespace APIs.Python
             {
                 values["hardness"] = ToValue(slipWear.Hardness);
                 values["wear_coefficient"] = ToValue(slipWear.WearCoefficient);
+            }
+            else if (_property is CompositeStrength strength)
+            {
+                values["tensile_strength_1"] = ToValue(strength.TensileStrength1);
+                values["compressive_strength_1"] = ToValue(strength.CompressiveStrength1);
+                values["tensile_strength_2"] = ToValue(strength.TensileStrength2);
+                values["compressive_strength_2"] = ToValue(strength.CompressiveStrength2);
+                values["shear_strength_12"] = ToValue(strength.ShearStrength12);
+                values["shear_strength_23"] = ToValue(strength.ShearStrength23);
+                values["tsai_wu_coefficient"] = ToValue(strength.TsaiWuCoefficient);
             }
             else if (_property is SpecificHeat specificHeat)
                 AddColumns(values, specificHeat.SpecificHeatTemp, "specific_heat");

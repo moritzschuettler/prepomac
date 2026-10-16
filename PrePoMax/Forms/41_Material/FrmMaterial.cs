@@ -195,6 +195,8 @@ namespace PrePoMax.Forms
                                     item.Tag = new ViewThermalConductivity(tc.DeepClone());
                                 else if (mp is SpecificHeat sh)
                                     item.Tag = new ViewSpecificHeat(sh.DeepClone());
+                                else if (mp is CompositeStrength cs)
+                                    item.Tag = new ViewCompositeStrength(cs.DeepClone());
                                 else throw new NotSupportedException();
                             }
                             else throw new NotSupportedException();
@@ -331,6 +333,10 @@ namespace PrePoMax.Forms
                 {
                     tcProperties.TabPages.Add(_pages[0]);   // properties
                 }
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewCompositeStrength)
+                {
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
+                }
                 else throw new NotSupportedException();
                 //
                 propertyGrid.SelectedObject = lvAddedProperties.PossiblySelectedItems[0].Tag;
@@ -435,6 +441,8 @@ namespace PrePoMax.Forms
             node.Tag = new ThermalConductivity(new double[][] { new double[] { 0, 0 } });
             node = tvProperties.Nodes.Find("Specific Heat", true)[0];
             node.Tag = new SpecificHeat(new double[][] { new double[] { 0, 0 } });
+            node = tvProperties.Nodes.Find("Composite Strength", true)[0];
+            node.Tag = new CompositeStrength(0, 0, 0, 0, 0, 0, CompositeStrength.DefaultTsaiWuCoefficient);
             //
             tvProperties.ExpandAll();
             //
@@ -515,6 +523,7 @@ namespace PrePoMax.Forms
                         view = new ViewThermalExpansion(te, cbTemperatureDependent.Checked);
                     else if (property is ThermalConductivity tc) view = new ViewThermalConductivity(tc);
                     else if (property is SpecificHeat sh) view = new ViewSpecificHeat(sh);
+                    else if (property is CompositeStrength cs) view = new ViewCompositeStrength(cs);
                     else throw new NotSupportedException();
                     //
                     item = new ListViewItem(view.Name);
@@ -798,7 +807,8 @@ namespace PrePoMax.Forms
                     vte.SetTemperatureDependence(cbTemperatureDependent.Checked);
                     propertyGrid.Refresh();
                 }
-                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSlipWear)
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSlipWear ||
+                         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewCompositeStrength)
                 {
                     tcProperties.TabPages.Clear();
                     tcProperties.TabPages.Add(_pages[0]);
