@@ -6252,6 +6252,8 @@ namespace CaeModel
         private const double _maxSweepLengthDeviation = 0.05;
         // The angle in degrees a chain through the edges following the sweep direction may turn by
         private const double _layerEdgeChainAngle = 75;
+        // The angle in degrees a straight edge splitting a ring wall stands across its loops at, as the mesher asks
+        private const double _ringConnectorMinAngle = 70;
         private static readonly double _wallChainsCosine = Math.Cos(45 * Math.PI / 180);
         private const double _wallChainsLengthTolerance = 0.05;
         private const string _swallowedWallError = "A sweep side surface was taken for a target surface.";
@@ -6298,10 +6300,15 @@ namespace CaeModel
                 // A wall with a hole - the opening of a bore that runs across the sweep - has no structured
                 // grid; gmsh refuses such a transfinite surface, so it is refused here first. A wall running around
                 // the body as a ring, one of its two loops on the source and the other on the target - the end of a
-                // tube swept through its wall - is no such wall: the mesher splits it into walls of four sides
+                // tube swept through its wall - is no such wall: the mesher splits it into walls of four sides, when
+                // straight edges across it can be found to split it along
                 int numOfEdgeLoops = CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds);
                 if (numOfEdgeLoops == 2 && IsRingWall(vis.FaceEdgeIds[surfaceId], sourceEdgeIds, targetEdgeIdSet))
+                {
+                    string ringWallError = GetRingWallSplitError(part, surfaceId, sourceEdgeIds, targetEdgeIdSet);
+                    if (ringWallError != null) return ringWallError;
                     continue;
+                }
                 if (numOfEdgeLoops != 1) return GetSweepSideHoleError(part, surfaceId);
                 if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
                 //
@@ -6747,6 +6754,191 @@ namespace CaeModel
         {
             return wallEdgeIds.All(id => sourceEdgeIds.Contains(id) != targetEdgeIds.Contains(id)) &&
                    wallEdgeIds.Any(sourceEdgeIds.Contains) && wallEdgeIds.Any(targetEdgeIds.Contains);
+        }
+        /// <summary>
+        /// Why the mesher cannot split a ring wall into walls of four sides the way it splits one: by straight edges from
+        /// a vertex of its source loop to the nearest vertex of its target loop, each vertex the nearest of the other,
+        /// standing across both loops at the angle the mesher asks or more and lying on the wall, as many of them as do
+        /// not cross; it needs two, or one when both loops are a single closed edge. The end of a tube whose inner and
+        /// outer corners are rounded about different centres has no such edge, and swept through its wall it fails to
+        /// mesh. Null when the wall can be split, or when its loops cannot be followed and the mesher is left to tell.
+        /// </summary>
+        private string GetRingWallSplitError(GeometryPart part, int wallId, HashSet<int> sourceEdgeIds,
+                                             HashSet<int> targetEdgeIds)
+        {
+            VisualizationData vis = part.Visualization;
+            int[] wallEdgeIds = vis.FaceEdgeIds[wallId].Distinct().ToArray();
+            int[] wallSourceEdgeIds = wallEdgeIds.Where(sourceEdgeIds.Contains).ToArray();
+            int[] wallTargetEdgeIds = wallEdgeIds.Where(targetEdgeIds.Contains).ToArray();
+            int[] sourceVertexIds = GetSweepLoopVertexIds(vis, wallSourceEdgeIds);
+            int[] targetVertexIds = GetSweepLoopVertexIds(vis, wallTargetEdgeIds);
+            if (sourceVertexIds == null || targetVertexIds == null) return null;
+            //
+            int n = sourceVertexIds.Length;
+            int m = targetVertexIds.Length;
+            Vec3D[] sourceCoors = sourceVertexIds.Select(id => new Vec3D(_geometry.Nodes[id].Coor)).ToArray();
+            Vec3D[] targetCoors = targetVertexIds.Select(id => new Vec3D(_geometry.Nodes[id].Coor)).ToArray();
+            int[] nearestTarget = Enumerable.Range(0, n).Select(i => Enumerable.Range(0, m)
+                .OrderBy(j => (targetCoors[j] - sourceCoors[i]).Len).First()).ToArray();
+            int[] nearestSource = Enumerable.Range(0, m).Select(j => Enumerable.Range(0, n)
+                .OrderBy(i => (targetCoors[j] - sourceCoors[i]).Len).First()).ToArray();
+            double tolerance = 1E-3 * part.BoundingBox.GetDiagonal();
+            List<int[]> candidates = new List<int[]>();
+            for (int i = 0; i < n; i++)
+            {
+                int j = nearestTarget[i];
+                if (nearestSource[j] != i) continue;
+                Vec3D across = targetCoors[j] - sourceCoors[i];
+                if (!StandsAcrossSweepLoop(vis, across, sourceVertexIds[i], wallSourceEdgeIds) ||
+                    !StandsAcrossSweepLoop(vis, across, targetVertexIds[j], wallTargetEdgeIds)) continue;
+                double surfaceTolerance = tolerance + 0.02 * across.Len;
+                if (new double[] { 0.25, 0.5, 0.75 }.All(fraction =>
+                        GetDistanceToSurfaceCells(vis, wallId, sourceCoors[i] + fraction * across) <= surfaceTolerance))
+                    candidates.Add(new int[] { i, j });
+            }
+            // As the mesher keeps them: following the source loop, the target vertices follow the target loop one way
+            int numOfConnectors = candidates.Count;
+            if (candidates.Count > 2)
+            {
+                numOfConnectors = 0;
+                foreach (var direction in new int[] { 1, -1 })
+                {
+                    for (int start = 0; start < candidates.Count; start++)
+                    {
+                        int kept = 1;
+                        int last = candidates[start][1];
+                        int advanced = 0;
+                        for (int k = 1; k < candidates.Count; k++)
+                        {
+                            int[] candidate = candidates[(start + k) % candidates.Count];
+                            int step = ((direction * (candidate[1] - last)) % m + m) % m;
+                            if (step == 0 || advanced + step >= m) continue;
+                            kept++;
+                            last = candidate[1];
+                            advanced += step;
+                        }
+                        numOfConnectors = Math.Max(numOfConnectors, kept);
+                    }
+                }
+            }
+            int numOfNeeded = wallSourceEdgeIds.Length == 1 && wallTargetEdgeIds.Length == 1 ? 1 : 2;
+            if (numOfConnectors >= numOfNeeded) return null;
+            //
+            return "The sweep side " + GetSweepSurfaceName(part, wallId) + " runs around the block, and " +
+                   (numOfConnectors == 0 ? "no" : "only one") + " straight edge from a vertex of its source loop to " +
+                   "the nearest vertex of its target loop stands across both loops at " + _ringConnectorMinAngle +
+                   " degrees or more and lies on it, so it cannot be split into walls of four sides. Select the " +
+                   "source surfaces by hand, or split the part so that each piece is swept on its own.";
+        }
+        /// <summary>
+        /// The vertices of a closed loop of edges in their order round it, the one vertex of a single closed edge, or
+        /// null when the edges do not form one loop.
+        /// </summary>
+        private static int[] GetSweepLoopVertexIds(VisualizationData vis, int[] edgeIds)
+        {
+            if (edgeIds.Length == 0) return null;
+            if (edgeIds.Length == 1)
+            {
+                int[] ends = vis.GetVertexNodeIdsForEdgeId(edgeIds[0]).Distinct().ToArray();
+                return ends.Length == 1 ? ends : null;
+            }
+            Dictionary<int, List<int>> vertexIdEdgeIds = new Dictionary<int, List<int>>();
+            foreach (var edgeId in edgeIds)
+            {
+                int[] ends = vis.GetVertexNodeIdsForEdgeId(edgeId).Distinct().ToArray();
+                if (ends.Length != 2) return null;
+                foreach (var vertexId in ends)
+                {
+                    if (!vertexIdEdgeIds.ContainsKey(vertexId)) vertexIdEdgeIds.Add(vertexId, new List<int>());
+                    vertexIdEdgeIds[vertexId].Add(edgeId);
+                }
+            }
+            if (vertexIdEdgeIds.Values.Any(ids => ids.Count != 2)) return null;
+            //
+            List<int> loop = new List<int>();
+            int edge = edgeIds[0];
+            int[] firstEnds = vis.GetVertexNodeIdsForEdgeId(edge).Distinct().ToArray();
+            int start = firstEnds[0];
+            int current = firstEnds[1];
+            loop.Add(start);
+            while (current != start)
+            {
+                if (loop.Count > edgeIds.Length) return null;
+                loop.Add(current);
+                edge = vertexIdEdgeIds[current][0] == edge ? vertexIdEdgeIds[current][1] : vertexIdEdgeIds[current][0];
+                int[] ends = vis.GetVertexNodeIdsForEdgeId(edge).Distinct().ToArray();
+                current = ends[0] == current ? ends[1] : ends[0];
+            }
+            return loop.Count == edgeIds.Length ? loop.ToArray() : null;
+        }
+        /// <summary>
+        /// Whether a straight edge leaving a vertex of a loop stands across it, at the angle the mesher asks or more to
+        /// every edge of the loop at the vertex.
+        /// </summary>
+        private bool StandsAcrossSweepLoop(VisualizationData vis, Vec3D direction, int vertexId, int[] loopEdgeIds)
+        {
+            if (direction.Len == 0) return false;
+            double minimumCosine = Math.Cos(_ringConnectorMinAngle * Math.PI / 180);
+            foreach (var edgeId in loopEdgeIds)
+            {
+                if (!vis.GetVertexNodeIdsForEdgeId(edgeId).Contains(vertexId)) continue;
+                Vec3D tangent = GetSweepEdgeTangent(vis, edgeId, vertexId);
+                if (tangent.Len == 0) continue;
+                if (Math.Abs(Vec3D.DotProduct(direction, tangent)) / (direction.Len * tangent.Len) > minimumCosine)
+                    return false;
+            }
+            return true;
+        }
+        /// <summary>
+        /// The distance from a point to the nearest of the cells a surface is drawn with.
+        /// </summary>
+        private double GetDistanceToSurfaceCells(VisualizationData vis, int surfaceId, Vec3D point)
+        {
+            double minimum = double.MaxValue;
+            foreach (var cellId in vis.CellIdsByFace[surfaceId])
+            {
+                int[] cell = vis.Cells[cellId];
+                if (cell.Length < 3) continue;
+                int numCorners = cell.Length == 3 || cell.Length == 6 ? 3 : 4;
+                Vec3D a = new Vec3D(_geometry.Nodes[cell[0]].Coor);
+                for (int k = 1; k + 1 < numCorners; k++)
+                {
+                    Vec3D b = new Vec3D(_geometry.Nodes[cell[k]].Coor);
+                    Vec3D c = new Vec3D(_geometry.Nodes[cell[k + 1]].Coor);
+                    minimum = Math.Min(minimum, GetDistanceToTriangle(point, a, b, c));
+                }
+            }
+            return minimum;
+        }
+        /// <summary>
+        /// The distance from a point to a triangle.
+        /// </summary>
+        private static double GetDistanceToTriangle(Vec3D p, Vec3D a, Vec3D b, Vec3D c)
+        {
+            Vec3D ab = b - a;
+            Vec3D ac = c - a;
+            Vec3D ap = p - a;
+            double d1 = Vec3D.DotProduct(ab, ap);
+            double d2 = Vec3D.DotProduct(ac, ap);
+            if (d1 <= 0 && d2 <= 0) return ap.Len;
+            Vec3D bp = p - b;
+            double d3 = Vec3D.DotProduct(ab, bp);
+            double d4 = Vec3D.DotProduct(ac, bp);
+            if (d3 >= 0 && d4 <= d3) return bp.Len;
+            double vc = d1 * d4 - d3 * d2;
+            if (vc <= 0 && d1 >= 0 && d3 <= 0) return (p - (a + (d1 / (d1 - d3)) * ab)).Len;
+            Vec3D cp = p - c;
+            double d5 = Vec3D.DotProduct(ab, cp);
+            double d6 = Vec3D.DotProduct(ac, cp);
+            if (d6 >= 0 && d5 <= d6) return cp.Len;
+            double vb = d5 * d2 - d1 * d6;
+            if (vb <= 0 && d2 >= 0 && d6 <= 0) return (p - (a + (d2 / (d2 - d6)) * ac)).Len;
+            double va = d3 * d6 - d5 * d4;
+            if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0)
+                return (p - (b + ((d4 - d3) / ((d4 - d3) + (d5 - d6))) * (c - b))).Len;
+            double denominator = va + vb + vc;
+            if (denominator == 0) return ap.Len;
+            return (p - (a + (vb / denominator) * ab + (vc / denominator) * ac)).Len;
         }
         /// <summary>
         /// The number of closed edge loops the given edges form, edges being joined at their vertices.
