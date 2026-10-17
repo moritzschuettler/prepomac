@@ -60,6 +60,12 @@ namespace APIs.Python
                 return new ResultFieldOutputEquationAPI(resultName, storedName, this);
             if (fieldOutput is ResultFieldOutputCoordinateSystemTransform)
                 return new ResultFieldOutputCoordinateSystemTransformAPI(resultName, storedName, this);
+            if (fieldOutput is ResultFieldOutputMaterialAxes)
+                return new ResultFieldOutputMaterialAxesAPI(resultName, storedName, this);
+            if (fieldOutput is ResultFieldOutputShellPlaneStress)
+                return new ResultFieldOutputShellPlaneStressAPI(resultName, storedName, this);
+            if (fieldOutput is ResultFieldOutputCompositeFailure)
+                return new ResultFieldOutputCompositeFailureAPI(resultName, storedName, this);
             return new ResultFieldOutputAPI(resultName, storedName, this);
         }
         public ResultFieldOutputLimitDraftAPI CreateFieldOutputLimit(string name, string fieldName,
@@ -96,6 +102,27 @@ namespace APIs.Python
             ValidateRequiredString(fieldName, "field_name");
             ValidateRequiredString(coordinateSystemName, "coordinate_system_name");
             return new ResultFieldOutputCoordinateSystemTransformDraftAPI(name, fieldName, coordinateSystemName);
+        }
+        public ResultFieldOutputMaterialAxesDraftAPI CreateFieldOutputMaterialAxes(string name, string fieldName)
+        {
+            PythonNameComparer.ValidateFormat(name, "name", null);
+            ValidateRequiredString(fieldName, "field_name");
+            return new ResultFieldOutputMaterialAxesDraftAPI(name, fieldName);
+        }
+        public ResultFieldOutputShellPlaneStressDraftAPI CreateFieldOutputShellPlaneStress(string name, string fieldName)
+        {
+            PythonNameComparer.ValidateFormat(name, "name", null);
+            ValidateRequiredString(fieldName, "field_name");
+            return new ResultFieldOutputShellPlaneStressDraftAPI(name, fieldName);
+        }
+        public ResultFieldOutputCompositeFailureDraftAPI CreateFieldOutputCompositeFailure(string name, string fieldName,
+                                                                                          string criterion)
+        {
+            PythonNameComparer.ValidateFormat(name, "name", null);
+            ValidateRequiredString(fieldName, "field_name");
+            CompositeFailureCriterionEnum criterionValue =
+                PythonValueConverter.ToEnum<CompositeFailureCriterionEnum>(criterion, "criterion");
+            return new ResultFieldOutputCompositeFailureDraftAPI(name, fieldName, criterionValue);
         }
         public ResultFieldOutputAPI AddFieldOutput(string resultName, ResultFieldOutputDraftAPI output)
         {
@@ -256,6 +283,12 @@ namespace APIs.Python
             else if (fieldOutput is ResultFieldOutputEquation equation) ValidateEquation(result, equation);
             else if (fieldOutput is ResultFieldOutputCoordinateSystemTransform transform)
                 ValidateCoordinateSystemTransform(result, transform);
+            else if (fieldOutput is ResultFieldOutputMaterialAxes materialAxes)
+                materialAxes.FieldName = ValidateShellSourceField(result, materialAxes.FieldName);
+            else if (fieldOutput is ResultFieldOutputShellPlaneStress shellPlaneStress)
+                shellPlaneStress.FieldName = ValidateShellSourceField(result, shellPlaneStress.FieldName);
+            else if (fieldOutput is ResultFieldOutputCompositeFailure compositeFailure)
+                compositeFailure.FieldName = ValidateShellSourceField(result, compositeFailure.FieldName);
             else throw new PythonAPIException("The field output draft type '" + fieldOutput.GetType().Name +
                                               "' is not supported.");
         }
@@ -326,6 +359,24 @@ namespace APIs.Python
             if (parentNames.Contains(equation.Name))
                 throw new PythonAPIException("The equation must not contain a self-reference.");
             equation.SetParentNames(parentNames.ToArray());
+        }
+        // The shell outputs need a complete tensor field and the shell data the model gives when the result is opened
+        private static string ValidateShellSourceField(FeResults result, string fieldName)
+        {
+            ValidateRequiredString(fieldName, "field_name");
+            string storedFieldName = ValidateSourceField(result, fieldName);
+            if (result.GetFieldDataType(storedFieldName) != DataTypeEnum.Tensor)
+                throw new PythonAPIException("The argument 'field_name' must name a tensor field, such as STRESS.");
+            if (!result.DoesFieldContainsAllNecessaryComponents(storedFieldName))
+                throw new PythonAPIException("The field output '" + storedFieldName +
+                                             "' does not contain all required components.");
+            if (!result.IsShellSourceField(storedFieldName))
+                throw new PythonAPIException("The argument 'field_name' must name a field in global axes, not the " +
+                                             "output in material axes '" + storedFieldName + "'.");
+            if (!result.HasShellResultData())
+                throw new PythonAPIException("The result has no shell data: it must be opened with the model it was " +
+                                             "solved from, whose shell sections give the material axes.");
+            return storedFieldName;
         }
         private static void ValidateCoordinateSystemTransform(
             FeResults result, ResultFieldOutputCoordinateSystemTransform transform)

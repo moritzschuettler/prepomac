@@ -60,6 +60,22 @@ namespace PrePoMax.Python.Journal
                 arguments.Add(PythonValueFormatter.Text(transform.FieldName));
                 arguments.Add(PythonValueFormatter.Text(transform.CoordinateSystemName));
             }
+            else if (output is ResultFieldOutputMaterialAxes materialAxes)
+            {
+                method = verb + "_material_axes";
+                arguments.Add(PythonValueFormatter.Text(materialAxes.FieldName));
+            }
+            else if (output is ResultFieldOutputShellPlaneStress shellPlaneStress)
+            {
+                method = verb + "_shell_plane_stress";
+                arguments.Add(PythonValueFormatter.Text(shellPlaneStress.FieldName));
+            }
+            else if (output is ResultFieldOutputCompositeFailure compositeFailure)
+            {
+                method = verb + "_composite_failure";
+                arguments.Add(PythonValueFormatter.Text(compositeFailure.FieldName));
+                arguments.Add(PythonValueFormatter.Text(compositeFailure.Criterion.ToString()));
+            }
             else throw new NotSupportedException("the result field output type " + output.GetType().Name +
                                                  " has no API form");
             //

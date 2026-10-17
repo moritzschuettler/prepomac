@@ -146,6 +146,7 @@ namespace CaeResults
         private string _fileName;
         private FeMesh _mesh;
         private OrderedDictionary<string, ResultFieldOutput> _resultFieldOutputs;
+        private ShellResultData _shellResultData;
         private OrderedDictionary<string, ResultHistoryOutput> _resultHistoryOutputs;
         [NonSerialized]
         private HistoryResults _history;
@@ -244,6 +245,8 @@ namespace CaeResults
                         _complexAngleDeg = (float)entry.Value; break;
                     case "_modelSpace":
                         _modelSpace = (string)entry.Value; break;
+                    case "_shellResultData":
+                        _shellResultData = (ShellResultData)entry.Value; break;
                 }
             }
             // Compatibility for version v2.6.0
@@ -306,6 +309,7 @@ namespace CaeResults
             info.AddValue("_complexResultType", _complexResultType, typeof(ComplexResultTypeEnum));
             info.AddValue("_complexAngleDeg", _complexAngleDeg, typeof(float));
             info.AddValue("_modelSpace", _modelSpace, typeof(string));
+            info.AddValue("_shellResultData", _shellResultData, typeof(ShellResultData));
         }
 
 
@@ -632,6 +636,13 @@ namespace CaeResults
                             DataTypeEnum dataType = GetFieldDataType(rfocst.FieldName);
                             valid &= dataType == DataTypeEnum.Vector || dataType == DataTypeEnum.Tensor;
                             valid &= DoesFieldContainsAllNecessaryComponents(rfocst.FieldName);
+                        }
+                        else if (resultFieldOutput is ResultFieldOutputMaterialAxes ||
+                                 resultFieldOutput is ResultFieldOutputShellPlaneStress ||
+                                 resultFieldOutput is ResultFieldOutputCompositeFailure)
+                        {
+                            valid &= HasShellResultData();
+                            valid &= IsShellSourceField(resultFieldOutput.GetParentNames()[0]);
                         }
                         else throw new NotSupportedException();
                     }
@@ -2079,6 +2090,33 @@ namespace CaeResults
                             unitAbbreviation = rfoeq.Unit;
                             break;
                         }
+                        // Composite failure
+                        else if (_resultFieldOutputs.TryGetValue(fieldDataName, out ResultFieldOutput rfo3) &&
+                                 rfo3 is ResultFieldOutputCompositeFailure)
+                        {
+                            unitAbbreviation = "/";
+                            break;
+                        }
+                        // Material axes and shell plane stress, whose angle is the only component of another unit
+                        else if (_resultFieldOutputs.TryGetValue(fieldDataName, out ResultFieldOutput rfo4) &&
+                                 (rfo4 is ResultFieldOutputMaterialAxes || rfo4 is ResultFieldOutputShellPlaneStress))
+                        {
+                            if (rfo4 is ResultFieldOutputShellPlaneStress &&
+                                componentName.ToUpper() == ResultFieldOutputShellPlaneStress.ComponentAngle)
+                            {
+                                unitConverter = new StringAngleDegConverter();
+                                unitAbbreviation = StringAngleDegConverter.GetUnitAbbreviation();
+                            }
+                            else
+                            {
+                                string sourceFieldName = rfo4.GetParentNames()[0];
+                                string[] sourceComponentNames = GetFieldComponentNames(sourceFieldName);
+                                GetFieldUnitConverterAndAbbreviation(sourceFieldName, sourceComponentNames.Length > 0 ?
+                                                                     sourceComponentNames[0] : componentName, stepId,
+                                                                     incrementId, out unitConverter, out unitAbbreviation);
+                            }
+                            break;
+                        }
                         // OpenFOAM
                         if (stepId == 1 && incrementId == 0) unitAbbreviation = "/";    // User field outputs at 0 increment
                         else if (componentName.ToUpper() == "ALL" || componentName.ToUpper().StartsWith("VAL")) { }
@@ -2736,6 +2774,17 @@ namespace CaeResults
             }
             return dataType;
         }
+        // A field of the outputs in material axes and of the failure criteria is a tensor in the global axes
+        public bool IsShellSourceField(string fieldName)
+        {
+            if (GetFieldDataType(fieldName) != DataTypeEnum.Tensor) return false;
+            if (!DoesFieldContainsAllNecessaryComponents(fieldName)) return false;
+            ResultFieldOutput resultFieldOutput;
+            if (_resultFieldOutputs.TryGetValue(fieldName, out resultFieldOutput) &&
+                (resultFieldOutput is ResultFieldOutputMaterialAxes ||
+                 resultFieldOutput is ResultFieldOutputShellPlaneStress)) return false;
+            return true;
+        }
         public bool DoesFieldContainsAllNecessaryComponents(string fieldName)
         {
             foreach (var entry in _fields)
@@ -3117,7 +3166,8 @@ namespace CaeResults
                 field.IsComponentInvariant(fieldData.Component)) return null;
             // Components expressed in a result coordinate system move with that system and remain unchanged.
             if (_resultFieldOutputs.ContainsKey(fieldData.Name) &&
-                _resultFieldOutputs[fieldData.Name] is ResultFieldOutputCoordinateSystemTransform) return null;
+                (_resultFieldOutputs[fieldData.Name] is ResultFieldOutputCoordinateSystemTransform ||
+                 _resultFieldOutputs[fieldData.Name] is ResultFieldOutputMaterialAxes)) return null;
             //
             string[] componentNames;
             ResultFieldTypeEnum resultFieldType;
@@ -3234,6 +3284,9 @@ namespace CaeResults
                 if (componentValues[i] == null) return false;
             }
             //
+            // Components in the material axes of each element have no common frame to plot in
+            if (_resultFieldOutputs.ContainsKey(fieldData.Name) &&
+                _resultFieldOutputs[fieldData.Name] is ResultFieldOutputMaterialAxes) return false;
             CoordinateSystem coordinateSystem = null;
             if (_resultFieldOutputs.ContainsKey(fieldData.Name) &&
                 _resultFieldOutputs[fieldData.Name] is ResultFieldOutputCoordinateSystemTransform transform)
@@ -3329,6 +3382,9 @@ namespace CaeResults
                 }
             }
             //
+            // Components in the material axes of each element have no common frame to plot in
+            if (_resultFieldOutputs.ContainsKey(fieldData.Name) &&
+                _resultFieldOutputs[fieldData.Name] is ResultFieldOutputMaterialAxes) return false;
             CoordinateSystem coordinateSystem = null;
             if (_resultFieldOutputs.ContainsKey(fieldData.Name) &&
                 _resultFieldOutputs[fieldData.Name] is ResultFieldOutputCoordinateSystemTransform transform)
@@ -3735,6 +3791,9 @@ namespace CaeResults
                         if (entry.Value is ResultFieldOutputLimit rfol) { }
                         else if (entry.Value is ResultFieldOutputEnvelope rfoe) { }
                         else if (entry.Value is ResultFieldOutputCoordinateSystemTransform rfocst) { }
+                        else if (entry.Value is ResultFieldOutputMaterialAxes) { }
+                        else if (entry.Value is ResultFieldOutputShellPlaneStress) { }
+                        else if (entry.Value is ResultFieldOutputCompositeFailure) { }
                         else if (entry.Value is ResultFieldOutputEquation rfoeq)
                         {
                             // Data
@@ -3818,6 +3877,28 @@ namespace CaeResults
                         newFieldName = rfoeq.Name;
                         newComponentNames = rfoeq.GetComponentNames();
                         unit = rfoeq.Unit;
+                    }
+                    else if (resultFieldOutput is ResultFieldOutputMaterialAxes rfoma)
+                    {
+                        rfoma.SetComponentNames(GetFieldComponentNames(rfoma.FieldName));
+                        //
+                        sourceFieldName = rfoma.FieldName;
+                        sourceComponentName = rfoma.GetComponentNames()[0];
+                        newFieldName = rfoma.Name;
+                        newComponentNames = rfoma.GetComponentNames();
+                        fieldData = GetFieldData(sourceFieldName, sourceComponentName, entry.Key, incrementId, true);
+                        unit = GetFieldUnitAbbreviation(fieldData);
+                    }
+                    else if (resultFieldOutput is ResultFieldOutputShellPlaneStress ||
+                             resultFieldOutput is ResultFieldOutputCompositeFailure)
+                    {
+                        sourceFieldName = resultFieldOutput.GetParentNames()[0];
+                        sourceComponentName = GetFieldComponentNames(sourceFieldName)[0];
+                        newFieldName = resultFieldOutput.Name;
+                        newComponentNames = resultFieldOutput.GetComponentNames();
+                        fieldData = GetFieldData(sourceFieldName, sourceComponentName, entry.Key, incrementId, true);
+                        // The components of the shell plane stress differ in unit, so it is looked up by component
+                        unit = resultFieldOutput is ResultFieldOutputCompositeFailure ? "/" : null;
                     }
                     else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
                     {
@@ -3973,6 +4054,9 @@ namespace CaeResults
                             sfField = GetField(sfFieldData, false);
                             if (sfField != null) sfField.DataState = DataStateEnum.UpdateResultFieldOutput;
                         }
+                        else if (resultFieldOutput is ResultFieldOutputMaterialAxes ||
+                                 resultFieldOutput is ResultFieldOutputShellPlaneStress ||
+                                 resultFieldOutput is ResultFieldOutputCompositeFailure) { }
                         else throw new NotSupportedException();
                     }
                 }
@@ -4030,6 +4114,31 @@ namespace CaeResults
                     componentNames = rfoeq.GetComponentNames();
                     values = ComputeFieldFromResultFieldOutputEquation(rfoeq, stepId, stepIncrementId);
                 }
+                else if (resultFieldOutput is ResultFieldOutputMaterialAxes rfoma)
+                {
+                    sourceFieldData = GetFieldData(rfoma.FieldName, rfoma.GetComponentNames()[0], stepId, stepIncrementId, true);
+                    sourceField = GetField(sourceFieldData);
+                    componentNames = rfoma.GetComponentNames();
+                    values = ComputeFieldInMaterialAxes(sourceField, true);
+                }
+                else if (resultFieldOutput is ResultFieldOutputShellPlaneStress rfosps)
+                {
+                    sourceFieldData = GetFieldData(rfosps.FieldName, GetFieldComponentNames(rfosps.FieldName)[0], stepId,
+                                                   stepIncrementId, true);
+                    sourceField = GetField(sourceFieldData);
+                    componentNames = rfosps.GetComponentNames();
+                    values = ComputeFieldFromResultFieldOutputShellPlaneStress(sourceField);
+                    sourceField = null;
+                }
+                else if (resultFieldOutput is ResultFieldOutputCompositeFailure rfocf)
+                {
+                    sourceFieldData = GetFieldData(rfocf.FieldName, GetFieldComponentNames(rfocf.FieldName)[0], stepId,
+                                                   stepIncrementId, true);
+                    sourceField = GetField(sourceFieldData);
+                    componentNames = rfocf.GetComponentNames();
+                    values = ComputeFieldFromResultFieldOutputCompositeFailure(rfocf, sourceField);
+                    sourceField = null;
+                }
                 else if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform rfocst)
                 {
                     sourceFieldData = GetFieldData(rfocst.FieldName, rfocst.GetComponentNames()[0], stepId, stepIncrementId, true);
@@ -4052,7 +4161,8 @@ namespace CaeResults
                 foreach (var componentName in componentNames)
                 {
                     invariant = false;
-                    if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform)
+                    if (resultFieldOutput is ResultFieldOutputCoordinateSystemTransform ||
+                        resultFieldOutput is ResultFieldOutputMaterialAxes)
                         invariant = sourceField.IsComponentInvariant(componentName);
                     //
                     newFieldData = GetFieldData(resultFieldOutput.Name, componentName, stepId, stepIncrementId);
@@ -4470,6 +4580,199 @@ namespace CaeResults
             {
                 MyNCalc.ExistingParameters = existingParameters;
             }
+        }
+        // Shells
+        public ShellResultData ShellResultData { get { return _shellResultData; } set { SetShellResultData(value); } }
+        public bool HasShellResultData()
+        {
+            return _shellResultData != null && _shellResultData.Elements.Count > 0;
+        }
+        private void SetShellResultData(ShellResultData shellResultData)
+        {
+            _shellResultData = shellResultData;
+            //
+            // The outputs that use the shell data, and the ones that use them, are computed again when shown
+            Field field;
+            HashSet<string> names = new HashSet<string>();
+            foreach (var entry in _resultFieldOutputs)
+            {
+                if (entry.Value is ResultFieldOutputMaterialAxes || entry.Value is ResultFieldOutputShellPlaneStress ||
+                    entry.Value is ResultFieldOutputCompositeFailure)
+                {
+                    names.Add(entry.Key);
+                    foreach (var dependent in GetAllDependentResultFieldOutputs(entry.Key)) names.Add(dependent.Name);
+                }
+            }
+            Dictionary<int, int[]> stepIdIncrementIds = GetAllExistingIncrementIds();
+            foreach (string name in names)
+            {
+                string[] componentNames = _resultFieldOutputs[name].GetComponentNames();
+                if (componentNames == null) continue;
+                foreach (var entry in stepIdIncrementIds)
+                {
+                    foreach (var incrementId in entry.Value)
+                    {
+                        foreach (var componentName in componentNames)
+                        {
+                            field = GetField(new FieldData(name, componentName, entry.Key, incrementId), false);
+                            if (field != null) field.DataState = DataStateEnum.UpdateResultFieldOutput;
+                        }
+                    }
+                }
+            }
+        }
+        // Turns the six tensor components into the material axes of the shell elements at every node of a shell; a node
+        // that is not on a shell gets NaN
+        private float[][] ComputeFieldInMaterialAxes(Field sourceField, bool addInvariants)
+        {
+            if (sourceField == null || !HasShellResultData()) return null;
+            //
+            Field resultField = new Field(sourceField);
+            resultField.RemoveInvariants();
+            string[] componentNames = resultField.GetComponentNames();
+            if (componentNames.Length != 6) return null;
+            //
+            float[][] sourceValues = new float[6][];
+            float[][] values = new float[6][];
+            for (int i = 0; i < 6; i++)
+            {
+                sourceValues[i] = resultField.GetComponentValues(componentNames[i]);
+                values[i] = new float[sourceValues[i].Length];
+                for (int j = 0; j < values[i].Length; j++) values[i][j] = float.NaN;
+            }
+            for (int i = 0; i < 6; i++) resultField.RemoveComponent(componentNames[i]);
+            //
+            // A node takes the mean of the tensor rotated into the axes of each of its elements, since the axes of
+            // neighbouring elements may point the other way
+            int resultNodeId;
+            double[][] tensor = Matrix.MatrixCreate(3, 3);
+            double[][] rotation = Matrix.MatrixCreate(3, 3);
+            double[][] rotated;
+            double[] sum = new double[6];
+            foreach (var entry in _shellResultData.GetNodeElements(_mesh))
+            {
+                if (!TryGetResultNodeId(entry.Key, out resultNodeId)) continue;
+                //
+                tensor[0][0] = sourceValues[0][resultNodeId];
+                tensor[1][1] = sourceValues[1][resultNodeId];
+                tensor[2][2] = sourceValues[2][resultNodeId];
+                tensor[0][1] = tensor[1][0] = sourceValues[3][resultNodeId];
+                tensor[1][2] = tensor[2][1] = sourceValues[4][resultNodeId];
+                tensor[2][0] = tensor[0][2] = sourceValues[5][resultNodeId];
+                for (int i = 0; i < 6; i++) sum[i] = 0;
+                foreach (ShellResultElement data in entry.Value)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        rotation[0][i] = data.Axis1[i];
+                        rotation[1][i] = data.Axis2[i];
+                        rotation[2][i] = data.Normal[i];
+                    }
+                    rotated = Matrix.MatrixProduct(Matrix.MatrixProduct(rotation, tensor), Matrix.MatrixTranspose(rotation));
+                    sum[0] += rotated[0][0];
+                    sum[1] += rotated[1][1];
+                    sum[2] += rotated[2][2];
+                    sum[3] += rotated[0][1];
+                    sum[4] += rotated[1][2];
+                    sum[5] += rotated[2][0];
+                }
+                for (int i = 0; i < 6; i++) values[i][resultNodeId] = (float)(sum[i] / entry.Value.Length);
+            }
+            if (!addInvariants) return values;
+            //
+            for (int i = 0; i < 6; i++) resultField.AddComponent(componentNames[i], values[i]);
+            resultField.ComputeInvariants();
+            componentNames = resultField.GetComponentNames();
+            float[][] allValues = new float[componentNames.Length][];
+            for (int i = 0; i < componentNames.Length; i++) allValues[i] = resultField.GetComponentValues(componentNames[i]);
+            return allValues;
+        }
+        // Plane stress in the material axes: the components through the thickness are neglected. The angle of the
+        // maximum principal direction from axis 1 lies in (-90, 90]; a ply whose shear is negligible is in its principal
+        // axes and gets exactly 0 or 90, and a node without in-plane stress has no principal direction
+        private float[][] ComputeFieldFromResultFieldOutputShellPlaneStress(Field sourceField)
+        {
+            float[][] axes = ComputeFieldInMaterialAxes(sourceField, false);
+            if (axes == null) return null;
+            //
+            double shearTolerance = 1E-3;
+            double radiusTolerance = 1E-6;
+            int count = axes[0].Length;
+            float[][] values = new float[7][];
+            for (int i = 0; i < 7; i++) values[i] = new float[count];
+            double s11;
+            double s22;
+            double s12;
+            double center;
+            double halfDifference;
+            double radius;
+            double maxRadius = 0;
+            for (int i = 0; i < count; i++)
+            {
+                s11 = axes[0][i];
+                s22 = axes[1][i];
+                s12 = axes[3][i];
+                center = (s11 + s22) / 2;
+                radius = Math.Sqrt((s11 - s22) * (s11 - s22) / 4 + s12 * s12);
+                values[0][i] = (float)s11;
+                values[1][i] = (float)s22;
+                values[2][i] = (float)s12;
+                values[3][i] = (float)(center + radius);
+                values[4][i] = (float)(center - radius);
+                values[5][i] = (float)radius;
+                if (radius > maxRadius) maxRadius = radius;
+            }
+            for (int i = 0; i < count; i++)
+            {
+                s11 = axes[0][i];
+                s22 = axes[1][i];
+                s12 = axes[3][i];
+                halfDifference = (s11 - s22) / 2;
+                radius = values[5][i];
+                if (double.IsNaN(radius) || radius <= radiusTolerance * maxRadius) values[6][i] = float.NaN;
+                else if (Math.Abs(s12) <= shearTolerance * Math.Abs(halfDifference)) values[6][i] = s11 >= s22 ? 0 : 90;
+                else
+                {
+                    values[6][i] = (float)(0.5 * Math.Atan2(2 * s12, s11 - s22) * 180 / Math.PI);
+                    if (values[6][i] <= -90) values[6][i] += 180;
+                }
+            }
+            return values;
+        }
+        // The criterion at the nodes of the plies whose material has ply strengths; any other node gets NaN
+        private float[][] ComputeFieldFromResultFieldOutputCompositeFailure(ResultFieldOutputCompositeFailure resultFieldOutput,
+                                                                             Field sourceField)
+        {
+            float[][] axes = ComputeFieldInMaterialAxes(sourceField, false);
+            if (axes == null) return null;
+            //
+            int count = axes[0].Length;
+            float[][] values = new float[3][];
+            for (int i = 0; i < 3; i++)
+            {
+                values[i] = new float[count];
+                for (int j = 0; j < count; j++) values[i][j] = float.NaN;
+            }
+            int resultNodeId;
+            int mode;
+            double failureIndex;
+            double reserveFactor;
+            PlyStrength strength;
+            string materialName;
+            foreach (var entry in _shellResultData.GetNodeElements(_mesh))
+            {
+                if (!TryGetResultNodeId(entry.Key, out resultNodeId)) continue;
+                materialName = entry.Value[0].MaterialName;
+                if (materialName == null || !_shellResultData.PlyStrengths.TryGetValue(materialName, out strength)) continue;
+                //
+                CompositeFailureCalculator.Evaluate(resultFieldOutput.Criterion, axes[0][resultNodeId],
+                                                    axes[1][resultNodeId], axes[3][resultNodeId], strength,
+                                                    out failureIndex, out reserveFactor, out mode);
+                values[0][resultNodeId] = (float)failureIndex;
+                values[1][resultNodeId] = (float)reserveFactor;
+                values[2][resultNodeId] = mode;
+            }
+            return values;
         }
         private float[][] ComputeFieldFromResultFieldOutputCoordinateSystemTransform(
             ResultFieldOutputCoordinateSystemTransform resultFieldOutput, Field sourceField)

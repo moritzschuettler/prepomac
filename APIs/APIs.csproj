@@ -263,6 +263,12 @@
     <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputLimitDraftAPI.cs" />
     <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputsAPI.cs" />
     <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputService.cs" />
+    <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputMaterialAxesAPI.cs" />
+    <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputMaterialAxesDraftAPI.cs" />
+    <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputShellPlaneStressAPI.cs" />
+    <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputShellPlaneStressDraftAPI.cs" />
+    <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputCompositeFailureAPI.cs" />
+    <Compile Include="Python\Results\ResultFieldOutputs\ResultFieldOutputCompositeFailureDraftAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputComponentAPI.cs" />
     <Compile Include="Python\Results\ResultHistoryOutputs\ResultHistoryOutputComponentDataAPI.cs" />

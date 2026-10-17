@@ -1699,6 +1699,8 @@ namespace PrePoMax
                                                 "have their nodes; its element sets were.");
                 }
                 //
+                SetShellResultData(_allResults.CurrentResult);
+                //
                 WriteResultPartMappingToOutput(mappedPartNames, nodeCoordinatesChanged);
                 //
                 bool fromFileOpenMenu = parameters != null && parameters.Contains(Globals.FromFileOpenMenu);
@@ -1746,6 +1748,236 @@ namespace PrePoMax
             _form.SelectOneNameInSymbolsNames(_drawSymbolName);
             // Regenerate tree
             _form.RegenerateTree();
+        }
+        // The material axes of every result element of a shell, and of every layer of a composite shell, which the
+        // results need for the outputs in material axes and for the composite failure criteria
+        private void SetShellResultData(FeResults results)
+        {
+            string message;
+            results.ShellResultData = GetShellResultData(results.Mesh, out message);
+            if (message != null) _form.WriteDataToOutput(message);
+        }
+        private ShellResultData GetShellResultData(FeMesh resultMesh, out string message)
+        {
+            message = null;
+            Dictionary<int, int> elementIdSectionId;
+            List<Section> sections;
+            _model.GetSectionAssignments(out elementIdSectionId, out sections);
+            Dictionary<int, MaterialOrientation> elementOrientations = _model.GetElementMaterialOrientations();
+            //
+            ShellResultData data = new ShellResultData();
+            foreach (var entry in _model.Materials)
+            {
+                CompositeStrength strength = entry.Value.GetProperty<CompositeStrength>() as CompositeStrength;
+                if (strength == null) continue;
+                //
+                try
+                {
+                    data.PlyStrengths[entry.Key] = new PlyStrength(strength.TensileStrength1.Value,
+                                                                   strength.CompressiveStrength1.Value,
+                                                                   strength.TensileStrength2.Value,
+                                                                   strength.CompressiveStrength2.Value,
+                                                                   strength.ShearStrength12.Value,
+                                                                   strength.ShearStrength23.Value,
+                                                                   strength.TsaiWuCoefficient.Value);
+                }
+                catch { }
+            }
+            //
+            int numOfCompositeLayers = 0;
+            FeElement shellElement;
+            Section section;
+            List<int> compositeShellElementIds = new List<int>();
+            foreach (var entry in elementIdSectionId.OrderBy(pair => pair.Key))
+            {
+                if (entry.Value < 0) continue;
+                section = sections[entry.Value];
+                if (!(section is ShellSection) || !_model.Mesh.Elements.TryGetValue(entry.Key, out shellElement) ||
+                    !MaterialOrientationCalculator.IsShellElement(shellElement)) continue;
+                //
+                if (section is CompositeShellSection css)
+                {
+                    compositeShellElementIds.Add(entry.Key);
+                    numOfCompositeLayers += css.GetSolverLayers().Count;
+                }
+                // An expanded shell keeps the number of its shell element
+                else if (resultMesh.Elements.ContainsKey(entry.Key))
+                    AddShellResultElement(data, entry.Key, entry.Key, section, 0, section.MaterialName, 0,
+                                          elementOrientations);
+            }
+            if (compositeShellElementIds.Count == 0) return data;
+            // CalculiX numbers the layers of the composite shells after all elements of the solver input, in the order
+            // of the shell elements and from layer 1 up
+            List<int> newIds = resultMesh.Elements.Keys.Where(id => !_model.Mesh.Elements.ContainsKey(id)).ToList();
+            newIds.Sort();
+            if (newIds.Count < numOfCompositeLayers ||
+                newIds[newIds.Count - 1] - newIds[newIds.Count - numOfCompositeLayers] != numOfCompositeLayers - 1)
+            {
+                message = "Composite shell results: the result elements of the layers were not found, so the outputs " +
+                          "in material axes and the composite failure criteria cannot be computed.";
+                return data;
+            }
+            int resultElementId = newIds[newIds.Count - numOfCompositeLayers];
+            List<CompositeLayer> layers;
+            Dictionary<string, List<int>> layerElementIds = new Dictionary<string, List<int>>();
+            string layerSetName;
+            foreach (int shellElementId in compositeShellElementIds)
+            {
+                CompositeShellSection css = (CompositeShellSection)sections[elementIdSectionId[shellElementId]];
+                layers = css.GetSolverLayers();
+                for (int i = 0; i < layers.Count; i++)
+                {
+                    if (!IsLayerOfShellElement(resultMesh, resultElementId, shellElementId, css))
+                    {
+                        message = "Composite shell results: the result element " + resultElementId + " does not lie " +
+                                  "on the shell element " + shellElementId + ", so the layers cannot be mapped.";
+                        foreach (var id in data.Elements.Keys.Where(id => data.Elements[id].LayerNumber > 0).ToArray())
+                            data.Elements.Remove(id);
+                        return data;
+                    }
+                    AddShellResultElement(data, resultElementId, shellElementId, css, i + 1, layers[i].MaterialName,
+                                          layers[i].Angle.Value, elementOrientations);
+                    layerSetName = css.Name + "_LAYER-" + (i + 1);
+                    if (!layerElementIds.ContainsKey(layerSetName)) layerElementIds.Add(layerSetName, new List<int>());
+                    layerElementIds[layerSetName].Add(resultElementId);
+                    resultElementId++;
+                }
+            }
+            // An element set per layer shows a layer on its own
+            foreach (var entry in layerElementIds)
+            {
+                string name = resultMesh.ElementSets.GetNextNumberedKey(entry.Key);
+                if (!resultMesh.ElementSets.ContainsKey(entry.Key)) name = entry.Key;
+                resultMesh.AddElementSet(new FeElementSet(name, entry.Value.ToArray()));
+            }
+            GroupCompositeLayerResultParts(resultMesh, data);
+            return data;
+        }
+        // The layers of a composite shell have their own nodes, so each one is a result part of its own. A result part
+        // that is one layer of one model part is named after the model part and the layer, and the layers of a model
+        // part are gathered in a tree group named after it
+        private void GroupCompositeLayerResultParts(FeMesh resultMesh, ShellResultData data)
+        {
+            Dictionary<int, string> modelPartNames = new Dictionary<int, string>();
+            Dictionary<string, List<Tuple<string, string, int>>> modelPartLayerParts =
+                new Dictionary<string, List<Tuple<string, string, int>>>();
+            ShellResultElement layer;
+            string modelPartName;
+            string layerKey;
+            string partLayerKey;
+            BasePart modelPart;
+            FeElement shellElement;
+            foreach (BasePart part in resultMesh.Parts.Values.ToArray())
+            {
+                if (!(part is ResultPart) || part.Labels == null || part.Labels.Length == 0) continue;
+                //
+                partLayerKey = null;
+                modelPartName = null;
+                layer = null;
+                foreach (int elementId in part.Labels)
+                {
+                    if (!data.Elements.TryGetValue(elementId, out layer) || layer.LayerNumber <= 0)
+                    {
+                        partLayerKey = null;
+                        break;
+                    }
+                    if (!modelPartNames.TryGetValue(layer.ShellElementId, out modelPartName))
+                    {
+                        modelPartName = null;
+                        if (_model.Mesh.Elements.TryGetValue(layer.ShellElementId, out shellElement))
+                        {
+                            modelPart = _model.Mesh.GetPartFromId(shellElement.PartId);
+                            if (modelPart != null) modelPartName = modelPart.Name;
+                        }
+                        modelPartNames.Add(layer.ShellElementId, modelPartName);
+                    }
+                    if (modelPartName == null)
+                    {
+                        partLayerKey = null;
+                        break;
+                    }
+                    layerKey = modelPartName + "|" + layer.SectionName + "|" + layer.LayerNumber;
+                    if (partLayerKey == null) partLayerKey = layerKey;
+                    else if (partLayerKey != layerKey)
+                    {
+                        partLayerKey = null;
+                        break;
+                    }
+                }
+                if (partLayerKey == null) continue;
+                //
+                if (!modelPartLayerParts.ContainsKey(modelPartName))
+                    modelPartLayerParts.Add(modelPartName, new List<Tuple<string, string, int>>());
+                modelPartLayerParts[modelPartName].Add(new Tuple<string, string, int>(part.Name, layer.SectionName,
+                                                                                      layer.LayerNumber));
+            }
+            //
+            foreach (var entry in modelPartLayerParts)
+            {
+                bool oneSection = entry.Value.Select(layerPart => layerPart.Item2).Distinct().Count() == 1;
+                List<string> layerPartNames = new List<string>();
+                foreach (var layerPart in entry.Value.OrderBy(layerPart => layerPart.Item2).ThenBy(layerPart => layerPart.Item3))
+                {
+                    string name = entry.Key + (oneSection ? "" : "_" + layerPart.Item2) + "_Layer-" + layerPart.Item3;
+                    if (!resultMesh.Parts.Comparer.Equals(name, layerPart.Item1))
+                    {
+                        if (resultMesh.Parts.ContainsKey(name)) name = resultMesh.Parts.GetNextNumberedKey(name);
+                        BasePart part = resultMesh.Parts[layerPart.Item1];
+                        part.Name = name;
+                        resultMesh.Parts.Replace(layerPart.Item1, name, part);
+                    }
+                    layerPartNames.Add(name);
+                }
+                // The group takes the place of the first layer, and the name of its model part when no result part has it
+                string groupName = resultMesh.Parts.ContainsKey(entry.Key) ? entry.Key + "_Layers" : entry.Key;
+                OrderedDictionaryItemLayout<string> layout = resultMesh.Parts.GetItemLayoutSnapshot();
+                int index = 0;
+                HashSet<string> names = new HashSet<string>(layerPartNames, resultMesh.Parts.Comparer);
+                for (int i = 0; i < layout.Nodes.Count; i++)
+                {
+                    if (layout.Nodes[i].IsItem && names.Contains(layout.Nodes[i].Key))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                Guid groupId = resultMesh.Parts.CreateGroup(groupName, null, index);
+                MoveOrderedDictionaryItemsToGroup(resultMesh.Parts, layerPartNames, groupId);
+            }
+        }
+        private void AddShellResultElement(ShellResultData data, int resultElementId, int shellElementId, Section section,
+                                           int layerNumber, string materialName, double layerAngle,
+                                           Dictionary<int, MaterialOrientation> elementOrientations)
+        {
+            MaterialOrientation orientation;
+            if (!elementOrientations.TryGetValue(shellElementId, out orientation))
+                orientation = new MaterialOrientation(section.Name, null, RegionTypeEnum.None);
+            if (orientation.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName &&
+                !_model.Mesh.CoordinateSystems.ContainsKey(orientation.CoordinateSystemName)) return;
+            //
+            bool fallbackUsed;
+            double[][] axes = orientation.GetElementAxes(_model.Mesh, _model.Mesh.Elements[shellElementId], layerAngle,
+                                                         out fallbackUsed);
+            if (axes == null) return;
+            data.Elements[resultElementId] = new ShellResultElement(shellElementId, section.Name, layerNumber, materialName,
+                                                                    axes[0], axes[1], axes[2]);
+        }
+        // A layer lies within the size of its shell element and the thickness of the section from the shell element
+        private bool IsLayerOfShellElement(FeMesh resultMesh, int resultElementId, int shellElementId,
+                                           CompositeShellSection section)
+        {
+            FeElement resultElement;
+            if (!resultMesh.Elements.TryGetValue(resultElementId, out resultElement)) return false;
+            //
+            double shellSize;
+            double resultSize;
+            double[] shellCenter = _model.Mesh.Elements[shellElementId].GetCG(_model.Mesh.Nodes, out shellSize);
+            double[] resultCenter = resultElement.GetCG(resultMesh.Nodes, out resultSize);
+            double distance = Math.Sqrt(Math.Pow(shellCenter[0] - resultCenter[0], 2) +
+                                        Math.Pow(shellCenter[1] - resultCenter[1], 2) +
+                                        Math.Pow(shellCenter[2] - resultCenter[2], 2));
+            double thickness = section.GetTotalThickness() * (1 + 2 * Math.Abs(section.Offset.Value));
+            return distance <= shellSize + thickness;
         }
         private void WriteResultPartMappingToOutput(string[] mappedPartNames, bool nodeCoordinatesChanged)
         {

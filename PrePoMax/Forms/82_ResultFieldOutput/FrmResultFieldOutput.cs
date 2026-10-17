@@ -51,6 +51,12 @@ namespace PrePoMax.Forms
                     _viewResultFieldOutput = new ViewResultFieldOutputEquation(rfoeq);
                 else if (clone is ResultFieldOutputCoordinateSystemTransform rfocst)
                     _viewResultFieldOutput = new ViewResultFieldOutputCoordinateSystemTransform(rfocst);
+                else if (clone is ResultFieldOutputMaterialAxes rfoma)
+                    _viewResultFieldOutput = new ViewResultFieldOutputMaterialAxes(rfoma);
+                else if (clone is ResultFieldOutputShellPlaneStress rfosps)
+                    _viewResultFieldOutput = new ViewResultFieldOutputShellPlaneStress(rfosps);
+                else if (clone is ResultFieldOutputCompositeFailure rfocf)
+                    _viewResultFieldOutput = new ViewResultFieldOutputCompositeFailure(rfocf);
                 else throw new NotImplementedException();
             }
         }
@@ -200,6 +206,14 @@ namespace PrePoMax.Forms
                 else if (!_controller.CurrentResult.DoesFieldContainsAllNecessaryComponents(rfocst.FieldName))
                     throw new CaeException("The field output does not contain all necessary componets.");
             }
+            // Check shell outputs
+            string shellFieldName = null;
+            if (ResultFieldOutput is ResultFieldOutputMaterialAxes rfoma) shellFieldName = rfoma.FieldName;
+            else if (ResultFieldOutput is ResultFieldOutputShellPlaneStress rfosps) shellFieldName = rfosps.FieldName;
+            else if (ResultFieldOutput is ResultFieldOutputCompositeFailure rfocf) shellFieldName = rfocf.FieldName;
+            if (shellFieldName != null && !GetShellSourceFieldNames().Contains(shellFieldName))
+                throw new CaeException("Only a tensor field output in global axes with all necessary components " +
+                                       "can be used.");
             // Create
             if (_resultFieldOutputToEditName == null)
             {
@@ -296,6 +310,33 @@ namespace PrePoMax.Forms
                     //
                     vrfcst.PopulateDropDownLists(filedNameComponentNames, coordinateSystemNames);
                 }
+                else if (_viewResultFieldOutput is ViewResultFieldOutputMaterialAxes vrfoma)
+                {
+                    selectedId = 4;
+                    // Check
+                    string[] fieldNames = GetShellSourceFieldNames();
+                    CheckMissingValueRef(ref fieldNames, vrfoma.FieldName, s => { vrfoma.FieldName = s; });
+                    //
+                    vrfoma.PopulateDropDownLists(fieldNames);
+                }
+                else if (_viewResultFieldOutput is ViewResultFieldOutputShellPlaneStress vrfosps)
+                {
+                    selectedId = 5;
+                    // Check
+                    string[] fieldNames = GetShellSourceFieldNames();
+                    CheckMissingValueRef(ref fieldNames, vrfosps.FieldName, s => { vrfosps.FieldName = s; });
+                    //
+                    vrfosps.PopulateDropDownLists(fieldNames);
+                }
+                else if (_viewResultFieldOutput is ViewResultFieldOutputCompositeFailure vrfocf)
+                {
+                    selectedId = 6;
+                    // Check
+                    string[] fieldNames = GetShellSourceFieldNames();
+                    CheckMissingValueRef(ref fieldNames, vrfocf.FieldName, s => { vrfocf.FieldName = s; });
+                    //
+                    vrfocf.PopulateDropDownLists(fieldNames);
+                }
                 else throw new NotSupportedException();
                 //
                 lvTypes.Items[selectedId].Tag = _viewResultFieldOutput;
@@ -388,6 +429,55 @@ namespace PrePoMax.Forms
             }
             else item.Tag = new ViewError("There are not field outputs or components for the creation of the field output.");
             lvTypes.Items.Add(item);
+            // Shell outputs
+            string[] shellFieldNames = GetShellSourceFieldNames();
+            string shellFieldName = shellFieldNames.Contains(FOFieldNames.Stress) ? FOFieldNames.Stress :
+                                    shellFieldNames.FirstOrDefault();
+            ViewError shellError = null;
+            if (!_controller.CurrentResult.HasShellResultData())
+                shellError = new ViewError("The results contain no shell elements with known material axes.");
+            else if (shellFieldName == null)
+                shellError = new ViewError("There is no tensor field output for the creation of the field output.");
+            // Material axes
+            item = new ListViewItem("Material Axes");
+            if (shellError == null)
+            {
+                ViewResultFieldOutputMaterialAxes vrfoma = new ViewResultFieldOutputMaterialAxes(
+                    new ResultFieldOutputMaterialAxes(GetResultFieldOutputName("Material_Axes"), shellFieldName));
+                vrfoma.PopulateDropDownLists(shellFieldNames);
+                item.Tag = vrfoma;
+            }
+            else item.Tag = shellError;
+            lvTypes.Items.Add(item);
+            // Shell plane stress
+            item = new ListViewItem("Shell Plane Stress");
+            if (shellError == null)
+            {
+                ViewResultFieldOutputShellPlaneStress vrfosps = new ViewResultFieldOutputShellPlaneStress(
+                    new ResultFieldOutputShellPlaneStress(GetResultFieldOutputName("Plane_Stress"), shellFieldName));
+                vrfosps.PopulateDropDownLists(shellFieldNames);
+                item.Tag = vrfosps;
+            }
+            else item.Tag = shellError;
+            lvTypes.Items.Add(item);
+            // Composite failure
+            item = new ListViewItem("Composite Failure");
+            if (shellError == null)
+            {
+                ViewResultFieldOutputCompositeFailure vrfocf = new ViewResultFieldOutputCompositeFailure(
+                    new ResultFieldOutputCompositeFailure(GetResultFieldOutputName("Failure"), shellFieldName,
+                                                          CompositeFailureCriterionEnum.TsaiWu));
+                vrfocf.PopulateDropDownLists(shellFieldNames);
+                item.Tag = vrfocf;
+            }
+            else item.Tag = shellError;
+            lvTypes.Items.Add(item);
+        }
+        private string[] GetShellSourceFieldNames()
+        {
+            FeResults results = _controller.CurrentResult;
+            return results.GetAllVisibleFiledNameComponentNames().Keys.Where(name => name != _resultFieldOutputToEditName &&
+                                                                              results.IsShellSourceField(name)).ToArray();
         }
         private string GetResultFieldOutputName(string name)
         {
@@ -465,6 +555,17 @@ namespace PrePoMax.Forms
                 tcProperties.TabPages.Add(_pages[0]);   // properites
                 //
                 _viewResultFieldOutput = vrfocst;
+            }
+            else if (item is ViewResultFieldOutput vrfo)
+            {
+                // Clear
+                dgvData.DataSource = null;
+                dgvData.Columns.Clear();
+                tcProperties.TabPages.Clear();
+                //
+                tcProperties.TabPages.Add(_pages[0]);   // properites
+                //
+                _viewResultFieldOutput = vrfo;
             }
             else throw new NotImplementedException();
         }

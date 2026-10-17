@@ -232,6 +232,8 @@ namespace APIs.Python
             types.Add("hardening", typeof(PlasticHardening));
             // Material orientations
             types.Add("reference_axis", typeof(MaterialOrientationAxisEnum));
+            // Composite failure
+            types.Add("criterion", typeof(CompositeFailureCriterionEnum));
             // Steps, loads and interactions
             types.Add("incrementation_type", typeof(IncrementationTypeEnum));
             types.Add("solver_type", typeof(SolverTypeEnum));
