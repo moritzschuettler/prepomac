@@ -758,14 +758,29 @@ namespace PrePoMax.Forms
             }
             //
             double hatchPhase = 0;
+            double[] risingPhases = Enumerable.Repeat(double.NaN, bars.Length).ToArray();
+            double[] fallingPhases = Enumerable.Repeat(double.NaN, bars.Length).ToArray();
             graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
             for (int i = 0; i < bars.Length; i++)
             {
                 if (bars[i].Height <= 0) continue;
                 //
+                if (i < numOfRows)
+                {
+                    if (i % 3 != 1) risingPhases[i] = hatchPhase;
+                    if (i % 3 != 0) fallingPhases[i] = hatchPhase;
+                }
+                // A mirrored layer is the mirror image of the layer it mirrors: its lines turn the other way and meet
+                // its top where those meet their bottom
+                else
+                {
+                    int mirroredLayer = GetLayupRow(i, bars.Length, numOfRows);
+                    risingPhases[i] = fallingPhases[mirroredLayer] - bars[i].Height;
+                    fallingPhases[i] = risingPhases[mirroredLayer] + bars[i].Height;
+                }
                 using (SolidBrush brush = new SolidBrush(Color.FromArgb(245, 245, 245)))
                     graphics.FillRectangle(brush, bars[i]);
-                hatchPhase = DrawLayerHatch(graphics, bars[i], i % 3, hatchPhase);
+                hatchPhase = DrawLayerHatch(graphics, bars[i], risingPhases[i], fallingPhases[i]);
                 using (Pen pen = new Pen(Color.Black)) graphics.DrawRectangle(pen, bars[i]);
             }
             // The selected layer is outlined over the borders of its neighbours
@@ -830,17 +845,17 @@ namespace PrePoMax.Forms
             }
             return -1;
         }
-        // Lines at 45 degrees rising to the right, at -45 degrees, or both, which cross the bottom of the bar at the
-        // bottom phase from its left side; returns the phase farthest from where they cross its top, at which the layer
-        // above starts so that no line runs on into it
-        private double DrawLayerHatch(Graphics graphics, Rectangle bar, int pattern, double bottomPhase)
+        // Lines at 45 degrees rising to the right that cross the bottom of the bar at the rising phase from its left side,
+        // and lines at -45 degrees that cross it at the falling phase, either left out by NaN; returns the phase farthest
+        // from where they cross its top, at which the layer above starts so that no line runs on into it
+        private double DrawLayerHatch(Graphics graphics, Rectangle bar, double risingPhase, double fallingPhase)
         {
             double spacing = _layupHatchSpacing;
             double height = bar.Height;
-            bool rising = pattern != 1;
-            bool falling = pattern != 0;
-            double risingTopPhase = ((bottomPhase + height) % spacing + spacing) % spacing;
-            double fallingTopPhase = ((bottomPhase - height) % spacing + spacing) % spacing;
+            bool rising = !double.IsNaN(risingPhase);
+            bool falling = !double.IsNaN(fallingPhase);
+            double risingTopPhase = rising ? ((risingPhase + height) % spacing + spacing) % spacing : 0;
+            double fallingTopPhase = falling ? ((fallingPhase - height) % spacing + spacing) % spacing : 0;
             double nextPhase;
             if (rising && falling)
             {
@@ -848,20 +863,27 @@ namespace PrePoMax.Forms
                 if (gap >= spacing - gap) nextPhase = risingTopPhase + gap / 2;
                 else nextPhase = fallingTopPhase + (spacing - gap) / 2;
             }
-            else nextPhase = (rising ? risingTopPhase : fallingTopPhase) + spacing / 2;
+            else if (rising) nextPhase = risingTopPhase + spacing / 2;
+            else if (falling) nextPhase = fallingTopPhase + spacing / 2;
+            else nextPhase = 0;
             if (bar.Width < 2 || bar.Height < 2) return nextPhase;
             //
-            double start = bar.Left + bottomPhase - (Math.Ceiling((height + spacing) / spacing) + 1) * spacing;
+            int numOfBackSteps = (int)Math.Ceiling((height + spacing) / spacing) + 1;
             double end = bar.Right + height + spacing;
             System.Drawing.Drawing2D.GraphicsState state = graphics.Save();
             graphics.SetClip(bar);
             graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using (Pen pen = new Pen(Color.Black, 1))
             {
-                for (double x = start; x <= end; x += spacing)
+                if (rising)
                 {
-                    if (rising) graphics.DrawLine(pen, (float)x, bar.Bottom, (float)(x + height), bar.Top);
-                    if (falling) graphics.DrawLine(pen, (float)x, bar.Bottom, (float)(x - height), bar.Top);
+                    for (double x = bar.Left + risingPhase % spacing - numOfBackSteps * spacing; x <= end; x += spacing)
+                        graphics.DrawLine(pen, (float)x, bar.Bottom, (float)(x + height), bar.Top);
+                }
+                if (falling)
+                {
+                    for (double x = bar.Left + fallingPhase % spacing - numOfBackSteps * spacing; x <= end; x += spacing)
+                        graphics.DrawLine(pen, (float)x, bar.Bottom, (float)(x - height), bar.Top);
                 }
             }
             graphics.Restore(state);
