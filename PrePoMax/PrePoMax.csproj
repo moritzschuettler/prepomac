@@ -371,7 +371,7 @@
     <Compile Include="Commands\0050_Model\CSetNewModelProperties.cs" />
     <Compile Include="Commands\0061_Material\CDuplicateMaterials.cs" />
     <Compile Include="Commands\0061_Material\CDuplicateMaterial.cs" />
-    <Compile Include="Commands\0062_Section\CDuplicateSections.cs" />
+    <Compile Include="Commands\0063_Section\CDuplicateSections.cs" />
     <Compile Include="Commands\0071_Constraint\CDuplicateConstraints.cs" />
     <Compile Include="Commands\0071_Constraint\CMergeByMasterSlaveConstraints.cs" />
     <Compile Include="Commands\0071_Constraint\CSwapMasterSlaveConstraints.cs" />
@@ -382,12 +382,12 @@
     <Compile Include="Commands\0061_Material\CAddMaterial.cs" />
     <Compile Include="Commands\0061_Material\CRemoveMaterials.cs" />
     <Compile Include="Commands\0061_Material\CReplaceMaterial.cs" />
-    <Compile Include="Commands\0062_Section\CAddSection.cs" />
-    <Compile Include="Commands\0062_Section\CRemoveSections.cs" />
-    <Compile Include="Commands\0063_MaterialOrientation\CAddMaterialOrientation.cs" />
-    <Compile Include="Commands\0063_MaterialOrientation\CDuplicateMaterialOrientations.cs" />
-    <Compile Include="Commands\0063_MaterialOrientation\CRemoveMaterialOrientations.cs" />
-    <Compile Include="Commands\0063_MaterialOrientation\CReplaceMaterialOrientation.cs" />
+    <Compile Include="Commands\0063_Section\CAddSection.cs" />
+    <Compile Include="Commands\0063_Section\CRemoveSections.cs" />
+    <Compile Include="Commands\0062_MaterialOrientation\CAddMaterialOrientation.cs" />
+    <Compile Include="Commands\0062_MaterialOrientation\CDuplicateMaterialOrientations.cs" />
+    <Compile Include="Commands\0062_MaterialOrientation\CRemoveMaterialOrientations.cs" />
+    <Compile Include="Commands\0062_MaterialOrientation\CReplaceMaterialOrientation.cs" />
     <Compile Include="Commands\0073_ContactPair\CDuplicateContactPairs.cs" />
     <Compile Include="Commands\0075_Amplitude\CDuplicateAmplitudes.cs" />
     <Compile Include="Commands\0076_InitialCondition\CDuplicateInitialConditions.cs" />
@@ -406,7 +406,7 @@
     <Compile Include="Commands\0073_ContactPair\CShowContactPairs.cs" />
     <Compile Include="Commands\0076_InitialCondition\CAddInitialCondition.cs" />
     <Compile Include="Commands\0076_InitialCondition\CRemoveInitialConditions.cs" />
-    <Compile Include="Commands\0062_Section\CReplaceSection.cs" />
+    <Compile Include="Commands\0063_Section\CReplaceSection.cs" />
     <Compile Include="Commands\0075_Amplitude\CAddAmplitude.cs" />
     <Compile Include="Commands\0075_Amplitude\CRemoveAmplitudes.cs" />
     <Compile Include="Commands\0075_Amplitude\CReplaceAmplitude.cs" />
@@ -630,17 +630,17 @@
     </Compile>
     <Compile Include="Forms\32_CoordinateSystems\ViewCoordinateSystem.cs" />
     <Compile Include="Forms\41_Material\ViewSlipWear.cs" />
-    <Compile Include="Forms\42_Section\ViewPointMassSection.cs" />
-    <Compile Include="Forms\42_Section\ViewMembraneSection.cs" />
-    <Compile Include="Forms\42_Section\ViewDistributedMassSection.cs" />
-    <Compile Include="Forms\43_Constraint\ViewSurfaceSupport.cs" />
-    <Compile Include="Forms\45_SearchContactPairs\FrmSearchContactPairs.cs">
+    <Compile Include="Forms\43_Section\ViewPointMassSection.cs" />
+    <Compile Include="Forms\43_Section\ViewMembraneSection.cs" />
+    <Compile Include="Forms\43_Section\ViewDistributedMassSection.cs" />
+    <Compile Include="Forms\44_Constraint\ViewSurfaceSupport.cs" />
+    <Compile Include="Forms\46_SearchContactPairs\FrmSearchContactPairs.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\45_SearchContactPairs\FrmSearchContactPairs.Designer.cs">
+    <Compile Include="Forms\46_SearchContactPairs\FrmSearchContactPairs.Designer.cs">
       <DependentUpon>FrmSearchContactPairs.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\45_SearchContactPairs\SearchContactPair.cs" />
+    <Compile Include="Forms\46_SearchContactPairs\SearchContactPair.cs" />
     <Compile Include="Forms\02_View\ExplodedViewParameters.cs" />
     <Compile Include="Forms\02_View\FrmExplodedView.cs">
       <SubType>Form</SubType>
@@ -695,42 +695,42 @@
     <Compile Include="Forms\41_Material\ViewThermalConductivity.cs" />
     <Compile Include="Forms\41_Material\ViewThermalExpansion.cs" />
     <Compile Include="Forms\41_Material\ViewElasticWithDensity.cs" />
-    <Compile Include="Forms\42_Section\ViewShellSection.cs" />
+    <Compile Include="Forms\43_Section\ViewShellSection.cs" />
     <Compile Include="Forms\42_MaterialOrientation\ViewMaterialOrientation.cs" />
-    <Compile Include="Forms\44_SurfaceInteraction\DataPoints\GapConductanceDataPoint.cs" />
-    <Compile Include="Forms\44_SurfaceInteraction\DataPoints\PressureOverclosureDataPoint.cs" />
-    <Compile Include="Forms\44_SurfaceInteraction\ListViewItemComparer.cs" />
-    <Compile Include="Forms\44_SurfaceInteraction\FrmSurfaceInteraction.cs">
+    <Compile Include="Forms\45_SurfaceInteraction\DataPoints\GapConductanceDataPoint.cs" />
+    <Compile Include="Forms\45_SurfaceInteraction\DataPoints\PressureOverclosureDataPoint.cs" />
+    <Compile Include="Forms\45_SurfaceInteraction\ListViewItemComparer.cs" />
+    <Compile Include="Forms\45_SurfaceInteraction\FrmSurfaceInteraction.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\44_SurfaceInteraction\FrmSurfaceInteraction.Designer.cs">
+    <Compile Include="Forms\45_SurfaceInteraction\FrmSurfaceInteraction.Designer.cs">
       <DependentUpon>FrmSurfaceInteraction.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\44_SurfaceInteraction\ViewGapConductance.cs" />
-    <Compile Include="Forms\45_ContactPair\FrmContactPair.cs">
+    <Compile Include="Forms\45_SurfaceInteraction\ViewGapConductance.cs" />
+    <Compile Include="Forms\46_ContactPair\FrmContactPair.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\45_ContactPair\ViewContactPair.cs" />
-    <Compile Include="Forms\46_Distribution\FrmDistribution.cs">
+    <Compile Include="Forms\46_ContactPair\ViewContactPair.cs" />
+    <Compile Include="Forms\47_Distribution\FrmDistribution.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\46_Distribution\ViewMappedDistribution.cs" />
-    <Compile Include="Forms\46_Distribution\ViewDistributionFromFile.cs" />
-    <Compile Include="Forms\46_Distribution\ViewDistributionFromEquation.cs" />
-    <Compile Include="Forms\46_Distribution\ViewDistribution.cs" />
-    <Compile Include="Forms\48_InitialConditions\FrmInitialCondition.cs">
+    <Compile Include="Forms\47_Distribution\ViewMappedDistribution.cs" />
+    <Compile Include="Forms\47_Distribution\ViewDistributionFromFile.cs" />
+    <Compile Include="Forms\47_Distribution\ViewDistributionFromEquation.cs" />
+    <Compile Include="Forms\47_Distribution\ViewDistribution.cs" />
+    <Compile Include="Forms\49_InitialConditions\FrmInitialCondition.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\48_InitialConditions\ViewInitialCondition.cs" />
-    <Compile Include="Forms\48_InitialConditions\ViewInitialAngularVelocity.cs" />
-    <Compile Include="Forms\48_InitialConditions\ViewInitialTranslationalVelocity.cs" />
-    <Compile Include="Forms\48_InitialConditions\ViewInitialTemperature.cs" />
-    <Compile Include="Forms\47_Amplitude\AmplitudeDataPoint.cs" />
-    <Compile Include="Forms\47_Amplitude\FrmAmplitude.cs">
+    <Compile Include="Forms\49_InitialConditions\ViewInitialCondition.cs" />
+    <Compile Include="Forms\49_InitialConditions\ViewInitialAngularVelocity.cs" />
+    <Compile Include="Forms\49_InitialConditions\ViewInitialTranslationalVelocity.cs" />
+    <Compile Include="Forms\49_InitialConditions\ViewInitialTemperature.cs" />
+    <Compile Include="Forms\48_Amplitude\AmplitudeDataPoint.cs" />
+    <Compile Include="Forms\48_Amplitude\FrmAmplitude.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\47_Amplitude\ViewAmplitude.cs" />
-    <Compile Include="Forms\47_Amplitude\ViewAmplitudeTabular.cs" />
+    <Compile Include="Forms\48_Amplitude\ViewAmplitude.cs" />
+    <Compile Include="Forms\48_Amplitude\ViewAmplitudeTabular.cs" />
     <Compile Include="Forms\51_Step\Controls\FrmStepControls.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -754,7 +754,7 @@
     <Compile Include="Forms\52_HistoryOutput\ViewContactHistoryOutput.cs" />
     <Compile Include="Forms\52_HistoryOutput\ViewSectionHistoryOutput.cs" />
     <Compile Include="Forms\53_FieldOutput\ViewContactFieldOutput.cs" />
-    <Compile Include="Forms\43_Constraint\ViewPointSpring.cs" />
+    <Compile Include="Forms\44_Constraint\ViewPointSpring.cs" />
     <Compile Include="Forms\54_BoundaryConditions\ViewTemperatureBC.cs" />
     <Compile Include="Forms\54_BoundaryConditions\ViewFixedBC.cs" />
     <Compile Include="Forms\55_Load\Imported\ViewImportedSTLoad.cs" />
@@ -830,9 +830,9 @@
     <Compile Include="Forms\84_Transformation\ViewLinearPattern.cs" />
     <Compile Include="Forms\84_Transformation\ViewTransformation.cs" />
     <Compile Include="Forms\84_Transformation\ViewSymetry.cs" />
-    <Compile Include="Forms\44_SurfaceInteraction\ViewFriction.cs" />
-    <Compile Include="Forms\44_SurfaceInteraction\ViewSurfaceInteractionProperty.cs" />
-    <Compile Include="Forms\44_SurfaceInteraction\ViewSurfaceBehavior.cs" />
+    <Compile Include="Forms\45_SurfaceInteraction\ViewFriction.cs" />
+    <Compile Include="Forms\45_SurfaceInteraction\ViewSurfaceInteractionProperty.cs" />
+    <Compile Include="Forms\45_SurfaceInteraction\ViewSurfaceBehavior.cs" />
     <Compile Include="Forms\51_Step\ViewBuckleStep.cs" />
     <Compile Include="Forms\51_Step\ViewFrequencyStep.cs" />
     <Compile Include="Forms\52_HistoryOutput\FrmHistoryOutput.cs">
@@ -863,13 +863,13 @@
     <Compile Include="Forms\31_ReferencePoint\FrmReferencePoint.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\42_Section\FrmSection.cs">
+    <Compile Include="Forms\43_Section\FrmSection.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\42_MaterialOrientation\FrmMaterialOrientation.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Forms\43_Constraint\FrmConstraint.cs">
+    <Compile Include="Forms\44_Constraint\FrmConstraint.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\51_Step\FrmStep.cs">
@@ -906,12 +906,12 @@
     <Compile Include="Forms\27_Surface\ViewFeSurface.cs" />
     <Compile Include="Forms\31_ReferencePoint\ViewFeReferencePoint.cs" />
     <Compile Include="Forms\41_Material\ViewPlastic.cs" />
-    <Compile Include="Forms\43_Constraint\ViewTie.cs" />
-    <Compile Include="Forms\43_Constraint\ViewCyclicSymmetry.cs" />
-    <Compile Include="Forms\43_Constraint\ViewJoint.cs" />
-    <Compile Include="Forms\43_Constraint\ViewRigidBody.cs" />
-    <Compile Include="Forms\43_Constraint\ViewCoupling.cs" />
-    <Compile Include="Forms\43_Constraint\ViewConstraint.cs" />
+    <Compile Include="Forms\44_Constraint\ViewTie.cs" />
+    <Compile Include="Forms\44_Constraint\ViewCyclicSymmetry.cs" />
+    <Compile Include="Forms\44_Constraint\ViewJoint.cs" />
+    <Compile Include="Forms\44_Constraint\ViewRigidBody.cs" />
+    <Compile Include="Forms\44_Constraint\ViewCoupling.cs" />
+    <Compile Include="Forms\44_Constraint\ViewConstraint.cs" />
     <Compile Include="Forms\54_BoundaryConditions\ViewBoundaryCondition.cs" />
     <Compile Include="Forms\54_BoundaryConditions\ViewDisplacementRotation.cs" />
     <Compile Include="Forms\53_FieldOutput\ViewFieldOutput.cs" />
@@ -929,8 +929,8 @@
     <Compile Include="Forms\41_Material\ViewCompositeStrength.cs" />
     <Compile Include="Forms\41_Material\ViewMaterialProperty.cs" />
     <Compile Include="Forms\41_Material\ViewDensity.cs" />
-    <Compile Include="Forms\42_Section\ViewSection.cs" />
-    <Compile Include="Forms\42_Section\ViewSolidSection.cs" />
+    <Compile Include="Forms\43_Section\ViewSection.cs" />
+    <Compile Include="Forms\43_Section\ViewSolidSection.cs" />
     <Compile Include="Forms\00_Common\FrmSelectEntity.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -1116,7 +1116,7 @@
     <EmbeddedResource Include="Forms\32_CoordinateSystems\FrmCoordinateSystem.resx">
       <DependentUpon>FrmCoordinateSystem.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\45_SearchContactPairs\FrmSearchContactPairs.resx">
+    <EmbeddedResource Include="Forms\46_SearchContactPairs\FrmSearchContactPairs.resx">
       <DependentUpon>FrmSearchContactPairs.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\02_View\FrmExplodedView.resx">
@@ -1140,20 +1140,20 @@
     <EmbeddedResource Include="Forms\41_Material\FrmMaterialLibrary.resx">
       <DependentUpon>FrmMaterialLibrary.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\44_SurfaceInteraction\FrmSurfaceInteraction.resx">
+    <EmbeddedResource Include="Forms\45_SurfaceInteraction\FrmSurfaceInteraction.resx">
       <DependentUpon>FrmSurfaceInteraction.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\45_ContactPair\FrmContactPair.resx">
+    <EmbeddedResource Include="Forms\46_ContactPair\FrmContactPair.resx">
       <DependentUpon>FrmContactPair.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\46_Distribution\FrmDistribution.resx">
+    <EmbeddedResource Include="Forms\47_Distribution\FrmDistribution.resx">
       <DependentUpon>FrmDistribution.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\48_InitialConditions\FrmInitialCondition.resx">
+    <EmbeddedResource Include="Forms\49_InitialConditions\FrmInitialCondition.resx">
       <DependentUpon>FrmInitialCondition.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\47_Amplitude\FrmAmplitude.resx">
+    <EmbeddedResource Include="Forms\48_Amplitude\FrmAmplitude.resx">
       <DependentUpon>FrmAmplitude.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\51_Step\Controls\FrmStepControls.resx">
@@ -1182,13 +1182,13 @@
     <EmbeddedResource Include="Forms\31_ReferencePoint\FrmReferencePoint.resx">
       <DependentUpon>FrmReferencePoint.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\42_Section\FrmSection.resx">
+    <EmbeddedResource Include="Forms\43_Section\FrmSection.resx">
       <DependentUpon>FrmSection.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\42_MaterialOrientation\FrmMaterialOrientation.resx">
       <DependentUpon>FrmMaterialOrientation.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Forms\43_Constraint\FrmConstraint.resx">
+    <EmbeddedResource Include="Forms\44_Constraint\FrmConstraint.resx">
       <DependentUpon>FrmConstraint.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\51_Step\FrmStep.resx">

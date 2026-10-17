@@ -3305,8 +3305,8 @@ namespace PrePoMax
             this.tsmiProperty.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiMaterial,
             this.tsmiMaterialLibrary,
-            this.tsmiSection,
-            this.tsmiMaterialOrientation});
+            this.tsmiMaterialOrientation,
+            this.tsmiSection});
             this.tsmiProperty.Name = "tsmiProperty";
             this.tsmiProperty.Size = new System.Drawing.Size(64, 20);
             this.tsmiProperty.Text = "Property";

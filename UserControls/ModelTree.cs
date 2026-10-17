@@ -154,8 +154,8 @@ namespace UserControls
         private TreeNode _modelReferencePoints;     //     3
         private TreeNode _modelCoordinateSystems;   //     3
         private TreeNode _materials;                //   2
-        private TreeNode _sections;                 //   2
         private TreeNode _materialOrientations;     //   2
+        private TreeNode _sections;                 //   2
         private TreeNode _constraints;              //   2
         private TreeNode _contacts;                 //   2
         private TreeNode _surfaceInteractions;      //      3
@@ -194,8 +194,8 @@ namespace UserControls
         private string _modelReferencePointsName = "Reference Points";
         private string _modelCoordinateSystemsName = "Coordinate Systems";
         private string _materialsName = "Materials";
-        private string _sectionsName = "Sections";
         private string _materialOrientationsName = "Material Orientations";
+        private string _sectionsName = "Sections";
         private string _constraintsName = "Constraints";
         private string _contactsName = "Contacts";
         private string _surfaceInteractionsName = "Surface Interactions";
@@ -293,8 +293,8 @@ namespace UserControls
         public string ModelReferencePointsName { get { return _modelReferencePointsName; } }
         public string ModelCoordinateSystemsName { get { return _modelCoordinateSystemsName; } }
         public string MaterialsName { get { return _materialsName; } }
-        public string SectionsName { get { return _sectionsName; } }
         public string MaterialOrientationsName { get { return _materialOrientationsName; } }
+        public string SectionsName { get { return _sectionsName; } }
         public string ConstraintsName { get { return _constraintsName; } }
         public string SurfaceInteractionsName { get { return _surfaceInteractionsName; } }
         public string ContactPairsName { get { return _contactPairsName; } }
@@ -419,8 +419,8 @@ namespace UserControls
             _modelReferencePoints = cltvModel.Nodes.Find(_modelReferencePointsName, true)[0];
             _modelCoordinateSystems = cltvModel.Nodes.Find(_modelCoordinateSystemsName, true)[0];
             _materials = cltvModel.Nodes.Find(_materialsName, true)[0];
-            _sections = cltvModel.Nodes.Find(_sectionsName, true)[0];
             _materialOrientations = cltvModel.Nodes.Find(_materialOrientationsName, true)[0];
+            _sections = cltvModel.Nodes.Find(_sectionsName, true)[0];
             _constraints = cltvModel.Nodes.Find(_constraintsName, true)[0];
             _contacts = cltvModel.Nodes.Find(_contactsName, true)[0];
             _surfaceInteractions = cltvModel.Nodes.Find(_surfaceInteractionsName, true)[0];
@@ -3424,8 +3424,8 @@ namespace UserControls
             _modelFeatures.Nodes.Add(_modelReferencePoints);
             _modelFeatures.Nodes.Add(_modelCoordinateSystems);
             _model.Nodes.Add(_materials);
-            _model.Nodes.Add(_sections);
             _model.Nodes.Add(_materialOrientations);
+            _model.Nodes.Add(_sections);
             _model.Nodes.Add(_constraints);
             _model.Nodes.Add(_contacts);
             _contacts.Nodes.Add(_surfaceInteractions);
@@ -3701,10 +3701,10 @@ namespace UserControls
                     }
                     // Materials
                     AddObjectsToNode(_materialsName, _materials, model.Materials);
-                    // Sections
-                    AddObjectsToNode(_sectionsName, _sections, model.Sections);
                     // Material orientations
                     AddObjectsToNode(_materialOrientationsName, _materialOrientations, model.MaterialOrientations);
+                    // Sections
+                    AddObjectsToNode(_sectionsName, _sections, model.Sections);
                     // Constraints
                     AddObjectsToNode(_constraintsName, _constraints, model.Constraints);
                     // Surface interactions
@@ -5056,8 +5056,8 @@ namespace UserControls
             else if (node.Name == _modelReferencePointsName) return true;
             else if (node.Name == _modelCoordinateSystemsName) return true;
             else if (node.Name == _materialsName) return true;
-            else if (node.Name == _sectionsName) return true;
             else if (node.Name == _materialOrientationsName) return true;
+            else if (node.Name == _sectionsName) return true;
             else if (node.Name == _constraintsName) return true;
             else if (node.Name == _surfaceInteractionsName) return true;
             else if (node.Name == _contactPairsName) return true;
