@@ -40,6 +40,9 @@ import sys
 import tempfile
 import time
 
+# A console program started from a process without a visible console opens a window of its own
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 # The argument the -g No -x No launch passes, which ends the script at once should it ever run
 PROBE_ARGUMENT = "probe"
 PROBE_EXIT_CODE = 9
@@ -69,7 +72,7 @@ def check_script_folder_imports():
 def kill_process_tree(process):
     # PrePoMax.com starts PrePoMax.exe, so killing the launcher alone would leave the application running
     subprocess.call(["taskkill", "/T", "/F", "/PID", str(process.pid)],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
 
 
 def check_hidden_session_without_exit_is_refused():
@@ -86,7 +89,7 @@ def check_hidden_session_without_exit_is_refused():
     try:
         process = subprocess.Popen([launcher, "--script", os.path.abspath(__file__), "--scriptArgs", PROBE_ARGUMENT,
                                     "-g", "No", "-x", "No", "-w", work_directory, "--timeout", "60"],
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, creationflags=NO_WINDOW)
         try:
             output = process.communicate(timeout=120)[0].decode("utf-8", "replace")
         except subprocess.TimeoutExpired:
@@ -140,7 +143,8 @@ def check_saved_script_regenerates():
         for arguments in (["--script", script, "--save", saved], ["-r", saved]):
             completed = subprocess.run([launcher] + arguments + ["-g", "No", "-x", "Yes", "-w", work_directory,
                                                                  "--timeout", "120"],
-                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=300)
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=300,
+                                       creationflags=NO_WINDOW)
             output = completed.stdout.decode("utf-8", "replace")
             check(completed.returncode == 0, " ".join(arguments[:1]) + " must exit with 0, not " +
                   str(completed.returncode) + ": " + output)
@@ -198,7 +202,8 @@ def check_failed_part_mesh_fails_regeneration():
                 write_scaled_cube(swap, scale)
             completed = subprocess.run([launcher] + arguments + ["-g", "No", "-x", "Yes", "-w", work_directory,
                                                                  "--timeout", "300"],
-                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=600)
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=600,
+                                       creationflags=NO_WINDOW)
             output = completed.stdout.decode("utf-8", "replace")
             check(completed.returncode == exit_code, " ".join(arguments[:1]) + " must exit with " + str(exit_code) +
                   ", not " + str(completed.returncode) + ": " + output[-3000:])

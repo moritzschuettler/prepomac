@@ -39,6 +39,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+# A console program started from a process without a visible console opens a window of its own
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 PROTOCOL_VERSION = "2024-11-05"
 CHILD_TIMEOUT = 240
 MAXIMUM_BODY = 4 * 1024 * 1024
@@ -146,7 +149,7 @@ class ChildSession(object):
                                          "-f", os.path.join(MODELS, "cube.inp"), "-u", "MM_TON_S_C",
                                          "--timeout", str(CHILD_TIMEOUT), "-w", self.directory] +
                                         (arguments or []),
-                                        stdout=self.log, stderr=subprocess.STDOUT)
+                                        stdout=self.log, stderr=subprocess.STDOUT, creationflags=NO_WINDOW)
         self.info = None
 
     @property

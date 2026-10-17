@@ -58,6 +58,9 @@ import sys
 import tempfile
 import time
 
+# A console program started from a process without a visible console opens a window of its own
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS = os.path.join(HERE, "Models")
 # The solved model Test_Analysis.py leaves behind, which the result tests read
@@ -226,7 +229,7 @@ def run_offline(name):
     started = time.time()
     try:
         completed = subprocess.run([sys.executable, os.path.join(HERE, name)], cwd=HERE, stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT, timeout=OFFLINE_TIMEOUT)
+                                   stderr=subprocess.STDOUT, timeout=OFFLINE_TIMEOUT, creationflags=NO_WINDOW)
         code, output = completed.returncode, completed.stdout.decode("utf-8", "replace")
     except subprocess.TimeoutExpired:
         code, output = None, "RUNNER TIMEOUT after %d s" % OFFLINE_TIMEOUT
@@ -254,7 +257,7 @@ def build_command(test, executable, work_directory, report_file):
 def kill_process_tree(process):
     if os.name == "nt":
         subprocess.call(["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
     else:
         process.kill()
 
@@ -275,7 +278,7 @@ def run(test, executable, work_directory):
         os.remove(report_file)
     command = build_command(test, executable, work_directory, report_file)
     started = time.time()
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, creationflags=NO_WINDOW)
     try:
         output = process.communicate(timeout=test.timeout + PROCESS_TIMEOUT_MARGIN)[0].decode("utf-8", "replace")
     except subprocess.TimeoutExpired:

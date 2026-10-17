@@ -73,6 +73,9 @@ import sys
 import tempfile
 import time
 
+# A console program started from a process without a visible console opens a window of its own
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 CHILD_TIMEOUT = 180
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 KILL_PROBE = "read_only_kill_probe"
@@ -175,7 +178,7 @@ class ChildSession(object):
                                          "-f", file_name, "-u", "MM_TON_S_C",
                                          "--timeout", str(CHILD_TIMEOUT), "-w", self.directory] +
                                         (arguments or []),
-                                        stdout=self.log, stderr=subprocess.STDOUT)
+                                        stdout=self.log, stderr=subprocess.STDOUT, creationflags=NO_WINDOW)
         self.client = None
 
     def connect(self):
@@ -962,7 +965,8 @@ def check_journal_of_compound_group(client):
     # is what is checked
     completed = subprocess.run([sys.executable, "-r", saved, "-o", "Yes", "-g", "No", "-x", "Yes", "-w", directory,
                                 "--noSettingsSave", "--timeout", str(CHILD_TIMEOUT)],
-                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=CHILD_TIMEOUT + 60)
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=CHILD_TIMEOUT + 60,
+                               creationflags=NO_WINDOW)
     output = completed.stdout.decode("utf-8", "replace")
     check(completed.returncode == 0, "the regeneration must exit with 0, not " + str(completed.returncode) + ": " +
           output)

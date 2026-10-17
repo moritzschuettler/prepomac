@@ -25,6 +25,9 @@ import tempfile
 import time
 import urllib.request
 
+# A console program started from a process without a visible console opens a window of its own
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 MODEL = "box_and_cylinder.brep"
 SESSIONS = os.path.join(os.environ["LOCALAPPDATA"], "PrePoMax", "sessions")
@@ -142,7 +145,7 @@ class ChildSession(object):
         arguments = [sys.executable, "--rpc", "On", "--rpcPort", str(free_port()), "-g", "No",
                      "--noSettingsSave", "--timeout", str(CHILD_TIMEOUT), "-w", self.directory,
                      "-f", os.path.join(MODELS, MODEL), "-u", "MM_TON_S_C"]
-        self.process = subprocess.Popen(arguments, stdout=self.log, stderr=subprocess.STDOUT)
+        self.process = subprocess.Popen(arguments, stdout=self.log, stderr=subprocess.STDOUT, creationflags=NO_WINDOW)
 
     def endpoint(self, timeout=120.0):
         path = os.path.join(SESSIONS, str(self.process.pid) + ".json")

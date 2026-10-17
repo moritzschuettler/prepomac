@@ -30,6 +30,9 @@ import time
 import urllib.error
 import urllib.request
 
+# A console program started from a process without a visible console opens a window of its own
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 SESSIONS = os.path.join(os.environ["LOCALAPPDATA"], "PrePoMax", "sessions")
 PROTOCOL_VERSION = "2024-11-05"
@@ -172,7 +175,7 @@ class ChildSession(object):
                      "--noSettingsSave", "--timeout", str(CHILD_TIMEOUT), "-w", self.directory]
         if model is not None:
             arguments += ["-f", os.path.join(MODELS, model), "-u", unit_system]
-        self.process = subprocess.Popen(arguments, stdout=self.log, stderr=subprocess.STDOUT)
+        self.process = subprocess.Popen(arguments, stdout=self.log, stderr=subprocess.STDOUT, creationflags=NO_WINDOW)
         self.info = None
 
     @property
