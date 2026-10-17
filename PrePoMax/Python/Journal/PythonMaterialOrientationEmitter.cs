@@ -17,11 +17,11 @@ namespace PrePoMax.Python.Journal
     // it has one, because the controller turned that selection into an internal element set at add time.
     public static class PythonMaterialOrientationEmitter
     {
-        // Variables
+        // Variables                                                                                                                
         private const string _collection = "pmx.model.material_orientations";
 
 
-        // Methods
+        // Methods                                                                                                                  
         public static void Add(PythonJournalWriter writer, MaterialOrientation orientation)
         {
             Emit(writer, null, orientation);

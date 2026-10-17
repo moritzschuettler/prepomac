@@ -74,11 +74,16 @@ namespace APIs.Python.Model
         // model's own spelling rather than the caller's
         public string GetStoredMaterialName(string materialName)
         {
+            return GetStoredMaterialName(materialName, "material_name");
+        }
+        public string GetStoredMaterialName(string materialName, string argumentName)
+        {
             if (materialName == null || materialName.Trim().Length == 0)
-                throw new PythonAPIException("The argument 'material_name' must not be empty.");
+                throw new PythonAPIException("The argument '" + argumentName + "' must not name an empty material.");
             Material material;
             if (!_modelResolver.GetModel().Materials.TryGetValue(materialName, out material))
-                throw new PythonAPIException("The material '" + materialName + "' does not exist.");
+                throw new PythonAPIException("The material '" + materialName + "' given in '" + argumentName +
+                                             "' does not exist.");
             //
             return material.Name;
         }
@@ -153,7 +158,15 @@ namespace APIs.Python.Model
         // and judges the section it ends with
         private void EnsureCompatibleRegion(Section section)
         {
-            if (IsRegionCompatible(section)) return;
+            if (IsRegionCompatible(section))
+            {
+                if (section is CompositeShellSection)
+                {
+                    string error = _modelResolver.GetModel().GetCompositeShellElementTypeError(GetElementIds(section));
+                    if (error != null) throw new PythonAPIException(error + " The 'region' cannot take the section.");
+                }
+                return;
+            }
             //
             string hint;
             bool twoD = GetIsTwoDimensional();
@@ -251,6 +264,18 @@ namespace APIs.Python.Model
                 case RegionTypeEnum.ReferencePointName: return !mesh.ReferencePoints.ContainsKey(section.RegionName);
                 default: return false;
             }
+        }
+        private int[] GetElementIds(Section section)
+        {
+            FeModel model = _modelResolver.GetModel();
+            if (section.RegionType != RegionTypeEnum.Selection) return model.GetElementIdsOfRegion(section);
+            if (section.CreationData != null && section.CreationData.SelectItem == vtkSelectItem.Part)
+            {
+                List<int> elementIds = new List<int>();
+                foreach (BasePart part in GetSelectedParts(model.Mesh, section)) elementIds.AddRange(part.Labels);
+                return elementIds.ToArray();
+            }
+            return section.CreationIds ?? new int[0];
         }
         // A part selection carries part or geometry ids and an element selection element ids
         private static HashSet<BasePart> GetSelectedParts(FeMesh mesh, Section section)

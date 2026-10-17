@@ -111,7 +111,8 @@ namespace UserControls
             }
             catch (Exception ex)
             {
-                ExceptionTools.Show(this, ex);
+                if (ex is CaeException && ex.Message == "BreakOnApply") return;
+                else ExceptionTools.Show(this, ex);
             }
         }
         protected virtual void btnCancel_Click(object sender, EventArgs e)

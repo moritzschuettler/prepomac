@@ -16,16 +16,24 @@ using CaeModel;
 using CaeGlobals;
 using CaeMesh;
 using System.Windows.Forms;
+using System.ComponentModel;
+using System.Drawing;
 
 namespace PrePoMax.Forms
 {
-    class FrmSection : UserControls.FrmPropertyListView, IFormBase, IFormItemSetDataParent, IFormHighlight
+    class FrmSection : UserControls.FrmPropertyDataListView, IFormBase, IFormItemSetDataParent, IFormHighlight
     {
         // Variables                                                                                                                
         private string[] _sectionNames;
+        private string[] _materialNames;
+        private TabPage[] _pages;
         private string _sectionToEditName;
         private ViewSection _viewSection;
         private Controller _controller;
+        private UserControls.DoubleBufferedPanel pnlLayup;
+        private const string _layerColumnName = "LayerName";
+        private const double _layupHatchSpacing = 8;
+        private const int _layupArrowWidth = 28;
 
 
         // Properties                                                                                                               
@@ -35,6 +43,8 @@ namespace PrePoMax.Forms
             set
             {
                 if (value is SolidSection sose) _viewSection = new ViewSolidSection(sose.DeepClone());
+                else if (value is CompositeShellSection csse)
+                    _viewSection = new ViewCompositeShellSection(csse.DeepClone());
                 else if (value is ShellSection shse) _viewSection = new ViewShellSection(shse.DeepClone());
                 else if (value is MembraneSection mese) _viewSection = new ViewMembraneSection(mese.DeepClone());
                 else if (value is PointMassSection pmse) _viewSection = new ViewPointMassSection(pmse.DeepClone());
@@ -51,13 +61,47 @@ namespace PrePoMax.Forms
             //
             _controller = controller;
             _viewSection = null;
+            //
+            int i = 0;
+            _pages = new TabPage[tcProperties.TabPages.Count];
+            foreach (TabPage tabPage in tcProperties.TabPages) _pages[i++] = tabPage;
         }
         private void InitializeComponent()
         {
+            this.pnlLayup = new UserControls.DoubleBufferedPanel();
             this.gbType.SuspendLayout();
             this.gbProperties.SuspendLayout();
+            this.tpDataPoints.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
+            // tpDataPoints
+            //
+            this.tpDataPoints.Controls.Add(this.pnlLayup);
+            this.tpDataPoints.Text = "Layers";
+            //
+            // pnlLayup
+            //
+            this.pnlLayup.BackColor = System.Drawing.SystemColors.Window;
+            this.pnlLayup.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlLayup.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnlLayup.Location = new System.Drawing.Point(3, 150);
+            this.pnlLayup.Name = "pnlLayup";
+            this.pnlLayup.Size = new System.Drawing.Size(296, 120);
+            this.pnlLayup.TabIndex = 1;
+            this.pnlLayup.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlLayup_Paint);
+            this.pnlLayup.Resize += new System.EventHandler(this.pnlLayup_Resize);
+            this.pnlLayup.MouseClick += new System.Windows.Forms.MouseEventHandler(this.pnlLayup_MouseClick);
+            //
+            // tcProperties
+            //
+            this.tcProperties.SelectedIndexChanged += new System.EventHandler(this.tcProperties_SelectedIndexChanged);
+            //
+            // dgvData
+            //
+            this.dgvData.EnablePlotMenu = false;
+            this.dgvData.SelectionChanged += new System.EventHandler(this.dgvData_SelectionChanged);
+            this.dgvData.CellFormatting += new System.Windows.Forms.DataGridViewCellFormattingEventHandler(this.dgvData_CellFormatting);
+            //
             // FrmSection
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
@@ -66,8 +110,70 @@ namespace PrePoMax.Forms
             this.Text = "Edit Section";
             this.gbType.ResumeLayout(false);
             this.gbProperties.ResumeLayout(false);
+            this.tpDataPoints.ResumeLayout(false);
             this.ResumeLayout(false);
 
+        }
+
+
+        // Event handlers                                                                                                           
+        private void tcProperties_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            HighlightSection();
+        }
+        private void dgvData_SelectionChanged(object sender, EventArgs e)
+        {
+            HighlightSection();
+            pnlLayup.Invalidate();
+        }
+        private void dgvData_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0 && dgvData.Columns[e.ColumnIndex].Name == _layerColumnName)
+            {
+                e.Value = dgvData.Rows[e.RowIndex].IsNewRow ? "" : "Layer " + (e.RowIndex + 1);
+                e.FormattingApplied = true;
+            }
+        }
+        private void Binding_ListChanged(object sender, ListChangedEventArgs e)
+        {
+            _propertyItemChanged = true;
+            propertyGrid.Refresh();
+            dgvData.Invalidate();
+            pnlLayup.Invalidate();
+        }
+        private void pnlLayup_Resize(object sender, EventArgs e)
+        {
+            pnlLayup.Invalidate();
+        }
+        private void pnlLayup_MouseClick(object sender, MouseEventArgs e)
+        {
+            try
+            {
+                int row = GetLayupRowAt(e.Location);
+                if (row < 0 || row >= dgvData.Rows.Count) return;
+                //
+                int columnIndex = dgvData.CurrentCell != null ? dgvData.CurrentCell.ColumnIndex : 0;
+                dgvData.CurrentCell = dgvData[columnIndex, row];
+                dgvData.Focus();
+            }
+            catch { }
+        }
+        private void pnlLayup_Paint(object sender, PaintEventArgs e)
+        {
+            try
+            {
+                if (Section is CompositeShellSection css) DrawLayup(e.Graphics, css);
+            }
+            catch { }
+        }
+        // A new layer starts as a copy of the last one
+        private void Binding_AddingNew(object sender, AddingNewEventArgs e)
+        {
+            if (_viewSection is ViewCompositeShellSection vcss && vcss.Layers.Count > 0)
+                e.NewObject = new CompositeLayerDataPoint(vcss.Layers[vcss.Layers.Count - 1].GetLayer().DeepClone());
+            else
+                e.NewObject = new CompositeLayerDataPoint(new CompositeLayer(_materialNames.Length > 0 ? _materialNames[0] : null,
+                                                                             1, 0));
         }
 
 
@@ -83,7 +189,7 @@ namespace PrePoMax.Forms
             if (lvTypes.SelectedItems != null && lvTypes.SelectedItems.Count > 0)
             {
                 object itemTag = lvTypes.SelectedItems[0].Tag;
-                if (itemTag is ViewError) 
+                if (itemTag is ViewError)
                 {
                     _viewSection = null;
                 }
@@ -92,6 +198,16 @@ namespace PrePoMax.Forms
                     _viewSection = vs;
                 }
                 else throw new NotImplementedException();
+                // Layers
+                dgvData.DataSource = null;
+                dgvData.Columns.Clear();
+                tcProperties.TabPages.Clear();
+                tcProperties.TabPages.Add(_pages[0]);   // properties
+                if (_viewSection is ViewCompositeShellSection vcss)
+                {
+                    tcProperties.TabPages.Add(_pages[1]);   // layers
+                    SetLayersBinding(vcss);
+                }
                 //
                 ShowHideSelectionForm();
                 //
@@ -110,6 +226,7 @@ namespace PrePoMax.Forms
             }
             //
             HighlightSection();
+            pnlLayup.Invalidate();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -132,6 +249,15 @@ namespace PrePoMax.Forms
             if (!CheckSectionElementTypes())
                 throw new CaeException("The section type and the section region are not compatible.");
             //
+            if (Section is CompositeShellSection css)
+            {
+                foreach (CompositeLayer layer in css.Layers)
+                {
+                    if (!_materialNames.Contains(layer.MaterialName))
+                        throw new CaeException("Every layer must name an existing material.");
+                }
+            }
+            //
             if ((Section is SolidSection sos && sos.TwoD && sos.Thickness.Value <= 0) ||
                 (Section is ShellSection ss && ss.Thickness.Value <= 0) ||
                 (Section is MembraneSection mes && mes.Thickness.Value <= 0))
@@ -139,6 +265,12 @@ namespace PrePoMax.Forms
             //
             if (Section is MassSection mas && mas.Mass.Value < 0)
                 throw new CaeException("The mass must be larger or equal to 0.");
+            //
+            if (Section is CompositeShellSection)
+            {
+                foreach (string partName in GetPartNamesToSetCompositeShellElementTypes())
+                    SetCompositeShellElementTypes(partName);
+            }
             // Create
             if (_sectionToEditName == null)
             {
@@ -173,6 +305,7 @@ namespace PrePoMax.Forms
             _sectionNames = _controller.GetSectionNames();
             _sectionToEditName = sectionToEditName;
             string[] materialNames = _controller.GetMaterialNames();
+            _materialNames = materialNames ?? new string[0];
             string[] partNames = _controller.GetModelPartNames();
             string[] nodeSetNames = _controller.GetUserNodeSetNames();
             string[] elementSetNames = _controller.GetUserElementSetNames();
@@ -228,6 +361,19 @@ namespace PrePoMax.Forms
                     //
                     vss.PopulateDropDownLists(materialNames, partNames, null, elementSetNames, null, null);
                 }
+                else if (_viewSection is ViewCompositeShellSection vcss)
+                {
+                    selectedId = 2;
+                    // Check for deleted entities
+                    if (vcss.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vcss.RegionType == RegionTypeEnum.PartName.ToFriendlyString())
+                        CheckMissingValueRef(ref partNames, vcss.PartName, s => { vcss.PartName = s; });
+                    else if (vcss.RegionType == RegionTypeEnum.ElementSetName.ToFriendlyString())
+                        CheckMissingValueRef(ref elementSetNames, vcss.ElementSetName, s => { vcss.ElementSetName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    vcss.PopulateDropDownLists(materialNames, partNames, null, elementSetNames, null, null);
+                }
                 else if (_viewSection is ViewShellSection vshs)
                 {
                     selectedId = 1;
@@ -244,7 +390,7 @@ namespace PrePoMax.Forms
                 }
                 else if (_viewSection is ViewMembraneSection vms)
                 {
-                    selectedId = 2;
+                    selectedId = 3;
                     // Check for deleted entities
                     CheckMissingValueRef(ref materialNames, vms.MaterialName, s => { vms.MaterialName = s; });
                     if (vms.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
@@ -258,7 +404,7 @@ namespace PrePoMax.Forms
                 }
                 else if (_viewSection is ViewPointMassSection pms)
                 {
-                    selectedId = 3;
+                    selectedId = 4;
                     // Check for deleted entities
                     if (pms.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
                     else if (pms.RegionType == RegionTypeEnum.NodeSetName.ToFriendlyString())
@@ -271,7 +417,7 @@ namespace PrePoMax.Forms
                 }
                 else if (_viewSection is ViewDistributedMassSection dms)
                 {
-                    selectedId = 4;
+                    selectedId = 5;
                     // Check for deleted entities
                     if (dms.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
                     else if (dms.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
@@ -324,6 +470,19 @@ namespace PrePoMax.Forms
                 item.Tag = vss;
             }
             else item.Tag = new ViewError("There is no material defined for the shell section definition.");
+            lvTypes.Items.Add(item);
+            // Composite shell section
+            item = new ListViewItem("Composite Shell Section");
+            if (materialNames.Length > 0)
+            {
+                List<CompositeLayer> layers = new List<CompositeLayer>() { new CompositeLayer(materialNames[0], 1, 0) };
+                CompositeShellSection css = new CompositeShellSection(GetSectionName("Composite_Shell_Section"), "",
+                                                                      RegionTypeEnum.Selection, layers, twoD);
+                ViewCompositeShellSection vcss = new ViewCompositeShellSection(css);
+                vcss.PopulateDropDownLists(materialNames, partNames, null, elementSetNames, null, null);
+                item.Tag = vcss;
+            }
+            else item.Tag = new ViewError("There is no material defined for the composite shell section definition.");
             lvTypes.Items.Add(item);
             // Membrane section
             item = new ListViewItem("Membrane Section");
@@ -498,11 +657,19 @@ namespace PrePoMax.Forms
             try
             {
                 _controller.ClearSelectionHistory();
-                //
-                if (_viewSection == null) { }
+                // A selected layer shows its material axes over the outline of the region
+                if (Section is CompositeShellSection css && tcProperties.SelectedTab == tpDataPoints &&
+                    dgvData.CurrentRow != null && dgvData.CurrentRow.Index < css.Layers.Count)
+                {
+                    if (css.RegionType == RegionTypeEnum.Selection) SetSelectItem();
+                    if (css.RegionType == RegionTypeEnum.Selection && css.CreationData != null)
+                        _controller.Selection = css.CreationData.DeepCopy(true, false);
+                    _controller.HighlightCompositeLayer(css, dgvData.CurrentRow.Index);
+                }
+                else if (_viewSection == null) { }
                 else if (_viewSection is ViewSolidSection || _viewSection is ViewShellSection ||
-                         _viewSection is ViewMembraneSection || _viewSection is ViewPointMassSection ||
-                         _viewSection is ViewDistributedMassSection)
+                         _viewSection is ViewCompositeShellSection || _viewSection is ViewMembraneSection ||
+                         _viewSection is ViewPointMassSection || _viewSection is ViewDistributedMassSection)
                 {
                     if (Section.RegionType == RegionTypeEnum.PartName || Section.RegionType == RegionTypeEnum.NodeSetName ||
                         Section.RegionType == RegionTypeEnum.ElementSetName || Section.RegionType == RegionTypeEnum.SurfaceName ||
@@ -526,6 +693,254 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
             }
             catch { }
+        }
+        private void SetLayersBinding(ViewCompositeShellSection viewCompositeShellSection)
+        {
+            BindingSource binding = new BindingSource();
+            binding.DataSource = viewCompositeShellSection.Layers;
+            binding.AddingNew += Binding_AddingNew;
+            dgvData.DataSource = binding; // bind datagridview to binding source - enables adding of new lines
+            binding.ListChanged += Binding_ListChanged;
+            // The material is picked from the materials of the model, and a missing one is kept to be seen
+            DataGridViewColumn column = dgvData.Columns[nameof(CompositeLayerDataPoint.MaterialName)];
+            if (column != null)
+            {
+                DataGridViewComboBoxColumn materialColumn = new DataGridViewComboBoxColumn();
+                materialColumn.DataPropertyName = column.DataPropertyName;
+                materialColumn.Name = column.Name;
+                materialColumn.HeaderText = column.HeaderText;
+                materialColumn.DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton;
+                materialColumn.FlatStyle = FlatStyle.Flat;
+                HashSet<string> materialNames = new HashSet<string>(_materialNames);
+                foreach (CompositeLayerDataPoint layer in viewCompositeShellSection.Layers)
+                {
+                    if (layer.MaterialName != null) materialNames.Add(layer.MaterialName);
+                }
+                materialColumn.Items.AddRange(materialNames.ToArray());
+                int index = column.Index;
+                dgvData.Columns.RemoveAt(index);
+                dgvData.Columns.Insert(index, materialColumn);
+            }
+            // The layers are named by their number
+            DataGridViewTextBoxColumn layerColumn = new DataGridViewTextBoxColumn();
+            layerColumn.Name = _layerColumnName;
+            layerColumn.HeaderText = "Layer";
+            layerColumn.ReadOnly = true;
+            layerColumn.SortMode = DataGridViewColumnSortMode.NotSortable;
+            layerColumn.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dgvData.Columns.Insert(0, layerColumn);
+            //
+            SetGridViewUnit(nameof(CompositeLayerDataPoint.ThicknessEq), _controller.Model.UnitSystem.LengthUnitAbbreviation,
+                            new StringLengthFromConverter());
+            SetGridViewUnit(nameof(CompositeLayerDataPoint.AngleEq), StringAngleDegConverter.GetUnitAbbreviation(),
+                            new StringAngleDegFromConverter());
+            dgvData.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+        }
+        // The layers from layer 1 at the bottom, on the negative side of the normal (axis 3), to the top, each as high as
+        // it is thick, as a cross section hatched at 45 degrees, at -45 degrees and at both in turn, with the layer of
+        // the selected row outlined
+        private void DrawLayup(Graphics graphics, CompositeShellSection section)
+        {
+            Rectangle stack;
+            Rectangle[] bars = GetLayupBars(section, out stack);
+            if (bars == null) return;
+            //
+            int numOfRows = section.Layers.Count;
+            int selectedRow = dgvData.CurrentRow != null ? dgvData.CurrentRow.Index : -1;
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            // Axis 3 of the material axes points to the top
+            using (Pen arrowPen = new Pen(Color.Black, 1.5f))
+            {
+                arrowPen.CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(4, 5);
+                int x = stack.Left - _layupArrowWidth + 4;
+                graphics.DrawLine(arrowPen, x, stack.Bottom, x, stack.Top);
+                TextRenderer.DrawText(graphics, "3", Font, new Point(x + 4, stack.Top - 2), Color.Black);
+            }
+            //
+            double hatchPhase = 0;
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+            for (int i = 0; i < bars.Length; i++)
+            {
+                if (bars[i].Height <= 0) continue;
+                //
+                using (SolidBrush brush = new SolidBrush(Color.FromArgb(245, 245, 245)))
+                    graphics.FillRectangle(brush, bars[i]);
+                hatchPhase = DrawLayerHatch(graphics, bars[i], i % 3, hatchPhase);
+                using (Pen pen = new Pen(Color.Black)) graphics.DrawRectangle(pen, bars[i]);
+            }
+            // The selected layer is outlined over the borders of its neighbours
+            for (int i = 0; i < bars.Length; i++)
+            {
+                if (bars[i].Height <= 0 || selectedRow < 0 || GetLayupRow(i, bars.Length, numOfRows) != selectedRow)
+                    continue;
+                using (Pen pen = new Pen(SystemColors.Highlight, 3)) graphics.DrawRectangle(pen, bars[i]);
+            }
+        }
+        // The bar of every solver layer, from layer 1 at the bottom, empty for a layer too thin to be drawn
+        private Rectangle[] GetLayupBars(CompositeShellSection section, out Rectangle stack)
+        {
+            Rectangle area = pnlLayup.ClientRectangle;
+            area.Inflate(-16, -12);
+            stack = new Rectangle(area.Left + _layupArrowWidth, area.Top, area.Width - _layupArrowWidth, area.Height);
+            List<CompositeLayer> layers = section.GetSolverLayers();
+            if (layers.Count == 0 || stack.Width <= 0 || stack.Height <= 0) return null;
+            //
+            double[] thicknesses = new double[layers.Count];
+            double totalThickness = 0;
+            for (int i = 0; i < layers.Count; i++)
+            {
+                try { thicknesses[i] = Math.Max(0, layers[i].Thickness.Value); }
+                catch { thicknesses[i] = 0; }
+                totalThickness += thicknesses[i];
+            }
+            if (totalThickness <= 0) return null;
+            //
+            Rectangle[] bars = new Rectangle[layers.Count];
+            double bottom = stack.Bottom;
+            double height;
+            int top;
+            for (int i = 0; i < layers.Count; i++)
+            {
+                height = stack.Height * thicknesses[i] / totalThickness;
+                top = (int)Math.Round(bottom - height);
+                bars[i] = new Rectangle(stack.Left, top, stack.Width - 1, (int)Math.Round(bottom) - top);
+                bottom -= height;
+            }
+            return bars;
+        }
+        // The row of a solver layer: a mirrored layer of a symmetric layup belongs to the row it mirrors
+        private int GetLayupRow(int layerIndex, int numOfLayers, int numOfRows)
+        {
+            return layerIndex < numOfRows ? layerIndex : numOfLayers - 1 - layerIndex;
+        }
+        private int GetLayupRowAt(Point location)
+        {
+            CompositeShellSection section = Section as CompositeShellSection;
+            if (section == null) return -1;
+            //
+            Rectangle stack;
+            Rectangle[] bars = GetLayupBars(section, out stack);
+            if (bars == null) return -1;
+            //
+            for (int i = 0; i < bars.Length; i++)
+            {
+                if (bars[i].Height > 0 && bars[i].Left <= location.X && location.X <= bars[i].Right &&
+                    bars[i].Top <= location.Y && location.Y < bars[i].Bottom)
+                    return GetLayupRow(i, bars.Length, section.Layers.Count);
+            }
+            return -1;
+        }
+        // Lines at 45 degrees rising to the right, at -45 degrees, or both, which cross the bottom of the bar at the
+        // bottom phase from its left side; returns the phase farthest from where they cross its top, at which the layer
+        // above starts so that no line runs on into it
+        private double DrawLayerHatch(Graphics graphics, Rectangle bar, int pattern, double bottomPhase)
+        {
+            double spacing = _layupHatchSpacing;
+            double height = bar.Height;
+            bool rising = pattern != 1;
+            bool falling = pattern != 0;
+            double risingTopPhase = ((bottomPhase + height) % spacing + spacing) % spacing;
+            double fallingTopPhase = ((bottomPhase - height) % spacing + spacing) % spacing;
+            double nextPhase;
+            if (rising && falling)
+            {
+                double gap = ((fallingTopPhase - risingTopPhase) % spacing + spacing) % spacing;
+                if (gap >= spacing - gap) nextPhase = risingTopPhase + gap / 2;
+                else nextPhase = fallingTopPhase + (spacing - gap) / 2;
+            }
+            else nextPhase = (rising ? risingTopPhase : fallingTopPhase) + spacing / 2;
+            if (bar.Width < 2 || bar.Height < 2) return nextPhase;
+            //
+            double start = bar.Left + bottomPhase - (Math.Ceiling((height + spacing) / spacing) + 1) * spacing;
+            double end = bar.Right + height + spacing;
+            System.Drawing.Drawing2D.GraphicsState state = graphics.Save();
+            graphics.SetClip(bar);
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using (Pen pen = new Pen(Color.Black, 1))
+            {
+                for (double x = start; x <= end; x += spacing)
+                {
+                    if (rising) graphics.DrawLine(pen, (float)x, bar.Bottom, (float)(x + height), bar.Top);
+                    if (falling) graphics.DrawLine(pen, (float)x, bar.Bottom, (float)(x - height), bar.Top);
+                }
+            }
+            graphics.Restore(state);
+            return nextPhase;
+        }
+        private void SetGridViewUnit(string columnName, string unit, TypeConverter converter)
+        {
+            DataGridViewColumn column = dgvData.Columns[columnName];
+            if (column == null) return;
+            //
+            if (column.HeaderText != null) column.HeaderText = column.HeaderText.Replace("?", unit);
+            column.HeaderCell.Style.Alignment = System.Windows.Forms.DataGridViewContentAlignment.BottomCenter;
+            column.Tag = converter;
+        }
+        private string[] GetPartNamesToSetCompositeShellElementTypes()
+        {
+            string[] partNamesToChangeElementType;
+            string[] partNamesToMesh;
+            _controller.Model.GetCompositeShellElementTypeParts(GetRegionElementIds(), out partNamesToChangeElementType,
+                                                                out partNamesToMesh);
+            string text = "A composite shell section takes S8R and S6 elements only.";
+            if (partNamesToMesh.Length > 0)
+            {
+                text += " Mesh " + GetPartNamesText(partNamesToMesh) + " with parabolic shell elements";
+                if (partNamesToChangeElementType.Length > 0)
+                    text += " and set the element type of " + GetPartNamesText(partNamesToChangeElementType) +
+                            " to S8R and S6";
+                text += "." + Environment.NewLine + Environment.NewLine +
+                        "OK - save the section, which stays invalid until then" + Environment.NewLine +
+                        "Cancel - return to the dialog";
+                if (MessageBoxes.ShowWarningQuestionOKCancel(text) == DialogResult.Cancel)
+                    throw new CaeException("BreakOnApply");
+            }
+            else if (partNamesToChangeElementType.Length > 0)
+            {
+                text += " Set the element type of " + GetPartNamesText(partNamesToChangeElementType) + " to S8R and " +
+                        "S6? The element type applies to all elements of a part." + Environment.NewLine +
+                        Environment.NewLine +
+                        "Yes - change the element type and save the section" + Environment.NewLine +
+                        "No - save the section, which stays invalid until the element type is changed" +
+                        Environment.NewLine +
+                        "Cancel - return to the dialog";
+                DialogResult result = MessageBoxes.ShowWarningQuestionYesNoCancel(text);
+                if (result == DialogResult.Cancel) throw new CaeException("BreakOnApply");
+                else if (result == DialogResult.Yes) return partNamesToChangeElementType;
+            }
+            return new string[0];
+        }
+        private string GetPartNamesText(string[] partNames)
+        {
+            return (partNames.Length == 1 ? "the part " : "the parts ") + string.Join(", ", partNames);
+        }
+        private void SetCompositeShellElementTypes(string partName)
+        {
+            PartProperties partProperties = _controller.GetModelPart(partName).GetProperties();
+            if (partProperties.ParabolicQuadType != FeElementTypeParabolicQuad.None)
+                partProperties.ParabolicQuadType = FeElementTypeParabolicQuad.S8R;
+            if (partProperties.ParabolicTriaType != FeElementTypeParabolicTria.None)
+                partProperties.ParabolicTriaType = FeElementTypeParabolicTria.S6;
+            _controller.ReplaceModelPartPropertiesCommand(partName, partProperties);
+        }
+        private int[] GetRegionElementIds()
+        {
+            Section section = Section;
+            if (section.RegionType == RegionTypeEnum.Selection)
+            {
+                if (section.CreationIds == null) return new int[0];
+                if (section.CreationData == null || section.CreationData.SelectItem != vtkSelectItem.Part)
+                    return section.CreationIds;
+                //
+                List<int> elementIds = new List<int>();
+                foreach (int geometryId in section.CreationIds)
+                {
+                    BasePart part = _controller.Model.Mesh.GetPartFromId(FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2]);
+                    if (part != null) elementIds.AddRange(part.Labels);
+                }
+                return elementIds.ToArray();
+            }
+            return _controller.Model.GetElementIdsOfRegion(section);
         }
         private void ShowHideSelectionForm()
         {

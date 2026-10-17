@@ -365,7 +365,13 @@ namespace CaeModel
                 // Region
                 valid = IsSectionRegionValid(section);
                 //
-                if (section is SolidSection || section is ShellSection || section is MembraneSection)
+                if (section is CompositeShellSection css)
+                {
+                    foreach (string materialName in css.GetMaterialNames())
+                        valid &= _materials.ContainsValidActiveKey(materialName);
+                    if (valid) valid = GetCompositeShellElementTypeError(GetElementIdsOfRegion(css)) == null;
+                }
+                else if (section is SolidSection || section is ShellSection || section is MembraneSection)
                     valid &= _materials.ContainsValidActiveKey(section.MaterialName);
                 else if (section is PointMassSection || section is DistributedMassSection) { }
                 else throw new NotSupportedException();
@@ -1606,9 +1612,69 @@ namespace CaeModel
         public double GetSectionThickness(Section section)
         {
             if (_properties.ModelSpace.IsTwoD() && section is SolidSection sos) return sos.Thickness.Value;
+            else if (section is CompositeShellSection css) return css.GetTotalThickness();
             else if (section is ShellSection shs) return shs.Thickness.Value;
             else if (section is MembraneSection ms) return ms.Thickness.Value;
             else return -1;
+        }
+        // CalculiX writes a composite shell only of S8R and S6 elements; returns null when all elements are such
+        public string GetCompositeShellElementTypeError(int[] elementIds)
+        {
+            HashSet<int> checkedPartIds = new HashSet<int>();
+            FeElement element;
+            MeshPart part;
+            foreach (int elementId in elementIds)
+            {
+                if (!_mesh.Elements.TryGetValue(elementId, out element)) continue;
+                //
+                part = _mesh.GetPartFromId(element.PartId) as MeshPart;
+                if (part == null) continue;
+                if (element is ParabolicQuadrilateralElement)
+                {
+                    if (checkedPartIds.Add(element.PartId * 2) && part.ParabolicQuadType != FeElementTypeParabolicQuad.S8R)
+                        return "A composite shell section takes S8R and S6 elements only. Set the parabolic quadrilateral " +
+                               "element type of the part " + part.Name + " to S8R.";
+                }
+                else if (element is ParabolicTriangleElement)
+                {
+                    if (checkedPartIds.Add(element.PartId * 2 + 1) && part.ParabolicTriaType != FeElementTypeParabolicTria.S6)
+                        return "A composite shell section takes S8R and S6 elements only. Set the parabolic triangle " +
+                               "element type of the part " + part.Name + " to S6.";
+                }
+                else
+                    return "A composite shell section takes S8R and S6 elements only. Mesh the part " + part.Name +
+                           " with parabolic shell elements.";
+            }
+            return null;
+        }
+        // The parts of the elements whose parabolic element types can be set to S8R and S6, and the parts that must be
+        // meshed with parabolic shell elements first
+        public void GetCompositeShellElementTypeParts(int[] elementIds, out string[] partNamesToChangeElementType,
+                                                      out string[] partNamesToMesh)
+        {
+            HashSet<string> changeNames = new HashSet<string>();
+            HashSet<string> meshNames = new HashSet<string>();
+            FeElement element;
+            MeshPart part;
+            foreach (int elementId in elementIds)
+            {
+                if (!_mesh.Elements.TryGetValue(elementId, out element)) continue;
+                //
+                part = _mesh.GetPartFromId(element.PartId) as MeshPart;
+                if (part == null) continue;
+                if (element is ParabolicQuadrilateralElement)
+                {
+                    if (part.ParabolicQuadType != FeElementTypeParabolicQuad.S8R) changeNames.Add(part.Name);
+                }
+                else if (element is ParabolicTriangleElement)
+                {
+                    if (part.ParabolicTriaType != FeElementTypeParabolicTria.S6) changeNames.Add(part.Name);
+                }
+                else meshNames.Add(part.Name);
+            }
+            changeNames.ExceptWith(meshNames);
+            partNamesToChangeElementType = changeNames.OrderBy(name => name).ToArray();
+            partNamesToMesh = meshNames.OrderBy(name => name).ToArray();
         }
         public bool TryComputePartMassProperties(BasePart part, out double mass, out double[] centerOfMass,
                                                  out string[] warnings)
@@ -1666,6 +1732,8 @@ namespace CaeModel
             bool axisymmetric = _properties.ModelSpace == ModelSpaceEnum.Axisymmetric;
             HashSet<string> offsetSectionNames = new HashSet<string>();
             HashSet<string> missingDensitySectionNames = new HashSet<string>();
+            HashSet<string> missingDensityCompositeSectionNames = new HashSet<string>();
+            HashSet<string> missingDensityLayerMaterialNames = new HashSet<string>();
             HashSet<string> temperatureDependentMaterialNames = new HashSet<string>();
             // The section values are parsed from equations and units, which is far too slow to repeat for each element
             int numOfSections = assignedSections.Count;
@@ -1673,11 +1741,15 @@ namespace CaeModel
             bool[] sectionHasOffset = new bool[numOfSections];
             double[] sectionDensity = new double[numOfSections];
             double[] sectionThickness = new double[numOfSections];
-            string[] sectionTemperatureDependentMaterialNames = new string[numOfSections];
+            List<string>[] sectionTemperatureDependentMaterialNames = new List<string>[numOfSections];
+            List<string>[] sectionMissingDensityMaterialNames = new List<string>[numOfSections];
             for (int i = 0; i < numOfSections; i++)
             {
+                sectionTemperatureDependentMaterialNames[i] = new List<string>();
+                sectionMissingDensityMaterialNames[i] = new List<string>();
                 sectionHasDensity[i] = TryGetSectionDensity(assignedSections[i], out sectionDensity[i],
-                                                            out sectionTemperatureDependentMaterialNames[i]);
+                                                            sectionTemperatureDependentMaterialNames[i],
+                                                            sectionMissingDensityMaterialNames[i]);
                 sectionThickness[i] = GetSectionThickness(assignedSections[i]);
                 if (assignedSections[i] is ShellSection shs) sectionHasOffset[i] = shs.Offset.Value != 0;
                 else if (assignedSections[i] is MembraneSection mes) sectionHasOffset[i] = mes.Offset.Value != 0;
@@ -1693,11 +1765,15 @@ namespace CaeModel
                 section = assignedSections[sectionId];
                 if (!sectionHasDensity[sectionId])
                 {
-                    missingDensitySectionNames.Add(section.Name);
+                    if (section is CompositeShellSection)
+                    {
+                        missingDensityCompositeSectionNames.Add(section.Name);
+                        missingDensityLayerMaterialNames.UnionWith(sectionMissingDensityMaterialNames[sectionId]);
+                    }
+                    else missingDensitySectionNames.Add(section.Name);
                     continue;
                 }
-                if (sectionTemperatureDependentMaterialNames[sectionId] != null)
-                    temperatureDependentMaterialNames.Add(sectionTemperatureDependentMaterialNames[sectionId]);
+                temperatureDependentMaterialNames.UnionWith(sectionTemperatureDependentMaterialNames[sectionId]);
                 density = sectionDensity[sectionId];
                 //
                 element = _mesh.Elements[elementId];
@@ -1747,6 +1823,11 @@ namespace CaeModel
             if (missingDensitySectionNames.Count > 0)
                 warnings.Add("Warning: No density is defined for the material of the section(s): " +
                              string.Join(", ", missingDensitySectionNames) + ". The elements are excluded from the mass.");
+            if (missingDensityCompositeSectionNames.Count > 0)
+                warnings.Add("Warning: No density is defined for the layer material(s): " +
+                             string.Join(", ", missingDensityLayerMaterialNames) + " of the composite shell section(s): " +
+                             string.Join(", ", missingDensityCompositeSectionNames) +
+                             ". The elements are excluded from the mass.");
             if (temperatureDependentMaterialNames.Count > 0)
                 warnings.Add("Warning: The first density value is used for the temperature dependent material(s): " +
                              string.Join(", ", temperatureDependentMaterialNames) + ".");
@@ -1823,20 +1904,56 @@ namespace CaeModel
             firstMoment[1] += pointMass * coor[1];
             firstMoment[2] += pointMass * coor[2];
         }
+        // The density of a composite shell section is the density of its layers weighted by their thickness
         private bool TryGetSectionDensity(Section section, out double density,
-                                          out string temperatureDependentMaterialName)
+                                          List<string> temperatureDependentMaterialNames,
+                                          List<string> missingDensityMaterialNames)
         {
             density = 0;
-            temperatureDependentMaterialName = null;
+            if (section is CompositeShellSection css)
+            {
+                double layerDensity;
+                double layerThickness;
+                double densityThicknessSum = 0;
+                double thicknessSum = 0;
+                foreach (CompositeLayer layer in css.GetSolverLayers())
+                {
+                    if (!TryGetMaterialDensity(layer.MaterialName, out layerDensity, temperatureDependentMaterialNames))
+                    {
+                        if (!missingDensityMaterialNames.Contains(layer.MaterialName))
+                            missingDensityMaterialNames.Add(layer.MaterialName);
+                        continue;
+                    }
+                    layerThickness = layer.Thickness.Value;
+                    densityThicknessSum += layerDensity * layerThickness;
+                    thicknessSum += layerThickness;
+                }
+                if (missingDensityMaterialNames.Count > 0 || thicknessSum <= 0) return false;
+                density = densityThicknessSum / thicknessSum;
+                return true;
+            }
+            else
+            {
+                if (TryGetMaterialDensity(section.MaterialName, out density, temperatureDependentMaterialNames))
+                    return true;
+                missingDensityMaterialNames.Add(section.MaterialName);
+                return false;
+            }
+        }
+        private bool TryGetMaterialDensity(string materialName, out double density,
+                                           List<string> temperatureDependentMaterialNames)
+        {
+            density = 0;
             //
             Material material;
-            if (section.MaterialName == null || !_materials.TryGetValue(section.MaterialName, out material)) return false;
+            if (materialName == null || !_materials.TryGetValue(materialName, out material)) return false;
             //
             foreach (var property in material.Properties)
             {
                 if (property is Density den)
                 {
-                    if (den.DensityTemp.Length > 1) temperatureDependentMaterialName = material.Name;
+                    if (den.DensityTemp.Length > 1 && !temperatureDependentMaterialNames.Contains(material.Name))
+                        temperatureDependentMaterialNames.Add(material.Name);
                     density = den.DensityTemp[0][0].Value;
                     return true;
                 }

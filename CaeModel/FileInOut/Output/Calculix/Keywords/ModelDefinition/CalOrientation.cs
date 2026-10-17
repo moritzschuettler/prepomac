@@ -16,16 +16,16 @@ namespace FileInOut.Output.Calculix
     [Serializable]
     internal class CalOrientation : CalculixKeyword
     {
-        // Variables
+        // Variables                                                                                                                
         private string _name;
         private double[] _axis1;
         private double[] _axis2;
 
 
-        // Properties
+        // Properties                                                                                                               
 
 
-        // Constructor
+        // Constructor                                                                                                              
         public CalOrientation(string name, double[] axis1, double[] axis2)
         {
             _name = name;
@@ -34,7 +34,7 @@ namespace FileInOut.Output.Calculix
         }
 
 
-        // Methods
+        // Methods                                                                                                                  
         public override string GetKeywordString()
         {
             return string.Format("*Orientation, Name={0}, System=Rectangular{1}", _name, Environment.NewLine);

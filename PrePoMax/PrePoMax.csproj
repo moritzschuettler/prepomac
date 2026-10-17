@@ -696,6 +696,8 @@
     <Compile Include="Forms\41_Material\ViewThermalExpansion.cs" />
     <Compile Include="Forms\41_Material\ViewElasticWithDensity.cs" />
     <Compile Include="Forms\43_Section\ViewShellSection.cs" />
+    <Compile Include="Forms\43_Section\ViewCompositeShellSection.cs" />
+    <Compile Include="Forms\43_Section\CompositeLayerDataPoint.cs" />
     <Compile Include="Forms\42_MaterialOrientation\ViewMaterialOrientation.cs" />
     <Compile Include="Forms\45_SurfaceInteraction\DataPoints\GapConductanceDataPoint.cs" />
     <Compile Include="Forms\45_SurfaceInteraction\DataPoints\PressureOverclosureDataPoint.cs" />

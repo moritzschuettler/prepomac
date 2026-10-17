@@ -30078,33 +30078,56 @@ namespace PrePoMax
         // the shell elements as coordinate system symbols that keep the colors of their axes
         public void HighlightMaterialOrientation(MaterialOrientation materialOrientation)
         {
-            int[] elementIds = null;
-            if (materialOrientation.RegionType == RegionTypeEnum.Selection && materialOrientation.CreationIds != null)
-            {
-                if (materialOrientation.CreationData != null &&
-                    materialOrientation.CreationData.SelectItem == vtkSelectItem.Part)
-                {
-                    List<int> partElementIds = new List<int>();
-                    BasePart part;
-                    foreach (int geometryId in materialOrientation.CreationIds)
-                    {
-                        part = _model.Mesh.GetPartFromId(FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2]);
-                        if (part != null) partElementIds.AddRange(part.Labels);
-                    }
-                    elementIds = partElementIds.ToArray();
-                }
-                else elementIds = materialOrientation.CreationIds;
-            }
-            else if (_model.IsMaterialOrientationRegionValid(materialOrientation))
-                elementIds = _model.GetElementIdsOfRegion(materialOrientation);
+            int[] elementIds = GetMultiRegionElementIds(materialOrientation);
+            if (elementIds == null || elementIds.Length == 0) return;
             //
-            if (elementIds != null && elementIds.Length > 0)
+            DrawElementOutline(materialOrientation.Name + Globals.NameSeparator + "Outline", elementIds,
+                               _settings.Pre.PrimaryHighlightColor, vtkRendererLayer.Selection);
+            DrawMaterialAxes(elementIds, element => materialOrientation, 0, materialOrientation.SymbolDensity);
+        }
+        // Highlights the outline of the region of the composite shell section and draws the material axes of the layer,
+        // turned by its angle from the orientation of each element, or from the solver default where none applies
+        public void HighlightCompositeLayer(CompositeShellSection section, int layerIndex)
+        {
+            int[] elementIds = GetMultiRegionElementIds(section);
+            if (elementIds == null || elementIds.Length == 0) return;
+            if (layerIndex < 0 || layerIndex >= section.Layers.Count) return;
+            //
+            DrawElementOutline(section.Name + Globals.NameSeparator + "Outline", elementIds,
+                               _settings.Pre.PrimaryHighlightColor, vtkRendererLayer.Selection);
+            double angle;
+            try { angle = section.Layers[layerIndex].Angle.Value; }
+            catch { return; }
+            Dictionary<int, MaterialOrientation> elementOrientations = _model.GetElementMaterialOrientations();
+            MaterialOrientation defaultOrientation = new MaterialOrientation(section.Name, null, RegionTypeEnum.None);
+            MaterialOrientation orientation;
+            DrawMaterialAxes(elementIds, element => elementOrientations.TryGetValue(element.Id, out orientation) ?
+                                                    orientation : defaultOrientation,
+                             angle, MaterialOrientation.DefaultSymbolDensity);
+        }
+        // A selection made by picking parts carries geometry ids, any other one element ids
+        private int[] GetMultiRegionElementIds(IMultiRegion region)
+        {
+            if (region.RegionType == RegionTypeEnum.Selection)
             {
-                string prefixName = materialOrientation.Name + Globals.NameSeparator;
-                DrawElementOutline(prefixName + "Outline", elementIds, _settings.Pre.PrimaryHighlightColor,
-                                   vtkRendererLayer.Selection);
-                DrawMaterialOrientationAxes(materialOrientation, elementIds);
+                if (region.CreationIds == null) return null;
+                if (region.CreationData == null || region.CreationData.SelectItem != vtkSelectItem.Part)
+                    return region.CreationIds;
+                //
+                List<int> partElementIds = new List<int>();
+                BasePart part;
+                foreach (int geometryId in region.CreationIds)
+                {
+                    part = _model.Mesh.GetPartFromId(FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[2]);
+                    if (part != null) partElementIds.AddRange(part.Labels);
+                }
+                return partElementIds.ToArray();
             }
+            else if ((region.RegionType == RegionTypeEnum.PartName && _model.Mesh.Parts.ContainsKey(region.RegionName)) ||
+                     (region.RegionType == RegionTypeEnum.ElementSetName &&
+                      _model.Mesh.ElementSets.ContainsKey(region.RegionName)))
+                return _model.GetElementIdsOfRegion(region);
+            else return null;
         }
         private void DrawElementOutline(string name, int[] elementIds, Color color, vtkRendererLayer layer)
         {
@@ -30132,11 +30155,11 @@ namespace PrePoMax
             ApplyLighting(data);
             _form.Add3DCells(data);
         }
-        private void DrawMaterialOrientationAxes(MaterialOrientation materialOrientation, int[] elementIds)
+        // Draws the material axes of the visible shell elements as coordinate system symbols labeled 1, 2 and 3, and
+        // 1* where the reference axis was too close to the normal and was replaced
+        private void DrawMaterialAxes(int[] elementIds, Func<FeElement, MaterialOrientation> getOrientation,
+                                      double additionalAngleDeg, int symbolDensity)
         {
-            if (materialOrientation.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName &&
-                !_model.Mesh.CoordinateSystems.ContainsKey(materialOrientation.CoordinateSystemName)) return;
-            //
             HashSet<int> visiblePartIds = new HashSet<int>();
             foreach (var entry in _model.Mesh.Parts)
             {
@@ -30148,6 +30171,7 @@ namespace PrePoMax
             double[] normal;
             double[][] axes;
             FeElement element;
+            MaterialOrientation orientation;
             List<double[]> points = new List<double[]>();
             List<double[][]> allAxes = new List<double[][]>();
             List<bool> fallbacks = new List<bool>();
@@ -30157,26 +30181,31 @@ namespace PrePoMax
                 if (!visiblePartIds.Contains(element.PartId)) continue;
                 if (!MaterialOrientationCalculator.TryGetShellPointAndNormal(_model.Mesh, element, out point, out normal))
                     continue;
-                axes = materialOrientation.GetElementAxes(_model.Mesh, element, 0, out fallbackUsed);
+                orientation = getOrientation(element);
+                if (orientation.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName &&
+                    !_model.Mesh.CoordinateSystems.ContainsKey(orientation.CoordinateSystemName)) continue;
+                axes = orientation.GetElementAxes(_model.Mesh, element, additionalAngleDeg, out fallbackUsed);
                 points.Add(point);
                 allAxes.Add(axes);
                 fallbacks.Add(fallbackUsed);
             }
-            //
             // The full density shows the symbols of a spatial resolution that does not depend on the mesh size, and a
             // lower one an evenly distributed share of them
             int[] fullIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(points.ToArray(), 6, null);
             double[][] fullPoints = new double[fullIds.Length][];
             for (int i = 0; i < fullIds.Length; i++) fullPoints[i] = points[fullIds[i]];
-            int targetCount = (int)Math.Ceiling(fullIds.Length * materialOrientation.SymbolDensity / 100.0);
+            int targetCount = (int)Math.Ceiling(fullIds.Length * symbolDensity / 100.0);
             int[] sampleIds = SpatialPointSampler.GetSampleIndicesByCount(fullPoints, targetCount, null);
-            for (int i = 0; i < sampleIds.Length; i++) sampleIds[i] = fullIds[sampleIds[i]];
-            // Axis 1 is labeled 1* where the reference axis was too close to the normal and was replaced
+            //
             string[] labels = new string[] { "1", "2", "3" };
             string[] replacedLabels = new string[] { "1*", "2", "3" };
             int symbolSize = _settings.Pre.SymbolSize;
-            foreach (int id in sampleIds)
+            int id;
+            for (int i = 0; i < sampleIds.Length; i++)
+            {
+                id = fullIds[sampleIds[i]];
                 _form.AddMaterialAxesSymbol(points[id], allAxes[id], fallbacks[id] ? replacedLabels : labels, symbolSize);
+            }
         }
         public void HighlightConstraint(string constraintName)
         {

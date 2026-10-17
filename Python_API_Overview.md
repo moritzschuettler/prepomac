@@ -1442,6 +1442,14 @@ elements rather than refusing the mesh: it writes `<part> has <n> inverted or de
 to the output window, where the line is a link that highlights them, and highlights them once
 meshing ends. `mesh.generate` reports such a part as meshed, so a script finds the elements here.
 
+`ModelPart` also adds `get_mass()`, the mass of the part as the Query dialog computes it from the densities of the
+materials of its sections, or `None` when no element has a section with a density. A shell element weighs its area
+times the section thickness, and a composite shell element the sum over its layers, a mirrored symmetric layup
+included, of each layer's thickness times the density of its material. `get_mass_warnings()` returns the warnings
+of that computation as a `list[str]`: elements without a section, without a density - for a composite shell, any
+layer material without one, which excludes its elements - or of an unsupported type are left out of the mass, and a
+temperature dependent density or a shell offset is approximated.
+
 #### `FaceData`, `EdgeData` and `VertexData`
 
 The topology of one part, read off the visualization the application keeps for picking. It is how a
@@ -1629,11 +1637,13 @@ dependent with the rows the analysis uses.
 | --- | --- |
 | `add_solid(name, material_name, region, thickness=None)` | Solid section. The selection target is `elements` or `parts`, as the dialog picks them. The thickness is written only in a 2D model, where it is 1 when not given, so it is refused in a 3D one. |
 | `add_shell(name, material_name, region, thickness=1, offset=0)` | Shell section. The selection target is `elements` or `parts`. The offset of the mid surface from the selected geometry is given in shell thicknesses. |
+| `add_composite_shell(name, region, layers, offset=0, symmetric=False)` | Composite shell section. The selection target is `elements` or `parts`. Every row of `layers` is `[thickness, material_name, angle_deg]`, from layer 1, on the side opposite to the shell normal, up along the normal; a thickness must be larger than 0, and a thickness or an angle may be an equation string. The angle turns material axis 1 about the normal from the material orientation that covers the element, or from the solver default, the projected global x axis. A `symmetric` layup is completed by its mirror image. The offset is given in total thicknesses. CalculiX takes a composite shell of S8R and S6 elements only, so a region of other elements is refused, naming the part and the element type to set. |
 | `add_membrane(name, material_name, region, thickness=1, offset=0)` | Membrane section. The selection target is `elements` or `parts`. The offset is given in membrane thicknesses. |
 | `add_point_mass(name, region, mass)` | Point mass section. The selection target is `nodes`. |
 | `add_distributed_mass(name, region, mass)` | Distributed mass section. The region is a selection or a named region; the selection target is `surfaces`. |
 | `replace_solid(old_name, name=None, material_name=None, region=None, thickness=None)` | Replaces a solid section. A value that is not given is kept. |
 | `replace_shell(old_name, name=None, material_name=None, region=None, thickness=None, offset=None)` | Replaces a shell section. |
+| `replace_composite_shell(old_name, name=None, region=None, layers=None, offset=None, symmetric=None)` | Replaces a composite shell section. `layers` replaces all layers at once. |
 | `replace_membrane(old_name, name=None, material_name=None, region=None, thickness=None, offset=None)` | Replaces a membrane section. |
 | `replace_point_mass(old_name, name=None, region=None, mass=None)` | Replaces a point mass section. |
 | `replace_distributed_mass(old_name, name=None, region=None, mass=None)` | Replaces a distributed mass section. The region is a surface region, as on `add_distributed_mass`. |
@@ -1654,7 +1664,8 @@ invalid, and the values the replace changes apply. A new region or material that
 A replacement is typed: replacing a solid section as a shell section is refused rather than silently
 turning it into one, with `The section 'X' is made by add_solid, so replace_shell cannot replace it.`
 
-`Section` exposes `name`, `item_type` (`'solid'`, `'shell'`, `'membrane'`, `'point_mass'` or `'distributed_mass'`), `material_name`, `region_name`, `region_type`, `thickness`
+`Section` exposes `name`, `item_type` (`'solid'`, `'shell'`, `'composite_shell'`, `'membrane'`, `'point_mass'` or `'distributed_mass'`), `material_name` (of a composite shell section, the material of layer 1), `region_name`, `region_type`, `thickness` (of a composite shell section the total, read only),
+`layers` and `symmetric` (of a composite shell section, otherwise `None`; a layer value entered as an expression reads back as that expression),
 (of a shell or membrane section, or of a solid section in a 2D model, otherwise `None`, as the replace of the type takes it),
 `offset` (of a shell or membrane section, otherwise `None`), `mass` (of a mass section, otherwise `None`), `valid` and
 `get_equations()`, the expressions `thickness`, `offset` and `mass` were entered with, as a `dict[str, str]`; a value

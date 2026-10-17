@@ -9,6 +9,9 @@
 
 using CaeGlobals;
 using CaeModel;
+using Python.Runtime;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -74,6 +77,33 @@ namespace APIs.Python.Model
                                                     _service.GetIsTwoDimensional());
             ApplyThickness(section, thickness);
             ApplyOffset(section.Offset, offset);
+            AddSection(section, region, "elements");
+            return this[nameText];
+        }
+
+        [PythonAPI("Adds a composite shell section using command history. The region is a selection or a named " +
+                   "region; the selection target is elements or parts. Every row of layers is [thickness, " +
+                   "material_name, angle_deg]: layer 1 lies on the side opposite to the shell normal and the " +
+                   "layers stack along the normal. The angle turns the material axis 1 of the element about the " +
+                   "normal, from the material orientation that covers the element, or from the solver default, the " +
+                   "projected global x axis. A symmetric layup is completed by its mirror image. As the dialog " +
+                   "does, the region must be made of shell parts or shell elements, and CalculiX takes a composite " +
+                   "shell of S8R and S6 elements only. The offset is given in total thicknesses. A thickness or an " +
+                   "angle may be an equation string.",
+                   Arguments = "name: str, region: Selection or Region, layers: list[list], offset: float = 0, " +
+                               "symmetric: bool = False",
+                   Returns = "Section",
+                   Example = "pmx.model.sections.add_composite_shell('Laminate', selection, " +
+                             "[[0.25, 'Ply', 0], [0.25, 'Ply', 90]], symmetric=True)")]
+        public SectionAPI add_composite_shell(object name, object region, object layers, object offset = null,
+                                              object symmetric = null)
+        {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateNewName(nameText, null);
+            CompositeShellSection section = new CompositeShellSection(nameText, null, RegionTypeEnum.Selection,
+                                                                      ToLayers(layers), _service.GetIsTwoDimensional());
+            ApplyOffset(section.Offset, offset);
+            if (symmetric != null) section.Symmetric = PythonValueConverter.ToBool(symmetric, "symmetric");
             AddSection(section, region, "elements");
             return this[nameText];
         }
@@ -165,6 +195,25 @@ namespace APIs.Python.Model
                                                  "offset");
             //
             return Replace(oldName, nameText, materialName, region, section, "elements");
+        }
+
+        [PythonAPI("Replaces a composite shell section, keeping every value that is not given. layers replaces " +
+                   "all layers at once." + KeptReferenceNote,
+                   Arguments = "old_name: str, name: str = None, region: Selection or Region = None, " +
+                               "layers: list[list] = None, offset: float = None, symmetric: bool = None",
+                   Returns = "Section")]
+        public SectionAPI replace_composite_shell(object old_name, object name = null, object region = null,
+                                                  object layers = null, object offset = null, object symmetric = null)
+        {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            CompositeShellSection section = Clone<CompositeShellSection>(oldName, "composite_shell");
+            if (layers != null) section.Layers = ToLayers(layers);
+            PythonModelArgumentCheck.SetEquation(section.Offset, ToEquationOrKeep(offset, section.Offset, "offset"),
+                                                 "offset");
+            if (symmetric != null) section.Symmetric = PythonValueConverter.ToBool(symmetric, "symmetric");
+            //
+            return Replace(oldName, nameText, null, region, section, "elements");
         }
 
         [PythonAPI("Replaces a membrane section, keeping every value that is not given." + KeptReferenceNote,
@@ -308,6 +357,87 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("The argument 'mass' must be zero or larger.");
             //
             return equation;
+        }
+        // A row is [thickness, material_name, angle_deg]; the material is stored in the model's own spelling
+        private List<CompositeLayer> ToLayers(object layers)
+        {
+            List<object[]> rows = ToRows(layers, "layers");
+            if (rows.Count == 0) throw new PythonAPIException("The argument 'layers' must contain at least one layer.");
+            //
+            List<CompositeLayer> compositeLayers = new List<CompositeLayer>();
+            for (int i = 0; i < rows.Count; i++)
+            {
+                string argumentName = "layers[" + i + "]";
+                if (rows[i].Length != 3)
+                    throw new PythonAPIException("The argument '" + argumentName + "' must be [thickness, " +
+                                                 "material_name, angle_deg].");
+                string materialName = rows[i][1] as string;
+                if (materialName == null)
+                    throw new PythonAPIException("The material of '" + argumentName + "' must be a material name.");
+                CompositeLayer layer = new CompositeLayer(_service.GetStoredMaterialName(materialName, argumentName), 0, 0);
+                PythonModelArgumentCheck.SetEquation(layer.Thickness,
+                                                     PythonValueConverter.ToEquationString(rows[i][0], argumentName),
+                                                     argumentName);
+                PythonModelArgumentCheck.SetEquation(layer.Angle,
+                                                     PythonValueConverter.ToEquationString(rows[i][2], argumentName),
+                                                     argumentName);
+                compositeLayers.Add(layer);
+            }
+            return compositeLayers;
+        }
+        private static List<object[]> ToRows(object value, string argumentName)
+        {
+            if (value == null || value is string)
+                throw new PythonAPIException("The argument '" + argumentName + "' must be a list of rows.");
+            //
+            List<object[]> rows = new List<object[]>();
+            PyObject python = value as PyObject;
+            if (python == null)
+            {
+                IEnumerable enumerable = value as IEnumerable;
+                if (enumerable == null)
+                    throw new PythonAPIException("The argument '" + argumentName + "' must be a list of rows.");
+                foreach (object row in enumerable)
+                {
+                    IEnumerable items = row as IEnumerable;
+                    if (items == null || row is string)
+                        throw new PythonAPIException("The argument '" + argumentName + "' must be a list of rows.");
+                    List<object> rowItems = new List<object>();
+                    foreach (object item in items) rowItems.Add(item);
+                    rows.Add(rowItems.ToArray());
+                }
+                return rows;
+            }
+            using (Py.GIL())
+            {
+                if (python.IsNone() || PyString.IsStringType(python))
+                    throw new PythonAPIException("The argument '" + argumentName + "' must be a list of rows.");
+                using (PyObject builtins = Py.Import("builtins"))
+                using (PyObject listFunction = builtins.GetAttr("list"))
+                using (PyObject list = listFunction.Invoke(python))
+                {
+                    for (int i = 0; i < list.Length(); i++)
+                    {
+                        using (PyObject row = list.GetItem(i))
+                        {
+                            if (row.IsNone() || PyString.IsStringType(row))
+                                throw new PythonAPIException("The argument '" + argumentName + "[" + i + "]' must be " +
+                                                             "a list.");
+                            using (PyObject items = listFunction.Invoke(row))
+                            {
+                                object[] values = new object[items.Length()];
+                                for (int j = 0; j < values.Length; j++)
+                                {
+                                    using (PyObject item = items.GetItem(j))
+                                        values[j] = item.IsNone() ? null : item.AsManagedObject(typeof(object));
+                                }
+                                rows.Add(values);
+                            }
+                        }
+                    }
+                }
+            }
+            return rows;
         }
         // The offset only exists on the section types that have a mid surface, so it is applied through
         // the container rather than through the section

@@ -18,11 +18,11 @@ namespace PrePoMax
     [Serializable]
     public class ViewCompositeStrength : ViewMaterialProperty
     {
-        // Variables
+        // Variables                                                                                                                
         private CompositeStrength _compositeStrength;
 
 
-        // Properties
+        // Properties                                                                                                               
         public override string Name
         {
             get { return "Composite Strength"; }
@@ -108,7 +108,7 @@ namespace PrePoMax
         }
 
 
-        // Constructors
+        // Constructors                                                                                                             
         public ViewCompositeStrength(CompositeStrength compositeStrength)
         {
             _compositeStrength = compositeStrength;
@@ -117,7 +117,7 @@ namespace PrePoMax
         }
 
 
-        // Methods
+        // Methods                                                                                                                  
         public override MaterialProperty GetBase()
         {
             return _compositeStrength;

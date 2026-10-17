@@ -16,7 +16,7 @@ namespace CaeModel
     [Serializable]
     public class CompositeStrength : MaterialProperty, ISerializable
     {
-        // Variables
+        // Variables                                                                                                                
         public const double DefaultTsaiWuCoefficient = -0.5;
         private EquationContainer _tensileStrength1;            //ISerializable
         private EquationContainer _compressiveStrength1;        //ISerializable
@@ -27,7 +27,7 @@ namespace CaeModel
         private EquationContainer _tsaiWuCoefficient;           //ISerializable
 
 
-        // Properties
+        // Properties                                                                                                               
         public EquationContainer TensileStrength1
         {
             get { return _tensileStrength1; }
@@ -57,7 +57,7 @@ namespace CaeModel
         }
 
 
-        // Constructors
+        // Constructors                                                                                                             
         public CompositeStrength(double tensileStrength1, double compressiveStrength1, double tensileStrength2,
                                  double compressiveStrength2, double shearStrength12, double shearStrength23,
                                  double tsaiWuCoefficient)
@@ -99,7 +99,7 @@ namespace CaeModel
         }
 
 
-        // Methods
+        // Methods                                                                                                                  
         private void SetTensileStrength1(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _tensileStrength1, value, CheckPositive, checkEquation);

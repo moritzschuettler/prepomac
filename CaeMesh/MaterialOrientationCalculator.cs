@@ -19,11 +19,11 @@ namespace CaeMesh
     // reference axis is the z axis.
     public static class MaterialOrientationCalculator
     {
-        // Variables
+        // Variables                                                                                                                
         public const double ParallelToleranceDeg = 0.1;
 
 
-        // Methods
+        // Methods                                                                                                                  
         public static bool IsShellElement(FeElement element)
         {
             return element is LinearTriangleElement || element is ParabolicTriangleElement ||

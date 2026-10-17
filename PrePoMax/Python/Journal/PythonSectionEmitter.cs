@@ -48,6 +48,22 @@ namespace PrePoMax.Python.Journal
                 if (solidSection.TwoD)
                     arguments.Add("thickness=" + PythonValueFormatter.Equation(solidSection.Thickness));
             }
+            else if (section is CompositeShellSection compositeShellSection)
+            {
+                method = verb + "_composite_shell";
+                PythonJournalWriter.AddPositional(arguments, "region", region);
+                List<string> rows = new List<string>();
+                foreach (CompositeLayer layer in compositeShellSection.Layers)
+                {
+                    rows.Add("[" + PythonValueFormatter.Equation(layer.Thickness) + ", " +
+                             PythonValueFormatter.Text(layer.MaterialName) + ", " +
+                             PythonValueFormatter.Equation(layer.Angle) + "]");
+                }
+                arguments.Add("layers=[" + string.Join(", ", rows) + "]");
+                arguments.Add("offset=" + PythonValueFormatter.Equation(compositeShellSection.Offset));
+                if (replace || compositeShellSection.Symmetric)
+                    arguments.Add("symmetric=" + (compositeShellSection.Symmetric ? "True" : "False"));
+            }
             else if (section is ShellSection shellSection)
             {
                 method = verb + "_shell";

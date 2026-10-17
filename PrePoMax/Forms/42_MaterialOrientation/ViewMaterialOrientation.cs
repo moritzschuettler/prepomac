@@ -20,12 +20,12 @@ namespace PrePoMax
     [Serializable]
     public class ViewMaterialOrientation : ViewMultiRegion
     {
-        // Variables
+        // Variables                                                                                                                
         private string _selectionHidden;
         private MaterialOrientation _materialOrientation;
 
 
-        // Properties
+        // Properties                                                                                                               
         [CategoryAttribute("Data")]
         [OrderedDisplayName(0, 10, "Name")]
         [Id(1, 1)]
@@ -110,7 +110,7 @@ namespace PrePoMax
         }
 
 
-        // Constructors
+        // Constructors                                                                                                             
         public ViewMaterialOrientation(MaterialOrientation materialOrientation)
         {
             _materialOrientation = materialOrientation;
@@ -126,7 +126,7 @@ namespace PrePoMax
         }
 
 
-        // Methods
+        // Methods                                                                                                                  
         public MaterialOrientation GetBase()
         {
             return _materialOrientation;

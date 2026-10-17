@@ -116,6 +116,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalDeactivated.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalContactPair.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalShellSection.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalCompositeShellSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalSpecificHeat.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalThermalConductivity.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalThermalExpansion.cs" />
@@ -173,6 +174,8 @@
     <Compile Include="Sections\LinearSpringSectionData.cs" />
     <Compile Include="Sections\SectionData.cs" />
     <Compile Include="Sections\ShellSection.cs" />
+    <Compile Include="Sections\CompositeLayer.cs" />
+    <Compile Include="Sections\CompositeShellSection.cs" />
     <Compile Include="Orientations\MaterialOrientation.cs" />
     <Compile Include="Constraints\PointSpring.cs" />
     <Compile Include="Constraints\CompressionOnly.cs" />

@@ -2022,6 +2022,8 @@ namespace FileInOut.Output
             if (section.Active)
             {
                 if (section is SolidSection ss) parent.AddKeyword(new CalSolidSection(ss));
+                else if (section is CompositeShellSection css)
+                    AppendCompositeShellSection(model, css, elementOrientations, parent);
                 else if (section is ShellSection shs) AppendShellSection(model, shs, elementOrientations, parent);
                 else if (section is MembraneSection ms) parent.AddKeyword(new CalMembraneSection(ms));
                 else if (section is PointMassSection pms) { }
@@ -2038,7 +2040,7 @@ namespace FileInOut.Output
             List<ShellOrientationGroup> groups = null;
             if (elementOrientations.Count > 0)
                 groups = ShellOrientationGroup.Create(model, model.GetElementIdsOfRegion(section), elementOrientations,
-                                                      out unorientedElementIds);
+                                                      null, out unorientedElementIds);
             //
             if (groups == null || groups.Count == 0)
             {
@@ -2063,6 +2065,55 @@ namespace FileInOut.Output
                 name = GetUniqueName(section.Name + "_No_Orientation", usedNames);
                 parent.AddKeyword(new CalElementSet(new FeElementSet(name, unorientedElementIds.ToArray())));
                 parent.AddKeyword(new CalShellSection(section, name, null));
+            }
+        }
+        // Each group of elements whose axes agree gets an orientation per distinct layer angle, turned about the shell
+        // normal; an element no orientation covers starts from the solver default, the projected global x axis
+        static private void AppendCompositeShellSection(FeModel model, CompositeShellSection section,
+                                                        Dictionary<int, MaterialOrientation> elementOrientations,
+                                                        CalculixKeyword parent)
+        {
+            MaterialOrientation defaultOrientation = new MaterialOrientation(section.Name, null, RegionTypeEnum.None);
+            List<int> unorientedElementIds;
+            List<ShellOrientationGroup> groups = ShellOrientationGroup.Create(model, model.GetElementIdsOfRegion(section),
+                                                                              elementOrientations, defaultOrientation,
+                                                                              out unorientedElementIds);
+            List<CompositeLayer> layers = section.GetSolverLayers();
+            double[] angles = new double[layers.Count];
+            for (int i = 0; i < layers.Count; i++) angles[i] = layers[i].Angle.Value;
+            //
+            HashSet<string> usedNames = new HashSet<string>(model.Mesh.ElementSets.Keys, StringComparer.OrdinalIgnoreCase);
+            usedNames.UnionWith(model.Mesh.Parts.Keys);
+            string name;
+            string orientationName;
+            string[] layerOrientationNames;
+            double[][] axes;
+            Dictionary<double, string> angleOrientationNames;
+            for (int i = 0; i < groups.Count; i++)
+            {
+                name = GetUniqueName(section.Name + "_Orientation-" + (i + 1), usedNames);
+                parent.AddKeyword(new CalElementSet(new FeElementSet(name, groups[i].ElementIds.ToArray())));
+                //
+                layerOrientationNames = new string[layers.Count];
+                angleOrientationNames = new Dictionary<double, string>();
+                for (int j = 0; j < layers.Count; j++)
+                {
+                    if (!angleOrientationNames.TryGetValue(angles[j], out orientationName))
+                    {
+                        orientationName = name + "_Angle-" + (angleOrientationNames.Count + 1);
+                        angleOrientationNames.Add(angles[j], orientationName);
+                        axes = groups[i].GetAxes(angles[j]);
+                        parent.AddKeyword(new CalOrientation(orientationName, axes[0], axes[1]));
+                    }
+                    layerOrientationNames[j] = orientationName;
+                }
+                parent.AddKeyword(new CalCompositeShellSection(section, name, layerOrientationNames));
+            }
+            if (unorientedElementIds.Count > 0)
+            {
+                name = GetUniqueName(section.Name + "_No_Orientation", usedNames);
+                parent.AddKeyword(new CalElementSet(new FeElementSet(name, unorientedElementIds.ToArray())));
+                parent.AddKeyword(new CalCompositeShellSection(section, name, null));
             }
         }
         static private string GetUniqueName(string name, HashSet<string> usedNames)

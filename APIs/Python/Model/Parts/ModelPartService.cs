@@ -39,6 +39,12 @@ namespace APIs.Python.Model
             MeshGateway.FindEdgesByAngleForModelParts(partNames, angle);
         }
         //
+        public bool TryGetPartMass(string partName, out double mass, out string[] warnings)
+        {
+            BasePart part = ResolvePart(partName);
+            double[] centerOfMass;
+            return ModelResolver.GetModel().TryComputePartMassProperties(part, out mass, out centerOfMass, out warnings);
+        }
         protected override PartProperties GetPartProperties(string partName)
         {
             return MeshGateway.GetModelPartProperties(partName);

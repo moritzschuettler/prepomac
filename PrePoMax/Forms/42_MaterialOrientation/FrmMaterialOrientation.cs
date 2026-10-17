@@ -17,14 +17,14 @@ namespace PrePoMax.Forms
 {
     class FrmMaterialOrientation : UserControls.FrmProperties, IFormBase, IFormItemSetDataParent, IFormHighlight
     {
-        // Variables
+        // Variables                                                                                                                
         private string[] _materialOrientationNames;
         private string _materialOrientationToEditName;
         private ViewMaterialOrientation _viewMaterialOrientation;
         private Controller _controller;
 
 
-        // Properties
+        // Properties                                                                                                               
         public MaterialOrientation MaterialOrientation
         {
             get { return _viewMaterialOrientation != null ? _viewMaterialOrientation.GetBase() : null; }
@@ -32,7 +32,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Constructors
+        // Constructors                                                                                                             
         public FrmMaterialOrientation(Controller controller)
         {
             InitializeComponent();
@@ -56,7 +56,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Overrides
+        // Overrides                                                                                                                
         protected override void OnVisibleChanged(EventArgs e)
         {
             if (Visible) ShowHideSelectionForm();   // accounts for minimizing/maximizing the main form
@@ -180,7 +180,7 @@ namespace PrePoMax.Forms
         }
 
 
-        // Methods
+        // Methods                                                                                                                  
         private string GetMaterialOrientationName()
         {
             return _materialOrientationNames.GetNextNumberedKey("Material_Orientation");

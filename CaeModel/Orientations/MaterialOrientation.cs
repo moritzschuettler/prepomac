@@ -17,7 +17,7 @@ namespace CaeModel
     [Serializable]
     public class MaterialOrientation : NamedClass, IMultiRegion, IContainsEquations, ISerializable
     {
-        // Variables
+        // Variables                                                                                                                
         public const int DefaultSymbolDensity = 50;
         private string _regionName;                                 //ISerializable
         private RegionTypeEnum _regionType;                         //ISerializable
@@ -29,7 +29,7 @@ namespace CaeModel
         private int _symbolDensity;                                 //ISerializable
 
 
-        // Properties
+        // Properties                                                                                                               
         public string RegionName { get { return _regionName; } set { _regionName = value; } }
         public RegionTypeEnum RegionType { get { return _regionType; } set { _regionType = value; } }
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }
@@ -62,7 +62,7 @@ namespace CaeModel
         }
 
 
-        // Constructors
+        // Constructors                                                                                                             
         public MaterialOrientation(string name, string regionName, RegionTypeEnum regionType)
             : base(name)
         {
@@ -106,7 +106,7 @@ namespace CaeModel
         }
 
 
-        // Methods
+        // Methods                                                                                                                  
         private void SetRotationAngle(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _rotationAngle, value, CheckFinite, checkEquation);

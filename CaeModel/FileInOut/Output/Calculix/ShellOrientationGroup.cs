@@ -19,20 +19,20 @@ namespace FileInOut.Output.Calculix
     // normal agree within about 0.1 degrees share one orientation. A flat region becomes a single group.
     internal class ShellOrientationGroup
     {
-        // Variables
+        // Variables                                                                                                                
         private const double _quantizationStep = 0.001;
         private double[] _axis1;
         private double[] _normal;
         private List<int> _elementIds;
 
 
-        // Properties
+        // Properties                                                                                                               
         public double[] Axis1 { get { return _axis1; } }
         public double[] Normal { get { return _normal; } }
         public List<int> ElementIds { get { return _elementIds; } }
 
 
-        // Constructor
+        // Constructor                                                                                                              
         private ShellOrientationGroup(double[] axis1, double[] normal)
         {
             _axis1 = axis1;
@@ -41,9 +41,11 @@ namespace FileInOut.Output.Calculix
         }
 
 
-        // Static methods
+        // Static methods                                                                                                           
+        // An element no orientation covers takes the default orientation, when one is given
         public static List<ShellOrientationGroup> Create(FeModel model, int[] elementIds,
                                                          Dictionary<int, MaterialOrientation> elementOrientations,
+                                                         MaterialOrientation defaultOrientation,
                                                          out List<int> unorientedElementIds)
         {
             unorientedElementIds = new List<int>();
@@ -62,7 +64,8 @@ namespace FileInOut.Output.Calculix
             foreach (int elementId in sortedIds)
             {
                 axes = null;
-                if (elementOrientations.TryGetValue(elementId, out orientation))
+                if (!elementOrientations.TryGetValue(elementId, out orientation)) orientation = defaultOrientation;
+                if (orientation != null)
                     axes = orientation.GetElementAxes(model.Mesh, model.Mesh.Elements[elementId], 0, out fallbackUsed);
                 //
                 if (axes == null)
@@ -90,7 +93,7 @@ namespace FileInOut.Output.Calculix
         }
 
 
-        // Methods
+        // Methods                                                                                                                  
         // Returns axes 1 and 2 of the group turned by the angle about the normal
         public double[][] GetAxes(double angleDeg)
         {
