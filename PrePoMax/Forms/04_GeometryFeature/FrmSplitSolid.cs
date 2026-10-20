@@ -285,6 +285,8 @@ namespace PrePoMax.Forms
         }
         protected override void OnPropertyGridPropertyValueChanged()
         {
+            if (GeometryFeature is SplitByPointAndNormal pointAndNormal) DropPicksOfTypedValue(pointAndNormal);
+            //
             _viewGeometryFeature.UpdateVisibility();
             //
             HighlightGeometryFeature();
@@ -388,6 +390,32 @@ namespace PrePoMax.Forms
 
 
         // Methods
+        private void DropPicksOfTypedValue(SplitByPointAndNormal pointAndNormal)
+        {
+            if (propertyGrid.SelectedGridItem == null || propertyGrid.SelectedGridItem.PropertyDescriptor == null) return;
+            //
+            string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
+            bool pointTyped = property == nameof(ViewSplitByPointAndNormal.X) ||
+                              property == nameof(ViewSplitByPointAndNormal.Y) ||
+                              property == nameof(ViewSplitByPointAndNormal.Z);
+            bool normalTyped = property == nameof(ViewSplitByPointAndNormal.Nx) ||
+                               property == nameof(ViewSplitByPointAndNormal.Ny) ||
+                               property == nameof(ViewSplitByPointAndNormal.Nz);
+            if (!pointTyped && !normalTyped) return;
+            //
+            int[] splitterIds = pointAndNormal.SplitterIds;
+            _controller.DropSplitGeometryPicksOfTypedValue(pointAndNormal, pointTyped, normalTyped);
+            if (pointAndNormal.SplitterIds == splitterIds) return;
+            // The next pick continues the splitter selection without the picks that were taken back
+            if (_selectionTarget == FeatureSelectionTargetEnum.Splitter)
+            {
+                _controller.ClearSelectionHistory();
+                if (pointAndNormal.SplitterData != null)
+                    _controller.Selection = pointAndNormal.SplitterData.DeepCopy(true, false);
+                ItemSetDataEditor.SelectionForm.ItemSetData = new ItemSetData(GetTargetIds());
+            }
+            propertyGrid.Refresh();
+        }
         private void UpdateUndoButton()
         {
             btnUndo.Enabled = _controller.CanUndoSplitGeometry;
