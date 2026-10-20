@@ -255,7 +255,9 @@ namespace System.Windows.Forms
                 }
             }
             if (control != null) { control.Focus(); return; }
-            throw new InvalidOperationException("No control " + nameOrText);
+            var open = WinFormsCompat.Native.MessageBoxWindow.OpenButtons;
+            throw new InvalidOperationException("No control " + nameOrText + (open != null ? "; message box buttons: " +
+                                                string.Join(", ", open.Keys) : "; no message box"));
         }
         private static Control Find(Control root, string nameOrText)
         {

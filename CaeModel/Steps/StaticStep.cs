@@ -26,6 +26,7 @@ namespace CaeModel
         private double _minTimeIncrement;           //ISerializable
         private double _maxTimeIncrement;           //ISerializable
         private bool _direct;                       //ISerializable
+        private bool _stabilize;                    //ISerializable
 
 
         // Properties                                                                                                               
@@ -75,6 +76,7 @@ namespace CaeModel
             }
         }
         public bool Direct { get { return _direct; } set { _direct = value; } }
+        public bool Stabilize { get { return _stabilize; } set { _stabilize = value; } }
 
 
         // Constructors                                                                                                             
@@ -90,6 +92,7 @@ namespace CaeModel
             _minTimeIncrement = 1E-5;
             _maxTimeIncrement = 1E30;
             _direct = false;
+            _stabilize = false;
             //
             if (addFieldOutputs)
             {
@@ -104,6 +107,7 @@ namespace CaeModel
         {            
             // Compatibility for version v.0.5.3
             _direct = false;
+            _stabilize = false;
             //
             int count = 0;
             foreach (SerializationEntry entry in info)
@@ -120,6 +124,8 @@ namespace CaeModel
                         _maxTimeIncrement = (double)entry.Value; count++; break;
                     case "_direct":
                         _direct = (bool)entry.Value; break;
+                    case "_stabilize":
+                        _stabilize = (bool)entry.Value; break;
                 }
             }
             if (count != 4) throw new NotSupportedException();
@@ -153,7 +159,9 @@ namespace CaeModel
                 loadType == typeof(ShellEdgeLoad) ||
                 loadType == typeof(GravityLoad) ||
                 loadType == typeof(CentrifLoad) ||
-                loadType == typeof(PreTensionLoad))
+                loadType == typeof(PreTensionLoad) ||
+                loadType == typeof(BladeAeroLoad) ||
+                loadType == typeof(BladeAeroPressureLoad))
             {
                 return true;
             }
@@ -183,6 +191,7 @@ namespace CaeModel
             info.AddValue("_minTimeIncrement", _minTimeIncrement, typeof(double));
             info.AddValue("_maxTimeIncrement", _maxTimeIncrement, typeof(double));
             info.AddValue("_direct", _direct, typeof(bool));
+            info.AddValue("_stabilize", _stabilize, typeof(bool));
         }
     }
 }

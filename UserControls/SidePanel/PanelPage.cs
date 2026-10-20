@@ -126,6 +126,18 @@ namespace UserControls
                     //
                     controls.Add(linkLabel);
                 }
+                else if (item is PanelItemImage piim)
+                {
+                    PictureBox pictureBox = new PictureBox();
+                    // The width is computed in UpdateControlPositions, so the picture box must not be anchored right
+                    pictureBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+                    pictureBox.SizeMode = PictureBoxSizeMode.Zoom;
+                    pictureBox.Left = piim.IndentLevel * _horizontalOffset;
+                    pictureBox.Image = piim.Image;
+                    pictureBox.Tag = piim;
+                    //
+                    controls.Add(pictureBox);
+                }
                 else throw new NotSupportedException();
             }
             return controls.ToArray();
@@ -157,6 +169,27 @@ namespace UserControls
                         //
                         prevControlLinkLabel = false;
                     }
+                }
+                else if (control is PictureBox pic)
+                {
+                    y += _verticalOffset;
+                    pic.Top = y;
+                    //
+                    int availableWidth = parentControl.Width - pic.Left;
+                    if (availableWidth < 1) availableWidth = 1;
+                    //
+                    int width = availableWidth;
+                    if (pic.Tag is PanelItemImage piim && piim.MaxWidth > 0 && piim.MaxWidth < width)
+                        width = piim.MaxWidth;
+                    // Never upscale the image
+                    if (pic.Image != null && pic.Image.Width < width) width = pic.Image.Width;
+                    //
+                    pic.Width = width;
+                    if (pic.Image != null && pic.Image.Width > 0)
+                        pic.Height = (int)Math.Round((double)width * pic.Image.Height / pic.Image.Width);
+                    y += pic.Height;
+                    //
+                    prevControlLinkLabel = false;
                 }
                 else throw new NotSupportedException();
             }

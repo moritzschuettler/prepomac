@@ -25,8 +25,9 @@ namespace PrePoMax.Commands
     [Serializable]
     class CMergeCoincidentNodes : PreprocessCommand
     {
-        // Variables                                                                                                                
+        // Variables
         private MergeCoincidentNodes _mergeCoincidentNodes;
+        private int _mergedCount;
 
 
         // Constructor                                                                                                              
@@ -34,13 +35,14 @@ namespace PrePoMax.Commands
             : base("Merge coincident nodes")
         {
             _mergeCoincidentNodes = mergeCoincidentNodes.DeepClone();
+            _mergedCount = -1;
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.MergeCoincidentNodes(_mergeCoincidentNodes.DeepClone());
+            _mergedCount = receiver.MergeCoincidentNodes(_mergeCoincidentNodes.DeepClone());
             return true;
         }
         public override void ToPython(PythonJournalWriter writer)
@@ -57,8 +59,9 @@ namespace PrePoMax.Commands
         {
             string nodeIds = "all nodes";
             if (_mergeCoincidentNodes.GeometryIds != null) nodeIds = _mergeCoincidentNodes.GeometryIds.ToShortString(10);
+            string countStr = _mergedCount >= 0 ? $", merged: {_mergedCount}" : "";
             //
-            return base.GetCommandString() + nodeIds;
+            return base.GetCommandString() + nodeIds + countStr;
         }
     }
 }

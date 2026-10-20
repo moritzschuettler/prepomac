@@ -4281,6 +4281,488 @@ namespace vtkControl
             // Add all labels as one overlay actor.
             AddActorCaption(actor, layer);
         }
+        // Display kinematic draping results of a unidirectional ply as fiber curves along the
+        // principal (fiber) direction only — no transverse curves and no filled cells
+        // curves:       [nCurves][nPoints][3] — polyline point coordinates
+        // segmentShear: [nCurves][nPoints-1] — shear angle (degrees) per polyline segment
+        // limitShear:   shear threshold — blue=0, yellow=limit, red=2*limit
+        public void AddDrapingFiberCurves(string name, double[][][] curves, double[][] segmentShear,
+                                          double limitShear)
+        {
+            if (curves == null || curves.Length == 0) return;
+            //
+            vtkPoints points = vtkPoints.New();
+            vtkCellArray lines = vtkCellArray.New();
+            vtkFloatArray scalars = vtkFloatArray.New();
+            scalars.SetName("ShearAngle");
+            scalars.SetNumberOfComponents(1);
+            int ptIdx = 0;
+            for (int i = 0; i < curves.Length; i++)
+            {
+                double[][] curve = curves[i];
+                if (curve == null || curve.Length < 2) continue;
+                for (int p = 0; p < curve.Length - 1; p++)
+                {
+                    points.InsertNextPoint(curve[p][0], curve[p][1], curve[p][2]);
+                    points.InsertNextPoint(curve[p + 1][0], curve[p + 1][1], curve[p + 1][2]);
+                    vtkLine line = vtkLine.New();
+                    line.GetPointIds().SetId(0, ptIdx);
+                    line.GetPointIds().SetId(1, ptIdx + 1);
+                    lines.InsertNextCell(line);
+                    double shear = segmentShear != null && segmentShear[i] != null && p < segmentShear[i].Length
+                                   ? segmentShear[i][p] : 0.0;
+                    scalars.InsertNextValue(double.IsNaN(shear) ? 0f : (float)shear);
+                    ptIdx += 2;
+                }
+            }
+            if (ptIdx == 0) return;
+            //
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.SetLines(lines);
+            polyData.GetCellData().SetScalars(scalars);
+            polyData.Update();
+            //
+            // Color lookup table: blue → yellow → red over [0 .. 2*limitShear]
+            double maxShear = Math.Max(limitShear * 2.0, 1.0);
+            vtkLookupTable lut = vtkLookupTable.New();
+            lut.SetNumberOfTableValues(256);
+            lut.SetRange(0.0, maxShear);
+            for (int i = 0; i < 256; i++)
+            {
+                double t = i / 255.0;
+                double r, g, b;
+                if (t <= 0.5)
+                {
+                    double s = t * 2.0;
+                    r = s; g = s; b = 1.0 - s;     // blue → yellow
+                }
+                else
+                {
+                    double s = (t - 0.5) * 2.0;
+                    r = 1.0; g = 1.0 - s; b = 0.0; // yellow → red
+                }
+                lut.SetTableValue(i, r, g, b, 1.0);
+            }
+            lut.Build();
+            //
+            vtkPolyDataMapper curveMapper = vtkPolyDataMapper.New();
+            curveMapper.SetInput(polyData);
+            curveMapper.SetScalarModeToUseCellData();
+            curveMapper.SetLookupTable(lut);
+            curveMapper.SetScalarRange(0.0, maxShear);
+            curveMapper.ScalarVisibilityOn();
+            vtkMaxActorData curveData = new vtkMaxActorData();
+            curveData.Name = name + Globals.NameSeparator + "fibers";
+            curveData.Layer = vtkRendererLayer.Overlay;
+            curveData.BackfaceCulling = false;
+            // The actor opacity is taken from the color alpha - an empty color would hide the curves
+            curveData.Color = Color.FromArgb(255, 0, 0, 255);
+            curveData.LineWidth = 2;
+            vtkMaxActor curveActor = new vtkMaxActor(curveData, curveMapper);
+            curveActor.GeometryProperty.SetRepresentationToWireframe();
+            curveActor.GeometryProperty.SetLineWidth(2.0f);
+            curveActor.GeometryProperty.SetOpacity(1.0);
+            curveActor.GeometryProperty.LightingOff();
+            AddActorGeometry(curveActor, vtkRendererLayer.Overlay);
+            //
+            RenderScene();
+        }
+        // Tape placement (AFP) propagation preview: the seed reference curve plus its parallel offset
+        // courses. There is no continuous scalar to color by (unlike draping shear), so each curve gets
+        // a solid color instead: the ref curve is yellow, side +1 courses fade through a blue family and
+        // side -1 courses through a red/orange family as the layer index grows.
+        public void AddTapePropagationCurves(string name, double[][][] curves, int[] sideSigns, int[] layerIndices)
+        {
+            if (curves == null || curves.Length == 0) return;
+            //
+            vtkPoints points = vtkPoints.New();
+            vtkCellArray lines = vtkCellArray.New();
+            vtkUnsignedCharArray colors = vtkUnsignedCharArray.New();
+            colors.SetNumberOfComponents(3);
+            colors.SetName("Colors");
+            int ptIdx = 0;
+            for (int i = 0; i < curves.Length; i++)
+            {
+                double[][] curve = curves[i];
+                if (curve == null || curve.Length < 2) continue;
+                byte r, g, b;
+                GetTapePropagationColor(sideSigns[i], layerIndices[i], out r, out g, out b);
+                for (int p = 0; p < curve.Length - 1; p++)
+                {
+                    points.InsertNextPoint(curve[p][0], curve[p][1], curve[p][2]);
+                    points.InsertNextPoint(curve[p + 1][0], curve[p + 1][1], curve[p + 1][2]);
+                    vtkLine line = vtkLine.New();
+                    line.GetPointIds().SetId(0, ptIdx);
+                    line.GetPointIds().SetId(1, ptIdx + 1);
+                    lines.InsertNextCell(line);
+                    colors.InsertNextTuple3(r, g, b);
+                    ptIdx += 2;
+                }
+            }
+            if (ptIdx == 0) return;
+            //
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.SetLines(lines);
+            polyData.GetCellData().SetScalars(colors);
+            polyData.Update();
+            //
+            vtkPolyDataMapper curveMapper = vtkPolyDataMapper.New();
+            curveMapper.SetInput(polyData);
+            curveMapper.SetScalarModeToUseCellData();
+            curveMapper.ScalarVisibilityOn();
+            vtkMaxActorData curveData = new vtkMaxActorData();
+            curveData.Name = name + Globals.NameSeparator + "tapes";
+            curveData.Layer = vtkRendererLayer.Overlay;
+            curveData.BackfaceCulling = false;
+            // The actor opacity is taken from the color alpha - an empty color would hide the curves
+            curveData.Color = Color.FromArgb(255, 255, 255, 255);
+            curveData.LineWidth = 2;
+            vtkMaxActor curveActor = new vtkMaxActor(curveData, curveMapper);
+            curveActor.GeometryProperty.SetRepresentationToWireframe();
+            curveActor.GeometryProperty.SetLineWidth(2.0f);
+            curveActor.GeometryProperty.SetOpacity(1.0);
+            curveActor.GeometryProperty.LightingOff();
+            AddActorGeometry(curveActor, vtkRendererLayer.Overlay);
+            //
+            RenderScene();
+        }
+        // Draws a set of polylines in a single flat color; used for the rosette guide curves
+        public void AddPolylines(string name, double[][][] curves, Color color, int lineWidth)
+        {
+            if (curves == null || curves.Length == 0) return;
+            //
+            vtkPoints points = vtkPoints.New();
+            vtkCellArray lines = vtkCellArray.New();
+            int ptIdx = 0;
+            for (int i = 0; i < curves.Length; i++)
+            {
+                double[][] curve = curves[i];
+                if (curve == null || curve.Length < 2) continue;
+                for (int p = 0; p < curve.Length - 1; p++)
+                {
+                    points.InsertNextPoint(curve[p][0], curve[p][1], curve[p][2]);
+                    points.InsertNextPoint(curve[p + 1][0], curve[p + 1][1], curve[p + 1][2]);
+                    vtkLine line = vtkLine.New();
+                    line.GetPointIds().SetId(0, ptIdx);
+                    line.GetPointIds().SetId(1, ptIdx + 1);
+                    lines.InsertNextCell(line);
+                    ptIdx += 2;
+                }
+            }
+            if (ptIdx == 0) return;
+            //
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.SetLines(lines);
+            polyData.Update();
+            //
+            vtkPolyDataMapper curveMapper = vtkPolyDataMapper.New();
+            curveMapper.SetInput(polyData);
+            curveMapper.ScalarVisibilityOff();
+            vtkMaxActorData curveData = new vtkMaxActorData();
+            curveData.Name = name;
+            curveData.Layer = vtkRendererLayer.Overlay;
+            curveData.BackfaceCulling = false;
+            curveData.Color = Color.FromArgb(255, color.R, color.G, color.B);
+            curveData.LineWidth = lineWidth;
+            vtkMaxActor curveActor = new vtkMaxActor(curveData, curveMapper);
+            curveActor.GeometryProperty.SetRepresentationToWireframe();
+            curveActor.GeometryProperty.SetLineWidth((float)lineWidth);
+            curveActor.GeometryProperty.SetOpacity(1.0);
+            curveActor.GeometryProperty.LightingOff();
+            AddActorGeometry(curveActor, vtkRendererLayer.Overlay);
+            //
+            RenderScene();
+        }
+        private static void GetTapePropagationColor(int side, int layer, out byte r, out byte g, out byte b)
+        {
+            if (side == 0) { r = 255; g = 255; b = 0; return; } // reference curve: yellow
+            double t = Math.Min(1.0, (layer - 1) / 9.0); // fades out over ~10 layers
+            if (side > 0)
+            {
+                r = (byte)(80 * (1 - t));
+                g = (byte)(160 * (1 - t) + 40 * t);
+                b = 255;
+            }
+            else
+            {
+                r = 255;
+                g = (byte)(140 * (1 - t));
+                b = (byte)(40 * (1 - t));
+            }
+        }
+        public void AddBoundingBoxPreview(double cx, double cy, double cz, double dx, double dy, double dz)
+        {
+            double x0 = cx - dx / 2, x1 = cx + dx / 2;
+            double y0 = cy - dy / 2, y1 = cy + dy / 2;
+            double z0 = cz - dz / 2, z1 = cz + dz / 2;
+            //
+            vtkPoints points = vtkPoints.New();
+            points.InsertNextPoint(x0, y0, z0); // 0
+            points.InsertNextPoint(x1, y0, z0); // 1
+            points.InsertNextPoint(x1, y1, z0); // 2
+            points.InsertNextPoint(x0, y1, z0); // 3
+            points.InsertNextPoint(x0, y0, z1); // 4
+            points.InsertNextPoint(x1, y0, z1); // 5
+            points.InsertNextPoint(x1, y1, z1); // 6
+            points.InsertNextPoint(x0, y1, z1); // 7
+            //
+            vtkCellArray quads = vtkCellArray.New();
+            int[][] faces = new int[][] {
+                new int[] { 0, 3, 2, 1 }, // bottom Z-
+                new int[] { 4, 5, 6, 7 }, // top    Z+
+                new int[] { 0, 1, 5, 4 }, // front  Y-
+                new int[] { 2, 3, 7, 6 }, // back   Y+
+                new int[] { 0, 4, 7, 3 }, // left   X-
+                new int[] { 1, 2, 6, 5 }, // right  X+
+            };
+            foreach (int[] f in faces)
+            {
+                vtkQuad quad = vtkQuad.New();
+                quad.GetPointIds().SetId(0, f[0]);
+                quad.GetPointIds().SetId(1, f[1]);
+                quad.GetPointIds().SetId(2, f[2]);
+                quad.GetPointIds().SetId(3, f[3]);
+                quads.InsertNextCell(quad);
+            }
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.SetPolys(quads);
+            polyData.Update();
+            //
+            vtkPolyDataMapper fillMapper = vtkPolyDataMapper.New();
+            fillMapper.SetInput(polyData);
+            fillMapper.ScalarVisibilityOff();
+            vtkMaxActorData fillData = new vtkMaxActorData();
+            fillData.Name = "BoundingBoxPreview" + Globals.NameSeparator + "fill";
+            fillData.Layer = vtkRendererLayer.Overlay;
+            fillData.BackfaceCulling = false;
+            fillData.Color = Color.FromArgb(100, 150, 220);
+            vtkMaxActor fillActor = new vtkMaxActor(fillData, fillMapper);
+            fillActor.GeometryProperty.SetRepresentationToSurface();
+            fillActor.GeometryProperty.SetOpacity(0.15);
+            fillActor.GeometryProperty.LightingOff();
+            AddActorGeometry(fillActor, vtkRendererLayer.Overlay);
+            //
+            vtkPolyDataMapper edgeMapper = vtkPolyDataMapper.New();
+            edgeMapper.SetInput(polyData);
+            edgeMapper.ScalarVisibilityOff();
+            vtkMaxActorData edgeData = new vtkMaxActorData();
+            edgeData.Name = "BoundingBoxPreview" + Globals.NameSeparator + "edges";
+            edgeData.Layer = vtkRendererLayer.Overlay;
+            edgeData.BackfaceCulling = false;
+            edgeData.Color = Color.FromArgb(30, 80, 180);
+            vtkMaxActor edgeActor = new vtkMaxActor(edgeData, edgeMapper);
+            edgeActor.GeometryProperty.SetRepresentationToWireframe();
+            edgeActor.GeometryProperty.SetLineWidth(2.0f);
+            AddActorGeometry(edgeActor, vtkRendererLayer.Overlay);
+            //
+            RenderScene();
+        }
+        public void AddOrientationArrows(vtkMaxActorData data, double symbolSize)
+        {
+            double relativeSize = 1;
+            //
+            if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
+            // Points
+            vtkPoints pointData = vtkPoints.New();
+            for (int i = 0; i < data.Geometry.Nodes.Coor.Length; i++)
+            {
+                pointData.InsertNextPoint(data.Geometry.Nodes.Coor[i][0], data.Geometry.Nodes.Coor[i][1],
+                                          data.Geometry.Nodes.Coor[i][2]);
+            }
+            // Normals
+            vtkDoubleArray pointNormalsArray = vtkDoubleArray.New();
+            pointNormalsArray.SetNumberOfComponents(3);
+            for (int i = 0; i < data.Geometry.Nodes.Normals.Length; i++)
+            {
+                pointNormalsArray.InsertNextTuple3(data.Geometry.Nodes.Normals[i][0], data.Geometry.Nodes.Normals[i][1],
+                                                   data.Geometry.Nodes.Normals[i][2]);
+            }
+            // Poly data
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(pointData);
+            polyData.GetPointData().SetNormals(pointNormalsArray);
+            // Calculate the distance to the camera of each point.
+            vtkDistanceToCamera distanceToCamera = vtkDistanceToCamera.New();
+            distanceToCamera.SetInput(polyData);
+            distanceToCamera.SetScreenSize(symbolSize * relativeSize);
+            distanceToCamera.SetRenderer(_renderer);
+            // Line
+            vtkLineSource line = vtkLineSource.New();
+            line.SetPoint1(0, 0, 0);
+            line.SetPoint2(1 * relativeSize, 0, 0);
+            // Cone
+            vtkConeSource cone = vtkConeSource.New();
+            cone.SetCenter(0.9 * relativeSize, 0, 0);
+            cone.SetHeight(0.2 * relativeSize);
+            cone.SetRadius(0.08 * relativeSize);
+            cone.SetResolution(31);
+            // Append
+            vtkAppendPolyData append = vtkAppendPolyData.New();
+            append.AddInput(line.GetOutput());
+            append.AddInput(cone.GetOutput());
+            // Triangulation helps with silhouette edges and 3mf export
+            vtkTriangleFilter triangleFilter = vtkTriangleFilter.New();
+            triangleFilter.SetInput(append.GetOutput());
+            triangleFilter.Update();
+            // Compute normals
+            vtkPolyDataNormals appendNormals = vtkPolyDataNormals.New();
+            appendNormals.SetInput(triangleFilter.GetOutput());
+            appendNormals.Update();
+            // Transform
+            vtkTransform transform = vtkTransform.New();
+            // Transform filter
+            vtkTransformFilter transformFilter = vtkTransformFilter.New();
+            transformFilter.SetInput(triangleFilter.GetOutput());
+            transformFilter.SetTransform(transform);
+            // Glyph
+            vtkGlyph3D glyph = vtkGlyph3D.New();
+            glyph.SetSourceConnection(transformFilter.GetOutputPort());
+            glyph.SetInputConnection(distanceToCamera.GetOutputPort());
+            glyph.SetVectorModeToUseNormal();
+            // Scale
+            glyph.ScalingOn();
+            glyph.SetScaleModeToScaleByScalar();
+            glyph.SetInputArrayToProcess(0, 0, 0, "vtkDataObject::FIELD_ASSOCIATION_POINTS", "DistanceToCamera");
+            glyph.SetScaleFactor(1.0);
+            glyph.OrientOn();
+            glyph.Update();
+            // Mapper
+            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
+            mapper.SetInputConnection(0, glyph.GetOutputPort());
+            mapper.ScalarVisibilityOff();
+            // Actor
+            data.Name += Globals.NameSeparator + "arrows";
+            //
+            data.LineWidth = 2;
+            vtkMaxActor actor = new vtkMaxActor(data, mapper);
+            actor.Color = data.Color;
+            actor.GeometryProperty.SetRepresentationToSurface();
+            // Add
+            ApplySymbolFormattingToActor(actor);
+            AddActorGeometry(actor, data.Layer);
+            //
+            if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+        }
+        // Display a kinematic draping grid with cells colored by shear angle
+        // cellVertices: [nCells][4][3] — 4 vertices per cell, each [x,y,z]
+        // cellShear:    shear angle (degrees) per cell
+        // limitShear:   shear threshold — blue=0, yellow=limit, red=2*limit
+        public void AddDrapingGrid(string name, double[][][] cellVertices, double[] cellShear, double limitShear)
+        {
+            if (cellVertices == null || cellVertices.Length == 0) return;
+            int nCells = cellVertices.Length;
+            //
+            var validCells = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < nCells; i++)
+            {
+                if (cellVertices[i] == null) continue;
+                bool ok = true;
+                for (int v = 0; v < 4; v++)
+                    if (cellVertices[i][v] == null || double.IsNaN(cellVertices[i][v][0])) { ok = false; break; }
+                if (ok && !double.IsNaN(cellShear[i])) validCells.Add(i);
+            }
+            if (validCells.Count == 0) return;
+            //
+            // Build VTK poly data — unshared points (4 per cell) for per-cell coloring
+            vtkPoints points = vtkPoints.New();
+            vtkCellArray quads = vtkCellArray.New();
+            vtkFloatArray scalars = vtkFloatArray.New();
+            scalars.SetName("ShearAngle");
+            scalars.SetNumberOfComponents(1);
+            int ptIdx = 0;
+            foreach (int ci in validCells)
+            {
+                for (int v = 0; v < 4; v++)
+                    points.InsertNextPoint(cellVertices[ci][v][0], cellVertices[ci][v][1], cellVertices[ci][v][2]);
+                vtkQuad quad = vtkQuad.New();
+                quad.GetPointIds().SetId(0, ptIdx);
+                quad.GetPointIds().SetId(1, ptIdx + 1);
+                quad.GetPointIds().SetId(2, ptIdx + 2);
+                quad.GetPointIds().SetId(3, ptIdx + 3);
+                quads.InsertNextCell(quad);
+                scalars.InsertNextValue((float)cellShear[ci]);
+                ptIdx += 4;
+            }
+            vtkPolyData polyData = vtkPolyData.New();
+            polyData.SetPoints(points);
+            polyData.SetPolys(quads);
+            polyData.GetCellData().SetScalars(scalars);
+            polyData.Update();
+            //
+            // Color lookup table: blue → yellow → red over [0 .. 2*limitShear]
+            double maxShear = Math.Max(limitShear * 2.0, 1.0);
+            vtkLookupTable lut = vtkLookupTable.New();
+            lut.SetNumberOfTableValues(256);
+            lut.SetRange(0.0, maxShear);
+            for (int i = 0; i < 256; i++)
+            {
+                double t = i / 255.0;
+                double r, g, b;
+                if (t <= 0.5)
+                {
+                    double s = t * 2.0;
+                    r = s; g = s; b = 1.0 - s;     // blue → yellow
+                }
+                else
+                {
+                    double s = (t - 0.5) * 2.0;
+                    r = 1.0; g = 1.0 - s; b = 0.0; // yellow → red
+                }
+                lut.SetTableValue(i, r, g, b, 0.85);
+            }
+            lut.Build();
+            //
+            // Filled cells mapper
+            vtkPolyDataMapper fillMapper = vtkPolyDataMapper.New();
+            fillMapper.SetInput(polyData);
+            fillMapper.SetScalarModeToUseCellData();
+            fillMapper.SetLookupTable(lut);
+            fillMapper.SetScalarRange(0.0, maxShear);
+            fillMapper.ScalarVisibilityOn();
+            vtkMaxActorData fillData = new vtkMaxActorData();
+            fillData.Name = name + Globals.NameSeparator + "fill";
+            fillData.Layer = vtkRendererLayer.Overlay;
+            fillData.BackfaceCulling = false;
+            vtkMaxActor fillActor = new vtkMaxActor(fillData, fillMapper);
+            fillActor.GeometryProperty.SetRepresentationToSurface();
+            fillActor.GeometryProperty.SetOpacity(0.85);
+            fillActor.GeometryProperty.LightingOff();
+            AddActorGeometry(fillActor, vtkRendererLayer.Overlay);
+            //
+            // Wireframe edges mapper (dark)
+            vtkPolyDataMapper edgeMapper = vtkPolyDataMapper.New();
+            edgeMapper.SetInput(polyData);
+            edgeMapper.ScalarVisibilityOff();
+            vtkMaxActorData edgeData = new vtkMaxActorData();
+            edgeData.Name = name + Globals.NameSeparator + "edges";
+            edgeData.Layer = vtkRendererLayer.Overlay;
+            edgeData.BackfaceCulling = false;
+            edgeData.Color = Color.FromArgb(30, 30, 30);
+            vtkMaxActor edgeActor = new vtkMaxActor(edgeData, edgeMapper);
+            edgeActor.GeometryProperty.SetRepresentationToWireframe();
+            edgeActor.GeometryProperty.SetLineWidth(1.0f);
+            AddActorGeometry(edgeActor, vtkRendererLayer.Overlay);
+            //
+            RenderScene();
+        }
+        public void ClearOverlayByPrefix(string prefix)
+        {
+            List<string> keysToRemove = new List<string>();
+            foreach (var entry in _overlayActors)
+            {
+                if (entry.Key.StartsWith(prefix))
+                {
+                    _overlayRenderer.RemoveActor(entry.Value.Geometry);
+                    keysToRemove.Add(entry.Key);
+                }
+            }
+            foreach (var key in keysToRemove) _overlayActors.Remove(key);
+            if (keysToRemove.Count > 0) RenderScene();
+        }
         public void AddLabelActor(string name, double[][] positions, string[] labels, Color color,
                                   double fontScaleFactor, vtkRendererLayer layer)
         {

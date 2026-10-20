@@ -101,6 +101,8 @@ namespace PrePoMax.Forms
                             item.Tag = new ViewFieldStepControlParameter(fscp.DeepClone());
                         else if (scp is ContactStepControlParameter cscp)
                             item.Tag = new ViewContactStepControlParameter(cscp.DeepClone());
+                        else if (scp is LineSearchStepControlParameter lsscp)
+                            item.Tag = new ViewLineSearchStepControlParameter(lsscp.DeepClone());
                         else throw new NotSupportedException();
                     }
                     else throw new NotSupportedException();
@@ -194,6 +196,13 @@ namespace PrePoMax.Forms
                     if (gridItemTextToSelect == "Delcon") gridItemTextToSelect = "delcon";
                     else throw new NotSupportedException();
                 }
+                else if (lvAddedProperties.SelectedItems[0].Tag is ViewLineSearchStepControlParameter vlsscp)
+                {
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
+                    gridItemTextToSelect = nameof(vlsscp.SlsMax);
+                    if (gridItemTextToSelect == "SlsMax") gridItemTextToSelect = "slsmax";
+                    else throw new NotSupportedException();
+                }
                 else throw new NotSupportedException();
                 //
                 propertyGrid.SelectedObject = lvAddedProperties.SelectedItems[0].Tag;
@@ -260,6 +269,7 @@ namespace PrePoMax.Forms
             tvProperties.Nodes.Find("Time Incrementation", true)[0].Tag = new TimeIncrementationStepControlParameter();
             tvProperties.Nodes.Find("Field", true)[0].Tag = new FieldStepControlParameter();
             tvProperties.Nodes.Find("Contact", true)[0].Tag = new ContactStepControlParameter();
+            tvProperties.Nodes.Find("Line Search", true)[0].Tag = new LineSearchStepControlParameter();
             tvProperties.ExpandAll();
             //
             StepControls = _controller.GetStep(stepName).StepControls; // to clone
@@ -278,6 +288,8 @@ namespace PrePoMax.Forms
                         view = new ViewFieldStepControlParameter(fscp);
                     else if (parameter is ContactStepControlParameter cscp)
                         view = new ViewContactStepControlParameter(cscp);
+                    else if (parameter is LineSearchStepControlParameter lsscp)
+                        view = new ViewLineSearchStepControlParameter(lsscp);
                     else throw new NotSupportedException();
                     //
                     item = new ListViewItem(view.Name);

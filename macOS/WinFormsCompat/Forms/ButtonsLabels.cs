@@ -104,6 +104,16 @@ namespace System.Windows.Forms
         }
         public static Size MeasureText(string text, Font font, int maxWidth = 0)
         {
+            // Controls can only be made on the UI thread; WinForms measures on any thread
+            if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            {
+                Avalonia.Media.TextFormatting.TextLayout layout = new Avalonia.Media.TextFormatting.TextLayout(
+                    string.IsNullOrEmpty(text) ? " " : text,
+                    new Typeface(Toolkit.FontFamilyOf(font), Avalonia.Media.FontStyle.Normal, font.Bold ? FontWeight.Bold : FontWeight.Normal),
+                    Toolkit.FontSizeOf(font), null, TextAlignment.Left,
+                    maxWidth > 0 ? TextWrapping.Wrap : TextWrapping.NoWrap, maxWidth: maxWidth > 0 ? maxWidth : double.PositiveInfinity);
+                return new Size((int)Math.Ceiling(layout.WidthIncludingTrailingWhitespace), (int)Math.Ceiling(layout.Height));
+            }
             AC.TextBlock block = new AC.TextBlock
             {
                 Text = string.IsNullOrEmpty(text) ? " " : text,
@@ -487,7 +497,8 @@ namespace System.Windows.Forms
         {
             if (_text == null) return;
             _text.Text = ContentLayout.StripMnemonic(Text, _useMnemonic);
-            _text.TextWrapping = AutoSize ? TextWrapping.NoWrap : TextWrapping.Wrap;
+            // An auto sized label wraps only within its maximum width
+            _text.TextWrapping = AutoSize && MaximumSize.Width <= 0 ? TextWrapping.NoWrap : TextWrapping.Wrap;
             _text.TextTrimming = _autoEllipsis ? TextTrimming.CharacterEllipsis : TextTrimming.None;
             _text.HorizontalAlignment = ContentLayout.H(_textAlign);
             _text.VerticalAlignment = ContentLayout.V(_textAlign);
@@ -511,6 +522,17 @@ namespace System.Windows.Forms
             }
         }
         protected override void OnPaddingChanged(EventArgs e) { base.OnPaddingChanged(e); UpdateText(); }
+        // A maximum width makes an auto sized label wrap its text
+        public override Size MaximumSize
+        {
+            get { return base.MaximumSize; }
+            set
+            {
+                base.MaximumSize = value;
+                UpdateText();
+                if (AutoSize) AdjustAutoSize();
+            }
+        }
         public override Size GetPreferredSize(Size proposedSize)
         {
             int maxWidth = MaximumSize.Width > 0 ? MaximumSize.Width - Padding.Horizontal : 0;

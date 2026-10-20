@@ -161,7 +161,8 @@ namespace CaeModel
                 loadType == typeof(ShellEdgeLoad) ||
                 loadType == typeof(GravityLoad) ||
                 loadType == typeof(CentrifLoad) ||
-                loadType == typeof(PreTensionLoad))
+                loadType == typeof(PreTensionLoad) ||
+                loadType == typeof(BladeAeroLoad))
             {
                 return true;
             }

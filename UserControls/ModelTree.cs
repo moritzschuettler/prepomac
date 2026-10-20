@@ -66,7 +66,22 @@ namespace UserControls
         //
         public int ConvertToPart;
         //
+        public int ExtractShellMesh;
+        //
+        public int ExtrudeShellFromSections;
+        //
+        public int ExtrudeShellUniform;
+        //
+        public int CreateElementSetFromBox;
+        //
         public int MaterialLibrary;
+        //
+        public int ImportCompositeLayupsFromCsv;
+        //
+        public int ImportCompositeLayupFromH5;
+        public int ImportRosetteFromStep;
+        //
+        public int CreateElementSetFromSurface;
         //
         public int SearchContactPairs;
         public int SwapMergeMasterSlave;
@@ -143,6 +158,7 @@ namespace UserControls
         // Geometry
         private TreeNode _geomParts;                // 1
         private TreeNode _meshSetupItems;           // 1
+        private TreeNode _rosettes;                 // 1
         // Model
         private TreeNode _model;                    // 1
         private TreeNode _modelMesh;                //   2
@@ -157,7 +173,6 @@ namespace UserControls
         private TreeNode _materialOrientations;     //   2
         private TreeNode _sections;                 //   2
         private TreeNode _compositeLayups;          //   2
-        private System.Windows.Forms.ToolStripMenuItem tsmiImportCompositeLayupsFromCsv;
         private TreeNode _constraints;              //   2
         private TreeNode _contacts;                 //   2
         private TreeNode _surfaceInteractions;      //      3
@@ -185,6 +200,7 @@ namespace UserControls
         // Geometry
         private string _geomPartsName = "Parts";
         private string _meshSetupItemsName = "Mesh Setup";
+        private string _rosettesName = "Rosettes";
         // Model
         private string _modelName = "Model";
         private string _modelMeshName = "Mesh";
@@ -299,6 +315,7 @@ namespace UserControls
         public string MaterialOrientationsName { get { return _materialOrientationsName; } }
         public string SectionsName { get { return _sectionsName; } }
         public string CompositeLayupsName { get { return _compositeLayupsName; } }
+        public string RosettesName { get { return _rosettesName; } }
         public string ConstraintsName { get { return _constraintsName; } }
         public string SurfaceInteractionsName { get { return _surfaceInteractionsName; } }
         public string ContactPairsName { get { return _contactPairsName; } }
@@ -326,7 +343,6 @@ namespace UserControls
         public event Action ContextMenuForPartsClosedEvent;
         //
         public event Action<string, string> CreateEvent;
-        public event Action ImportCompositeLayupsFromCsv;
         public event Action<NamedClass, string> EditEvent;
         public event Action<NamedClass, string, string> RenameEvent;
         public event Action<string, string, string> RenameSplitSubPartEvent;
@@ -350,7 +366,15 @@ namespace UserControls
         public event Action<string[]> MergeParts;
         public event Action<string[]> MergeResultParts;
         public event Action<string[]> ConvertElementSetsToMeshParts;
+        public event Action<string> ExtractShellMesh;
+        public event Action<string> ExtrudeShellFromSections;
+        public event Action<string> ExtrudeShellUniform;
+        public event Action<string> CreateElementSetFromBoxEvent;
         public event Action MaterialLibrary;
+        public event Action ImportCompositeLayupsFromCsv;
+        public event Action ImportCompositeLayupFromH5;
+        public event Action<string> ImportRosetteFromStep;
+        public event Action CreateElementSetFromSurface;
         public event Action SearchContactPairs;
         public event Action<NamedClass[]> SwapMasterSlave;
         public event Action<NamedClass[]> MergeByMasterSlave;
@@ -413,6 +437,7 @@ namespace UserControls
             // Geometry
             _geomParts = cltvGeometry.Nodes.Find(_geomPartsName, true)[0];
             _meshSetupItems = cltvGeometry.Nodes.Find(_meshSetupItemsName, true)[0];
+            _rosettes = cltvGeometry.Nodes.Find(_rosettesName, true)[0];
             // Model
             _model = cltvModel.Nodes.Find(_modelName, true)[0];
             _modelMesh = cltvModel.Nodes.Find(_modelMeshName, true)[0];
@@ -430,11 +455,6 @@ namespace UserControls
             _compositeLayups = new TreeNode(_compositeLayupsName);
             _compositeLayups.Name = _compositeLayupsName;
             _compositeLayups.ToolTipText = _compositeLayupsName;
-            tsmiImportCompositeLayupsFromCsv = new System.Windows.Forms.ToolStripMenuItem();
-            tsmiImportCompositeLayupsFromCsv.Name = "tsmiImportCompositeLayupsFromCsv";
-            tsmiImportCompositeLayupsFromCsv.Text = "Import from CSV...";
-            tsmiImportCompositeLayupsFromCsv.Click += tsmiImportCompositeLayupsFromCsv_Click;
-            cmsTree.Items.Insert(cmsTree.Items.IndexOf(tsmiCreate) + 1, tsmiImportCompositeLayupsFromCsv);
             _constraints = cltvModel.Nodes.Find(_constraintsName, true)[0];
             _contacts = cltvModel.Nodes.Find(_contactsName, true)[0];
             _surfaceInteractions = cltvModel.Nodes.Find(_surfaceInteractionsName, true)[0];
@@ -462,6 +482,7 @@ namespace UserControls
             _model.Tag = new EmptyNamedClass(typeof(FeModel).ToString());
             // Geometry icons
             _geomParts.StateImageKey = "GeomPart";
+            _rosettes.StateImageKey = "CoordinateSystem";
             // Model icons
             _modelMesh.StateImageKey = "Mesh";
             _modelParts.StateImageKey = "BasePart";
@@ -1711,7 +1732,6 @@ namespace UserControls
             // Create
             visible = hasActionNodes && menuFields.Create == n;
             tsmiCreate.Visible = visible;
-            tsmiImportCompositeLayupsFromCsv.Visible = n == 1 && actionNodes[0] == _compositeLayups;
             oneAboveVisible |= visible;
             // Edit
             visible = hasActionNodes && menuFields.Edit == n;
@@ -1779,10 +1799,49 @@ namespace UserControls
             tsmiSpaceConvertToPart.Visible = visible && oneAboveVisible;
             tsmiConvertToPart.Visible = visible;
             oneAboveVisible |= visible;
+            // Extract shell mesh
+            visible = menuFields.ExtractShellMesh == n && n == 1;
+            tsmiSpaceExtractShellMesh.Visible = visible && oneAboveVisible;
+            tsmiExtractShellMesh.Visible = visible;
+            oneAboveVisible |= visible;
+            // Extrude shell mesh from sections
+            visible = menuFields.ExtrudeShellFromSections == n && n == 1;
+            tsmiSpaceExtrudeShellFromSections.Visible = visible && oneAboveVisible;
+            tsmiExtrudeShellFromSections.Visible = visible;
+            oneAboveVisible |= visible;
+            // Create solids by extrusion
+            visible = menuFields.ExtrudeShellUniform == n && n == 1;
+            tsmiSpaceExtrudeShellUniform.Visible = visible && oneAboveVisible;
+            tsmiExtrudeShellUniform.Visible = visible;
+            oneAboveVisible |= visible;
+            // Create element set from box
+            visible = menuFields.CreateElementSetFromBox == n && n == 1;
+            tsmiSpaceCreateElementSetFromBox.Visible = visible && oneAboveVisible;
+            tsmiCreateElementSetFromBox.Visible = visible;
+            oneAboveVisible |= visible;
             // Material library                                     
             visible = menuFields.MaterialLibrary == n && n > 0;
             tsmiSpaceMaterialLibrary.Visible = visible && oneAboveVisible;
             tsmiMaterialLibrary.Visible = visible;
+            oneAboveVisible |= visible;
+            // Import composite layups from CSV
+            visible = menuFields.ImportCompositeLayupsFromCsv == n && n > 0;
+            tsmiSpaceImportCompositeLayupsFromCsv.Visible = visible && oneAboveVisible;
+            tsmiImportCompositeLayupsFromCsv.Visible = visible;
+            oneAboveVisible |= visible;
+            // Import composite layup from HDF5
+            visible = menuFields.ImportCompositeLayupFromH5 == n && n > 0;
+            tsmiImportCompositeLayupFromH5.Visible = visible;
+            oneAboveVisible |= visible;
+            // Import rosette curves from a STEP file
+            visible = menuFields.ImportRosetteFromStep == n && n > 0;
+            tsmiSpaceImportRosetteFromStep.Visible = visible && oneAboveVisible;
+            tsmiImportRosetteFromStep.Visible = visible;
+            oneAboveVisible |= visible;
+            // Create element set from geometrical surface
+            visible = menuFields.CreateElementSetFromSurface == n && n > 0;
+            tsmiSpaceCreateElementSetFromSurface.Visible = visible && oneAboveVisible;
+            tsmiCreateElementSetFromSurface.Visible = visible;
             oneAboveVisible |= visible;
             // Search contact pairs                                 
             visible = menuFields.SearchContactPairs == n && n > 0;
@@ -1960,10 +2019,29 @@ namespace UserControls
             // Merge mesh parts
             if (item != null && item is MeshPart && GetActiveTree() == cltvModel) menuFields.MergePart++;
             if (item != null && item is ResultPart && GetActiveTree() == cltvResults) menuFields.MergePart++;
+            // Extract shell mesh from solid part
+            if (item is MeshPart mp && mp.PartType == CaeMesh.PartType.Solid && GetActiveTree() == cltvModel)
+                menuFields.ExtractShellMesh++;
+            // Extrude shell mesh from sections
+            if (item is MeshPart mp3 && mp3.PartType == CaeMesh.PartType.Shell && GetActiveTree() == cltvModel)
+                menuFields.ExtrudeShellFromSections++;
+            // Create solids by extrusion (uniform, no sections)
+            if (item is MeshPart mp4 && mp4.PartType == CaeMesh.PartType.Shell && GetActiveTree() == cltvModel)
+                menuFields.ExtrudeShellUniform++;
+            // Create element set from box (any mesh part)
+            if (item is MeshPart && GetActiveTree() == cltvModel) menuFields.CreateElementSetFromBox++;
             // Convert element set to part
             if (item != null && item is FeElementSet && GetActiveTree() == cltvModel) menuFields.ConvertToPart++;
             // Material library
             if (node == _materials) menuFields.MaterialLibrary++;
+            // Import composite layups from CSV
+            if (node == _compositeLayups) menuFields.ImportCompositeLayupsFromCsv++;
+            // Import composite layup from HDF5
+            if (node == _compositeLayups) menuFields.ImportCompositeLayupFromH5++;
+            // Import rosette curves from a STEP file
+            if (item is Rosette) menuFields.ImportRosetteFromStep++;
+            // Create element set from geometrical surface
+            if (node == _modelElementSets) menuFields.CreateElementSetFromSurface++;
             // Swap Merge Master/Slave
             if (CanSearchContactPairs(node)) menuFields.SearchContactPairs++;
             if (item != null && CanSwapMergeMasterSlave(node)) menuFields.SwapMergeMasterSlave++;
@@ -3040,6 +3118,54 @@ namespace UserControls
                 ExceptionTools.Show(this, ex);
             }
         }
+        private void tsmiExtractShellMesh_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                TreeNode selected = cltvModel.SelectedNode;
+                if (selected?.Tag is NamedClass nc) ExtractShellMesh?.Invoke(nc.Name);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiExtrudeShellFromSections_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                TreeNode selected = cltvModel.SelectedNode;
+                if (selected?.Tag is NamedClass nc) ExtrudeShellFromSections?.Invoke(nc.Name);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiExtrudeShellUniform_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                TreeNode selected = cltvModel.SelectedNode;
+                if (selected?.Tag is NamedClass nc) ExtrudeShellUniform?.Invoke(nc.Name);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiCreateElementSetFromBox_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                TreeNode selected = cltvModel.SelectedNode;
+                if (selected?.Tag is NamedClass nc) CreateElementSetFromBoxEvent?.Invoke(nc.Name);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
         // Material
         private void tsmiMaterialLibrary_Click(object sender, EventArgs e)
         {
@@ -3063,6 +3189,55 @@ namespace UserControls
             try
             {
                 ImportCompositeLayupsFromCsv?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiImportCompositeLayupFromH5_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CodersLabTreeView tree = GetActiveTree();
+                if (tree.SelectedNodes.Count != 1) return;
+                //
+                TreeNode selectedNode = tree.SelectedNode;
+                if (selectedNode.Tag != null) return;
+                //
+                ImportCompositeLayupFromH5?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        // Rosette
+        private void tsmiImportRosetteFromStep_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // The rosettes are in the geometry tree, so the active tree must be used here
+                TreeNode selected = GetActiveTree().SelectedNode;
+                if (selected?.Tag is Rosette rosette) ImportRosetteFromStep?.Invoke(rosette.Name);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        // Element set
+        private void tsmiCreateElementSetFromSurface_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CodersLabTreeView tree = GetActiveTree();
+                if (tree.SelectedNodes.Count != 1) return;
+                //
+                TreeNode selectedNode = tree.SelectedNode;
+                if (selectedNode.Tag != null) return;
+                //
+                CreateElementSetFromSurface?.Invoke();
             }
             catch (Exception ex)
             {
@@ -3385,6 +3560,7 @@ namespace UserControls
             cltvGeometry.Nodes.Clear();
             _geomParts.Nodes.Clear();
             _meshSetupItems.Nodes.Clear();
+            _rosettes.Nodes.Clear();
             // Model
             cltvModel.SelectedNodes.Clear();
             cltvModel.Nodes.Clear();
@@ -3416,6 +3592,7 @@ namespace UserControls
             // Geometry
             _geomParts.Text = _geomPartsName;
             _meshSetupItems.Text = _meshSetupItemsName;
+            _rosettes.Text = _rosettesName;
             // Model
             _modelParts.Text = _modelPartsName;
             _modelNodeSets.Text = _modelNodeSetsName;
@@ -3442,6 +3619,7 @@ namespace UserControls
             // Geometry
             cltvGeometry.Nodes.Add(_geomParts);
             cltvGeometry.Nodes.Add(_meshSetupItems);
+            cltvGeometry.Nodes.Add(_rosettes);
             // Model
             cltvModel.Nodes.Add(_model);
             _model.Nodes.Add(_modelMesh);
@@ -3714,6 +3892,10 @@ namespace UserControls
                         _meshSetupItems.Expand();
                     }
                     //
+                    // Rosettes live in the geometry tree: they are geometric constructs that do not
+                    // depend on the mesh
+                    AddObjectsToNode(_rosettesName, _rosettes, model.Rosettes);
+                    //
                     if (model.Mesh != null)
                     {
                         // Mesh Parts
@@ -3949,6 +4131,13 @@ namespace UserControls
                 else if (item is MaterialOrientation)
                 {
                     parent = _materialOrientations;
+                    node = parent.Nodes.Add(item.Name);
+                    node.Name = node.Text;
+                    node.Tag = item;
+                }
+                else if (item is Rosette)
+                {
+                    parent = _rosettes;
                     node = parent.Nodes.Add(item.Name);
                     node.Name = node.Text;
                     node.Tag = item;
@@ -4223,6 +4412,8 @@ namespace UserControls
             //
             TreeNode baseNode;
             if (item is MeshSetupItem) baseNode = _meshSetupItems;
+            // The rosettes node is a root of the geometry tree, so tree.Nodes[0] would miss it
+            else if (item is Rosette) baseNode = _rosettes;
             else if (item is AnalysisJob) baseNode = _analyses;
             else if (item is ResultFieldOutput) baseNode = _resultFieldOutputs;
             else if (item is ResultHistoryOutput) baseNode = _resultHistoryOutputs;
@@ -4283,6 +4474,8 @@ namespace UserControls
                 // No parent
                 TreeNode baseNode = null;
                 if (typeof(T) == typeof(MeshSetupItem)) baseNode = _meshSetupItems;
+                // The rosettes node is a root of the geometry tree, so tree.Nodes[0] would miss it
+                else if (typeof(T) == typeof(Rosette)) baseNode = _rosettes;
                 else if (typeof(T) == typeof(AnalysisJob)) baseNode = _analyses;
                 //
                 else if (typeof(T) == typeof(Field)) baseNode = _resultFieldOutputs;
@@ -5098,6 +5291,7 @@ namespace UserControls
             else if (node.Name == _materialOrientationsName) return true;
             else if (node.Name == _sectionsName) return true;
             else if (node.Name == _compositeLayupsName) return true;
+            else if (node.Name == _rosettesName) return true;
             else if (node.Name == _constraintsName) return true;
             else if (node.Name == _surfaceInteractionsName) return true;
             else if (node.Name == _contactPairsName) return true;
@@ -5137,6 +5331,7 @@ namespace UserControls
             else if (node.Tag is Section) return true;
             else if (node.Tag is CompositeLayup) return true;
             else if (node.Tag is MaterialOrientation) return true;
+            else if (node.Tag is Rosette) return true;
             else if (node.Tag is Constraint) return true;
             else if (node.Tag is SurfaceInteraction) return true;
             else if (node.Tag is ContactPair) return true;
@@ -5169,6 +5364,7 @@ namespace UserControls
             else if (node.Tag is Section) return true;
             else if (node.Tag is CompositeLayup) return true;
             else if (node.Tag is MaterialOrientation) return true;
+            else if (node.Tag is Rosette) return true;
             else if (node.Tag is Constraint) return true;
             else if (node.Tag is SurfaceInteraction) return true;
             else if (node.Tag is ContactPair) return true;

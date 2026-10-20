@@ -45,6 +45,7 @@ namespace CaeModel
         private CaeGlobals.OrderedDictionary<string, Section> _sections;                                   //ISerializable
         private CaeGlobals.OrderedDictionary<string, MaterialOrientation> _materialOrientations;           //ISerializable
         private CaeGlobals.OrderedDictionary<string, CompositeLayup> _compositeLayups;                     //ISerializable
+        private CaeGlobals.OrderedDictionary<string, Rosette> _rosettes;                                   //ISerializable
         private CaeGlobals.OrderedDictionary<string, Constraint> _constraints;                             //ISerializable
         private CaeGlobals.OrderedDictionary<string, SurfaceInteraction> _surfaceInteractions;             //ISerializable
         private CaeGlobals.OrderedDictionary<string, ContactPair> _contactPairs;                           //ISerializable
@@ -60,9 +61,6 @@ namespace CaeModel
         [NonSerialized] private List<Section> _assignedSections;
         [NonSerialized] private int[] _unAssignedElementIds;
         [NonSerialized] private object[] _sectionAssignmentsState;
-        [NonSerialized] private List<CompositeLayupZone> _layupZones;
-        [NonSerialized] private Dictionary<int, MaterialOrientation> _layupElementOrientations;
-        [NonSerialized] private List<string> _layupWarnings;
         [NonSerialized] private string _meshTypesStamp;
         [NonSerialized] private HashSet<int> _heldPartIds;
 
@@ -78,6 +76,7 @@ namespace CaeModel
         public CaeGlobals.OrderedDictionary<string, Section> Sections { get { return _sections; } }
         public CaeGlobals.OrderedDictionary<string, MaterialOrientation> MaterialOrientations { get { return _materialOrientations; } }
         public CaeGlobals.OrderedDictionary<string, CompositeLayup> CompositeLayups { get { return _compositeLayups; } }
+        public CaeGlobals.OrderedDictionary<string, Rosette> Rosettes { get { return _rosettes; } }
         public CaeGlobals.OrderedDictionary<string, Constraint> Constraints { get { return _constraints; } }
         public CaeGlobals.OrderedDictionary<string, SurfaceInteraction> SurfaceInteractions { get { return _surfaceInteractions; } }
         public CaeGlobals.OrderedDictionary<string, ContactPair> ContactPairs { get { return _contactPairs; } }
@@ -125,6 +124,7 @@ namespace CaeModel
             _sections = new CaeGlobals.OrderedDictionary<string, Section>("Sections", sc);
             _materialOrientations = new CaeGlobals.OrderedDictionary<string, MaterialOrientation>("Material Orientations", sc);
             _compositeLayups = new CaeGlobals.OrderedDictionary<string, CompositeLayup>("Composite Layups", sc);
+            _rosettes = new CaeGlobals.OrderedDictionary<string, Rosette>("Rosettes", sc);
             _constraints = new CaeGlobals.OrderedDictionary<string, Constraint>("Constraints", sc);
             _surfaceInteractions = new CaeGlobals.OrderedDictionary<string, SurfaceInteraction>("Surface Tractions", sc);
             _contactPairs = new CaeGlobals.OrderedDictionary<string, ContactPair>("Contact Pairs", sc);
@@ -157,6 +157,7 @@ namespace CaeModel
             _sections = copy._sections;
             _materialOrientations = copy._materialOrientations;
             _compositeLayups = copy._compositeLayups;
+            _rosettes = copy._rosettes;
             _constraints = copy._constraints;
             _surfaceInteractions = copy._surfaceInteractions;
             _contactPairs = copy._contactPairs;
@@ -195,6 +196,8 @@ namespace CaeModel
             _materialOrientations = new CaeGlobals.OrderedDictionary<string, MaterialOrientation>("Material Orientations", sc);
             // Compatibility for composite layups
             _compositeLayups = new CaeGlobals.OrderedDictionary<string, CompositeLayup>("Composite Layups", sc);
+            // Compatibility for rosettes
+            _rosettes = new CaeGlobals.OrderedDictionary<string, Rosette>("Rosettes", sc);
             //
             foreach (SerializationEntry entry in info)
             {
@@ -242,6 +245,9 @@ namespace CaeModel
                         break;
                     case "_compositeLayups":
                         _compositeLayups = (CaeGlobals.OrderedDictionary<string, CompositeLayup>)entry.Value; break;
+                    case "_rosettes":
+                        if (entry.Value is CaeGlobals.OrderedDictionary<string, Rosette> rod) _rosettes = rod;
+                        break;
                     case "_constraints":
                         if (entry.Value is Dictionary<string, Constraint> cd)   
                         {
@@ -416,19 +422,16 @@ namespace CaeModel
                 valid = compositeLayup.Plies.Count > 0;
                 foreach (Ply ply in compositeLayup.Plies)
                 {
-                    valid &= _materials.ContainsValidActiveKey(ply.MaterialName);
-                    valid &= CompositeLayup.GetRegionElementIds(_mesh, ply.RegionName) != null;
-                    if (ply.CoordinateSystemName != null)
-                        valid &= _mesh.CoordinateSystems.ContainsValidKey(ply.CoordinateSystemName);
+                    // A ply needs an active material and an existing region
+                    if (!string.IsNullOrEmpty(ply.Material)) valid &= _materials.ContainsValidActiveKey(ply.Material);
+                    else valid = false;
+                    if (!string.IsNullOrEmpty(ply.Region)) valid &= _mesh.ElementSets.ContainsValidKey(ply.Region);
+                    else valid = false;
+                    if (!string.IsNullOrEmpty(ply.OrientationRosette)) valid &= _rosettes.ContainsValidKey(ply.OrientationRosette);
                 }
-                if (compositeLayup.OrientationType == CompositeLayupOrientationEnum.CoordinateSystem &&
-                    compositeLayup.CoordinateSystemName != CoordinateSystem.DefaultCoordinateSystemName &&
-                    !_mesh.CoordinateSystems.ContainsValidKey(compositeLayup.CoordinateSystemName)) valid = false;
-                if (compositeLayup.OrientationType == CompositeLayupOrientationEnum.DiscreteOrientations &&
-                    compositeLayup.DiscreteOrientationsData == null) valid = false;
-                if (valid) valid = GetCompositeShellElementTypeError(compositeLayup.GetElementIds(_mesh).ToArray()) == null;
-                // Check equations
-                valid &= compositeLayup.TryCheckEquations();
+                if (compositeLayup.RosetteEnabled && !string.IsNullOrEmpty(compositeLayup.OrientationRosette))
+                    valid &= _rosettes.ContainsValidKey(compositeLayup.OrientationRosette);
+                if (compositeLayup.DiscreteOrientationsEnabled && compositeLayup.DiscreteOrientationsData == null) valid = false;
                 //
                 SetItemValidity(null, compositeLayup, valid, items);
                 if (!valid && compositeLayup.Active) invalidItems.Add("Composite layup: " + compositeLayup.Name);
@@ -1280,6 +1283,10 @@ namespace CaeModel
             {
                 valid = (_mesh.Surfaces.TryGetValue(rht.SurfaceName, out s) && s.Valid);
             }
+            else if (load is BladeAeroLoad || load is BladeAeroPressureLoad)
+            {
+                valid = true;
+            }
             else throw new NotSupportedException();
             //
             return valid;
@@ -1348,12 +1355,6 @@ namespace CaeModel
                 //
                 foreach (int elementId in GetElementIdsOfRegion(entry.Value))
                     elementOrientations[elementId] = entry.Value;
-            }
-            // The elements of composite layups take the orientation of their layup
-            UpdateSectionAssignments();
-            if (_layupElementOrientations != null)
-            {
-                foreach (var entry in _layupElementOrientations) elementOrientations[entry.Key] = entry.Value;
             }
             return elementOrientations;
         }
@@ -1439,50 +1440,89 @@ namespace CaeModel
                 assignedSections.Add(entry.Value);
                 sectionId++;
             }
-            // Composite layups: every zone is a composite shell section; elements of a section keep the section
-            List<CompositeLayupZone> layupZones = new List<CompositeLayupZone>();
-            Dictionary<int, MaterialOrientation> layupElementOrientations = new Dictionary<int, MaterialOrientation>();
-            List<string> layupWarnings = new List<string>();
+            // Composite layups: the elements of the ply regions get the section the layup writes for them
             foreach (var entry in _compositeLayups)
             {
                 if (!entry.Value.Active) continue;
                 //
-                CompositeLayupOrientation orientation;
-                List<string> warnings;
-                List<CompositeLayupZone> zones;
-                try
+                CompositeLayup layup = entry.Value;
+                // Cover elements from each ply region
+                foreach (Ply ply in layup.Plies)
                 {
-                    zones = CompositeLayupZoneBuilder.Create(this, entry.Value, out orientation, out warnings);
-                }
-                catch (Exception ex)
-                {
-                    layupWarnings.Add("Composite layup " + entry.Key + ": " + ex.Message);
-                    continue;
-                }
-                layupWarnings.AddRange(warnings);
-                foreach (var zone in zones)
-                {
-                    List<int> assignedIds = new List<int>();
-                    foreach (int elementId in zone.ElementIds)
-                    {
-                        if (elementIdSectionId.ContainsKey(elementId)) continue;
-                        elementIdSectionId[elementId] = sectionId;
-                        layupElementOrientations[elementId] = orientation;
-                        assignedIds.Add(elementId);
-                    }
-                    if (assignedIds.Count == 0) continue;
-                    if (assignedIds.Count < zone.ElementIds.Length)
-                        layupWarnings.Add("Composite layup " + entry.Key + ": " + (zone.ElementIds.Length - assignedIds.Count) +
-                                          " elements of " + zone.Section.Name + " keep the section they already have.");
+                    if (string.IsNullOrEmpty(ply.Region) || !_mesh.ElementSets.ContainsKey(ply.Region)) continue;
                     //
-                    layupZones.Add(new CompositeLayupZone(zone.Layup, assignedIds.ToArray(), zone.Section));
-                    assignedSections.Add(zone.Section);
-                    sectionId++;
+                    FeElementSet plyElSet = _mesh.ElementSets[ply.Region];
+                    if (plyElSet.CreatedFromParts)
+                    {
+                        string[] partNames = _mesh.GetPartNamesFromPartIds(plyElSet.Labels);
+                        if (partNames != null)
+                            foreach (var pn in partNames)
+                                if (_mesh.Parts.ContainsKey(pn))
+                                    foreach (int elemId in _mesh.Parts[pn].Labels)
+                                        if (!elementIdSectionId.ContainsKey(elemId))
+                                            elementIdSectionId.Add(elemId, sectionId);
+                    }
+                    else
+                    {
+                        foreach (int elemId in plyElSet.Labels)
+                            if (!elementIdSectionId.ContainsKey(elemId))
+                                elementIdSectionId.Add(elemId, sectionId);
+                    }
                 }
+                // For solid composite layups: ensure complete coverage of the solid part
+                if (layup.ElementType == CompositeElementType.Solid)
+                {
+                    // Resolve solid part name: use stored name first, then infer from ply region
+                    // naming convention (solidPartName + "-Ply-N") for backward compat with old PMX
+                    string solidPartName = layup.SolidPartName;
+                    if (string.IsNullOrEmpty(solidPartName))
+                    {
+                        foreach (Ply p in layup.Plies)
+                        {
+                            if (string.IsNullOrEmpty(p.Region)) continue;
+                            int marker = p.Region.LastIndexOf("-Ply-");
+                            if (marker > 0)
+                            {
+                                string candidate = p.Region.Substring(0, marker);
+                                if (_mesh.Parts.ContainsKey(candidate)) { solidPartName = candidate; break; }
+                            }
+                        }
+                    }
+                    // Fallback: if SolidPartName and inference both fail (part was renamed), find the
+                    // active part by matching valid element IDs from ply element sets
+                    if ((string.IsNullOrEmpty(solidPartName) || !_mesh.Parts.ContainsKey(solidPartName))
+                        && layup.Plies != null)
+                    {
+                        HashSet<int> validPlyIds = new HashSet<int>();
+                        foreach (Ply p in layup.Plies)
+                            if (!string.IsNullOrEmpty(p.Region) && _mesh.ElementSets.ContainsKey(p.Region)
+                                && !_mesh.ElementSets[p.Region].CreatedFromParts)
+                                foreach (int eid in _mesh.ElementSets[p.Region].Labels)
+                                    if (_mesh.Elements.ContainsKey(eid)) validPlyIds.Add(eid);
+                        if (validPlyIds.Count > 0)
+                            foreach (var partEntry in _mesh.Parts)
+                                if (partEntry.Value.Active
+                                    && partEntry.Value.Labels.Any(id => validPlyIds.Contains(id)))
+                                { solidPartName = partEntry.Key; break; }
+                    }
+                    if (!string.IsNullOrEmpty(solidPartName) && _mesh.Parts.ContainsKey(solidPartName))
+                        foreach (int elemId in _mesh.Parts[solidPartName].Labels)
+                            if (!elementIdSectionId.ContainsKey(elemId))
+                                elementIdSectionId.Add(elemId, sectionId);
+                    // Cover the source shell part too (inactive = excluded by cleanup; active = covered here)
+                    if (!string.IsNullOrEmpty(layup.SourceShellPartName) &&
+                        _mesh.Parts.ContainsKey(layup.SourceShellPartName))
+                        foreach (int elemId in _mesh.Parts[layup.SourceShellPartName].Labels)
+                            if (!elementIdSectionId.ContainsKey(elemId))
+                                elementIdSectionId.Add(elemId, sectionId);
+                }
+                // The layup stands in the list of the assigned sections by a shell section of its first ply material
+                string layupMaterial = null;
+                foreach (Ply ply in layup.Plies)
+                    if (!string.IsNullOrEmpty(ply.Material)) { layupMaterial = ply.Material; break; }
+                assignedSections.Add(new ShellSection(layup.Name, layupMaterial, null, RegionTypeEnum.ElementSetName, 1, false));
+                sectionId++;
             }
-            _layupZones = layupZones;
-            _layupElementOrientations = layupElementOrientations;
-            _layupWarnings = layupWarnings;
             // Not active
             HashSet<int> inactiveElementIds = new HashSet<int>();
             foreach (var entry in _mesh.Parts)
@@ -1556,32 +1596,44 @@ namespace CaeModel
             }
             return true;
         }
-        // The zones of the active composite layups: elements covered by the same plies, solved as composite shells
-        public List<CompositeLayupZone> GetCompositeLayupZones()
+        public void GetCompositeLayupITAAssignments(out Dictionary<int, int> elementIdItaId, out string[] itaNames)
         {
-            UpdateSectionAssignments();
-            return new List<CompositeLayupZone>(_layupZones ?? new List<CompositeLayupZone>());
-        }
-        public string[] GetCompositeLayupWarnings()
-        {
-            UpdateSectionAssignments();
-            return (_layupWarnings ?? new List<string>()).ToArray();
-        }
-        // Colors the elements by the composite layup zone they belong to (-1 for elements without a zone)
-        public void GetCompositeLayupZoneAssignments(out Dictionary<int, int> elementIdZoneId, out string[] zoneNames)
-        {
-            elementIdZoneId = new Dictionary<int, int>();
+            elementIdItaId = new Dictionary<int, int>();
             List<string> names = new List<string>();
-            foreach (var zone in GetCompositeLayupZones())
+            Dictionary<string, int> regionColorId = new Dictionary<string, int>();
+            //
+            foreach (var layupEntry in _compositeLayups)
             {
-                foreach (int elementId in zone.ElementIds) elementIdZoneId[elementId] = names.Count;
-                names.Add(zone.Section.Name);
+                CompositeLayup layup = layupEntry.Value;
+                if (layup.Plies == null || layup.Plies.Count == 0) continue;
+                //
+                foreach (Ply ply in layup.Plies)
+                {
+                    if (string.IsNullOrEmpty(ply.Region) || !_mesh.ElementSets.ContainsKey(ply.Region)) continue;
+                    //
+                    int colorId;
+                    if (!regionColorId.TryGetValue(ply.Region, out colorId))
+                    {
+                        colorId = names.Count;
+                        regionColorId[ply.Region] = colorId;
+                        names.Add("Plies zone " + ply.Region);
+                    }
+                    //
+                    foreach (int elemId in _mesh.ElementSets[ply.Region].Labels)
+                    {
+                        if (elementIdItaId.ContainsKey(elemId)) elementIdItaId[elemId] = colorId;
+                        else elementIdItaId.Add(elemId, colorId);
+                    }
+                }
             }
-            foreach (int elementId in _mesh.Elements.Keys)
+            //
+            foreach (int elemId in _mesh.Elements.Keys)
             {
-                if (!elementIdZoneId.ContainsKey(elementId)) elementIdZoneId.Add(elementId, -1);
+                if (!elementIdItaId.ContainsKey(elemId))
+                    elementIdItaId.Add(elemId, -1);
             }
-            zoneNames = names.ToArray();
+            //
+            itaNames = names.ToArray();
         }
         public void GetMaterialAssignments(out Dictionary<int, int> elementIdMaterialId)
         {
@@ -9233,6 +9285,7 @@ namespace CaeModel
             info.AddValue("_materialOrientations", _materialOrientations,
                           typeof(CaeGlobals.OrderedDictionary<string, MaterialOrientation>));
             info.AddValue("_compositeLayups", _compositeLayups, typeof(CaeGlobals.OrderedDictionary<string, CompositeLayup>));
+            info.AddValue("_rosettes", _rosettes, typeof(CaeGlobals.OrderedDictionary<string, Rosette>));
             info.AddValue("_constraints", _constraints, typeof(CaeGlobals.OrderedDictionary<string, Constraint>));
             info.AddValue("_surfaceInteractions", _surfaceInteractions, typeof(CaeGlobals.OrderedDictionary<string, SurfaceInteraction>));
             info.AddValue("_contactPairs", _contactPairs, typeof(CaeGlobals.OrderedDictionary<string, ContactPair>));

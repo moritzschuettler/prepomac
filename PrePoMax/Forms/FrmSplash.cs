@@ -29,7 +29,7 @@ namespace PrePoMax.Forms
             InitializeComponent();
             //
             ShowHelp = false;
-            labProgramName.Text = Globals.ProgramName;
+            labProgramName.Text = Globals.WindowTitle;
             // Select the image
             Random rand = new Random(DateTime.Now.Millisecond);
             int splashId = rand.Next(2) + 1;

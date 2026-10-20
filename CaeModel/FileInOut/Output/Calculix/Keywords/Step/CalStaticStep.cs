@@ -43,7 +43,8 @@ namespace FileInOut.Output.Calculix
             string solver = !OutputSolver || _step.SolverType == SolverTypeEnum.Default ?
                 "" : ", Solver=" + _step.SolverType.GetDisplayedName();
             string direct = _step.IncrementationType == IncrementationTypeEnum.Direct ? ", Direct" : "";
-            return string.Format("*Static{0}{1}{2}", solver, direct, Environment.NewLine);
+            string stabilize = _step.Stabilize ? ", Stabilize" : "";
+            return string.Format("*Static{0}{1}{2}{3}", solver, direct, stabilize, Environment.NewLine);
         }
         public override string GetDataString()
         {

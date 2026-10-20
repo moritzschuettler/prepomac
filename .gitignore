@@ -291,3 +291,16 @@ CLAUDE.md
 # macOS NetGenMesher build output
 macOS/Native/NetGenMesher/build/
 PrePoMax.Mac/
+/grab_binaries.bat
+/assets_composites/stiffened_panel/StiffenedPanel.stp
+/assets_composites/stiffened_panel/StiffenedPanel_base.stp
+/assets_composites/stiffened_panel/StiffenedPanel_stiffener.stp
+/assets_composites/stiffened_panel/stiffened_panel.pmx
+/PrePoMax/Commands/0050_Model/03_Mesh/03_Part/CExtrudeShellFromSections.cs
+/tools/sandwich_beam_analysis.png
+/tools/sandwich_beam_clt.py
+/assets_composites/cooperhood/kindrape_log.txt
+/prepomax-composites_V0.2.0-winb64_20260408_104920
+/generate_binaries.bat
+/prepomax-composites_V0.2.0-winb64_20260408_104920.zip
+/generate_binaries.bat

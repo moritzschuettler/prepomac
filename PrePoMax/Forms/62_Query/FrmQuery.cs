@@ -32,9 +32,11 @@ namespace PrePoMax.Forms
         private string _queryNumberFormat;
 
 
-        // Callbacks                                                                                                               
+        // Callbacks
         public Action<string> Form_WriteDataToOutput;
         public Action<object, EventArgs> Form_RemoveAnnotations;
+        public Action Form_ShowCoreSampling;
+        public Action Form_HideCoreSampling;
 
 
         // Constructors                                                                                                             
@@ -59,6 +61,9 @@ namespace PrePoMax.Forms
             {
                 if (lvQueries.SelectedItem != null)
                 {
+                    if (lvQueries.SelectedItem.Text != "Core Sampling")
+                        Form_HideCoreSampling?.Invoke();
+                    //
                     UpdateQueryNumberFormat();
                     double[] boundingBox = null;
                     double[] centerOfMass = null;
@@ -116,6 +121,11 @@ namespace PrePoMax.Forms
                             _controller.Selection.SelectItem = vtkSelectItem.Node;
                             _numOfNodesToSelect = 3;
                             break;
+                        case ("Core Sampling"):
+                            _controller.SetSelectByToOff();
+                            _numOfNodesToSelect = -1;
+                            Form_ShowCoreSampling?.Invoke();
+                            break;
                         default:
                             break;
                     }
@@ -159,10 +169,11 @@ namespace PrePoMax.Forms
                 //
                 _controller.SetQuerySelection(true);
             }
-            // The form was hidden 
+            // The form was hidden
             else
             {
                 _controller.SelectBy = vtkSelectBy.Default;
+                Form_HideCoreSampling?.Invoke();
                 // Clear
                 _controller.ClearSelectionHistoryAndCallSelectionChanged();
                 //

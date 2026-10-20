@@ -152,6 +152,10 @@ namespace PrePoMax
         private FrmScale _frmScale;
         private FrmNodeSet _frmNodeSet;
         private FrmElementSet _frmElementSet;
+        private FrmElementSetFromBox _frmElementSetFromBox;
+        private FrmExtractShellMesh _frmExtractShellMesh;
+        private FrmExtrudeShellFromSections _frmExtrudeShellFromSections;
+        private FrmExtrudeShellUniform _frmExtrudeShellUniform;
         private FrmSurface _frmSurface;
         private FrmReferencePoint _frmReferencePoint;
         private FrmCoordinateSystem _frmCoordinateSystem;
@@ -159,6 +163,9 @@ namespace PrePoMax
         private FrmSection _frmSection;
         private FrmMaterialOrientation _frmMaterialOrientation;
         private FrmCompositeLayup _frmCompositeLayup;
+        private FrmCreateCompositeLayup _frmCreateCompositeLayup;
+        private FrmImportCompositeLayupFromH5 _frmImportCompositeLayupFromH5;
+        private FrmRosette _frmRosette;
         private FrmConstraint _frmConstraint;
         private FrmSurfaceInteraction _frmSurfaceInteraction;
         private FrmContactPair _frmContactPair;
@@ -175,6 +182,7 @@ namespace PrePoMax
         private FrmDefinedField _frmDefinedField;
         private FrmSettings _frmSettings;
         private FrmQuery _frmQuery;
+        private FrmCoreSampling _frmCoreSampling;
         private FrmFind _frmFind;
         private FrmCaptureViewport _frmCaptureViewport;
         private FrmAnalysis _frmAnalysis;
@@ -383,7 +391,7 @@ namespace PrePoMax
             //    this.Size = new Size(resolution.Width, resolution.Height);
             //    this.WindowState = FormWindowState.Maximized;
             //}
-            Text = Globals.ProgramName;
+            Text = Globals.ProgramName + " - Composites Modeler";
             if (!_hideWindow) this.TopMost = true;
             //
             if (_cmdOptions.ShowGui == "Yes")
@@ -455,7 +463,15 @@ namespace PrePoMax
                 _modelTree.MergeParts += MergeModelParts;
                 _modelTree.MergeResultParts += MergeResultParts;
                 _modelTree.ConvertElementSetsToMeshParts += ConvertElementSetsToMeshParts;
+                _modelTree.ExtractShellMesh += ExtractShellMeshFromPart;
+                _modelTree.ExtrudeShellFromSections += ExtrudeShellFromSections;
+                _modelTree.ExtrudeShellUniform += ExtrudeShellUniform;
+                _modelTree.CreateElementSetFromBoxEvent += CreateElementSetFromBox;
                 _modelTree.MaterialLibrary += ShowMaterialLibrary;
+                _modelTree.ImportCompositeLayupsFromCsv += ImportCompositeLayupsFromCsv;
+            _modelTree.ImportCompositeLayupFromH5 += ImportCompositeLayupFromH5;
+            _modelTree.ImportRosetteFromStep += ImportRosetteFromStep;
+                _modelTree.CreateElementSetFromSurface += CreateElementSetFromGeometrySurface;
                 _modelTree.SearchContactPairs += SearchContactPairs;
                 _modelTree.ImportCompositeLayupsFromCsv += ImportCompositeLayupsFromCsv;
                 _modelTree.SwapMasterSlave += ModelTree_SwapMasterSlave;
@@ -624,6 +640,18 @@ namespace PrePoMax
                 _frmElementSet = new FrmElementSet(_controller);
                 AddFormToAllForms(_frmElementSet);
                 //
+                _frmElementSetFromBox = new FrmElementSetFromBox(_controller);
+                AddFormToAllForms(_frmElementSetFromBox);
+                //
+                _frmExtractShellMesh = new FrmExtractShellMesh(_controller);
+                AddFormToAllForms(_frmExtractShellMesh);
+                //
+                _frmExtrudeShellFromSections = new FrmExtrudeShellFromSections(_controller);
+                AddFormToAllForms(_frmExtrudeShellFromSections);
+                //
+                _frmExtrudeShellUniform = new FrmExtrudeShellUniform(_controller);
+                AddFormToAllForms(_frmExtrudeShellUniform);
+                //
                 _frmSurface = new FrmSurface(_controller);
                 AddFormToAllForms(_frmSurface);
                 //
@@ -644,6 +672,15 @@ namespace PrePoMax
                 //
                 _frmCompositeLayup = new FrmCompositeLayup(_controller);
                 AddFormToAllForms(_frmCompositeLayup);
+                //
+                _frmCreateCompositeLayup = new FrmCreateCompositeLayup(_controller);
+                AddFormToAllForms(_frmCreateCompositeLayup);
+                //
+                _frmImportCompositeLayupFromH5 = new FrmImportCompositeLayupFromH5(_controller);
+                AddFormToAllForms(_frmImportCompositeLayupFromH5);
+                //
+                _frmRosette = new FrmRosette(_controller);
+                AddFormToAllForms(_frmRosette);
                 //
                 _frmConstraint = new FrmConstraint(_controller);
                 AddFormToAllForms(_frmConstraint);
@@ -704,6 +741,19 @@ namespace PrePoMax
                 _frmQuery.Form_WriteDataToOutput = WriteDataToOutput;
                 _frmQuery.Form_RemoveAnnotations = tsbRemoveAnnotations_Click;
                 AddFormToAllForms(_frmQuery);
+                //
+                _frmCoreSampling = new FrmCoreSampling();
+                AddFormToAllForms(_frmCoreSampling);
+                _frmQuery.Form_ShowCoreSampling = () =>
+                {
+                    SetFormLocation(_frmCoreSampling);
+                    _frmCoreSampling.PrepareForm(_controller);
+                    _frmCoreSampling.Show();
+                };
+                _frmQuery.Form_HideCoreSampling = () =>
+                {
+                    if (_frmCoreSampling != null && _frmCoreSampling.Visible) _frmCoreSampling.Hide();
+                };
                 //
                 _frmFind = new FrmFind();
                 _frmFind.Form_RemoveAnnotations = tsbRemoveAnnotations_Click;
@@ -1331,6 +1381,12 @@ namespace PrePoMax
         //
         private void ModelTree_CreateEvent(string nodeName, string stepName)
         {
+            // A rosette needs neither a geometry nor a mesh, so it is handled before the view checks
+            if (nodeName == _modelTree.RosettesName)
+            {
+                tsmiCreateRosette_Click(null, null);
+                return;
+            }
             if (_controller.Model.Geometry != null && _controller.CurrentView == ViewGeometryModelResults.Geometry)
             {
                 if (nodeName == _modelTree.MeshSetupItemsName) tsmiCreateMeshSetupItem_Click(null, null);
@@ -1372,6 +1428,12 @@ namespace PrePoMax
         }
         private void ModelTree_EditEvent(NamedClass namedClass, string stepName)
         {
+            // A rosette is edited the same way from every view
+            if (namedClass is Rosette)
+            {
+                EditRosette(namedClass.Name);
+                return;
+            }
             // Geometry
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
             {
@@ -1387,6 +1449,7 @@ namespace PrePoMax
                 }
                 else if (namedClass is MeshPart) EditModelPart(namedClass.Name);
                 else if (namedClass is FeNodeSet) EditNodeSet(namedClass.Name);
+                else if (namedClass is FeElementSetFromBox) EditElementSetFromBox(namedClass.Name);
                 else if (namedClass is FeElementSet) EditElementSet(namedClass.Name);
                 else if (namedClass is FeSurface) EditSurface(namedClass.Name);
                 else if (namedClass is FeReferencePoint) EditModelReferencePoint(namedClass.Name);
@@ -1444,6 +1507,9 @@ namespace PrePoMax
         }
         private void ModelTree_DuplicateEvent(NamedClass[] items, string[] stepNames)
         {
+            // Rosettes live in the geometry tree but are independent of the active view
+            ApplyActionOnItems<Rosette>(items, DuplicateRosettes);
+            //
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
             {
                 ApplyActionOnItems<MeshSetupItem>(items, DuplicateMeshSetupItems);
@@ -1611,6 +1677,9 @@ namespace PrePoMax
         //
         private void ModelTree_DeleteEvent(NamedClass[] items, string[] parentNames)
         {
+            // Rosettes live in the geometry tree but are independent of the active view
+            ApplyActionOnItems<Rosette>(items, DeleteRosettes);
+            //
             if (_controller.CurrentView == ViewGeometryModelResults.Geometry)
             {
                 ApplyActionOnItems<MeshSetupItem>(items, DeleteMeshSetupItems);
@@ -2150,6 +2219,37 @@ namespace PrePoMax
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiExportToOpenRadioss_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                _controller.CurrentView = ViewGeometryModelResults.Model;
+                //
+                if (CheckValidity())
+                {
+                    using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                    {
+                        saveFileDialog.Filter = "OpenRadioss files | *.rad";
+                        if (_controller.OpenedFileName != null)
+                            saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".rad";
+                        if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
+                        {
+                            // the filter adds the extension to the file name
+                            SetStateWorking(Globals.ExportingText);
+                            _controller.ExportToOpenRadiossCommand(saveFileDialog.FileName);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+            finally
+            {
+                SetStateReady(Globals.ExportingText);
             }
         }
         private void tsmiExportTo3mf_Click(object sender, EventArgs e)
@@ -5795,6 +5895,10 @@ namespace PrePoMax
             ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmElementSet);
             ShowForm(_frmElementSet, "Edit Element Set", elementSetName);
         }
+        private void EditElementSetFromBox(string elementSetName)
+        {
+            ShowForm(_frmElementSetFromBox, "Edit Element Set From Box", elementSetName);
+        }
         private void DuplicateElementSets(string[] elementSetNames)
         {
             _controller.DuplicateElementSetsCommand(elementSetNames);
@@ -5803,12 +5907,70 @@ namespace PrePoMax
         {
             _controller.ConvertElementSetsToMeshPartsCommand(elementSetNames);
         }
+        private void ExtractShellMeshFromPart(string partName)
+        {
+            if (_controller.Model?.Mesh == null) return;
+            // Data editor
+            ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmExtractShellMesh);
+            ShowForm(_frmExtractShellMesh, "Extract Shell Mesh", partName);
+        }
+        private void ExtrudeShellFromSections(string partName)
+        {
+            if (_controller.Model?.Mesh == null) return;
+            ShowForm(_frmExtrudeShellFromSections, "Extrude Shell Mesh from Sections", partName);
+        }
+        private void ExtrudeShellUniform(string partName)
+        {
+            if (_controller.Model?.Mesh == null) return;
+            ShowForm(_frmExtrudeShellUniform, "Create Solids by Extrusion", partName);
+        }
+        private void CreateElementSetFromBox(string partName)
+        {
+            if (_controller.Model?.Mesh == null) return;
+            ShowForm(_frmElementSetFromBox, "Create Element Set From Box", partName);
+        }
         private void DeleteElementSets(string[] elementSetNames)
         {
             if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected element sets?" + Environment.NewLine
                                                  + elementSetNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveElementSetsCommand(elementSetNames);
+            }
+        }
+        // Create element set from geometrical surface: Element Sets tree node context menu
+        private void CreateElementSetFromGeometrySurface()
+        {
+            try
+            {
+                if (_controller.Model?.Mesh == null) return;
+                //
+                List<GeometrySurfaceOption> options = _controller.GetGeometrySurfaceOptions();
+                if (options.Count == 0)
+                {
+                    MessageBox.Show("No geometrical surfaces are available. Import a CAD part first.",
+                                    "No Geometrical Surfaces", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                //
+                using (FrmImportPlyRegionFromSurface frm =
+                           new FrmImportPlyRegionFromSurface(_controller, options))
+                {
+                    if (frm.ShowDialog(this) == DialogResult.OK && frm.SelectedPartName != null)
+                    {
+                        string message;
+                        bool success = _controller.CreateElementSetFromGeometrySurface(frm.SelectedPartName,
+                                                                                        frm.SelectedFaceId,
+                                                                                        frm.CoreSamplingDepth,
+                                                                                        frm.TargetPartNames,
+                                                                                        out message);
+                        MessageBox.Show(message, success ? "Element Set Created" : "Create Element Set from Geometrical Surface",
+                                        MessageBoxButtons.OK, success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
             }
         }
 
@@ -6266,6 +6428,47 @@ namespace PrePoMax
 
         #endregion  ################################################################################################################
 
+        #region Composite Layup menu  ##################################################################################################
+        private void ImportCompositeLayupsFromCsv()
+        {
+            try
+            {
+                if (_controller.Model.Mesh != null)
+                {
+                    using (OpenFileDialog ofd = new OpenFileDialog())
+                    {
+                        ofd.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
+                        ofd.Title = "Import Composite Layups from CSV";
+                        if (ofd.ShowDialog() == DialogResult.OK)
+                        {
+                            _controller.ImportCompositeLayupsFromCsvCommand(ofd.FileName);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void ImportCompositeLayupFromH5()
+        {
+            try
+            {
+                ShowForm(_frmImportCompositeLayupFromH5, "Import Composite Layup from HDF5", null);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        internal void tsmiImportCompositeLayupFromH5_Click(object sender, EventArgs e)
+        {
+            ImportCompositeLayupFromH5();
+        }
+
+        #endregion  ################################################################################################################
+
         #region Section menu  ######################################################################################################
         internal void tsmiCreateSection_Click(object sender, EventArgs e)
         {
@@ -6355,7 +6558,30 @@ namespace PrePoMax
             tsmiCompositeLayup.DropDownItems.Add(new ToolStripSeparator());
             tsmiCompositeLayup.DropDownItems.Add(new ToolStripMenuItem("Import from CSV...", null,
                                                                        (s, e) => ImportCompositeLayupsFromCsv()));
+            tsmiCompositeLayup.DropDownItems.Add(new ToolStripMenuItem("Import from HDF5...", null,
+                                                                       tsmiImportCompositeLayupFromH5_Click));
             tsmiProperty.DropDownItems.Insert(tsmiProperty.DropDownItems.IndexOf(tsmiSection) + 1, tsmiCompositeLayup);
+            // Rosettes: the material reference directions of the plies
+            ToolStripMenuItem tsmiRosette = new ToolStripMenuItem("Rosette");
+            tsmiRosette.Name = "tsmiRosette";
+            tsmiRosette.Image = Properties.Resources.CoordinateSystem;
+            tsmiRosette.DropDownItems.Add(new ToolStripMenuItem("Create", null, tsmiCreateRosette_Click));
+            tsmiRosette.DropDownItems.Add(new ToolStripMenuItem("Edit", null, tsmiEditRosette_Click));
+            tsmiRosette.DropDownItems.Add(new ToolStripMenuItem("Duplicate", null, tsmiDuplicateRosette_Click));
+            tsmiRosette.DropDownItems.Add(new ToolStripSeparator());
+            tsmiRosette.DropDownItems.Add(new ToolStripMenuItem("Delete", null, tsmiDeleteRosette_Click));
+            tsmiProperty.DropDownItems.Insert(tsmiProperty.DropDownItems.IndexOf(tsmiCompositeLayup) + 1, tsmiRosette);
+            // Blade aerodynamic loads
+            tsmiLoad.DropDownItems.Insert(0, new ToolStripMenuItem("Add Blade Aerodynamic Load...", null,
+                                                                   tsmiCreateBladeAeroLoad_Click));
+            tsmiLoad.DropDownItems.Insert(1, new ToolStripSeparator());
+            // OpenRadioss export
+            tsmiExport.DropDownItems.Insert(tsmiExport.DropDownItems.IndexOf(tsmiExportModel) + 1,
+                                            new ToolStripMenuItem("Model as OpenRadioss *.rad", null,
+                                                                  tsmiExportToOpenRadioss_Click));
+            // Orphan elements
+            tsmiTools.DropDownItems.Insert(tsmiTools.DropDownItems.IndexOf(tsmiQuery),
+                                           new ToolStripMenuItem("Clean Orphan Elements", null, tsmiCleanOrphanElements_Click));
             //
             tsmiHelpAdvisorComposites = new ToolStripMenuItem("Composites Advisor", null, tsmiAdvisorComposites_Click);
             tsmiHelpAdvisorComposites.Name = "tsmiHelpAdvisorComposites";
@@ -6414,7 +6640,14 @@ namespace PrePoMax
         private void CreateCompositeLayup()
         {
             if (_controller.Model.Mesh == null) return;
-            ShowForm(_frmCompositeLayup, "Create Composite Layup", null);
+            // The type, the element type and the number of plies are chosen first, then the plies are edited
+            _frmCreateCompositeLayup.SetOnContinueAction((compositeLayup) =>
+            {
+                _frmCompositeLayup.PrepareFormForNewLayup(compositeLayup);
+                SetFormLocation(_frmCompositeLayup);
+                _frmCompositeLayup.Show();
+            });
+            ShowForm(_frmCreateCompositeLayup, "Create Composite Layup", null);
         }
         private void EditCompositeLayup(string compositeLayupName)
         {
@@ -6430,24 +6663,6 @@ namespace PrePoMax
                                                          + compositeLayupNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveCompositeLayupsCommand(compositeLayupNames);
-            }
-        }
-        private void ImportCompositeLayupsFromCsv()
-        {
-            try
-            {
-                if (_controller.Model.Mesh == null) return;
-                using (OpenFileDialog openFileDialog = new OpenFileDialog())
-                {
-                    openFileDialog.Title = "Import Composite Layups from CSV";
-                    openFileDialog.Filter = "Comma separated values|*.csv|All files|*.*";
-                    if (openFileDialog.ShowDialog() == DialogResult.OK)
-                        _controller.ImportCompositeLayupsFromCsvCommand(openFileDialog.FileName);
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
             }
         }
         internal void tsmiAdvisorComposites_Click(object sender, EventArgs e)
@@ -6548,6 +6763,93 @@ namespace PrePoMax
                                                  + materialOrientationNames.ToRows()) == DialogResult.OK)
             {
                 _controller.RemoveMaterialOrientationsCommand(materialOrientationNames);
+            }
+        }
+
+        #endregion  ################################################################################################################
+
+        #region Rosette menu  ######################################################################################################
+        internal void tsmiCreateRosette_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateRosette();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiEditRosette_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Rosettes", _controller.GetAllRosettes(), EditRosette);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDuplicateRosette_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Rosettes", _controller.GetAllRosettes(), DuplicateRosettes);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDeleteRosette_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Rosettes", _controller.GetAllRosettes(), DeleteRosettes);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        //
+        private void CreateRosette()
+        {
+            ShowForm(_frmRosette, "Create Rosette", null);
+        }
+        private void EditRosette(string rosetteName)
+        {
+            ShowForm(_frmRosette, "Edit Rosette", rosetteName);
+        }
+        private void DuplicateRosettes(string[] rosetteNames)
+        {
+            _controller.DuplicateRosettesCommand(rosetteNames);
+        }
+        private void DeleteRosettes(string[] rosetteNames)
+        {
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected rosettes?" + Environment.NewLine
+                                                 + rosetteNames.ToRows()) == DialogResult.OK)
+            {
+                _controller.RemoveRosettesCommand(rosetteNames);
+            }
+        }
+        // Tree context menu on a rosette item
+        private void ImportRosetteFromStep(string rosetteName)
+        {
+            try
+            {
+                using (OpenFileDialog ofd = new OpenFileDialog())
+                {
+                    ofd.Title = "Select a STEP file containing the rosette guide curves";
+                    ofd.Filter = "STEP files (*.stp;*.step)|*.stp;*.step|All files (*.*)|*.*";
+                    if (ofd.ShowDialog() != DialogResult.OK) return;
+                    _controller.ImportRosetteCurvesFromStepCommand(rosetteName, ofd.FileName, 0);
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
             }
         }
 
@@ -7777,6 +8079,22 @@ namespace PrePoMax
         #endregion  ################################################################################################################
 
         #region Load menu  #########################################################################################################
+        internal void tsmiCreateBladeAeroLoad_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Steps", _controller.GetAllSteps(), CreateBladeAeroLoad);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void CreateBladeAeroLoad(string stepName)
+        {
+            using (var frm = new FrmBladeAerodynamicLoad(_controller, stepName))
+                frm.ShowDialog(this);
+        }
         internal void tsmiCreateLoad_Click(object sender, EventArgs e)
         {
             try
@@ -8292,6 +8610,38 @@ namespace PrePoMax
                     SetFormLocation(_frmQuery);
                     _frmQuery.PrepareForm(_controller);
                     _frmQuery.Show();
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiCleanOrphanElements_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_controller.Model?.Mesh == null)
+                {
+                    MessageBoxes.ShowError("There is no mesh in the model.");
+                    return;
+                }
+                //
+                _controller.CurrentView = ViewGeometryModelResults.Model;
+                //
+                int numOfOrphanElements = _controller.GetNumberOfOrphanElements();
+                if (numOfOrphanElements == 0)
+                {
+                    MessageBoxes.ShowInfo("The model contains no orphan elements.", "Clean Orphan Elements");
+                    return;
+                }
+                //
+                string msg = numOfOrphanElements + " orphan elements (elements that do not belong to any part) were found." +
+                             Environment.NewLine + Environment.NewLine +
+                             "They and their unreferenced nodes will be deleted. Continue?";
+                if (MessageBoxes.ShowWarningQuestionOKCancel(msg) == DialogResult.OK)
+                {
+                    _controller.RemoveOrphanElementsCommand();
                 }
             }
             catch (Exception ex)
@@ -9827,6 +10177,15 @@ namespace PrePoMax
             //
             AnalysisJob job = _controller.GetJob(jobName);
             //
+            if (job.FEMSolver == FEMSolverEnum.OpenRadioss)
+            {
+                MessageBoxes.ShowWarning("PrePoMax cannot display OpenRadioss results. Use the anim_to_vtk and " +
+                                         "th_to_csv converters from the OpenRadioss exec folder to convert the " +
+                                         "animation (" + job.Name + "A001, ...) and time history files from the " +
+                                         "work directory: " + job.WorkDirectory);
+                return;
+            }
+            //
             bool openResults = true;
             string parameters = Globals.FromMonitorForm;
             //
@@ -10940,6 +11299,37 @@ namespace PrePoMax
                 _frmSelectEntity.Show();
             }
         }
+        // Public method for child forms to select an element set
+        public void ShowSelectElementSet(string preSelectedElementSetName, Action<string> onElementSetSelected)
+        {
+            FeElementSet[] elementSets = _controller.GetUserElementSets();
+            if (elementSets == null || elementSets.Length == 0) return;
+            //
+            string[] preSelected = string.IsNullOrEmpty(preSelectedElementSetName) ? null : new string[] { preSelectedElementSetName };
+            //
+            SetFormLocation(_frmSelectEntity);
+            _frmSelectEntity.PrepareForm("Element sets", false, elementSets, preSelected, null, true);
+            _frmSelectEntity.OneEntitySelected = onElementSetSelected;
+            _frmSelectEntity.Show();
+        }
+        // Public method for child forms to select a material
+        public void ShowSelectMaterial(string preSelectedMaterialName, Action<string> onMaterialSelected,
+                                       bool compositeMaterialsOnly = false)
+        {
+            Material[] materials = _controller.GetAllMaterials();
+            if (materials == null || materials.Length == 0) return;
+            //
+            if (compositeMaterialsOnly)
+                materials = materials.Where(m => m.CompositeMaterialType != CompositeMaterialType.None).ToArray();
+            if (materials.Length == 0) return;
+            //
+            string[] preSelected = string.IsNullOrEmpty(preSelectedMaterialName) ? null : new string[] { preSelectedMaterialName };
+            //
+            SetFormLocation(_frmSelectEntity);
+            _frmSelectEntity.PrepareForm("Materials", false, materials, preSelected, null);
+            _frmSelectEntity.OneEntitySelected = onMaterialSelected;
+            _frmSelectEntity.Show();
+        }
 
         #endregion  ################################################################################################################
 
@@ -10981,7 +11371,9 @@ namespace PrePoMax
             if (_frmMirror != null && _frmMirror.Visible) _frmMirror.PickedIds(ids);
             if (_frmScale != null && _frmScale.Visible) _frmScale.PickedIds(ids);
             if (_frmQuery != null && _frmQuery.Visible) _frmQuery.PickedIds(ids);
+            if (_frmCoreSampling != null && _frmCoreSampling.Visible) _frmCoreSampling.PickedIds(ids);
             if (_frmTransformation != null && _frmTransformation.Visible) _frmTransformation.PickedIds(ids);
+            if (_frmCompositeLayup != null && _frmCompositeLayup.Visible) _frmCompositeLayup.PickedIds(ids);
             //
             SelectionChanged(ids);
             //
@@ -11018,6 +11410,7 @@ namespace PrePoMax
                 _frmMergeCoincidentNodes.SelectionChanged(ids);
             if (_frmNodeSet != null && _frmNodeSet.Visible) _frmNodeSet.SelectionChanged(ids);
             if (_frmElementSet != null && _frmElementSet.Visible) _frmElementSet.SelectionChanged(ids);
+            if (_frmExtractShellMesh != null && _frmExtractShellMesh.Visible) _frmExtractShellMesh.SelectionChanged(ids);
             if (_frmSurface != null && _frmSurface.Visible) _frmSurface.SelectionChanged(ids);
             if (_frmReferencePoint != null && _frmReferencePoint.Visible) _frmReferencePoint.SelectionChanged(ids);
             if (_frmCoordinateSystem != null && _frmCoordinateSystem.Visible) _frmCoordinateSystem.SelectionChanged(ids);
@@ -12588,6 +12981,34 @@ namespace PrePoMax
                                   double fontScaleFactor, vtkRendererLayer layer)
         {
             InvokeIfRequired(_vtk.AddLabelActor, name, positions, labels, color, fontScaleFactor, layer);
+        }
+        public void AddOrientationArrows(vtkMaxActorData data, double symbolSize)
+        {
+            InvokeIfRequired(_vtk.AddOrientationArrows, data, symbolSize);
+        }
+        public void AddDrapingGrid(string name, double[][][] cellVertices, double[] cellShear, double limitShear)
+        {
+            InvokeIfRequired(_vtk.AddDrapingGrid, name, cellVertices, cellShear, limitShear);
+        }
+        public void ClearOverlayByPrefix(string prefix)
+        {
+            InvokeIfRequired(_vtk.ClearOverlayByPrefix, prefix);
+        }
+        public void AddDrapingFiberCurves(string name, double[][][] curves, double[][] segmentShear, double limitShear)
+        {
+            InvokeIfRequired(_vtk.AddDrapingFiberCurves, name, curves, segmentShear, limitShear);
+        }
+        public void AddTapePropagationCurves(string name, double[][][] curves, int[] sideSigns, int[] layerIndices)
+        {
+            InvokeIfRequired(_vtk.AddTapePropagationCurves, name, curves, sideSigns, layerIndices);
+        }
+        public void AddPolylines(string name, double[][][] curves, Color color, int lineWidth)
+        {
+            InvokeIfRequired(_vtk.AddPolylines, name, curves, color, lineWidth);
+        }
+        public void AddBoundingBoxPreview(double cx, double cy, double cz, double dx, double dy, double dz)
+        {
+            InvokeIfRequired(() => _vtk.AddBoundingBoxPreview(cx, cy, cz, dx, dy, dz));
         }
         public void RemoveOverlayActors(string[] actorNames)
         {

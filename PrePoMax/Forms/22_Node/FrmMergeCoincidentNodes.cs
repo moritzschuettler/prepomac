@@ -128,6 +128,18 @@ namespace PrePoMax.Forms
             Dictionary<int, int> oldIdNewId = _controller.GetCoincidentNodeMap(vmcn);
             //if (oldIdNewId.Count == 0)
             //    throw new CaeException("There are no coincident nodes in the current selection.");
+            // Warn if tolerance exceeds the minimum element edge length
+            double minEdgeLen = _controller.GetMinElementEdgeLength();
+            if (vmcn.Tolerance >= minEdgeLen)
+            {
+                string msg = string.Format(
+                    "The merge tolerance ({0:G4}) is greater than or equal to the minimum element edge length ({1:G4}).\n\n" +
+                    "This may cause unintended node merging and corrupt the mesh.\n\n" +
+                    "Do you want to proceed?",
+                    vmcn.Tolerance, minEdgeLen);
+                if (MessageBoxes.ShowWarningQuestionYesNo(msg) != DialogResult.Yes)
+                    throw new CaeException("BreakOnApply");
+            }
             // Create
             _controller.MergeCoincidentNodesCommand(vmcn);
             //

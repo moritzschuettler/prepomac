@@ -20,20 +20,25 @@ namespace CaeModel
     [Serializable]
     public class ShellSection : Section, ISerializable
     {
-        // Variables                                                                                                                
+        // Variables
         private EquationContainer _offset;         //ISerializable
+        private EquationContainer _angle;          //ISerializable
+        private bool _composites;                  //ISerializable
 
 
-        // Properties                                                                                                               
+        // Properties
         public EquationContainer Offset { get { return _offset; } set { SetOffset(value); } }
+        public EquationContainer Angle { get { return _angle; } set { SetAngle(value); } }
+        public bool Composites { get { return _composites; } set { _composites = value; } }
 
 
-        // Constructors                                                                                                             
+        // Constructors
         public ShellSection(string name, string materialName, string regionName, RegionTypeEnum regionType, double thickness,
                             bool twoD)
             : base(name, materialName, regionName, regionType, thickness, twoD)
         {
             Offset = new EquationContainer(typeof(StringDoubleConverter), 0);
+            Angle = new EquationContainer(typeof(StringDoubleConverter), 0);
         }
         public ShellSection(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -49,17 +54,31 @@ namespace CaeModel
                         else
                             SetOffset((EquationContainer)entry.Value, false);
                         break;
+                    case "_angle":
+                        if (entry.Value is double angleValue)
+                            Angle = new EquationContainer(typeof(StringDoubleConverter), angleValue);
+                        else
+                            SetAngle((EquationContainer)entry.Value, false);
+                        break;
+                    case "_composites":
+                        _composites = (bool)entry.Value; break;
                     default:
                         break;
                 }
             }
+            // Backwards compatibility: fields not present in older saved files
+            if (_angle == null) Angle = new EquationContainer(typeof(StringDoubleConverter), 0);
         }
 
 
-        // Methods                                                                                                                  
+        // Methods
         private void SetOffset(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _offset, value, null, checkEquation);
+        }
+        private void SetAngle(EquationContainer value, bool checkEquation = true)
+        {
+            EquationContainer.SetAndCheck(ref _angle, value, null, checkEquation);
         }
         // IContainsEquations
         public override void CheckEquations()
@@ -67,6 +86,7 @@ namespace CaeModel
             base.CheckEquations();
             //
             _offset.CheckEquation();
+            _angle.CheckEquation();
         }
         // ISerialization
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -75,6 +95,8 @@ namespace CaeModel
             base.GetObjectData(info, context);
             //
             info.AddValue("_offset", _offset, typeof(EquationContainer));
+            info.AddValue("_angle", _angle, typeof(EquationContainer));
+            info.AddValue("_composites", _composites, typeof(bool));
         }
     }
 }

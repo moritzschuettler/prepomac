@@ -59,6 +59,15 @@ namespace PrePoMax.Forms
             System.Windows.Forms.TreeNode treeNode12 = new System.Windows.Forms.TreeNode("Composite Strength");
             System.Windows.Forms.TreeNode treeNode13 = new System.Windows.Forms.TreeNode("Strength", new System.Windows.Forms.TreeNode[] {
             treeNode12});
+            System.Windows.Forms.TreeNode treeNode14 = new System.Windows.Forms.TreeNode("Hyperelastic - Mooney-Rivlin");
+            System.Windows.Forms.TreeNode treeNode15 = new System.Windows.Forms.TreeNode("Hyperelastic - Neo Hooke");
+            System.Windows.Forms.TreeNode treeNode16 = new System.Windows.Forms.TreeNode("Hyperelastic - Ogden");
+            System.Windows.Forms.TreeNode treeNode17 = new System.Windows.Forms.TreeNode("Hyperfoam - Ogden");
+            System.Windows.Forms.TreeNode treeNode18 = new System.Windows.Forms.TreeNode("Hyperelasticity", new System.Windows.Forms.TreeNode[] {
+            treeNode14,
+            treeNode15,
+            treeNode16,
+            treeNode17});
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.ListViewItem listViewItem1 = new System.Windows.Forms.ListViewItem("1");
             System.Windows.Forms.ListViewItem listViewItem2 = new System.Windows.Forms.ListViewItem("2");
@@ -71,6 +80,11 @@ namespace PrePoMax.Forms
             this.btnCancel = new System.Windows.Forms.Button();
             this.gbData = new System.Windows.Forms.GroupBox();
             this.cbTemperatureDependent = new System.Windows.Forms.CheckBox();
+            this.lCompositeMaterialType = new System.Windows.Forms.Label();
+            this.cbCompositeMaterialType = new System.Windows.Forms.ComboBox();
+            this.lWidth = new System.Windows.Forms.Label();
+            this.tbWidth = new System.Windows.Forms.TextBox();
+            this.lWidthUnit = new System.Windows.Forms.Label();
             this.tbDescription = new System.Windows.Forms.TextBox();
             this.lDescription = new System.Windows.Forms.Label();
             this.tbName = new System.Windows.Forms.TextBox();
@@ -146,11 +160,27 @@ namespace PrePoMax.Forms
             treeNode13.Name = "Strength";
             treeNode13.Text = "Strength";
             treeNode13.ToolTipText = "Strength";
+            treeNode14.Name = "Hyperelastic - Mooney-Rivlin";
+            treeNode14.Text = "Hyperelastic - Mooney-Rivlin";
+            treeNode14.ToolTipText = "Hyperelastic - Mooney-Rivlin";
+            treeNode15.Name = "Hyperelastic - Neo Hooke";
+            treeNode15.Text = "Hyperelastic - Neo Hooke";
+            treeNode15.ToolTipText = "Hyperelastic - Neo Hooke";
+            treeNode16.Name = "Hyperelastic - Ogden";
+            treeNode16.Text = "Hyperelastic - Ogden";
+            treeNode16.ToolTipText = "Hyperelastic - Ogden";
+            treeNode17.Name = "Hyperfoam - Ogden";
+            treeNode17.Text = "Hyperfoam - Ogden";
+            treeNode17.ToolTipText = "Hyperfoam - Ogden";
+            treeNode18.Name = "Hyperelasticity";
+            treeNode18.Text = "Hyperelasticity";
+            treeNode18.ToolTipText = "Hyperelasticity";
             this.tvProperties.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
             treeNode3,
             treeNode5,
             treeNode7,
             treeNode11,
+            treeNode18,
             treeNode13});
             this.tvProperties.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             this.tvProperties.SelectionMode = UserControls.TreeViewSelectionMode.MultiSelectSameLevel;
@@ -201,22 +231,72 @@ namespace PrePoMax.Forms
             this.gbData.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.gbData.Controls.Add(this.cbTemperatureDependent);
+            this.gbData.Controls.Add(this.cbCompositeMaterialType);
+            this.gbData.Controls.Add(this.lCompositeMaterialType);
+            this.gbData.Controls.Add(this.tbWidth);
+            this.gbData.Controls.Add(this.lWidth);
+            this.gbData.Controls.Add(this.lWidthUnit);
             this.gbData.Controls.Add(this.tbDescription);
             this.gbData.Controls.Add(this.lDescription);
             this.gbData.Controls.Add(this.tbName);
             this.gbData.Controls.Add(this.lName);
             this.gbData.Location = new System.Drawing.Point(12, 12);
             this.gbData.Name = "gbData";
-            this.gbData.Size = new System.Drawing.Size(450, 130);
+            this.gbData.Size = new System.Drawing.Size(450, 186);
             this.gbData.TabIndex = 10;
             this.gbData.TabStop = false;
             this.gbData.Text = "Data";
-            // 
+            //
+            // lCompositeMaterialType
+            //
+            this.lCompositeMaterialType.AutoSize = true;
+            this.lCompositeMaterialType.Location = new System.Drawing.Point(6, 108);
+            this.lCompositeMaterialType.Name = "lCompositeMaterialType";
+            this.lCompositeMaterialType.Size = new System.Drawing.Size(83, 15);
+            this.lCompositeMaterialType.TabIndex = 5;
+            this.lCompositeMaterialType.Text = "Composites material type";
+            //
+            // cbCompositeMaterialType
+            //
+            this.cbCompositeMaterialType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbCompositeMaterialType.FormattingEnabled = true;
+            this.cbCompositeMaterialType.Location = new System.Drawing.Point(180, 105);
+            this.cbCompositeMaterialType.Name = "cbCompositeMaterialType";
+            this.cbCompositeMaterialType.Size = new System.Drawing.Size(150, 23);
+            this.cbCompositeMaterialType.TabIndex = 6;
+            this.cbCompositeMaterialType.SelectedIndexChanged += new System.EventHandler(this.cbCompositeMaterialType_SelectedIndexChanged);
+            //
+            // lWidth
+            //
+            this.lWidth.AutoSize = true;
+            this.lWidth.Location = new System.Drawing.Point(6, 136);
+            this.lWidth.Name = "lWidth";
+            this.lWidth.Size = new System.Drawing.Size(39, 15);
+            this.lWidth.TabIndex = 7;
+            this.lWidth.Text = "Width";
+            //
+            // tbWidth
+            //
+            this.tbWidth.Location = new System.Drawing.Point(180, 133);
+            this.tbWidth.Name = "tbWidth";
+            this.tbWidth.Size = new System.Drawing.Size(100, 23);
+            this.tbWidth.TabIndex = 8;
+            this.tbWidth.TextChanged += new System.EventHandler(this.tbWidth_TextChanged);
+            //
+            // lWidthUnit
+            //
+            this.lWidthUnit.AutoSize = true;
+            this.lWidthUnit.Location = new System.Drawing.Point(286, 136);
+            this.lWidthUnit.Name = "lWidthUnit";
+            this.lWidthUnit.Size = new System.Drawing.Size(20, 15);
+            this.lWidthUnit.TabIndex = 9;
+            this.lWidthUnit.Text = "";
+            //
             // cbTemperatureDependent
-            // 
+            //
             this.cbTemperatureDependent.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.cbTemperatureDependent.AutoSize = true;
-            this.cbTemperatureDependent.Location = new System.Drawing.Point(95, 105);
+            this.cbTemperatureDependent.Location = new System.Drawing.Point(95, 161);
             this.cbTemperatureDependent.Name = "cbTemperatureDependent";
             this.cbTemperatureDependent.Size = new System.Drawing.Size(235, 19);
             this.cbTemperatureDependent.TabIndex = 4;
@@ -279,9 +359,9 @@ namespace PrePoMax.Forms
             this.gbProperties.Controls.Add(this.btnRemove);
             this.gbProperties.Controls.Add(this.tvProperties);
             this.gbProperties.Controls.Add(this.lvAddedProperties);
-            this.gbProperties.Location = new System.Drawing.Point(12, 148);
+            this.gbProperties.Location = new System.Drawing.Point(12, 204);
             this.gbProperties.Name = "gbProperties";
-            this.gbProperties.Size = new System.Drawing.Size(450, 493);
+            this.gbProperties.Size = new System.Drawing.Size(450, 437);
             this.gbProperties.TabIndex = 0;
             this.gbProperties.TabStop = false;
             this.gbProperties.Text = "Material Models";
@@ -504,6 +584,11 @@ namespace PrePoMax.Forms
         private System.Windows.Forms.TextBox tbDescription;
         private System.Windows.Forms.Label lDescription;
         private System.Windows.Forms.CheckBox cbTemperatureDependent;
+        private System.Windows.Forms.Label lCompositeMaterialType;
+        private System.Windows.Forms.ComboBox cbCompositeMaterialType;
+        private System.Windows.Forms.Label lWidth;
+        private System.Windows.Forms.TextBox tbWidth;
+        private System.Windows.Forms.Label lWidthUnit;
         private System.Windows.Forms.Button btnMoveDown;
         private System.Windows.Forms.Button btnMoveUp;
         private System.Windows.Forms.ColumnHeader colName;

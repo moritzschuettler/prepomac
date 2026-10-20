@@ -145,6 +145,17 @@ namespace PrePoMax.Settings
             get { return _solverSettings.FEMasterExe; }
             set { _solverSettings.FEMasterExe = value; }
         }
+        //
+        [CategoryAttribute("OpenRadioss")]
+        [OrderedDisplayName(0, 10, "Starter executable")]
+        [DescriptionAttribute("Select the OpenRadioss starter executable; the engine executable is looked for beside it.")]
+        [EditorAttribute(typeof(System.Windows.Forms.Design.FileNameEditor), typeof(UITypeEditor))]
+        [Id(1, 6)]
+        public string OpenRadiossExe
+        {
+            get { return _solverSettings.OpenRadiossExe; }
+            set { _solverSettings.OpenRadiossExe = value; }
+        }
 
 
         // Constructors

@@ -42,6 +42,8 @@ namespace Kitware.VTK
     public partial class vtkCell : vtkObject { public static new vtkCell New() { return new vtkCell(); } }
     public partial class vtkGenericCell : vtkCell { public static new vtkGenericCell New() { return new vtkGenericCell(); } }
     public partial class vtkTriangle : vtkCell { public static new vtkTriangle New() { return new vtkTriangle(); } }
+    public partial class vtkLine : vtkCell { public static new vtkLine New() { return new vtkLine(); } }
+    public partial class vtkQuad : vtkCell { public static new vtkQuad New() { return new vtkQuad(); } }
     public partial class vtkHexahedron : vtkCell { public static new vtkHexahedron New() { return new vtkHexahedron(); } }
     public partial class vtkPolyLine : vtkCell { public static new vtkPolyLine New() { return new vtkPolyLine(); } }
     public partial class vtkCellTypes : vtkObject { public static new vtkCellTypes New() { return new vtkCellTypes(); } }

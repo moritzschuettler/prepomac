@@ -39,6 +39,22 @@ using vtkControl;
 
 namespace PrePoMax
 {
+    // Ply region mapping from geometrical surface: one selectable CAD face, listed by
+    // Controller.GetGeometrySurfaceOptions() and consumed by FrmImportPlyRegionFromSurface
+    public class GeometrySurfaceOption
+    {
+        public string PartName { get; }
+        public int FaceId { get; }
+        public string DisplayName { get; }
+        public GeometrySurfaceOption(string partName, int faceId, string displayName)
+        {
+            PartName = partName;
+            FaceId = faceId;
+            DisplayName = displayName;
+        }
+        public override string ToString() { return DisplayName; }
+    }
+
     [Serializable]
     public partial class Controller //: ISerializable
     {
@@ -476,8 +492,8 @@ namespace PrePoMax
                     }
                     //
                     if (_settings.General.LastFileName != null)
-                        _form.SetTitle(Globals.ProgramName + "   " + _settings.General.LastFileName);
-                    else _form.SetTitle(Globals.ProgramName);
+                        _form.SetTitle(Globals.WindowTitle + "   " + _settings.General.LastFileName);
+                    else _form.SetTitle(Globals.WindowTitle);
                 }
             }
         }
@@ -806,7 +822,7 @@ namespace PrePoMax
         public void Clear()
         {
             _form.CloseAllForms();
-            _form.SetTitle(Globals.ProgramName);
+            _form.SetTitle(Globals.WindowTitle);
             OpenedFileName = null;
             _savingFile = false;
             //
@@ -935,6 +951,11 @@ namespace PrePoMax
         public void ExportToAbaqusCommand(string fileName)
         {
             CExportToAbaqus comm = new CExportToAbaqus(fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExportToOpenRadiossCommand(string fileName)
+        {
+            CExportToOpenRadioss comm = new CExportToOpenRadioss(fileName);
             _commands.AddAndExecute(comm);
         }
         //
@@ -3478,6 +3499,19 @@ namespace PrePoMax
             ResumeExplodedViews(false);
             //
             _form.WriteDataToOutput("Model exported to file: " + fileName);
+        }
+        public void ExportToOpenRadioss(string fileName)
+        {
+            SuppressExplodedView();
+            UpdateNCalcParameters();
+            OpenRadiossFileWriter.Write(fileName, _model);
+            ResumeExplodedViews(false);
+            //
+            string rootName = Path.GetFileNameWithoutExtension(fileName);
+            string directory = Path.GetDirectoryName(fileName);
+            _form.WriteDataToOutput("Model exported to files: " +
+                                    Path.Combine(directory, rootName + "_0000.rad") + ", " +
+                                    Path.Combine(directory, rootName + "_0001.rad") + ", ...");
         }
         public void ExportPartsAsGmshMesh(string fileName)
         {
@@ -14022,8 +14056,9 @@ namespace PrePoMax
             }
             else throw new NotSupportedException();
         }
-        public void MergeCoincidentNodes(MergeCoincidentNodes mergeCoincidentNodes)
+        public int MergeCoincidentNodes(MergeCoincidentNodes mergeCoincidentNodes)
         {
+            int mergedCount = 0;
             try
             {
                 _form.SetStateWorking(Globals.MergingText);
@@ -14039,7 +14074,7 @@ namespace PrePoMax
                 if (isExplodedViewActive) TurnExplodedViewOnOff(false);
                 SuppressExplodedView();
                 //
-                _model.Mesh.MergeCoincidentNodes(name, mergeCoincidentNodes);
+                mergedCount = _model.Mesh.MergeCoincidentNodes(name, mergeCoincidentNodes);
                 //
                 RemoveNodeSets(new string[] { name }, false);
                 //
@@ -14057,6 +14092,7 @@ namespace PrePoMax
             {
                 _form.SetStateReady(Globals.MergingText);
             }
+            return mergedCount;
         }
         public void PreviewMergeCoincidentNodes(MergeCoincidentNodes mergeCoincidentNodes)
         {
@@ -14103,6 +14139,10 @@ namespace PrePoMax
             RemoveNodeSets(new string[] { name }, false);
             //
             return oldIdNewId;
+        }
+        public double GetMinElementEdgeLength()
+        {
+            return _model.Mesh.GetMinElementEdgeLength();
         }
         //
         public int[] GetAllNodeIds()
@@ -14582,6 +14622,33 @@ namespace PrePoMax
                 if (nameChanged) SetSplitSubPartName(splitCompoundPart, oldPartName, meshPart.Name);
                 _form.RegenerateTree();
             }
+            // Update composite layup references when a mesh part is renamed
+            if (oldPartName != meshPart.Name)
+            {
+                string newPrtName = meshPart.Name;
+                string oldPlyPrefix = oldPartName + "-Ply-";
+                string newPlyPrefix = newPrtName + "-Ply-";
+                foreach (CompositeLayup layup in _model.CompositeLayups.Values)
+                {
+                    if (layup.SolidPartName == oldPartName) layup.SolidPartName = newPrtName;
+                    if (layup.SourceShellPartName == oldPartName) layup.SourceShellPartName = newPrtName;
+                    foreach (Ply ply in layup.Plies)
+                    {
+                        if (string.IsNullOrEmpty(ply.Region)) continue;
+                        if (!ply.Region.StartsWith(oldPlyPrefix)) continue;
+                        string suffix = ply.Region.Substring(oldPlyPrefix.Length);
+                        string oldRegion = ply.Region;
+                        string newRegion = newPlyPrefix + suffix;
+                        ply.Region = newRegion;
+                        if (_model.Mesh.ElementSets.ContainsKey(oldRegion))
+                        {
+                            FeElementSet elSet = _model.Mesh.ElementSets[oldRegion];
+                            elSet.Name = newRegion;
+                            _model.Mesh.ElementSets.Replace(oldRegion, newRegion, elSet);
+                        }
+                    }
+                }
+            }
             //
             AnnotateWithColorLegend();
             //
@@ -14802,6 +14869,53 @@ namespace PrePoMax
             FeModelUpdate(ut);
             //
             return removedPartIds;
+        }
+        //
+        public void RemoveOrphanElementsCommand()
+        {
+            CRemoveOrphanElements comm = new CRemoveOrphanElements();
+            _commands.AddAndExecute(comm);
+        }
+        public int GetNumberOfOrphanElements()
+        {
+            if (_model == null || _model.Mesh == null) return 0;
+            return _model.Mesh.GetOrphanElementIds().Length;
+        }
+        public int RemoveOrphanElements()
+        {
+            if (_model == null || _model.Mesh == null) return 0;
+            //
+            ViewGeometryModelResults view = ViewGeometryModelResults.Model;
+            // Element sets built only from orphan elements get removed by the mesh
+            List<string> elementSetNames = new List<string>();
+            foreach (var entry in _model.Mesh.ElementSets)
+            {
+                if (!entry.Value.Internal) elementSetNames.Add(entry.Key);
+            }
+            string[] partNames = _model.Mesh.Parts.Keys.ToArray();
+            //
+            int[] orphanElementIds = _model.Mesh.RemoveOrphanElements(out _);
+            //
+            if (orphanElementIds.Length > 0)
+            {
+                foreach (var name in elementSetNames)
+                {
+                    if (!_model.Mesh.ElementSets.ContainsKey(name)) _form.RemoveTreeNode<FeElementSet>(view, name, null);
+                }
+                foreach (var name in partNames)
+                {
+                    if (!_model.Mesh.Parts.ContainsKey(name)) _form.RemoveTreeNode<MeshPart>(view, name, null);
+                }
+                //
+                UpdateGeometryBasedItems(false, true);
+                UpdateAfterPartsChanged();
+                //
+                AnnotateWithColorLegend();
+                //
+                FeModelUpdate(UpdateType.Check | UpdateType.DrawModel | UpdateType.RedrawSymbols);
+            }
+            //
+            return orphanElementIds.Length;
         }
         //
         // A pick follows the mesh part it was made on, and the part records where it was moved to from its geometry part,
@@ -15130,6 +15244,50 @@ namespace PrePoMax
             _model.Mesh.ElementSets.TryGetValue(elementSetName, out FeElementSet elementSet);
             return elementSet;
         }
+        public string CreateFilteredElementSet(string sourceName, string coordAxis, double limit)
+        {
+            if (_model?.Mesh == null) return null;
+            if (!_model.Mesh.ElementSets.TryGetValue(sourceName, out FeElementSet sourceSet)) return null;
+            if (sourceSet?.Labels == null || sourceSet.Labels.Length == 0) return null;
+            //
+            bool useMin = coordAxis != null && coordAxis.EndsWith("min", StringComparison.OrdinalIgnoreCase);
+            int axisIndex = 0;
+            if (coordAxis != null && coordAxis.Length > 0)
+            {
+                char axisChar = char.ToUpper(coordAxis[0]);
+                if (axisChar == 'Y') axisIndex = 1;
+                else if (axisChar == 'Z') axisIndex = 2;
+            }
+            //
+            List<int> filteredLabels = new List<int>();
+            Dictionary<int, FeNode> nodes = _model.Mesh.Nodes;
+            foreach (int eid in sourceSet.Labels)
+            {
+                if (!_model.Mesh.Elements.TryGetValue(eid, out FeElement element)) continue;
+                if (element.NodeIds == null || element.NodeIds.Length == 0) continue;
+                double extreme = useMin ? double.MaxValue : double.MinValue;
+                foreach (int nodeId in element.NodeIds)
+                {
+                    if (!nodes.TryGetValue(nodeId, out FeNode node)) continue;
+                    double coord;
+                    if (axisIndex == 0) coord = node.X;
+                    else if (axisIndex == 1) coord = node.Y;
+                    else coord = node.Z;
+                    if (useMin) { if (coord < extreme) extreme = coord; }
+                    else { if (coord > extreme) extreme = coord; }
+                }
+                if (extreme >= limit) filteredLabels.Add(eid);
+            }
+            //
+            if (filteredLabels.Count == 0) return null;
+            if (filteredLabels.Count == sourceSet.Labels.Length) return sourceName;
+            //
+            string baseName = sourceName + "_F_" + coordAxis + ((int)Math.Round(limit));
+            string newName = _model.Mesh.ElementSets.GetNextNumberedKey(baseName);
+            FeElementSet newSet = new FeElementSet(newName, filteredLabels.ToArray());
+            AddElementSet(newSet);
+            return newName;
+        }
         public FeElementSet[] GetUserElementSets()
         {
             if (_model.Mesh != null)
@@ -15159,6 +15317,10 @@ namespace PrePoMax
             FeElementSet elementSet = _model.Mesh.ElementSets[oldElementSetName];
             elementSet.Name = newElementSetName;
             ReplaceElementSet(oldElementSetName, elementSet, true);
+            foreach (CompositeLayup layup in _model.CompositeLayups.Values)
+                foreach (Ply ply in layup.Plies)
+                    if (ply.Region == oldElementSetName)
+                        ply.Region = newElementSetName;
         }
         public void DuplicateElementSets(string[] elementSetNames)
         {
@@ -15216,6 +15378,193 @@ namespace PrePoMax
             //
             FeModelUpdate(UpdateType.Check | UpdateType.DrawModel | UpdateType.RedrawSymbols);
         }
+        public void ExtractShellMeshCommand(string solidPartName, string newPartName, int[] faceIds, bool condenseNodes, bool secondOrder)
+        {
+            CExtractShellMesh comm = new CExtractShellMesh(solidPartName, newPartName, faceIds, condenseNodes, secondOrder);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExtractShellMesh(string solidPartName, string newPartName, int[] faceIds, bool condenseNodes, bool secondOrder)
+        {
+            MeshPart newShellPart;
+            //
+            ExplodedViewParameters parameters = _explodedViews.GetCurrentExplodedViewParameters().DeepClone();
+            RemoveExplodedView(false);
+            _model.Mesh.ExtractShellMeshFromSolidPart(faceIds, condenseNodes, secondOrder, newPartName, out newShellPart);
+            ApplyExplodedView(parameters, null, false);
+            //
+            _form.AddTreeNode(ViewGeometryModelResults.Model, newShellPart, null);
+            //
+            UpdateAfterPartsChanged();
+            //
+            AnnotateWithColorLegend();
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.DrawModel | UpdateType.RedrawSymbols);
+        }
+        public void ExtrudeShellFromSectionsCommand(string shellPartName, string newPartName,
+                                                    bool condenseNodes, double condenseTolerance)
+        {
+            CExtrudeShellFromSections comm = new CExtrudeShellFromSections(shellPartName, newPartName,
+                                                                            condenseNodes, condenseTolerance);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExtrudeShellFromSections(string shellPartName, string newPartName,
+                                             bool condenseNodes, double condenseTolerance)
+        {
+            CompositeLayup layup = GetCompositeLayupForShellPart(shellPartName);
+            if (layup == null)
+                throw new CaeException("No composite layup found for shell part '" + shellPartName + "'.");
+            //
+            List<Ply> plies = layup.Symmetric
+                ? ExpandSymmetricPlies(layup.Plies)
+                : new List<Ply>(layup.Plies);
+            //
+            string[] plyRegions = plies.Select(p => p.Region).ToArray();
+            double[] plyThicknesses = plies.Select(p => p.Thickness).ToArray();
+            double totalThickness = plyThicknesses.Sum();
+            double startOffset;
+            switch (layup.ShellOffset)
+            {
+                case ShellOffsetType.BottomSurface: startOffset = 0; break;
+                case ShellOffsetType.TopSurface: startOffset = -totalThickness; break;
+                case ShellOffsetType.SpecifyRatio: startOffset = -layup.OffsetRatio * totalThickness; break;
+                default: startOffset = -totalThickness / 2.0; break;   // MiddleSurface
+            }
+            //
+            string[] plyElementSetNames;
+            int condensedNodeCount;
+            ExplodedViewParameters parameters = _explodedViews.GetCurrentExplodedViewParameters().DeepClone();
+            RemoveExplodedView(false);
+            MeshPart newSolidPart = _model.Mesh.ExtrudeShellMeshFromSections(shellPartName, plyRegions,
+                                                                              plyThicknesses, startOffset,
+                                                                              newPartName, condenseNodes,
+                                                                              condenseTolerance,
+                                                                              out plyElementSetNames,
+                                                                              out condensedNodeCount);
+            ApplyExplodedView(parameters, null, false);
+            //
+            _form.AddTreeNode(ViewGeometryModelResults.Model, newSolidPart, null);
+            //
+            // Add element set tree nodes for each ply layer
+            for (int i = 0; i < plies.Count; i++)
+            {
+                if (plyElementSetNames[i] == null) continue;
+                FeElementSet elSet = _model.Mesh.ElementSets[plyElementSetNames[i]];
+                _form.AddTreeNode(ViewGeometryModelResults.Model, elSet, null);
+            }
+            // Migrate the composite layup to Solid element type so ProcessSolid() handles
+            // orientation + *Solid section output correctly for anisotropic ply materials
+            CompositeLayup migratedLayup = layup.DeepClone();
+            if (layup.Symmetric)
+            {
+                migratedLayup.Plies = ExpandSymmetricPlies(migratedLayup.Plies);
+                migratedLayup.Symmetric = false;
+            }
+            migratedLayup.ElementType = CompositeElementType.Solid;
+            for (int i = 0; i < migratedLayup.Plies.Count; i++)
+            {
+                if (plyElementSetNames[i] != null)
+                    migratedLayup.Plies[i].Region = plyElementSetNames[i];
+            }
+            migratedLayup.SolidPartName = newSolidPart.Name;
+            migratedLayup.SourceShellPartName = shellPartName;
+            migratedLayup.Name = GetUniqueCompositeLayupName(layup.Name + "-Solid");
+            AddCompositeLayup(migratedLayup);
+            _form.WriteDataToOutput("Info: composite layup '" + migratedLayup.Name + "' created for solid part" +
+                                    " (" + migratedLayup.Plies.Count + " ply layer(s))." +
+                                    " ShellOffset=" + layup.ShellOffset + " → startOffset=" + startOffset.ToString("G4") +
+                                    ", totalThickness=" + totalThickness.ToString("G4") + ".");
+            if (condenseNodes && condensedNodeCount > 0)
+                _form.WriteDataToOutput("Info: " + condensedNodeCount + " node(s) condensed with adjacent mesh(es)" +
+                                        " (tolerance=" + condenseTolerance.ToString("G4") + ").");
+            else if (condenseNodes && condensedNodeCount == 0)
+                _form.WriteDataToOutput("Info: no nodes condensed (no adjacent nodes within tolerance=" +
+                                        condenseTolerance.ToString("G4") + ").");
+            //
+            UpdateAfterPartsChanged();
+            //
+            AnnotateWithColorLegend();
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.DrawModel | UpdateType.RedrawSymbols);
+            // Deactivate the original shell part after the full model update so the viewport
+            // and tree both correctly show the deactivated state
+            ActivateDeactivateModelPart(shellPartName, false);
+        }
+        public void ExtrudeShellUniformCommand(string shellPartName, string newPartName,
+                                               double totalThickness, int numSubdivisions,
+                                               bool condenseNodes, double condenseTolerance)
+        {
+            CExtrudeShellUniform comm = new CExtrudeShellUniform(shellPartName, newPartName,
+                                                                  totalThickness, numSubdivisions,
+                                                                  condenseNodes, condenseTolerance);
+            _commands.AddAndExecute(comm);
+        }
+        public void ExtrudeShellUniform(string shellPartName, string newPartName,
+                                        double totalThickness, int numSubdivisions,
+                                        bool condenseNodes, double condenseTolerance)
+        {
+            double layerThickness = totalThickness / numSubdivisions;
+            string[] plyRegions = new string[numSubdivisions];
+            double[] plyThicknesses = new double[numSubdivisions];
+            for (int i = 0; i < numSubdivisions; i++)
+                plyThicknesses[i] = layerThickness;
+            //
+            string[] plyElementSetNames;
+            int condensedNodeCount;
+            ExplodedViewParameters parameters = _explodedViews.GetCurrentExplodedViewParameters().DeepClone();
+            RemoveExplodedView(false);
+            MeshPart newSolidPart = _model.Mesh.ExtrudeShellMeshFromSections(shellPartName, plyRegions,
+                                                                              plyThicknesses, 0.0,
+                                                                              newPartName, condenseNodes,
+                                                                              condenseTolerance,
+                                                                              out plyElementSetNames,
+                                                                              out condensedNodeCount);
+            ApplyExplodedView(parameters, null, false);
+            //
+            _form.AddTreeNode(ViewGeometryModelResults.Model, newSolidPart, null);
+            //
+            if (condenseNodes && condensedNodeCount > 0)
+                _form.WriteDataToOutput("Info: " + condensedNodeCount + " node(s) condensed with adjacent mesh(es)" +
+                                        " (tolerance=" + condenseTolerance.ToString("G4") + ").");
+            else if (condenseNodes && condensedNodeCount == 0)
+                _form.WriteDataToOutput("Info: no nodes condensed (no adjacent nodes within tolerance=" +
+                                        condenseTolerance.ToString("G4") + ").");
+            //
+            UpdateAfterPartsChanged();
+            //
+            AnnotateWithColorLegend();
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.DrawModel | UpdateType.RedrawSymbols);
+            ActivateDeactivateModelPart(shellPartName, false);
+        }
+        public CompositeLayup GetCompositeLayupForShellPart(string shellPartName)
+        {
+            if (!_model.Mesh.Parts.ContainsValidKey(shellPartName)) return null;
+            BasePart part = _model.Mesh.Parts[shellPartName];
+            var partElemIds = new HashSet<int>(part.Labels);
+            //
+            foreach (CompositeLayup layup in _model.CompositeLayups.Values)
+            {
+                foreach (Ply ply in layup.Plies)
+                {
+                    // Ply with empty region covers the whole part
+                    if (string.IsNullOrEmpty(ply.Region)) return layup;
+                    // Ply region element set overlaps with part elements
+                    if (_model.Mesh.ElementSets.ContainsValidKey(ply.Region))
+                    {
+                        FeElementSet elSet = _model.Mesh.ElementSets[ply.Region];
+                        if (elSet.Labels.Any(id => partElemIds.Contains(id))) return layup;
+                    }
+                }
+            }
+            return null;
+        }
+        private static List<Ply> ExpandSymmetricPlies(List<Ply> plies)
+        {
+            var result = new List<Ply>(plies);
+            for (int i = plies.Count - 1; i >= 0; i--)
+                result.Add(plies[i]);
+            return result;
+        }
         public void RemoveElementSets(string[] elementSetNames, bool update = true)
         {
             FeElementSet elementSet;
@@ -15230,9 +15579,76 @@ namespace PrePoMax
             //
             if (update) FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
+        public int[] GetElementsInBox(string partName, double cx, double cy, double cz,
+                                      double dx, double dy, double dz)
+        {
+            BasePart part = _model.Mesh.Parts[partName];
+            double hx = dx / 2, hy = dy / 2, hz = dz / 2;
+            List<int> result = new List<int>();
+            foreach (int eid in part.Labels)
+            {
+                double[] cg = _model.Mesh.Elements[eid].GetCG(_model.Mesh.Nodes, out _);
+                if (cg[0] >= cx - hx && cg[0] <= cx + hx &&
+                    cg[1] >= cy - hy && cg[1] <= cy + hy &&
+                    cg[2] >= cz - hz && cg[2] <= cz + hz)
+                    result.Add(eid);
+            }
+            return result.ToArray();
+        }
+        public int[] GetAllElementIdsFromPart(string partName)
+        {
+            BasePart part = _model.Mesh.Parts[partName];
+            return part.Labels != null ? part.Labels.ToArray() : new int[0];
+        }
+        public double[] GetPartBoundingBox(string partName)
+        {
+            BasePart part = _model.Mesh.Parts[partName];
+            double minX = double.MaxValue, minY = double.MaxValue, minZ = double.MaxValue;
+            double maxX = double.MinValue, maxY = double.MinValue, maxZ = double.MinValue;
+            foreach (int nodeId in part.NodeLabels)
+            {
+                FeNode node = _model.Mesh.Nodes[nodeId];
+                if (node.X < minX) minX = node.X;
+                if (node.Y < minY) minY = node.Y;
+                if (node.Z < minZ) minZ = node.Z;
+                if (node.X > maxX) maxX = node.X;
+                if (node.Y > maxY) maxY = node.Y;
+                if (node.Z > maxZ) maxZ = node.Z;
+            }
+            return new double[] {
+                (minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2,
+                maxX - minX, maxY - minY, maxZ - minZ
+            };
+        }
+        // Bounding box preview
+        private const string BoundingBoxPreviewPrefix = "BoundingBoxPreview";
+        public void DrawBoundingBoxPreview(double cx, double cy, double cz, double dx, double dy, double dz)
+        {
+            _form.ClearOverlayByPrefix(BoundingBoxPreviewPrefix);
+            _form.AddBoundingBoxPreview(cx, cy, cz, dx, dy, dz);
+        }
+        public void ClearBoundingBoxPreview()
+        {
+            _form.ClearOverlayByPrefix(BoundingBoxPreviewPrefix);
+        }
         // Update
+        private void RecomputeBoxElementSet(FeElementSetFromBox boxSet)
+        {
+            if (boxSet.Mode == FeElementSetFromBox.BoxSelectionMode.All)
+                boxSet.Labels = GetAllElementIdsFromPart(boxSet.PartName);
+            else
+                boxSet.Labels = GetElementsInBox(boxSet.PartName,
+                    boxSet.CenterX, boxSet.CenterY, boxSet.CenterZ,
+                    boxSet.SizeX, boxSet.SizeY, boxSet.SizeZ);
+        }
         private void ReselectElementSet(FeElementSet elementSet)
         {
+            if (elementSet is FeElementSetFromBox boxSet)
+            {
+                RecomputeBoxElementSet(boxSet);
+                return;
+            }
+            //
             if (elementSet.CreationData != null)
             {
                 _selection = elementSet.CreationData.DeepCopy(true, false);
@@ -15960,8 +16376,8 @@ namespace PrePoMax
                     if (layupEntry.Value.Plies == null) continue;
                     foreach (Ply ply in layupEntry.Value.Plies)
                     {
-                        if (ply.MaterialName == oldMaterialName)
-                            ply.MaterialName = newMaterial.Name;
+                        if (ply.Material == oldMaterialName)
+                            ply.Material = newMaterial.Name;
                     }
                 }
             }
@@ -16502,54 +16918,99 @@ namespace PrePoMax
             CImportCompositeLayupsFromCsv comm = new CImportCompositeLayupsFromCsv(fileName);
             _commands.AddAndExecute(comm);
         }
-        // The lines after the header: layup index, ply name, region, material, thickness, coordinate system, angle
         public void ImportCompositeLayupsFromCsv(string fileName)
         {
             string[] lines = System.IO.File.ReadAllLines(fileName);
-            if (lines.Length < 2) return;
+            if (lines.Length < 2) return; // Need header + at least one data line
             //
-            System.Globalization.CultureInfo ci = System.Globalization.CultureInfo.InvariantCulture;
-            SortedDictionary<int, List<string[]>> layupLines = new SortedDictionary<int, List<string[]>>();
+            var layupGroups = new Dictionary<int, List<string[]>>();
+            //
             for (int i = 1; i < lines.Length; i++)
             {
                 string line = lines[i].Trim();
                 if (string.IsNullOrEmpty(line)) continue;
-                string[] parts = line.Split(new char[] { ',', ';' });
-                if (parts.Length < 5) continue;
-                if (!int.TryParse(parts[0].Trim(), out int layupIndex)) continue;
-                if (!layupLines.TryGetValue(layupIndex, out List<string[]> list))
-                {
-                    list = new List<string[]>();
-                    layupLines.Add(layupIndex, list);
-                }
-                list.Add(parts);
+                //
+                string[] parts = line.Split(',');
+                if (parts.Length < 5) continue; // Need at least LayupIndex, PlyName, Region, Material, Thickness
+                //
+                int layupIndex;
+                if (!int.TryParse(parts[0].Trim(), out layupIndex)) continue;
+                //
+                if (!layupGroups.ContainsKey(layupIndex))
+                    layupGroups[layupIndex] = new List<string[]>();
+                layupGroups[layupIndex].Add(parts);
             }
             //
-            foreach (var entry in layupLines)
+            foreach (var kvp in layupGroups.OrderBy(x => x.Key))
             {
-                CompositeLayup layup = new CompositeLayup(GetUniqueCompositeLayupName("Layup-" + entry.Key));
-                int count = 1;
-                foreach (string[] parts in entry.Value)
+                string baseName = "Layup-" + kvp.Key;
+                string layupName = GetUniqueCompositeLayupName(baseName);
+                var layup = new CompositeLayup(layupName, kvp.Value.Count, CompositeElementType.ConventionalShell);
+                //
+                for (int i = 0; i < kvp.Value.Count; i++)
                 {
-                    double.TryParse(parts[4].Trim(), System.Globalization.NumberStyles.Any, ci, out double thickness);
-                    double angle = 0;
-                    if (parts.Length > 6) double.TryParse(parts[6].Trim(), System.Globalization.NumberStyles.Any, ci, out angle);
-                    string plyName = parts[1].Trim();
-                    if (plyName.Length == 0) plyName = "Ply-" + count;
-                    Ply ply = new Ply(plyName, parts[2].Trim(), parts[3].Trim(), thickness, angle);
-                    if (parts.Length > 5) ply.CoordinateSystemName = parts[5].Trim();
-                    layup.Plies.Add(ply);
-                    count++;
+                    string[] parts = kvp.Value[i];
+                    layup.Plies[i].Name = parts[1].Trim();
+                    layup.Plies[i].Region = parts[2].Trim();
+                    layup.Plies[i].Material = parts[3].Trim();
+                    //
+                    double thickness;
+                    if (double.TryParse(parts[4].Trim(), System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out thickness))
+                        layup.Plies[i].Thickness = thickness;
+                    //
+                    if (parts.Length > 5)
+                        layup.Plies[i].Csys = parts[5].Trim();
+                    //
+                    if (parts.Length > 6)
+                    {
+                        double rotationAngle;
+                        if (double.TryParse(parts[6].Trim(), System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out rotationAngle))
+                            layup.Plies[i].RotationAngle = rotationAngle;
+                    }
                 }
+                //
                 AddCompositeLayup(layup);
             }
         }
-        private string GetUniqueCompositeLayupName(string baseName)
+        // Import from a Composite CAE HDF5 file
+        [NonSerialized] private string _lastCompositeCaeImportSummary;
+        public string LastCompositeCaeImportSummary
         {
-            string name = baseName;
-            int counter = 1;
-            while (_model.CompositeLayups.ContainsKey(name)) name = baseName + "-" + counter++;
-            return name;
+            get { return _lastCompositeCaeImportSummary; }
+            set { _lastCompositeCaeImportSummary = value; }
+        }
+        public void ImportCompositeLayupFromH5Command(string fileName, string layupName, string regionName,
+                                                      double drillDepth, double tolerance)
+        {
+            CImportCompositeLayupFromH5 comm = new CImportCompositeLayupFromH5(fileName, layupName, regionName,
+                                                                               drillDepth, tolerance);
+            _commands.AddAndExecute(comm);
+        }
+        public void ImportCompositeLayupFromH5(string fileName, string layupName, string regionName,
+                                               double drillDepth, double tolerance)
+        {
+            CompositeCaeData data = CompositeCaeH5Reader.Read(fileName);
+            //
+            CompositeCaeImportResult result = CompositeCaeImporter.Import(_model, data, layupName, regionName,
+                                                                          drillDepth, tolerance);
+            // The mesh was created from the file
+            if (result.MeshWasCreated)
+            {
+                _model.UpdateMeshPartsElementTypes(true);
+                UpdateAfterImport(".unv");
+            }
+            //
+            foreach (Material material in result.Materials) AddMaterial(material);
+            foreach (FeElementSet elementSet in result.ElementSets) AddElementSet(elementSet);
+            //
+            AddCompositeLayup(result.Layup);
+            //
+            LastCompositeCaeImportSummary = result.GetSummary();
+            foreach (string line in result.Log) _form.WriteDataToOutput(line);
+            //
+            FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         // Discrete orientations
         public void ImportDiscreteOrientationsXmlCommand(string layupName, string fileName)
@@ -16559,141 +17020,1138 @@ namespace PrePoMax
         }
         public void ImportDiscreteOrientationsXml(string layupName, string fileName)
         {
+            DiscreteOrientationsData data = DiscreteOrientationsXmlReader.Read(fileName);
             CompositeLayup layup = _model.CompositeLayups[layupName].DeepClone();
-            layup.DiscreteOrientationsData = DiscreteOrientationsXmlReader.Read(fileName);
-            layup.OrientationType = CompositeLayupOrientationEnum.DiscreteOrientations;
+            layup.DiscreteOrientationsEnabled = true;
+            layup.DiscreteOrientationsData = data;
             ReplaceCompositeLayup(layupName, layup);
         }
-        public DiscreteOrientationsData ReadDiscreteOrientations(string fileName)
+        public void ClearDiscreteOrientations(string layupName)
         {
-            return DiscreteOrientationsXmlReader.Read(fileName);
+            CompositeLayup layup = _model.CompositeLayups[layupName].DeepClone();
+            layup.DiscreteOrientationsEnabled = false;
+            layup.DiscreteOrientationsData = null;
+            ReplaceCompositeLayup(layupName, layup);
         }
-        // Composite shell sections take S8R and S6 elements; the parts of the plies with other element types
-        public string[] GetCompositeLayupPartsToChangeElementTypes(CompositeLayup layup)
+        private string GetUniqueCompositeLayupName(string baseName)
         {
-            HashSet<int> elementIds = layup.GetElementIds(_model.Mesh);
-            _model.GetCompositeShellElementTypeParts(elementIds.ToArray(), out string[] partNames, out _);
-            return partNames;
+            string name = baseName;
+            int counter = 1;
+            while (_model.CompositeLayups.ContainsKey(name))
+                name = baseName + "-" + counter++;
+            return name;
         }
-        // Highlight
-        // The outline of the region of the ply and the material axes of the ply: the fiber direction is axis 1
-        public void HighlightCompositeLayup(CompositeLayup layup, int plyIndex)
+
+        #endregion  ################################################################################################
+
+        #region Rosette menu   #####################################################################################
+        // Rosette curve overlay
+        private const string RosetteCurvePrefix = "RosetteCurve";
+        //
+        public void AddRosetteCommand(Rosette rosette)
         {
-            if (layup == null || layup.Plies.Count == 0) return;
-            if (plyIndex < 0 || plyIndex >= layup.Plies.Count) plyIndex = 0;
-            Ply ply = layup.Plies[plyIndex];
-            int[] elementIds = CompositeLayup.GetRegionElementIds(_model.Mesh, ply.RegionName);
-            if (elementIds == null || elementIds.Length == 0) return;
+            CAddRosette comm = new CAddRosette(rosette);
+            _commands.AddAndExecute(comm);
+        }
+        public void ReplaceRosetteCommand(string oldRosetteName, Rosette newRosette)
+        {
+            CReplaceRosette comm = new CReplaceRosette(oldRosetteName, newRosette);
+            _commands.AddAndExecute(comm);
+        }
+        public void DuplicateRosettesCommand(string[] rosetteNames)
+        {
+            CDuplicateRosettes comm = new CDuplicateRosettes(rosetteNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveRosettesCommand(string[] rosetteNames)
+        {
+            CRemoveRosettes comm = new CRemoveRosettes(rosetteNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void ImportRosetteCurvesFromStepCommand(string rosetteName, string fileName, double chordTolerance)
+        {
+            CImportRosetteCurvesFromStep comm = new CImportRosetteCurvesFromStep(rosetteName, fileName,
+                                                                                 chordTolerance);
+            _commands.AddAndExecute(comm);
+        }
+        //
+        public string[] GetRosetteNames()
+        {
+            if (_model.Rosettes == null) return new string[0];
+            return _model.Rosettes.Keys.ToArray();
+        }
+        public Rosette GetRosette(string rosetteName)
+        {
+            return _model.Rosettes[rosetteName];
+        }
+        public Rosette[] GetAllRosettes()
+        {
+            if (_model.Rosettes == null) return new Rosette[0];
+            return _model.Rosettes.Values.ToArray();
+        }
+        public string GetNextRosetteName()
+        {
+            return Rosette.GetNextName(GetRosetteNames());
+        }
+        public void AddRosette(Rosette rosette)
+        {
+            _model.Rosettes.Add(rosette.Name, rosette);
+            _form.AddTreeNode(ViewGeometryModelResults.Geometry, rosette, null);
             //
-            DrawElementOutline(layup.Name + Globals.NameSeparator + "Outline", elementIds,
-                               _settings.Pre.PrimaryHighlightColor, vtkRendererLayer.Selection);
-            //
-            CompositeLayupOrientation orientation;
-            List<CompositeLayupZone> zones;
-            try { zones = CompositeLayupZoneBuilder.Create(_model, layup, out orientation, out _); }
-            catch { return; }
-            if (orientation == null) return;
-            // The angle of the ply in each zone, which includes a coordinate system of the ply
-            Dictionary<int, double> elementAngles = new Dictionary<int, double>();
-            foreach (CompositeLayupZone zone in zones)
-            {
-                int layerIndex = GetZoneLayerIndex(layup, zone, plyIndex, elementIds);
-                if (layerIndex < 0) continue;
-                double angle = zone.Section.Layers[layerIndex].Angle.Value;
-                foreach (int id in zone.ElementIds) elementAngles[id] = angle;
-            }
-            List<int> drawn = elementIds.Where(id => elementAngles.ContainsKey(id)).ToList();
-            if (drawn.Count == 0) return;
-            // The material axes are turned by the angle of each element
-            foreach (var group in drawn.GroupBy(id => elementAngles[id]))
-                DrawMaterialAxes(group.ToArray(), element => orientation, group.Key, layup.SymbolDensity);
+            CheckAndUpdateModelValidity();
         }
-        // The index of the layer of the ply in the section of a zone: the plies that cover the zone in their order
-        private int GetZoneLayerIndex(CompositeLayup layup, CompositeLayupZone zone, int plyIndex, int[] plyElementIds)
+        public void ReplaceRosette(string oldRosetteName, Rosette rosette)
         {
-            if (zone.ElementIds.Length == 0) return -1;
-            if (layup.OrientationType == CompositeLayupOrientationEnum.DiscreteOrientations)
-                return plyIndex < zone.Section.Layers.Count ? plyIndex : -1;
-            int elementId = zone.ElementIds[0];
-            HashSet<int> plyIds = new HashSet<int>(plyElementIds);
-            if (!plyIds.Contains(elementId)) return -1;
-            int layer = 0;
-            for (int i = 0; i < plyIndex; i++)
+            if (_model.Rosettes.Replace(oldRosetteName, rosette.Name, rosette))
             {
-                int[] ids = CompositeLayup.GetRegionElementIds(_model.Mesh, layup.Plies[i].RegionName);
-                if (ids != null && ids.Contains(elementId)) layer++;
+                // Follow the rename in every composite layup that references the rosette
+                if (oldRosetteName != rosette.Name)
+                {
+                    foreach (CompositeLayup layup in _model.CompositeLayups.Values)
+                    {
+                        if (layup.OrientationRosette == oldRosetteName) layup.OrientationRosette = rosette.Name;
+                        if (layup.Plies == null) continue;
+                        foreach (Ply ply in layup.Plies)
+                            if (ply.OrientationRosette == oldRosetteName) ply.OrientationRosette = rosette.Name;
+                    }
+                }
+                _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, oldRosetteName, rosette, null);
+                //
+                CheckAndUpdateModelValidity();
             }
-            return layer < zone.Section.Layers.Count ? layer : -1;
         }
-        // Draping simulation: the draped cells of the fabric over the ply, the cells sheared beyond the limit in red
-        private const string DrapingPrefix = "DrapingGrid";
-        public double DrawDrapingSimulation(CompositeLayup layup)
+        public void DuplicateRosettes(string[] rosetteNames)
+        {
+            foreach (var name in rosetteNames)
+            {
+                Rosette newRosette = _model.Rosettes[name].DeepCopy();
+                newRosette.Name = Rosette.GetNextName(GetRosetteNames());
+                AddRosette(newRosette);
+            }
+        }
+        public void RemoveRosettes(string[] rosetteNames)
+        {
+            List<string> affected = new List<string>();
+            foreach (var name in rosetteNames)
+            {
+                // Clear every reference so that no layup points at a rosette that no longer exists
+                foreach (CompositeLayup layup in _model.CompositeLayups.Values)
+                {
+                    if (!layup.UsesRosette(name)) continue;
+                    affected.Add(layup.Name);
+                    if (layup.OrientationRosette == name)
+                    {
+                        layup.OrientationRosette = null;
+                        if (layup.RosetteEnabled)
+                            layup.OrientationDefinition = OrientationDefinitionType.PartGlobal;
+                    }
+                    if (layup.Plies != null)
+                        foreach (Ply ply in layup.Plies)
+                            if (ply.OrientationRosette == name) ply.OrientationRosette = null;
+                }
+                //
+                _model.Rosettes.Remove(name);
+                _form.RemoveTreeNode<Rosette>(ViewGeometryModelResults.Geometry, name, null);
+            }
+            if (affected.Count > 0)
+            {
+                MessageBoxes.ShowWarning("The rosette was used by the composite layup(s): " +
+                                         string.Join(", ", affected.Distinct()) +
+                                         Environment.NewLine +
+                                         "The affected plies now use their rotation angle only.");
+            }
+            //
+            CheckAndUpdateModelValidity();
+        }
+        public void ImportRosetteCurvesFromStep(string rosetteName, string fileName, double chordTolerance)
+        {
+            Rosette rosette;
+            if (!_model.Rosettes.TryGetValue(rosetteName, out rosette))
+                throw new CaeException("The rosette '" + rosetteName + "' does not exist.");
+            //
+            string log;
+            double usedTolerance;
+            List<RosetteCurve> curves = StepCurveReader.Read(fileName, chordTolerance, out log, out usedTolerance);
+            rosette.Curves = curves;
+            rosette.StepFilePath = fileName;
+            rosette.Type = RosetteType.FromCurves;
+            rosette.TessellationTolerance = usedTolerance;
+            //
+            _form.WriteDataToOutput(log);
+            _form.UpdateTreeNode(ViewGeometryModelResults.Geometry, rosetteName, rosette, null);
+            //
+            CheckAndUpdateModelValidity();
+        }
+        // Reads the curves without touching the model; used by the rosette form for a live preview
+        public List<RosetteCurve> ReadRosetteCurvesFromStep(string fileName, double chordTolerance, out string log,
+                                                            out double usedTolerance)
+        {
+            return StepCurveReader.Read(fileName, chordTolerance, out log, out usedTolerance);
+        }
+        //
+        public void DrawRosetteCurves(Rosette rosette, bool clearFirst = true)
         {
             try
             {
-                DrapingResult result;
-                CompositeLayupZoneBuilder.ComputeDrapingDirections(_model.Mesh, layup, null, out result);
-                if (result == null) return -1;
+                if (clearFirst) _form.ClearOverlayByPrefix(RosetteCurvePrefix);
+                if (rosette == null) return;
                 //
-                List<double[]> nodes = new List<double[]>();
-                List<int[]> okCells = new List<int[]>();
-                List<int[]> shearedCells = new List<int[]>();
-                double maxShear = 0;
+                if (rosette.Type == RosetteType.Cartesian)
+                {
+                    DrawRosetteAxes(rosette);
+                    return;
+                }
+                if (rosette.Curves == null || rosette.Curves.Count == 0) return;
+                //
+                List<double[][]> polylines = new List<double[][]>();
+                List<double[]> arrowPoints = new List<double[]>();
+                List<double[]> arrowDirections = new List<double[]>();
+                foreach (RosetteCurve curve in rosette.Curves)
+                {
+                    if (!curve.Included) continue;
+                    double[][] points = curve.GetEffectivePoints();
+                    if (points == null || points.Length < 2) continue;
+                    polylines.Add(points);
+                    // Direction arrows at a few stations along the curve
+                    int stations = 5;
+                    for (int s = 0; s < stations; s++)
+                    {
+                        int index = (int)Math.Round((double)s * (points.Length - 2) / Math.Max(1, stations - 1));
+                        if (index < 0) index = 0;
+                        if (index > points.Length - 2) index = points.Length - 2;
+                        Vec3D direction = new Vec3D(points[index + 1][0] - points[index][0],
+                                                    points[index + 1][1] - points[index][1],
+                                                    points[index + 1][2] - points[index][2]);
+                        if (direction.Normalize() < 1E-12) continue;
+                        arrowPoints.Add(points[index]);
+                        arrowDirections.Add(direction.Coor);
+                    }
+                }
+                if (polylines.Count == 0) return;
+                //
+                _form.AddPolylines(RosetteCurvePrefix + Globals.NameSeparator + rosette.Name,
+                                   polylines.ToArray(), Color.FromArgb(0, 220, 255), 3);
+                if (arrowPoints.Count > 0)
+                {
+                    vtkMaxActorData data = new vtkMaxActorData();
+                    data.Name = RosetteCurvePrefix + Globals.NameSeparator + rosette.Name +
+                                Globals.NameSeparator + "arrows";
+                    data.Color = Color.FromArgb(255, 210, 0);
+                    data.Layer = vtkRendererLayer.Overlay;
+                    data.Geometry.Nodes.Coor = arrowPoints.ToArray();
+                    data.Geometry.Nodes.Normals = arrowDirections.ToArray();
+                    ApplyLighting(data);
+                    _form.AddOrientationArrows(data, _settings.Pre.SymbolSize * 1.3);
+                }
+                _form.AdjustCameraDistanceAndClipping();
+            }
+            catch { }
+        }
+        // A cartesian rosette has no geometry; the axes are drawn at the center of the model
+        private void DrawRosetteAxes(Rosette rosette)
+        {
+            double[] center;
+            double size;
+            if (_model.Mesh != null && _model.Mesh.Nodes.Count > 0)
+            {
+                CaeMesh.BoundingBox box = _model.Mesh.BoundingBox;
+                center = new double[] { 0.5 * (box.MinX + box.MaxX), 0.5 * (box.MinY + box.MaxY),
+                                        0.5 * (box.MinZ + box.MaxZ) };
+                size = Math.Max(box.MaxX - box.MinX, Math.Max(box.MaxY - box.MinY, box.MaxZ - box.MinZ));
+            }
+            else
+            {
+                center = new double[] { 0, 0, 0 };
+                size = 1;
+            }
+            if (size <= 0) size = 1;
+            //
+            Vec3D axisX = new Vec3D(rosette.AxisX);
+            Vec3D axisY = new Vec3D(rosette.AxisY);
+            if (axisX.Normalize() < 1E-12 || axisY.Normalize() < 1E-12) return;
+            //
+            double length = 0.3 * size;
+            double[][] lineX = new double[][]
+            {
+                center,
+                new double[] { center[0] + length * axisX.X, center[1] + length * axisX.Y,
+                               center[2] + length * axisX.Z }
+            };
+            double[][] lineY = new double[][]
+            {
+                center,
+                new double[] { center[0] + length * axisY.X, center[1] + length * axisY.Y,
+                               center[2] + length * axisY.Z }
+            };
+            _form.AddPolylines(RosetteCurvePrefix + Globals.NameSeparator + rosette.Name +
+                               Globals.NameSeparator + "axisX", new double[][][] { lineX },
+                               Color.FromArgb(255, 60, 60), 3);
+            _form.AddPolylines(RosetteCurvePrefix + Globals.NameSeparator + rosette.Name +
+                               Globals.NameSeparator + "axisY", new double[][][] { lineY },
+                               Color.FromArgb(60, 255, 60), 3);
+            //
+            vtkMaxActorData data = new vtkMaxActorData();
+            data.Name = RosetteCurvePrefix + Globals.NameSeparator + rosette.Name +
+                        Globals.NameSeparator + "arrows";
+            data.Color = Color.FromArgb(255, 210, 0);
+            data.Layer = vtkRendererLayer.Overlay;
+            data.Geometry.Nodes.Coor = new double[][] { lineX[1], lineY[1] };
+            data.Geometry.Nodes.Normals = new double[][] { axisX.Coor, axisY.Coor };
+            ApplyLighting(data);
+            _form.AddOrientationArrows(data, _settings.Pre.SymbolSize * 1.3);
+            _form.AdjustCameraDistanceAndClipping();
+        }
+        public void ClearRosetteCurves()
+        {
+            _form.ClearOverlayByPrefix(RosetteCurvePrefix);
+        }
+        // Resolves the rosette of a ply (own rosette, then layup rosette) and builds its evaluator
+        public RosetteEvaluator GetPlyRosetteEvaluator(CompositeLayup layup, int plyIndex)
+        {
+            if (layup == null || _model.Rosettes == null) return null;
+            string rosetteName = layup.GetEffectivePlyRosette(plyIndex);
+            if (string.IsNullOrEmpty(rosetteName)) return null;
+            Rosette rosette;
+            if (!_model.Rosettes.TryGetValue(rosetteName, out rosette)) return null;
+            RosetteEvaluator evaluator = new RosetteEvaluator(rosette);
+            return evaluator.IsUsable ? evaluator : null;
+        }
+
+        #endregion  ################################################################################################
+
+        #region Composite layup display   ##########################################################################
+        // Ply orientation arrows
+        private const string PlyArrowPrefix = "PlyOrientationArrow";
+        private static readonly Color[] _plyColors = new Color[]
+        {
+            Color.FromArgb(180, 4, 38),
+            Color.FromArgb(33, 225, 38),
+            Color.FromArgb(58, 76, 192),
+            Color.FromArgb(255, 165, 0),
+            Color.FromArgb(0, 200, 200),
+            Color.FromArgb(200, 0, 200),
+            Color.FromArgb(255, 255, 0),
+            Color.FromArgb(128, 128, 128)
+        };
+        public bool IsElementSetValidForComposite(string elementSetName)
+        {
+            if (!_model.Mesh.ElementSets.TryGetValue(elementSetName, out FeElementSet elSet)) return false;
+            return AreElementIdsValidForComposite(elSet.Labels);
+        }
+
+        public bool IsElementSetValidForSolid(string elementSetName)
+        {
+            if (!_model.Mesh.ElementSets.TryGetValue(elementSetName, out FeElementSet elSet)) return false;
+            return AreElementIdsValidForSolid(elSet.Labels);
+        }
+        // Shared by IsElementSetValidForComposite/Solid and by the Ply region mapping from
+        // geometrical surface feature, which must validate a candidate element id list before it
+        // is registered as an element set
+        private bool AreElementIdsValidForComposite(int[] elementIds)
+        {
+            foreach (int eid in elementIds)
+            {
+                FeElement element = _model.Mesh.Elements[eid];
+                BasePart part = _model.Mesh.GetPartFromId(element.PartId);
+                MeshPart meshPart = part as MeshPart;
+                if (meshPart == null) return false;
+                if (element is ParabolicQuadrilateralElement &&
+                    meshPart.ParabolicQuadType == FeElementTypeParabolicQuad.S8R) continue;
+                if (element is ParabolicTriangleElement &&
+                    meshPart.ParabolicTriaType == FeElementTypeParabolicTria.S6) continue;
+                return false;
+            }
+            return true;
+        }
+        private bool AreElementIdsValidForSolid(int[] elementIds)
+        {
+            foreach (int eid in elementIds)
+            {
+                FeElement element;
+                if (!_model.Mesh.Elements.TryGetValue(eid, out element)) continue;
+                if (element is FeElement2D) return false;
+            }
+            return true;
+        }
+
+        public void DrawPlyOrientationArrows(CompositeLayup layup, int plyIndex, double density = 1.0,
+                                                bool clearFirst = true)
+        {
+            try
+            {
+                if (clearFirst) _form.ClearOverlayByPrefix(PlyArrowPrefix);
+                //
+                if (plyIndex < 0 || plyIndex >= layup.Plies.Count) return;
+                Ply ply = layup.Plies[plyIndex];
+                if (string.IsNullOrEmpty(ply.Region)) return;
+                //
+                FeElementSet elSet;
+                if (!_model.Mesh.ElementSets.TryGetValue(ply.Region, out elSet)) return;
+                if (elSet.Labels.Length == 0) return;
+                // Reference X direction (from the ply rosette, the ply CSYS or global X)
+                Vec3D refX = new Vec3D(1.0, 0.0, 0.0);
+                RosetteEvaluator rosetteEvaluator = GetPlyRosetteEvaluator(layup, plyIndex);
+                if (rosetteEvaluator == null && ply.Csys != "<layup>")
+                {
+                    CoordinateSystem csys;
+                    if (_model.Mesh.CoordinateSystems.TryGetValue(ply.Csys, out csys))
+                        refX = new Vec3D(csys.DirectionX().Coor);
+                }
+                // Total rotation angle: ply angle + layup additional rotation
+                double angleDeg = ply.RotationAngle;
+                if (layup.AdditionalRotationType == AdditionalRotationType.Angle)
+                    angleDeg += layup.AdditionalRotationAngle;
+                double angleRad = angleDeg * Math.PI / 180.0;
+                double cosA = Math.Cos(angleRad);
+                double sinA = Math.Sin(angleRad);
+                // Sample elements and compute per-element fiber direction in the element tangent plane
+                int[] labels = elSet.Labels;
+                int step = density <= 0.0 ? int.MaxValue : Math.Max(1, (int)Math.Round(1.0 / density));
+                List<double[]> centroids = new List<double[]>();
+                List<double[]> fiberDirs = new List<double[]>();
+                for (int i = 0; i < labels.Length; i += step)
+                {
+                    FeElement element;
+                    if (!_model.Mesh.Elements.TryGetValue(labels[i], out element)) continue;
+                    double elementSize;
+                    double[] cg = element.GetCG(_model.Mesh.Nodes, out elementSize);
+                    // Get element normal (local rosette Z axis)
+                    double[] normalArr;
+                    try { _model.Mesh.GetElementFaceNormal(labels[i], FeFaceName.S2, out normalArr); }
+                    catch { continue; }
+                    Vec3D nZ = new Vec3D(normalArr);
+                    if (nZ.Normalize() < 1e-10) continue;
+                    // A rosette gives this element its own reference direction
+                    Vec3D elementRefX = refX;
+                    if (rosetteEvaluator != null)
+                    {
+                        Vec3D rosetteDir;
+                        if (!rosetteEvaluator.TryGetRefDirection(cg, nZ, out rosetteDir)) continue;
+                        elementRefX = rosetteDir;
+                    }
+                    // Build local rosette frame: nY = refX × nZ, nX = nZ × nY
+                    Vec3D nY = Vec3D.CrossProduct(elementRefX, nZ);
+                    if (nY.Normalize() < 1e-10) continue;
+                    Vec3D nX = Vec3D.CrossProduct(nZ, nY);
+                    nX.Normalize();
+                    // Rotate local rosette X about nZ by angleDeg: fiberDir = nX*cos - nY*sin
+                    Vec3D fiberDir = nX * cosA + nY * (-sinA);
+                    fiberDir.Normalize();
+                    centroids.Add(cg);
+                    fiberDirs.Add(fiberDir.Coor);
+                }
+                if (centroids.Count == 0) return;
+                //
+                int symbolSize = _settings.Pre.SymbolSize;
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = PlyArrowPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + ply.Name;
+                data.Color = Color.FromArgb(255, 210, 0);
+                data.Layer = vtkRendererLayer.Overlay;
+                data.Geometry.Nodes.Coor = centroids.ToArray();
+                data.Geometry.Nodes.Normals = fiberDirs.ToArray();
+                ApplyLighting(data);
+                _form.AddOrientationArrows(data, symbolSize * 1.1);
+                _form.AdjustCameraDistanceAndClipping();
+            }
+            catch { }
+        }
+        public void ClearPlyOrientationArrows()
+        {
+            _form.ClearOverlayByPrefix(PlyArrowPrefix);
+        }
+        public void DrawAllOrientationArrows(CompositeLayup layup, int plyIndex, double density = 1.0)
+        {
+            DrawPlyOrientationArrows(layup, plyIndex, density, clearFirst: true);
+            DrawLayupCoordinateArrows(layup, plyIndex, density, clearFirst: false);
+        }
+        public void DrawLayupCoordinateArrows(CompositeLayup layup, int plyIndex, double density = 1.0,
+                                                  bool clearFirst = true)
+        {
+            try
+            {
+                if (clearFirst) _form.ClearOverlayByPrefix(PlyArrowPrefix);
+                //
+                if (plyIndex < 0 || plyIndex >= layup.Plies.Count) return;
+                Ply ply = layup.Plies[plyIndex];
+                if (string.IsNullOrEmpty(ply.Region)) return;
+                //
+                FeElementSet elSet;
+                if (!_model.Mesh.ElementSets.TryGetValue(ply.Region, out elSet)) return;
+                if (elSet.Labels.Length == 0) return;
+                // Reference X direction: global X rotated by additional rotation angle in XY plane
+                double additionalAngle = layup.AdditionalRotationType == AdditionalRotationType.Angle
+                    ? layup.AdditionalRotationAngle : 0.0;
+                double angleRad = additionalAngle * Math.PI / 180.0;
+                Vec3D refX = new Vec3D(Math.Cos(angleRad), Math.Sin(angleRad), 0.0);
+                // Sample elements and compute per-element local rosette frame
+                int[] labels = elSet.Labels;
+                int step = density <= 0.0 ? int.MaxValue : Math.Max(1, (int)Math.Round(1.0 / density));
+                List<double[]> centroids = new List<double[]>();
+                List<double[]> normalsX = new List<double[]>();
+                List<double[]> normalsY = new List<double[]>();
+                List<double[]> normalsZ = new List<double[]>();
+                for (int i = 0; i < labels.Length; i += step)
+                {
+                    FeElement element;
+                    if (!_model.Mesh.Elements.TryGetValue(labels[i], out element)) continue;
+                    double elementSize;
+                    double[] cg = element.GetCG(_model.Mesh.Nodes, out elementSize);
+                    // Get element normal (local rosette Z axis)
+                    double[] normalArr;
+                    try { _model.Mesh.GetElementFaceNormal(labels[i], FeFaceName.S2, out normalArr); }
+                    catch { continue; }
+                    Vec3D nZ = new Vec3D(normalArr);
+                    if (nZ.Normalize() < 1e-10) continue;
+                    // Binormal: nY = normalize(refX × nZ)
+                    Vec3D nY = Vec3D.CrossProduct(refX, nZ);
+                    if (nY.Normalize() < 1e-10) continue; // refX parallel to nZ — degenerate
+                    // Local rosette X: nX = normalize(nZ × nY)
+                    Vec3D nX = Vec3D.CrossProduct(nZ, nY);
+                    nX.Normalize();
+                    //
+                    centroids.Add(cg);
+                    normalsX.Add(nX.Coor);
+                    normalsY.Add(nY.Coor);
+                    normalsZ.Add(nZ.Coor);
+                }
+                if (centroids.Count == 0) return;
+                //
+                int symbolSize = _settings.Pre.SymbolSize;
+                double[][] coorArray = centroids.ToArray();
+                // X direction — red
+                vtkMaxActorData dataX = new vtkMaxActorData();
+                dataX.Name = PlyArrowPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + "X";
+                dataX.Color = Color.FromArgb(220, 30, 30);
+                dataX.Layer = vtkRendererLayer.Overlay;
+                dataX.Geometry.Nodes.Coor = coorArray;
+                dataX.Geometry.Nodes.Normals = normalsX.ToArray();
+                ApplyLighting(dataX);
+                _form.AddOrientationArrows(dataX, symbolSize);
+                // Y direction — green
+                vtkMaxActorData dataY = new vtkMaxActorData();
+                dataY.Name = PlyArrowPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + "Y";
+                dataY.Color = Color.FromArgb(30, 180, 60);
+                dataY.Layer = vtkRendererLayer.Overlay;
+                dataY.Geometry.Nodes.Coor = coorArray;
+                dataY.Geometry.Nodes.Normals = normalsY.ToArray();
+                ApplyLighting(dataY);
+                _form.AddOrientationArrows(dataY, symbolSize);
+                // Z direction — blue (element normal)
+                vtkMaxActorData dataZ = new vtkMaxActorData();
+                dataZ.Name = PlyArrowPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + "Z";
+                dataZ.Color = Color.FromArgb(30, 100, 220);
+                dataZ.Layer = vtkRendererLayer.Overlay;
+                dataZ.Geometry.Nodes.Coor = coorArray;
+                dataZ.Geometry.Nodes.Normals = normalsZ.ToArray();
+                ApplyLighting(dataZ);
+                _form.AddOrientationArrows(dataZ, symbolSize);
+                _form.AdjustCameraDistanceAndClipping();
+            }
+            catch { }
+        }
+        // Draping simulation
+        private const string DrapingPrefix = "DrapingGrid";
+        private const string TapePropagationPrefix = "TapePropagation";
+        public double DrawDrapingSimulation(CompositeLayup layup, int plyIndex, double limitShear, double cellSize)
+        {
+            try
+            {
+                _form.ClearOverlayByPrefix(DrapingPrefix);
+                //
+                if (plyIndex < 0 || plyIndex >= layup.Plies.Count) return -1.0;
+                Ply ply = layup.Plies[plyIndex];
+                if (string.IsNullOrEmpty(ply.Region)) return -1.0;
+                //
+                FeElementSet elSet;
+                if (!_model.Mesh.ElementSets.TryGetValue(ply.Region, out elSet)) return -1.0;
+                if (elSet.Labels.Length == 0) return -1.0;
+                //
+                // Collect unique node IDs from the element set
+                var nodeIdSet = new System.Collections.Generic.HashSet<int>();
+                foreach (int eid in elSet.Labels)
+                {
+                    FeElement element;
+                    if (_model.Mesh.Elements.TryGetValue(eid, out element))
+                        foreach (int nid in element.NodeIds) nodeIdSet.Add(nid);
+                }
+                //
+                // Build flat node coordinate array and node-index remapping
+                var nodeIds = new System.Collections.Generic.List<int>(nodeIdSet);
+                var nodeIdToIdx = new System.Collections.Generic.Dictionary<int, int>(nodeIds.Count);
+                double[] coords = new double[nodeIds.Count * 3];
+                for (int i = 0; i < nodeIds.Count; i++)
+                {
+                    nodeIdToIdx[nodeIds[i]] = i;
+                    FeNode nd = _model.Mesh.Nodes[nodeIds[i]];
+                    coords[i * 3] = nd.X;
+                    coords[i * 3 + 1] = nd.Y;
+                    coords[i * 3 + 2] = nd.Z;
+                }
+                //
+                // Build element connectivity arrays
+                var elemNodeCountsList = new System.Collections.Generic.List<int>();
+                var elemNodeIdsList = new System.Collections.Generic.List<int>();
+                foreach (int eid in elSet.Labels)
+                {
+                    FeElement element;
+                    if (!_model.Mesh.Elements.TryGetValue(eid, out element)) continue;
+                    // Use only the surface nodes (first face for shell elements)
+                    int[] surfNodeIds = GetSurfaceNodeIds(element);
+                    if (surfNodeIds == null || surfNodeIds.Length < 3) continue;
+                    elemNodeCountsList.Add(surfNodeIds.Length);
+                    foreach (int nid in surfNodeIds)
+                        elemNodeIdsList.Add(nodeIdToIdx.ContainsKey(nid) ? nodeIdToIdx[nid] : 0);
+                }
+                if (elemNodeCountsList.Count == 0) return -1.0;
+                //
+                // A fabric width defines the draping grid cell size, a tape width does not
+                Material plyMaterial = layup.GetPlyMaterial(plyIndex, _model.Materials);
+                cellSize = layup.GetPlyDrapingCellSize(plyIndex, _model.Materials, cellSize);
+                //
+                double plyAngle = ply.RotationAngle;
+                string logPath = null;
+                try
+                {
+                    string dir = System.IO.Path.GetDirectoryName(OpenedFileName);
+                    if (!string.IsNullOrEmpty(dir))
+                        logPath = System.IO.Path.Combine(dir, "kindrape_log.txt");
+                }
+                catch { }
+                DrapingResult result = KinDrape.Run(
+                    coords,
+                    elemNodeCountsList.ToArray(),
+                    elemNodeIdsList.ToArray(),
+                    plyAngle,
+                    cellSize,
+                    logPath: logPath);
+                if (result == null) return -1.0;
+                //
+                string drapingName = DrapingPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + ply.Name;
+                //
+                // Unidirectional plies are drawn as fiber curves along the principal direction only
+                if (plyMaterial != null && plyMaterial.CompositeMaterialType == CompositeMaterialType.Unidirectional)
+                {
+                    // The tape width sets the spacing between the curves
+                    int curveStride = layup.GetPlyFiberCurveStride(plyIndex, _model.Materials, cellSize);
+                    DrawDrapingFiberCurves(drapingName, result, limitShear, curveStride);
+                    _form.AdjustCameraDistanceAndClipping();
+                    return GetMaxShear(result);
+                }
+                //
+                // Build cell vertex arrays for display
+                int nCells = (result.GridRows - 1) * (result.GridCols - 1);
+                double[][][] cellVertices = new double[nCells][][];
+                //
                 for (int r = 0; r < result.GridRows - 1; r++)
                 {
                     for (int c = 0; c < result.GridCols - 1; c++)
                     {
-                        if (!(result.NodeOnMesh[r, c] && result.NodeOnMesh[r, c + 1] && result.NodeOnMesh[r + 1, c + 1] &&
-                              result.NodeOnMesh[r + 1, c])) continue;
-                        int[][] corners = { new[] { r, c }, new[] { r, c + 1 }, new[] { r + 1, c + 1 }, new[] { r + 1, c } };
-                        bool valid = true;
-                        int[] cell = new int[4];
-                        for (int k = 0; k < 4 && valid; k++)
-                        {
-                            double[] p = { result.NodePositions[corners[k][0], corners[k][1], 0],
-                                           result.NodePositions[corners[k][0], corners[k][1], 1],
-                                           result.NodePositions[corners[k][0], corners[k][1], 2] };
-                            if (double.IsNaN(p[0])) valid = false;
-                            cell[k] = nodes.Count;
-                            nodes.Add(p);
-                        }
-                        if (!valid) continue;
                         int cellNo = r + c * (result.GridRows - 1);
-                        double shear = cellNo < result.CellShear.Length ? result.CellShear[cellNo] : 0;
-                        if (!double.IsNaN(shear) && shear > maxShear) maxShear = shear;
-                        if (!double.IsNaN(shear) && shear > layup.DrapingLimitShearDeg) shearedCells.Add(cell);
-                        else okCells.Add(cell);
+                        if (!(result.NodeOnMesh[r, c] && result.NodeOnMesh[r, c + 1] &&
+                              result.NodeOnMesh[r + 1, c + 1] && result.NodeOnMesh[r + 1, c])) continue;
+                        double x0 = result.NodePositions[r, c, 0];
+                        double x1 = result.NodePositions[r, c + 1, 0];
+                        double x2 = result.NodePositions[r + 1, c + 1, 0];
+                        double x3 = result.NodePositions[r + 1, c, 0];
+                        if (double.IsNaN(x0) || double.IsNaN(x1) || double.IsNaN(x2) || double.IsNaN(x3)) continue;
+                        cellVertices[cellNo] = new double[4][]
+                        {
+                            new double[] { x0, result.NodePositions[r,     c,     1], result.NodePositions[r,     c,     2] },
+                            new double[] { x1, result.NodePositions[r,     c + 1, 1], result.NodePositions[r,     c + 1, 2] },
+                            new double[] { x2, result.NodePositions[r + 1, c + 1, 1], result.NodePositions[r + 1, c + 1, 2] },
+                            new double[] { x3, result.NodePositions[r + 1, c,     1], result.NodePositions[r + 1, c,     2] }
+                        };
                     }
                 }
-                DrawDrapingCells(DrapingPrefix + Globals.NameSeparator + "ok", nodes, okCells, Color.FromArgb(40, 40, 160));
-                DrawDrapingCells(DrapingPrefix + Globals.NameSeparator + "sheared", nodes, shearedCells, Color.Red);
-                return maxShear;
+                //
+                _form.AddDrapingGrid(drapingName, cellVertices, result.CellShear, limitShear);
+                _form.AdjustCameraDistanceAndClipping();
+                //
+                return GetMaxShear(result);
             }
-            catch
-            {
-                return -1;
-            }
+            catch { }
+            return -1.0;
         }
-        private void DrawDrapingCells(string name, List<double[]> nodes, List<int[]> cells, Color color)
+        // The draping cell size is taken from the ply material width when it is defined
+        public double? GetPlyMaterialWidth(CompositeLayup layup, int plyIndex)
         {
-            if (cells.Count == 0) return;
-            // The edges of the cells
-            List<int[]> edges = new List<int[]>();
-            foreach (int[] cell in cells)
-                for (int k = 0; k < 4; k++) edges.Add(new[] { cell[k], cell[(k + 1) % 4] });
-            vtkMaxActorData data = new vtkMaxActorData();
-            data.Name = name;
-            data.Color = color;
-            data.Layer = vtkRendererLayer.Selection;
-            data.KeepOwnColor = true;
-            data.CanHaveElementEdges = false;
-            data.Pickable = false;
-            data.ActorRepresentation = vtkMaxActorRepresentation.Wire;
-            data.Geometry.Nodes.Coor = nodes.ToArray();
-            data.Geometry.Cells.CellNodeIds = edges.ToArray();
-            data.Geometry.Cells.Types = Enumerable.Repeat((int)vtkCellType.VTK_LINE, edges.Count).ToArray();
-            ApplyLighting(data);
-            _form.Add3DCells(data);
+            if (layup == null) return null;
+            Material material = layup.GetPlyMaterial(plyIndex, _model.Materials);
+            if (material == null || !material.Width.HasValue || material.Width.Value <= 0) return null;
+            return material.Width.Value;
+        }
+        // Ply region mapping from geometrical surface: lists the CAD surfaces available to import
+        // a ply region from, one entry per face of every CAD GeometryPart in the model
+        public List<GeometrySurfaceOption> GetGeometrySurfaceOptions()
+        {
+            List<GeometrySurfaceOption> options = new List<GeometrySurfaceOption>();
+            // The CAD parts live in the geometry mesh; _model.Mesh only holds the MeshParts of the
+            // generated FE mesh and never contains a GeometryPart
+            if (_model?.Geometry == null) return options;
+            //
+            foreach (var entry in _model.Geometry.Parts)
+            {
+                if (entry.Value is GeometryPart gp && gp.IsCADPart && gp.Visualization != null)
+                {
+                    for (int faceId = 0; faceId < gp.Visualization.FaceCount; faceId++)
+                    {
+                        string displayName = gp.Name + " : Surface " + (faceId + 1);
+                        options.Add(new GeometrySurfaceOption(gp.Name, faceId, displayName));
+                    }
+                }
+            }
+            return options;
+        }
+        // Mesh parts that hold structural shell elements; offered in the surface dialog so that the
+        // skin of a solid mesh, which FeMesh also keeps in a shell part, can be left out
+        public string[] GetShellMeshPartNames()
+        {
+            if (_model?.Mesh == null) return new string[0];
+            return GeometrySurfaceRegionMapper.GetShellPartNames(_model.Mesh);
+        }
+        // Resolves a CAD part by the name stored in a GeometrySurfaceOption; always looked up in
+        // the geometry mesh, the FE mesh part of the same name is a MeshPart without face data
+        private GeometryPart GetCADGeometryPart(string partName)
+        {
+            if (_model?.Geometry == null || partName == null) return null;
+            BasePart basePart;
+            if (!_model.Geometry.Parts.TryGetValue(partName, out basePart)) return null;
+            GeometryPart part = basePart as GeometryPart;
+            if (part == null || !part.IsCADPart || part.Visualization == null) return null;
+            return part;
+        }
+        // Ply region mapping from geometrical surface / Create element set from geometrical
+        // surface: resolves the picked CAD face, tessellates it (reusing its existing display
+        // tessellation) and core samples the structural shell mesh against it
+        private bool GetGeometrySurfaceElementIds(string partName, int faceId, double coreSamplingDepth,
+                                                   string[] targetPartNames, out int[] elementIds,
+                                                   out string message)
+        {
+            elementIds = null;
+            message = null;
+            if (_model?.Mesh == null)
+            {
+                message = "The model does not contain a mesh.";
+                return false;
+            }
+            // The CAD part and the node ids of its tessellation belong to the geometry mesh, while
+            // the shell elements to core sample belong to the FE mesh
+            GeometryPart part = GetCADGeometryPart(partName);
+            if (part == null || faceId < 0 || faceId >= part.Visualization.FaceCount)
+            {
+                message = "The selected geometrical surface could not be found.";
+                return false;
+            }
+            //
+            double[][] surfaceNodes;
+            int[][] surfaceTriangles;
+            GeometrySurfaceRegionMapper.ExtractSurfaceTessellation(_model.Geometry, part, faceId,
+                                                                    out surfaceNodes, out surfaceTriangles);
+            //
+            // A depth of 0 or less lets the mapper derive it from the average element size
+            elementIds = GeometrySurfaceRegionMapper.MapSurfaceToShellElements(_model.Mesh, surfaceNodes,
+                                                                                surfaceTriangles,
+                                                                                coreSamplingDepth, -1,
+                                                                                targetPartNames);
+            if (elementIds.Length == 0)
+            {
+                message = "No shell elements found under the selected surface.\n" +
+                          "Only the elements of a shell part are selected; increase the core sampling " +
+                          "depth if the shell mesh is offset from the CAD surface.";
+                return false;
+            }
+            return true;
+        }
+        // Preview of the captured elements: core samples with the current dialog settings and paints
+        // the resulting elements red; the previous preview is dropped first so that pressing the
+        // button again always shows the current settings only
+        public bool PreviewGeometrySurfaceElements(string partName, int faceId, double coreSamplingDepth,
+                                                    string[] targetPartNames, out int elementCount,
+                                                    out string message)
+        {
+            elementCount = 0;
+            ClearGeometrySurfacePreview();
+            //
+            if (_currentView != ViewGeometryModelResults.Model)
+            {
+                message = "The captured elements can only be shown in the Model view.";
+                return false;
+            }
+            //
+            int[] elementIds;
+            if (!GetGeometrySurfaceElementIds(partName, faceId, coreSamplingDepth, targetPartNames,
+                                              out elementIds, out message))
+                return false;
+            //
+            HighlightElements(elementIds);
+            elementCount = elementIds.Length;
+            message = elementCount + " element(s) captured from part(s) " + GetPartNamesOfElements(elementIds) + ".";
+            return true;
+        }
+        public void ClearGeometrySurfacePreview()
+        {
+            _form.Clear3DSelection();
+        }
+        // Builds a new (not yet added) element set with a unique name from the captured elements
+        private bool BuildElementSetFromGeometrySurface(string partName, int faceId, string baseName,
+                                                         double coreSamplingDepth, string[] targetPartNames,
+                                                         out FeElementSet elementSet, out string message)
+        {
+            elementSet = null;
+            int[] elementIds;
+            if (!GetGeometrySurfaceElementIds(partName, faceId, coreSamplingDepth, targetPartNames,
+                                              out elementIds, out message))
+                return false;
+            //
+            string setName = baseName;
+            int suffix = 1;
+            while (_model.Mesh.ElementSets.ContainsKey(setName)) setName = baseName + "_" + suffix++;
+            //
+            elementSet = new FeElementSet(setName, elementIds);
+            return true;
+        }
+        // Create element set from geometrical surface: standalone Element Sets tree action - the
+        // resulting set can later be picked as a ply's Region from the composite layup dialog
+        public bool CreateElementSetFromGeometrySurface(string partName, int faceId, double coreSamplingDepth,
+                                                        string[] targetPartNames, out string message)
+        {
+            string baseName = partName + "Surface" + (faceId + 1);
+            FeElementSet elementSet;
+            if (!BuildElementSetFromGeometrySurface(partName, faceId, baseName, coreSamplingDepth,
+                                                    targetPartNames, out elementSet, out message))
+                return false;
+            //
+            AddElementSetCommand(elementSet);
+            //
+            message = "Element set \"" + elementSet.Name + "\" created: " + elementSet.Labels.Length +
+                      " element(s) from part(s) " + GetPartNamesOfElements(elementSet.Labels) + ".";
+            return true;
+        }
+        // Names of the mesh parts the selected elements belong to; shown so that a region picked
+        // from the wrong part is noticed straight away
+        private string GetPartNamesOfElements(int[] elementIds)
+        {
+            HashSet<int> partIds = new HashSet<int>();
+            foreach (int id in elementIds)
+                if (_model.Mesh.Elements.TryGetValue(id, out FeElement element)) partIds.Add(element.PartId);
+            //
+            List<string> names = new List<string>();
+            foreach (var entry in _model.Mesh.Parts)
+                if (partIds.Contains(entry.Value.PartId)) names.Add(entry.Key);
+            return names.Count == 0 ? "?" : string.Join(", ", names);
+        }
+        // Ply region mapping from geometrical surface: tessellates the picked CAD face, core
+        // samples the structural shell mesh against it to build a new element set, assigns it as
+        // the ply's Region and stores the face's outer boundary as the ply's contour
+        public bool ImportPlyRegionFromGeometrySurface(CompositeLayup layup, int plyIndex, string partName,
+                                                        int faceId, double coreSamplingDepth,
+                                                        string[] targetPartNames, out string message)
+        {
+            message = null;
+            if (layup == null || plyIndex < 0 || plyIndex >= layup.Plies.Count)
+            {
+                message = "Invalid ply.";
+                return false;
+            }
+            //
+            string baseName = layup.Name + "_" + layup.Plies[plyIndex].Name + "_" + partName + "Surface" + (faceId + 1);
+            FeElementSet elementSet;
+            if (!BuildElementSetFromGeometrySurface(partName, faceId, baseName, coreSamplingDepth,
+                                                    targetPartNames, out elementSet, out message))
+                return false;
+            //
+            bool isSolid = layup.ElementType == CompositeElementType.Solid;
+            bool valid = isSolid ? AreElementIdsValidForSolid(elementSet.Labels)
+                                  : AreElementIdsValidForComposite(elementSet.Labels);
+            if (!valid)
+            {
+                message = isSolid
+                    ? "The selected surface maps to unsupported element types.\n" +
+                      "Only solid elements (C3D8, C3D8R, C3D8I, C3D6, C3D6R, etc.) are supported."
+                    : "The selected surface maps to unsupported element types.\n" +
+                      "Only S8R (parabolic quadrilateral, reduced integration) and\n" +
+                      "S6 (parabolic triangle, full integration) elements are supported.";
+                return false;
+            }
+            //
+            AddElementSetCommand(elementSet);
+            //
+            GeometryPart part = GetCADGeometryPart(partName);
+            double[][] contour = part == null ? null :
+                GeometrySurfaceRegionMapper.ExtractOuterBoundary(_model.Geometry, part, faceId);
+            //
+            layup.Plies[plyIndex].Region = elementSet.Name;
+            layup.Plies[plyIndex].ContourPoints = contour;
+            //
+            message = "Region imported: " + elementSet.Labels.Length + " element(s) from part(s) " +
+                      GetPartNamesOfElements(elementSet.Labels) +
+                      (contour != null ? ", contour with " + contour.Length + " point(s)." : ", no contour extracted.");
+            return true;
+        }
+        private static double GetMaxShear(DrapingResult result)
+        {
+            double maxShear = 0.0;
+            foreach (double s in result.CellShear)
+                if (!double.IsNaN(s) && s > maxShear) maxShear = s;
+            return maxShear;
+        }
+        // The draping grid rows run along the fiber direction and the columns transverse to it,
+        // so one fiber curve is built per column by walking the rows; curveStride columns are
+        // skipped between two curves to match the tape width
+        private void DrawDrapingFiberCurves(string name, DrapingResult result, double limitShear, int curveStride)
+        {
+            int nRows = result.GridRows;
+            int nCols = result.GridCols;
+            if (curveStride < 1) curveStride = 1;
+            var curves = new List<double[][]>();
+            var segmentShears = new List<double[]>();
+            //
+            for (int c = 0; c < nCols; c += curveStride)
+            {
+                var points = new List<double[]>();
+                var shears = new List<double>();
+                for (int r = 0; r < nRows; r++)
+                {
+                    bool valid = result.NodeOnMesh[r, c] && !double.IsNaN(result.NodePositions[r, c, 0]);
+                    if (valid)
+                    {
+                        if (points.Count > 0) shears.Add(GetSegmentShear(result, r - 1, c));
+                        points.Add(new double[] { result.NodePositions[r, c, 0],
+                                                  result.NodePositions[r, c, 1],
+                                                  result.NodePositions[r, c, 2] });
+                    }
+                    else
+                    {
+                        // The curve is interrupted — store it and start a new one
+                        if (points.Count >= 2) { curves.Add(points.ToArray()); segmentShears.Add(shears.ToArray()); }
+                        points.Clear();
+                        shears.Clear();
+                    }
+                }
+                if (points.Count >= 2) { curves.Add(points.ToArray()); segmentShears.Add(shears.ToArray()); }
+            }
+            if (curves.Count == 0) return;
+            //
+            _form.AddDrapingFiberCurves(name, curves.ToArray(), segmentShears.ToArray(), limitShear);
+        }
+        // Shear of the segment between nodes [row, col] and [row + 1, col] — the mean of the
+        // shear of the cells on both sides of the fiber
+        private static double GetSegmentShear(DrapingResult result, int row, int col)
+        {
+            double sum = 0.0;
+            int count = 0;
+            for (int c = col - 1; c <= col; c++)
+            {
+                if (c < 0 || c > result.GridCols - 2) continue;
+                int cellNo = row + c * (result.GridRows - 1);
+                if (cellNo < 0 || cellNo >= result.CellShear.Length) continue;
+                double shear = result.CellShear[cellNo];
+                if (double.IsNaN(shear)) continue;
+                sum += shear;
+                count++;
+            }
+            return count > 0 ? sum / count : double.NaN;
+        }
+        public void ClearDrapingSimulation()
+        {
+            _form.ClearOverlayByPrefix(DrapingPrefix);
+        }
+        public double SuggestDrapingCellSize(CompositeLayup layup, int plyIndex)
+        {
+            try
+            {
+                if (plyIndex < 0 || plyIndex >= layup.Plies.Count) return 0.0;
+                Ply ply = layup.Plies[plyIndex];
+                if (string.IsNullOrEmpty(ply.Region)) return 0.0;
+                FeElementSet elSet;
+                if (!_model.Mesh.ElementSets.TryGetValue(ply.Region, out elSet)) return 0.0;
+                //
+                double xMin = double.MaxValue, xMax = double.MinValue;
+                double yMin = double.MaxValue, yMax = double.MinValue;
+                double zMin = double.MaxValue, zMax = double.MinValue;
+                foreach (int eid in elSet.Labels)
+                {
+                    FeElement element;
+                    if (!_model.Mesh.Elements.TryGetValue(eid, out element)) continue;
+                    foreach (int nid in element.NodeIds)
+                    {
+                        FeNode nd = _model.Mesh.Nodes[nid];
+                        if (nd.X < xMin) xMin = nd.X; if (nd.X > xMax) xMax = nd.X;
+                        if (nd.Y < yMin) yMin = nd.Y; if (nd.Y > yMax) yMax = nd.Y;
+                        if (nd.Z < zMin) zMin = nd.Z; if (nd.Z > zMax) zMax = nd.Z;
+                    }
+                }
+                double[] sides = { xMax - xMin, yMax - yMin, zMax - zMin };
+                Array.Sort(sides);
+                // Use the median side (2nd largest) as the short surface dimension
+                double shortSide = sides[1] > 0 ? sides[1] : sides[2];
+                return Math.Max(shortSide / 25.0, 1e-6);
+            }
+            catch { return 0.0; }
+        }
+        // Tape placement (AFP) geodesic propagation. Returns the number of generated tapes (>= 0),
+        // -1 on failure (no seed point / region / mesh), or -2 when the ply's propagation type is
+        // Rosette (fixed-angle path), which is not implemented yet.
+        public int DrawTapePropagation(CompositeLayup layup, int plyIndex)
+        {
+            try
+            {
+                _form.ClearOverlayByPrefix(TapePropagationPrefix);
+                //
+                double[][] refCurve;
+                System.Collections.Generic.List<TapePropagationTape> tapes;
+                int status = ComputeTapePropagation(layup, plyIndex, out refCurve, out tapes);
+                if (status < 0) return status;
+                //
+                double[][][] curves = new double[tapes.Count + 1][][];
+                int[] sideSigns = new int[tapes.Count + 1];
+                int[] layerIndices = new int[tapes.Count + 1];
+                curves[0] = refCurve;
+                sideSigns[0] = 0;
+                layerIndices[0] = 0;
+                for (int i = 0; i < tapes.Count; i++)
+                {
+                    curves[i + 1] = tapes[i].Points;
+                    sideSigns[i + 1] = tapes[i].Side;
+                    layerIndices[i + 1] = tapes[i].Layer;
+                }
+                //
+                Ply ply = layup.Plies[plyIndex];
+                string name = TapePropagationPrefix + Globals.NameSeparator + layup.Name + Globals.NameSeparator + ply.Name;
+                _form.AddTapePropagationCurves(name, curves, sideSigns, layerIndices);
+                _form.AdjustCameraDistanceAndClipping();
+                //
+                return tapes.Count + 1;
+            }
+            catch { }
+            return -1;
+        }
+        // Pure computation core of tape propagation, with no dependency on _form/the 3D view - usable
+        // directly from headless/test code. Returns the same status codes as DrawTapePropagation
+        // (-1 failure, -2 Rosette not implemented, >= 0 undefined here - callers should use the tapes
+        // count instead) and outputs the seed reference curve plus every generated offset course.
+        public int ComputeTapePropagation(CompositeLayup layup, int plyIndex,
+                                           out double[][] refCurve, out System.Collections.Generic.List<TapePropagationTape> tapes)
+        {
+            refCurve = null;
+            tapes = null;
+            try
+            {
+                if (plyIndex < 0 || plyIndex >= layup.Plies.Count) return -1;
+                Ply ply = layup.Plies[plyIndex];
+                if (string.IsNullOrEmpty(ply.Region)) return -1;
+                if (ply.PropagationSeedPoint == null || ply.PropagationSeedPoint.Length != 3) return -1;
+                if (ply.PropagationType == PropagationPathType.Rosette) return -2;
+                //
+                double? tapeWidth = ply.TapeWidth ?? GetPlyMaterialWidth(layup, plyIndex);
+                if (!tapeWidth.HasValue || tapeWidth.Value <= 0) return -1;
+                //
+                FeElementSet elSet;
+                if (!_model.Mesh.ElementSets.TryGetValue(ply.Region, out elSet)) return -1;
+                if (elSet.Labels.Length == 0) return -1;
+                //
+                // Build flat node coordinate array and node-index remapping (same extraction as draping)
+                var nodeIdSet = new System.Collections.Generic.HashSet<int>();
+                foreach (int eid in elSet.Labels)
+                {
+                    FeElement element;
+                    if (_model.Mesh.Elements.TryGetValue(eid, out element))
+                        foreach (int nid in element.NodeIds) nodeIdSet.Add(nid);
+                }
+                var nodeIds = new System.Collections.Generic.List<int>(nodeIdSet);
+                var nodeIdToIdx = new System.Collections.Generic.Dictionary<int, int>(nodeIds.Count);
+                double[] coords = new double[nodeIds.Count * 3];
+                for (int i = 0; i < nodeIds.Count; i++)
+                {
+                    nodeIdToIdx[nodeIds[i]] = i;
+                    FeNode nd = _model.Mesh.Nodes[nodeIds[i]];
+                    coords[i * 3] = nd.X;
+                    coords[i * 3 + 1] = nd.Y;
+                    coords[i * 3 + 2] = nd.Z;
+                }
+                //
+                var elemNodeCountsList = new System.Collections.Generic.List<int>();
+                var elemNodeIdsList = new System.Collections.Generic.List<int>();
+                foreach (int eid in elSet.Labels)
+                {
+                    FeElement element;
+                    if (!_model.Mesh.Elements.TryGetValue(eid, out element)) continue;
+                    int[] surfNodeIds = GetSurfaceNodeIds(element);
+                    if (surfNodeIds == null || surfNodeIds.Length < 3) continue;
+                    elemNodeCountsList.Add(surfNodeIds.Length);
+                    foreach (int nid in surfNodeIds)
+                        elemNodeIdsList.Add(nodeIdToIdx.ContainsKey(nid) ? nodeIdToIdx[nid] : 0);
+                }
+                if (elemNodeCountsList.Count == 0) return -1;
+                //
+                TapeGeodesicMesh tapeMesh = TapeGeodesicMesh.Build(coords, elemNodeCountsList.ToArray(), elemNodeIdsList.ToArray());
+                //
+                int faceId;
+                double[] bary, closest;
+                if (!tapeMesh.FindNearestPoint(ply.PropagationSeedPoint, out faceId, out bary, out closest)) return -1;
+                //
+                // Local rosette direction at the seed point, rotated by the ply angle - mirrors
+                // DrawPlyOrientationArrows' convention exactly (same refX / angle / nX,nY,nZ frame)
+                Vec3D refX = new Vec3D(1.0, 0.0, 0.0);
+                if (ply.Csys != "<layup>")
+                {
+                    CoordinateSystem csys;
+                    if (_model.Mesh.CoordinateSystems.TryGetValue(ply.Csys, out csys))
+                        refX = new Vec3D(csys.DirectionX().Coor);
+                }
+                double angleDeg = ply.RotationAngle;
+                if (layup.AdditionalRotationType == AdditionalRotationType.Angle)
+                    angleDeg += layup.AdditionalRotationAngle;
+                double angleRad = angleDeg * Math.PI / 180.0;
+                double cosA = Math.Cos(angleRad);
+                double sinA = Math.Sin(angleRad);
+                Vec3D nZ = new Vec3D(tapeMesh.Normals[faceId]);
+                if (nZ.Normalize() < 1e-10) return -1;
+                Vec3D nY = Vec3D.CrossProduct(refX, nZ);
+                if (nY.Normalize() < 1e-10) return -1;
+                Vec3D nX = Vec3D.CrossProduct(nZ, nY);
+                nX.Normalize();
+                Vec3D fiberDir = nX * cosA + nY * (-sinA);
+                fiberDir.Normalize();
+                //
+                double meshDiagonal = 0.0;
+                foreach (double[] n in tapeMesh.Nodes) meshDiagonal = Math.Max(meshDiagonal, Vec3DDistance(closest, n));
+                double traceLength = Math.Max(meshDiagonal * 2.0, tapeWidth.Value * 4.0);
+                double stepLength = Math.Max(tapeWidth.Value * 0.25, tapeMesh.AverageEdgeLength * 0.5);
+                //
+                GeodesicTracer tracer = new GeodesicTracer(tapeMesh);
+                bool success;
+                refCurve = TapePropagation.BuildRefCurve(tapeMesh, tracer, ply.PropagationSeedPoint,
+                                                          fiberDir.Coor, traceLength, stepLength, out success);
+                if (!success || refCurve == null || refCurve.Length < 2) { refCurve = null; return -1; }
+                //
+                tapes = TapePropagation.ComputeParallelOffsets(tapeMesh, tracer, refCurve, tapeWidth.Value, stepLength);
+                return tapes.Count;
+            }
+            catch { }
+            refCurve = null;
+            tapes = null;
+            return -1;
+        }
+        private static double Vec3DDistance(double[] a, double[] b)
+        {
+            double dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
+            return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        }
+        public void ClearTapePropagation()
+        {
+            _form.ClearOverlayByPrefix(TapePropagationPrefix);
+        }
+        // Extract surface node IDs from an element (shell or solid); quadratic elements: corner nodes only
+        private static int[] GetSurfaceNodeIds(FeElement element)
+        {
+            int n = element.NodeIds.Length;
+            if (n <= 4) return element.NodeIds;                                                                                         // linear: S3, S4
+            if (n == 6) return new int[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2] };                               // S6: corners [0,1,2]
+            if (n == 8) return new int[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2], element.NodeIds[3] };           // S8: corners [0,1,2,3]
+            if (n == 10) return new int[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2] };                              // C3D10: corners [0,1,2]
+            if (n == 20) return new int[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2], element.NodeIds[3] };          // C3D20: corners [0,1,2,3]
+            return element.NodeIds;
         }
 
         #endregion #################################################################################################################
@@ -17232,9 +18690,11 @@ namespace PrePoMax
                 if (co.CreationData != null && co.RegionName != null)
                     RemoveSurfaces(new string[] { co.RegionName }, false);
             }
-            else if (constraint is RigidBody rb && rb.CreationData != null && rb.RegionName != null)
+            else if (constraint is RigidBody rb && rb.RegionName != null)
             {
-                RemoveNodeSets(new string[] { rb.RegionName }, false);
+                if (rb.CreationData != null ||
+                    (_model.Mesh.NodeSets.ContainsKey(rb.RegionName) && _model.Mesh.NodeSets[rb.RegionName].Internal))
+                    RemoveNodeSets(new string[] { rb.RegionName }, false);
             }
             else if (constraint is Coupling coupling)
             {
@@ -19057,7 +20517,209 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Load menu   ########################################################################################################
+        // Blade aero preview ******************************************************************************
+        private const string BladeAeroPreviewPrefix = "BladeAeroPreview";
+        public void DrawBladeAeroPreview(BladeAeroLoad load)
+        {
+            try
+            {
+                _form.ClearOverlayByPrefix(BladeAeroPreviewPrefix);
+                //
+                FeMesh mesh = DisplayedMesh;
+                if (mesh == null || mesh.Nodes == null || mesh.Nodes.Count == 0) return;
+                if (load == null) return;
+                //
+                int spineAxis = load.Axis;
+                int forceAxis = load.ForceAxis;
+                int other1 = (spineAxis + 1) % 3;
+                int other2 = (spineAxis + 2) % 3;
+                //
+                // Spine extent from shell nodes only — consistent with BladeAeroAlgorithm
+                HashSet<int> shellNodeIds = BladeAeroAlgorithm.CollectShellNodeIds(mesh);
+                if (shellNodeIds.Count == 0) return;
+                double minCoord = double.MaxValue, maxCoord = double.MinValue;
+                foreach (int id in shellNodeIds)
+                {
+                    if (!mesh.Nodes.ContainsKey(id)) continue;
+                    double c = spineAxis == 0 ? mesh.Nodes[id].X : spineAxis == 1 ? mesh.Nodes[id].Y : mesh.Nodes[id].Z;
+                    if (c < minCoord) minCoord = c;
+                    if (c > maxCoord) maxCoord = c;
+                }
+                if (maxCoord - minCoord < 1e-12) return;
+                //
+                double[] origin = new double[] { load.OriginX, load.OriginY, load.OriginZ };
+                double originAlongAxis = BladeAeroAlgorithm.GetOriginAlongAxis(origin, spineAxis, minCoord,
+                                                                               load.DistanceType);
+                double spineLength = maxCoord - originAlongAxis;
+                if (spineLength < 1e-12) return;
+                //
+                int symbolSize = _settings.Pre.SymbolSize;
+                //
+                // Origin sphere at clamped spine base
+                double[] originCoor = (double[])origin.Clone();
+                originCoor[spineAxis] = originAlongAxis;
+                vtkMaxActorData sphereData = new vtkMaxActorData();
+                sphereData.Name = BladeAeroPreviewPrefix + Globals.NameSeparator + "Origin";
+                sphereData.Color = Color.Cyan;
+                sphereData.Layer = vtkRendererLayer.Overlay;
+                sphereData.Geometry.Nodes.Coor = new double[][] { originCoor };
+                ApplyLighting(sphereData);
+                _form.AddSphereActor(sphereData, symbolSize);
+                //
+                // Section force arrows — one actor per section, sized proportionally to force magnitude
+                if (load.TableRows != null && load.TableRows.Count > 0)
+                {
+                    double[] distances = new double[load.TableRows.Count];
+                    for (int i = 0; i < load.TableRows.Count; i++) distances[i] = load.TableRows[i].DistanceRatio;
+                    double[] positions = BladeAeroAlgorithm.ComputePositions(distances, load.DistanceType,
+                                                                             originAlongAxis, spineLength);
+                    //
+                    double maxForce = 0;
+                    foreach (var row in load.TableRows)
+                        if (Math.Abs(row.Force) > maxForce) maxForce = Math.Abs(row.Force);
+                    if (maxForce < 1e-12) maxForce = 1.0;
+                    //
+                    for (int i = 0; i < load.TableRows.Count; i++)
+                    {
+                        double force = load.TableRows[i].Force;
+                        double[] coor = (double[])origin.Clone();
+                        coor[spineAxis] = positions[i];
+                        double[] norm = new double[3];
+                        norm[forceAxis] = load.InvertForces ? -1.0 : 1.0;
+                        double relSize = Math.Abs(force) / maxForce;
+                        vtkMaxActorData arrowData = new vtkMaxActorData();
+                        arrowData.Name = BladeAeroPreviewPrefix + Globals.NameSeparator + "Arrow" + i;
+                        arrowData.Color = Color.Yellow;
+                        arrowData.Layer = vtkRendererLayer.Overlay;
+                        arrowData.Geometry.Nodes.Coor = new double[][] { coor };
+                        arrowData.Geometry.Nodes.Normals = new double[][] { norm };
+                        ApplyLighting(arrowData);
+                        _form.AddOrientedArrowsActor(arrowData, symbolSize, false, relSize);
+                    }
+                }
+                //
+                _form.AdjustCameraDistanceAndClipping();
+            }
+            catch { }
+        }
+        public void ClearBladeAeroPreview()
+        {
+            _form.ClearOverlayByPrefix(BladeAeroPreviewPrefix);
+        }
+        private const string BladeAeroPressurePreviewPrefix = "BladeAeroPressurePreview";
+        public void DrawBladeAeroPressurePreview(BladeAeroPressureLoad load)
+        {
+            try
+            {
+                _form.ClearOverlayByPrefix(BladeAeroPressurePreviewPrefix);
+                //
+                FeMesh mesh = DisplayedMesh;
+                if (mesh == null || mesh.Nodes == null || mesh.Nodes.Count == 0) return;
+                if (load == null || string.IsNullOrEmpty(load.SurfaceName)) return;
+                if (!mesh.Surfaces.ContainsKey(load.SurfaceName)) return;
+                if (load.TableRows == null || load.TableRows.Count == 0) return;
+                //
+                FeSurface surf = mesh.Surfaces[load.SurfaceName];
+                if (surf.ElementFaces == null || surf.ElementFaces.Count == 0) return;
+                //
+                int axis = load.Axis;
+                //
+                // Collect face centroids from source surface
+                var faceCentroids = new System.Collections.Generic.List<double[]>();
+                foreach (var kvp in surf.ElementFaces)
+                {
+                    string elemSetName = kvp.Value;
+                    if (!mesh.ElementSets.ContainsKey(elemSetName)) continue;
+                    CaeMesh.FeElementSet elSet = mesh.ElementSets[elemSetName];
+                    foreach (int elemId in elSet.Labels)
+                    {
+                        if (!mesh.Elements.ContainsKey(elemId)) continue;
+                        double area;
+                        double[] cg = mesh.Elements[elemId].GetFaceCG(kvp.Key, mesh.Nodes, out area);
+                        if (cg != null) faceCentroids.Add(cg);
+                    }
+                }
+                if (faceCentroids.Count == 0) return;
+                //
+                // Spine extent and cross-section centroid (non-spine axes)
+                double minCoord = double.MaxValue, maxCoord = double.MinValue;
+                double[] surfCentroid = new double[3];
+                foreach (var cg in faceCentroids)
+                {
+                    if (cg[axis] < minCoord) minCoord = cg[axis];
+                    if (cg[axis] > maxCoord) maxCoord = cg[axis];
+                    surfCentroid[0] += cg[0];
+                    surfCentroid[1] += cg[1];
+                    surfCentroid[2] += cg[2];
+                }
+                if (maxCoord - minCoord < 1e-12) return;
+                surfCentroid[0] /= faceCentroids.Count;
+                surfCentroid[1] /= faceCentroids.Count;
+                surfCentroid[2] /= faceCentroids.Count;
+                // Convert table rows to spine positions
+                double[] distances = new double[load.TableRows.Count];
+                for (int i = 0; i < load.TableRows.Count; i++) distances[i] = load.TableRows[i].DistanceRatio;
+                double originAlongAxis = BladeAeroAlgorithm.GetOriginAlongAxis(null, axis, minCoord,
+                                                                               load.DistanceType);
+                double spineLength = maxCoord - originAlongAxis;
+                double[] positions = BladeAeroAlgorithm.ComputePositions(distances, load.DistanceType,
+                                                                         originAlongAxis, spineLength);
+                //
+                double maxForce = 0;
+                foreach (var row in load.TableRows)
+                    if (Math.Abs(row.Force) > maxForce) maxForce = Math.Abs(row.Force);
+                if (maxForce < 1e-12) maxForce = 1.0;
+                //
+                // Arrow direction: perpendicular to spine
+                double[] norm = new double[3];
+                norm[(axis + 1) % 3] = 1.0;
+                //
+                int symbolSize = _settings.Pre.SymbolSize;
+                //
+                for (int i = 0; i < load.TableRows.Count; i++)
+                {
+                    double force = load.TableRows[i].Force;
+                    double[] coor = (double[])surfCentroid.Clone();
+                    coor[axis] = positions[i];
+                    double relSize = Math.Abs(force) / maxForce;
+                    vtkMaxActorData arrowData = new vtkMaxActorData();
+                    arrowData.Name = BladeAeroPressurePreviewPrefix + Globals.NameSeparator + "Arrow" + i;
+                    arrowData.Color = System.Drawing.Color.Orange;
+                    arrowData.Layer = vtkRendererLayer.Overlay;
+                    arrowData.Geometry.Nodes.Coor = new double[][] { coor };
+                    arrowData.Geometry.Nodes.Normals = new double[][] { norm };
+                    ApplyLighting(arrowData);
+                    _form.AddOrientedArrowsActor(arrowData, symbolSize, false, relSize);
+                }
+                //
+                _form.AdjustCameraDistanceAndClipping();
+            }
+            catch { }
+        }
+        public void ClearBladeAeroPressurePreview()
+        {
+            _form.ClearOverlayByPrefix(BladeAeroPressurePreviewPrefix);
+        }
         // COMMANDS ********************************************************************************
+        public void AddBladeAerodynamicLoadCommand(string stepName, BladeAeroSection[] sections)
+        {
+            CAddBladeAerodynamicLoad comm = new CAddBladeAerodynamicLoad(stepName, sections);
+            _commands.AddAndExecute(comm);
+        }
+        public void AddBladeAeroPressureLoadCommand(string stepName, BladeAeroPressureSection[] sections,
+                                                     int prevSectionCount = 0,
+                                                     FeSurfaceFaceTypes surfaceFaceTypes = FeSurfaceFaceTypes.Unknown)
+        {
+            CAddBladeAeroPressureLoad comm = new CAddBladeAeroPressureLoad(stepName, sections, prevSectionCount,
+                                                                           surfaceFaceTypes);
+            _commands.AddAndExecute(comm);
+        }
+        // Adds a programmatically constructed internal surface directly to the mesh,
+        // bypassing selection-based processing (ElementFaces must already be set on the surface).
+        public void AddInternalSurface(FeSurface surface)
+        {
+            _model.Mesh.Surfaces.Add(surface.Name, surface);
+        }
         public void AddLoadCommand(string stepName, Load load)
         {
             CAddLoad comm = new CAddLoad(stepName, load);
@@ -19286,11 +20948,24 @@ namespace PrePoMax
         {
             foreach (var name in loadNames)
             {
+                Load load = GetLoad(stepName, name);
+                if (load is BladeAeroPressureLoad bapl)
+                    RemoveBladeAeroPressureDLoads(stepName, bapl.SectionCount);
+                //
                 DeleteSelectionBasedLoadSets(stepName, name);
                 _model.StepCollection.GetStep(stepName).Loads.Remove(name);
                 _form.RemoveTreeNode<Load>(ViewGeometryModelResults.Model, name, stepName);
             }
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+        }
+        private void RemoveBladeAeroPressureDLoads(string stepName, int sectionCount)
+        {
+            var step = _model.StepCollection.GetStep(stepName);
+            for (int i = 1; i <= sectionCount; i++)
+            {
+                string dloadName = string.Format("BladeAeroP-{0:D2}-Load", i);
+                step.Loads.Remove(dloadName);
+            }
         }
         //
         private void ConvertSelectionBasedLoad(Load load)
@@ -19339,6 +21014,11 @@ namespace PrePoMax
                     load.RegionName = name;
                     load.RegionType = RegionTypeEnum.SurfaceName;
                 }
+                else if (load is BladeAeroPressureLoad)
+                {
+                    load.CreationData = null;
+                    load.CreationIds = null;
+                }
                 else throw new NotSupportedException();
             }
             // Clear the creation data if not used
@@ -19364,6 +21044,7 @@ namespace PrePoMax
                          load is ImportedSTLoad || load is ShellEdgeLoad || load is PreTensionLoad ||
                          load is DFlux || load is FilmHeatTransfer || load is RadiationHeatTransfer)
                     RemoveSurfaces(new string[] { load.RegionName }, false);
+                else if (load is BladeAeroPressureLoad) { }
                 else throw new NotSupportedException();
             }
         }
@@ -19770,6 +21451,15 @@ namespace PrePoMax
                         if (!entry.Value.NumCPUsOverridden)
                             entry.Value.NumCPUs = ss.NumCPUs;
                     }
+                    else if (entry.Value.FEMSolver == FEMSolverEnum.OpenRadioss)
+                    {
+                        if (!entry.Value.WorkDirectoryOverridden)
+                            entry.Value.WorkDirectory = Settings.GetWorkDirectory();
+                        if (!entry.Value.ExecutableOverridden)
+                            entry.Value.Executable = ss.OpenRadiossExe;
+                        if (!entry.Value.NumCPUsOverridden)
+                            entry.Value.NumCPUs = ss.NumCPUs;
+                    }
                     else throw new NotSupportedException();
                 }
             }
@@ -19995,6 +21685,33 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Query menu   #######################################################################################################
+        // Core sampling point *****************************************************************************
+        private const string CoreSamplingPointPrefix = "CoreSamplingPoint";
+        public void DrawCoreSamplingPoint(double[] coor)
+        {
+            try
+            {
+                _form.ClearOverlayByPrefix(CoreSamplingPointPrefix);
+                //
+                if (coor == null || coor.Length != 3) return;
+                //
+                vtkMaxActorData sphereData = new vtkMaxActorData();
+                sphereData.Name = CoreSamplingPointPrefix + Globals.NameSeparator + "Sphere";
+                sphereData.Color = Color.Red;
+                sphereData.Layer = vtkRendererLayer.Overlay;
+                sphereData.Geometry.Nodes.Coor = new double[][] { coor };
+                ApplyLighting(sphereData);
+                _form.AddSphereActor(sphereData, _settings.Pre.SymbolSize);
+                //
+                _form.AdjustCameraDistanceAndClipping();
+            }
+            catch { }
+        }
+        public void ClearCoreSamplingPoint()
+        {
+            _form.ClearOverlayByPrefix(CoreSamplingPointPrefix);
+        }
+        //
         public string GetAnnotationText(string data)
         {
             // This must be in Controller - the _annotation object changes
@@ -20305,7 +22022,9 @@ namespace PrePoMax
         }
         public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool asynchronous = true, int timeoutMilliseconds = 0)
         {
+            // OpenRadioss reads a .rad starter file, the other solvers an .inp file
             string inputFileName = GetCalculiXInpFileName(jobName);
+            if (_jobs[jobName].FEMSolver == FEMSolverEnum.OpenRadioss) inputFileName = Path.ChangeExtension(inputFileName, ".rad");
             bool useBackgroundWorker = asynchronous;
             AnalysisJob job = _jobs[jobName];
             string workDirectory = Path.GetDirectoryName(inputFileName);
@@ -20617,6 +22336,16 @@ namespace PrePoMax
                 files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".frd"));
                 files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".res"));
             }
+            else if (job.FEMSolver == FEMSolverEnum.OpenRadioss)
+            {
+                // Delete old starter/engine/restart/animation/time history files
+                string[] oldFiles = Directory.GetFiles(directory, inputFileNameWithoutExtension + "_????.rad");
+                files.AddRange(oldFiles);
+                files.AddRange(Directory.GetFiles(directory, inputFileNameWithoutExtension + "_????.rst"));
+                files.AddRange(Directory.GetFiles(directory, inputFileNameWithoutExtension + "A???"));
+                files.AddRange(Directory.GetFiles(directory, inputFileNameWithoutExtension + "T??"));
+                files.AddRange(Directory.GetFiles(directory, inputFileNameWithoutExtension + "_????.out"));
+            }
             else throw new NotSupportedException();
             //
             try
@@ -20635,6 +22364,8 @@ namespace PrePoMax
             if (job.FEMSolver == FEMSolverEnum.Calculix) ExportToCalculix(inputFileName);
             else if (job.FEMSolver == FEMSolverEnum.Abaqus) ExportToAbaqus(inputFileName);
             else if (job.FEMSolver == FEMSolverEnum.FEMaster) ExportToCalculix(inputFileName, null, false);
+            else if (job.FEMSolver == FEMSolverEnum.OpenRadioss)
+                ExportToOpenRadioss(Path.ChangeExtension(inputFileName, ".rad"));
             else throw new NotSupportedException();
             //
             job.JobStatusChanged = JobStatusChanged;
@@ -25149,7 +26880,7 @@ namespace PrePoMax
             else if (_annotateWithColor == AnnotateWithColorEnum.SectionThicknesses)
                 _model.GetSectionThicknessAssignments(out elementIdColorId);
             else if (_annotateWithColor == AnnotateWithColorEnum.CompositeSections)
-                _model.GetCompositeLayupZoneAssignments(out elementIdColorId, out _);
+                _model.GetCompositeLayupITAAssignments(out elementIdColorId, out _);
             //
             ConcurrentBag<string> hiddenActors = new ConcurrentBag<string>();
             ConcurrentBag<vtkMaxActorData> allData = new ConcurrentBag<vtkMaxActorData>();
@@ -25519,7 +27250,7 @@ namespace PrePoMax
             {
                 if (_currentView == ViewGeometryModelResults.Model && _showCompositeSectionsLegend)
                 {
-                    _model.GetCompositeLayupZoneAssignments(out _, out string[] itaNames);
+                    _model.GetCompositeLayupITAAssignments(out _, out string[] itaNames);
                     List<Color> itaColors = new List<Color>();
                     for (int i = 0; i < itaNames.Length; i++)
                         itaColors.Add(colorSettings.ColorTable[i % colorSettings.ColorTable.Length]);
@@ -29990,10 +31721,6 @@ namespace PrePoMax
                     else if (obj is MaterialOrientation mo)
                     {
                         HighlightMaterialOrientation(mo);
-                    }
-                    else if (obj is CompositeLayup cl)
-                    {
-                        HighlightCompositeLayup(cl, 0);
                     }
                     else if (obj is Constraint c)
                     {

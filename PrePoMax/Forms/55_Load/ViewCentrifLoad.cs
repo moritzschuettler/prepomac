@@ -108,8 +108,9 @@ namespace PrePoMax
         //
         [CategoryAttribute("Rotational speed magnitude")]
         [OrderedDisplayName(0, 10, "Magnitude")]
-        [DescriptionAttribute("Value of the rotational speed magnitude around the axis defined by the point and direction.")]
-        [TypeConverter(typeof(EquationRotationalSpeedConverter))]
+        [DescriptionAttribute("Value of the rotational speed magnitude, in revolutions per second, around the axis " +
+                              "defined by the point and direction.")]
+        [TypeConverter(typeof(EquationRotationalFrequencyConverter))]
         [Id(1, 5)]
         public EquationString RotationalSpeed
         {

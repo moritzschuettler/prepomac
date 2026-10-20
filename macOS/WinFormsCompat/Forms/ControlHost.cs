@@ -237,7 +237,8 @@ namespace System.Windows.Forms
             {
                 if (_picture == null || _contentDirty || true)
                 {
-                    _picture?.Dispose();
+                    // The previous picture is not disposed here: the render thread may still draw it from an earlier
+                    // frame, and disposing it under it crashes Skia. It is released by its finalizer once unreferenced
                     _picture = Record((float)rect.Width, (float)rect.Height);
                     _contentDirty = false;
                 }

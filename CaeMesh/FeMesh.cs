@@ -3652,7 +3652,83 @@ namespace CaeMesh
             }
         }
         //
+        // The elements of the element sets are reassigned to a new part id and stripped from the labels
+        // of the part they came from before the part that receives them is created. Without this
+        // snapshot a throw in between leaves them in no part at all: they keep a part id no part uses,
+        // are never drawn, can never be selected in the GUI and are never written to the solver deck,
+        // but they stay in the model and in every saved .pmx file and are reported as missing a section
+        // assignment on every analysis run.
         public void CreatePartsFromElementSets(string[] elementSetNames, out BasePart[] modifiedParts, out BasePart[] newParts)
+        {
+            FeElement element;
+            FeElementSet elementSet;
+            Dictionary<int, int> elementIdPartId = new Dictionary<int, int>();
+            Dictionary<string, FeElementSet> consumedElementSets = new Dictionary<string, FeElementSet>();
+            foreach (var elementSetName in elementSetNames)
+            {
+                if (_elementSets.TryGetValue(elementSetName, out elementSet))
+                {
+                    if (!consumedElementSets.ContainsKey(elementSetName))
+                        consumedElementSets.Add(elementSetName, elementSet);
+                    //
+                    foreach (var elementId in elementSet.Labels)
+                    {
+                        if (_elements.TryGetValue(elementId, out element) && !elementIdPartId.ContainsKey(elementId))
+                            elementIdPartId.Add(elementId, element.PartId);
+                    }
+                }
+            }
+            // The existing parts are replaced by new objects and their Labels array is reassigned,
+            // so keeping the object and the array reference is enough to undo both
+            Dictionary<string, BasePart> existingParts = new Dictionary<string, BasePart>();
+            Dictionary<string, int[]> existingPartLabels = new Dictionary<string, int[]>();
+            foreach (var entry in _parts)
+            {
+                existingParts.Add(entry.Key, entry.Value);
+                existingPartLabels.Add(entry.Key, entry.Value.Labels);
+            }
+            //
+            try
+            {
+                CreatePartsFromElementSetsCore(elementSetNames, out modifiedParts, out newParts);
+            }
+            catch
+            {
+                RollbackPartsFromElementSets(elementIdPartId, existingParts, existingPartLabels, consumedElementSets);
+                throw;
+            }
+        }
+        private void RollbackPartsFromElementSets(Dictionary<int, int> elementIdPartId,
+                                                  Dictionary<string, BasePart> existingParts,
+                                                  Dictionary<string, int[]> existingPartLabels,
+                                                  Dictionary<string, FeElementSet> consumedElementSets)
+        {
+            // Remove the parts that were created before the failure
+            List<string> addedPartNames = new List<string>();
+            foreach (var entry in _parts) if (!existingParts.ContainsKey(entry.Key)) addedPartNames.Add(entry.Key);
+            foreach (var partName in addedPartNames) _parts.Remove(partName);
+            // Restore the replaced parts and their element labels
+            foreach (var entry in existingParts)
+            {
+                entry.Value.Labels = existingPartLabels[entry.Key];
+                _parts[entry.Key] = entry.Value;
+            }
+            // Restore the part id of every reassigned element
+            FeElement element;
+            foreach (var entry in elementIdPartId)
+            {
+                if (_elements.TryGetValue(entry.Key, out element)) element.PartId = entry.Value;
+            }
+            // Restore the element sets that were already consumed
+            foreach (var entry in consumedElementSets)
+            {
+                if (!_elementSets.ContainsKey(entry.Key)) _elementSets.Add(entry.Key, entry.Value);
+            }
+            //
+            ComputeBoundingBox();
+        }
+        private void CreatePartsFromElementSetsCore(string[] elementSetNames, out BasePart[] modifiedParts,
+                                                    out BasePart[] newParts)
         {
             // Get parts from ids
             int maxPartId = -int.MaxValue;
@@ -3805,6 +3881,509 @@ namespace CaeMesh
             ComputeVolumeArea(part);
             //
             return part;
+        }
+        // Undoes the partial mesh changes of a build operation that threw before it finished.
+        // Nodes and elements are inserted into the mesh before the part that owns them is created,
+        // so without this an aborted operation leaves elements that belong to no part. Such elements
+        // keep their default PartId of -1, are never drawn, can never be selected in the GUI and are
+        // never written to the solver deck, but they stay in the model and in every saved .pmx file,
+        // and they are reported as missing a section assignment on every analysis run.
+        private void RollbackMeshAdditions(List<int> addedElementIds, List<int> addedNodeIds,
+                                           List<string> addedElementSetNames,
+                                           int maxElementIdBefore, int maxNodeIdBefore)
+        {
+            if (addedElementSetNames != null)
+                foreach (string name in addedElementSetNames) if (name != null) _elementSets.Remove(name);
+            if (addedElementIds != null)
+                foreach (int id in addedElementIds) _elements.Remove(id);
+            if (addedNodeIds != null)
+                foreach (int id in addedNodeIds) _nodes.Remove(id);
+            //
+            _maxElementId = maxElementIdBefore;
+            _maxNodeId = maxNodeIdBefore;
+        }
+        public void ExtractShellMeshFromSolidPart(int[] selectedFaceIds, bool condenseNodes, bool secondOrder,
+                                                   string newPartName, out MeshPart newShellPart)
+        {
+            int maxElementIdBefore = _maxElementId;
+            int maxNodeIdBefore = _maxNodeId;
+            List<int> addedElementIds = new List<int>();
+            List<int> addedNodeIds = new List<int>();
+            try
+            {
+                ExtractShellMeshFromSolidPartCore(selectedFaceIds, condenseNodes, secondOrder, newPartName,
+                                                  addedElementIds, addedNodeIds, out newShellPart);
+            }
+            catch
+            {
+                RollbackMeshAdditions(addedElementIds, addedNodeIds, null, maxElementIdBefore, maxNodeIdBefore);
+                throw;
+            }
+        }
+        private void ExtractShellMeshFromSolidPartCore(int[] selectedFaceIds, bool condenseNodes, bool secondOrder,
+                                                       string newPartName, List<int> newElemIds, List<int> newNodeIds,
+                                                       out MeshPart newShellPart)
+        {
+            // Step 1: Create shell elements from the selected solid faces (faceId = elementId*10 + vtkCellId)
+            var nodeMapping = new Dictionary<int, int>();
+            // Elements that are still linear after step 1 and must be converted for a second order mesh
+            var elemIdsToConvert = new List<int>();
+            int nextNodeId = _maxNodeId;
+            int nextElemId = _maxElementId;
+            //
+            foreach (int faceId in selectedFaceIds)
+            {
+                int elementId = faceId / 10;
+                int vtkCellId = faceId % 10;
+                FeFaceName faceName = FeElement.FaceNameFromVtkCellId(vtkCellId);
+                //
+                if (!_elements.TryGetValue(elementId, out FeElement elem) || !(elem is FeElement3D)) continue;
+                FeElement3D solidElem = (FeElement3D)elem;
+                int[] faceNodeIds = solidElem.GetVtkCellFromFaceName(faceName);
+                // The order of the extracted shell is set by the secondOrder flag, not by the order
+                // of the source solid. A parabolic face lists its corner nodes first and its midside
+                // nodes last, so a linear face is obtained by keeping the first half of the nodes.
+                bool faceIsParabolic = faceNodeIds.Length == 6 || faceNodeIds.Length == 8;
+                if (faceIsParabolic && !secondOrder)
+                {
+                    int[] cornerNodeIds = new int[faceNodeIds.Length / 2];
+                    Array.Copy(faceNodeIds, cornerNodeIds, cornerNodeIds.Length);
+                    faceNodeIds = cornerNodeIds;
+                    faceIsParabolic = false;
+                }
+                //
+                int[] shellNodeIds;
+                if (condenseNodes)
+                {
+                    shellNodeIds = faceNodeIds;
+                }
+                else
+                {
+                    shellNodeIds = new int[faceNodeIds.Length];
+                    for (int i = 0; i < faceNodeIds.Length; i++)
+                    {
+                        int origId = faceNodeIds[i];
+                        if (!nodeMapping.TryGetValue(origId, out int newId))
+                        {
+                            newId = ++nextNodeId;
+                            nodeMapping[origId] = newId;
+                            FeNode orig = _nodes[origId];
+                            _nodes.Add(newId, new FeNode(newId, orig.X, orig.Y, orig.Z));
+                            newNodeIds.Add(newId);
+                        }
+                        shellNodeIds[i] = newId;
+                    }
+                }
+                //
+                int shellElemId = ++nextElemId;
+                FeElement shellElem = CreateShellElementFromFaceNodes(shellElemId, shellNodeIds);
+                _elements.Add(shellElemId, shellElem);
+                newElemIds.Add(shellElemId);
+                // A face of a parabolic solid is already parabolic and must not be converted again
+                if (secondOrder && !faceIsParabolic) elemIdsToConvert.Add(shellElemId);
+            }
+            //
+            if (newElemIds.Count == 0)
+                throw new CaeException("No valid solid faces found for extraction.");
+            //
+            _maxNodeId = nextNodeId;
+            _maxElementId = nextElemId;
+            //
+            // Convert to parabolic: add midside nodes at edge midpoints and replace elements
+            if (elemIdsToConvert.Count > 0)
+            {
+                var tempElements = new Dictionary<int, FeElement>();
+                var tempNodes = new Dictionary<int, FeNode>();
+                foreach (int eid in elemIdsToConvert)
+                {
+                    FeElement el = _elements[eid];
+                    tempElements.Add(eid, el);
+                    foreach (int nid in el.NodeIds)
+                        if (!tempNodes.ContainsKey(nid)) tempNodes.Add(nid, _nodes[nid]);
+                }
+                //
+                LinearToParabolic(ref tempNodes, ref tempElements, _maxNodeId);
+                //
+                foreach (var entry in tempNodes)
+                {
+                    if (!_nodes.ContainsKey(entry.Key))
+                    {
+                        _nodes.Add(entry.Key, entry.Value);
+                        newNodeIds.Add(entry.Key);
+                        if (entry.Key > _maxNodeId) _maxNodeId = entry.Key;
+                    }
+                }
+                foreach (var entry in tempElements)
+                    _elements[entry.Key] = entry.Value;
+            }
+            //
+            // Step 2: Compute next available PartId
+            int nextPartId = 1;
+            foreach (var entry in _parts)
+                if (entry.Value.PartId >= nextPartId) nextPartId = entry.Value.PartId + 1;
+            //
+            // Step 3: Assign PartId to new elements
+            foreach (int eid in newElemIds)
+                _elements[eid].PartId = nextPartId;
+            //
+            // Step 4: Build unique part name
+            string[] allNamesArr = GetAllMeshEntityNames();
+            HashSet<string> allNames = new HashSet<string>(allNamesArr);
+            if (allNames.Contains(newPartName))
+                newPartName = allNamesArr.GetNextNumberedKey(newPartName);
+            //
+            // Step 5: Create MeshPart
+            BasePart basePart = CreateBasePartFromElementIds(newElemIds.ToArray(), newPartName);
+            newShellPart = new MeshPart(basePart);
+            newShellPart.Name = basePart.Name;
+            newShellPart.PartId = nextPartId;
+            newShellPart.Color = Color.FromArgb(192, 192, 255);
+            newShellPart.SurfaceOffset = 1e-5;
+            _parts.Add(newShellPart.Name, newShellPart);
+        }
+        private static FeElement CreateShellElementFromFaceNodes(int id, int[] nodeIds)
+        {
+            switch (nodeIds.Length)
+            {
+                case 3: return new LinearTriangleElement(id, nodeIds);
+                case 4: return new LinearQuadrilateralElement(id, nodeIds);
+                case 6: return new ParabolicTriangleElement(id, nodeIds);
+                case 8: return new ParabolicQuadrilateralElement(id, nodeIds);
+                default: throw new NotSupportedException("Face with " + nodeIds.Length + " nodes is not supported.");
+            }
+        }
+        // Extrudes a linear shell mesh into solid layers.
+        // plyRegions: element-set name per ply (null/empty = all elements in part).
+        // plyThicknesses: thickness per ply.
+        // startOffset: signed distance along node normals to the first layer bottom
+        //   (0 = shell is bottom face, -totalThickness = shell is top face, -totalThickness/2 = mid-plane).
+        // Returns the new solid MeshPart; fills plyElementSetNames with one element-set name per ply (null when a ply produced no elements).
+        public MeshPart ExtrudeShellMeshFromSections(string shellPartName, string[] plyRegions,
+                                                     double[] plyThicknesses, double startOffset,
+                                                     string newPartName, bool condenseNodes,
+                                                     double condenseTolerance,
+                                                     out string[] plyElementSetNames,
+                                                     out int condensedNodeCount)
+        {
+            int maxElementIdBefore = _maxElementId;
+            int maxNodeIdBefore = _maxNodeId;
+            List<int> addedElementIds = new List<int>();
+            List<int> addedNodeIds = new List<int>();
+            List<string> addedElementSetNames = new List<string>();
+            try
+            {
+                return ExtrudeShellMeshFromSectionsCore(shellPartName, plyRegions, plyThicknesses, startOffset,
+                                                        newPartName, condenseNodes, condenseTolerance,
+                                                        addedElementIds, addedNodeIds, addedElementSetNames,
+                                                        out plyElementSetNames, out condensedNodeCount);
+            }
+            catch
+            {
+                RollbackMeshAdditions(addedElementIds, addedNodeIds, addedElementSetNames,
+                                      maxElementIdBefore, maxNodeIdBefore);
+                throw;
+            }
+        }
+        private MeshPart ExtrudeShellMeshFromSectionsCore(string shellPartName, string[] plyRegions,
+                                                          double[] plyThicknesses, double startOffset,
+                                                          string newPartName, bool condenseNodes,
+                                                          double condenseTolerance,
+                                                          List<int> addedElementIds, List<int> addedNodeIds,
+                                                          List<string> addedElementSetNames,
+                                                          out string[] plyElementSetNames,
+                                                          out int condensedNodeCount)
+        {
+            int plyCount = plyThicknesses.Length;
+            condensedNodeCount = 0;
+            //
+            if (!_parts.TryGetValue(shellPartName, out BasePart bp) || !(bp is MeshPart))
+                throw new CaeException("Shell part not found: " + shellPartName);
+            //
+            // Build set of element IDs belonging to the shell part
+            var shellElemIdSet = new HashSet<int>(bp.Labels);
+            //
+            // Resolve per-ply element sets (intersected with the shell part elements)
+            var plyElemSets = new HashSet<int>[plyCount];
+            for (int i = 0; i < plyCount; i++)
+            {
+                if (string.IsNullOrEmpty(plyRegions[i]))
+                {
+                    plyElemSets[i] = new HashSet<int>(shellElemIdSet);
+                }
+                else if (_elementSets.TryGetValue(plyRegions[i], out FeElementSet elSet))
+                {
+                    HashSet<int> regionElemIds;
+                    if (elSet.CreatedFromParts)
+                    {
+                        regionElemIds = new HashSet<int>();
+                        foreach (int partId in elSet.Labels)
+                        {
+                            BasePart rp = GetPartFromId(partId);
+                            if (rp != null) regionElemIds.UnionWith(rp.Labels);
+                        }
+                    }
+                    else
+                    {
+                        regionElemIds = new HashSet<int>(elSet.Labels);
+                    }
+                    plyElemSets[i] = new HashSet<int>(regionElemIds.Intersect(shellElemIdSet));
+                }
+                else
+                {
+                    plyElemSets[i] = new HashSet<int>();
+                }
+            }
+            //
+            // Accumulate element normals per corner node only (weighted sum → average direction).
+            // Parabolic shells (6-node tri, 8-node quad) use their first 3/4 corner nodes.
+            var nodeNormalAcc = new Dictionary<int, double[]>();
+            foreach (int eid in shellElemIdSet)
+            {
+                if (!_elements.TryGetValue(eid, out FeElement elem)) continue;
+                double[] n = ComputeShellElementNormal(elem);
+                if (n == null) continue;
+                int[] sn = elem.NodeIds;
+                int cc = ShellCornerCount(sn.Length);
+                if (cc == 0) continue;
+                for (int j = 0; j < cc; j++)
+                {
+                    int nid = sn[j];
+                    if (!nodeNormalAcc.TryGetValue(nid, out double[] acc))
+                    {
+                        acc = new double[3];
+                        nodeNormalAcc[nid] = acc;
+                    }
+                    acc[0] += n[0]; acc[1] += n[1]; acc[2] += n[2];
+                }
+            }
+            // Normalize averaged normals
+            foreach (double[] acc in nodeNormalAcc.Values)
+            {
+                double len = Math.Sqrt(acc[0] * acc[0] + acc[1] * acc[1] + acc[2] * acc[2]);
+                if (len > 1e-15) { acc[0] /= len; acc[1] /= len; acc[2] /= len; }
+            }
+            //
+            // Compute cumulative z-offsets for each of the (plyCount+1) layer boundaries
+            double[] layerOffsets = new double[plyCount + 1];
+            layerOffsets[0] = startOffset;
+            for (int i = 0; i < plyCount; i++)
+                layerOffsets[i + 1] = layerOffsets[i] + plyThicknesses[i];
+            //
+            // Create one new node per (layer boundary × shell node) — shared between plies
+            int nextNodeId = _maxNodeId;
+            var layerNodes = new Dictionary<int, int>[plyCount + 1]; // [layer][origNodeId] = newNodeId
+            for (int lyr = 0; lyr <= plyCount; lyr++)
+            {
+                layerNodes[lyr] = new Dictionary<int, int>();
+                double dz = layerOffsets[lyr];
+                foreach (var kv in nodeNormalAcc)
+                {
+                    int origId = kv.Key;
+                    FeNode orig = _nodes[origId];
+                    double[] nrm = kv.Value;
+                    int newId = ++nextNodeId;
+                    _nodes.Add(newId, new FeNode(newId,
+                        orig.X + nrm[0] * dz,
+                        orig.Y + nrm[1] * dz,
+                        orig.Z + nrm[2] * dz));
+                    addedNodeIds.Add(newId);
+                    layerNodes[lyr][origId] = newId;
+                }
+            }
+            _maxNodeId = nextNodeId;
+            //
+            // Create solid elements per ply
+            int nextElemId = _maxElementId;
+            var allNewElemIds = new List<int>();
+            var plyNewElemIds = new List<int>[plyCount];
+            for (int i = 0; i < plyCount; i++) plyNewElemIds[i] = new List<int>();
+            //
+            for (int plyIdx = 0; plyIdx < plyCount; plyIdx++)
+            {
+                var botLayer = layerNodes[plyIdx];
+                var topLayer = layerNodes[plyIdx + 1];
+                foreach (int shellEid in plyElemSets[plyIdx])
+                {
+                    if (!_elements.TryGetValue(shellEid, out FeElement shellElem)) continue;
+                    int[] sn = shellElem.NodeIds;
+                    // Accept linear (3,4 nodes) and parabolic (6,8 nodes) shells.
+                    // Parabolic shells are extruded using corner nodes only → linear solid.
+                    int cc = ShellCornerCount(sn.Length);
+                    if (cc == 0) continue;
+                    if (!botLayer.ContainsKey(sn[0]) || !botLayer.ContainsKey(sn[1]) ||
+                        !botLayer.ContainsKey(sn[2])) continue;
+                    if (cc == 4 && (!botLayer.ContainsKey(sn[3]))) continue;
+                    //
+                    int newEid = ++nextElemId;
+                    FeElement solidElem;
+                    if (cc == 3)
+                    {
+                        solidElem = new LinearWedgeElement(newEid, new int[]
+                        {
+                            botLayer[sn[0]], botLayer[sn[1]], botLayer[sn[2]],
+                            topLayer[sn[0]], topLayer[sn[1]], topLayer[sn[2]]
+                        });
+                    }
+                    else
+                    {
+                        solidElem = new LinearHexaElement(newEid, new int[]
+                        {
+                            botLayer[sn[0]], botLayer[sn[1]], botLayer[sn[2]], botLayer[sn[3]],
+                            topLayer[sn[0]], topLayer[sn[1]], topLayer[sn[2]], topLayer[sn[3]]
+                        });
+                    }
+                    _elements.Add(newEid, solidElem);
+                    addedElementIds.Add(newEid);
+                    allNewElemIds.Add(newEid);
+                    plyNewElemIds[plyIdx].Add(newEid);
+                }
+            }
+            _maxElementId = nextElemId;
+            //
+            if (allNewElemIds.Count == 0)
+                throw new CaeException("No solid elements were created. Check that composite layup ply regions reference elements in this part.");
+            //
+            // Assign a new unique part ID
+            int nextPartId = 1;
+            foreach (var entry in _parts)
+                if (entry.Value.PartId >= nextPartId) nextPartId = entry.Value.PartId + 1;
+            foreach (int eid in allNewElemIds)
+                _elements[eid].PartId = nextPartId;
+            //
+            // Ensure unique part name
+            string[] allNamesArr = GetAllMeshEntityNames();
+            var allNames = new HashSet<string>(allNamesArr);
+            if (allNames.Contains(newPartName))
+                newPartName = allNamesArr.GetNextNumberedKey(newPartName);
+            allNames.Add(newPartName);
+            //
+            // Create per-ply element sets in the mesh
+            plyElementSetNames = new string[plyCount];
+            for (int i = 0; i < plyCount; i++)
+            {
+                if (plyNewElemIds[i].Count == 0) { plyElementSetNames[i] = null; continue; }
+                string setName = newPartName + "-Ply-" + (i + 1);
+                while (allNames.Contains(setName)) setName += "_1";
+                _elementSets.Add(setName, new FeElementSet(setName, plyNewElemIds[i].ToArray()));
+                addedElementSetNames.Add(setName);
+                plyElementSetNames[i] = setName;
+                allNames.Add(setName);
+            }
+            //
+            // Condense boundary nodes with adjacent active parts (if requested)
+            if (condenseNodes && condenseTolerance > 0)
+            {
+                // Collect node IDs from all other active parts (not the source shell, not the new solid)
+                var otherNodeIds = new HashSet<int>();
+                foreach (var kv in _parts)
+                {
+                    if (kv.Key == shellPartName || !kv.Value.Active) continue;
+                    foreach (int eid in kv.Value.Labels)
+                    {
+                        if (_elements.TryGetValue(eid, out FeElement el))
+                            foreach (int nid in el.NodeIds) otherNodeIds.Add(nid);
+                    }
+                }
+                if (otherNodeIds.Count > 0)
+                {
+                    // Build spatial grid from "other" nodes
+                    double cellSize = condenseTolerance * 1.0001;
+                    var grid = new Dictionary<long, List<int>>();
+                    foreach (int nid in otherNodeIds)
+                    {
+                        if (!_nodes.TryGetValue(nid, out FeNode on)) continue;
+                        long key = ExtrudeCellKey(
+                            (int)Math.Floor(on.X / cellSize),
+                            (int)Math.Floor(on.Y / cellSize),
+                            (int)Math.Floor(on.Z / cellSize));
+                        if (!grid.TryGetValue(key, out List<int> list))
+                        { list = new List<int>(); grid[key] = list; }
+                        list.Add(nid);
+                    }
+                    // Collect new solid node IDs
+                    var newSolidNodeIds = new HashSet<int>();
+                    foreach (int eid in allNewElemIds)
+                        if (_elements.TryGetValue(eid, out FeElement el))
+                            foreach (int nid in el.NodeIds) newSolidNodeIds.Add(nid);
+                    // Find nearest other-part node within tolerance for each new node
+                    double tol2 = condenseTolerance * condenseTolerance;
+                    var remap = new Dictionary<int, int>();
+                    foreach (int nid in newSolidNodeIds)
+                    {
+                        if (!_nodes.TryGetValue(nid, out FeNode n)) continue;
+                        int cx = (int)Math.Floor(n.X / cellSize);
+                        int cy = (int)Math.Floor(n.Y / cellSize);
+                        int cz = (int)Math.Floor(n.Z / cellSize);
+                        int bestId = -1;
+                        double bestDist2 = double.MaxValue;
+                        for (int dx = -1; dx <= 1; dx++)
+                        for (int dy = -1; dy <= 1; dy++)
+                        for (int dz = -1; dz <= 1; dz++)
+                        {
+                            long key = ExtrudeCellKey(cx + dx, cy + dy, cz + dz);
+                            if (!grid.TryGetValue(key, out List<int> list)) continue;
+                            foreach (int otherId in list)
+                            {
+                                if (!_nodes.TryGetValue(otherId, out FeNode o)) continue;
+                                double d2 = (n.X - o.X) * (n.X - o.X)
+                                          + (n.Y - o.Y) * (n.Y - o.Y)
+                                          + (n.Z - o.Z) * (n.Z - o.Z);
+                                if (d2 <= tol2 && d2 < bestDist2) { bestDist2 = d2; bestId = otherId; }
+                            }
+                        }
+                        if (bestId >= 0) remap[nid] = bestId;
+                    }
+                    // Apply remap to all new solid elements
+                    foreach (int eid in allNewElemIds)
+                    {
+                        if (!_elements.TryGetValue(eid, out FeElement el)) continue;
+                        int[] ids = el.NodeIds;
+                        for (int i = 0; i < ids.Length; i++)
+                            if (remap.TryGetValue(ids[i], out int mappedId)) ids[i] = mappedId;
+                    }
+                    // Remove condensed (now-duplicate) nodes
+                    foreach (int nid in remap.Keys) _nodes.Remove(nid);
+                    condensedNodeCount = remap.Count;
+                }
+            }
+            //
+            // Build MeshPart
+            BasePart basePart = CreateBasePartFromElementIds(allNewElemIds.ToArray(), newPartName);
+            MeshPart newSolidPart = new MeshPart(basePart);
+            newSolidPart.Name = basePart.Name;
+            newSolidPart.PartId = nextPartId;
+            newSolidPart.Color = Color.FromArgb(192, 255, 192);
+            _parts.Add(newSolidPart.Name, newSolidPart);
+            return newSolidPart;
+        }
+        // Returns 3 for tri-based (3 or 6 nodes), 4 for quad-based (4 or 8 nodes), 0 for unsupported.
+        private static int ShellCornerCount(int nodeCount)
+        {
+            if (nodeCount == 3 || nodeCount == 6) return 3;
+            if (nodeCount == 4 || nodeCount == 8) return 4;
+            return 0;
+        }
+        // Encodes a 3-int cell index into a long key for the condensation spatial grid.
+        // Supports ±2^20 (~1M) cells per axis; at 0.01 tolerance that covers ±10 000 model units.
+        private static long ExtrudeCellKey(int cx, int cy, int cz)
+        {
+            const long OFF = 1L << 20;
+            const long MASK = (1L << 21) - 1;
+            return (((long)cx + OFF) & MASK) << 42
+                 | (((long)cy + OFF) & MASK) << 21
+                 | (((long)cz + OFF) & MASK);
+        }
+        private double[] ComputeShellElementNormal(FeElement elem)
+        {
+            int[] ids = elem.NodeIds;
+            if (ids.Length < 3) return null;
+            FeNode n0 = _nodes[ids[0]], n1 = _nodes[ids[1]], n2 = _nodes[ids[2]];
+            double ax = n1.X - n0.X, ay = n1.Y - n0.Y, az = n1.Z - n0.Z;
+            double bx = n2.X - n0.X, by = n2.Y - n0.Y, bz = n2.Z - n0.Z;
+            double cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
+            double len = Math.Sqrt(cx * cx + cy * cy + cz * cz);
+            if (len < 1e-15) return null;
+            return new double[] { cx / len, cy / len, cz / len };
         }
         public BasePart[] CreateBasePartsByTypeFromElementIds(int[] elementIds, bool onlyVisible = false)
         {
@@ -9319,6 +9898,36 @@ namespace CaeMesh
             if (removedElementIds.Count > 0)
                 RemoveElementsByIds(removedElementIds, possiblyUnrefNodeIds, true, true, false);
         }
+        // Orphan elements belong to no part. They keep their default PartId of -1, are never drawn, can
+        // not be selected in the GUI and are not written to the solver deck, but they stay in the model
+        // and are counted as missing a section assignment on every analysis run.
+        public int[] GetOrphanElementIds()
+        {
+            HashSet<int> partElementIds = new HashSet<int>();
+            foreach (var entry in _parts) partElementIds.UnionWith(entry.Value.Labels);
+            //
+            List<int> orphanElementIds = new List<int>();
+            foreach (var elementId in _elements.Keys)
+            {
+                if (!partElementIds.Contains(elementId)) orphanElementIds.Add(elementId);
+            }
+            //
+            return orphanElementIds.ToArray();
+        }
+        public int[] RemoveOrphanElements(out HashSet<int> removedNodeIds)
+        {
+            removedNodeIds = new HashSet<int>();
+            //
+            int[] orphanElementIds = GetOrphanElementIds();
+            if (orphanElementIds.Length == 0) return orphanElementIds;
+            //
+            HashSet<int> possiblyUnrefNodeIds = new HashSet<int>();
+            foreach (var elementId in orphanElementIds) possiblyUnrefNodeIds.UnionWith(_elements[elementId].NodeIds);
+            //
+            removedNodeIds = RemoveElementsByIds(new HashSet<int>(orphanElementIds), possiblyUnrefNodeIds, true, false, false);
+            //
+            return orphanElementIds;
+        }
         public HashSet<int> RemoveElementsByIds(HashSet<int> elementIds, HashSet<int> possiblyUnrefNodeIds,
                                                 bool removeEmptyParts,
                                                 bool removeEmptyNodeSets,
@@ -9722,7 +10331,7 @@ namespace CaeMesh
             return inactiveNodes;
         }
         //
-        public void MergeCoincidentNodes(string nodeSetName, MergeCoincidentNodes mergeCoincidentNodes)
+        public int MergeCoincidentNodes(string nodeSetName, MergeCoincidentNodes mergeCoincidentNodes)
         {
             Dictionary<int, int> oldIdNewId = GetCoincidentNodeMap(nodeSetName, mergeCoincidentNodes);
             // Build merged nodes groups - 
@@ -9789,6 +10398,7 @@ namespace CaeMesh
                 //
                 ComputeVolumeArea(part);
             }
+            return oldIdNewId.Count;
         }
         public Dictionary<int, int> GetCoincidentNodeMap(string nodeSetName, MergeCoincidentNodes mergeCoincidentNodes)
         {
@@ -9833,8 +10443,28 @@ namespace CaeMesh
             //
             return oldIdNewId;
         }
+        public double GetMinElementEdgeLength()
+        {
+            double minLength = double.MaxValue;
+            foreach (var entry in _parts)
+            {
+                VisualizationData vis = entry.Value.Visualization;
+                if (vis == null || vis.EdgeCells == null) continue;
+                foreach (int[] edgeCell in vis.EdgeCells)
+                {
+                    double len;
+                    if (edgeCell.Length == 2)
+                        len = GeometryTools.BeamLength(_nodes[edgeCell[0]], _nodes[edgeCell[1]]);
+                    else if (edgeCell.Length == 3)
+                        len = GeometryTools.BeamLength(_nodes[edgeCell[0]], _nodes[edgeCell[1]], _nodes[edgeCell[2]]);
+                    else continue;
+                    if (len < minLength) minLength = len;
+                }
+            }
+            return minLength;
+        }
 
-        // Elements 
+        // Elements
         public string[] GetElementSetNames()
         {
             return _elementSets.Keys.ToArray();
@@ -10247,6 +10877,8 @@ namespace CaeMesh
                 cellIds = cellIdsList.ToArray();
                 cells = cellsList.ToArray();
                 cellTypes = cellTypesList.ToArray();
+                if (part.SurfaceOffset != 0)
+                    ApplySurfaceNormalOffset(nodeCoor, cells, part.SurfaceOffset);
             }
             else if (part.PartType == PartType.Wire)
             {
@@ -10268,6 +10900,50 @@ namespace CaeMesh
             else
             {
                 throw new NotSupportedException();
+            }
+        }
+        private static void ApplySurfaceNormalOffset(double[][] nodeCoor, int[][] cells, double offsetFactor)
+        {
+            // Compute bounding box diagonal from the actual display coordinates
+            double minX = double.MaxValue, minY = double.MaxValue, minZ = double.MaxValue;
+            double maxX = -double.MaxValue, maxY = -double.MaxValue, maxZ = -double.MaxValue;
+            foreach (double[] c in nodeCoor)
+            {
+                if (c[0] < minX) minX = c[0]; if (c[0] > maxX) maxX = c[0];
+                if (c[1] < minY) minY = c[1]; if (c[1] > maxY) maxY = c[1];
+                if (c[2] < minZ) minZ = c[2]; if (c[2] > maxZ) maxZ = c[2];
+            }
+            double diagonal = Math.Sqrt(Math.Pow(maxX - minX, 2) + Math.Pow(maxY - minY, 2) + Math.Pow(maxZ - minZ, 2));
+            double offset = diagonal * offsetFactor;
+            if (offset <= 0) return;
+            //
+            double[][] nodeNormals = new double[nodeCoor.Length][];
+            for (int i = 0; i < nodeNormals.Length; i++) nodeNormals[i] = new double[3];
+            foreach (int[] cell in cells)
+            {
+                if (cell.Length < 3) continue;
+                double[] p0 = nodeCoor[cell[0]];
+                double[] p1 = nodeCoor[cell[1]];
+                double[] p2 = nodeCoor[cell[2]];
+                double ax = p1[0] - p0[0], ay = p1[1] - p0[1], az = p1[2] - p0[2];
+                double bx = p2[0] - p0[0], by = p2[1] - p0[1], bz = p2[2] - p0[2];
+                double nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+                for (int k = 0; k < cell.Length; k++)
+                {
+                    nodeNormals[cell[k]][0] += nx;
+                    nodeNormals[cell[k]][1] += ny;
+                    nodeNormals[cell[k]][2] += nz;
+                }
+            }
+            for (int i = 0; i < nodeCoor.Length; i++)
+            {
+                double[] n = nodeNormals[i];
+                double len = Math.Sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+                if (len < 1e-15) continue;
+                double inv = offset / len;
+                nodeCoor[i][0] += n[0] * inv;
+                nodeCoor[i][1] += n[1] * inv;
+                nodeCoor[i][2] += n[2] * inv;
             }
         }
         public void GetNodesAndCellsForModelEdges(FeGroup elementSet, out int[] nodeIds, out double[][] nodeCoor,

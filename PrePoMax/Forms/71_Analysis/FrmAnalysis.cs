@@ -126,11 +126,14 @@ namespace PrePoMax.Forms
             }
             _viewJob.PopulateSolverSettings(new FEMSolverEnum[] { FEMSolverEnum.Calculix,
                                                                   FEMSolverEnum.Abaqus,
-                                                                  FEMSolverEnum.FEMaster},
+                                                                  FEMSolverEnum.FEMaster,
+                                                                  FEMSolverEnum.OpenRadioss},
                                             new string[] { _controller.Settings.Solver.CalculixExe,
                                                            _controller.Settings.Solver.AbaqusExe,
-                                                           _controller.Settings.Solver.FEMasterExe },
+                                                           _controller.Settings.Solver.FEMasterExe,
+                                                           _controller.Settings.Solver.OpenRadiossExe },
                                             new string[] { _controller.Settings.GetWorkDirectory(),
+                                                           _controller.Settings.GetWorkDirectory(),
                                                            _controller.Settings.GetWorkDirectory(),
                                                            _controller.Settings.GetWorkDirectory()});
             //

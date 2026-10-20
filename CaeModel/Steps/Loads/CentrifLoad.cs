@@ -43,7 +43,8 @@ namespace CaeModel
         public EquationContainer N1 { get { return _n1; } set { SetN1(value); } }
         public EquationContainer N2 { get { return _n2; } set { SetN2(value); } }
         public EquationContainer N3 { get { return _n3; } set { SetN3(value); } }
-        public double RotationalSpeed2 { get { return Math.Pow(_rotationalSpeed.Value, 2); } }
+        // The rotational speed is defined in revolutions per second and CalculiX expects rad²/s²
+        public double RotationalSpeed2 { get { return Math.Pow(2 * Math.PI * _rotationalSpeed.Value, 2); } }
         public EquationContainer RotationalSpeed { get { return _rotationalSpeed; } set { SetRotationalSpeed(value); } }
         public bool Axisymmetric
         {
@@ -90,7 +91,7 @@ namespace CaeModel
             N2 = new EquationContainer(typeof(StringLengthConverter), normal[1]);
             N3 = new EquationContainer(typeof(StringLengthConverter), normal[2]);
             //
-            RotationalSpeed = new EquationContainer(typeof(StringRotationalSpeedConverter), rotationalSpeed);
+            RotationalSpeed = new EquationContainer(typeof(StringRotationalFrequencyConverter), rotationalSpeed);
         }
         public CentrifLoad(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -145,14 +146,31 @@ namespace CaeModel
                         else
                             SetN3((EquationContainer)entry.Value, false);
                         break;
+                    case "_rotationalFrequency":
+                        SetRotationalSpeed((EquationContainer)entry.Value, false);
+                        break;
                     case "_rotationalSpeed":
                     case "<RotationalSpeed2>k__BackingField":
+                        // Compatibility for the rotational speed previously defined in rad/s
                         // Compatibility for version v1.4.0
                         if (entry.Value is double valRot)
-                            RotationalSpeed = new EquationContainer(typeof(StringRotationalSpeedConverter),
-                                                                    Math.Sqrt(Math.Abs(valRot)));
+                        {
+                            RotationalSpeed = new EquationContainer(typeof(StringRotationalFrequencyConverter),
+                                                                    Math.Sqrt(Math.Abs(valRot)) / (2 * Math.PI));
+                        }
                         else
-                            SetRotationalSpeed((EquationContainer)entry.Value, false);
+                        {
+                            EquationContainer radPerSecond = (EquationContainer)entry.Value;
+                            if (radPerSecond.IsEquation())
+                            {
+                                SetRotationalSpeed(radPerSecond, false);
+                            }
+                            else
+                            {
+                                RotationalSpeed = new EquationContainer(typeof(StringRotationalFrequencyConverter),
+                                                                        radPerSecond.Value / (2 * Math.PI));
+                            }
+                        }
                         break;
                     case "_axisymmetric":
                         _axisymmetric = (bool)entry.Value; break;
@@ -235,7 +253,7 @@ namespace CaeModel
             info.AddValue("_n1", _n1, typeof(EquationContainer));
             info.AddValue("_n2", _n2, typeof(EquationContainer));
             info.AddValue("_n3", _n3, typeof(EquationContainer));
-            info.AddValue("_rotationalSpeed", _rotationalSpeed, typeof(EquationContainer));
+            info.AddValue("_rotationalFrequency", _rotationalSpeed, typeof(EquationContainer));
             info.AddValue("_axisymmetric", _axisymmetric, typeof(bool));
         }
     }

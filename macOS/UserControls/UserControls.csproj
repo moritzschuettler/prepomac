@@ -113,6 +113,7 @@
     <Compile Include="$(RepoRoot)UserControls\SidePanel\DoubleBufferedPanel.cs" />
     <Compile Include="$(RepoRoot)UserControls\SidePanel\PanelItemLinkLabel.cs" />
     <Compile Include="$(RepoRoot)UserControls\SidePanel\PanelItemLabel.cs" />
+    <Compile Include="$(RepoRoot)UserControls\SidePanel\PanelItemImage.cs" />
     <Compile Include="$(RepoRoot)UserControls\SidePanel\PanelItem.cs" />
     <Compile Include="$(RepoRoot)UserControls\SidePanel\AdvisorPanelState.cs" />
     <Compile Include="$(RepoRoot)UserControls\SidePanel\PanelPage.cs" />

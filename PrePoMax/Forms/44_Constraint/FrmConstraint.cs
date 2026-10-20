@@ -496,7 +496,13 @@ namespace PrePoMax.Forms
                     // Slave
                     if (vrb.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
                     else if (vrb.SlaveRegionType == RegionTypeEnum.NodeSetName.ToFriendlyString())
+                    {
+                        // Include internal node sets referenced by this constraint (e.g. blade aero)
+                        if (vrb.NodeSetName != null && !nodeSetNames.Contains(vrb.NodeSetName) &&
+                            _controller.GetAllNodeSetNames().Contains(vrb.NodeSetName))
+                            nodeSetNames = nodeSetNames.Append(vrb.NodeSetName).ToArray();
                         CheckMissingValueRef(ref nodeSetNames, vrb.NodeSetName, s => { vrb.NodeSetName = s; });
+                    }
                     else if (vrb.SlaveRegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
                         CheckMissingValueRef(ref surfaceNames, vrb.SurfaceName, s => { vrb.SurfaceName = s; });
                     else throw new NotSupportedException();

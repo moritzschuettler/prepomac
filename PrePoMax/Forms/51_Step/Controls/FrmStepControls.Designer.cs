@@ -42,6 +42,7 @@ namespace PrePoMax.Forms
             System.Windows.Forms.TreeNode treeNode2 = new System.Windows.Forms.TreeNode("Time Incrementation");
             System.Windows.Forms.TreeNode treeNode3 = new System.Windows.Forms.TreeNode("Field");
             System.Windows.Forms.TreeNode treeNode4 = new System.Windows.Forms.TreeNode("Contact");
+            System.Windows.Forms.TreeNode treeNode5 = new System.Windows.Forms.TreeNode("Line Search");
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             this.tvProperties = new System.Windows.Forms.TreeView();
             this.propertyGrid = new UserControls.TabEnabledPropertyGrid();
@@ -87,11 +88,15 @@ namespace PrePoMax.Forms
             treeNode4.Name = "Contact";
             treeNode4.Text = "Contact";
             treeNode4.ToolTipText = "Contact";
+            treeNode5.Name = "Line Search";
+            treeNode5.Text = "Line Search";
+            treeNode5.ToolTipText = "Line Search";
             this.tvProperties.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
             treeNode1,
             treeNode2,
             treeNode3,
-            treeNode4});
+            treeNode4,
+            treeNode5});
             this.tvProperties.Size = new System.Drawing.Size(144, 101);
             this.tvProperties.TabIndex = 2;
             this.tvProperties.DoubleClick += new System.EventHandler(this.tvProperties_DoubleClick);

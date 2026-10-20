@@ -29,6 +29,7 @@ namespace CaeMesh
         protected bool _smoothShaded;
         protected BoundingBox _boundingBox;
         protected double[] _offset;
+        protected double _surfaceOffset;
         protected PartMassProperties _massProperties;
         [OptionalField]
         protected GeometryMetadata _geometryMetadata;
@@ -52,6 +53,7 @@ namespace CaeMesh
         public bool SmoothShaded { get { return _smoothShaded; } set { _smoothShaded = value; } }
         public BoundingBox BoundingBox { get { return _boundingBox; } set { _boundingBox = value; } }
         public double[] Offset { get { return _offset; } set { _offset = value; } }
+        public double SurfaceOffset { get { return _surfaceOffset; } set { _surfaceOffset = value; } }
         public PartMassProperties MassProperties { get { return _massProperties; } set { _massProperties = value; } }
         public GeometryMetadata GeometryMetadata { get { return _geometryMetadata; } set { _geometryMetadata = value; } }
         // Where a mesh part was moved to from the geometry it was meshed from; null while it lies on that geometry
@@ -105,6 +107,8 @@ namespace CaeMesh
             _boundingBox = part.BoundingBox.DeepClone();
             //
             if (part.Offset != null) _offset = part.Offset.ToArray();
+            //
+            _surfaceOffset = part.SurfaceOffset;
             //
             _massProperties = part.MassProperties.DeepClone();
             _geometryMetadata = part.GeometryMetadata != null ? part.GeometryMetadata.DeepCopy() : null;

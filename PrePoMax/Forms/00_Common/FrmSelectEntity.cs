@@ -23,7 +23,7 @@ namespace PrePoMax.Forms
 {
     public partial class FrmSelectEntity : UserControls.PrePoMaxChildForm
     {
-        // Variables                                                                                                                
+        // Variables
         private string _selectOneOrMultipleText = "Select one or multiple items";
         private string _selectOneText = "Select one item";
         private string _entityNames;
@@ -33,6 +33,7 @@ namespace PrePoMax.Forms
         private Controller _controller;
         private int _minNumOfEntities;
         private int _maxNumOfEntities;
+        private bool _coordinateFilterAvailable;
 
 
         // Properties                                                                                                               
@@ -112,6 +113,18 @@ namespace PrePoMax.Forms
                     if (selectedEntityNames.Length > _maxNumOfEntities)
                         throw new CaeException("Select at most " + _maxNumOfEntities + " " + _entityNames.ToLower() + ".");
                 }
+                // Apply coordinate filter for single-select element set mode
+                if (_coordinateFilterAvailable && cbFilterByCoordinate.Checked
+                    && !dgvNames.MultiSelect && selectedEntityNames.Length == 1)
+                {
+                    string coordAxis = cbCoordAxis.SelectedItem?.ToString();
+                    double limit = (double)nudCoordLimit.Value;
+                    string filtered = _controller.CreateFilteredElementSet(selectedEntityNames[0], coordAxis, limit);
+                    if (filtered != null)
+                        selectedEntityNames = new string[] { filtered };
+                    else
+                        throw new CaeException("No elements satisfy the coordinate filter.");
+                }
                 // First hide since this form calls itself in the following lines
                 Hide();
                 //
@@ -163,6 +176,14 @@ namespace PrePoMax.Forms
         {
             dgvNames_SelectionChanged(null, null);
         }
+        private void cbFilterByCoordinate_CheckedChanged(object sender, EventArgs e)
+        {
+            bool on = cbFilterByCoordinate.Checked;
+            lCoordAxis.Visible = on;
+            cbCoordAxis.Visible = on;
+            lCoordLimit.Visible = on;
+            nudCoordLimit.Visible = on;
+        }
         private void dgvNames_SelectionChanged(object sender, EventArgs e)
         {
             if (cbHighlight.Checked) _controller.SelectBasePartsInTree(GetSelectedEntityNames());
@@ -179,7 +200,7 @@ namespace PrePoMax.Forms
 
         // Methods                                                                                                                  
         public void PrepareForm(string title, bool multiselect, NamedClass[] entitiesToSelect, string[] preSelectedEntities,
-                                string stepName = null)
+                                string stepName = null, bool enableCoordinateFilter = false)
         {
             // Disable selection
             _controller.SetSelectByToOff();
@@ -197,6 +218,11 @@ namespace PrePoMax.Forms
             //
             _minNumOfEntities = 1;
             _maxNumOfEntities = int.MaxValue;
+            //
+            _coordinateFilterAvailable = enableCoordinateFilter;
+            gbMore.Visible = enableCoordinateFilter;
+            cbFilterByCoordinate.Checked = false;
+            if (cbCoordAxis.SelectedIndex < 0) cbCoordAxis.SelectedIndex = 0;
         }
         private void PreSelectEntityNames()
         {

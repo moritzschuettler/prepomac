@@ -32,6 +32,12 @@ namespace PrePoMax
         [Id(4, 1)]
         public bool Nlgeom { get { return _staticStep.Nlgeom; } set { _staticStep.Nlgeom = value; } }
         //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(4, 10, "Stabilize")]
+        [DescriptionAttribute("Enable automatic stabilization to prevent divergence due to local instabilities (adds viscous damping).")]
+        [Id(5, 1)]
+        public bool Stabilize { get { return _staticStep.Stabilize; } set { _staticStep.Stabilize = value; } }
+        //
         [CategoryAttribute("Incrementation")]
         [OrderedDisplayName(0, 10, "Type")]
         [DescriptionAttribute("Select the incrementation type.")]
@@ -125,6 +131,7 @@ namespace PrePoMax
             //
             _dctd.RenameBooleanPropertyToOnOff(nameof(Nlgeom));
             _dctd.RenameBooleanPropertyToOnOff(nameof(Direct));
+            _dctd.RenameBooleanPropertyToOnOff(nameof(Stabilize));
         }
         public override void UpdateVisibility()
         {

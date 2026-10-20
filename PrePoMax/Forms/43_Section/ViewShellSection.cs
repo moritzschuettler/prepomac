@@ -46,6 +46,29 @@ namespace PrePoMax
             get { return _shellSection.Offset.Equation; }
             set { _shellSection.Offset.Equation = value; }
         }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(4, 10, "Composites")]
+        [DescriptionAttribute("Enable composites mode to write the orientation angle to the shell section in the INP file.")]
+        public bool Composites
+        {
+            get { return _shellSection.Composites; }
+            set
+            {
+                _shellSection.Composites = value;
+                base.DynamicCustomTypeDescriptor.GetProperty(nameof(Angle)).SetIsBrowsable(value);
+            }
+        }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(5, 10, "Angle [deg]")]
+        [DescriptionAttribute("Set the material orientation angle of the shell section in degrees. Default is 0.")]
+        [TypeConverter(typeof(EquationDoubleConverter))]
+        public EquationString Angle
+        {
+            get { return _shellSection.Angle.Equation; }
+            set { _shellSection.Angle.Equation = value; }
+        }
 
 
         // Constructors                                                                                                             
@@ -53,6 +76,9 @@ namespace PrePoMax
         {
             _shellSection = shellSection;
             SetBase(_shellSection);
+            //
+            base.DynamicCustomTypeDescriptor.RenameBooleanPropertyToYesNo(nameof(Composites));
+            base.DynamicCustomTypeDescriptor.GetProperty(nameof(Angle)).SetIsBrowsable(shellSection.Composites);
         }
 
 

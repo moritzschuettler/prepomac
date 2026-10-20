@@ -1059,5 +1059,35 @@ namespace PrePoMax.Properties {
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap Advisor_Stacking_Sequence {
+            get {
+                object obj = ResourceManager.GetObject("Advisor_Stacking_Sequence", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap Advisor_Rosette {
+            get {
+                object obj = ResourceManager.GetObject("Advisor_Rosette", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap Advisor_Draping {
+            get {
+                object obj = ResourceManager.GetObject("Advisor_Draping", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
     }
 }

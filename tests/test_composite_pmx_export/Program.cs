@@ -93,6 +93,9 @@ namespace TestCompositeTensileCouponExport
                 layup.Plies[0] = new Ply("Ply-1", elsetName, matName, 0.3, "<layup>", 0.0);
                 layup.Plies[1] = new Ply("Ply-2", elsetName, matName, 0.3, "<layup>", 45.0);
                 layup.Plies[2] = new Ply("Ply-3", elsetName, matName, 0.3, "<layup>", -45.0);
+                // Remove any layup imported from the ABQ file so the test defines its own
+                if (model.CompositeLayups.ContainsKey(layup.Name))
+                    model.CompositeLayups.Remove(layup.Name);
                 model.CompositeLayups.Add(layup.Name, layup);
 
                 Console.WriteLine($"  Layup '{layup.Name}': {layup.Plies.Count} plies, region '{elsetName}'");
@@ -104,7 +107,9 @@ namespace TestCompositeTensileCouponExport
                 Console.WriteLine();
 
                 Console.WriteLine("Step 5: Verifying INP output...");
-                bool passed = VerifyOutput(outputInpFile, elsetName);
+                // The region covers the whole part, so the writer may reference the part set directly
+                string partName = model.Mesh.Parts.Keys.First();
+                bool passed = VerifyOutput(outputInpFile, new string[] { elsetName, partName });
 
                 Console.WriteLine();
                 if (passed)
@@ -133,12 +138,17 @@ namespace TestCompositeTensileCouponExport
             }
         }
 
-        static bool VerifyOutput(string inpFile, string expectedElset)
+        static bool VerifyOutput(string inpFile, string[] acceptedElsets)
         {
             string content = File.ReadAllText(inpFile);
             string[] lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
             bool passed = true;
+
+            Func<string, bool> isExpectedSectionLine = l =>
+                l.TrimStart().StartsWith("*Shell section", StringComparison.OrdinalIgnoreCase) &&
+                l.IndexOf("Composite", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                acceptedElsets.Any(e => l.IndexOf($"Elset={e}", StringComparison.OrdinalIgnoreCase) >= 0);
 
             // 1. No redundant ITA element set should be generated
             bool hasItaElset = lines.Any(l =>
@@ -158,15 +168,12 @@ namespace TestCompositeTensileCouponExport
                 Console.WriteLine("  PASS: No redundant ITA element sets.");
             }
 
-            // 2. Shell section must reference the existing element set directly
-            string expectedSectionLine = $"Elset={expectedElset}";
-            bool hasSectionWithElset = lines.Any(l =>
-                l.TrimStart().StartsWith("*Shell section", StringComparison.OrdinalIgnoreCase) &&
-                l.IndexOf("Composite", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                l.IndexOf(expectedSectionLine, StringComparison.OrdinalIgnoreCase) >= 0);
+            // 2. Shell section must reference an existing element set directly
+            bool hasSectionWithElset = lines.Any(l => isExpectedSectionLine(l));
             if (!hasSectionWithElset)
             {
-                Console.WriteLine($"  FAIL: No composite shell section with 'Elset={expectedElset}' found.");
+                Console.WriteLine($"  FAIL: No composite shell section with Elset in " +
+                    $"[{string.Join(", ", acceptedElsets)}] found.");
                 foreach (var l in lines.Where(l =>
                     l.TrimStart().StartsWith("*Shell section", StringComparison.OrdinalIgnoreCase)))
                     Console.WriteLine("        " + l);
@@ -174,7 +181,7 @@ namespace TestCompositeTensileCouponExport
             }
             else
             {
-                Console.WriteLine($"  PASS: *Shell section uses Elset={expectedElset}.");
+                Console.WriteLine($"  PASS: *Shell section uses an accepted element set.");
             }
 
             // 3. Exactly 3 orientation cards (one per ply)
@@ -197,9 +204,7 @@ namespace TestCompositeTensileCouponExport
             int plyLineCount = 0;
             foreach (var line in lines)
             {
-                if (line.TrimStart().StartsWith("*Shell section", StringComparison.OrdinalIgnoreCase) &&
-                    line.IndexOf("Composite", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                    line.IndexOf(expectedSectionLine, StringComparison.OrdinalIgnoreCase) >= 0)
+                if (isExpectedSectionLine(line))
                 {
                     insideSection = true;
                     continue;

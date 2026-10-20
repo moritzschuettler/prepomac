@@ -38,6 +38,24 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Numerics" />
+    <Reference Include="PureHDF, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null, processorArchitecture=MSIL">
+      <HintPath>..\packages\PureHDF.1.0.1\lib\netstandard2.0\PureHDF.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+    </Reference>
     <Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.ValueTuple.4.5.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
     </Reference>
@@ -51,12 +69,30 @@
   <ItemGroup>
     <Compile Include="Amplitudes\Amplitude.cs" />
     <Compile Include="Amplitudes\AmplitudeTabular.cs" />
+    <Compile Include="Composite\CompositeCaeData.cs" />
+    <Compile Include="Composite\CompositeCaeH5Reader.cs" />
+    <Compile Include="Composite\CompositeCaeImporter.cs" />
+    <Compile Include="Composite\CompositeCaeMapper.cs" />
+    <Compile Include="Composite\CompositeCaeMeshBuilder.cs" />
+    <Compile Include="Composite\CompositeGeometry.cs" />
     <Compile Include="Composite\CompositeLayup.cs" />
+    <Compile Include="Composite\GeometrySurfaceRegionMapper.cs" />
+    <Compile Include="Composite\PlySurfaceSampler.cs" />
     <Compile Include="Composite\DiscreteOrientationsData.cs" />
     <Compile Include="Composite\DiscreteOrientationsXmlReader.cs" />
     <Compile Include="Composite\KinDrape.cs" />
     <Compile Include="Composite\Ply.cs" />
-    <Compile Include="Composite\CompositeLayupZones.cs" />
+    <Compile Include="Composite\DiscreteOrientationsWriter.cs" />
+    <Compile Include="FileInOut\Output\Calculix\CompositeLayupWriter.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalLayupOrientation.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalLayupShellSection.cs" />
+    <Compile Include="Composite\KdTree3D.cs" />
+    <Compile Include="Composite\Rosette.cs" />
+    <Compile Include="Composite\RosetteEvaluator.cs" />
+    <Compile Include="Composite\StepCurveReader.cs" />
+    <Compile Include="Composite\TapeGeodesicMesh.cs" />
+    <Compile Include="Composite\GeodesicTracer.cs" />
+    <Compile Include="Composite\TapePropagation.cs" />
     <Compile Include="Constraints\PointSpringData.cs" />
     <Compile Include="Constraints\SpringConstraint.cs" />
     <Compile Include="Constraints\SurfaceSpring.cs" />
@@ -73,6 +109,7 @@
     <Compile Include="FileInOut\Input\Mmg\MmgFileReader.cs" />
     <Compile Include="FileInOut\Input\ObjFileReader\ObjFileReader.cs" />
     <Compile Include="FileInOut\Output\Abaqus\AbaqusFileWriter.cs" />
+    <Compile Include="FileInOut\Output\OpenRadioss\OpenRadiossFileWriter.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqElement.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqSurface.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\Constraints\AbqRigidBody.cs" />
@@ -107,6 +144,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Controls\CalContactParameter.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Controls\CalResetParameter.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Controls\CalFieldParameter.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Controls\CalLineSearchParameter.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Controls\CalTimeIncrementationParameter.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalSteadyStateDynamicsStep.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\CalDynamicStep.cs" />
@@ -123,6 +161,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\CalContactPair.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalShellSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalCompositeShellSection.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalCompositeSolidSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalSpecificHeat.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalThermalConductivity.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalThermalExpansion.cs" />
@@ -169,6 +208,10 @@
     <Compile Include="Materials\ThermalConductivity.cs" />
     <Compile Include="Materials\ThermalExpansion.cs" />
     <Compile Include="Materials\ElasticWithDensity.cs" />
+    <Compile Include="Materials\Hyperelastic.cs" />
+    <Compile Include="Materials\HyperelasticNeoHooke.cs" />
+    <Compile Include="Materials\HyperelasticOgden.cs" />
+    <Compile Include="Materials\Hyperfoam.cs" />
     <Compile Include="ModelProperties.cs" />
     <Compile Include="Parameters\EquationParameter.cs" />
     <Compile Include="Parameters\EquationParameterCollection.cs" />
@@ -206,6 +249,7 @@
     <Compile Include="Constraints\Constraint.cs" />
     <Compile Include="FeModel.cs" />
     <Compile Include="Steps\Controls\ContactStepControlParameter.cs" />
+    <Compile Include="Steps\Controls\LineSearchStepControlParameter.cs" />
     <Compile Include="Steps\Controls\ResetStepControlParameter.cs" />
     <Compile Include="Steps\Controls\StepControls.cs" />
     <Compile Include="Steps\Controls\TimeIncrementationStepControlParameter - Copy.cs" />
@@ -261,6 +305,10 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalElasticLamina.cs" />
     <Compile Include="FileInOut\Output\Calculix\CalDistributingWeights.cs" />
     <Compile Include="FileInOut\Output\Calculix\CalReferencePoint.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalHyperelastic.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalHyperelasticNeoHooke.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalHyperelasticOgden.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalHyperfoam.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalRigidBody.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalSolidSection.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalMaterial.cs" />
@@ -307,6 +355,12 @@
     <Compile Include="Steps\Loads\CLoad.cs" />
     <Compile Include="Steps\Loads\DLoad.cs" />
     <Compile Include="Steps\Loads\Load.cs" />
+    <Compile Include="Steps\Loads\BladeAeroSection.cs" />
+    <Compile Include="Steps\Loads\BladeAeroPressureSection.cs" />
+    <Compile Include="Steps\Loads\BladeAeroAlgorithm.cs" />
+    <Compile Include="Steps\Loads\BladeAeroLoad.cs" />
+    <Compile Include="Steps\Loads\BladeAeroPressureLoad.cs" />
+    <Compile Include="Steps\Loads\BladeAeroTableRow.cs" />
     <Compile Include="Materials\Density.cs" />
     <Compile Include="Materials\Plastic.cs" />
     <Compile Include="Materials\Elastic.cs" />

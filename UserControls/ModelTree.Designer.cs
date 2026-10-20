@@ -76,6 +76,7 @@ namespace UserControls
             System.Windows.Forms.TreeNode treeNode20 = new System.Windows.Forms.TreeNode("Materials");
             System.Windows.Forms.TreeNode treeNode21 = new System.Windows.Forms.TreeNode("Sections");
             System.Windows.Forms.TreeNode treeNode44 = new System.Windows.Forms.TreeNode("Material Orientations");
+            System.Windows.Forms.TreeNode treeNode21c = new System.Windows.Forms.TreeNode("Rosettes");
             System.Windows.Forms.TreeNode treeNode22 = new System.Windows.Forms.TreeNode("Constraints");
             System.Windows.Forms.TreeNode treeNode23 = new System.Windows.Forms.TreeNode("Surface Interactions");
             System.Windows.Forms.TreeNode treeNode24 = new System.Windows.Forms.TreeNode("Contact Pairs");
@@ -148,8 +149,23 @@ namespace UserControls
             this.tsmiMergeParts = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceConvertToPart = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiConvertToPart = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSpaceExtractShellMesh = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiExtractShellMesh = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSpaceExtrudeShellFromSections = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiExtrudeShellFromSections = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSpaceExtrudeShellUniform = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiExtrudeShellUniform = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSpaceCreateElementSetFromBox = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiCreateElementSetFromBox = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceMaterialLibrary = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiMaterialLibrary = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSpaceImportCompositeLayupsFromCsv = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiImportCompositeLayupsFromCsv = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiImportCompositeLayupFromH5 = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSpaceImportRosetteFromStep = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiImportRosetteFromStep = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSpaceCreateElementSetFromSurface = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiCreateElementSetFromSurface = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceSearchContactPairs = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiSearchContactPairs = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSpaceSwapMergeMasterSlave = new System.Windows.Forms.ToolStripSeparator();
@@ -232,8 +248,23 @@ namespace UserControls
             this.tsmiMergeParts,
             this.tsmiSpaceConvertToPart,
             this.tsmiConvertToPart,
+            this.tsmiSpaceExtractShellMesh,
+            this.tsmiExtractShellMesh,
+            this.tsmiSpaceExtrudeShellFromSections,
+            this.tsmiExtrudeShellFromSections,
+            this.tsmiSpaceExtrudeShellUniform,
+            this.tsmiExtrudeShellUniform,
+            this.tsmiSpaceCreateElementSetFromBox,
+            this.tsmiCreateElementSetFromBox,
             this.tsmiSpaceMaterialLibrary,
             this.tsmiMaterialLibrary,
+            this.tsmiSpaceImportCompositeLayupsFromCsv,
+            this.tsmiImportCompositeLayupsFromCsv,
+            this.tsmiImportCompositeLayupFromH5,
+            this.tsmiSpaceImportRosetteFromStep,
+            this.tsmiImportRosetteFromStep,
+            this.tsmiSpaceCreateElementSetFromSurface,
+            this.tsmiCreateElementSetFromSurface,
             this.tsmiSpaceSearchContactPairs,
             this.tsmiSearchContactPairs,
             this.tsmiSpaceSwapMergeMasterSlave,
@@ -415,7 +446,55 @@ namespace UserControls
             this.tsmiConvertToPart.Size = new System.Drawing.Size(211, 22);
             this.tsmiConvertToPart.Text = "Convert to Part";
             this.tsmiConvertToPart.Click += new System.EventHandler(this.tsmiConvertToPart_Click);
-            // 
+            //
+            // tsmiSpaceExtractShellMesh
+            //
+            this.tsmiSpaceExtractShellMesh.Name = "tsmiSpaceExtractShellMesh";
+            this.tsmiSpaceExtractShellMesh.Size = new System.Drawing.Size(208, 6);
+            //
+            // tsmiExtractShellMesh
+            //
+            this.tsmiExtractShellMesh.Name = "tsmiExtractShellMesh";
+            this.tsmiExtractShellMesh.Size = new System.Drawing.Size(211, 22);
+            this.tsmiExtractShellMesh.Text = "Extract Shell Mesh";
+            this.tsmiExtractShellMesh.Click += new System.EventHandler(this.tsmiExtractShellMesh_Click);
+            //
+            // tsmiSpaceExtrudeShellFromSections
+            //
+            this.tsmiSpaceExtrudeShellFromSections.Name = "tsmiSpaceExtrudeShellFromSections";
+            this.tsmiSpaceExtrudeShellFromSections.Size = new System.Drawing.Size(208, 6);
+            //
+            // tsmiExtrudeShellFromSections
+            //
+            this.tsmiExtrudeShellFromSections.Name = "tsmiExtrudeShellFromSections";
+            this.tsmiExtrudeShellFromSections.Size = new System.Drawing.Size(211, 22);
+            this.tsmiExtrudeShellFromSections.Text = "Extrude Shell Mesh from Sections";
+            this.tsmiExtrudeShellFromSections.Click += new System.EventHandler(this.tsmiExtrudeShellFromSections_Click);
+            //
+            // tsmiSpaceExtrudeShellUniform
+            //
+            this.tsmiSpaceExtrudeShellUniform.Name = "tsmiSpaceExtrudeShellUniform";
+            this.tsmiSpaceExtrudeShellUniform.Size = new System.Drawing.Size(208, 6);
+            //
+            // tsmiExtrudeShellUniform
+            //
+            this.tsmiExtrudeShellUniform.Name = "tsmiExtrudeShellUniform";
+            this.tsmiExtrudeShellUniform.Size = new System.Drawing.Size(211, 22);
+            this.tsmiExtrudeShellUniform.Text = "Create Solids by Extrusion";
+            this.tsmiExtrudeShellUniform.Click += new System.EventHandler(this.tsmiExtrudeShellUniform_Click);
+            //
+            // tsmiSpaceCreateElementSetFromBox
+            //
+            this.tsmiSpaceCreateElementSetFromBox.Name = "tsmiSpaceCreateElementSetFromBox";
+            this.tsmiSpaceCreateElementSetFromBox.Size = new System.Drawing.Size(208, 6);
+            //
+            // tsmiCreateElementSetFromBox
+            //
+            this.tsmiCreateElementSetFromBox.Name = "tsmiCreateElementSetFromBox";
+            this.tsmiCreateElementSetFromBox.Size = new System.Drawing.Size(211, 22);
+            this.tsmiCreateElementSetFromBox.Text = "Create Element Set From Box";
+            this.tsmiCreateElementSetFromBox.Click += new System.EventHandler(this.tsmiCreateElementSetFromBox_Click);
+            //
             // tsmiSpaceMaterialLibrary
             // 
             this.tsmiSpaceMaterialLibrary.Name = "tsmiSpaceMaterialLibrary";
@@ -428,7 +507,50 @@ namespace UserControls
             this.tsmiMaterialLibrary.Size = new System.Drawing.Size(211, 22);
             this.tsmiMaterialLibrary.Text = "Material Library";
             this.tsmiMaterialLibrary.Click += new System.EventHandler(this.tsmiMaterialLibrary_Click);
-            // 
+            //
+            // tsmiSpaceImportCompositeLayupsFromCsv
+            //
+            this.tsmiSpaceImportCompositeLayupsFromCsv.Name = "tsmiSpaceImportCompositeLayupsFromCsv";
+            this.tsmiSpaceImportCompositeLayupsFromCsv.Size = new System.Drawing.Size(208, 6);
+            //
+            // tsmiImportCompositeLayupsFromCsv
+            //
+            this.tsmiImportCompositeLayupsFromCsv.Name = "tsmiImportCompositeLayupsFromCsv";
+            this.tsmiImportCompositeLayupsFromCsv.Size = new System.Drawing.Size(211, 22);
+            this.tsmiImportCompositeLayupsFromCsv.Text = "Import from CSV...";
+            this.tsmiImportCompositeLayupsFromCsv.Click += new System.EventHandler(this.tsmiImportCompositeLayupsFromCsv_Click);
+            //
+            // tsmiImportCompositeLayupFromH5
+            //
+            this.tsmiImportCompositeLayupFromH5.Name = "tsmiImportCompositeLayupFromH5";
+            this.tsmiImportCompositeLayupFromH5.Size = new System.Drawing.Size(211, 22);
+            this.tsmiImportCompositeLayupFromH5.Text = "Import from HDF5...";
+            this.tsmiImportCompositeLayupFromH5.Click += new System.EventHandler(this.tsmiImportCompositeLayupFromH5_Click);
+            //
+            // tsmiSpaceImportRosetteFromStep
+            //
+            this.tsmiSpaceImportRosetteFromStep.Name = "tsmiSpaceImportRosetteFromStep";
+            this.tsmiSpaceImportRosetteFromStep.Size = new System.Drawing.Size(208, 6);
+            //
+            // tsmiImportRosetteFromStep
+            //
+            this.tsmiImportRosetteFromStep.Name = "tsmiImportRosetteFromStep";
+            this.tsmiImportRosetteFromStep.Size = new System.Drawing.Size(211, 22);
+            this.tsmiImportRosetteFromStep.Text = "Import curves from STEP...";
+            this.tsmiImportRosetteFromStep.Click += new System.EventHandler(this.tsmiImportRosetteFromStep_Click);
+            //
+            // tsmiSpaceCreateElementSetFromSurface
+            //
+            this.tsmiSpaceCreateElementSetFromSurface.Name = "tsmiSpaceCreateElementSetFromSurface";
+            this.tsmiSpaceCreateElementSetFromSurface.Size = new System.Drawing.Size(208, 6);
+            //
+            // tsmiCreateElementSetFromSurface
+            //
+            this.tsmiCreateElementSetFromSurface.Name = "tsmiCreateElementSetFromSurface";
+            this.tsmiCreateElementSetFromSurface.Size = new System.Drawing.Size(211, 22);
+            this.tsmiCreateElementSetFromSurface.Text = "Create from Geometrical Surface...";
+            this.tsmiCreateElementSetFromSurface.Click += new System.EventHandler(this.tsmiCreateElementSetFromSurface_Click);
+            //
             // tsmiSpaceSearchContactPairs
             // 
             this.tsmiSpaceSearchContactPairs.Name = "tsmiSpaceSearchContactPairs";
@@ -847,7 +969,8 @@ namespace UserControls
             treeNode11.ToolTipText = "Mesh Setup";
             this.cltvGeometry.Nodes.AddRange(new System.Windows.Forms.TreeNode[] {
             treeNode10,
-            treeNode11});
+            treeNode11,
+            treeNode21c});
             this.cltvGeometry.RelatedColor = System.Drawing.Color.FromArgb(((int)(((byte)(235)))), ((int)(((byte)(223)))), ((int)(((byte)(235)))));
             this.cltvGeometry.SelectedImageIndex = 0;
             this.cltvGeometry.SelectionBackColor = System.Drawing.SystemColors.Highlight;
@@ -966,6 +1089,11 @@ namespace UserControls
             treeNode44.SelectedImageKey = "CoordinateSystem.ico";
             treeNode44.Text = "Material Orientations";
             treeNode44.ToolTipText = "Material Orientations";
+            treeNode21c.ImageKey = "CoordinateSystem.ico";
+            treeNode21c.Name = "Rosettes";
+            treeNode21c.SelectedImageKey = "CoordinateSystem.ico";
+            treeNode21c.Text = "Rosettes";
+            treeNode21c.ToolTipText = "Rosettes";
             treeNode22.ImageKey = "Constraints.ico";
             treeNode22.Name = "Constraints";
             treeNode22.SelectedImageKey = "Constraints.ico";
@@ -1230,10 +1358,25 @@ namespace UserControls
         private System.Windows.Forms.ToolStripMenuItem tsmiColorContoursOn;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceMaterialLibrary;
         private System.Windows.Forms.ToolStripMenuItem tsmiMaterialLibrary;
+        private System.Windows.Forms.ToolStripSeparator tsmiSpaceImportCompositeLayupsFromCsv;
+        private System.Windows.Forms.ToolStripMenuItem tsmiImportCompositeLayupsFromCsv;
+        private System.Windows.Forms.ToolStripMenuItem tsmiImportCompositeLayupFromH5;
+        private System.Windows.Forms.ToolStripSeparator tsmiSpaceImportRosetteFromStep;
+        private System.Windows.Forms.ToolStripMenuItem tsmiImportRosetteFromStep;
+        private System.Windows.Forms.ToolStripSeparator tsmiSpaceCreateElementSetFromSurface;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCreateElementSetFromSurface;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceMergeParts;
         private System.Windows.Forms.ToolStripMenuItem tsmiMergeParts;
         private System.Windows.Forms.ToolStripSeparator tsmiSpaceConvertToPart;
         private System.Windows.Forms.ToolStripMenuItem tsmiConvertToPart;
+        private System.Windows.Forms.ToolStripSeparator tsmiSpaceExtractShellMesh;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExtractShellMesh;
+        private System.Windows.Forms.ToolStripSeparator tsmiSpaceExtrudeShellFromSections;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExtrudeShellFromSections;
+        private System.Windows.Forms.ToolStripSeparator tsmiSpaceExtrudeShellUniform;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExtrudeShellUniform;
+        private System.Windows.Forms.ToolStripSeparator tsmiSpaceCreateElementSetFromBox;
+        private System.Windows.Forms.ToolStripMenuItem tsmiCreateElementSetFromBox;
         private System.Windows.Forms.ToolStripMenuItem tsmiShowOnly;
         private System.Windows.Forms.ToolStripMenuItem tsmiSetTransparency;
         private System.Windows.Forms.ToolStripMenuItem tsmiPreviewEdgeMesh;

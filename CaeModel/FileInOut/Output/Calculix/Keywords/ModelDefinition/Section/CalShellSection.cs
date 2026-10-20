@@ -56,7 +56,13 @@ namespace FileInOut.Output.Calculix
         }
         public override string GetDataString()
         {
-            return string.Format("{0}{1}", _section.Thickness.Value.ToCalculiX16String(), Environment.NewLine);
+            StringBuilder sb = new StringBuilder();
+            sb.Append(_section.Thickness.Value.ToCalculiX16String());
+            double angle = _section.Angle.Value;
+            if (_section.Composites && !double.IsNaN(angle) && angle != 0)
+                sb.AppendFormat(", {0}", angle.ToCalculiX16String());
+            sb.AppendLine();
+            return sb.ToString();
         }
     }
 }

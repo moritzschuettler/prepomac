@@ -31,6 +31,7 @@ namespace PrePoMax
         private bool _binaryResultsFile;
         private string _abaqusExe;
         private string _femasterExe;
+        private string _openRadiossExe;
         public static string NonEnglishDirectoryWarning = "The selected work directory path contains non-English characters. " +
                                                           "Some program features might not work as expected.";
 
@@ -107,6 +108,12 @@ namespace PrePoMax
             get { return Tools.GetGlobalPath(_femasterExe); }
             set { _femasterExe = SetExecutable(value, "FEMaster"); }
         }
+        // The OpenRadioss starter; the engine is the program of the same name with engine for starter beside it
+        public string OpenRadiossExe
+        {
+            get { return Tools.GetGlobalPath(_openRadiossExe); }
+            set { _openRadiossExe = SetExecutable(value, "OpenRadioss"); }
+        }
 
 
         // Constructors
@@ -138,6 +145,7 @@ namespace PrePoMax
             _binaryResultsFile = false;
             _abaqusExe = null;
             _femasterExe = null;
+            _openRadiossExe = null;
         }
         private static string SetExecutable(string value, string solverName)
         {

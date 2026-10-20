@@ -104,10 +104,13 @@ namespace WinFormsCompat.Native
             else
             {
                 window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                window.Topmost = true;
                 window.Show();
             }
             try { Application.RunModal(() => closed); }
             finally { OpenButtons = previousButtons; }
+            if (Environment.GetEnvironmentVariable("PPM_TRACE") == "1")
+                Console.Error.WriteLine("[messagebox] returned " + result + " closed " + closed);
             if (result == DialogResult.None)
                 result = list.Exists(b => b.Result == DialogResult.Cancel) ? DialogResult.Cancel :
                          list.Count == 1 ? list[0].Result : DialogResult.None;
@@ -116,12 +119,15 @@ namespace WinFormsCompat.Native
 
         private static Window ActiveWindow()
         {
+            // A borderless form, such as the splash screen, closes by itself; Avalonia closes the owned windows with
+            // their owner, so it would close the question unanswered
+            Func<Form, bool> canOwn = f => f?.Window != null && f.Window.IsVisible && f.FormBorderStyle != FormBorderStyle.None;
             Form active = Form.ActiveForm;
-            if (active?.Window != null && active.Window.IsVisible) return active.Window;
+            if (canOwn(active)) return active.Window;
             for (int i = Application.OpenForms.Count - 1; i >= 0; i--)
             {
                 Form f = Application.OpenForms[i];
-                if (f.Window != null && f.Window.IsVisible) return f.Window;
+                if (canOwn(f)) return f.Window;
             }
             return null;
         }

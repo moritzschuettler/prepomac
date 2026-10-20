@@ -19,24 +19,49 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    public enum CompositeMaterialType
+    {
+        None,
+        Unidirectional,
+        Biaxial,
+        Triaxial,
+        NCF
+    }
+
+    [Serializable]
     public class Material : NamedClass
     {
-        // Variables                                                                                                                
+        // Variables
         private string _description;
         private bool _temperatureDependent;
+        private CompositeMaterialType _compositeMaterialType;
+        private double? _width;
         private List<MaterialProperty> _properties;
 
 
-        // Properties                                                                                                               
+        // Properties
         public string Description { get { return _description; } set { _description = value; } }
         public bool TemperatureDependent { get { return _temperatureDependent; } set { _temperatureDependent = value; } }
+        public CompositeMaterialType CompositeMaterialType
+        {
+            get { return _compositeMaterialType; }
+            set { _compositeMaterialType = value; }
+        }
+        // Tow / tape / fabric width of a composite material; null when it is not defined
+        public double? Width
+        {
+            get { return _width; }
+            set { _width = value; }
+        }
         public List<MaterialProperty> Properties { get { return _properties; } }
 
 
-        // Constructors                                                                                                             
+        // Constructors
         public Material(string name)
             : base(name, new HashSet<char>() { '@', '/' })
         {
+            _compositeMaterialType = CompositeMaterialType.None;
+            _width = null;
             _properties = new List<MaterialProperty>();
         }
 

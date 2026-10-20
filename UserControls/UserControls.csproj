@@ -288,6 +288,7 @@
     </Compile>
     <Compile Include="SidePanel\PanelItemLinkLabel.cs" />
     <Compile Include="SidePanel\PanelItemLabel.cs" />
+    <Compile Include="SidePanel\PanelItemImage.cs" />
     <Compile Include="SidePanel\PanelItem.cs" />
     <Compile Include="SidePanel\AdvisorPanelState.cs" />
     <Compile Include="SidePanel\PanelPage.cs" />

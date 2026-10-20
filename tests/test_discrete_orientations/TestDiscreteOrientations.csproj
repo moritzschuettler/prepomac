@@ -47,6 +47,10 @@
       <Project>{104caebc-0761-4850-a97d-3fc59116c5b6}</Project>
       <Name>CaeGlobals</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\CaeMesh\CaeMesh.csproj">
+      <Project>{69d01fc1-1bc1-4470-b371-84d22282be98}</Project>
+      <Name>CaeMesh</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\CaeModel\CaeModel.csproj">
       <Project>{65e5ee18-b889-42ad-a775-ba5674abe1dd}</Project>
       <Name>CaeModel</Name>

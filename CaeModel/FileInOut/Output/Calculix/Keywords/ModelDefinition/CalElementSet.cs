@@ -20,7 +20,7 @@ namespace FileInOut.Output.Calculix
     [Serializable]
     internal class CalElementSet : CalculixKeyword
     {
-        // Variables                                                                                                                
+        // Variables
         private FeGroup _elementSet;
         private string[] _partNames;
 
@@ -28,7 +28,7 @@ namespace FileInOut.Output.Calculix
         // Properties                                                                                                               
 
 
-        // Constructor                                                                                                              
+        // Constructors
         public CalElementSet(FeGroup elementSet)
             : this(elementSet, null)
         {
@@ -41,8 +41,7 @@ namespace FileInOut.Output.Calculix
             else _partNames = null;
         }
 
-
-        // Methods                                                                                                                  
+        // Methods
         public override string GetKeywordString()
         {
             return string.Format("*Elset, Elset={0}{1}", _elementSet.Name, Environment.NewLine);

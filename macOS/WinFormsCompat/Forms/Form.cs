@@ -132,12 +132,13 @@ namespace System.Windows.Forms
         {
             Toolkit.EnsureInitialized();
             _mainLoop = new CancellationTokenSource();
+            // The automation runs from the start: the main form can ask questions while it loads
+            Automation.Start();
             if (mainForm != null)
             {
                 mainForm.FormClosed += (s, e) => _mainLoop?.Cancel();
                 mainForm.Show();
             }
-            Automation.Start();
             DispatcherTimer idle = new DispatcherTimer(TimeSpan.FromMilliseconds(100), DispatcherPriority.ApplicationIdle,
                                                        (s, e) => RaiseIdle());
             idle.Start();

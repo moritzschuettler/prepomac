@@ -261,6 +261,13 @@ namespace System.Windows.Forms
             double scaling = DesktopScaling(topLevel);
             return new System.Drawing.Point((int)Math.Round(p.X / scaling), (int)Math.Round(p.Y / scaling));
         }
+        // WinForms lets other threads change controls (it checks only under the debugger), Avalonia does not: the
+        // change is made on the UI thread, which the calling thread waits for
+        internal static void OnUiThread(Action action)
+        {
+            if (Dispatcher.UIThread.CheckAccess()) action();
+            else Dispatcher.UIThread.Invoke(action);
+        }
         internal static double DesktopScaling(AC.TopLevel topLevel)
         {
             return topLevel is AC.WindowBase window ? window.DesktopScaling : topLevel?.RenderScaling ?? 1.0;

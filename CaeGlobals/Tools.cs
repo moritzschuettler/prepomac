@@ -245,6 +245,7 @@ namespace CaeGlobals
         {
             try
             {
+                if (Environment.OSVersion.Platform != PlatformID.Win32NT) return false;
                 string[] tmp = GetWindowsName().Split(new string[] {" "}, StringSplitOptions.RemoveEmptyEntries);
                 double version;
 
@@ -265,7 +266,7 @@ namespace CaeGlobals
 
             try
             {
-                stream = fileInfo.Open(FileMode.Open, FileAccess.Read, FileShare.None);
+                stream = fileInfo.Open(FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             }
             catch (IOException)
             {

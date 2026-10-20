@@ -47,6 +47,7 @@ namespace PrePoMax.Forms
             System.Windows.Forms.ListViewItem listViewItem8 = new System.Windows.Forms.ListViewItem("Distance");
             System.Windows.Forms.ListViewItem listViewItem9 = new System.Windows.Forms.ListViewItem("Angle");
             System.Windows.Forms.ListViewItem listViewItem10 = new System.Windows.Forms.ListViewItem("Circle");
+            System.Windows.Forms.ListViewItem listViewItem11 = new System.Windows.Forms.ListViewItem("Core Sampling");
             this.btnClose = new System.Windows.Forms.Button();
             this.gbItem = new System.Windows.Forms.GroupBox();
             this.lvQueries = new UserControls.ListViewWithSelection();
@@ -101,6 +102,7 @@ namespace PrePoMax.Forms
             listViewItem8.ToolTipText = "Distance";
             listViewItem9.ToolTipText = "Angle";
             listViewItem10.ToolTipText = "Circle";
+            listViewItem11.ToolTipText = "Core Sampling";
             this.lvQueries.Items.AddRange(new System.Windows.Forms.ListViewItem[] {
             listViewItem1,
             listViewItem2,
@@ -111,7 +113,8 @@ namespace PrePoMax.Forms
             listViewItem7,
             listViewItem8,
             listViewItem9,
-            listViewItem10});
+            listViewItem10,
+            listViewItem11});
             this.lvQueries.Location = new System.Drawing.Point(6, 22);
             this.lvQueries.MultiSelect = false;
             this.lvQueries.Name = "lvQueries";

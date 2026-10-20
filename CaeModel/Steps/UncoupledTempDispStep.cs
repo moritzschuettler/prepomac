@@ -81,7 +81,8 @@ namespace CaeModel
                 loadType == typeof(DFlux) ||
                 loadType == typeof(BodyFlux) ||
                 loadType == typeof(FilmHeatTransfer) ||
-                loadType == typeof(RadiationHeatTransfer))
+                loadType == typeof(RadiationHeatTransfer) ||
+                loadType == typeof(BladeAeroLoad))
             {
                 return true;
             }

@@ -207,6 +207,7 @@
     <Compile Include="$(RepoRoot)CaeMesh\Nodes\CompareFeNodeCoods.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Nodes\FeNode.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\FeElementSet.cs" />
+    <Compile Include="$(RepoRoot)CaeMesh\FeElementSetFromBox.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\FeNodeSet.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Parts\BasePart.cs" />
     <Compile Include="$(RepoRoot)CaeMesh\Parts\CompoundGeometryPart.cs" />

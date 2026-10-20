@@ -36,6 +36,7 @@ namespace PrePoMax.Forms
         private TabPage[] _pages;
         private bool _useSimpleEditor;      // a switch to change the form into a simple material editor form
         private bool _preview;              // a switch to change the form into a preview material form
+        private bool _updatingCompositeControls;
 
 
         // Properties                                                                                                               
@@ -98,6 +99,8 @@ namespace PrePoMax.Forms
             ttText.SetToolTip(btnMoveDown, "Move down");
             ttText.SetToolTip(btnRemove, "Remove model");
             //
+            FillCompositeMaterialTypes();
+            //
             propertyGrid.SetSelectFirstCategory();
         }
 
@@ -140,6 +143,18 @@ namespace PrePoMax.Forms
             propertyGrid.Refresh();
             _propertyItemChanged = true;
         }
+        private void cbCompositeMaterialType_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            HideShowWidth();
+            //
+            if (_updatingCompositeControls) return;
+            _propertyItemChanged = true;
+        }
+        private void tbWidth_TextChanged(object sender, EventArgs e)
+        {
+            if (_updatingCompositeControls) return;
+            _propertyItemChanged = true;
+        }
         private void btnAdd_Click(object sender, EventArgs e)
         {
             if (!_preview && tvProperties.SelectedNodes != null)
@@ -156,14 +171,22 @@ namespace PrePoMax.Forms
                         if (existingItem == null &&
                             (treeNode.Tag is Elastic ||
                              treeNode.Tag is ElasticEngineeringConstants ||
-                             treeNode.Tag is ElasticLamina))
+                             treeNode.Tag is ElasticLamina ||
+                             treeNode.Tag is Hyperelastic ||
+                             treeNode.Tag is HyperelasticNeoHooke ||
+                             treeNode.Tag is HyperelasticOgden ||
+                             treeNode.Tag is Hyperfoam))
                         {
                             foreach (ListViewItem addedItem in lvAddedProperties.Items)
                             {
                                 if (addedItem.Tag is ViewElastic ||
                                     addedItem.Tag is ViewElasticEngineeringConstants ||
                                     addedItem.Tag is ViewElasticLamina ||
-                                    addedItem.Tag is ViewElasticWithDensity)
+                                    addedItem.Tag is ViewElasticWithDensity ||
+                                    addedItem.Tag is ViewHyperelastic ||
+                                    addedItem.Tag is ViewHyperelasticNeoHooke ||
+                                    addedItem.Tag is ViewHyperelasticOgden ||
+                                    addedItem.Tag is ViewHyperfoam)
                                 {
                                     existingItem = addedItem;
                                     MessageBoxes.ShowWarning("A material can contain only one elastic property.");
@@ -179,6 +202,14 @@ namespace PrePoMax.Forms
                             {
                                 if (mp is Density de)
                                     item.Tag = new ViewDensity(de.DeepClone());
+                                else if (mp is Hyperelastic hyp)
+                                    item.Tag = new ViewHyperelastic(hyp.DeepClone());
+                                else if (mp is HyperelasticNeoHooke nh)
+                                    item.Tag = new ViewHyperelasticNeoHooke(nh.DeepClone());
+                                else if (mp is HyperelasticOgden ogd)
+                                    item.Tag = new ViewHyperelasticOgden(ogd.DeepClone());
+                                else if (mp is Hyperfoam hf)
+                                    item.Tag = new ViewHyperfoam(hf.DeepClone());
                                 else if (mp is SlipWear sw)
                                     item.Tag = new ViewSlipWear(sw.DeepClone());
                                 else if (mp is Elastic el)
@@ -333,6 +364,13 @@ namespace PrePoMax.Forms
                 {
                     tcProperties.TabPages.Add(_pages[0]);   // properties
                 }
+                else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewHyperelastic ||
+                         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewHyperelasticNeoHooke ||
+                         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewHyperelasticOgden ||
+                         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewHyperfoam)
+                {
+                    tcProperties.TabPages.Add(_pages[0]);   // properties
+                }
                 else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewCompositeStrength)
                 {
                     tcProperties.TabPages.Add(_pages[0]);   // properties
@@ -413,6 +451,7 @@ namespace PrePoMax.Forms
             SetControlStates();
             //
             _materialNames = _controller.GetMaterialNames();
+            lWidthUnit.Text = _controller.Model.UnitSystem.LengthUnitAbbreviation;
             _materialToEditName = materialToEditName;
             this.btnOKAddNew.Visible = _materialToEditName == null; // must be here
             // Initialize material properties
@@ -443,6 +482,14 @@ namespace PrePoMax.Forms
             node.Tag = new SpecificHeat(new double[][] { new double[] { 0, 0 } });
             node = tvProperties.Nodes.Find("Composite Strength", true)[0];
             node.Tag = new CompositeStrength(0, 0, 0, 0, 0, 0, CompositeStrength.DefaultTsaiWuCoefficient);
+            node = tvProperties.Nodes.Find("Hyperelastic - Mooney-Rivlin", true)[0];
+            node.Tag = new Hyperelastic(0, 0, 0);
+            node = tvProperties.Nodes.Find("Hyperelastic - Neo Hooke", true)[0];
+            node.Tag = new HyperelasticNeoHooke(0, 0);
+            node = tvProperties.Nodes.Find("Hyperelastic - Ogden", true)[0];
+            node.Tag = new HyperelasticOgden(1, 1, 2, 0, 0, 0, 0, 0, 0, 0);
+            node = tvProperties.Nodes.Find("Hyperfoam - Ogden", true)[0];
+            node.Tag = new Hyperfoam(2, 1, 2, 0, 0, -2, 0, 0, 0, 0);
             //
             tvProperties.ExpandAll();
             //
@@ -452,6 +499,11 @@ namespace PrePoMax.Forms
                 tbName.Text = GetMaterialName();
                 tbDescription.Text = "";
                 cbTemperatureDependent.Checked = false;
+                _updatingCompositeControls = true;
+                cbCompositeMaterialType.SelectedIndex = (int)CompositeMaterialType.None;
+                tbWidth.Text = "";
+                _updatingCompositeControls = false;
+                HideShowWidth();
             }
             else
             {
@@ -499,6 +551,12 @@ namespace PrePoMax.Forms
             tbName.Text = _material.Name;
             tbDescription.Text = _material.Description;
             cbTemperatureDependent.Checked = _material.TemperatureDependent;
+            // The type and the width of the composite material are used by the draping simulation
+            _updatingCompositeControls = true;
+            cbCompositeMaterialType.SelectedIndex = (int)_material.CompositeMaterialType;
+            tbWidth.Text = _material.Width.HasValue ? _material.Width.Value.ToString() : "";
+            _updatingCompositeControls = false;
+            HideShowWidth();
             //
             if (_material.Properties.Count > 0)
             {
@@ -524,6 +582,10 @@ namespace PrePoMax.Forms
                     else if (property is ThermalConductivity tc) view = new ViewThermalConductivity(tc);
                     else if (property is SpecificHeat sh) view = new ViewSpecificHeat(sh);
                     else if (property is CompositeStrength cs) view = new ViewCompositeStrength(cs);
+                    else if (property is Hyperelastic hyp) view = new ViewHyperelastic(hyp);
+                    else if (property is HyperelasticNeoHooke nh) view = new ViewHyperelasticNeoHooke(nh);
+                    else if (property is HyperelasticOgden ogd) view = new ViewHyperelasticOgden(ogd);
+                    else if (property is Hyperfoam hf) view = new ViewHyperfoam(hf);
                     else throw new NotSupportedException();
                     //
                     item = new ListViewItem(view.Name);
@@ -549,6 +611,9 @@ namespace PrePoMax.Forms
             tbName.BackColor = SystemColors.Window;
             tbDescription.ReadOnly = _preview;
             tbDescription.BackColor = SystemColors.Window;
+            cbCompositeMaterialType.Enabled = !_preview;
+            tbWidth.ReadOnly = _preview;
+            tbWidth.BackColor = SystemColors.Window;
             // Buttons
             btnAdd.Visible = !_preview;
             btnMoveUp.Visible = !_preview;
@@ -592,6 +657,8 @@ namespace PrePoMax.Forms
             _material = new Material(tbName.Text);
             _material.Description = tbDescription.Text;
             _material.TemperatureDependent = cbTemperatureDependent.Checked;
+            _material.CompositeMaterialType = GetSelectedCompositeMaterialType();
+            _material.Width = GetWidthValue();
             //
             ViewMaterialProperty property;
             MaterialProperty materialProperty;
@@ -669,6 +736,22 @@ namespace PrePoMax.Forms
                 {
                     if (vsw.GetHardnessValue() <= 0) throw new CaeException("The hardness must be larger than 0.");
                     if (vsw.GetWearCoefficientValue() <= 0) throw new CaeException("The wear coefficient must be larger than 0.");
+                }
+                else if (property is ViewHyperelastic vh)
+                {
+                    if (vh.GetC10Value() <= 0) throw new CaeException("The Mooney-Rivlin constant C10 must be larger than 0.");
+                }
+                else if (property is ViewHyperelasticNeoHooke vnh)
+                {
+                    if (vnh.GetC10Value() <= 0) throw new CaeException("The Neo-Hookean constant C10 must be larger than 0.");
+                }
+                else if (property is ViewHyperelasticOgden vogd)
+                {
+                    if (vogd.GetMu1Value() == 0) throw new CaeException("The Ogden parameter Mu1 must be non-zero.");
+                }
+                else if (property is ViewHyperfoam vhf)
+                {
+                    if (vhf.GetMu1Value() == 0) throw new CaeException("The Hyperfoam parameter Mu1 must be non-zero.");
                 }
                 //
                 _material.AddProperty(materialProperty);
@@ -768,6 +851,37 @@ namespace PrePoMax.Forms
                 col.Tag = converter;
             }
         }
+        private void FillCompositeMaterialTypes()
+        {
+            cbCompositeMaterialType.Items.Clear();
+            foreach (CompositeMaterialType value in Enum.GetValues(typeof(CompositeMaterialType)))
+                cbCompositeMaterialType.Items.Add(value.ToString());
+            cbCompositeMaterialType.SelectedIndex = (int)CompositeMaterialType.None;
+        }
+        private CompositeMaterialType GetSelectedCompositeMaterialType()
+        {
+            if (cbCompositeMaterialType.SelectedIndex < 0) return CompositeMaterialType.None;
+            return (CompositeMaterialType)cbCompositeMaterialType.SelectedIndex;
+        }
+        // The width is only meaningful for composite materials
+        private void HideShowWidth()
+        {
+            bool visible = GetSelectedCompositeMaterialType() != CompositeMaterialType.None;
+            lWidth.Visible = visible;
+            tbWidth.Visible = visible;
+            lWidthUnit.Visible = visible;
+        }
+        private double? GetWidthValue()
+        {
+            if (GetSelectedCompositeMaterialType() == CompositeMaterialType.None) return null;
+            //
+            string widthText = tbWidth.Text.Trim();
+            if (widthText.Length == 0) return null;
+            //
+            double width = (double)new StringLengthConverter().ConvertFrom(widthText);
+            if (width <= 0) throw new CaeException("The composite material width must be larger than 0.");
+            return width;
+        }
         private string GetMaterialName()
         {
             return _materialNames.GetNextNumberedKey("Material");
@@ -808,7 +922,11 @@ namespace PrePoMax.Forms
                     propertyGrid.Refresh();
                 }
                 else if (lvAddedProperties.PossiblySelectedItems[0].Tag is ViewSlipWear ||
-                         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewCompositeStrength)
+                         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewCompositeStrength ||
+                         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewHyperelastic ||
+                         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewHyperelasticNeoHooke ||
+                         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewHyperelasticOgden ||
+                         lvAddedProperties.PossiblySelectedItems[0].Tag is ViewHyperfoam)
                 {
                     tcProperties.TabPages.Clear();
                     tcProperties.TabPages.Add(_pages[0]);

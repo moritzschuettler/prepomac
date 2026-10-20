@@ -128,6 +128,7 @@ namespace System.Windows.Forms
             {
                 value = value ?? string.Empty;
                 if (_text == value) return;
+                if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) { string text = value; Toolkit.OnUiThread(() => Text = text); return; }
                 _text = value;
                 OnTextChanged(EventArgs.Empty);
             }
@@ -352,7 +353,11 @@ namespace System.Windows.Forms
         public bool Visible
         {
             get { return _visible && (_parent == null ? IsTopLevelShown : _parent.Visible); }
-            set { SetVisibleCore(value); }
+            set
+            {
+                if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) SetVisibleCore(value);
+                else Toolkit.OnUiThread(() => SetVisibleCore(value));
+            }
         }
         // The value of Visible set on this control
         internal bool VisibleSelf { get { return _visible; } }
@@ -363,6 +368,7 @@ namespace System.Windows.Forms
             set
             {
                 if (_enabled == value) return;
+                if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) { bool enabled = value; Toolkit.OnUiThread(() => Enabled = enabled); return; }
                 bool old = Enabled;
                 _enabled = value;
                 if (_host != null) _host.IsEnabled = value;
@@ -681,6 +687,11 @@ namespace System.Windows.Forms
         }
         protected virtual void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified)
         {
+            if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            {
+                Toolkit.OnUiThread(() => SetBoundsCore(x, y, width, height, specified));
+                return;
+            }
             if (_minimumSize.Width > 0) width = Math.Max(width, _minimumSize.Width);
             if (_minimumSize.Height > 0) height = Math.Max(height, _minimumSize.Height);
             if (_maximumSize.Width > 0) width = Math.Min(width, _maximumSize.Width);
@@ -1038,6 +1049,7 @@ namespace System.Windows.Forms
         // Painting
         public void Invalidate()
         {
+            if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) { Toolkit.OnUiThread(Invalidate); return; }
             _host?.ClearOverlayPictures();
             _host?.InvalidateVisual();
             _host?.InvalidateContent();

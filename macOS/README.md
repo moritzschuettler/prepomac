@@ -16,8 +16,11 @@ brew install costerwi/calculix/calculix-ccx   # or any CalculiX ccx, found in /o
 
 ```sh
 cd macOS
-dotnet build PrePoMax/PrePoMax.csproj
+./build.sh            # or ./build.sh Release
 ```
+
+`build.sh` uses a .NET 10 SDK even when the `dotnet` of the PATH is an older one (`dotnet --list-sdks` shows
+the installed SDKs; the official installer puts .NET 10 in `/usr/local/share/dotnet`).
 
 The build also compiles the native parts (`Native/Win32Compat.c` and `Native/NetGenMesher`, a C++ program on
 OpenCASCADE and gmsh) and copies them into the output folder.
@@ -25,11 +28,12 @@ OpenCASCADE and gmsh) and copies them into the output folder.
 ## Run
 
 ```sh
-cd macOS/PrePoMax/bin/Debug/net10.0
-./PrePoMax
+cd macOS
+./run.sh
 ```
 
-or `dotnet PrePoMax.dll` in the same folder.
+(the program is `macOS/PrePoMax/bin/Debug/net10.0/PrePoMax`). Questions such as the recovery of an unsaved
+session are asked in a window of the program, not in the terminal.
 
 - The CalculiX solver is found automatically; Tools > Settings > Solver changes it. The macOS builds of ccx only
   have the SPOOLES matrix solver, which is the default.

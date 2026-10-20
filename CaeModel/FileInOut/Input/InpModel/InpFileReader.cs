@@ -2031,6 +2031,7 @@ namespace FileInOut.Input
                 else if (record2.Length == 1)
                 {
                     if (record2[0].Trim().ToUpper() == "DIRECT") staticStep.Direct = true;
+                    if (record2[0].Trim().ToUpper() == "STABILIZE") staticStep.Stabilize = true;
                 }
             }
             if (dataSet.Length == 2)

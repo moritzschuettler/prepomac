@@ -1,306 +1,348 @@
 // PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
 // Source code: https://gitlab.com/MatejB/PrePoMax
-// Author: Matej Borovinšek
-// Contributors: Yvan Blanchard (Composites Fiber Modeler)
-
+//
+// Author: Yvan Blanchard
+// Contributors:
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
+using System.Text;
+using System.Threading.Tasks;
 using CaeGlobals;
-using CaeMesh;
-using DynamicTypeDescriptor;
 
 namespace CaeModel
 {
     [Serializable]
-    public enum CompositeLayupOrientationEnum
+    public enum CompositeElementType
     {
-        // The reference axis of a coordinate system projected onto the shell and turned by the rotation angle, the
-        // way a material orientation defines it. The global coordinate system and the x axis are the default.
-        [StandardValue("CoordinateSystem", DisplayName = "Coordinate system")]
+        ConventionalShell,
+        ContinuumShell,
+        Solid
+    }
+
+    [Serializable]
+    public enum OrientationDefinitionType
+    {
+        PartGlobal,
         CoordinateSystem,
-        // Fiber directions of stacking points read from an XML file; each element takes the nearest point
-        [StandardValue("DiscreteOrientations", DisplayName = "Discrete orientations")]
         DiscreteOrientations,
-        // Fiber directions from a kinematic draping simulation of one ply
-        [StandardValue("Draping", DisplayName = "Draping simulation")]
-        Draping
+        Rosette                 // must stay last: the value is serialized as an integer
     }
 
     [Serializable]
-    public enum CompositeLayupOffsetEnum
+    public enum NormalDirectionType
     {
-        [StandardValue("MiddleSurface", DisplayName = "Middle surface")]
-        MiddleSurface,
-        // The nodes lie on the top surface, so the layup lies below them (Abaqus SPOS, offset 0.5)
-        [StandardValue("TopSurface", DisplayName = "Top surface")]
-        TopSurface,
-        // The nodes lie on the bottom surface, so the layup lies above them (Abaqus SNEG, offset -0.5)
-        [StandardValue("BottomSurface", DisplayName = "Bottom surface")]
-        BottomSurface,
-        [StandardValue("Ratio", DisplayName = "Ratio of the thickness")]
-        Ratio
+        Axis1,
+        Axis2,
+        Axis3
     }
 
-    // A composite layup of the Composites Fiber Modeler. Every ply covers a region of its own, so elements covered by
-    // the same plies form a zone that is solved as a composite shell section with one layer per covering ply.
     [Serializable]
-    public class CompositeLayup : NamedClass, IContainsEquations, ISerializable
+    public enum AdditionalRotationType
+    {
+        None,
+        Angle
+    }
+
+    [Serializable]
+    public enum ProcessType
+    {
+        HandLayup,
+        TapePlacement,
+        Winding,
+        Braiding,
+        // Appended last on purpose: the enum is serialized as an int, so inserting None first would
+        // turn every hand layup of an existing model into a None. The dialog lists it first.
+        None
+    }
+
+    [Serializable]
+    public enum ShellOffsetType
+    {
+        MiddleSurface,
+        TopSurface,
+        BottomSurface,
+        SpecifyRatio
+    }
+
+    [Serializable]
+    public class CompositeLayup : NamedClass
     {
         // Variables
-        public const int DefaultSymbolDensity = 50;
-        //
-        private List<Ply> _plies;                                       //ISerializable
-        private bool _symmetric;                                        //ISerializable
-        private CompositeLayupOrientationEnum _orientationType;         //ISerializable
-        private string _coordinateSystemName;                           //ISerializable
-        private MaterialOrientationAxisEnum _referenceAxis;             //ISerializable
-        private EquationContainer _rotationAngle;                       //ISerializable
-        private CompositeLayupOffsetEnum _offsetType;                   //ISerializable
-        private EquationContainer _offsetRatio;                         //ISerializable
-        private DiscreteOrientationsData _discreteOrientationsData;     //ISerializable
-        private int _drapingPlyIndex;                                   //ISerializable
-        private EquationContainer _drapingCellSize;                     //ISerializable
-        private double _drapingLimitShearDeg;                           //ISerializable
-        private int _symbolDensity;                                     //ISerializable
+        private int _initialPlyCount;
+        private CompositeElementType _elementType;
+        private ProcessType _processType;
+        private OrientationDefinitionType _orientationDefinition;
+        private NormalDirectionType _normalDirection;
+        private AdditionalRotationType _additionalRotationType;
+        private double _additionalRotationAngle;
+        private List<Ply> _plies;
+        private bool _symmetric;
+        private ShellOffsetType _shellOffset;
+        private double _offsetRatio;
+        private DiscreteOrientationsData _discreteOrientationsData;
+        private bool _useDrapingForFiberDirection;
+        private double _drapingCellSize;
+        private int _drapingPlyIndex;
+        private string _solidPartName;
+        private string _sourceShellPartName;
+        private string _orientationRosette;
 
 
         // Properties
-        public List<Ply> Plies { get { return _plies; } set { _plies = value ?? new List<Ply>(); } }
-        public bool Symmetric { get { return _symmetric; } set { _symmetric = value; } }
-        public CompositeLayupOrientationEnum OrientationType { get { return _orientationType; } set { _orientationType = value; } }
-        public string CoordinateSystemName
+        public int InitialPlyCount
         {
-            get
-            {
-                if (_coordinateSystemName == null) return CoordinateSystem.DefaultCoordinateSystemName;
-                else return _coordinateSystemName;
-            }
+            get { return _initialPlyCount; }
             set
             {
-                _coordinateSystemName = value;
-                if (_coordinateSystemName == CoordinateSystem.DefaultCoordinateSystemName) _coordinateSystemName = null;
+                if (value < 1) throw new CaeException("Initial ply count must be at least 1.");
+                _initialPlyCount = value;
             }
         }
-        public MaterialOrientationAxisEnum ReferenceAxis { get { return _referenceAxis; } set { _referenceAxis = value; } }
-        public EquationContainer RotationAngle { get { return _rotationAngle; } set { SetRotationAngle(value); } }
-        public CompositeLayupOffsetEnum OffsetType { get { return _offsetType; } set { _offsetType = value; } }
-        public EquationContainer OffsetRatio { get { return _offsetRatio; } set { SetOffsetRatio(value); } }
+
+        public CompositeElementType ElementType
+        {
+            get { return _elementType; }
+            set { _elementType = value; }
+        }
+
+        public ProcessType ProcessType
+        {
+            get { return _processType; }
+            set { _processType = value; }
+        }
+
+        public OrientationDefinitionType OrientationDefinition
+        {
+            get { return _orientationDefinition; }
+            set { _orientationDefinition = value; }
+        }
+
+        public NormalDirectionType NormalDirection
+        {
+            get { return _normalDirection; }
+            set { _normalDirection = value; }
+        }
+
+        public AdditionalRotationType AdditionalRotationType
+        {
+            get { return _additionalRotationType; }
+            set { _additionalRotationType = value; }
+        }
+
+        public double AdditionalRotationAngle
+        {
+            get { return _additionalRotationAngle; }
+            set { _additionalRotationAngle = value; }
+        }
+
+        public List<Ply> Plies
+        {
+            get { return _plies; }
+            set { _plies = value; }
+        }
+
+        public bool Symmetric
+        {
+            get { return _symmetric; }
+            set { _symmetric = value; }
+        }
+
+        public ShellOffsetType ShellOffset
+        {
+            get { return _shellOffset; }
+            set { _shellOffset = value; }
+        }
+
+        public double OffsetRatio
+        {
+            get { return _offsetRatio; }
+            set { _offsetRatio = value; }
+        }
+
+        public bool DiscreteOrientationsEnabled
+        {
+            get { return _orientationDefinition == OrientationDefinitionType.DiscreteOrientations; }
+            set
+            {
+                if (value) _orientationDefinition = OrientationDefinitionType.DiscreteOrientations;
+                else if (_orientationDefinition == OrientationDefinitionType.DiscreteOrientations)
+                    _orientationDefinition = OrientationDefinitionType.PartGlobal;
+            }
+        }
+
         public DiscreteOrientationsData DiscreteOrientationsData
         {
             get { return _discreteOrientationsData; }
             set { _discreteOrientationsData = value; }
         }
-        public int DrapingPlyIndex { get { return _drapingPlyIndex; } set { _drapingPlyIndex = Math.Max(0, value); } }
-        public EquationContainer DrapingCellSize { get { return _drapingCellSize; } set { SetDrapingCellSize(value); } }
-        // Cells sheared more than this angle are marked in the draping preview
-        public double DrapingLimitShearDeg { get { return _drapingLimitShearDeg; } set { _drapingLimitShearDeg = value; } }
-        // The percentage of the full density of the fiber direction symbols
-        public int SymbolDensity
+
+        public bool UseDrapingForFiberDirection
         {
-            get { return _symbolDensity; }
-            set
-            {
-                _symbolDensity = value;
-                if (_symbolDensity < 0) _symbolDensity = 0;
-                else if (_symbolDensity > 100) _symbolDensity = 100;
-            }
+            get { return _useDrapingForFiberDirection; }
+            set { _useDrapingForFiberDirection = value; }
+        }
+
+        public double DrapingCellSize
+        {
+            get { return _drapingCellSize; }
+            set { _drapingCellSize = value; }
+        }
+
+        public int DrapingPlyIndex
+        {
+            get { return _drapingPlyIndex; }
+            set { _drapingPlyIndex = value; }
+        }
+
+        public string SolidPartName
+        {
+            get { return _solidPartName; }
+            set { _solidPartName = value; }
+        }
+
+        public string SourceShellPartName
+        {
+            get { return _sourceShellPartName; }
+            set { _sourceShellPartName = value; }
+        }
+
+        // Rosette applied to every ply that does not define its own one
+        public string OrientationRosette
+        {
+            get { return _orientationRosette; }
+            set { _orientationRosette = value; }
+        }
+
+        public bool RosetteEnabled
+        {
+            get { return _orientationDefinition == OrientationDefinitionType.Rosette; }
         }
 
 
         // Constructors
-        public CompositeLayup(string name)
+        public CompositeLayup(string name, int initialPlyCount, CompositeElementType elementType)
             : base(name)
         {
+            _initialPlyCount = initialPlyCount;
+            _elementType = elementType;
+            _processType = CaeModel.ProcessType.None;
+            _orientationDefinition = OrientationDefinitionType.PartGlobal;
+            _normalDirection = NormalDirectionType.Axis3;
+            _additionalRotationType = AdditionalRotationType.None;
+            _additionalRotationAngle = 0.0;
             _plies = new List<Ply>();
             _symmetric = false;
-            _orientationType = CompositeLayupOrientationEnum.CoordinateSystem;
-            _coordinateSystemName = null;
-            _referenceAxis = MaterialOrientationAxisEnum.X;
-            RotationAngle = new EquationContainer(typeof(StringAngleDegConverter), 0);
-            _offsetType = CompositeLayupOffsetEnum.MiddleSurface;
-            OffsetRatio = new EquationContainer(typeof(StringDoubleConverter), 0);
-            _discreteOrientationsData = null;
-            _drapingPlyIndex = 0;
-            DrapingCellSize = new EquationContainer(typeof(StringLengthConverter), 5);
-            _drapingLimitShearDeg = 45;
-            _symbolDensity = DefaultSymbolDensity;
-        }
-        public CompositeLayup(SerializationInfo info, StreamingContext context)
-            : base(info, context)
-        {
-            _symbolDensity = DefaultSymbolDensity;
-            _drapingLimitShearDeg = 45;
-            foreach (SerializationEntry entry in info)
+            _shellOffset = ShellOffsetType.MiddleSurface;
+            _offsetRatio = 0.0;
+
+            // Initialize plies based on initial ply count
+            for (int i = 0; i < initialPlyCount; i++)
             {
-                switch (entry.Name)
-                {
-                    case "_plies":
-                        _plies = (List<Ply>)entry.Value; break;
-                    case "_symmetric":
-                        _symmetric = (bool)entry.Value; break;
-                    case "_orientationType":
-                        _orientationType = (CompositeLayupOrientationEnum)entry.Value; break;
-                    case "_coordinateSystemName":
-                        _coordinateSystemName = (string)entry.Value; break;
-                    case "_referenceAxis":
-                        _referenceAxis = (MaterialOrientationAxisEnum)entry.Value; break;
-                    case "_rotationAngle":
-                        SetRotationAngle((EquationContainer)entry.Value, false); break;
-                    case "_offsetType":
-                        _offsetType = (CompositeLayupOffsetEnum)entry.Value; break;
-                    case "_offsetRatio":
-                        SetOffsetRatio((EquationContainer)entry.Value, false); break;
-                    case "_discreteOrientationsData":
-                        _discreteOrientationsData = (DiscreteOrientationsData)entry.Value; break;
-                    case "_drapingPlyIndex":
-                        _drapingPlyIndex = (int)entry.Value; break;
-                    case "_drapingCellSize":
-                        SetDrapingCellSize((EquationContainer)entry.Value, false); break;
-                    case "_drapingLimitShearDeg":
-                        _drapingLimitShearDeg = (double)entry.Value; break;
-                    case "_symbolDensity":
-                        _symbolDensity = (int)entry.Value; break;
-                    default:
-                        break;
-                }
+                _plies.Add(new Ply("Ply-" + (i + 1)));
             }
-            if (_plies == null) _plies = new List<Ply>();
         }
 
 
         // Methods
-        private void SetRotationAngle(EquationContainer value, bool checkEquation = true)
+        // A ply rosette wins over the layup rosette; the layup rosette only applies when the layup
+        // orientation definition is set to Rosette. Resolving on demand means that a ply added after
+        // the rosette was selected inherits it without any additional bookkeeping.
+        public string GetEffectivePlyRosette(int plyIndex)
         {
-            EquationContainer.SetAndCheck(ref _rotationAngle, value, CheckFinite, checkEquation);
+            if (_plies == null || plyIndex < 0 || plyIndex >= _plies.Count) return null;
+            string plyRosette = _plies[plyIndex].OrientationRosette;
+            if (!string.IsNullOrEmpty(plyRosette)) return plyRosette;
+            return RosetteEnabled ? _orientationRosette : null;
         }
-        private void SetOffsetRatio(EquationContainer value, bool checkEquation = true)
+
+        // Same inheritance rule for the manufacturing process: an explicit ply process type wins,
+        // otherwise the ply follows the layup
+        public ProcessType GetEffectivePlyProcessType(int plyIndex)
         {
-            EquationContainer.SetAndCheck(ref _offsetRatio, value, CheckFinite, checkEquation);
+            if (_plies == null || plyIndex < 0 || plyIndex >= _plies.Count) return _processType;
+            return _plies[plyIndex].ProcessType ?? _processType;
         }
-        private void SetDrapingCellSize(EquationContainer value, bool checkEquation = true)
+
+        public bool IsPlyProcessTypeInherited(int plyIndex)
         {
-            EquationContainer.SetAndCheck(ref _drapingCellSize, value, CheckPositive, checkEquation);
+            if (_plies == null || plyIndex < 0 || plyIndex >= _plies.Count) return true;
+            return _plies[plyIndex].ProcessType == null;
         }
-        private double CheckFinite(double value)
+
+        public bool IsPlyRosetteInherited(int plyIndex)
         {
-            if (double.IsNaN(value) || double.IsInfinity(value)) throw new CaeException("The value must be finite.");
-            else return value;
+            if (_plies == null || plyIndex < 0 || plyIndex >= _plies.Count) return false;
+            return string.IsNullOrEmpty(_plies[plyIndex].OrientationRosette) &&
+                   RosetteEnabled && !string.IsNullOrEmpty(_orientationRosette);
         }
-        private double CheckPositive(double value)
+
+        public bool UsesRosette(string rosetteName)
         {
-            if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
-                throw new CaeException("The value must be larger than 0.");
-            else return value;
+            if (string.IsNullOrEmpty(rosetteName)) return false;
+            if (RosetteEnabled && _orientationRosette == rosetteName) return true;
+            if (_plies != null)
+                foreach (Ply ply in _plies) if (ply.OrientationRosette == rosetteName) return true;
+            return false;
         }
-        // The offset of *SHELL SECTION in units of the shell thickness
-        public double GetOffset()
+
+        public bool UsesAnyRosette()
         {
-            switch (_offsetType)
+            if (RosetteEnabled && !string.IsNullOrEmpty(_orientationRosette)) return true;
+            if (_plies != null)
+                foreach (Ply ply in _plies) if (!string.IsNullOrEmpty(ply.OrientationRosette)) return true;
+            return false;
+        }
+
+        public Material GetPlyMaterial(int plyIndex, CaeGlobals.OrderedDictionary<string, Material> materials)
+        {
+            if (materials == null || plyIndex < 0 || plyIndex >= _plies.Count) return null;
+            string materialName = _plies[plyIndex].Material;
+            if (string.IsNullOrEmpty(materialName)) return null;
+            Material material;
+            return materials.TryGetValue(materialName, out material) ? material : null;
+        }
+        // The width of a woven or non-crimp fabric is its weave pitch and therefore the draping grid
+        // cell size; the width of a unidirectional tape only sets the spacing of the fiber curves,
+        // so the draping grid keeps its own finer resolution
+        public double GetPlyDrapingCellSize(int plyIndex, CaeGlobals.OrderedDictionary<string, Material> materials,
+                                            double defaultCellSize)
+        {
+            Material material = GetPlyMaterial(plyIndex, materials);
+            if (material == null || material.CompositeMaterialType == CompositeMaterialType.Unidirectional) return defaultCellSize;
+            if (material.Width.HasValue && material.Width.Value > 0) return material.Width.Value;
+            return defaultCellSize;
+        }
+        // Number of draping grid columns between two displayed fiber curves
+        public int GetPlyFiberCurveStride(int plyIndex, CaeGlobals.OrderedDictionary<string, Material> materials, double cellSize)
+        {
+            Material material = GetPlyMaterial(plyIndex, materials);
+            if (material == null || !material.Width.HasValue || material.Width.Value <= 0 || cellSize <= 0) return 1;
+            return Math.Max(1, (int)Math.Round(material.Width.Value / cellSize));
+        }
+
+        public void AddPly(Ply ply)
+        {
+            _plies.Add(ply);
+        }
+
+        public void RemovePly(int index)
+        {
+            if (index >= 0 && index < _plies.Count)
             {
-                case CompositeLayupOffsetEnum.TopSurface: return 0.5;
-                case CompositeLayupOffsetEnum.BottomSurface: return -0.5;
-                case CompositeLayupOffsetEnum.Ratio: return _offsetRatio.Value;
-                default: return 0;
+                _plies.RemoveAt(index);
             }
         }
-        // The plies the solver gets, from ply 1 up; a symmetric layup is completed by its mirror image
-        public List<Ply> GetSolverPlies()
+
+        public void InsertPly(int index, Ply ply)
         {
-            List<Ply> plies = new List<Ply>(_plies);
-            if (_symmetric)
+            if (index >= 0 && index <= _plies.Count)
             {
-                for (int i = _plies.Count - 1; i >= 0; i--) plies.Add(_plies[i]);
+                _plies.Insert(index, ply);
             }
-            return plies;
-        }
-        public double GetTotalThickness()
-        {
-            double thickness = 0;
-            foreach (Ply ply in GetSolverPlies()) thickness += ply.Thickness.Value;
-            return thickness;
-        }
-        public HashSet<string> GetMaterialNames()
-        {
-            HashSet<string> materialNames = new HashSet<string>();
-            foreach (Ply ply in _plies) materialNames.Add(ply.MaterialName);
-            return materialNames;
-        }
-        public HashSet<string> GetRegionNames()
-        {
-            HashSet<string> regionNames = new HashSet<string>();
-            foreach (Ply ply in _plies) if (!string.IsNullOrEmpty(ply.RegionName)) regionNames.Add(ply.RegionName);
-            return regionNames;
-        }
-        // Element ids of a ply region: an element set or a part
-        public static int[] GetRegionElementIds(FeMesh mesh, string regionName)
-        {
-            if (string.IsNullOrEmpty(regionName) || mesh == null) return null;
-            //
-            FeElementSet elementSet;
-            BasePart part;
-            if (mesh.ElementSets.TryGetValue(regionName, out elementSet))
-            {
-                if (!elementSet.CreatedFromParts) return elementSet.Labels;
-                //
-                HashSet<int> elementIds = new HashSet<int>();
-                foreach (var partName in mesh.GetPartNamesFromPartIds(elementSet.Labels))
-                    elementIds.UnionWith(mesh.Parts[partName].Labels);
-                return elementIds.ToArray();
-            }
-            else if (mesh.Parts.TryGetValue(regionName, out part)) return part.Labels;
-            return null;
-        }
-        public HashSet<int> GetElementIds(FeMesh mesh)
-        {
-            HashSet<int> elementIds = new HashSet<int>();
-            int[] ids;
-            foreach (Ply ply in _plies)
-            {
-                ids = GetRegionElementIds(mesh, ply.RegionName);
-                if (ids != null) elementIds.UnionWith(ids);
-            }
-            return elementIds;
-        }
-        // IContainsEquations
-        public void CheckEquations()
-        {
-            if (_plies.Count == 0) throw new CaeException("A composite layup must contain at least one ply.");
-            foreach (Ply ply in _plies) ply.CheckEquations();
-            _rotationAngle.CheckEquation();
-            _offsetRatio.CheckEquation();
-            _drapingCellSize.CheckEquation();
-        }
-        public bool TryCheckEquations()
-        {
-            try
-            {
-                CheckEquations();
-                return true;
-            }
-            catch (Exception) { return false; }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_plies", _plies, typeof(List<Ply>));
-            info.AddValue("_symmetric", _symmetric, typeof(bool));
-            info.AddValue("_orientationType", _orientationType, typeof(CompositeLayupOrientationEnum));
-            info.AddValue("_coordinateSystemName", _coordinateSystemName, typeof(string));
-            info.AddValue("_referenceAxis", _referenceAxis, typeof(MaterialOrientationAxisEnum));
-            info.AddValue("_rotationAngle", _rotationAngle, typeof(EquationContainer));
-            info.AddValue("_offsetType", _offsetType, typeof(CompositeLayupOffsetEnum));
-            info.AddValue("_offsetRatio", _offsetRatio, typeof(EquationContainer));
-            info.AddValue("_discreteOrientationsData", _discreteOrientationsData, typeof(DiscreteOrientationsData));
-            info.AddValue("_drapingPlyIndex", _drapingPlyIndex, typeof(int));
-            info.AddValue("_drapingCellSize", _drapingCellSize, typeof(EquationContainer));
-            info.AddValue("_drapingLimitShearDeg", _drapingLimitShearDeg, typeof(double));
-            info.AddValue("_symbolDensity", _symbolDensity, typeof(int));
         }
     }
 }

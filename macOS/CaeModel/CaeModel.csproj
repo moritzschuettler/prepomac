@@ -7,12 +7,30 @@
   <ItemGroup>
     <Compile Include="$(RepoRoot)CaeModel\Amplitudes\Amplitude.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Amplitudes\AmplitudeTabular.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\CompositeCaeData.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\CompositeCaeH5Reader.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\CompositeCaeImporter.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\CompositeCaeMapper.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\CompositeCaeMeshBuilder.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\CompositeGeometry.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Composite\CompositeLayup.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\GeometrySurfaceRegionMapper.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\PlySurfaceSampler.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Composite\DiscreteOrientationsData.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Composite\DiscreteOrientationsXmlReader.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Composite\KinDrape.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Composite\Ply.cs" />
-    <Compile Include="$(RepoRoot)CaeModel\Composite\CompositeLayupZones.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\DiscreteOrientationsWriter.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\CompositeLayupWriter.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\CalLayupOrientation.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalLayupShellSection.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\KdTree3D.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\Rosette.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\RosetteEvaluator.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\StepCurveReader.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\TapeGeodesicMesh.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\GeodesicTracer.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Composite\TapePropagation.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Constraints\PointSpringData.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Constraints\SpringConstraint.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Constraints\SurfaceSpring.cs" />
@@ -29,6 +47,7 @@
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Input\Mmg\MmgFileReader.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Input\ObjFileReader\ObjFileReader.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Abaqus\AbaqusFileWriter.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\OpenRadioss\OpenRadiossFileWriter.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqElement.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqSurface.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Abaqus\Keywords\ModelDefinition\Constraints\AbqRigidBody.cs" />
@@ -63,6 +82,7 @@
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\Step\Controls\CalContactParameter.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\Step\Controls\CalResetParameter.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\Step\Controls\CalFieldParameter.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\Step\Controls\CalLineSearchParameter.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\Step\Controls\CalTimeIncrementationParameter.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\Step\CalSteadyStateDynamicsStep.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\Step\CalDynamicStep.cs" />
@@ -79,6 +99,7 @@
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\CalContactPair.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalShellSection.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalCompositeShellSection.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalCompositeSolidSection.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalSpecificHeat.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalThermalConductivity.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalThermalExpansion.cs" />
@@ -125,6 +146,10 @@
     <Compile Include="$(RepoRoot)CaeModel\Materials\ThermalConductivity.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Materials\ThermalExpansion.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Materials\ElasticWithDensity.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Materials\Hyperelastic.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Materials\HyperelasticNeoHooke.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Materials\HyperelasticOgden.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Materials\Hyperfoam.cs" />
     <Compile Include="$(RepoRoot)CaeModel\ModelProperties.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Parameters\EquationParameter.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Parameters\EquationParameterCollection.cs" />
@@ -162,6 +187,7 @@
     <Compile Include="$(RepoRoot)CaeModel\Constraints\Constraint.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FeModel.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Steps\Controls\ContactStepControlParameter.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Steps\Controls\LineSearchStepControlParameter.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Steps\Controls\ResetStepControlParameter.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Steps\Controls\StepControls.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Steps\Controls\TimeIncrementationStepControlParameter - Copy.cs" />
@@ -217,6 +243,10 @@
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalElasticLamina.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\CalDistributingWeights.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\CalReferencePoint.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalHyperelastic.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalHyperelasticNeoHooke.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalHyperelasticOgden.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalHyperfoam.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Constraints\CalRigidBody.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Section\CalSolidSection.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Calculix\Keywords\ModelDefinition\Material\CalMaterial.cs" />
@@ -263,6 +293,12 @@
     <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\CLoad.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\DLoad.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\Load.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\BladeAeroSection.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\BladeAeroPressureSection.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\BladeAeroAlgorithm.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\BladeAeroLoad.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\BladeAeroPressureLoad.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\Steps\Loads\BladeAeroTableRow.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Materials\Density.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Materials\Plastic.cs" />
     <Compile Include="$(RepoRoot)CaeModel\Materials\Elastic.cs" />
@@ -283,6 +319,9 @@
     <Compile Include="$(RepoRoot)CaeModel\Views\UserViewParameters.cs" />
     <Compile Include="$(RepoRoot)CaeModel\_Compatibility\InitialVelocity.cs" />
     <Compile Include="Mac\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="PureHDF" Version="1.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ThreeMF\ThreeMF.csproj" />

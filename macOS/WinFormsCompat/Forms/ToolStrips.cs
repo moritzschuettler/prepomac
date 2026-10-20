@@ -216,6 +216,7 @@ namespace System.Windows.Forms
         protected void Changed(bool layout)
         {
             if (OwnerInternal == null) return;
+            if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess()) { Toolkit.OnUiThread(() => Changed(layout)); return; }
             if (layout) OwnerInternal.LayoutItems();
             OwnerInternal.Invalidate();
         }

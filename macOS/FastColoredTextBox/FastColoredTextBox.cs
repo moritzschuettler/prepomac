@@ -816,7 +816,10 @@ namespace FastColoredTextBoxNS
         public Place PointToPlace(Point point)
         {
             EnsureEditor();
-            TextViewPosition? p = _editor.GetPositionFromPoint(new Avalonia.Point(point.X, point.Y));
+            // The text view has no positions before it is laid out
+            TextViewPosition? p;
+            try { p = _editor.GetPositionFromPoint(new Avalonia.Point(point.X, point.Y)); }
+            catch (InvalidOperationException) { p = null; }
             return p == null ? Place.Empty : new Place(p.Value.Column - 1, p.Value.Line - 1);
         }
         public int PointToPosition(Point point) { return PlaceToPosition(PointToPlace(point)); }

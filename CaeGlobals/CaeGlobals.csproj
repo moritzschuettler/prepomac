@@ -199,6 +199,7 @@
     <Compile Include="UnitSystem\EquationToString\EquationPowerPerAreaConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationForceConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationPowerConverter.cs" />
+    <Compile Include="UnitSystem\EquationToString\EquationRotationalFrequencyConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationRotationalSpeedConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationLengthConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationPowerPerVolumeConverter.cs" />
@@ -270,6 +271,7 @@
     <Compile Include="UnitSystem\StringToDouble\StringLengthPixelConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringPressureConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringPressureFromConverter.cs" />
+    <Compile Include="UnitSystem\StringToDouble\StringRotationalFrequencyConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringRotationalSpeedConverter.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringTimeConverter.cs" />
     <Compile Include="UnitSystem\UnitSystem.cs" />

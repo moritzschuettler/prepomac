@@ -1186,6 +1186,14 @@ namespace Kitware.VTK
             return 0.5 * vtkMath.Norm(vtkMath.Cross(u, v));
         }
     }
+    public partial class vtkLine
+    {
+        public vtkLine() { _type = CellType.Line; _pointIds.SetNumberOfIds(2); _points.SetNumberOfPoints(2); }
+    }
+    public partial class vtkQuad
+    {
+        public vtkQuad() { _type = CellType.Quad; _pointIds.SetNumberOfIds(4); _points.SetNumberOfPoints(4); }
+    }
     public partial class vtkHexahedron
     {
         public vtkHexahedron() { _type = CellType.Hexahedron; _pointIds.SetNumberOfIds(8); _points.SetNumberOfPoints(8); }

@@ -35,6 +35,10 @@ namespace PrePoMax
                 return name;
             }
         }
+        public static string WindowTitle
+        {
+            get { return ProgramName + " - Composites Modeler"; }
+        }
         // State names
         public static string ReadyText = "Ready";
         public static string RenderingText = "Rendering...";

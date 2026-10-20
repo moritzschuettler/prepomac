@@ -55,6 +55,9 @@ namespace PrePoMax.Forms
                 else if (clone is BodyFlux bf) _viewLoad = new ViewBodyFlux(bf);
                 else if (clone is FilmHeatTransfer fht) _viewLoad = new ViewFilmHeatTransfer(fht);
                 else if (clone is RadiationHeatTransfer rht) _viewLoad = new ViewRadiationHeatTransfer(rht);
+                // Blade aero
+                else if (clone is BladeAeroLoad bal) _viewLoad = new ViewBladeAeroLoad(bal);
+                else if (clone is BladeAeroPressureLoad bapl) _viewLoad = new ViewBladeAeroPressureLoad(bapl);
                 //
                 else throw new NotImplementedException();
             }
@@ -229,6 +232,9 @@ namespace PrePoMax.Forms
                     // 2D
                     if (vrht.GetBase().TwoD) _controller.Selection.LimitSelectionToShellEdges = true;
                 }
+                // Blade aero
+                else if (itemTag is ViewBladeAeroLoad vbal) _viewLoad = vbal;
+                else if (itemTag is ViewBladeAeroPressureLoad vbapl) _viewLoad = vbapl;
                 else throw new NotImplementedException();
                 //
                 ShowHideSelectionForm();
@@ -344,6 +350,19 @@ namespace PrePoMax.Forms
             {
                 HighlightLoad();
             }
+            else if (_viewLoad is ViewBladeAeroLoad vbal &&
+                     (property == nameof(vbal.Direction) || property == nameof(vbal.ForceDirection) ||
+                      property == nameof(vbal.OriginX) || property == nameof(vbal.OriginY) ||
+                      property == nameof(vbal.OriginZ) || property == nameof(vbal.LoadForces)))
+            {
+                HighlightLoad();
+            }
+            else if (_viewLoad is ViewBladeAeroPressureLoad vbapl &&
+                     (property == nameof(vbapl.Direction) || property == nameof(vbapl.SurfaceName) ||
+                      property == nameof(vbapl.LoadPressures)))
+            {
+                HighlightLoad();
+            }
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -360,7 +379,8 @@ namespace PrePoMax.Forms
             // Check equations
             _viewLoad.GetBase().CheckEquations();
             //
-            if (FELoad.RegionType == RegionTypeEnum.Selection &&
+            if (!(FELoad is BladeAeroLoad) && !(FELoad is BladeAeroPressureLoad) &&
+                FELoad.RegionType == RegionTypeEnum.Selection &&
                 (FELoad.CreationIds == null || FELoad.CreationIds.Length == 0))
                 throw new CaeException("The load selection must contain at least one item.");
             //
@@ -466,6 +486,62 @@ namespace PrePoMax.Forms
                 if (rht.CavityRadiation && (rht.CavityName == null || rht.CavityName == ""))
                     throw new CaeException("For cavity radiation a cavity name must be specified.");
             }
+            // Blade aero — generator load: run compound command and return early
+            else if (FELoad is BladeAeroLoad bal)
+            {
+                if (bal.TableRows == null || bal.TableRows.Count == 0)
+                    throw new CaeException("No load forces data. Click '...' on 'Load forces table' to enter data.");
+                if (bal.Axis == bal.ForceAxis)
+                    throw new CaeException("Force direction cannot be the same as the spine direction.");
+                //
+                var mesh = _controller.DisplayedMesh;
+                if (mesh == null || mesh.Nodes == null || mesh.Nodes.Count == 0)
+                    throw new CaeException("No mesh found in the model.");
+                //
+                var tableRows = new (double distance, double force)[bal.TableRows.Count];
+                for (int i = 0; i < bal.TableRows.Count; i++)
+                    tableRows[i] = (bal.TableRows[i].DistanceRatio, bal.TableRows[i].Force);
+                double[] origin = new double[] { bal.OriginX, bal.OriginY, bal.OriginZ };
+                var sections = BladeAeroAlgorithm.ComputeSections(mesh, tableRows, bal.Axis, bal.ForceAxis, origin,
+                                                                  bal.DistanceType);
+                _controller.AddBladeAerodynamicLoadCommand(_stepName, sections);
+                if (!onOkAddNew) ItemSetDataEditor.SelectionForm.Hide();
+                return;
+            }
+            // Aerodynamic pressure — compute DLoads internally, store BladeAeroPressureLoad as visible tree item
+            else if (FELoad is BladeAeroPressureLoad bapl)
+            {
+                if (bapl.TableRows == null || bapl.TableRows.Count == 0)
+                    throw new CaeException("No pressure data. Click '...' on 'Load pressures table' to enter data.");
+                if (string.IsNullOrEmpty(bapl.SurfaceName))
+                    throw new CaeException("No face surface selected.");
+                //
+                var mesh = _controller.DisplayedMesh;
+                if (mesh == null || mesh.Nodes == null || mesh.Nodes.Count == 0)
+                    throw new CaeException("No mesh found in the model.");
+                //
+                var tableRows = new (double distance, double force)[bapl.TableRows.Count];
+                for (int i = 0; i < bapl.TableRows.Count; i++)
+                    tableRows[i] = (bapl.TableRows[i].DistanceRatio, bapl.TableRows[i].Force);
+                int prevCount = bapl.SectionCount;
+                var sections = BladeAeroAlgorithm.ComputePressureSections(mesh, tableRows, bapl.SurfaceName, bapl.Axis,
+                                                                          null, bapl.DistanceType);
+                bapl.SectionCount = sections.Length;
+                FeSurfaceFaceTypes faceTypes = mesh.Surfaces.ContainsKey(bapl.SurfaceName)
+                    ? mesh.Surfaces[bapl.SurfaceName].SurfaceFaceTypes
+                    : FeSurfaceFaceTypes.Unknown;
+                _controller.AddBladeAeroPressureLoadCommand(_stepName, sections, prevCount, faceTypes);
+                // Store BladeAeroPressureLoad itself so it appears in the tree and can be re-edited
+                if (_loadToEditName == null)
+                    _controller.AddLoadCommand(_stepName, bapl);
+                else
+                {
+                    _controller.ReplaceLoadCommand(_stepName, _loadToEditName, bapl);
+                    _loadToEditName = null;
+                }
+                if (!onOkAddNew) ItemSetDataEditor.SelectionForm.Hide();
+                return;
+            }
             // Create
             if (_loadToEditName == null)
             {
@@ -495,6 +571,9 @@ namespace PrePoMax.Forms
             _controller.Selection.LimitSelectionToShellEdges = false;
             // Convert the load from internal to show it
             LoadInternal(false);
+            // Clear blade aero preview actors
+            _controller.ClearBladeAeroPreview();
+            _controller.ClearBladeAeroPressurePreview();
             //
             base.OnHideOrClose();
         }
@@ -829,6 +908,20 @@ namespace PrePoMax.Forms
                     //
                     vrht.PopulateDropDownLists(surfaceNames, amplitudeNames);
                 }
+                // Blade aero — edit not applicable (never stored as a load)
+                else if (_viewLoad is ViewBladeAeroLoad vbal)
+                {
+                    selectedId = lvTypes.FindItemWithText("Blade Aerodynamic Load").Index;
+                }
+                else if (_viewLoad is ViewBladeAeroPressureLoad vbapl)
+                {
+                    selectedId = lvTypes.FindItemWithText("Blade Aerodynamic Pressure Load").Index;
+                    // Populate surface dropdown and check if the source surface still exists
+                    vbapl.PopulateDropDownLists(elementBasedSurfaceNames);
+                    if (!string.IsNullOrEmpty(vbapl.SurfaceName) && !System.Array.Exists(elementBasedSurfaceNames, s => s == vbapl.SurfaceName))
+                        CheckMissingValueRef(ref elementBasedSurfaceNames, vbapl.SurfaceName,
+                            s => { ((BladeAeroPressureLoad)vbapl.GetBase()).SurfaceName = s; });
+                }
                 else throw new NotSupportedException();
                 //
                 lvTypes.Items[selectedId].Tag = _viewLoad;
@@ -1084,6 +1177,31 @@ namespace PrePoMax.Forms
                 item.Tag = vrht;
                 lvTypes.Items.Add(item);
             }
+            // Blade aerodynamic load
+            name = "Blade Aerodynamic Load";
+            loadName = GetLoadName(name);
+            item = new ListViewItem(name);
+            BladeAeroLoad bladeAeroLoad = new BladeAeroLoad(loadName, 1, 0);
+            if (step.IsLoadSupported(bladeAeroLoad))
+            {
+                ViewBladeAeroLoad vbal = new ViewBladeAeroLoad(bladeAeroLoad);
+                vbal.Color = color;
+                item.Tag = vbal;
+                lvTypes.Items.Add(item);
+            }
+            // Aerodynamic pressure
+            name = "Blade Aerodynamic Pressure Load";
+            loadName = GetLoadName(name);
+            item = new ListViewItem(name);
+            BladeAeroPressureLoad bladePressureLoad = new BladeAeroPressureLoad(loadName, 1, "");
+            if (step.IsLoadSupported(bladePressureLoad))
+            {
+                ViewBladeAeroPressureLoad vbapl = new ViewBladeAeroPressureLoad(bladePressureLoad);
+                vbapl.PopulateDropDownLists(elementBasedSurfaceNames);
+                vbapl.Color = color;
+                item.Tag = vbapl;
+                lvTypes.Items.Add(item);
+            }
         }
         private string GetLoadName(string name)
         {
@@ -1176,6 +1294,14 @@ namespace PrePoMax.Forms
                         _controller.HighlightNodes(nodeCoor, true);
                     }
                 }
+                else if (load is BladeAeroLoad bal)
+                {
+                    _controller.DrawBladeAeroPreview(bal);
+                }
+                else if (load is BladeAeroPressureLoad bapl)
+                {
+                    _controller.DrawBladeAeroPressurePreview(bapl);
+                }
                 else throw new NotSupportedException();
                 //
                 if (load != null && load.CoordinateSystemName != null)
@@ -1185,7 +1311,8 @@ namespace PrePoMax.Forms
         }
         private void ShowHideSelectionForm()
         {
-            if (FELoad != null && FELoad.RegionType == RegionTypeEnum.Selection && Enabled)
+            if (FELoad != null && !(FELoad is BladeAeroLoad) && !(FELoad is BladeAeroPressureLoad) &&
+                FELoad.RegionType == RegionTypeEnum.Selection && Enabled)
                 ItemSetDataEditor.SelectionForm.ShowIfHidden(this.Owner);
             else
                 ItemSetDataEditor.SelectionForm.Hide();
@@ -1214,6 +1341,9 @@ namespace PrePoMax.Forms
                 else if (FELoad is BodyFlux) _controller.SetSelectItemToPart();
                 else if (FELoad is FilmHeatTransfer) _controller.SetSelectItemToSurface();
                 else if (FELoad is RadiationHeatTransfer) _controller.SetSelectItemToSurface();
+                // Blade aero uses no geometric selection
+                else if (FELoad is BladeAeroLoad) { }
+                else if (FELoad is BladeAeroPressureLoad) { }
                 //
                 else throw new NotSupportedException();
             }
@@ -1261,6 +1391,9 @@ namespace PrePoMax.Forms
                         //
                         Highlight();
                     }
+                    // Blade aero does not use geometric selection
+                    else if (FELoad is BladeAeroLoad) { }
+                    else if (FELoad is BladeAeroPressureLoad) { }
                     else throw new NotSupportedException();
                 }
             }
@@ -1360,6 +1493,5 @@ namespace PrePoMax.Forms
             if (load.CreationData != null && IsSelectionGeometryBased()) return load.CreationData.IsGeometryIdBased(defaultMode);
             else return defaultMode;
         }
-
     }
 }
