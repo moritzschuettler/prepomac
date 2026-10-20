@@ -49,6 +49,16 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GmshCaller", "GmshCaller\Gm
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ThreeMF", "3MF\ThreeMF.csproj", "{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestOrthoMaterial", "tests\test_ortho_material\TestOrthoMaterial.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCompositeLayup", "tests\test_composite_layup\TestCompositeLayup.csproj", "{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestDrapingStl", "tests\test_draping_stl\TestDrapingStl.csproj", "{B3C4D5E6-F7A8-9012-CDEF-012345678901}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestDiscreteOrientations", "tests\test_discrete_orientations\TestDiscreteOrientations.csproj", "{C4D5E6F7-A8B9-0123-CDEF-123456789ABC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCompositeTensileCouponExport", "tests\test_composite_pmx_export\TestCompositeTensileCouponExport.csproj", "{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -111,6 +121,46 @@ Global
 		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Debug|x64.Build.0 = Debug|x64
 		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Release|x64.ActiveCfg = Release|x64
 		{31B90DB3-03CA-4CD5-92A9-8AEA71A21C5A}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Console-Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Console-Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Console-Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Console-Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.Build.0 = Release|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Console-Debug|x64.ActiveCfg = Debug|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Console-Debug|x64.Build.0 = Debug|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Console-Release|x64.ActiveCfg = Release|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Console-Release|x64.Build.0 = Release|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Debug|x64.ActiveCfg = Debug|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Debug|x64.Build.0 = Debug|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Release|x64.ActiveCfg = Release|x64
+		{D2E3F4A5-B6C7-8901-DEFA-234567890ABC}.Release|x64.Build.0 = Release|x64
+		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Console-Debug|x64.ActiveCfg = Debug|x64
+		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Console-Debug|x64.Build.0 = Debug|x64
+		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Console-Release|x64.ActiveCfg = Release|x64
+		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Console-Release|x64.Build.0 = Release|x64
+		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Debug|x64.ActiveCfg = Debug|x64
+		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Debug|x64.Build.0 = Debug|x64
+		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Release|x64.ActiveCfg = Release|x64
+		{B3C4D5E6-F7A8-9012-CDEF-012345678901}.Release|x64.Build.0 = Release|x64
+		{C4D5E6F7-A8B9-0123-CDEF-123456789ABC}.Console-Debug|x64.ActiveCfg = Debug|x64
+		{C4D5E6F7-A8B9-0123-CDEF-123456789ABC}.Console-Debug|x64.Build.0 = Debug|x64
+		{C4D5E6F7-A8B9-0123-CDEF-123456789ABC}.Console-Release|x64.ActiveCfg = Release|x64
+		{C4D5E6F7-A8B9-0123-CDEF-123456789ABC}.Console-Release|x64.Build.0 = Release|x64
+		{C4D5E6F7-A8B9-0123-CDEF-123456789ABC}.Debug|x64.ActiveCfg = Debug|x64
+		{C4D5E6F7-A8B9-0123-CDEF-123456789ABC}.Debug|x64.Build.0 = Debug|x64
+		{C4D5E6F7-A8B9-0123-CDEF-123456789ABC}.Release|x64.ActiveCfg = Release|x64
+		{C4D5E6F7-A8B9-0123-CDEF-123456789ABC}.Release|x64.Build.0 = Release|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Console-Debug|x64.ActiveCfg = Debug|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Console-Debug|x64.Build.0 = Debug|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Console-Release|x64.ActiveCfg = Release|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Console-Release|x64.Build.0 = Release|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Debug|x64.ActiveCfg = Debug|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Debug|x64.Build.0 = Debug|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Release|x64.ActiveCfg = Release|x64
+		{F6A7B8C9-D0E1-2345-FABC-567890ABCDEF}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

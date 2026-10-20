@@ -117,7 +117,8 @@ namespace CaeModel
             else return value;
         }
         // Returns the material axes 1, 2 and 3 of a shell element, or null for an element that is not a shell
-        public double[][] GetElementAxes(FeMesh mesh, FeElement element, double additionalAngleDeg, out bool fallbackUsed)
+        public virtual double[][] GetElementAxes(FeMesh mesh, FeElement element, double additionalAngleDeg,
+                                                 out bool fallbackUsed)
         {
             fallbackUsed = false;
             double[] point;

@@ -36,7 +36,7 @@ namespace PrePoMax.Forms
 
         // Variables                                                                                                                
         private List<CalculixKeyword> _keywords;
-        private OrderedDictionary<int[], CalculixUserKeyword> _userKeywords;
+        private CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> _userKeywords;
         private List<int[]> _suppressedUserKeywordGeneratedPaths;
         private List<CalculixKeywordOverride> _keywordOverrides;
         private const string HiddenDataPlaceholder = "... hidden data ...";
@@ -51,7 +51,7 @@ namespace PrePoMax.Forms
 
         // Properties                                                                                                               
         public List<CalculixKeyword> Keywords { get { return _keywords; } set { _keywords = value; } }
-        public OrderedDictionary<int[], CalculixUserKeyword> UserKeywords
+        public CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> UserKeywords
         {
             get { return _userKeywords; }
             set { _userKeywords = value; }
@@ -383,7 +383,7 @@ namespace PrePoMax.Forms
                 DialogResult = DialogResult.None;
                 return;
             }
-            var newUserKeywords = new OrderedDictionary<int[], CalculixUserKeyword>("User CalculiX keywords");
+            var newUserKeywords = new CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword>("User CalculiX keywords");
             // Add keywords from the tree - except suppressed keywords which are not visible
             FindUserKeywords(cltvKeywordsTree.Nodes[0], ref newUserKeywords);
             // A suppressed keyword inserts nothing, so it follows the visible ones and keeps its place among the
@@ -411,7 +411,7 @@ namespace PrePoMax.Forms
             //
             this.DialogResult = DialogResult.OK;
         }
-        private void FindUserKeywords(TreeNode node, ref OrderedDictionary<int[], CalculixUserKeyword> userKeywords)
+        private void FindUserKeywords(TreeNode node, ref CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> userKeywords)
         {
             if (node.Tag != null && node.Tag is KeywordAtNode kn && kn.Keyword is CalculixUserKeyword userKeyword)
             {

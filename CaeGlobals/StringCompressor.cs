@@ -59,7 +59,11 @@ namespace CaeGlobals
                 memoryStream.Position = 0;
                 using (var gZipStream = new GZipStream(memoryStream, CompressionMode.Decompress))
                 {
-                    gZipStream.Read(buffer, 0, buffer.Length);
+                    // A read may return fewer bytes than asked for (always so on .NET Core): read until the end
+                    int offset = 0;
+                    int count;
+                    while (offset < buffer.Length && (count = gZipStream.Read(buffer, offset, buffer.Length - offset)) > 0)
+                        offset += count;
                 }
 
                 return Encoding.UTF8.GetString(buffer);

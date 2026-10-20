@@ -35,7 +35,7 @@ namespace APIs.Python
 
 
         // Methods
-        internal static Dictionary<string, double> ToDictionary(OrderedDictionary<string, double> itemLimits)
+        internal static Dictionary<string, double> ToDictionary(CaeGlobals.OrderedDictionary<string, double> itemLimits)
         {
             Dictionary<string, double> limits = new Dictionary<string, double>();
             if (itemLimits == null) return limits;

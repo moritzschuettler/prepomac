@@ -127,7 +127,7 @@ namespace APIs.Python.Model
             }
             // A parameter may use a parameter that is given after it, so all of the values are resolved before
             // the parameters are built: EquationContainer evaluates an equation before it stores it
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            CaeGlobals.OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
             EquationParameter[] parameters = new EquationParameter[parameterNames.Length];
             try
             {
@@ -219,7 +219,7 @@ namespace APIs.Python.Model
                 GetEquations(replacedName == null ? new string[0] : new string[] { replacedName });
             nameEquations.Add(new KeyValuePair<string, string>(parameter.Name, equation.Equation));
             //
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            CaeGlobals.OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
             try
             {
                 Dictionary<string, double> resolvedValues;
@@ -283,7 +283,7 @@ namespace APIs.Python.Model
         }
         private Dictionary<string, string> EvaluateEquations(List<KeyValuePair<string, string>> nameEquations)
         {
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
+            CaeGlobals.OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters;
             try
             {
                 Dictionary<string, double> resolvedValues;

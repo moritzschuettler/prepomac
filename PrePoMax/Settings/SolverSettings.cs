@@ -38,7 +38,18 @@ namespace PrePoMax
         // Properties
         public string WorkDirectoryForSettingsOnly
         {
-            get { return Tools.GetGlobalPath(_workDirectory); }
+            get
+            {
+                if (_workDirectory == null && Environment.OSVersion.Platform != PlatformID.Win32NT)
+                {
+                    // A folder in the home folder; the Documents folder would ask for a permission
+                    string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                                               "PrePoMax", "Work");
+                    try { Directory.CreateDirectory(path); _workDirectory = path; }
+                    catch { }
+                }
+                return Tools.GetGlobalPath(_workDirectory);
+            }
             set
             {
                 string path = Tools.GetGlobalPath(value);
@@ -57,7 +68,13 @@ namespace PrePoMax
         }
         public string CalculixExe
         {
-            get { return Tools.GetGlobalPath(_calculixExe); }
+            get
+            {
+                // Settings saved before a ccx was installed
+                if (_calculixExe == null && Environment.OSVersion.Platform != PlatformID.Win32NT)
+                    _calculixExe = FindCalculixExecutable();
+                return Tools.GetGlobalPath(_calculixExe);
+            }
             set { _calculixExe = SetExecutable(value, "CalculiX"); }
         }
         public SolverTypeEnum CalculixDefaultSolverType
@@ -110,6 +127,12 @@ namespace PrePoMax
             _numCPUs = 1;
             _calculixExe = null;
             _calculixDefaultSolverType = SolverTypeEnum.Pardiso;
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                // The CalculiX builds for macOS link only the SPOOLES solver; an installed ccx is used by default
+                _calculixExe = FindCalculixExecutable();
+                _calculixDefaultSolverType = SolverTypeEnum.Spooles;
+            }
             _environmentVariables = null;
             _convertPyramidsTo = ConvertPyramidsToEnum.Wedges;
             _binaryResultsFile = false;
@@ -122,9 +145,40 @@ namespace PrePoMax
             if (!File.Exists(path))
                 throw new Exception("The selected " + solverName + " executable does not exist.");
             string extension = Path.GetExtension(path);
-            if (extension != ".exe" && extension != ".bat" && extension != ".cmd")
+            // The executables of macOS and Linux have any name, such as ccx_2.23
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT && extension != ".exe" && extension != ".bat" && extension != ".cmd")
                 throw new Exception("The selected executable's file extension is not .exe, .bat or .cmd.");
             return Tools.GetLocalPath(path);
+        }
+        private static string FindCalculixExecutable()
+        {
+            List<string> directories = new List<string>
+            {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Solver"),
+                "/opt/homebrew/bin",
+                "/usr/local/bin",
+            };
+            string pathVariable = Environment.GetEnvironmentVariable("PATH");
+            if (pathVariable != null) directories.AddRange(pathVariable.Split(Path.PathSeparator));
+            foreach (string directory in directories)
+            {
+                try
+                {
+                    if (!Directory.Exists(directory)) continue;
+                    string ccx = Path.Combine(directory, "ccx");
+                    if (File.Exists(ccx)) return ccx;
+                    // Versioned names such as ccx_2.23; the newest version first
+                    string[] files = Directory.GetFiles(directory, "ccx_*");
+                    Array.Sort(files, StringComparer.Ordinal);
+                    for (int i = files.Length - 1; i >= 0; i--)
+                    {
+                        string name = Path.GetFileName(files[i]);
+                        if (name.Length > 4 && char.IsDigit(name[4])) return files[i];
+                    }
+                }
+                catch { }
+            }
+            return null;
         }
     }
 }

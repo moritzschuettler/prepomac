@@ -67,7 +67,7 @@ namespace APIs.Python.Model
             ModelGateway.RemoveFieldOutputs(stepName, names);
         }
         //
-        protected override OrderedDictionary<string, FieldOutput> GetItems(Step step)
+        protected override CaeGlobals.OrderedDictionary<string, FieldOutput> GetItems(Step step)
         {
             return step.FieldOutputs;
         }

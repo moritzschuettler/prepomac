@@ -215,7 +215,7 @@ namespace PrePoMax
             return outputFileNames;
         }
         public bool PreviewEdgeMeshFromStl(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                           OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                           CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             string workDirectory = _controller.Settings.GetWorkDirectory();
             //
@@ -267,7 +267,7 @@ namespace PrePoMax
             else throw new CaeException("Netgen could not create the STL edge mesh for part '" + part.Name + "'.");
         }
         public bool PreviewEdgeMeshFromBrep(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems,
+                                            CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems,
                                             bool previewSweepSourceMesh)
         {
             string workDirectory = _controller.Settings.GetWorkDirectory();
@@ -320,7 +320,7 @@ namespace PrePoMax
         /// when Netgen lays no structured grid and no number is set.
         /// </summary>
         private string WriteTransfiniteFile(GeometryPart part, MeshingParameters meshingParameters, string workDirectory,
-                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                            CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             string fileName = Path.Combine(workDirectory, Globals.TransfiniteFacesFileName);
             if (File.Exists(fileName)) File.Delete(fileName);
@@ -361,14 +361,14 @@ namespace PrePoMax
             return fileName;
         }
         public bool PreviewEdgeNodesForQuadWild(GeometryPart part,
-                                                OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                                CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             MeshSetupItem[] setupItems = new MeshSetupItem[0];
             if (part.IsCADPart) return PreviewEdgeMeshFromBrep(part, setupItems, meshSetupItems, false);
             else return PreviewEdgeMeshFromStl(part, setupItems, meshSetupItems);
         }
         public FeMesh CreateFirstOrderShellMeshForQuadWild(GeometryPart part, string workDirectory,
-                                                           OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+                                                           CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             if (part == null) throw new ArgumentNullException(nameof(part));
             if (part.PartType != PartType.Shell)

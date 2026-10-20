@@ -150,7 +150,7 @@ namespace CaeGlobals
             if (dictionary == null) throw new ArgumentNullException("dictionary");
             //
             _name = name;
-            if (dictionary is OrderedDictionary<TKey, TValue> orderedDictionary)
+            if (dictionary is CaeGlobals.OrderedDictionary<TKey, TValue> orderedDictionary)
             {
                 _dictionary = new Dictionary<TKey, TValue>(orderedDictionary._dictionary.Count,
                                                            orderedDictionary._dictionary.Comparer);
@@ -196,14 +196,14 @@ namespace CaeGlobals
                 _list.Add(entry.Key);
             }
             //
-            if (dictionary is OrderedDictionary<TKey, TValue> orderedDictionary)
+            if (dictionary is CaeGlobals.OrderedDictionary<TKey, TValue> orderedDictionary)
             {
                 _itemLayout = orderedDictionary._itemLayout == null ? null : orderedDictionary._itemLayout.DeepCopy();
                 if (_itemLayout != null) SetItemLayout(_itemLayout);
             }
             else _itemLayout = null;
         }
-        public OrderedDictionary(OrderedDictionary<TKey, TValue> dictionary)
+        public OrderedDictionary(CaeGlobals.OrderedDictionary<TKey, TValue> dictionary)
         {
             if (dictionary == null) throw new ArgumentNullException("dictionary");
             //
@@ -815,9 +815,9 @@ namespace CaeGlobals
             return GetEnumerator();
         }
         //
-        public OrderedDictionary<TKey, TValue> DeepCopy()
+        public CaeGlobals.OrderedDictionary<TKey, TValue> DeepCopy()
         {
-            return new OrderedDictionary<TKey, TValue>(this);
+            return new CaeGlobals.OrderedDictionary<TKey, TValue>(this);
         }
 
         // Private item layout methods

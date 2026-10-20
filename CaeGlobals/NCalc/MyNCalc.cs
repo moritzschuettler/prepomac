@@ -24,7 +24,7 @@ namespace CaeGlobals
     public static class MyNCalc
     {
         // Variables                                                                                                                
-        public static OrderedDictionary<string, object> _existingParameters = null;
+        public static CaeGlobals.OrderedDictionary<string, object> _existingParameters = null;
         // The parameter count grows with the model - a parameter is registered for every face of every
         // part - and an equation is evaluated once per symbol draw, so nothing that is derived from the
         // parameters may be rebuilt per evaluation. These three are, and they are dropped together
@@ -32,7 +32,7 @@ namespace CaeGlobals
         private static List<string> _sortedDottedParameterNames = null;
         private static Dictionary<string, string> _bracketedEquations = null;
         private static Dictionary<string, object> _ncalcParameters = null;
-        public static OrderedDictionary<string, object> ExistingParameters
+        public static CaeGlobals.OrderedDictionary<string, object> ExistingParameters
         {
             get { return _existingParameters; }
             set { _existingParameters = value; ClearParameterCaches(); }

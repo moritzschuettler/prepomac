@@ -21,6 +21,7 @@ namespace PrePoMax
         Materials = 8,
         Sections = 16,
         SectionThicknesses = 32,
+        CompositeSections = 8192,
         ReferencePoints = 64,
         Constraints = 128,
         ContactPairs = 256,

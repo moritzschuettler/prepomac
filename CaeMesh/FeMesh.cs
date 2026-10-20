@@ -52,13 +52,13 @@ namespace CaeMesh
         [NonSerialized] private MeshVisibilityCache _visibilityCache;
         //
         private MeshRepresentation _meshRepresentation;                             //ISerializable
-        private OrderedDictionary<string, MeshSetupItem> _meshSetupItems;           //ISerializable
-        private OrderedDictionary<string, BasePart> _parts;                         //ISerializable
-        private OrderedDictionary<string, FeNodeSet> _nodeSets;                     //ISerializable
-        private OrderedDictionary<string, FeElementSet> _elementSets;               //ISerializable
-        private OrderedDictionary<string, FeSurface> _surfaces;                     //ISerializable
-        private OrderedDictionary<string, FeReferencePoint> _referencePoints;       //ISerializable
-        private OrderedDictionary<string, CoordinateSystem> _coordinateSystems;     //ISerializable
+        private CaeGlobals.OrderedDictionary<string, MeshSetupItem> _meshSetupItems;           //ISerializable
+        private CaeGlobals.OrderedDictionary<string, BasePart> _parts;                         //ISerializable
+        private CaeGlobals.OrderedDictionary<string, FeNodeSet> _nodeSets;                     //ISerializable
+        private CaeGlobals.OrderedDictionary<string, FeElementSet> _elementSets;               //ISerializable
+        private CaeGlobals.OrderedDictionary<string, FeSurface> _surfaces;                     //ISerializable
+        private CaeGlobals.OrderedDictionary<string, FeReferencePoint> _referencePoints;       //ISerializable
+        private CaeGlobals.OrderedDictionary<string, CoordinateSystem> _coordinateSystems;     //ISerializable
         private int _maxNodeId;                                                     //ISerializable
         private int _maxElementId;                                                  //ISerializable
         private BoundingBox _boundingBox;                                           //ISerializable
@@ -75,26 +75,26 @@ namespace CaeMesh
             get { return _elements; }
             set { _elements = value; }
         }
-        public OrderedDictionary<string, MeshSetupItem> MeshSetupItems
+        public CaeGlobals.OrderedDictionary<string, MeshSetupItem> MeshSetupItems
         {
             get { return _meshSetupItems; }
         }
-        public OrderedDictionary<string, BasePart> Parts
+        public CaeGlobals.OrderedDictionary<string, BasePart> Parts
         {
             get { return _parts; }
             set { _parts = value; }
         }
-        public OrderedDictionary<string, FeNodeSet> NodeSets
+        public CaeGlobals.OrderedDictionary<string, FeNodeSet> NodeSets
         {
             get { return _nodeSets; }
         }
-        public OrderedDictionary<string, FeElementSet> ElementSets { get { return _elementSets; } set { _elementSets = value; } }
-        public OrderedDictionary<string, FeSurface> Surfaces { get { return _surfaces; } set { _surfaces = value; } }
-        public OrderedDictionary<string, FeReferencePoint> ReferencePoints
+        public CaeGlobals.OrderedDictionary<string, FeElementSet> ElementSets { get { return _elementSets; } set { _elementSets = value; } }
+        public CaeGlobals.OrderedDictionary<string, FeSurface> Surfaces { get { return _surfaces; } set { _surfaces = value; } }
+        public CaeGlobals.OrderedDictionary<string, FeReferencePoint> ReferencePoints
         {
             get { return _referencePoints; }
         }
-        public OrderedDictionary<string, CoordinateSystem> CoordinateSystems { get { return _coordinateSystems; } }
+        public CaeGlobals.OrderedDictionary<string, CoordinateSystem> CoordinateSystems { get { return _coordinateSystems; } }
         public int MaxNodeId
         {
             get { return _maxNodeId; }
@@ -153,16 +153,16 @@ namespace CaeMesh
             StringComparer sc = StringComparer.OrdinalIgnoreCase;
             //
             _meshRepresentation = representation;
-            _meshSetupItems = new OrderedDictionary<string, MeshSetupItem>("Mesh Setup Items", sc);
+            _meshSetupItems = new CaeGlobals.OrderedDictionary<string, MeshSetupItem>("Mesh Setup Items", sc);
             //
-            _nodeSets = new OrderedDictionary<string, FeNodeSet>("Node Sets", sc);
-            _elementSets = new OrderedDictionary<string, FeElementSet>("Element Sets", sc);
+            _nodeSets = new CaeGlobals.OrderedDictionary<string, FeNodeSet>("Node Sets", sc);
+            _elementSets = new CaeGlobals.OrderedDictionary<string, FeElementSet>("Element Sets", sc);
             //
-            _surfaces = new OrderedDictionary<string, FeSurface>("Surfaces", sc);
-            _referencePoints = new OrderedDictionary<string, FeReferencePoint>("Reference Points", sc);
-            _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
+            _surfaces = new CaeGlobals.OrderedDictionary<string, FeSurface>("Surfaces", sc);
+            _referencePoints = new CaeGlobals.OrderedDictionary<string, FeReferencePoint>("Reference Points", sc);
+            _coordinateSystems = new CaeGlobals.OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
             //
-            _parts = new OrderedDictionary<string, BasePart>("Base Parts", sc);
+            _parts = new CaeGlobals.OrderedDictionary<string, BasePart>("Base Parts", sc);
             ExtractParts(inpElementTypeSets, partNamePrefix, importOptions);
             //
             UpdateMaxNodeAndElementIds();
@@ -178,9 +178,9 @@ namespace CaeMesh
             StringComparer sc = StringComparer.OrdinalIgnoreCase;
             //
             _meshRepresentation = mesh._meshRepresentation;
-            _meshSetupItems = new OrderedDictionary<string, MeshSetupItem>("Mesh Setup Items", sc);
+            _meshSetupItems = new CaeGlobals.OrderedDictionary<string, MeshSetupItem>("Mesh Setup Items", sc);
             //
-            _parts = new OrderedDictionary<string, BasePart>("Base Parts", sc);
+            _parts = new CaeGlobals.OrderedDictionary<string, BasePart>("Base Parts", sc);
             foreach (var partName in partsToKeep)
             {
                 _parts.Add(partName, mesh.Parts[partName].DeepCopy());
@@ -206,11 +206,11 @@ namespace CaeMesh
                 _elements.Add(elementId, mesh.Elements[elementId].DeepCopy());
             }
             //
-            _nodeSets = new OrderedDictionary<string, FeNodeSet>("Node Sets", sc);
-            _elementSets = new OrderedDictionary<string, FeElementSet>("Element Sets", sc);
-            _surfaces = new OrderedDictionary<string, FeSurface>("Surfaces", sc);
-            _referencePoints = new OrderedDictionary<string, FeReferencePoint>("Reference Points", sc);
-            _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
+            _nodeSets = new CaeGlobals.OrderedDictionary<string, FeNodeSet>("Node Sets", sc);
+            _elementSets = new CaeGlobals.OrderedDictionary<string, FeElementSet>("Element Sets", sc);
+            _surfaces = new CaeGlobals.OrderedDictionary<string, FeSurface>("Surfaces", sc);
+            _referencePoints = new CaeGlobals.OrderedDictionary<string, FeReferencePoint>("Reference Points", sc);
+            _coordinateSystems = new CaeGlobals.OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
             //
             _maxNodeId = mesh._maxNodeId;
             _maxElementId = mesh._maxElementId;
@@ -222,10 +222,10 @@ namespace CaeMesh
         public FeMesh(SerializationInfo info, StreamingContext context)
         {
             StringComparer sc = StringComparer.OrdinalIgnoreCase;
-            OrderedDictionary<string, MeshingParameters> meshingParameters
-                = new OrderedDictionary<string, MeshingParameters>("mp");
-            OrderedDictionary<string, FeMeshRefinement> meshRefinements
-                = new OrderedDictionary<string, FeMeshRefinement>("mr");
+            CaeGlobals.OrderedDictionary<string, MeshingParameters> meshingParameters
+                = new CaeGlobals.OrderedDictionary<string, MeshingParameters>("mp");
+            CaeGlobals.OrderedDictionary<string, FeMeshRefinement> meshRefinements
+                = new CaeGlobals.OrderedDictionary<string, FeMeshRefinement>("mr");
             //
             foreach (SerializationEntry entry in info)
             {
@@ -234,19 +234,19 @@ namespace CaeMesh
                     case "_meshRepresentation":
                         _meshRepresentation = (MeshRepresentation)entry.Value; break;
                     case "_meshingParameters":      // Compatibility for version v1.4.1
-                        meshingParameters = (OrderedDictionary<string, MeshingParameters>)entry.Value; break;
+                        meshingParameters = (CaeGlobals.OrderedDictionary<string, MeshingParameters>)entry.Value; break;
                     case "_meshRefinements":        // Compatibility for version v1.4.1
-                        meshRefinements = (OrderedDictionary<string, FeMeshRefinement>)entry.Value; break;
+                        meshRefinements = (CaeGlobals.OrderedDictionary<string, FeMeshRefinement>)entry.Value; break;
                     case "_meshSetupItems":
-                        _meshSetupItems = (OrderedDictionary<string, MeshSetupItem>)entry.Value; break;
+                        _meshSetupItems = (CaeGlobals.OrderedDictionary<string, MeshSetupItem>)entry.Value; break;
                     case "_parts":
                         if (entry.Value is Dictionary<string, BasePart> bpd)
                         {
                             // Compatibility for version v0.5.1
                             bpd.OnDeserialization(null);
-                            _parts = new OrderedDictionary<string, BasePart>("", bpd, sc);
+                            _parts = new CaeGlobals.OrderedDictionary<string, BasePart>("", bpd, sc);
                         }
-                        else if (entry.Value is OrderedDictionary<string, BasePart> bpod) _parts = bpod;
+                        else if (entry.Value is CaeGlobals.OrderedDictionary<string, BasePart> bpod) _parts = bpod;
                         else if (entry.Value == null) _parts = null;
                         else throw new NotSupportedException();
                         break;
@@ -255,9 +255,9 @@ namespace CaeMesh
                         {
                             // Compatibility for version v0.5.1
                             nsd.OnDeserialization(null);
-                            _nodeSets = new OrderedDictionary<string, FeNodeSet>("", nsd, sc);
+                            _nodeSets = new CaeGlobals.OrderedDictionary<string, FeNodeSet>("", nsd, sc);
                         }
-                        else if (entry.Value is OrderedDictionary<string, FeNodeSet> nsod) _nodeSets = nsod;
+                        else if (entry.Value is CaeGlobals.OrderedDictionary<string, FeNodeSet> nsod) _nodeSets = nsod;
                         else if (entry.Value == null) _nodeSets = null;
                         else throw new NotSupportedException();
                         break;
@@ -266,9 +266,9 @@ namespace CaeMesh
                         {
                             // Compatibility for version v0.5.1
                             esd.OnDeserialization(null);
-                            _elementSets = new OrderedDictionary<string, FeElementSet>("", esd, sc);
+                            _elementSets = new CaeGlobals.OrderedDictionary<string, FeElementSet>("", esd, sc);
                         }
-                        else if (entry.Value is OrderedDictionary<string, FeElementSet> esod) _elementSets = esod;
+                        else if (entry.Value is CaeGlobals.OrderedDictionary<string, FeElementSet> esod) _elementSets = esod;
                         else if (entry.Value == null) _elementSets = null;
                         else throw new NotSupportedException();
                         break;
@@ -277,9 +277,9 @@ namespace CaeMesh
                         {
                             // Compatibility for version v0.5.1
                             sd.OnDeserialization(null);
-                            _surfaces = new OrderedDictionary<string, FeSurface>("", sd, sc);
+                            _surfaces = new CaeGlobals.OrderedDictionary<string, FeSurface>("", sd, sc);
                         }
-                        else if (entry.Value is OrderedDictionary<string, FeSurface> sod) _surfaces = sod;
+                        else if (entry.Value is CaeGlobals.OrderedDictionary<string, FeSurface> sod) _surfaces = sod;
                         else if (entry.Value == null) _surfaces = null;
                         else throw new NotSupportedException();
                         break;
@@ -288,14 +288,14 @@ namespace CaeMesh
                         {
                             // Compatibility for version v0.5.1
                             rpd.OnDeserialization(null);
-                            _referencePoints = new OrderedDictionary<string, FeReferencePoint>("", rpd, sc);
+                            _referencePoints = new CaeGlobals.OrderedDictionary<string, FeReferencePoint>("", rpd, sc);
                         }
-                        else if (entry.Value is OrderedDictionary<string, FeReferencePoint> rpod) _referencePoints = rpod;
+                        else if (entry.Value is CaeGlobals.OrderedDictionary<string, FeReferencePoint> rpod) _referencePoints = rpod;
                         else if (entry.Value == null) _referencePoints = null;
                         else throw new NotSupportedException();
                         break;
                     case "_coordinateSystems":
-                        _coordinateSystems = (OrderedDictionary<string, CoordinateSystem>)entry.Value; break;
+                        _coordinateSystems = (CaeGlobals.OrderedDictionary<string, CoordinateSystem>)entry.Value; break;
                     case "_maxNodeId":
                         _maxNodeId = (int)entry.Value; break;
                     case "_maxElementId":
@@ -311,14 +311,14 @@ namespace CaeMesh
             }
             // Compatibility for version v1.4.1
             if (_meshSetupItems == null) _meshSetupItems =
-                    new OrderedDictionary<string, MeshSetupItem>("Mesh Setup Items", sc);
+                    new CaeGlobals.OrderedDictionary<string, MeshSetupItem>("Mesh Setup Items", sc);
             meshingParameters.OnDeserialization(null);
             meshRefinements.OnDeserialization(null);
             foreach (var entry in meshingParameters) _meshSetupItems.Add(entry.Key, entry.Value);
             foreach (var entry in meshRefinements) _meshSetupItems.Add(entry.Key, entry.Value);
             // Compatibility for version v.2.1.0
             if (_coordinateSystems == null)
-                _coordinateSystems = new OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
+                _coordinateSystems = new CaeGlobals.OrderedDictionary<string, CoordinateSystem>("Coordinate Systems", sc);
             // Compatibility for version v.2.4.4
             _meshSetupItems.OnDeserialization(null);
             foreach (var entry in _meshSetupItems.ToArray())
@@ -376,7 +376,7 @@ namespace CaeMesh
                     }
                 }
                 // Parts
-                OrderedDictionary<string, BasePart> parts = mesh._parts;
+                CaeGlobals.OrderedDictionary<string, BasePart> parts = mesh._parts;
                 if (parts == null) bw.Write(-1);
                 else
                 {
@@ -12783,13 +12783,13 @@ namespace CaeMesh
         {
             // Using typeof() works also for null fields
             info.AddValue("_meshRepresentation", _meshRepresentation, typeof(MeshRepresentation));
-            info.AddValue("_meshSetupItems", _meshSetupItems, typeof(OrderedDictionary<string, MeshSetupItem>));
-            info.AddValue("_parts", _parts, typeof(OrderedDictionary<string, BasePart>));
-            info.AddValue("_nodeSets", _nodeSets, typeof(OrderedDictionary<string, FeNodeSet>));
-            info.AddValue("_elementSets", _elementSets, typeof(OrderedDictionary<string, FeElementSet>));
-            info.AddValue("_surfaces", _surfaces, typeof(OrderedDictionary<string, FeSurface>));
-            info.AddValue("_referencePoints", _referencePoints, typeof(OrderedDictionary<string, FeReferencePoint>));
-            info.AddValue("_coordinateSystems", _coordinateSystems, typeof(OrderedDictionary<string, CoordinateSystem>));
+            info.AddValue("_meshSetupItems", _meshSetupItems, typeof(CaeGlobals.OrderedDictionary<string, MeshSetupItem>));
+            info.AddValue("_parts", _parts, typeof(CaeGlobals.OrderedDictionary<string, BasePart>));
+            info.AddValue("_nodeSets", _nodeSets, typeof(CaeGlobals.OrderedDictionary<string, FeNodeSet>));
+            info.AddValue("_elementSets", _elementSets, typeof(CaeGlobals.OrderedDictionary<string, FeElementSet>));
+            info.AddValue("_surfaces", _surfaces, typeof(CaeGlobals.OrderedDictionary<string, FeSurface>));
+            info.AddValue("_referencePoints", _referencePoints, typeof(CaeGlobals.OrderedDictionary<string, FeReferencePoint>));
+            info.AddValue("_coordinateSystems", _coordinateSystems, typeof(CaeGlobals.OrderedDictionary<string, CoordinateSystem>));
             info.AddValue("_maxNodeId", _maxNodeId, typeof(int));
             info.AddValue("_maxElementId", _maxElementId, typeof(int));
             info.AddValue("_boundingBox", _boundingBox, typeof(BoundingBox));

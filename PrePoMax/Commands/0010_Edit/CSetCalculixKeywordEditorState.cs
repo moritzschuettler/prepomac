@@ -20,13 +20,13 @@ namespace PrePoMax.Commands
     class CSetCalculixKeywordEditorState : PreprocessCommand
     {
         // Variables
-        private OrderedDictionary<int[], Calculix.CalculixUserKeyword> _userKeywords;
+        private CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword> _userKeywords;
         private List<Calculix.CalculixKeywordOverride> _keywordOverrides;
 
 
         // Constructors
         public CSetCalculixKeywordEditorState(
-            OrderedDictionary<int[], Calculix.CalculixUserKeyword> userKeywords,
+            CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword> userKeywords,
             List<Calculix.CalculixKeywordOverride> keywordOverrides)
             : base("Set CalculiX keyword editor state")
         {

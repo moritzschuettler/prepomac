@@ -27,7 +27,7 @@ namespace CaeGlobals
             Dictionary<string, string> errors = new Dictionary<string, string>(comparer);
             values = new Dictionary<string, double>(comparer);
             //
-            MyNCalc.ExistingParameters = new OrderedDictionary<string, object>("Parameters");
+            MyNCalc.ExistingParameters = new CaeGlobals.OrderedDictionary<string, object>("Parameters");
             if (propertyParameters != null) MyNCalc.ExistingParameters.AddRange(propertyParameters);
             if (nameEquations == null || nameEquations.Count == 0) return errors;
             // An equation may use a parameter that is defined below it, so the equations are evaluated for as

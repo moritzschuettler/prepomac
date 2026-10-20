@@ -159,7 +159,7 @@ namespace CaeGlobals
         {
             if (ParentForm.InvokeRequired)
             {
-                return (object)ParentForm.Invoke((MethodInvoker)delegate () { function(); });
+                return (object)ParentForm.Invoke((System.Windows.Forms.MethodInvoker)delegate () { function(); });
             }
             else
             {

@@ -221,11 +221,11 @@ namespace CaeModel
             if (stepNames.Count > 0) return stepNames.ToArray();
             else return new string[0];
         }
-        public OrderedDictionary<int, double> GetStepIdDuration()
+        public CaeGlobals.OrderedDictionary<int, double> GetStepIdDuration()
         {
             int count = 1;  // start at 1
-            OrderedDictionary<int, double> stepIdDuration =
-                new OrderedDictionary<int, double>("Step id - duration");
+            CaeGlobals.OrderedDictionary<int, double> stepIdDuration =
+                new CaeGlobals.OrderedDictionary<int, double>("Step id - duration");
             //
             foreach (var step in _steps)
             {

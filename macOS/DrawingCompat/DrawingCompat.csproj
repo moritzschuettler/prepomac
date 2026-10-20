@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- System.Drawing (GDI+) for macOS on SkiaSharp. The assembly has the name of the package System.Drawing.Common, so
+       the type forwards of the System.Drawing facade of .NET, the resources of the forms and serialized data find it. -->
+  <PropertyGroup>
+    <AssemblyName>System.Drawing.Common</AssemblyName>
+    <RootNamespace>System.Drawing</RootNamespace>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);CS0436;CS1685</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+  </ItemGroup>
+</Project>

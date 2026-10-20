@@ -49,7 +49,7 @@ namespace PrePoMax
         //
         [NonSerialized] protected FrmMain _form;
         [NonSerialized] protected SettingsContainer _settings;
-        [NonSerialized] protected OrderedDictionary<string, AnalysisJob> _jobs;
+        [NonSerialized] protected CaeGlobals.OrderedDictionary<string, AnalysisJob> _jobs;
         // States
         [NonSerialized] protected bool _modelChanged;
         [NonSerialized] protected bool _savingFile;
@@ -76,6 +76,7 @@ namespace PrePoMax
         [NonSerialized] protected AnnotateWithColorEnum _annotateWithColor;
         [NonSerialized] protected ShowItemIdsEnum _showItemIds;
         [NonSerialized] protected bool _itemIdsSuppressed;
+        [NonSerialized] protected bool _showCompositeSectionsLegend = true;
         [NonSerialized] protected string _drawSymbolName;
         // Selection
         [NonSerialized] protected vtkSelectBy _selectBy;
@@ -155,7 +156,7 @@ namespace PrePoMax
         // automation server reads on every call. This is the live object, so a caller sees the
         // choice the user made last; only the server reads it
         public AutomationSettings AutomationSettings { get { return _settings.Automation; } }
-        public OrderedDictionary<string, AnalysisJob> Jobs { get { return _jobs; } }
+        public CaeGlobals.OrderedDictionary<string, AnalysisJob> Jobs { get { return _jobs; } }
         // States
         public bool ModelInitialized
         {
@@ -597,7 +598,7 @@ namespace PrePoMax
             _gmshRunner = new GmshMesherRunner(this);
             _quadWildRunner = new QuadWildMesherRunner(this, _netgenRunner, _mmgRunner, _gmshRunner);
             _mesherRegistry = new MesherRegistry(_netgenRunner, _mmgRunner, _gmshRunner, _quadWildRunner);
-            _jobs = new OrderedDictionary<string, AnalysisJob>("Analysis Jobs", StringComparer.OrdinalIgnoreCase);
+            _jobs = new CaeGlobals.OrderedDictionary<string, AnalysisJob>("Analysis Jobs", StringComparer.OrdinalIgnoreCase);
             // Edges visibilities
             _edgesVisibilities = new EdgesVisibilitiesCollection(this);
             // Section view
@@ -647,15 +648,15 @@ namespace PrePoMax
         //    //info.AddValue("_name", Name, typeof(string));
         //    //info.AddValue("_geometry", _geometry, typeof(FeMesh));
         //    //info.AddValue("_mesh", _mesh, typeof(FeMesh));
-        //    //info.AddValue("_materials", _materials, typeof(OrderedDictionary<string, Material>));
-        //    //info.AddValue("_sections", _sections, typeof(OrderedDictionary<string, Section>));
-        //    //info.AddValue("_constraints", _constraints, typeof(OrderedDictionary<string, Constraint>));
-        //    //info.AddValue("_surfaceInteractions", _surfaceInteractions, typeof(OrderedDictionary<string, SurfaceInteraction>));
-        //    //info.AddValue("_contactPairs", _contactPairs, typeof(OrderedDictionary<string, ContactPair>));
-        //    //info.AddValue("_amplitudes", _amplitudes, typeof(OrderedDictionary<string, Amplitude>));
-        //    //info.AddValue("_initialConditions", _initialConditions, typeof(OrderedDictionary<string, InitialCondition>));
+        //    //info.AddValue("_materials", _materials, typeof(CaeGlobals.OrderedDictionary<string, Material>));
+        //    //info.AddValue("_sections", _sections, typeof(CaeGlobals.OrderedDictionary<string, Section>));
+        //    //info.AddValue("_constraints", _constraints, typeof(CaeGlobals.OrderedDictionary<string, Constraint>));
+        //    //info.AddValue("_surfaceInteractions", _surfaceInteractions, typeof(CaeGlobals.OrderedDictionary<string, SurfaceInteraction>));
+        //    //info.AddValue("_contactPairs", _contactPairs, typeof(CaeGlobals.OrderedDictionary<string, ContactPair>));
+        //    //info.AddValue("_amplitudes", _amplitudes, typeof(CaeGlobals.OrderedDictionary<string, Amplitude>));
+        //    //info.AddValue("_initialConditions", _initialConditions, typeof(CaeGlobals.OrderedDictionary<string, InitialCondition>));
         //    //info.AddValue("_stepCollection", _stepCollection, typeof(StepCollection));
-        //    //info.AddValue("_calculixUserKeywords", _calculixUserKeywords, typeof(OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
+        //    //info.AddValue("_calculixUserKeywords", _calculixUserKeywords, typeof(CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
         //    //info.AddValue("_properties", _properties, typeof(ModelProperties));
         //    //info.AddValue("_unitSystem", _unitSystem, typeof(UnitSystem));
         //    //info.AddValue("_hashName", _hashName, typeof(string));
@@ -833,7 +834,7 @@ namespace PrePoMax
             // Rotation centers
             _viewNameRotationCenter.Clear();
             // New
-            OrderedDictionary<string, EquationParameter> overriddenParameters = null;
+            CaeGlobals.OrderedDictionary<string, EquationParameter> overriddenParameters = null;
             if (_model != null) overriddenParameters = _model.Parameters.OverriddenParameters;
             _model = new FeModel("Model-1", null, true, overriddenParameters);
             //
@@ -1049,7 +1050,7 @@ namespace PrePoMax
             // Annotations
             _annotations = new AnnotationContainer(tmp._annotations, this);
             // Jobs
-            if (data[1] is OrderedDictionary<string, AnalysisJob> od)
+            if (data[1] is CaeGlobals.OrderedDictionary<string, AnalysisJob> od)
             {
                 _jobs = od;
                 ResetUnfinishedJobStatuses();
@@ -2643,6 +2644,8 @@ namespace PrePoMax
             if (jobStatus == JobStatus.OK)
             {
                 string[] allFiles = Directory.GetFiles(workDirectory, searchPattern);
+                // The parts are numbered in the order of the file names, which only NTFS lists sorted
+                Array.Sort(allFiles, StringComparer.Ordinal);
                 foreach (var fileName in allFiles)
                 {
                     brepFile = Path.GetFileName(fileName);
@@ -3538,8 +3541,8 @@ namespace PrePoMax
                 newModel.Properties.ModelSpace = ModelSpaceEnum.ThreeD;
                 newModel.Mesh.AddPartsFromMesh(result.Mesh, partNames, null, null, false, false);
                 // Change result parts to mesh parts
-                OrderedDictionary<string, BasePart> meshParts =
-                    new OrderedDictionary<string, BasePart>("Base Parts", StringComparer.OrdinalIgnoreCase);
+                CaeGlobals.OrderedDictionary<string, BasePart> meshParts =
+                    new CaeGlobals.OrderedDictionary<string, BasePart>("Base Parts", StringComparer.OrdinalIgnoreCase);
                 MeshPart meshPart;
                 foreach (var entry in newModel.Mesh.Parts)
                 {
@@ -3769,14 +3772,14 @@ namespace PrePoMax
 
         #region Edit menu   ########################################################################################################
         // COMMANDS ********************************************************************************
-        public void SetCalculixUserKeywordsCommand(OrderedDictionary<int[],
+        public void SetCalculixUserKeywordsCommand(CaeGlobals.OrderedDictionary<int[],
                                                    FileInOut.Output.Calculix.CalculixUserKeyword> userKeywords)
         {
             Commands.CSetCalculixUserKeywords comm = new Commands.CSetCalculixUserKeywords(userKeywords);
             _commands.AddAndExecute(comm);
         }
         public void SetCalculixKeywordEditorStateCommand(
-            OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> userKeywords,
+            CaeGlobals.OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> userKeywords,
             List<FileInOut.Output.Calculix.CalculixKeywordOverride> keywordOverrides)
         {
             Commands.CSetCalculixKeywordEditorState comm =
@@ -3853,7 +3856,7 @@ namespace PrePoMax
             }
             else return CalculixFileWriter.GetModelKeywords(_model, _settings.Solver.ConvertPyramidsTo, null, true);
         }
-        public OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> GetCalculixUserKeywords()
+        public CaeGlobals.OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> GetCalculixUserKeywords()
         {
             if (_model == null)
             {
@@ -3871,13 +3874,13 @@ namespace PrePoMax
             }
             else return _model.CalculixKeywordOverrides;
         }
-        public void SetCalculixUserKeywords(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> userKeywords)
+        public void SetCalculixUserKeywords(CaeGlobals.OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> userKeywords)
         {
             _model.CalculixUserKeywords = userKeywords;
             _form.SetNumberOfModelUserKeywords(userKeywords.Count);
         }
         public void SetCalculixKeywordEditorState(
-            OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> userKeywords,
+            CaeGlobals.OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> userKeywords,
             List<FileInOut.Output.Calculix.CalculixKeywordOverride> keywordOverrides)
         {
             SetCalculixUserKeywords(userKeywords);
@@ -11400,7 +11403,7 @@ namespace PrePoMax
         }
         //******************************************************************************************
         public MeshingParameters GetPartMeshingParameters(string partName,
-                                                          OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+                                                          CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             HashSet<int> selectedPartIds;
             string[] meshAblePartNames = GetMeshablePartNames(new string[] { partName });
@@ -11574,7 +11577,7 @@ namespace PrePoMax
         /// allow: an element size below the minimum or above the maximum element size, or so many elements on an edge
         /// that they are shorter than the minimum element size. Neither value is changed to fit, as both are the user's.
         /// </summary>
-        private void CheckLocalMeshSizes(string partName, OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+        private void CheckLocalMeshSizes(string partName, CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             string[] meshablePartNames = GetMeshablePartNames(new string[] { partName });
             HashSet<int> meshablePartIds = new HashSet<int>(_model.Geometry.GetPartIdsFomPartNames(meshablePartNames));
@@ -11635,7 +11638,7 @@ namespace PrePoMax
         }
         //
         public void GetMeshItemSizes(string partName, ref GmshData gmshData,
-                                     OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+                                     CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             HashSet<int> selectedPartIds;
             string[] meshAblePartNames = GetMeshablePartNames(new string[] { partName });
@@ -11745,7 +11748,7 @@ namespace PrePoMax
         {
             GeometryPart part = (GeometryPart)_model.Geometry.Parts[partName];
             //
-            OrderedDictionary<string, MeshSetupItem> meshSetupItemsDict = _model.Geometry.MeshSetupItems.DeepClone();
+            CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItemsDict = _model.Geometry.MeshSetupItems.DeepClone();
             // If the form to edit mesh setup item is open, overwrite the item
             if (meshSetupItem != null)
             {
@@ -11785,7 +11788,7 @@ namespace PrePoMax
             }
             return result;
         }
-        public bool PreviewEdgeMeshFromBrep(GeometryPart part, OrderedDictionary<string, MeshSetupItem> meshSetupItems,
+        public bool PreviewEdgeMeshFromBrep(GeometryPart part, CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems,
                                             bool previewSweepSourceMesh)
         {
             MeshSetupItem[] mesherSetupItems = GetActiveValidMesherSetupItems(part.Name, meshSetupItems);
@@ -12505,7 +12508,7 @@ namespace PrePoMax
                                   .CreateMeshFromBrep(part, mesherSetupItems, workDirectory);
         }
         internal void CreateLocalMeshSizeFile(GeometryPart part, string fileName,
-                                             OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+                                             CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             int geometryPartId;
             int[] geometryIds;
@@ -12755,7 +12758,7 @@ namespace PrePoMax
             else return null;
         }
         private MeshSetupItem[] GetActiveValidMesherSetupItems(string partName,
-                                                               OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+                                                               CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             MeshSetupItem[] mesherSetupItems = GetUserMesherSetupItems(partName, meshSetupItems);
             if (mesherSetupItems.Length > 0) return mesherSetupItems;
@@ -12766,7 +12769,7 @@ namespace PrePoMax
             return new MeshSetupItem[] { defaultMesherSetupItem };
         }
         private MeshSetupItem[] GetUserMesherSetupItems(string partName,
-                                                       OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+                                                       CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             HashSet<int> selectedPartIds;
             string[] meshablePartNames = GetMeshablePartNames(new string[] { partName });
@@ -12953,7 +12956,7 @@ namespace PrePoMax
             return meshType;
         }
         private MeshSetupItem[] GetActiveValidMeshSetupItems<T>(string partName,
-                                                                  OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+                                                                  CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
                                                                   where T : MeshSetupItem
         {
             HashSet<int> selectedPartIds;
@@ -13051,7 +13054,7 @@ namespace PrePoMax
             FeMesh geometry = _model?.Geometry;
             if (geometry == null) return null;
             //
-            OrderedDictionary<string, MeshSetupItem> meshSetupItems = geometry.MeshSetupItems;
+            CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems = geometry.MeshSetupItems;
             HashSet<string> relatedNames = new HashSet<string>();
             //
             foreach (NamedClass item in items)
@@ -15950,6 +15953,19 @@ namespace PrePoMax
         {
             _model.Materials.Replace(oldMaterialName, newMaterial.Name, newMaterial);
             //
+            if (oldMaterialName != newMaterial.Name)
+            {
+                foreach (var layupEntry in _model.CompositeLayups)
+                {
+                    if (layupEntry.Value.Plies == null) continue;
+                    foreach (Ply ply in layupEntry.Value.Plies)
+                    {
+                        if (ply.MaterialName == oldMaterialName)
+                            ply.MaterialName = newMaterial.Name;
+                    }
+                }
+            }
+            //
             _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldMaterialName, newMaterial, null);
             //
             AnnotateWithColorLegend();
@@ -16403,6 +16419,281 @@ namespace PrePoMax
             MaterialOrientation materialOrientation = GetMaterialOrientation(oldMaterialOrientationName);
             if (materialOrientation.CreationData != null && materialOrientation.RegionName != null)
                 RemoveElementSets(new string[] { materialOrientation.RegionName }, false);
+        }
+
+        #endregion #################################################################################################################
+
+        #region Composite Layup menu   #############################################################################################
+        // COMMANDS ********************************************************************************
+        public void AddCompositeLayupCommand(CompositeLayup compositeLayup)
+        {
+            CAddCompositeLayup comm = new CAddCompositeLayup(compositeLayup);
+            _commands.AddAndExecute(comm);
+        }
+        public void ReplaceCompositeLayupCommand(string oldCompositeLayupName, CompositeLayup newCompositeLayup)
+        {
+            CReplaceCompositeLayup comm = new CReplaceCompositeLayup(oldCompositeLayupName, newCompositeLayup);
+            _commands.AddAndExecute(comm);
+        }
+        public void DuplicateCompositeLayupsCommand(string[] compositeLayupNames)
+        {
+            CDuplicateCompositeLayups comm = new CDuplicateCompositeLayups(compositeLayupNames);
+            _commands.AddAndExecute(comm);
+        }
+        public void RemoveCompositeLayupsCommand(string[] compositeLayupNames)
+        {
+            CRemoveCompositeLayups comm = new CRemoveCompositeLayups(compositeLayupNames);
+            _commands.AddAndExecute(comm);
+        }
+        //******************************************************************************************
+        public string[] GetCompositeLayupNames()
+        {
+            if (_model.CompositeLayups == null) return new string[0];
+            return _model.CompositeLayups.Keys.ToArray();
+        }
+        public CompositeLayup GetCompositeLayup(string compositeLayupName)
+        {
+            return _model.CompositeLayups[compositeLayupName];
+        }
+        public CompositeLayup[] GetAllCompositeLayups()
+        {
+            return _model.CompositeLayups.Values.ToArray();
+        }
+        public void AddCompositeLayup(CompositeLayup compositeLayup)
+        {
+            _model.CompositeLayups.Add(compositeLayup.Name, compositeLayup);
+            _form.AddTreeNode(ViewGeometryModelResults.Model, compositeLayup, null);
+            //
+            CheckAndUpdateModelValidity();
+        }
+        public void ReplaceCompositeLayup(string oldCompositeLayupName, CompositeLayup compositeLayup)
+        {
+            if (_model.CompositeLayups.Replace(oldCompositeLayupName, compositeLayup.Name, compositeLayup))
+            {
+                _form.UpdateTreeNode(ViewGeometryModelResults.Model, oldCompositeLayupName, compositeLayup, null);
+                //
+                CheckAndUpdateModelValidity();
+            }
+        }
+        public void DuplicateCompositeLayups(string[] compositeLayupNames)
+        {
+            CompositeLayup newCompositeLayup;
+            foreach (var name in compositeLayupNames)
+            {
+                newCompositeLayup = _model.CompositeLayups[name].DeepClone();
+                newCompositeLayup.Name = NamedClass.GetNameWithoutLastValue(newCompositeLayup.Name);
+                newCompositeLayup.Name = _model.CompositeLayups.GetNextNumberedKey(newCompositeLayup.Name);
+                AddCompositeLayup(newCompositeLayup);
+            }
+        }
+        public void RemoveCompositeLayups(string[] compositeLayupNames)
+        {
+            foreach (var name in compositeLayupNames)
+            {
+                _model.CompositeLayups.Remove(name);
+                _form.RemoveTreeNode<CompositeLayup>(ViewGeometryModelResults.Model, name, null);
+            }
+            //
+            CheckAndUpdateModelValidity();
+        }
+        // Import from CSV
+        public void ImportCompositeLayupsFromCsvCommand(string fileName)
+        {
+            CImportCompositeLayupsFromCsv comm = new CImportCompositeLayupsFromCsv(fileName);
+            _commands.AddAndExecute(comm);
+        }
+        // The lines after the header: layup index, ply name, region, material, thickness, coordinate system, angle
+        public void ImportCompositeLayupsFromCsv(string fileName)
+        {
+            string[] lines = System.IO.File.ReadAllLines(fileName);
+            if (lines.Length < 2) return;
+            //
+            System.Globalization.CultureInfo ci = System.Globalization.CultureInfo.InvariantCulture;
+            SortedDictionary<int, List<string[]>> layupLines = new SortedDictionary<int, List<string[]>>();
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string line = lines[i].Trim();
+                if (string.IsNullOrEmpty(line)) continue;
+                string[] parts = line.Split(new char[] { ',', ';' });
+                if (parts.Length < 5) continue;
+                if (!int.TryParse(parts[0].Trim(), out int layupIndex)) continue;
+                if (!layupLines.TryGetValue(layupIndex, out List<string[]> list))
+                {
+                    list = new List<string[]>();
+                    layupLines.Add(layupIndex, list);
+                }
+                list.Add(parts);
+            }
+            //
+            foreach (var entry in layupLines)
+            {
+                CompositeLayup layup = new CompositeLayup(GetUniqueCompositeLayupName("Layup-" + entry.Key));
+                int count = 1;
+                foreach (string[] parts in entry.Value)
+                {
+                    double.TryParse(parts[4].Trim(), System.Globalization.NumberStyles.Any, ci, out double thickness);
+                    double angle = 0;
+                    if (parts.Length > 6) double.TryParse(parts[6].Trim(), System.Globalization.NumberStyles.Any, ci, out angle);
+                    string plyName = parts[1].Trim();
+                    if (plyName.Length == 0) plyName = "Ply-" + count;
+                    Ply ply = new Ply(plyName, parts[2].Trim(), parts[3].Trim(), thickness, angle);
+                    if (parts.Length > 5) ply.CoordinateSystemName = parts[5].Trim();
+                    layup.Plies.Add(ply);
+                    count++;
+                }
+                AddCompositeLayup(layup);
+            }
+        }
+        private string GetUniqueCompositeLayupName(string baseName)
+        {
+            string name = baseName;
+            int counter = 1;
+            while (_model.CompositeLayups.ContainsKey(name)) name = baseName + "-" + counter++;
+            return name;
+        }
+        // Discrete orientations
+        public void ImportDiscreteOrientationsXmlCommand(string layupName, string fileName)
+        {
+            CImportDiscreteOrientationsXml comm = new CImportDiscreteOrientationsXml(layupName, fileName);
+            _commands.AddAndExecute(comm);
+        }
+        public void ImportDiscreteOrientationsXml(string layupName, string fileName)
+        {
+            CompositeLayup layup = _model.CompositeLayups[layupName].DeepClone();
+            layup.DiscreteOrientationsData = DiscreteOrientationsXmlReader.Read(fileName);
+            layup.OrientationType = CompositeLayupOrientationEnum.DiscreteOrientations;
+            ReplaceCompositeLayup(layupName, layup);
+        }
+        public DiscreteOrientationsData ReadDiscreteOrientations(string fileName)
+        {
+            return DiscreteOrientationsXmlReader.Read(fileName);
+        }
+        // Composite shell sections take S8R and S6 elements; the parts of the plies with other element types
+        public string[] GetCompositeLayupPartsToChangeElementTypes(CompositeLayup layup)
+        {
+            HashSet<int> elementIds = layup.GetElementIds(_model.Mesh);
+            _model.GetCompositeShellElementTypeParts(elementIds.ToArray(), out string[] partNames, out _);
+            return partNames;
+        }
+        // Highlight
+        // The outline of the region of the ply and the material axes of the ply: the fiber direction is axis 1
+        public void HighlightCompositeLayup(CompositeLayup layup, int plyIndex)
+        {
+            if (layup == null || layup.Plies.Count == 0) return;
+            if (plyIndex < 0 || plyIndex >= layup.Plies.Count) plyIndex = 0;
+            Ply ply = layup.Plies[plyIndex];
+            int[] elementIds = CompositeLayup.GetRegionElementIds(_model.Mesh, ply.RegionName);
+            if (elementIds == null || elementIds.Length == 0) return;
+            //
+            DrawElementOutline(layup.Name + Globals.NameSeparator + "Outline", elementIds,
+                               _settings.Pre.PrimaryHighlightColor, vtkRendererLayer.Selection);
+            //
+            CompositeLayupOrientation orientation;
+            List<CompositeLayupZone> zones;
+            try { zones = CompositeLayupZoneBuilder.Create(_model, layup, out orientation, out _); }
+            catch { return; }
+            if (orientation == null) return;
+            // The angle of the ply in each zone, which includes a coordinate system of the ply
+            Dictionary<int, double> elementAngles = new Dictionary<int, double>();
+            foreach (CompositeLayupZone zone in zones)
+            {
+                int layerIndex = GetZoneLayerIndex(layup, zone, plyIndex, elementIds);
+                if (layerIndex < 0) continue;
+                double angle = zone.Section.Layers[layerIndex].Angle.Value;
+                foreach (int id in zone.ElementIds) elementAngles[id] = angle;
+            }
+            List<int> drawn = elementIds.Where(id => elementAngles.ContainsKey(id)).ToList();
+            if (drawn.Count == 0) return;
+            // The material axes are turned by the angle of each element
+            foreach (var group in drawn.GroupBy(id => elementAngles[id]))
+                DrawMaterialAxes(group.ToArray(), element => orientation, group.Key, layup.SymbolDensity);
+        }
+        // The index of the layer of the ply in the section of a zone: the plies that cover the zone in their order
+        private int GetZoneLayerIndex(CompositeLayup layup, CompositeLayupZone zone, int plyIndex, int[] plyElementIds)
+        {
+            if (zone.ElementIds.Length == 0) return -1;
+            if (layup.OrientationType == CompositeLayupOrientationEnum.DiscreteOrientations)
+                return plyIndex < zone.Section.Layers.Count ? plyIndex : -1;
+            int elementId = zone.ElementIds[0];
+            HashSet<int> plyIds = new HashSet<int>(plyElementIds);
+            if (!plyIds.Contains(elementId)) return -1;
+            int layer = 0;
+            for (int i = 0; i < plyIndex; i++)
+            {
+                int[] ids = CompositeLayup.GetRegionElementIds(_model.Mesh, layup.Plies[i].RegionName);
+                if (ids != null && ids.Contains(elementId)) layer++;
+            }
+            return layer < zone.Section.Layers.Count ? layer : -1;
+        }
+        // Draping simulation: the draped cells of the fabric over the ply, the cells sheared beyond the limit in red
+        private const string DrapingPrefix = "DrapingGrid";
+        public double DrawDrapingSimulation(CompositeLayup layup)
+        {
+            try
+            {
+                DrapingResult result;
+                CompositeLayupZoneBuilder.ComputeDrapingDirections(_model.Mesh, layup, null, out result);
+                if (result == null) return -1;
+                //
+                List<double[]> nodes = new List<double[]>();
+                List<int[]> okCells = new List<int[]>();
+                List<int[]> shearedCells = new List<int[]>();
+                double maxShear = 0;
+                for (int r = 0; r < result.GridRows - 1; r++)
+                {
+                    for (int c = 0; c < result.GridCols - 1; c++)
+                    {
+                        if (!(result.NodeOnMesh[r, c] && result.NodeOnMesh[r, c + 1] && result.NodeOnMesh[r + 1, c + 1] &&
+                              result.NodeOnMesh[r + 1, c])) continue;
+                        int[][] corners = { new[] { r, c }, new[] { r, c + 1 }, new[] { r + 1, c + 1 }, new[] { r + 1, c } };
+                        bool valid = true;
+                        int[] cell = new int[4];
+                        for (int k = 0; k < 4 && valid; k++)
+                        {
+                            double[] p = { result.NodePositions[corners[k][0], corners[k][1], 0],
+                                           result.NodePositions[corners[k][0], corners[k][1], 1],
+                                           result.NodePositions[corners[k][0], corners[k][1], 2] };
+                            if (double.IsNaN(p[0])) valid = false;
+                            cell[k] = nodes.Count;
+                            nodes.Add(p);
+                        }
+                        if (!valid) continue;
+                        int cellNo = r + c * (result.GridRows - 1);
+                        double shear = cellNo < result.CellShear.Length ? result.CellShear[cellNo] : 0;
+                        if (!double.IsNaN(shear) && shear > maxShear) maxShear = shear;
+                        if (!double.IsNaN(shear) && shear > layup.DrapingLimitShearDeg) shearedCells.Add(cell);
+                        else okCells.Add(cell);
+                    }
+                }
+                DrawDrapingCells(DrapingPrefix + Globals.NameSeparator + "ok", nodes, okCells, Color.FromArgb(40, 40, 160));
+                DrawDrapingCells(DrapingPrefix + Globals.NameSeparator + "sheared", nodes, shearedCells, Color.Red);
+                return maxShear;
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+        private void DrawDrapingCells(string name, List<double[]> nodes, List<int[]> cells, Color color)
+        {
+            if (cells.Count == 0) return;
+            // The edges of the cells
+            List<int[]> edges = new List<int[]>();
+            foreach (int[] cell in cells)
+                for (int k = 0; k < 4; k++) edges.Add(new[] { cell[k], cell[(k + 1) % 4] });
+            vtkMaxActorData data = new vtkMaxActorData();
+            data.Name = name;
+            data.Color = color;
+            data.Layer = vtkRendererLayer.Selection;
+            data.KeepOwnColor = true;
+            data.CanHaveElementEdges = false;
+            data.Pickable = false;
+            data.ActorRepresentation = vtkMaxActorRepresentation.Wire;
+            data.Geometry.Nodes.Coor = nodes.ToArray();
+            data.Geometry.Cells.CellNodeIds = edges.ToArray();
+            data.Geometry.Cells.Types = Enumerable.Repeat((int)vtkCellType.VTK_LINE, edges.Count).ToArray();
+            ApplyLighting(data);
+            _form.Add3DCells(data);
         }
 
         #endregion #################################################################################################################
@@ -21796,7 +22087,7 @@ namespace PrePoMax
                  change.Action == OrderedDictionaryTreeLayoutAction.RenameGroup))
                 CheckPartGroupName(change.GroupId, change.GroupName);
             //
-            OrderedDictionary<string, object> preview = CreateOrderedDictionaryItemLayoutPreview(
+            CaeGlobals.OrderedDictionary<string, object> preview = CreateOrderedDictionaryItemLayoutPreview(
                 dictionary, oldLayout, "Ordered dictionary item layout preview");
             //
             string commandName;
@@ -21948,17 +22239,17 @@ namespace PrePoMax
         private static OrderedDictionaryItemLayout<string> CreateRenamedGroupLayout(
             IOrderedDictionaryItemLayout<string> dictionary, Guid groupId, string newName)
         {
-            OrderedDictionary<string, object> preview = CreateOrderedDictionaryItemLayoutPreview(
+            CaeGlobals.OrderedDictionary<string, object> preview = CreateOrderedDictionaryItemLayoutPreview(
                 dictionary, dictionary.GetItemLayoutSnapshot(), "Linked part group layout preview");
             preview.RenameGroup(groupId, newName);
             return preview.GetItemLayoutSnapshot();
         }
-        private static OrderedDictionary<string, object> CreateOrderedDictionaryItemLayoutPreview(
+        private static CaeGlobals.OrderedDictionary<string, object> CreateOrderedDictionaryItemLayoutPreview(
             IOrderedDictionaryItemLayout<string> dictionary, OrderedDictionaryItemLayout<string> layout,
             string name)
         {
-            OrderedDictionary<string, object> preview =
-                new OrderedDictionary<string, object>(name, dictionary.Comparer);
+            CaeGlobals.OrderedDictionary<string, object> preview =
+                new CaeGlobals.OrderedDictionary<string, object>(name, dictionary.Comparer);
             foreach (string key in dictionary.Keys) preview.Add(key, null);
             preview.SetItemLayout(layout);
             return preview;
@@ -24857,6 +25148,8 @@ namespace PrePoMax
                 _model.GetMaterialAssignments(out elementIdColorId);
             else if (_annotateWithColor == AnnotateWithColorEnum.SectionThicknesses)
                 _model.GetSectionThicknessAssignments(out elementIdColorId);
+            else if (_annotateWithColor == AnnotateWithColorEnum.CompositeSections)
+                _model.GetCompositeLayupZoneAssignments(out elementIdColorId, out _);
             //
             ConcurrentBag<string> hiddenActors = new ConcurrentBag<string>();
             ConcurrentBag<vtkMaxActorData> allData = new ConcurrentBag<vtkMaxActorData>();
@@ -25220,6 +25513,17 @@ namespace PrePoMax
                         sectionThicknessNames[i] = sectionThicknessArray[i] + " " + _model.UnitSystem.LengthUnitAbbreviation;
                     //
                     _form.SetColorBarColorsAndLabels(sectionThicknessColors.ToArray(), sectionThicknessNames);
+                }
+            }
+            if (_annotateWithColor == AnnotateWithColorEnum.CompositeSections)
+            {
+                if (_currentView == ViewGeometryModelResults.Model && _showCompositeSectionsLegend)
+                {
+                    _model.GetCompositeLayupZoneAssignments(out _, out string[] itaNames);
+                    List<Color> itaColors = new List<Color>();
+                    for (int i = 0; i < itaNames.Length; i++)
+                        itaColors.Add(colorSettings.ColorTable[i % colorSettings.ColorTable.Length]);
+                    _form.SetColorBarColorsAndLabels(itaColors.ToArray(), itaNames);
                 }
             }
             if (_annotateWithColor.HasFlag(AnnotateWithColorEnum.ReferencePoints))
@@ -28643,7 +28947,7 @@ namespace PrePoMax
             if (distributedNodeCoor.Length > 0)
             {
                 double[][] normals = new double[distributedNodeCoor.Length][];
-                for (int i = 0; i < distributedNodeCoor.Length; i++) normals[i] = new double[] { 1, 0, 0};
+                for (int i = 0; i < distributedNodeCoor.Length; i++) normals[i] = new double[] { 1, 0, 0 };
                 //
                 vtkMaxActorData data = new vtkMaxActorData();
                 data.Name = prefixName;
@@ -29687,6 +29991,10 @@ namespace PrePoMax
                     {
                         HighlightMaterialOrientation(mo);
                     }
+                    else if (obj is CompositeLayup cl)
+                    {
+                        HighlightCompositeLayup(cl, 0);
+                    }
                     else if (obj is Constraint c)
                     {
                         HighlightConstraint(c.Name);
@@ -30180,7 +30488,7 @@ namespace PrePoMax
         {
             int count = 0;
             FeElementSet elementSet;
-            OrderedDictionary<string, FeElementSet> elementSets = null;
+            CaeGlobals.OrderedDictionary<string, FeElementSet> elementSets = null;
             if (_currentView == ViewGeometryModelResults.Model)
                 elementSets = _model.Mesh.ElementSets;
             else if (_currentView == ViewGeometryModelResults.Results)
@@ -30578,7 +30886,7 @@ namespace PrePoMax
         {
             if (historyResultSet.BaseSetName != null && Model != null && Model.Mesh != null)
             {
-                string[] tmp = historyResultSet.BaseSetName.Split(new string[] { "@@@"}, StringSplitOptions.None);
+                string[] tmp = historyResultSet.BaseSetName.Split(new string[] { "@@@" }, StringSplitOptions.None);
                 //
                 if (tmp.Length == 1)
                 {
@@ -31981,7 +32289,7 @@ namespace PrePoMax
                     //
                     ApplyLighting(data);
                     result = _form.AddAnimatedScalarFieldOn3DCells(data);                    
-                    if (result == false) {_form.Clear3D(); return false;}
+                    if (result == false) { _form.Clear3D(); return false; }
                 }
                 else if (entry.Value is GeometryPart)
                 {
@@ -32583,7 +32891,7 @@ namespace PrePoMax
                                                                   out data.Geometry.Cells.CellNodeIds,
                                                                   out data.Geometry.Cells.Types);
             }
-            else if(undeformedModelType == UndeformedModelTypeEnum.SolidBody)
+            else if (undeformedModelType == UndeformedModelTypeEnum.SolidBody)
             {
                 data.ActorRepresentation = vtkMaxActorRepresentation.Solid;
                 _allResults.CurrentResult.GetUndeformedNodesAndCells(part, out data.Geometry.Nodes.Coor,
@@ -32877,7 +33185,7 @@ namespace PrePoMax
             int surfaceId = 1;
             int surfaceType = (int)GeometryType.SolidSurface;
             int partId = 1;
-            int geometryId = FeMesh.GetGeometryId(surfaceId, surfaceType, + partId);
+            int geometryId = FeMesh.GetGeometryId(surfaceId, surfaceType, +partId);
             int[] faceIds = _model.Mesh.GetIdsFromGeometryIds(new int[] { geometryId }, vtkSelectItem.Surface);
             //
             FeSurface surface = new FeSurface(_model.Mesh.Surfaces.GetNextNumberedKey("UserSurface"));

@@ -337,8 +337,8 @@ namespace APIs.Python.Model
                 CheckPartGroupNames(groups, oldLayout.Nodes, viewName, linkedRenames);
             }
             //
-            OrderedDictionary<string, object> preview =
-                new OrderedDictionary<string, object>("Tree layout", dictionary.Comparer);
+            CaeGlobals.OrderedDictionary<string, object> preview =
+                new CaeGlobals.OrderedDictionary<string, object>("Tree layout", dictionary.Comparer);
             foreach (string key in dictionary.Keys) preview.Add(key, null);
             PlaceLayoutEntries(preview, entries, null);
             OrderedDictionaryItemLayout<string> newLayout = preview.GetItemLayoutSnapshot();
@@ -917,8 +917,8 @@ namespace APIs.Python.Model
         private static OrderedDictionaryItemLayout<string> CreateRenamedLayout(IOrderedDictionaryItemLayout<string> layout,
                                                                                Dictionary<Guid, string> renames)
         {
-            OrderedDictionary<string, object> preview =
-                new OrderedDictionary<string, object>("Linked part group layout", layout.Comparer);
+            CaeGlobals.OrderedDictionary<string, object> preview =
+                new CaeGlobals.OrderedDictionary<string, object>("Linked part group layout", layout.Comparer);
             foreach (string key in layout.Keys) preview.Add(key, null);
             preview.SetItemLayout(layout.GetItemLayoutSnapshot());
             foreach (Guid groupId in renames.Keys) preview.RenameGroup(groupId, groupId.ToString());
@@ -928,7 +928,7 @@ namespace APIs.Python.Model
         }
         // The items not yet placed stay at the root behind the entries already placed there, so placing every
         // entry at its own index, a group's entries before the next one of its parent, rebuilds the layout
-        private static void PlaceLayoutEntries(OrderedDictionary<string, object> preview, List<object> entries,
+        private static void PlaceLayoutEntries(CaeGlobals.OrderedDictionary<string, object> preview, List<object> entries,
                                                Guid? parentGroupId)
         {
             for (int i = 0; i < entries.Count; i++)

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>GmshCommon</AssemblyName>
+    <RootNamespace>GmshCommon</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Gmsh.cs" />
+    <Compile Include="QMorph.cs" />
+  </ItemGroup>
+</Project>

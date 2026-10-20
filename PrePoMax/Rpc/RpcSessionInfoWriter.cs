@@ -87,6 +87,28 @@ namespace PrePoMax.Rpc
         private static void EnsureSessionsDirectory()
         {
             string directory = GetSessionsDirectory();
+#if NET
+            // macOS: the folder is readable by this user alone
+            const UnixFileMode userOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory, userOnly);
+                return;
+            }
+            try
+            {
+                File.SetUnixFileMode(directory, userOnly);
+            }
+            catch (Exception exception)
+            {
+                Action<string> write = MessageBoxes.WriteDataToOutput;
+                if (write != null)
+                {
+                    write("The permissions of " + directory + " could not be restricted to the current user: " +
+                          exception.Message);
+                }
+            }
+#else
             SecurityIdentifier user = WindowsIdentity.GetCurrent().User;
             FileSystemAccessRule rule = new FileSystemAccessRule(user, FileSystemRights.FullControl,
                                                                  InheritanceFlags.ContainerInherit |
@@ -120,6 +142,7 @@ namespace PrePoMax.Rpc
                           exception.Message);
                 }
             }
+#endif
         }
         private static string GetFileName()
         {

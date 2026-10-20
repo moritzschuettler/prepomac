@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Gmsh mesher process of PrePoMax: the same program as GmshCaller/Program.cs of the Windows build. It runs
+       next to PrePoMax, so a crash of gmsh does not end the application. -->
+  <PropertyGroup>
+    <AssemblyName>GmshCaller</AssemblyName>
+    <RootNamespace>GmshCaller</RootNamespace>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(RepoRoot)GmshCaller\Program.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CaeGlobals\CaeGlobals.csproj" />
+    <ProjectReference Include="..\CaeMesh\CaeMesh.csproj" />
+    <ProjectReference Include="..\GmshCommon\GmshCommon.csproj" />
+  </ItemGroup>
+</Project>

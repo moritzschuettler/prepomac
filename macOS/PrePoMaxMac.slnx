@@ -1,0 +1,19 @@
+<Solution>
+  <Project Path="APIs/APIs.csproj" />
+  <Project Path="CaeGlobals/CaeGlobals.csproj" />
+  <Project Path="CaeJob/CaeJob.csproj" />
+  <Project Path="CaeMesh/CaeMesh.csproj" />
+  <Project Path="CaeModel/CaeModel.csproj" />
+  <Project Path="CaeResults/CaeResults.csproj" />
+  <Project Path="DrawingCompat/DrawingCompat.csproj" />
+  <Project Path="FastColoredTextBox/FastColoredTextBox.csproj" />
+  <Project Path="GmshCaller/GmshCaller.csproj" />
+  <Project Path="GmshCommon/GmshCommon.csproj" />
+  <Project Path="PrePoMax/PrePoMax.csproj" />
+  <Project Path="STL/STL.csproj" />
+  <Project Path="ThreeMF/ThreeMF.csproj" />
+  <Project Path="UserControls/UserControls.csproj" />
+  <Project Path="vtkControl/vtkControl.csproj" />
+  <Project Path="WinFormsCompat/WinFormsCompat.csproj" />
+  <Project Path="ZedGraph/ZedGraph.csproj" />
+</Solution>

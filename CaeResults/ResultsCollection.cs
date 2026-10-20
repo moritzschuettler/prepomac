@@ -24,7 +24,7 @@ namespace CaeResults
     {
         // Variables                                                                                                                
         private FeResults _currentResult;
-        private OrderedDictionary<string, FeResults> _results;
+        private CaeGlobals.OrderedDictionary<string, FeResults> _results;
         
 
         // Properties                                                                                                               
@@ -35,7 +35,7 @@ namespace CaeResults
         //  Constructors                                                                                                            
         public ResultsCollection()
         {
-            _results = new OrderedDictionary<string, FeResults>("Results Collection", StringComparer.OrdinalIgnoreCase);
+            _results = new CaeGlobals.OrderedDictionary<string, FeResults>("Results Collection", StringComparer.OrdinalIgnoreCase);
             //
             Clear();
         }

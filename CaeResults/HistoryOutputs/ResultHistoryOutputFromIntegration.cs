@@ -83,7 +83,7 @@ namespace CaeResults
             _deformationVariableName = deformationVariableName;
             _crossSection = IntegrationScaleType.None;
             _thickness = 1.0;
-            OrderedDictionary<string, string> map = FeResults.GetPossibleDeformationFieldOutputNamesMap();
+            CaeGlobals.OrderedDictionary<string, string> map = FeResults.GetPossibleDeformationFieldOutputNamesMap();
             _parentNames = new string[] { map[_deformationVariableName] };
         }
 

@@ -228,7 +228,7 @@ namespace PrePoMax
         private static string GetDefaultFileName()
         {
             if (_overrideFileName != null) return _overrideFileName;
-            else return Path.Combine(System.Windows.Forms.Application.StartupPath, Globals.SettingsFileName);
+            else return Globals.GetUserDataFileName(Globals.SettingsFileName);
         }
         public void SaveToFile(string fileName)
         {

@@ -19,10 +19,10 @@ namespace APIs.Python
     {
         // Methods
         // The element types of a part are named values rather than numbers, so they need their own form
-        public static OrderedDictionary<string, string> ToStringStringDictionary(object value, string argumentName)
+        public static CaeGlobals.OrderedDictionary<string, string> ToStringStringDictionary(object value, string argumentName)
         {
-            OrderedDictionary<string, string> converted =
-                new OrderedDictionary<string, string>("StringStringDictionary", StringComparer.OrdinalIgnoreCase);
+            CaeGlobals.OrderedDictionary<string, string> converted =
+                new CaeGlobals.OrderedDictionary<string, string>("StringStringDictionary", StringComparer.OrdinalIgnoreCase);
             if (value == null) throw InvalidDictionary(argumentName);
             //
             PyObject pyObject = value as PyObject;
@@ -76,7 +76,7 @@ namespace APIs.Python
             //
             return converted;
         }
-        public static OrderedDictionary<string, double> ToStringDoubleDictionary(object value, string argumentName)
+        public static CaeGlobals.OrderedDictionary<string, double> ToStringDoubleDictionary(object value, string argumentName)
         {
             if (value == null) throw InvalidDictionary(argumentName);
             //
@@ -88,10 +88,10 @@ namespace APIs.Python
             //
             throw InvalidDictionary(argumentName);
         }
-        private static OrderedDictionary<string, double> ConvertPythonDictionary(PyObject value, string argumentName)
+        private static CaeGlobals.OrderedDictionary<string, double> ConvertPythonDictionary(PyObject value, string argumentName)
         {
-            OrderedDictionary<string, double> converted =
-                new OrderedDictionary<string, double>("StringDoubleDictionary", StringComparer.OrdinalIgnoreCase);
+            CaeGlobals.OrderedDictionary<string, double> converted =
+                new CaeGlobals.OrderedDictionary<string, double>("StringDoubleDictionary", StringComparer.OrdinalIgnoreCase);
             try
             {
                 using (Py.GIL())
@@ -144,10 +144,10 @@ namespace APIs.Python
             }
             return converted;
         }
-        private static OrderedDictionary<string, double> ConvertManagedDictionary(IDictionary value, string argumentName)
+        private static CaeGlobals.OrderedDictionary<string, double> ConvertManagedDictionary(IDictionary value, string argumentName)
         {
-            OrderedDictionary<string, double> converted =
-                new OrderedDictionary<string, double>("StringDoubleDictionary", StringComparer.OrdinalIgnoreCase);
+            CaeGlobals.OrderedDictionary<string, double> converted =
+                new CaeGlobals.OrderedDictionary<string, double>("StringDoubleDictionary", StringComparer.OrdinalIgnoreCase);
             foreach (DictionaryEntry entry in value)
             {
                 string key = entry.Key as string;
@@ -170,7 +170,7 @@ namespace APIs.Python
         }
         // The keys name model items, which the model compares regardless of case, so two keys that differ only
         // in case name the same item twice
-        private static void AddOnce<TValue>(OrderedDictionary<string, TValue> converted, string key, TValue value,
+        private static void AddOnce<TValue>(CaeGlobals.OrderedDictionary<string, TValue> converted, string key, TValue value,
                                             string argumentName)
         {
             if (converted.ContainsKey(key))

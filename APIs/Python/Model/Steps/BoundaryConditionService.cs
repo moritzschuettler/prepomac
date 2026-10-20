@@ -162,7 +162,7 @@ namespace APIs.Python.Model
             ModelGateway.ShowBoundaryConditions(stepName, names);
         }
         //
-        protected override OrderedDictionary<string, BoundaryCondition> GetItems(Step step)
+        protected override CaeGlobals.OrderedDictionary<string, BoundaryCondition> GetItems(Step step)
         {
             return step.BoundaryConditions;
         }

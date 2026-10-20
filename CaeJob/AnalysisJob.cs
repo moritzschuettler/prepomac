@@ -717,9 +717,43 @@ namespace CaeJob
                 _jobStatus = JobStatus.Killed;
             }
         }
+        private static void KillChildProcessesUnix(UInt32 parentProcessId)
+        {
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo("pgrep", "-P " + parentProcessId);
+                psi.UseShellExecute = false;
+                psi.RedirectStandardOutput = true;
+                psi.CreateNoWindow = true;
+                string output;
+                using (Process pgrep = Process.Start(psi))
+                {
+                    output = pgrep.StandardOutput.ReadToEnd();
+                    pgrep.WaitForExit();
+                }
+                foreach (var line in output.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (int.TryParse(line.Trim(), out int childProcessId) && childProcessId != Process.GetCurrentProcess().Id)
+                    {
+                        KillChildProcessesUnix((UInt32)childProcessId);
+                        try { Process.GetProcessById(childProcessId).Kill(); }
+                        catch { }
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
         public static void KillAllProcessesSpawnedBy(UInt32 parentProcessId)
         {
             // NOTE: Process Ids are reused!
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                // No WMI outside Windows: the child processes are found with pgrep
+                KillChildProcessesUnix(parentProcessId);
+                return;
+            }
             ManagementObjectSearcher searcher = new ManagementObjectSearcher(
                 "SELECT * " +
                 "FROM Win32_Process " +
@@ -946,6 +980,10 @@ namespace CaeJob
         {
             EnvironmentVariable numberOfProcessors = new EnvironmentVariable("OMP_NUM_THREADS", _numCPUs.ToString());
             SetEnvironmentVariable(psi, numberOfProcessors);
+            // The multithreaded SPOOLES solver of the CalculiX builds for macOS and Linux returns wrong results;
+            // an environment variable of the job can still set it
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+                SetEnvironmentVariable(psi, new EnvironmentVariable("CCX_NPROC_EQUATION_SOLVER", "1"));
         }
         private void SetEnvironmentVariable(ProcessStartInfo psi, EnvironmentVariable environmentVariable)
         {

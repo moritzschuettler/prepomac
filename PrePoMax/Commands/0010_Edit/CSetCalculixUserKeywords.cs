@@ -27,11 +27,11 @@ namespace PrePoMax.Commands
     class CSetCalculixUserKeywords : PreprocessCommand, ISerializable
     {
         // Variables                                                                                                                
-        private OrderedDictionary<int[], Calculix.CalculixUserKeyword> _userKeywords;   //ISerializable
+        private CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword> _userKeywords;   //ISerializable
 
 
         // Constructor                                                                                                              
-        public CSetCalculixUserKeywords(OrderedDictionary<int[], Calculix.CalculixUserKeyword> userKeywords)
+        public CSetCalculixUserKeywords(CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword> userKeywords)
             : base("Set CalculiX user keywords")
         {
             _userKeywords = userKeywords.DeepClone();
@@ -48,9 +48,9 @@ namespace PrePoMax.Commands
                         {
                             // Compatibility for version v.0.5.1
                             cukd.OnDeserialization(null);
-                            _userKeywords = new OrderedDictionary<int[], Calculix.CalculixUserKeyword>("User CalculiX keywords", cukd);
+                            _userKeywords = new CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword>("User CalculiX keywords", cukd);
                         }
-                        else if (entry.Value is OrderedDictionary<int[], Calculix.CalculixUserKeyword> cukod)
+                        else if (entry.Value is CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword> cukod)
                             _userKeywords = cukod;
                         else if (entry.Value == null) _userKeywords = null;
                         else throw new NotSupportedException();
@@ -86,7 +86,7 @@ namespace PrePoMax.Commands
         public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             base.GetObjectData(info, context);
-            info.AddValue("_userKeywords", _userKeywords, typeof(OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
+            info.AddValue("_userKeywords", _userKeywords, typeof(CaeGlobals.OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
         }
     }
 }

@@ -41,7 +41,7 @@ namespace CaeMesh
 
 
         // Constructor                                                                                                              
-        public MeshVisibilityCache(OrderedDictionary<string, BasePart> parts)
+        public MeshVisibilityCache(CaeGlobals.OrderedDictionary<string, BasePart> parts)
         {
             _partIds = new int[parts.Count];
             _partVisibilities = new bool[parts.Count];
@@ -65,7 +65,7 @@ namespace CaeMesh
 
 
         // Methods                                                                                                                  
-        public bool IsValidFor(OrderedDictionary<string, BasePart> parts)
+        public bool IsValidFor(CaeGlobals.OrderedDictionary<string, BasePart> parts)
         {
             if (parts.Count != _partIds.Length) return false;
             //

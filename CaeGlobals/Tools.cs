@@ -45,8 +45,7 @@ namespace CaeGlobals
                 stream.Write(bytes, 0, (int)fs.Length);
                 fs.Close();
                 stream.Position = 0;
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Binder = RenamedTypeSerializationBinder.Instance;
+                BinaryFormatter formatter = BinaryFormatterTools.Create();
                 return (T)formatter.Deserialize(stream);
             }
         }
@@ -58,8 +57,7 @@ namespace CaeGlobals
                 byte[] bytes = br.ReadBytes((int)length);
                 stream.Write(bytes, 0, (int)length);
                 stream.Position = 0;
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Binder = RenamedTypeSerializationBinder.Instance;
+                BinaryFormatter formatter = BinaryFormatterTools.Create();
                 return (T)formatter.Deserialize(stream);
             }
         }
@@ -144,6 +142,8 @@ namespace CaeGlobals
         public static string GetPathForSolverLine(string path, int maxLength, bool blanksAllowed)
         {
             if (path == null || (path.Length <= maxLength && (blanksAllowed || !path.Contains(" ")))) return path;
+            // Short path names exist only on Windows
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT) return path;
             //
             StringBuilder shortPath = new StringBuilder(path.Length + 1);
             uint length = GetShortPathName(path, shortPath, (uint)shortPath.Capacity);
@@ -235,6 +235,7 @@ namespace CaeGlobals
         // Windows version
         public static string GetWindowsName()
         {
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT) return null;
             var reg = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
             string productName = (string)reg.GetValue("ProductName");
             return productName;

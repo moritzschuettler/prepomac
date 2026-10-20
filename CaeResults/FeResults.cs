@@ -44,9 +44,9 @@ namespace CaeResults
         [NonSerialized]
         private Dictionary<int, int> _nodeIdsLookUp;            // [globalId][resultsId] for values
         [NonSerialized]
-        private OrderedDictionary<FieldData, Field> _fields;
+        private CaeGlobals.OrderedDictionary<FieldData, Field> _fields;
         [NonSerialized]
-        private OrderedDictionary<string, Field> _fieldDataHashField;
+        private CaeGlobals.OrderedDictionary<string, Field> _fieldDataHashField;
         [NonSerialized]
         private Dictionary<int, FeNode> _undeformedNodes;
         [NonSerialized]
@@ -145,9 +145,9 @@ namespace CaeResults
         private string _hashName;
         private string _fileName;
         private FeMesh _mesh;
-        private OrderedDictionary<string, ResultFieldOutput> _resultFieldOutputs;
+        private CaeGlobals.OrderedDictionary<string, ResultFieldOutput> _resultFieldOutputs;
         private ShellResultData _shellResultData;
-        private OrderedDictionary<string, ResultHistoryOutput> _resultHistoryOutputs;
+        private CaeGlobals.OrderedDictionary<string, ResultHistoryOutput> _resultHistoryOutputs;
         [NonSerialized]
         private HistoryResults _history;
         private DateTime _dateTime;
@@ -173,7 +173,7 @@ namespace CaeResults
         {
             get
             {
-                OrderedDictionary<string, string> possibleNames = GetPossibleDeformationFieldOutputNamesMap();
+                CaeGlobals.OrderedDictionary<string, string> possibleNames = GetPossibleDeformationFieldOutputNamesMap();
                 foreach (var entry in possibleNames)
                 {
                     if (entry.Value == _deformationFieldOutputName) return entry.Key;
@@ -183,7 +183,7 @@ namespace CaeResults
             set
             {
                 string newDeformationFieldOutputName;
-                OrderedDictionary<string, string> possibleNames = GetPossibleDeformationFieldOutputNamesMap();
+                CaeGlobals.OrderedDictionary<string, string> possibleNames = GetPossibleDeformationFieldOutputNamesMap();
                 if (possibleNames.TryGetValue(value, out newDeformationFieldOutputName)) { }
                 else newDeformationFieldOutputName = possibleNames.Values.First();
                 // Reset global mesh deformation settings if needed
@@ -202,13 +202,13 @@ namespace CaeResults
             _fileName = fileName;
             _hashName = Tools.GetRandomString(8);
             _mesh = null;
-            _resultFieldOutputs = new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs",
+            _resultFieldOutputs = new CaeGlobals.OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs",
                                                                                    StringComparer.OrdinalIgnoreCase);
-            _resultHistoryOutputs = new OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs",
+            _resultHistoryOutputs = new CaeGlobals.OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs",
                                                                                        StringComparer.OrdinalIgnoreCase);
             _nodeIdsLookUp = null;
-            _fields = new OrderedDictionary<FieldData, Field>("Fields");
-            _fieldDataHashField = new OrderedDictionary<string, Field>("HashFieldPairs");
+            _fields = new CaeGlobals.OrderedDictionary<FieldData, Field>("Fields");
+            _fieldDataHashField = new CaeGlobals.OrderedDictionary<string, Field>("HashFieldPairs");
             _history = new HistoryResults("History");
             if (unitSystem == null) _unitSystem = new UnitSystem();
             else _unitSystem = unitSystem;
@@ -228,9 +228,9 @@ namespace CaeResults
                     case "_mesh":
                         _mesh = (FeMesh)entry.Value; break;
                     case "_resultFieldOutputs":
-                        _resultFieldOutputs = (OrderedDictionary<string, ResultFieldOutput>)entry.Value; break;
+                        _resultFieldOutputs = (CaeGlobals.OrderedDictionary<string, ResultFieldOutput>)entry.Value; break;
                     case "_resultHistoryOutputs":
-                        _resultHistoryOutputs = (OrderedDictionary<string, ResultHistoryOutput>)entry.Value; break;
+                        _resultHistoryOutputs = (CaeGlobals.OrderedDictionary<string, ResultHistoryOutput>)entry.Value; break;
                     case "_history":
                         _history = (HistoryResults)entry.Value; break;  // Compatibility for version v2.3.5
                     case "_dateTime":
@@ -273,7 +273,7 @@ namespace CaeResults
             IntegralTypeEnum integralType = resultHistoryOutput.ElementSizeType == ElementSizeTypeEnum.Area ?
                                             IntegralTypeEnum.Surface : IntegralTypeEnum.Volume;
             // The deformation variable must exist in order to create the history output
-            OrderedDictionary<string, string> deformationNames = GetPossibleDeformationFieldOutputNamesMap();
+            CaeGlobals.OrderedDictionary<string, string> deformationNames = GetPossibleDeformationFieldOutputNamesMap();
             string deformationVariableName = resultHistoryOutput.DeformationVariableName;
             if (deformationVariableName == null || !deformationNames.ContainsKey(deformationVariableName))
                 deformationVariableName = deformationNames.Keys.First();
@@ -300,8 +300,8 @@ namespace CaeResults
             info.AddValue("_hashName", _hashName, typeof(string));
             info.AddValue("_fileName", _fileName, typeof(string));
             info.AddValue("_mesh", _mesh, typeof(FeMesh));
-            info.AddValue("_resultFieldOutputs", _resultFieldOutputs, typeof(OrderedDictionary<string, ResultFieldOutput>));
-            info.AddValue("_resultHistoryOutputs", _resultHistoryOutputs, typeof(OrderedDictionary<string, ResultHistoryOutput>));
+            info.AddValue("_resultFieldOutputs", _resultFieldOutputs, typeof(CaeGlobals.OrderedDictionary<string, ResultFieldOutput>));
+            info.AddValue("_resultHistoryOutputs", _resultHistoryOutputs, typeof(CaeGlobals.OrderedDictionary<string, ResultHistoryOutput>));
             //info.AddValue("_history", _history, typeof(HistoryResults)); - not needed - Compatibility for version v2.3.5
             info.AddValue("_dateTime", _dateTime, typeof(DateTime));
             info.AddValue("_unitSystem", _unitSystem, typeof(UnitSystem));
@@ -452,8 +452,8 @@ namespace CaeResults
                 if (exists == 1)
                 {
                     numItems = Tools.ReadIntFromFileStream(fileStream);
-                    results._fields = new OrderedDictionary<FieldData, Field>("Fields");
-                    results._fieldDataHashField = new OrderedDictionary<string, Field>("HashFieldPairs");
+                    results._fields = new CaeGlobals.OrderedDictionary<FieldData, Field>("Fields");
+                    results._fieldDataHashField = new CaeGlobals.OrderedDictionary<string, Field>("HashFieldPairs");
                     for (int i = 0; i < numItems; i++)
                     {
                         numOfBytes = Tools.ReadIntFromFileStream(fileStream);
@@ -486,7 +486,7 @@ namespace CaeResults
                     // Compatibility v1.5.3
                     if (results._resultFieldOutputs == null)
                         results._resultFieldOutputs =
-                            new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs",
+                            new CaeGlobals.OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs",
                                                                              StringComparer.OrdinalIgnoreCase);
                 }
                 // Compatibility v2.3.5
@@ -502,7 +502,7 @@ namespace CaeResults
             }
             // Compatibility v2.1.0
             if (results._resultHistoryOutputs == null)
-                results._resultHistoryOutputs = new OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs",
+                results._resultHistoryOutputs = new CaeGlobals.OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs",
                                                                                                    StringComparer.OrdinalIgnoreCase);
         }
         // Uncompressed - old version
@@ -531,8 +531,8 @@ namespace CaeResults
                 if (exist == 1)
                 {
                     numItems = br.ReadInt32();
-                    results._fields = new OrderedDictionary<FieldData, Field>("Fields");
-                    results._fieldDataHashField = new OrderedDictionary<string, Field>("HashFieldPairs");
+                    results._fields = new CaeGlobals.OrderedDictionary<FieldData, Field>("Fields");
+                    results._fieldDataHashField = new CaeGlobals.OrderedDictionary<string, Field>("HashFieldPairs");
                     for (int i = 0; i < numItems; i++)
                     {
                         fieldData = FieldData.ReadFromBinaryReader(br, version);
@@ -549,13 +549,13 @@ namespace CaeResults
                     results.PrepareComplexResults();
                     // Compatibility v1.5.3
                     if (results._resultFieldOutputs == null)
-                        results._resultFieldOutputs = new OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs",
+                        results._resultFieldOutputs = new CaeGlobals.OrderedDictionary<string, ResultFieldOutput>("ResultFieldOutputs",
                                                                                                        StringComparer.OrdinalIgnoreCase);
                 }
             }
             // Compatibility v2.1.0
             if (results._resultHistoryOutputs == null)
-                results._resultHistoryOutputs = new OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs",
+                results._resultHistoryOutputs = new CaeGlobals.OrderedDictionary<string, ResultHistoryOutput>("ResultHistoryOutputs",
                                                                                                    StringComparer.OrdinalIgnoreCase);
         }
 
@@ -1367,10 +1367,10 @@ namespace CaeResults
             }
             return deformations;
         }
-        public static OrderedDictionary<string, string> GetPossibleDeformationFieldOutputNamesMap()
+        public static CaeGlobals.OrderedDictionary<string, string> GetPossibleDeformationFieldOutputNamesMap()
         {
-            OrderedDictionary<string, string> names =
-                new OrderedDictionary<string, string>("Deformation Names", StringComparer.OrdinalIgnoreCase);
+            CaeGlobals.OrderedDictionary<string, string> names =
+                new CaeGlobals.OrderedDictionary<string, string>("Deformation Names", StringComparer.OrdinalIgnoreCase);
             names.Add("Displacements", FOFieldNames.Disp);
             names.Add("Forces", FOFieldNames.Forc);
             names.Add("Surface Normals", FOFieldNames.SurfaceNormal);
@@ -1387,7 +1387,7 @@ namespace CaeResults
         public string[] GetExistingDeformationFieldOutputNames()
         {
             string[] fieldNames = GetAllFieldNames();
-            OrderedDictionary<string, string> possibleNames = GetPossibleDeformationFieldOutputNamesMap();
+            CaeGlobals.OrderedDictionary<string, string> possibleNames = GetPossibleDeformationFieldOutputNamesMap();
             List<string> existingFieldNames = new List<string>();
             foreach (var entry in possibleNames)
             {
@@ -4529,7 +4529,7 @@ namespace CaeResults
         private float[][] ComputeFieldFromResultFieldOutputEquation(ResultFieldOutputEquation resultFieldOutput,
                                                                     int stepId, int stepIncrementId)
         {
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
+            CaeGlobals.OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             try
             {
                 FieldData sourceFieldData;
@@ -5053,7 +5053,7 @@ namespace CaeResults
         {
             parentNames = new HashSet<string>();
             parameterNameFieldNameComponentName = new Dictionary<string, string[]>();
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
+            CaeGlobals.OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             //
             try
             {
@@ -5339,8 +5339,8 @@ namespace CaeResults
         }
         private HistoryResultSet GetHistorySetFromAffineFit(ResultHistoryOutputFromAffineFit resultHistoryOutput)
         {
-            OrderedDictionary<string, HistoryResultComponent> components =
-                new OrderedDictionary<string, HistoryResultComponent>("Components");
+            CaeGlobals.OrderedDictionary<string, HistoryResultComponent> components =
+                new CaeGlobals.OrderedDictionary<string, HistoryResultComponent>("Components");
             AddAffineFitComponent(components, "F", new string[] { "F11", "F12", "F21", "F22" }, "/");
             AddAffineFitComponent(components, "E", new string[] { "Exx", "Eyy", "Exy" }, "/");
             AddAffineFitComponent(components, "S", new string[] { "Sxx", "Syy", "Sxy" }, _unitSystem.PressureUnitAbbreviation);
@@ -5370,7 +5370,7 @@ namespace CaeResults
         }
         // Evaluates once per existing step/increment at the fixed Radius, as a normal history output over time.
         private void EvaluateAffineFitOverTime(ResultHistoryOutputFromAffineFit resultHistoryOutput,
-                                               OrderedDictionary<string, HistoryResultComponent> components)
+                                               CaeGlobals.OrderedDictionary<string, HistoryResultComponent> components)
         {
             List<AffineFitPoint> points = AffineFitCalculator.BuildFitPoints(_mesh, _undeformedNodes, resultHistoryOutput,
                 out int rejectedByArea, out int rejectedOutsideRadius);
@@ -5411,7 +5411,7 @@ namespace CaeResults
         // from Radius/N to Radius in N equal steps, and saves the result against radius instead of time - a
         // convergence study of the measurement region size.
         private void EvaluateAffineFitRadiusSweep(ResultHistoryOutputFromAffineFit resultHistoryOutput,
-                                                  OrderedDictionary<string, HistoryResultComponent> components)
+                                                  CaeGlobals.OrderedDictionary<string, HistoryResultComponent> components)
         {
             int[] stepIds = GetAllStepIds();
             if (stepIds.Length == 0)
@@ -5495,7 +5495,7 @@ namespace CaeResults
             s12Values = field3.GetComponentValues(FOComponentNames.S12);
             return s11Values != null && s22Values != null && s12Values != null;
         }
-        private void AddAffineFitResultValues(OrderedDictionary<string, HistoryResultComponent> components,
+        private void AddAffineFitResultValues(CaeGlobals.OrderedDictionary<string, HistoryResultComponent> components,
                                               double time, AffineFitResult result, double sxx, double syy,
                                               double sxy, int rejectedByArea, int rejectedOutsideRadius)
         {
@@ -5523,7 +5523,7 @@ namespace CaeResults
             AddAffineFitValue(components, "RejectedOutsideRadius", "1", time, rejectedOutsideRadius);
             AddAffineFitValue(components, "ConditionNumberM", "1", time, result.ConditionNumberM);
         }
-        private void AddAffineFitComponent(OrderedDictionary<string, HistoryResultComponent> components,
+        private void AddAffineFitComponent(CaeGlobals.OrderedDictionary<string, HistoryResultComponent> components,
                                            string componentName, string[] entryNames, string unit)
         {
             HistoryResultComponent component = new HistoryResultComponent(componentName);
@@ -5535,7 +5535,7 @@ namespace CaeResults
             }
             components.Add(component.Name, component);
         }
-        private void AddAffineFitValue(OrderedDictionary<string, HistoryResultComponent> components,
+        private void AddAffineFitValue(CaeGlobals.OrderedDictionary<string, HistoryResultComponent> components,
                                        string componentName, string entryName, double time, double value)
         {
             HistoryResultEntries entries = components[componentName].Entries[entryName];
@@ -5557,7 +5557,7 @@ namespace CaeResults
         }
         private HistoryResultSet GetHistorySetFromEquation(ResultHistoryOutputFromEquation resultHistoryOutput)
         {
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
+            CaeGlobals.OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             //
             try
             {
@@ -6724,7 +6724,7 @@ namespace CaeResults
         {
             parentNames = new HashSet<string>();
             parameterNameHistoryComponent = new Dictionary<string, HistoryResultComponent>();
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
+            CaeGlobals.OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             //
             try
             {
@@ -8515,7 +8515,7 @@ namespace CaeResults
             if (slipWearResultsToKeep == SlipWearResultsEnum.All) { }
             else if (slipWearResultsToKeep == SlipWearResultsEnum.SlipWearSteps)
             {
-                OrderedDictionary<FieldData, Field> fields = new OrderedDictionary<FieldData, Field>("Fields");
+                CaeGlobals.OrderedDictionary<FieldData, Field> fields = new CaeGlobals.OrderedDictionary<FieldData, Field>("Fields");
                 //
                 foreach (var entry in _fields)
                 {
@@ -8529,7 +8529,7 @@ namespace CaeResults
             else if (slipWearResultsToKeep == SlipWearResultsEnum.LastIncrementOfSlipWearSteps)
             {
                 int lastIncrementId;
-                OrderedDictionary<FieldData, Field> fields = new OrderedDictionary<FieldData, Field>("Fields");
+                CaeGlobals.OrderedDictionary<FieldData, Field> fields = new CaeGlobals.OrderedDictionary<FieldData, Field>("Fields");
                 //
                 foreach (var entry in _fields)
                 {
@@ -8548,7 +8548,7 @@ namespace CaeResults
             {
                 int lastIncrementId;
                 int lastStepId = slipStepIds.Last();
-                OrderedDictionary<FieldData, Field> fields = new OrderedDictionary<FieldData, Field>("Fields");
+                CaeGlobals.OrderedDictionary<FieldData, Field> fields = new CaeGlobals.OrderedDictionary<FieldData, Field>("Fields");
                 //
                 foreach (var entry in _fields)
                 {

@@ -119,7 +119,7 @@ namespace vtkControl
         private bool _viewAnimationEnabled;
         private bool _mouseIn;
         //
-        OrderedDictionary<vtkTransform, int> _transforms;
+        CaeGlobals.OrderedDictionary<vtkTransform, int> _transforms;
         // Section view
         private SectionViewData _sectionViewData;
         private object myLock = new object();
@@ -418,7 +418,7 @@ namespace vtkControl
             _animating = false;
             _viewAnimationEnabled = true;
             //
-            _transforms = new OrderedDictionary<vtkTransform, int>("Transformations");
+            _transforms = new CaeGlobals.OrderedDictionary<vtkTransform, int>("Transformations");
             //
             _sectionViewData = new SectionViewData();
             //

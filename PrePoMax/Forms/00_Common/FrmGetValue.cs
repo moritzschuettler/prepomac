@@ -77,7 +77,7 @@ namespace PrePoMax.Forms
 
         // Methods                                                                                                                  
         public void PrepareForm(string title, string valueName, string valueDescription,
-                                double value, OrderedDictionary<string, double> presetValues,
+                                double value, CaeGlobals.OrderedDictionary<string, double> presetValues,
                                 TypeConverter typeConverter = null)
         {
             Text = title;

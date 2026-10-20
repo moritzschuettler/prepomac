@@ -41,6 +41,33 @@ namespace CaeMesh
         /// </summary>
         static LpSolve()
         {
+#if NET
+            // macOS: liblpsolve55.dylib next to the program (app bundle) or from Homebrew (brew install lp_solve)
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                try
+                {
+                    NativeLibrary.SetDllImportResolver(typeof(LpSolve).Assembly, (name, assembly, searchPath) =>
+                    {
+                        if (name != _dllName) return IntPtr.Zero;
+                        string folder = Path.GetDirectoryName(typeof(LpSolve).Assembly.Location) ?? "";
+                        foreach (string candidate in new[] { Path.Combine(folder, "liblpsolve55.dylib"),
+                                                             Path.Combine(folder, "..", "Frameworks", "liblpsolve55.dylib"),
+                                                             "/opt/homebrew/lib/liblpsolve55.dylib",
+                                                             "/usr/local/lib/liblpsolve55.dylib" })
+                        {
+                            if (File.Exists(candidate) && NativeLibrary.TryLoad(candidate, out IntPtr handle)) return handle;
+                        }
+                        return IntPtr.Zero;
+                    });
+                }
+                catch (InvalidOperationException)
+                {
+                    // A resolver of the assembly is set already
+                }
+                return;
+            }
+#endif
             try
             {
                 string folder = Path.GetDirectoryName(typeof(LpSolve).Assembly.Location);

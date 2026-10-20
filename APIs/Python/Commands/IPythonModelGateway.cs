@@ -56,8 +56,8 @@ namespace APIs.Python
                                       OrderedDictionaryItemLayout<string> modelLayout);
         // CalculiX keyword editor
         List<FileInOut.Output.Calculix.CalculixKeyword> GetCalculixModelKeywords();
-        void SetCalculixUserKeywords(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords);
-        void SetCalculixKeywordEditorState(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords,
+        void SetCalculixUserKeywords(CaeGlobals.OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords);
+        void SetCalculixKeywordEditorState(CaeGlobals.OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords,
                                            List<FileInOut.Output.Calculix.CalculixKeywordOverride> overrides);
         // Parameters
         void AddParameter(EquationParameter parameter);

@@ -19,7 +19,7 @@ namespace APIs.Python
         private readonly string _fieldName;
         private readonly string _componentName;
         private readonly LimitPlotBasedOnEnum _basedOn;
-        private readonly OrderedDictionary<string, double> _itemLimits;
+        private readonly CaeGlobals.OrderedDictionary<string, double> _itemLimits;
 
 
         // Properties
@@ -40,7 +40,7 @@ namespace APIs.Python
         // Constructors
         internal ResultFieldOutputLimitDraftAPI(string name, string fieldName, string componentName,
                                                 LimitPlotBasedOnEnum basedOn,
-                                                OrderedDictionary<string, double> itemLimits)
+                                                CaeGlobals.OrderedDictionary<string, double> itemLimits)
             : base(name)
         {
             _fieldName = fieldName;

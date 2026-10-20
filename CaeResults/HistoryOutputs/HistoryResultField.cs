@@ -24,11 +24,11 @@ namespace CaeResults
     public class HistoryResultField : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        protected OrderedDictionary<string, HistoryResultComponent> _components;        //ISerializable
+        protected CaeGlobals.OrderedDictionary<string, HistoryResultComponent> _components;        //ISerializable
 
 
         // Properties                                                                                                               
-        public OrderedDictionary<string, HistoryResultComponent> Components
+        public CaeGlobals.OrderedDictionary<string, HistoryResultComponent> Components
         {
             get { return _components; }
             set { _components = value; }
@@ -41,7 +41,7 @@ namespace CaeResults
         {
             _checkName = false;
             _name = name;
-            _components = new OrderedDictionary<string, HistoryResultComponent>("Components");
+            _components = new CaeGlobals.OrderedDictionary<string, HistoryResultComponent>("Components");
         }
         public HistoryResultField(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -55,9 +55,9 @@ namespace CaeResults
                         if (entry.Value is Dictionary<string, HistoryResultComponent> oldComponents)
                         {
                             oldComponents.OnDeserialization(null);
-                            _components = new OrderedDictionary<string, HistoryResultComponent>("Components", oldComponents);
+                            _components = new CaeGlobals.OrderedDictionary<string, HistoryResultComponent>("Components", oldComponents);
                         }
-                        else _components = (OrderedDictionary<string, HistoryResultComponent>)entry.Value;
+                        else _components = (CaeGlobals.OrderedDictionary<string, HistoryResultComponent>)entry.Value;
                         break;
                 }
             }
@@ -187,7 +187,7 @@ namespace CaeResults
             // Using typeof() works also for null fields
             base.GetObjectData(info, context);
             //
-            info.AddValue("_components", _components, typeof(OrderedDictionary<string, HistoryResultComponent>));
+            info.AddValue("_components", _components, typeof(CaeGlobals.OrderedDictionary<string, HistoryResultComponent>));
         }
 
     }

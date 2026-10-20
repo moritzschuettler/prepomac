@@ -51,6 +51,12 @@
   <ItemGroup>
     <Compile Include="Amplitudes\Amplitude.cs" />
     <Compile Include="Amplitudes\AmplitudeTabular.cs" />
+    <Compile Include="Composite\CompositeLayup.cs" />
+    <Compile Include="Composite\DiscreteOrientationsData.cs" />
+    <Compile Include="Composite\DiscreteOrientationsXmlReader.cs" />
+    <Compile Include="Composite\KinDrape.cs" />
+    <Compile Include="Composite\Ply.cs" />
+    <Compile Include="Composite\CompositeLayupZones.cs" />
     <Compile Include="Constraints\PointSpringData.cs" />
     <Compile Include="Constraints\SpringConstraint.cs" />
     <Compile Include="Constraints\SurfaceSpring.cs" />

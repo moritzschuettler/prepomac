@@ -162,6 +162,7 @@
     <Compile Include="MessageBoxes.cs" />
     <Compile Include="RenamedTypeSerializationBinder.cs" />
     <Compile Include="Tools.cs" />
+    <Compile Include="TypeSerializationSurrogate.cs" />
     <Compile Include="Comparers\CompareObjects.cs" />
     <Compile Include="CommonClasses\UniqueQueue.cs" />
     <Compile Include="CommonClasses\Vec3D.cs" />

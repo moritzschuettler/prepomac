@@ -61,7 +61,7 @@ namespace FileInOut.Output
             int upper;
             using (StreamWriter sw = new StreamWriter(fileName, false))
             {
-                for (int i = 0; i < sb.Length; i+=step)
+                for (int i = 0; i < sb.Length; i += step)
                 {
                     upper = Math.Min(sb.Length - i, step);
                     sw.Write(sb.ToString(i, upper));
@@ -163,8 +163,8 @@ namespace FileInOut.Output
                                                              bool referencePointMassNodes = true)
         {
             // Clone surfaces
-            OrderedDictionary<string, FeSurface> originalSurfaces = model.Mesh.Surfaces;
-            OrderedDictionary<string, FeElementSet> originalElementSets = model.Mesh.ElementSets;
+            CaeGlobals.OrderedDictionary<string, FeSurface> originalSurfaces = model.Mesh.Surfaces;
+            CaeGlobals.OrderedDictionary<string, FeElementSet> originalElementSets = model.Mesh.ElementSets;
             //
             model.Mesh.Surfaces = originalSurfaces.DeepClone();
             model.Mesh.ElementSets = originalElementSets.DeepClone();
@@ -186,7 +186,7 @@ namespace FileInOut.Output
                 List<SectionData> additionalSectionData = new List<SectionData>();
                 List<Material> additionalMaterials = new List<Material>();
                 List<BoundaryCondition> additionalBoundaryConditions = new List<BoundaryCondition>();
-                OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads;
+                CaeGlobals.OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads;
                 List<double[]> equationParameters = new List<double[]>();
                 //
                 // Collect pre-tension loads to use them in reference point preparation
@@ -320,12 +320,12 @@ namespace FileInOut.Output
                 Clean(model);
             }
         }
-        static private void GetPretensionLoads(FeModel model, out OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads)
+        static private void GetPretensionLoads(FeModel model, out CaeGlobals.OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads)
         {
             string name;
             List<PreTensionLoad> preTensionLoadsList;
             preTensionLoads =
-                new OrderedDictionary<string, List<PreTensionLoad>>("Pretension Loads", StringComparer.OrdinalIgnoreCase);
+                new CaeGlobals.OrderedDictionary<string, List<PreTensionLoad>>("Pretension Loads", StringComparer.OrdinalIgnoreCase);
             foreach (var step in model.StepCollection.StepsList)
             {
                 if (step.Active)
@@ -344,7 +344,7 @@ namespace FileInOut.Output
                 }
             }
         }
-        static private void GetReferencePoints(FeModel model, OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads,
+        static private void GetReferencePoints(FeModel model, CaeGlobals.OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads,
                                                ref int maxNodeId, ref List<FeNodeSet> additionalNodeSets,
                                                out Dictionary<string, CalReferencePoint> referencePoints)
         {
@@ -2012,6 +2012,9 @@ namespace FileInOut.Output
             {
                 Dictionary<int, MaterialOrientation> elementOrientations = model.GetElementMaterialOrientations();
                 foreach (var entry in model.Sections) AppendSection(model, entry.Value, elementOrientations, parent);
+                // Composite layups: every zone is written like a composite shell section
+                foreach (var zone in model.GetCompositeLayupZones())
+                    AppendCompositeShellSection(model, zone.Section, zone.ElementIds, elementOrientations, parent);
                 //
                 AppendAdditionalSections(additionalSectionData, parent);
             }
@@ -2073,9 +2076,15 @@ namespace FileInOut.Output
                                                         Dictionary<int, MaterialOrientation> elementOrientations,
                                                         CalculixKeyword parent)
         {
+            AppendCompositeShellSection(model, section, model.GetElementIdsOfRegion(section), elementOrientations, parent);
+        }
+        static private void AppendCompositeShellSection(FeModel model, CompositeShellSection section, int[] elementIds,
+                                                        Dictionary<int, MaterialOrientation> elementOrientations,
+                                                        CalculixKeyword parent)
+        {
             MaterialOrientation defaultOrientation = new MaterialOrientation(section.Name, null, RegionTypeEnum.None);
             List<int> unorientedElementIds;
-            List<ShellOrientationGroup> groups = ShellOrientationGroup.Create(model, model.GetElementIdsOfRegion(section),
+            List<ShellOrientationGroup> groups = ShellOrientationGroup.Create(model, elementIds,
                                                                               elementOrientations, defaultOrientation,
                                                                               out unorientedElementIds);
             List<CompositeLayer> layers = section.GetSolverLayers();
@@ -2156,7 +2165,7 @@ namespace FileInOut.Output
             }
             return materialNames;
         }
-        static private void AppendPreTensionSections(OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads,
+        static private void AppendPreTensionSections(CaeGlobals.OrderedDictionary<string, List<PreTensionLoad>> preTensionLoads,
                                                      Dictionary<string, CalReferencePoint> referencePoints,
                                                      CalculixKeyword parent)
         {
@@ -3283,13 +3292,6 @@ namespace FileInOut.Output
                 parent.AddKeyword(conFile);
             }
             else throw new NotImplementedException();
-        }
-        //
-        static void AppendTitle(StringBuilder sb, string title)
-        {
-            sb.AppendLine("************************************************************");
-            sb.AppendLine("** " + title);
-            sb.AppendLine("************************************************************");
         }
     }
 }

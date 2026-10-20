@@ -35,7 +35,7 @@ namespace CaeModel
 
         // Constructors                                                                                                             
         public Material(string name)
-            : base(name, new HashSet<char>() { '@' })
+            : base(name, new HashSet<char>() { '@', '/' })
         {
             _properties = new List<MaterialProperty>();
         }

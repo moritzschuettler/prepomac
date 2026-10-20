@@ -270,3 +270,24 @@ CLAUDE.md
 /_Codex/
 /Notes/
 /CaeMesh/Meshing/Gmsh/Sweep/Roadmap.md
+
+# Composites Fiber Modeler: local test files
+/assets_composites/cooperclimax_model1.inp
+/assets_composites/cooperhood.pmx
+/assets_composites/cooperhood.zip
+/test_layups.csv
+/assets_composites/abq_tensile_coupon/tensile_coupon_composite.pmx
+/assets_composites/CBeam.stp
+/assets_composites/abq_tensile_coupon/tensile_coupon_fromPPM.inp
+/assets_composites/abq_tensile_coupon/kindrape_log.txt
+/assets_composites/abq_tensile_coupon/tensile_coupon_remesh.stl
+/assets_composites/abq_tensile_coupon/tensile_coupon-ABQ.zip
+/assets_composites/abq_tensile_coupon/tensile_coupon_ABQ2.inp.txt
+/assets_composites/cooperhood/cooperclimax_model1.inp
+/assets_composites/cooperhood/cooperhood_mesh_coarse.stl
+/assets_composites/cooperhood/cooperhood_remesh.stl
+/assets_composites/sphere/kindrape_log.txt
+
+# macOS NetGenMesher build output
+macOS/Native/NetGenMesher/build/
+PrePoMax.Mac/

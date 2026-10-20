@@ -74,6 +74,39 @@ namespace PrePoMax
         public static string SettingsFileName = "settings.bin";
         public static string MaterialLibraryFileName = "materials.lib";
         public static string HistoryFileName = "history.pmh";
+        private static bool IsWindows { get { return System.Environment.OSVersion.Platform == System.PlatformID.Win32NT; } }
+        // The paths of the programs PrePoMax runs are relative to the program folder; macOS uses slashes and its
+        // executables have no extension
+        private static string ProgramPath(string windowsPath)
+        {
+            if (IsWindows) return windowsPath;
+            string path = windowsPath.Replace('\\', '/');
+            if (path.EndsWith(".exe", System.StringComparison.OrdinalIgnoreCase)) path = path.Substring(0, path.Length - 4);
+            return path;
+        }
+        // The settings, the history and the material library are written next to the program on Windows; the program
+        // folder of a macOS application bundle is read-only, so they are kept in the application support folder there
+        public static string GetUserDataFileName(string fileName, bool copyDelivered = false)
+        {
+            string directory = System.Windows.Forms.Application.StartupPath;
+            if (System.Environment.OSVersion.Platform != System.PlatformID.Win32NT)
+            {
+                string userDirectory = System.IO.Path.Combine(System.Environment.GetFolderPath(
+                    System.Environment.SpecialFolder.UserProfile), "Library", "Application Support", "PrePoMax");
+                try
+                {
+                    System.IO.Directory.CreateDirectory(userDirectory);
+                    // A file delivered with the program, such as the material library, is the starting version
+                    string userFileName = System.IO.Path.Combine(userDirectory, fileName);
+                    string defaultFileName = System.IO.Path.Combine(directory, fileName);
+                    if (copyDelivered && !System.IO.File.Exists(userFileName) && System.IO.File.Exists(defaultFileName))
+                        System.IO.File.Copy(defaultFileName, userFileName);
+                    directory = userDirectory;
+                }
+                catch { }
+            }
+            return System.IO.Path.Combine(directory, fileName);
+        }
         // The captured viewport is named after the model; this stands in before one is saved
         public static string ViewportImageBaseName = "Viewport";
         // Settings
@@ -92,16 +125,17 @@ namespace PrePoMax
         public static string UnitSystemSettingsName = "Unit System";
         public static string AutomationSettingsName = "Automation";
         // Work files
-        public static string NetGenMesher = @"\Meshers\Netgen\NetGenMesher.exe";
-        public static string MmgsMesher = @"\Meshers\Mmg\mmgs.exe";
-        public static string Mmg3DMesher = @"\Meshers\Mmg\mmg3d.exe";
-        public static string QuadWildMesher = @"\Meshers\QuadWild\quadwild.exe";
-        public static string QuadWildPatchMesher = @"\Meshers\QuadWild\quad_from_patches.exe";
-        public static string GmshCaller = @"\lib\GmshCaller.exe";
-        public static string PythonDll = @"\Python\python312.dll";
-        public static string BidirectionalMeshConverter = @"\Tools\BidirectionalMeshConverter.exe";
-        public static string OdbToFrd = @"\Tools\abqodb_to_ccxfrd.py";
-        public static string TempFolder = @"\Temp\";
+        public static string NetGenMesher = ProgramPath(@"\Meshers\Netgen\NetGenMesher.exe");
+        public static string MmgsMesher = ProgramPath(@"\Meshers\Mmg\mmgs.exe");
+        public static string Mmg3DMesher = ProgramPath(@"\Meshers\Mmg\mmg3d.exe");
+        public static string QuadWildMesher = ProgramPath(@"\Meshers\QuadWild\quadwild.exe");
+        public static string QuadWildPatchMesher = ProgramPath(@"\Meshers\QuadWild\quad_from_patches.exe");
+        // The macOS build places the Gmsh process next to PrePoMax, where it shares the libraries
+        public static string GmshCaller = IsWindows ? @"\lib\GmshCaller.exe" : "/GmshCaller";
+        public static string PythonDll = ProgramPath(@"\Python\python312.dll");
+        public static string BidirectionalMeshConverter = ProgramPath(@"\Tools\BidirectionalMeshConverter.exe");
+        public static string OdbToFrd = ProgramPath(@"\Tools\abqodb_to_ccxfrd.py");
+        public static string TempFolder = ProgramPath(@"\Temp\");
         public static string VisFileName = "geometry.vis";
         public static string BrepFileName = "geometry.brep";
         public static string SplitSourceBrepFileName = "splitSource.brep";

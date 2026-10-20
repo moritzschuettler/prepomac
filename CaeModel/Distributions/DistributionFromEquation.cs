@@ -110,7 +110,7 @@ namespace CaeModel
         }
         private string CheckEquation(string equation)
         {
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
+            CaeGlobals.OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             //
             try
             {
@@ -140,7 +140,7 @@ namespace CaeModel
                                                                 out double[][] distances)
         {
             distances = null;
-            OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
+            CaeGlobals.OrderedDictionary<string, object> existingParameters = MyNCalc.ExistingParameters.DeepCopy();
             try
             {
                 CoordinateSystem cs = null;

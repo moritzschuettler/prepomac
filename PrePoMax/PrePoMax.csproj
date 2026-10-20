@@ -407,6 +407,12 @@
     <Compile Include="Commands\0076_InitialCondition\CAddInitialCondition.cs" />
     <Compile Include="Commands\0076_InitialCondition\CRemoveInitialConditions.cs" />
     <Compile Include="Commands\0063_Section\CReplaceSection.cs" />
+    <Compile Include="Commands\0064_CompositeLayup\CAddCompositeLayup.cs" />
+    <Compile Include="Commands\0064_CompositeLayup\CImportCompositeLayupsFromCsv.cs" />
+    <Compile Include="Commands\0064_CompositeLayup\CImportDiscreteOrientationsXml.cs" />
+    <Compile Include="Commands\0064_CompositeLayup\CReplaceCompositeLayup.cs" />
+    <Compile Include="Commands\0064_CompositeLayup\CDuplicateCompositeLayups.cs" />
+    <Compile Include="Commands\0064_CompositeLayup\CRemoveCompositeLayups.cs" />
     <Compile Include="Commands\0075_Amplitude\CAddAmplitude.cs" />
     <Compile Include="Commands\0075_Amplitude\CRemoveAmplitudes.cs" />
     <Compile Include="Commands\0075_Amplitude\CReplaceAmplitude.cs" />
@@ -506,6 +512,7 @@
     <Compile Include="Forms\00_Common\ViewStringValue.cs" />
     <Compile Include="Forms\00_Common\ViewUnitSystem.cs" />
     <Compile Include="Forms\00_Advisor\AdvisorCreator.cs" />
+    <Compile Include="Forms\00_Advisor\AdvisorCreatorComposites.cs" />
     <Compile Include="Forms\00_Parameters\FrmEquationParameters.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -635,6 +642,11 @@
     <Compile Include="Forms\43_Section\ViewDistributedMassSection.cs" />
     <Compile Include="Forms\44_Constraint\ViewSurfaceSupport.cs" />
     <Compile Include="Forms\46_SearchContactPairs\FrmSearchContactPairs.cs">
+    <Compile Include="Forms\43_CompositeLayup\FrmCompositeLayup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\43_CompositeLayup\PlyDataPoint.cs" />
+    <Compile Include="Forms\43_CompositeLayup\ViewCompositeLayup.cs" />
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\46_SearchContactPairs\FrmSearchContactPairs.Designer.cs">
@@ -809,11 +821,11 @@
     </Compile>
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutput.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputCoordinateSystemTransform.cs" />
+    <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputCompositeFailure.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputEnvelope.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputLimit.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputMaterialAxes.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputShellPlaneStress.cs" />
-    <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputCompositeFailure.cs" />
     <Compile Include="Forms\82_ResultFieldOutput\ViewResultFieldOutputEquation.cs" />
     <Compile Include="Forms\83_ResultHistoryOutput\FrmResultHistoryOutput.cs">
       <SubType>Form</SubType>

@@ -77,7 +77,7 @@ namespace PrePoMax.Forms
                     }
                 }
                 // Load material libraries
-                string fileName = Path.Combine(Application.StartupPath, Globals.MaterialLibraryFileName);
+                string fileName = Globals.GetUserDataFileName(Globals.MaterialLibraryFileName, true);
                 LoadMaterialLibraryFromFile(fileName);
                 //
                 foreach (var materialLibraryFile in _controller.Settings.General.GetMaterialLibraryFiles())

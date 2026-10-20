@@ -25,12 +25,12 @@ namespace CaeResults
     {
         // Variables                                                                                                                
         protected string _unit;                                                     //ISerializable
-        protected OrderedDictionary<string, HistoryResultEntries> _entries;         //ISerializable
+        protected CaeGlobals.OrderedDictionary<string, HistoryResultEntries> _entries;         //ISerializable
 
 
         // Properties                                                                                                               
         public string Unit { get { return _unit; } set { _unit = value; } }
-        public OrderedDictionary<string, HistoryResultEntries> Entries { get { return _entries; } set { _entries = value; } }
+        public CaeGlobals.OrderedDictionary<string, HistoryResultEntries> Entries { get { return _entries; } set { _entries = value; } }
 
 
         // Constructor                                                                                                              
@@ -40,7 +40,7 @@ namespace CaeResults
             _checkName = false;
             _name = name;
             _unit = null;
-            _entries = new OrderedDictionary<string, HistoryResultEntries>("Entries");
+            _entries = new CaeGlobals.OrderedDictionary<string, HistoryResultEntries>("Entries");
         }
         public HistoryResultComponent(SerializationInfo info, StreamingContext context)
             : base(info, context)
@@ -56,9 +56,9 @@ namespace CaeResults
                         if (entry.Value is Dictionary<string, HistoryResultEntries> oldEntries)
                         {
                             oldEntries.OnDeserialization(null);
-                            _entries = new OrderedDictionary<string, HistoryResultEntries>("Entries", oldEntries);
+                            _entries = new CaeGlobals.OrderedDictionary<string, HistoryResultEntries>("Entries", oldEntries);
                         }
-                        else _entries = (OrderedDictionary<string, HistoryResultEntries>)entry.Value;
+                        else _entries = (CaeGlobals.OrderedDictionary<string, HistoryResultEntries>)entry.Value;
                         break;
                 }
             }
@@ -467,7 +467,7 @@ namespace CaeResults
             base.GetObjectData(info, context);
             //
             info.AddValue("_unit", _unit, typeof(string));
-            info.AddValue("_entries", _entries, typeof(OrderedDictionary<string, HistoryResultComponent>));
+            info.AddValue("_entries", _entries, typeof(CaeGlobals.OrderedDictionary<string, HistoryResultComponent>));
         }
 
     }

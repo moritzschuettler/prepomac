@@ -52,18 +52,18 @@ namespace PrePoMax
             throw new NotSupportedException("MesherTypeException");
         }
         public bool PreviewEdgeMeshFromBrep(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems,
+                                            CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems,
                                             bool previewSweepSourceMesh)
         {
             throw new NotSupportedException("MesherTypeException");
         }
         public bool PreviewEdgeMeshFromStl(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                           OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                           CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             return false;
         }
         public FeMesh CreateFirstOrderShellMeshForQuadWild(GeometryPart part, string workDirectory,
-                                                           OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+                                                           CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             if (part == null) throw new ArgumentNullException(nameof(part));
             if (part.PartType != PartType.Shell)
@@ -210,7 +210,7 @@ namespace PrePoMax
             return targetNodeIdMeshSize;
         }
         private Dictionary<int, double> GetQuadWildNodeMeshSizes(GeometryPart part, MeshingParameters meshingParameters,
-                                                                 OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                                                 CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             if (meshSetupItems == null) meshSetupItems = _controller.Model.Geometry.MeshSetupItems;
             HashSet<int> targetPartIds = new HashSet<int>();

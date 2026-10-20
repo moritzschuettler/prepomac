@@ -1,0 +1,20 @@
+<Project>
+  <!-- Common settings of the macOS build. The projects compile the shared PrePoMax sources from the repository
+       folders unchanged; only platform specific code is replaced by the projects in this folder. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+    <RepoRoot>$(MSBuildThisFileDirectory)..\</RepoRoot>
+    <!-- The shared sources target .NET Framework: BinaryFormatter, obsolete APIs and nullable-free code are expected -->
+    <NoWarn>$(NoWarn);CS0618;CS0612;CS0168;CS0219;CS0414;CS0649;CS0169;CS0162;CS0108;CS0114;CS1998;CS4014;CS0067;CS8981;SYSLIB0011;SYSLIB0050;SYSLIB0051;SYSLIB0014;SYSLIB0003;CA1416;CS0659;CS0661;CS0660;NU1701;NU1603</NoWarn>
+    <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
+    <!-- The resources of the forms hold images: they are built without loading the types -->
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+  </PropertyGroup>
+</Project>

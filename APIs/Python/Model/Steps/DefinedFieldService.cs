@@ -82,7 +82,7 @@ namespace APIs.Python.Model
             ModelGateway.ShowDefinedFields(stepName, names);
         }
         //
-        protected override OrderedDictionary<string, DefinedField> GetItems(Step step)
+        protected override CaeGlobals.OrderedDictionary<string, DefinedField> GetItems(Step step)
         {
             return step.DefinedFields;
         }

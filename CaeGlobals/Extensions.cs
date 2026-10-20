@@ -37,7 +37,7 @@ namespace CaeGlobals
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                BinaryFormatter formatter = new BinaryFormatter();
+                BinaryFormatter formatter = BinaryFormatterTools.Create();
                 formatter.Serialize(stream, a);
                 stream.Position = 0;
                 return (T)formatter.Deserialize(stream);
@@ -48,7 +48,7 @@ namespace CaeGlobals
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                BinaryFormatter formatter = new BinaryFormatter();
+                BinaryFormatter formatter = BinaryFormatterTools.Create();
                 formatter.Serialize(stream, a);
                 stream.Position = 0;
                 //
@@ -62,8 +62,7 @@ namespace CaeGlobals
         {
             using (FileStream fs = new FileStream(fileName, FileMode.Open))
             {
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Binder = RenamedTypeSerializationBinder.Instance;
+                BinaryFormatter formatter = BinaryFormatterTools.Create();
                 return (T)formatter.Deserialize(fs);
             }
         }
@@ -71,7 +70,7 @@ namespace CaeGlobals
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                BinaryFormatter formatter = new BinaryFormatter();
+                BinaryFormatter formatter = BinaryFormatterTools.Create();
                 formatter.Serialize(stream, a);
                 stream.Position = 0;
 

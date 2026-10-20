@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- ZedGraph for macOS: the charting API PrePoMax uses, drawn with System.Drawing of the compatibility layer -->
+  <PropertyGroup>
+    <AssemblyName>ZedGraph</AssemblyName>
+    <RootNamespace>ZedGraph</RootNamespace>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WinFormsCompat\WinFormsCompat.csproj" />
+    <ProjectReference Include="..\DrawingCompat\DrawingCompat.csproj" />
+  </ItemGroup>
+</Project>

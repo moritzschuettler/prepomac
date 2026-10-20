@@ -171,7 +171,7 @@ namespace APIs.Python.Model
                                                                   PythonColorConverter.ToPartColor(color, "color"));
             if (elementTypes != null)
             {
-                OrderedDictionary<string, string> values =
+                CaeGlobals.OrderedDictionary<string, string> values =
                     PythonDictionaryConverter.ToStringStringDictionary(elementTypes, "element_types");
                 foreach (var entry in values)
                 {

@@ -77,7 +77,7 @@ namespace APIs.Python.Model
             ModelGateway.RemoveHistoryOutputs(stepName, names);
         }
         //
-        protected override OrderedDictionary<string, HistoryOutput> GetItems(Step step)
+        protected override CaeGlobals.OrderedDictionary<string, HistoryOutput> GetItems(Step step)
         {
             return step.HistoryOutputs;
         }

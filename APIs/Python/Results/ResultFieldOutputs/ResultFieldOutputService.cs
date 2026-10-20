@@ -73,7 +73,7 @@ namespace APIs.Python
                                                                     object itemLimits)
         {
             LimitPlotBasedOnEnum limitType = ParseBasedOn(basedOn);
-            OrderedDictionary<string, double> limits =
+            CaeGlobals.OrderedDictionary<string, double> limits =
                 PythonDictionaryConverter.ToStringDoubleDictionary(itemLimits, "item_limits");
             ValidateDefinition(name, fieldName, componentName, limits);
             return new ResultFieldOutputLimitDraftAPI(name, fieldName, componentName, limitType, limits);
@@ -302,7 +302,7 @@ namespace APIs.Python
             if (result.Mesh == null) throw new PythonAPIException("The result does not contain a mesh.");
             // The mesh finds a part or an element set regardless of case, while the result checks the limit keys
             // against its own spelling, so every key is stored as the mesh spells it
-            OrderedDictionary<string, double> storedItemLimits = new OrderedDictionary<string, double>("ItemNameLimit");
+            CaeGlobals.OrderedDictionary<string, double> storedItemLimits = new CaeGlobals.OrderedDictionary<string, double>("ItemNameLimit");
             foreach (var entry in limit.ItemNameLimit)
             {
                 string storedName;
@@ -420,7 +420,7 @@ namespace APIs.Python
             return PythonValueConverter.ToEnum<LimitPlotBasedOnEnum>(basedOn, "based_on");
         }
         private static void ValidateDefinition(string name, string fieldName, string componentName,
-                                               OrderedDictionary<string, double> itemLimits)
+                                               CaeGlobals.OrderedDictionary<string, double> itemLimits)
         {
             PythonNameComparer.ValidateFormat(name, "name", null);
             ValidateRequiredString(fieldName, "field_name");

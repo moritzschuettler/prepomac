@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>CaeGlobals</AssemblyName>
+    <RootNamespace>CaeGlobals</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Shared sources -->
+    <Compile Include="$(RepoRoot)CaeGlobals\**\*.cs"
+             Exclude="$(RepoRoot)CaeGlobals\obj\**;$(RepoRoot)CaeGlobals\bin\**;
+                      $(RepoRoot)CaeGlobals\CenterWinDialog.cs;
+                      $(RepoRoot)CaeGlobals\MouseHook.cs;
+" />
+    <!-- macOS replacements of the Windows specific files -->
+    <Compile Include="Mac\**\*.cs" />
+    <EmbeddedResource Include="$(RepoRoot)CaeGlobals\DynamicTypeDescriptor\StandardValueEditorUI.resx" LogicalName="DynamicTypeDescriptor.StandardValueEditorUI.resources" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WinFormsCompat\WinFormsCompat.csproj" />
+    <ProjectReference Include="..\DrawingCompat\DrawingCompat.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="UnitsNet" Version="4.89.1" />
+    <PackageReference Include="ncalc" Version="1.3.8" />
+    <PackageReference Include="ExtendedNumerics.BigDecimal" Version="2025.1001.2.129" />
+    <PackageReference Include="Parlot" Version="0.0.28" />
+    <PackageReference Include="System.Management" Version="10.0.0" />
+    <PackageReference Include="System.Runtime.Serialization.Formatters" Version="10.0.0" />
+    <PackageReference Include="System.Resources.Extensions" Version="10.0.0" />
+  </ItemGroup>
+</Project>

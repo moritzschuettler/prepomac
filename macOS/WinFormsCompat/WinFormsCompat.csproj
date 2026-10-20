@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- System.Windows.Forms and System.Drawing for macOS. The WinForms API that PrePoMax uses is implemented on Avalonia
+       (controls, windows, layout) and SkiaSharp (painting, images, fonts), so that the PrePoMax forms run unchanged. -->
+  <PropertyGroup>
+    <AssemblyName>System.Windows.Forms</AssemblyName>
+    <RootNamespace>System.Windows.Forms</RootNamespace>
+    <NoWarn>$(NoWarn);CS0436;CS1685</NoWarn>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <!-- The Windows API compatibility library (kernel32.dll, user32.dll) is built with clang and copied to the applications -->
+  <Target Name="BuildWin32Compat" BeforeTargets="BeforeBuild" Inputs="..\Native\Win32Compat.c" Outputs="..\Native\bin\libWin32Compat.dylib">
+    <Exec Command="sh ../Native/build.sh" />
+  </Target>
+  <ItemGroup>
+    <None Include="..\Native\bin\*.dylib" CopyToOutputDirectory="PreserveNewest" Link="%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.1" />
+    <PackageReference Include="Avalonia.Skia" Version="11.3.1" />
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.1" />
+    <PackageReference Include="Avalonia.Themes.Simple" Version="11.3.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DrawingCompat\DrawingCompat.csproj" />
+  </ItemGroup>
+</Project>

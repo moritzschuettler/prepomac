@@ -56,6 +56,8 @@ namespace CaeGlobals
         }
         public override Type BindToType(string assemblyName, string typeName)
         {
+            Type unityHolder = BinaryFormatterTools.BindUnityHolder(typeName);
+            if (unityHolder != null) return unityHolder;
             if (_renamedTypeNames.Count == 0 || typeName == null) return null;
             //
             string renamedTypeName;

@@ -76,7 +76,7 @@ namespace PrePoMax
             return true;
         }
         public bool PreviewEdgeMeshFromStl(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                           OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                           CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             throw new NotSupportedException("MesherTypeException");
         }
@@ -138,7 +138,7 @@ namespace PrePoMax
             }
         }
         public bool PreviewEdgeMeshFromBrep(GeometryPart part, MeshSetupItem[] gmshSetupItems,
-                                                OrderedDictionary<string, MeshSetupItem> meshSetupItems,
+                                                CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems,
                                                 bool previewSweepSourceMesh)
         {
             string workDirectory = _controller.Settings.GetWorkDirectory();
@@ -278,7 +278,7 @@ namespace PrePoMax
             if (edgeIds.Count > 0) _controller.HighlightItemsByGeometryEdgeIds(edgeIds.ToArray(), true);
         }
         public bool PreviewEdgeNodesForQuadWild(GeometryPart part,
-                                                OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                                CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             if (part == null) throw new ArgumentNullException(nameof(part));
             string workDirectory = _controller.Settings.GetWorkDirectory();
@@ -351,7 +351,7 @@ namespace PrePoMax
             return true;
         }
         public FeMesh CreateFirstOrderShellMeshForQuadWild(GeometryPart part, string workDirectory,
-                                                           OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
+                                                           CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems = null)
         {
             if (part == null) throw new ArgumentNullException(nameof(part));
             if (part.PartType != PartType.Shell)

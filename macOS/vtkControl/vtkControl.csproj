@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The 3D view of PrePoMax. The original sources of vtkControl are compiled unchanged; the ActiViz/VTK library they are
+       written against is replaced by Mac/Vtk, a VTK compatible implementation of the classes they use on OpenGL. -->
+  <PropertyGroup>
+    <AssemblyName>vtkControl</AssemblyName>
+    <RootNamespace>vtkControl</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(RepoRoot)vtkControl\**\*.cs" Exclude="$(RepoRoot)vtkControl\obj\**;$(RepoRoot)vtkControl\bin\**;$(RepoRoot)vtkControl\Properties\AssemblyInfo.cs;$(RepoRoot)vtkControl\Tools\PrecisionTouchpad.cs" />
+    <Compile Include="Mac\**\*.cs" />
+  </ItemGroup>
+  <!-- Replaced on macOS: Tools\PrecisionTouchpad.cs (Windows raw input of the touchpad) -->
+  <ItemGroup>
+    <ProjectReference Include="..\CaeGlobals\CaeGlobals.csproj" />
+    <ProjectReference Include="..\CaeMesh\CaeMesh.csproj" />
+    <ProjectReference Include="..\DrawingCompat\DrawingCompat.csproj" />
+    <ProjectReference Include="..\WinFormsCompat\WinFormsCompat.csproj" />
+    <PackageReference Include="Avalonia" Version="11.3.1" />
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="System.Management" Version="10.0.0" />
+  </ItemGroup>
+</Project>

@@ -26,13 +26,13 @@ namespace CaeResults
     {
         // Variables                                                                                                                
         protected bool _harmonic;                                           //ISerializable
-        protected OrderedDictionary<string, HistoryResultField> _fields;    //ISerializable
+        protected CaeGlobals.OrderedDictionary<string, HistoryResultField> _fields;    //ISerializable
         protected string _baseSetName;                                      //ISerializable
 
 
         // Properties                                                                                                               
         public bool Harmonic { get { return _harmonic; } set { _harmonic = value; } }
-        public OrderedDictionary<string, HistoryResultField> Fields { get { return _fields; } set { _fields = value; } }
+        public CaeGlobals.OrderedDictionary<string, HistoryResultField> Fields { get { return _fields; } set { _fields = value; } }
         public string BaseSetName { get { return _baseSetName; } set { _baseSetName = value; } }
 
 
@@ -43,7 +43,7 @@ namespace CaeResults
             _checkName = false;
             _name = name;
             _harmonic = false;
-            _fields = new OrderedDictionary<string, HistoryResultField>("Fields");
+            _fields = new CaeGlobals.OrderedDictionary<string, HistoryResultField>("Fields");
             _baseSetName = null;
         }
         public HistoryResultSet(SerializationInfo info, StreamingContext context)
@@ -60,9 +60,9 @@ namespace CaeResults
                         if (entry.Value is Dictionary<string, HistoryResultField> oldFields)
                         {
                             oldFields.OnDeserialization(null);
-                            _fields = new OrderedDictionary<string, HistoryResultField>("Fields", oldFields);
+                            _fields = new CaeGlobals.OrderedDictionary<string, HistoryResultField>("Fields", oldFields);
                         }
-                        else _fields = (OrderedDictionary<string, HistoryResultField>)entry.Value;
+                        else _fields = (CaeGlobals.OrderedDictionary<string, HistoryResultField>)entry.Value;
                         break;
                     case "_baseSetName":
                         _baseSetName = (string)entry.Value; break;
@@ -222,7 +222,7 @@ namespace CaeResults
             base.GetObjectData(info, context);
             //
             info.AddValue("_harmonic", _harmonic, typeof(bool));
-            info.AddValue("_fields", _fields, typeof(OrderedDictionary<string, HistoryResultField>));
+            info.AddValue("_fields", _fields, typeof(CaeGlobals.OrderedDictionary<string, HistoryResultField>));
             info.AddValue("_baseSetName", _baseSetName, typeof(string));
         }
 

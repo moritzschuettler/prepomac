@@ -23,7 +23,7 @@ namespace PrePoMax.Forms
         // Variables                                                                                                                
         private string _value;
         private string _presetValue;
-        OrderedDictionary<string, string> _presetValues;
+        CaeGlobals.OrderedDictionary<string, string> _presetValues;
         DynamicCustomTypeDescriptor _dctd;
 
 
@@ -57,7 +57,7 @@ namespace PrePoMax.Forms
         public double MinValue { get; set; }
         //
         [Browsable(false)]
-        public OrderedDictionary<string, string> PresetValues 
+        public CaeGlobals.OrderedDictionary<string, string> PresetValues 
         { 
             get { return _presetValues; } 
             set 
@@ -108,7 +108,7 @@ namespace PrePoMax.Forms
         public ViewStringValue()
             : this("", null)
         { }
-        public ViewStringValue(string value, OrderedDictionary<string, string> presetValues)
+        public ViewStringValue(string value, CaeGlobals.OrderedDictionary<string, string> presetValues)
         {
             _dctd = ProviderInstaller.Install(this);
             //

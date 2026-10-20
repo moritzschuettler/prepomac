@@ -86,7 +86,7 @@ namespace APIs.Python.Model
             string dataText = PythonValueConverter.ToText(data, "data", true);
             int[] path = ToIndices(indices, "indices");
             if (string.IsNullOrEmpty(dataText)) throw new PythonAPIException("The argument 'data' must not be empty.");
-            OrderedDictionary<int[], CalculixUserKeyword> keywords = GetUserKeywords();
+            CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> keywords = GetUserKeywords();
             int[] existingPath = FindPath(keywords, path);
             List<CalculixKeyword> mergedKeywords = GetModelKeywords();
             foreach (int[] precedingPath in keywords.Keys)
@@ -106,7 +106,7 @@ namespace APIs.Python.Model
         public void remove_user_keyword(object indices)
         {
             int[] path = ToIndices(indices, "indices");
-            OrderedDictionary<int[], CalculixUserKeyword> keywords = GetUserKeywords();
+            CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> keywords = GetUserKeywords();
             if (!RemoveAt(keywords, path))
                 throw new PythonAPIException("There is no user keyword at the index path [" +
                                              string.Join(", ", path) + "].");
@@ -125,9 +125,9 @@ namespace APIs.Python.Model
         public void replace_user_keywords(object keywords)
         {
             List<KeyValuePair<int[], string>> pairs = ToKeywordPairs(keywords, "keywords");
-            OrderedDictionary<int[], CalculixUserKeyword> existing = GetUserKeywords();
-            OrderedDictionary<int[], CalculixUserKeyword> replacement =
-                new OrderedDictionary<int[], CalculixUserKeyword>("Keywords");
+            CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> existing = GetUserKeywords();
+            CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> replacement =
+                new CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword>("Keywords");
             List<CalculixKeyword> mergedKeywords = GetModelKeywords();
             List<KeyValuePair<int[], CalculixUserKeyword>> heldInactiveKeywords = null;
             foreach (KeyValuePair<int[], string> pair in pairs)
@@ -211,11 +211,11 @@ namespace APIs.Python.Model
             //
             return _modelResolver.ModelGateway.GetModel();
         }
-        private OrderedDictionary<int[], CalculixUserKeyword> GetUserKeywords()
+        private CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> GetUserKeywords()
         {
             FeModel model = GetModelOrNull();
             if (model == null || model.CalculixUserKeywords == null)
-                return new OrderedDictionary<int[], CalculixUserKeyword>("Keywords");
+                return new CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword>("Keywords");
             //
             return model.CalculixUserKeywords.DeepClone();
         }
@@ -247,7 +247,7 @@ namespace APIs.Python.Model
             //
             return keywords;
         }
-        private void SetUserKeywords(OrderedDictionary<int[], CalculixUserKeyword> keywords)
+        private void SetUserKeywords(CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> keywords)
         {
             _modelResolver.GetModel();
             _modelResolver.ModelGateway.SetCalculixUserKeywords(keywords);
@@ -341,7 +341,7 @@ namespace APIs.Python.Model
             return generatedPath;
         }
         private static List<KeyValuePair<int[], CalculixUserKeyword>> GetInactiveKeywordsByGeneratedPath(
-            OrderedDictionary<int[], CalculixUserKeyword> userKeywords, List<CalculixKeyword> modelKeywords)
+            CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> userKeywords, List<CalculixKeyword> modelKeywords)
         {
             List<KeyValuePair<int[], CalculixUserKeyword>> inactiveKeywords =
                 new List<KeyValuePair<int[], CalculixUserKeyword>>();
@@ -398,7 +398,7 @@ namespace APIs.Python.Model
             //
             return path;
         }
-        private static int[] FindPath(OrderedDictionary<int[], CalculixUserKeyword> keywords, int[] path)
+        private static int[] FindPath(CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> keywords, int[] path)
         {
             foreach (int[] key in keywords.Keys)
             {
@@ -417,7 +417,7 @@ namespace APIs.Python.Model
             //
             return null;
         }
-        private static bool RemoveAt(OrderedDictionary<int[], CalculixUserKeyword> keywords, int[] path)
+        private static bool RemoveAt(CaeGlobals.OrderedDictionary<int[], CalculixUserKeyword> keywords, int[] path)
         {
             foreach (int[] key in keywords.Keys)
             {

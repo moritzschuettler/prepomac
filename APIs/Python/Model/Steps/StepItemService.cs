@@ -234,6 +234,6 @@ namespace APIs.Python.Model
             return text;
         }
         //
-        protected abstract OrderedDictionary<string, TItem> GetItems(Step step);
+        protected abstract CaeGlobals.OrderedDictionary<string, TItem> GetItems(Step step);
     }
 }

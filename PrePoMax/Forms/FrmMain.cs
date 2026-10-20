@@ -79,6 +79,10 @@ namespace PrePoMax
         private SplitContainer _sidePanelHost;
         private PythonPanel _pythonPanel;
         private AdvisorPanel _advisorPanel;
+        private AdvisorPanel _advisorCompositesPanel;
+        // Composites Fiber Modeler menu items
+        private ToolStripMenuItem tsmiCompositeLayup;
+        private ToolStripMenuItem tsmiHelpAdvisorComposites;
         private SidePanelsState _sidePanelsState;
         private SidePanelsState _pendingSidePanelsState;
         private Rpc.RpcServer _automationServer;
@@ -154,6 +158,7 @@ namespace PrePoMax
         private FrmMaterial _frmMaterial;
         private FrmSection _frmSection;
         private FrmMaterialOrientation _frmMaterialOrientation;
+        private FrmCompositeLayup _frmCompositeLayup;
         private FrmConstraint _frmConstraint;
         private FrmSurfaceInteraction _frmSurfaceInteraction;
         private FrmContactPair _frmContactPair;
@@ -266,6 +271,7 @@ namespace PrePoMax
         {
             // Initialize               
             InitializeComponent();
+            InitializeCompositesMenus();
             ToolStripMenuItem duplicateResultFieldOutputMenuItem = new ToolStripMenuItem();
             duplicateResultFieldOutputMenuItem.Name = "tsmiDuplicateResultFieldOutput";
             duplicateResultFieldOutputMenuItem.Text = "Duplicate";
@@ -451,6 +457,7 @@ namespace PrePoMax
                 _modelTree.ConvertElementSetsToMeshParts += ConvertElementSetsToMeshParts;
                 _modelTree.MaterialLibrary += ShowMaterialLibrary;
                 _modelTree.SearchContactPairs += SearchContactPairs;
+                _modelTree.ImportCompositeLayupsFromCsv += ImportCompositeLayupsFromCsv;
                 _modelTree.SwapMasterSlave += ModelTree_SwapMasterSlave;
                 _modelTree.MergeByMasterSlave += ModelTree_MergeByMasterSlave;
                 _modelTree.HideShowEvent += ModelTree_HideShowEvent;
@@ -634,6 +641,9 @@ namespace PrePoMax
                 //
                 _frmMaterialOrientation = new FrmMaterialOrientation(_controller);
                 AddFormToAllForms(_frmMaterialOrientation);
+                //
+                _frmCompositeLayup = new FrmCompositeLayup(_controller);
+                AddFormToAllForms(_frmCompositeLayup);
                 //
                 _frmConstraint = new FrmConstraint(_controller);
                 AddFormToAllForms(_frmConstraint);
@@ -1336,6 +1346,7 @@ namespace PrePoMax
                 else if (nodeName == _modelTree.MaterialsName) tsmiCreateMaterial_Click(null, null);
                 else if (nodeName == _modelTree.SectionsName) tsmiCreateSection_Click(null, null);
                 else if (nodeName == _modelTree.MaterialOrientationsName) tsmiCreateMaterialOrientation_Click(null, null);
+                else if (nodeName == _modelTree.CompositeLayupsName) tsmiCreateCompositeLayup_Click(null, null);
                 else if (nodeName == _modelTree.ConstraintsName) tsmiCreateConstraint_Click(null, null);
                 else if (nodeName == _modelTree.SurfaceInteractionsName) tsmiCreateSurfaceInteraction_Click(null, null);
                 else if (nodeName == _modelTree.ContactPairsName) tsmiCreateContactPair_Click(null, null);
@@ -1383,6 +1394,7 @@ namespace PrePoMax
                 else if (namedClass is Material) EditMaterial(namedClass.Name);
                 else if (namedClass is Section) EditSection(namedClass.Name);
                 else if (namedClass is MaterialOrientation) EditMaterialOrientation(namedClass.Name);
+                else if (namedClass is CompositeLayup) EditCompositeLayup(namedClass.Name);
                 else if (namedClass is CaeModel.Constraint) EditConstraint(namedClass.Name);
                 else if (namedClass is SurfaceInteraction) EditSurfaceInteraction(namedClass.Name);
                 else if (namedClass is ContactPair) EditContactPair(namedClass.Name);
@@ -1447,6 +1459,7 @@ namespace PrePoMax
                 ApplyActionOnItems<Material>(items, DuplicateMaterials);
                 ApplyActionOnItems<Section>(items, DuplicateSections);
                 ApplyActionOnItems<MaterialOrientation>(items, DuplicateMaterialOrientations);
+                ApplyActionOnItems<CompositeLayup>(items, DuplicateCompositeLayups);
                 ApplyActionOnItems<CaeModel.Constraint>(items, DuplicateConstraints);
                 ApplyActionOnItems<SurfaceInteraction>(items, DuplicateSurfaceInteractions);
                 ApplyActionOnItems<ContactPair>(items, DuplicateContactPairs);
@@ -1614,6 +1627,7 @@ namespace PrePoMax
                 ApplyActionOnItems<Material>(items, DeleteMaterials);
                 ApplyActionOnItems<Section>(items, DeleteSections);
                 ApplyActionOnItems<MaterialOrientation>(items, DeleteMaterialOrientations);
+                ApplyActionOnItems<CompositeLayup>(items, DeleteCompositeLayups);
                 ApplyActionOnItems<CaeModel.Constraint>(items, DeleteConstraints);
                 ApplyActionOnItems<SurfaceInteraction>(items, DeleteSurfaceInteractions);
                 ApplyActionOnItems<ContactPair>(items, DeleteContactPairs);
@@ -4298,8 +4312,8 @@ namespace PrePoMax
                 frmGetValue.MinValue = 25;
                 frmGetValue.MaxValue = 255;
                 SetFormLocation(frmGetValue);
-                OrderedDictionary<string, double> presetValues =
-                    new OrderedDictionary<string, double>("Preset Transparency values", StringComparer.OrdinalIgnoreCase);
+                CaeGlobals.OrderedDictionary<string, double> presetValues =
+                    new CaeGlobals.OrderedDictionary<string, double>("Preset Transparency values", StringComparer.OrdinalIgnoreCase);
                 presetValues.Add("Semi-transparent", 128);
                 presetValues.Add("Opaque", 255);
                 string desc = "Enter the transparency between 0 and 255.\n" + "(0 - transparent; 255 - opaque)";
@@ -4776,8 +4790,8 @@ namespace PrePoMax
             frmGetValue.MinValue = 0;
             frmGetValue.MaxValue = 90;
             SetFormLocation(frmGetValue);
-            OrderedDictionary<string, double> presetValues =
-                new OrderedDictionary<string, double>("Preset Transparency Values", StringComparer.OrdinalIgnoreCase);
+            CaeGlobals.OrderedDictionary<string, double> presetValues =
+                new CaeGlobals.OrderedDictionary<string, double>("Preset Transparency Values", StringComparer.OrdinalIgnoreCase);
             presetValues.Add("Default", CaeMesh.Globals.EdgeAngle);
             string desc = "Enter the face angle for model edges detection.";
             frmGetValue.PrepareForm("Find model edges: " + partNames.ToShortString(), "Angle", desc,
@@ -5621,8 +5635,8 @@ namespace PrePoMax
                 frmGetValue.MinValue = 25;
                 frmGetValue.MaxValue = 255;
                 SetFormLocation(frmGetValue);
-                OrderedDictionary<string, double> presetValues
-                    = new OrderedDictionary<string, double>("Preset Transparency Values", StringComparer.OrdinalIgnoreCase);
+                CaeGlobals.OrderedDictionary<string, double> presetValues
+                    = new CaeGlobals.OrderedDictionary<string, double>("Preset Transparency Values", StringComparer.OrdinalIgnoreCase);
                 presetValues.Add("Semi-transparent", 128);
                 presetValues.Add("Opaque", 255);
                 string desc = "Enter the transparency between 0 and 255.\n" + "(0 - transparent; 255 - opaque)";
@@ -6327,6 +6341,143 @@ namespace PrePoMax
         #endregion  ################################################################################################################
 
         #region Material orientation menu  #########################################################################################
+        #region Composite Layup menu  ##############################################################################################
+        // The menus of the Composites Fiber Modeler: Property > Composite Layup and Help > Composites Advisor, About Composites
+        private void InitializeCompositesMenus()
+        {
+            tsmiCompositeLayup = new ToolStripMenuItem("Composite Layup");
+            tsmiCompositeLayup.Name = "tsmiCompositeLayup";
+            tsmiCompositeLayup.Image = Properties.Resources.Section;
+            tsmiCompositeLayup.DropDownItems.Add(new ToolStripMenuItem("Create", null, tsmiCreateCompositeLayup_Click));
+            tsmiCompositeLayup.DropDownItems.Add(new ToolStripMenuItem("Edit", null, tsmiEditCompositeLayup_Click));
+            tsmiCompositeLayup.DropDownItems.Add(new ToolStripMenuItem("Duplicate", null, tsmiDuplicateCompositeLayup_Click));
+            tsmiCompositeLayup.DropDownItems.Add(new ToolStripMenuItem("Delete", null, tsmiDeleteCompositeLayup_Click));
+            tsmiCompositeLayup.DropDownItems.Add(new ToolStripSeparator());
+            tsmiCompositeLayup.DropDownItems.Add(new ToolStripMenuItem("Import from CSV...", null,
+                                                                       (s, e) => ImportCompositeLayupsFromCsv()));
+            tsmiProperty.DropDownItems.Insert(tsmiProperty.DropDownItems.IndexOf(tsmiSection) + 1, tsmiCompositeLayup);
+            //
+            tsmiHelpAdvisorComposites = new ToolStripMenuItem("Composites Advisor", null, tsmiAdvisorComposites_Click);
+            tsmiHelpAdvisorComposites.Name = "tsmiHelpAdvisorComposites";
+            ToolStripItem helpMenu = tsmiHelpAdvisor.OwnerItem;
+            if (helpMenu is ToolStripMenuItem help)
+            {
+                help.DropDownItems.Insert(help.DropDownItems.IndexOf(tsmiHelpAdvisor) + 1, tsmiHelpAdvisorComposites);
+                help.DropDownItems.Insert(help.DropDownItems.IndexOf(tsmiAbout) + 1,
+                                          new ToolStripMenuItem("About Composites", null, tsmiAboutComposites_Click));
+            }
+        }
+        private void tsmiCreateCompositeLayup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                CreateCompositeLayup();
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiEditCompositeLayup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectOneEntity("Composite Layups", _controller.GetAllCompositeLayups(), EditCompositeLayup);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDuplicateCompositeLayup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Composite Layups", _controller.GetAllCompositeLayups(), DuplicateCompositeLayups);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void tsmiDeleteCompositeLayup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SelectMultipleEntities("Composite Layups", _controller.GetAllCompositeLayups(), DeleteCompositeLayups);
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        private void CreateCompositeLayup()
+        {
+            if (_controller.Model.Mesh == null) return;
+            ShowForm(_frmCompositeLayup, "Create Composite Layup", null);
+        }
+        private void EditCompositeLayup(string compositeLayupName)
+        {
+            ShowForm(_frmCompositeLayup, "Edit Composite Layup", compositeLayupName);
+        }
+        private void DuplicateCompositeLayups(string[] compositeLayupNames)
+        {
+            _controller.DuplicateCompositeLayupsCommand(compositeLayupNames);
+        }
+        private void DeleteCompositeLayups(string[] compositeLayupNames)
+        {
+            if (MessageBoxes.ShowWarningQuestionOKCancel("OK to delete selected composite layups?" + Environment.NewLine
+                                                         + compositeLayupNames.ToRows()) == DialogResult.OK)
+            {
+                _controller.RemoveCompositeLayupsCommand(compositeLayupNames);
+            }
+        }
+        private void ImportCompositeLayupsFromCsv()
+        {
+            try
+            {
+                if (_controller.Model.Mesh == null) return;
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
+                {
+                    openFileDialog.Title = "Import Composite Layups from CSV";
+                    openFileDialog.Filter = "Comma separated values|*.csv|All files|*.*";
+                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                        _controller.ImportCompositeLayupsFromCsvCommand(openFileDialog.FileName);
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionTools.Show(this, ex);
+            }
+        }
+        internal void tsmiAdvisorComposites_Click(object sender, EventArgs e)
+        {
+            if (!_controller.ModelInitialized) return;
+            bool show = !tsmiHelpAdvisorComposites.Checked;
+            if (show)
+            {
+                if (_advisorCompositesPanel == null)
+                {
+                    _advisorCompositesPanel = AdvisorCreatorComposites.CreatePanel(this);
+                    _advisorCompositesPanel.StateChanged += SidePanel_StateChanged;
+                }
+                ShowSidePanel(_advisorCompositesPanel, 0.2, 100, 300, true);
+            }
+            else HideSidePanel();
+            tsmiHelpAdvisorComposites.Checked = show;
+        }
+        private void tsmiAboutComposites_Click(object sender, EventArgs e)
+        {
+            MessageBoxes.ShowInfo("Composites Fiber Modeler" + Environment.NewLine + Environment.NewLine +
+                                  "Composite layups with plies on their own regions, ply angles and coordinate " +
+                                  "systems, discrete orientations from XML files, kinematic draping simulations, " +
+                                  "layup import from CSV files and the composites advisor." + Environment.NewLine +
+                                  Environment.NewLine + "Author of the Composites Fiber Modeler: Yvan Blanchard" +
+                                  Environment.NewLine + "PrePoMax: Matej Borovinšek", "About Composites");
+        }
+
+        #endregion  ################################################################################################################
+
         internal void tsmiCreateMaterialOrientation_Click(object sender, EventArgs e)
         {
             try
@@ -10175,8 +10326,8 @@ namespace PrePoMax
                 frmGetValue.MinValue = 25;
                 frmGetValue.MaxValue = 255;
                 SetFormLocation(frmGetValue);
-                OrderedDictionary<string, double> presetValues =
-                    new OrderedDictionary<string, double>("Preset Transparency Values", StringComparer.OrdinalIgnoreCase);
+                CaeGlobals.OrderedDictionary<string, double> presetValues =
+                    new CaeGlobals.OrderedDictionary<string, double>("Preset Transparency Values", StringComparer.OrdinalIgnoreCase);
                 presetValues.Add("Semi-transparent", 128);
                 presetValues.Add("Opaque", 255);
                 string desc = "Enter the transparency between 0 and 255.\n" + "(0 - transparent; 255 - opaque)";

@@ -239,7 +239,7 @@ namespace CaeResults
                 DatDataSet existingDataSet;
                 Dictionary<double, double> timeFrequency = null;
                 Dictionary<double, double> timeBucklingFactor = null;
-                OrderedDictionary<string, DatDataSet> dataSets = new OrderedDictionary<string, DatDataSet>("DataSets");
+                CaeGlobals.OrderedDictionary<string, DatDataSet> dataSets = new CaeGlobals.OrderedDictionary<string, DatDataSet>("DataSets");
                 //
                 HistoryResults allHistoryResults = new HistoryResults("HistoryOutput");
                 HistoryResults frequencyHistoryOutput = new HistoryResults("HistoryOutput");

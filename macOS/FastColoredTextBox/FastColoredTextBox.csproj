@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- FastColoredTextBox for macOS: the editor API PrePoMax uses (Python and CalculiX editors) on AvaloniaEdit -->
+  <PropertyGroup>
+    <AssemblyName>FastColoredTextBox</AssemblyName>
+    <RootNamespace>FastColoredTextBoxNS</RootNamespace>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WinFormsCompat\WinFormsCompat.csproj" />
+    <ProjectReference Include="..\DrawingCompat\DrawingCompat.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
+  </ItemGroup>
+</Project>

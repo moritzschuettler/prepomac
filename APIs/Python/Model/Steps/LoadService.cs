@@ -112,7 +112,7 @@ namespace APIs.Python.Model
             ModelGateway.ShowLoads(stepName, names);
         }
         //
-        protected override OrderedDictionary<string, Load> GetItems(Step step)
+        protected override CaeGlobals.OrderedDictionary<string, Load> GetItems(Step step)
         {
             return step.Loads;
         }

@@ -116,7 +116,7 @@ namespace PrePoMax.Commands
             _controller = controller;
             _currPositionIndex = -1;
             _commands = new List<Command>();
-            _historyFileNameBin = Path.Combine(Application.StartupPath, Globals.HistoryFileName);
+            _historyFileNameBin = Globals.GetUserDataFileName(Globals.HistoryFileName);
             _previousView = ViewGeometryModelResults.Geometry;
             _errors = null;
             _postprocessingDeclined = false;

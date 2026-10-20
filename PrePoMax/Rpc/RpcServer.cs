@@ -331,6 +331,12 @@ namespace PrePoMax.Rpc
         }
         private NamedPipeServerStream CreateStream()
         {
+#if NET
+            // macOS: the pipe is a Unix domain socket and CurrentUserOnly limits it to the user of this process
+            return new NamedPipeServerStream(_pipeName, PipeDirection.InOut, MaximumConnections,
+                                             PipeTransmissionMode.Byte,
+                                             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly, 4096, 4096);
+#else
             PipeSecurity security = new PipeSecurity();
             SecurityIdentifier user = WindowsIdentity.GetCurrent().User;
             // CreateNewInstance is what lets this process open the next instance of the pipe once the
@@ -345,6 +351,7 @@ namespace PrePoMax.Rpc
             return new NamedPipeServerStream(_pipeName, PipeDirection.InOut, MaximumConnections,
                                              PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 4096, 4096,
                                              security);
+#endif
         }
         private void Serve(NamedPipeServerStream stream)
         {

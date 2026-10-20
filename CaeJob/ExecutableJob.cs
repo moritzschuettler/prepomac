@@ -330,9 +330,43 @@ namespace CaeJob
                 AppendOutput = null;
             }
         }
+        private static void KillChildProcessesUnix(UInt32 parentProcessId)
+        {
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo("pgrep", "-P " + parentProcessId);
+                psi.UseShellExecute = false;
+                psi.RedirectStandardOutput = true;
+                psi.CreateNoWindow = true;
+                string output;
+                using (Process pgrep = Process.Start(psi))
+                {
+                    output = pgrep.StandardOutput.ReadToEnd();
+                    pgrep.WaitForExit();
+                }
+                foreach (var line in output.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (int.TryParse(line.Trim(), out int childProcessId) && childProcessId != Process.GetCurrentProcess().Id)
+                    {
+                        KillChildProcessesUnix((UInt32)childProcessId);
+                        try { Process.GetProcessById(childProcessId).Kill(); }
+                        catch { }
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
         private static void KillAllProcessesSpawnedBy(UInt32 parentProcessId)
         {
             // NOTE: Process Ids are reused!
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                // No WMI outside Windows: the child processes are found with pgrep
+                KillChildProcessesUnix(parentProcessId);
+                return;
+            }
             ManagementObjectSearcher searcher = new ManagementObjectSearcher(
                 "SELECT * " +
                 "FROM Win32_Process " +

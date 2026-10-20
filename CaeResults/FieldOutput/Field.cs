@@ -51,7 +51,7 @@ namespace CaeResults
     {
         // Variables                                                                                                                
         private DataTypeEnum _dataType;                                     // add to binary writer/reader
-        private OrderedDictionary<string,  FieldComponent> _components;     // add to binary writer/reader
+        private CaeGlobals.OrderedDictionary<string,  FieldComponent> _components;     // add to binary writer/reader
         private bool _complex;                                              // add to binary writer/reader
         private DataStateEnum _dataState;                                   // add to binary writer/reader
 
@@ -70,7 +70,7 @@ namespace CaeResults
         public Field(string name)
             : base(name)
         {
-            _components = new OrderedDictionary<string, FieldComponent>("Components");
+            _components = new CaeGlobals.OrderedDictionary<string, FieldComponent>("Components");
             //
             _complex = false;
             _dataState = DataStateEnum.OK;
@@ -79,7 +79,7 @@ namespace CaeResults
         public Field(Field field)
             : base(field)
         {
-            _components = new OrderedDictionary<string, FieldComponent>("Components");
+            _components = new CaeGlobals.OrderedDictionary<string, FieldComponent>("Components");
             foreach (var entry in field._components) _components.Add(entry.Key, new FieldComponent(entry.Value));   // copy
             //
             _dataType = field._dataType;
@@ -136,7 +136,7 @@ namespace CaeResults
                 {
                     numItems = br.ReadInt32();
                     //
-                    field._components = new OrderedDictionary<string, FieldComponent>("Components");
+                    field._components = new CaeGlobals.OrderedDictionary<string, FieldComponent>("Components");
                     for (int i = 0; i < numItems; i++)
                     {
                         component = FieldComponent.ReadFromBinaryReader(br, version);

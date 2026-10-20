@@ -271,7 +271,7 @@ namespace PrePoMax.Python.Journal
                    PythonValueFormatter.Text(source.FieldName) + ", " +
                    PythonValueFormatter.Text(source.ComponentName) + "]";
         }
-        private static string ItemLimits(OrderedDictionary<string, double> itemLimits)
+        private static string ItemLimits(CaeGlobals.OrderedDictionary<string, double> itemLimits)
         {
             if (itemLimits == null) throw new NotSupportedException("the limit plot carries no item limits");
             //

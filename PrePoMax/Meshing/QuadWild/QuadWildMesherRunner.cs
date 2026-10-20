@@ -59,13 +59,13 @@ namespace PrePoMax
             return part != null && part.PartType == PartType.Shell;
         }
         public bool PreviewEdgeMeshFromBrep(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems,
+                                            CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems,
                                             bool previewSweepSourceMesh)
         {
             return PreviewEdgeNodes(part, mesherSetupItems, meshSetupItems);
         }
         public bool PreviewEdgeMeshFromStl(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                           OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                           CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             return PreviewEdgeNodes(part, mesherSetupItems, meshSetupItems);
         }
@@ -295,7 +295,7 @@ namespace PrePoMax
             };
         }
         private bool PreviewEdgeNodes(GeometryPart part, MeshSetupItem[] mesherSetupItems,
-                                      OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                      CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             ShellQuadWild shellQuadWild = GetShellQuadWild(mesherSetupItems);
             _controller.Form.WriteDataToOutput("Creating the QuadWild " +
@@ -310,7 +310,7 @@ namespace PrePoMax
             else throw new CaeException("The selected QuadWild triangulation mesher is not supported.");
         }
         private FeMesh CreateTriangularMesh(GeometryPart part, ShellQuadWild shellQuadWild, string workDirectory,
-                                            OrderedDictionary<string, MeshSetupItem> meshSetupItems)
+                                            CaeGlobals.OrderedDictionary<string, MeshSetupItem> meshSetupItems)
         {
             _controller.Form.WriteDataToOutput("Creating the triangular QuadWild input mesh using " +
                                                GetMesherName(shellQuadWild.TriangulationMesher) + "...");

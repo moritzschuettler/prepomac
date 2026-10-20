@@ -25,11 +25,11 @@ namespace CaeResults
     {
         
         // Variables                                                                                                                
-        protected OrderedDictionary<string, HistoryResultSet> _sets;           //ISerializable
+        protected CaeGlobals.OrderedDictionary<string, HistoryResultSet> _sets;           //ISerializable
 
 
         // Properties                                                                                                               
-        public OrderedDictionary<string, HistoryResultSet> Sets { get { return _sets; } set { _sets = value; } }
+        public CaeGlobals.OrderedDictionary<string, HistoryResultSet> Sets { get { return _sets; } set { _sets = value; } }
 
 
         // Constructor                                                                                                              
@@ -41,7 +41,7 @@ namespace CaeResults
         public HistoryResults(string name)
             : base(name)
         {
-            _sets = new OrderedDictionary<string, HistoryResultSet>("Sets");
+            _sets = new CaeGlobals.OrderedDictionary<string, HistoryResultSet>("Sets");
         }
         //ISerializable
         public HistoryResults(SerializationInfo info, StreamingContext context)
@@ -56,9 +56,9 @@ namespace CaeResults
                         if (entry.Value is Dictionary<string, HistoryResultSet> oldSets)
                         {
                             oldSets.OnDeserialization(null);
-                            _sets = new OrderedDictionary<string, HistoryResultSet>("Sets", oldSets);
+                            _sets = new CaeGlobals.OrderedDictionary<string, HistoryResultSet>("Sets", oldSets);
                         }
-                        else _sets = (OrderedDictionary<string, HistoryResultSet>)entry.Value;
+                        else _sets = (CaeGlobals.OrderedDictionary<string, HistoryResultSet>)entry.Value;
                         break;
                 }
             }
@@ -187,7 +187,7 @@ namespace CaeResults
             // Using typeof() works also for null fields
             base.GetObjectData(info, context);
             //
-            info.AddValue("_sets", _sets, typeof(OrderedDictionary<string, HistoryResultSet>));
+            info.AddValue("_sets", _sets, typeof(CaeGlobals.OrderedDictionary<string, HistoryResultSet>));
         }
 
     }

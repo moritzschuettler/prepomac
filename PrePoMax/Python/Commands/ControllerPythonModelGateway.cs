@@ -351,11 +351,11 @@ namespace PrePoMax.Python
         {
             return _controller.GetCalculixModelKeywords();
         }
-        public void SetCalculixUserKeywords(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords)
+        public void SetCalculixUserKeywords(CaeGlobals.OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords)
         {
             _controller.SetCalculixUserKeywordsCommand(keywords);
         }
-        public void SetCalculixKeywordEditorState(OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords,
+        public void SetCalculixKeywordEditorState(CaeGlobals.OrderedDictionary<int[], FileInOut.Output.Calculix.CalculixUserKeyword> keywords,
                                                   List<FileInOut.Output.Calculix.CalculixKeywordOverride> overrides)
         {
             _controller.SetCalculixKeywordEditorStateCommand(keywords, overrides);
