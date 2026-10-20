@@ -4569,6 +4569,10 @@ namespace CaeMesh
                     if (minimum > 1) problem.SetMinimum(edgeId, minimum);
                 }
             }
+            // No edge is lowered below the count that keeps its elements within the maximum element size
+            foreach (var entry in GetMaxSizeCounts(problem.EdgeIds.ToDictionary(edgeId => edgeId,
+                                                                                 SweepWallTopology.GetElementCount)))
+                problem.SetMaxSizeCount(entry.Key, entry.Value);
             return problem;
         }
         /// <summary>
@@ -5266,7 +5270,8 @@ namespace CaeMesh
             List<TransfiniteSideTriple> unbalancedTriples;
             List<TransfiniteSidePair> unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts,
                                                                                          pinnedEdgeIds, pairs, triples,
-                                                                                         out unbalancedTriples);
+                                                                                         out unbalancedTriples, null, null,
+                                                                                         GetMaxSizeCounts(naturalCounts));
             if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
                 throw new CaeException(GetUnbalancedSidesMessage(new List<TransfiniteSidePair>(), unbalancedTriples,
                                                                  edgeIdCount, pinnedEdgeIds,
@@ -5512,7 +5517,8 @@ namespace CaeMesh
             List<TransfiniteSidePair> unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts,
                                                                                          pinnedEdgeIds, pairs, triples,
                                                                                          out unbalancedTriples,
-                                                                                         freeFaceEdgeIds, sizedEdgeIdCounts);
+                                                                                         freeFaceEdgeIds, sizedEdgeIdCounts,
+                                                                                         GetMaxSizeCounts(naturalCounts));
             if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
                 throw new CaeException(GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
                                                                  pinnedEdgeIds, null, sizedEdgeIdCounts));
@@ -5532,6 +5538,24 @@ namespace CaeMesh
                 else Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
                 _transfiniteSurfaceIds.Add(face.FaceId);
             }
+        }
+        /// <summary>
+        /// The fewest elements that keep the elements of each edge within the maximum element size gmsh meshes with, and
+        /// no more than the count its 1D mesh has, so that only a count the balance lowers is held up by it.
+        /// </summary>
+        private static Dictionary<int, int> GetMaxSizeCounts(Dictionary<int, int> edgeIdMeshCount)
+        {
+            double length;
+            double maxSize = Gmsh.Option.GetNumber("Mesh.MeshSizeMax");
+            Dictionary<int, int> maxSizeCounts = new Dictionary<int, int>();
+            if (maxSize <= 0) return maxSizeCounts;
+            foreach (var entry in edgeIdMeshCount)
+            {
+                Gmsh.Model.OCC.GetMass(1, entry.Key, out length);
+                int count = Math.Min(entry.Value, (int)Math.Ceiling(length / maxSize - 1E-6));
+                if (count > 1) maxSizeCounts[entry.Key] = count;
+            }
+            return maxSizeCounts;
         }
         private bool IsPolar(TransfiniteFace face)
         {

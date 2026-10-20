@@ -20,15 +20,22 @@ namespace CaeMesh
     /// The element counts of a set of edges, settled in one solve: every edge has the count the mesh size asks for, its
     /// target, and the rows tie the counts together. lp_solve finds the integer counts that keep every hard row and come
     /// closest to the targets, a count above its target costing more than one below, for the coarser mesh, and the
-    /// deviation measured relative to the target. A structured or a preferred row may be given up at a price; with the
-    /// hard rows relaxed as well, at a far higher price, the counts that come back name the rows that cannot be kept.
+    /// deviation measured relative to the target. Each element below half the target costs more, by _downBandGrowth for
+    /// every further halving, so a side lowered far is lowered on all its edges: priced the same all the way down, the
+    /// elements of the longest edge were the cheapest to take, and a chain of edges lowered to one element on its longest
+    /// edge while its short ones kept theirs. An edge is not lowered below the count that keeps its elements within the
+    /// maximum element size, unless the counts that are fixed leave no other way: every element short of it costs more
+    /// than giving up a structured row. A structured or a preferred row may be given up at a price; with the hard rows
+    /// relaxed as well, at a far higher price, the counts that come back name the rows that cannot be kept.
     /// </summary>
     public class IntervalProblem
     {
         // Variables
         private const double _upWeight = 1.5;
         private const double _downWeight = 1.0;
+        private const double _downBandGrowth = 4;
         private const double _hardPenalty = 1E4;
+        private const double _maxSizePenalty = 1E3;
         private const double _structuredPenalty = 1E2;
         private const double _preferredPenalty = 5;
         private readonly Func<int, int> _getTarget;
@@ -38,6 +45,7 @@ namespace CaeMesh
         private readonly Dictionary<int, double> _edgeIdDownWeight;
         private readonly Dictionary<int, int> _edgeIdMinimum;
         private readonly Dictionary<int, int> _edgeIdMaximum;
+        private readonly Dictionary<int, int> _edgeIdMaxSizeCount;
         private readonly List<IntervalRow> _rows;
 
 
@@ -58,6 +66,7 @@ namespace CaeMesh
             _edgeIdDownWeight = new Dictionary<int, double>();
             _edgeIdMinimum = new Dictionary<int, int>();
             _edgeIdMaximum = new Dictionary<int, int>();
+            _edgeIdMaxSizeCount = new Dictionary<int, int>();
             _rows = new List<IntervalRow>();
         }
 
@@ -104,6 +113,15 @@ namespace CaeMesh
         {
             AddEdge(edgeId);
             _edgeIdMaximum[edgeId] = Math.Max(1, maximum);
+        }
+        /// <summary>
+        /// The fewest elements that keep the elements of the edge within the maximum element size, which the edge is
+        /// given fewer of only when the counts that are fixed leave no other way.
+        /// </summary>
+        public void SetMaxSizeCount(int edgeId, int numOfElements)
+        {
+            AddEdge(edgeId);
+            _edgeIdMaxSizeCount[edgeId] = Math.Max(1, numOfElements);
         }
         private double GetWeight(int edgeId)
         {
@@ -152,15 +170,44 @@ namespace CaeMesh
             foreach (var entry in _edgeIdTarget)
             {
                 int difference = getCount(entry.Key) - entry.Value;
-                deviation += GetWeight(entry.Key) * (difference > 0 ? _upWeight * difference :
-                                                     -GetDownWeight(entry.Key) * _downWeight * difference) / entry.Value;
+                if (difference > 0) deviation += GetWeight(entry.Key) * _upWeight * difference / entry.Value;
+                else
+                {
+                    double down = -difference;
+                    foreach (var band in GetDownBands(entry.Value))
+                    {
+                        if (down <= 0) break;
+                        double inBand = Math.Min(down, band.Item1);
+                        deviation += GetWeight(entry.Key) * GetDownWeight(entry.Key) * _downWeight * band.Item2 * inBand /
+                                     entry.Value;
+                        down -= inBand;
+                    }
+                }
             }
             return deviation;
+        }
+        /// <summary>
+        /// The bands a count below the target falls through, from the target down: the number of elements each band
+        /// holds, every one halving the count, and the factor its elements cost. The last band holds the rest.
+        /// </summary>
+        private static List<Tuple<double, double>> GetDownBands(int target)
+        {
+            List<Tuple<double, double>> bands = new List<Tuple<double, double>>();
+            double width = target / 2.0;
+            double factor = 1;
+            while (width > 0.5)
+            {
+                bands.Add(new Tuple<double, double>(width, factor));
+                width /= 2;
+                factor *= _downBandGrowth;
+            }
+            bands.Add(new Tuple<double, double>(LpSolve.Infinity, factor));
+            return bands;
         }
         public IntervalSolution Solve(bool relaxHardRows, int timeoutSeconds, string lpFileName = null)
         {
             Stopwatch watch = Stopwatch.StartNew();
-            // Columns: the count of every edge with its deviation above and below the target, then the auxiliary
+            // Columns: the count of every edge with its deviation above and, band by band, below the target, then the auxiliary
             // integers and the slacks of the rows
             List<double> lower = new List<double>();
             List<double> upper = new List<double>();
@@ -193,12 +240,24 @@ namespace CaeMesh
                 int column = addColumn("n" + edgeId, isFixed ? fixedCount : minimum, isFixed ? fixedCount : upperBound, true, 0);
                 double weight = GetWeight(edgeId);
                 int upColumn = addColumn("up" + edgeId, 0, LpSolve.Infinity, false, weight * _upWeight / target);
-                int downColumn = addColumn("down" + edgeId, 0, LpSolve.Infinity, false,
-                                           weight * GetDownWeight(edgeId) * _downWeight / target);
+                Dictionary<int, double> targetRow = new Dictionary<int, double>() { { column, 1 }, { upColumn, -1 } };
+                List<Tuple<double, double>> downBands = GetDownBands(target);
+                for (int i = 0; i < downBands.Count; i++)
+                {
+                    targetRow.Add(addColumn("down" + edgeId + "_" + i, 0, downBands[i].Item1, false,
+                                            weight * GetDownWeight(edgeId) * _downWeight * downBands[i].Item2 / target), 1);
+                }
                 edgeIdColumn.Add(edgeId, column);
                 rowNames.Add("target" + edgeId);
-                lpRows.Add(new Tuple<Dictionary<int, double>, int, double>(
-                    new Dictionary<int, double>() { { column, 1 }, { upColumn, -1 }, { downColumn, 1 } }, LpSolve.EQ, target));
+                lpRows.Add(new Tuple<Dictionary<int, double>, int, double>(targetRow, LpSolve.EQ, target));
+                int maxSizeCount;
+                if (!isFixed && _edgeIdMaxSizeCount.TryGetValue(edgeId, out maxSizeCount) && maxSizeCount > minimum)
+                {
+                    int shortColumn = addColumn("short" + edgeId, 0, LpSolve.Infinity, false, _maxSizePenalty);
+                    rowNames.Add("maxSize" + edgeId);
+                    lpRows.Add(new Tuple<Dictionary<int, double>, int, double>(
+                        new Dictionary<int, double>() { { column, 1 }, { shortColumn, 1 } }, LpSolve.GE, maxSizeCount));
+                }
             }
             //
             Action<Dictionary<int, double>, int[], double> addSide = (coefficients, side, sign) =>
