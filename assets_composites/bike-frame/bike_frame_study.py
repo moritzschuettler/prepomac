@@ -18,6 +18,17 @@
 #tube and the chain stays get 0 degree plies while a stiffness is below its target. The frame mass is printed for
 #every iteration, and the last layups are left in the model, which is saved as bike_frame_study.pmx.
 #
+#Two models of the laminate:
+#  - smeared (FRAME_MODE=smeared, the default): every tube group is one orthotropic layer with the in-plane stiffness
+#    of its laminate (classical laminate theory, A matrix), which CalculiX expands into one layer instead of one per
+#    ply block - several times faster. The ply stresses are recovered from the smeared stresses: the strain of the
+#    laminate is the inverse of A times the force per length, and every ply turns that strain into its own stress.
+#    Both surfaces of the shell are evaluated, which bounds every ply: a strain linear through the thickness gives
+#    the Tsai-Wu index its largest value at a surface. The bending stiffness of one smeared layer is that of a
+#    uniform laminate, which is close for the thin walls of tubes that carry their loads as membranes.
+#  - layered (FRAME_MODE=layered): every ply block is a layer of its own, as CalculiX solves composite shells.
+#With FRAME_VERIFY=1 (the default) the last layups of a smeared optimization are checked once with the layered model.
+#
 #  PrePoMax.com --script bike_frame_study.py -g No -x Yes -w <work directory>       (or Tools > Run script in the GUI)
 
 import json
@@ -31,12 +42,14 @@ PLY_THICKNESS = 0.15                # mm, UD prepreg
 DENSITY = 1.55e-9                   # t/mm^3
 SAFETY = 1.5
 ITERATIONS = int(os.environ.get("FRAME_ITERATIONS", "6"))
+MODE = os.environ.get("FRAME_MODE", "smeared").lower()
+VERIFY = os.environ.get("FRAME_VERIFY", "1") == "1"
 TARGET_BB_STIFFNESS = 150.0         # N/mm, sideways at the bottom bracket
 TARGET_HEAD_STIFFNESS = 90.0        # N/mm, sideways at the head tube
 MESH_SIZE = 8.0                     # mm
 # T700/epoxy UD ply (MPa): E1, E2, nu12, G12, G13, G23 and the strengths
 LAMINA = [125000, 8500, 0.3, 4500, 4500, 3000]
-STRENGTH = {"xt": 2000, "xc": 1200, "yt": 50, "yc": 200, "s12": 80, "s23": 60}
+STRENGTH = {"xt": 2000, "xc": 1200, "yt": 50, "yc": 200, "s12": 80, "s23": 60, "f12": -0.5}
 
 # The tube groups and their first layup as numbers of plies: [0 degree plies, +-45 degree pairs, 90 degree plies]
 GROUPS = {
@@ -101,6 +114,103 @@ def tube_faces(mesh_part):
     return faces, area_of
 
 
+# Classical laminate theory
+def ply_q():
+    """The plane stress stiffness of a ply in its material axes."""
+    e1, e2, nu12, g12 = LAMINA[0], LAMINA[1], LAMINA[2], LAMINA[3]
+    nu21 = nu12 * e2 / e1
+    d = 1 - nu12 * nu21
+    return [[e1 / d, nu12 * e2 / d, 0.0], [nu12 * e2 / d, e2 / d, 0.0], [0.0, 0.0, g12]]
+
+
+def rotated_q(angle_deg):
+    """The stiffness of a ply turned by the angle, in the axes of the laminate."""
+    q = ply_q()
+    q11, q12, q22, q66 = q[0][0], q[0][1], q[1][1], q[2][2]
+    c, s = math.cos(math.radians(angle_deg)), math.sin(math.radians(angle_deg))
+    c2, s2, cs = c * c, s * s, c * s
+    b11 = q11 * c2 * c2 + 2 * (q12 + 2 * q66) * s2 * c2 + q22 * s2 * s2
+    b12 = (q11 + q22 - 4 * q66) * s2 * c2 + q12 * (s2 * s2 + c2 * c2)
+    b22 = q11 * s2 * s2 + 2 * (q12 + 2 * q66) * s2 * c2 + q22 * c2 * c2
+    b16 = (q11 - q12 - 2 * q66) * c2 * cs + (q12 - q22 + 2 * q66) * s2 * cs
+    b26 = (q11 - q12 - 2 * q66) * s2 * cs + (q12 - q22 + 2 * q66) * c2 * cs
+    b66 = (q11 + q22 - 2 * q12 - 2 * q66) * s2 * c2 + q66 * (s2 * s2 + c2 * c2)
+    return [[b11, b12, b16], [b12, b22, b26], [b16, b26, b66]]
+
+
+def inverse3(m):
+    a, b, c = m[0]
+    d, e, f = m[1]
+    g, h, i = m[2]
+    det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+    return [[(e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det],
+            [(f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det],
+            [(d * h - e * g) / det, (b * g - a * h) / det, (a * e - b * d) / det]]
+
+
+def ply_blocks(counts):
+    """The ply blocks of a layup as (angle, thickness) with the mirror half, as the layered model has them."""
+    zero, pairs, ninety = counts
+    blocks = []
+    if pairs:
+        blocks += [(45, pairs * PLY_THICKNESS), (-45, pairs * PLY_THICKNESS)]
+    if zero:
+        blocks += [(0, zero * PLY_THICKNESS)]
+    if ninety:
+        blocks += [(90, ninety * PLY_THICKNESS)]
+    return blocks + blocks[::-1]
+
+
+def smeared_laminate(counts):
+    """The thickness, the in-plane compliance (inverse of A, per thickness) and the engineering constants of a layup."""
+    blocks = ply_blocks(counts)
+    t = sum(h for _, h in blocks)
+    a_matrix = [[0.0] * 3 for _ in range(3)]
+    g13 = g23 = 0.0
+    for angle, h in blocks:
+        q = rotated_q(angle)
+        for i in range(3):
+            for j in range(3):
+                a_matrix[i][j] += q[i][j] * h
+        c, s = math.cos(math.radians(angle)), math.sin(math.radians(angle))
+        g13 += (LAMINA[4] * c * c + LAMINA[5] * s * s) * h
+        g23 += (LAMINA[4] * s * s + LAMINA[5] * c * c) * h
+    a = inverse3(a_matrix)
+    constants = {"ex": 1 / (t * a[0][0]), "ey": 1 / (t * a[1][1]), "gxy": 1 / (t * a[2][2]),
+                 "nuxy": -a[0][1] / a[0][0], "g13": g13 / t, "g23": g23 / t}
+    # The strain of the laminate per smeared stress: a times the force per length, which is the stress times t
+    compliance = [[a[i][j] * t for j in range(3)] for i in range(3)]
+    return t, compliance, constants
+
+
+def ply_reserve(strain, angle):
+    """The Tsai-Wu reserve factor and the maximum stress mode of a ply of the angle under the laminate strain
+    [ex, ey, gxy]."""
+    c, s = math.cos(math.radians(angle)), math.sin(math.radians(angle))
+    ex, ey, gxy = strain
+    e1 = c * c * ex + s * s * ey + c * s * gxy
+    e2 = s * s * ex + c * c * ey - c * s * gxy
+    g12 = -2 * c * s * ex + 2 * c * s * ey + (c * c - s * s) * gxy
+    q = ply_q()
+    s1 = q[0][0] * e1 + q[0][1] * e2
+    s2 = q[0][1] * e1 + q[1][1] * e2
+    t12 = q[2][2] * g12
+    st = STRENGTH
+    f1, f2 = 1 / st["xt"] - 1 / st["xc"], 1 / st["yt"] - 1 / st["yc"]
+    f11, f22, f66 = 1 / (st["xt"] * st["xc"]), 1 / (st["yt"] * st["yc"]), 1 / st["s12"] ** 2
+    f12 = st["f12"] * math.sqrt(f11 * f22)
+    quadratic = f11 * s1 * s1 + f22 * s2 * s2 + f66 * t12 * t12 + 2 * f12 * s1 * s2
+    linear = f1 * s1 + f2 * s2
+    if quadratic <= 0:
+        reserve = float("inf") if linear <= 0 else 1 / linear
+    else:
+        reserve = (-linear + math.sqrt(linear * linear + 4 * quadratic)) / (2 * quadratic)
+    ratios = [(s1 / st["xt"] if s1 >= 0 else -s1 / st["xc"], 1 if s1 >= 0 else 2),
+              (s2 / st["yt"] if s2 >= 0 else -s2 / st["yc"], 3 if s2 >= 0 else 4),
+              (abs(t12) / st["s12"], 5)]
+    return reserve, max(ratios)[1]
+
+
 # Model
 def add_materials():
     pmx.model.materials.add(PREFIX + "UD_T700", [pmx.create.elastic_lamina([LAMINA + [0]]),
@@ -148,16 +258,33 @@ def layup_layers(counts):
     return layers
 
 
-def set_sections(part, faces, layups, first):
+def smeared_material(group, counts):
+    """The orthotropic material of the smeared laminate of a group: in-plane from its A matrix, through the thickness
+    that of a ply."""
+    _, _, k = smeared_laminate(counts)
+    row = [k["ex"], k["ey"], LAMINA[1], k["nuxy"], LAMINA[2], 0.4, k["gxy"], k["g13"], k["g23"], 0]
+    return [pmx.create.elastic_engineering_constants([row]), pmx.create.density(DENSITY)]
+
+
+def set_sections(part, faces, layups, first, smeared):
     for group, (tubes, _) in GROUPS.items():
         ids = [i for tube in tubes for i in faces[tube]]
         name = PREFIX + "Laminate_" + group
-        # The layup is symmetric about the mid-surface
-        if first:
-            pmx.model.sections.add_composite_shell(name, element_selection(part, ids), layup_layers(layups[group]),
-                                                   symmetric=True)
+        if smeared:
+            material = PREFIX + "Smeared_" + group
+            if material in list(pmx.model.materials.get_names()):
+                pmx.model.materials.replace(material, properties=smeared_material(group, layups[group]))
+            else:
+                pmx.model.materials.add(material, smeared_material(group, layups[group]))
+            layers = [[smeared_laminate(layups[group])[0], material, 0]]
+            symmetric = False
         else:
-            pmx.model.sections.replace_composite_shell(name, layers=layup_layers(layups[group]), symmetric=True)
+            # The layup is symmetric about the mid-surface
+            layers, symmetric = layup_layers(layups[group]), True
+        if first:
+            pmx.model.sections.add_composite_shell(name, element_selection(part, ids), layers, symmetric=symmetric)
+        else:
+            pmx.model.sections.replace_composite_shell(name, layers=layers, symmetric=symmetric)
 
 
 def frame_mass(faces, area_of, layups):
@@ -231,6 +358,39 @@ def mean_displacement(result, faces, tube, component):
     return sum(field.get_value(n) for n in node_ids) / len(node_ids)
 
 
+def smeared_group_reserves(result, faces, layups):
+    """The smallest Tsai-Wu reserve factor of the plies of every tube group, recovered from the smeared stresses in
+    the axes of the tube at both surfaces of the shell, with the maximum stress mode of that ply."""
+    outputs = result.field_outputs
+    name = PREFIX + "Tube_Axes"
+    if name not in list(outputs.get_names()):
+        outputs.add_material_axes(name, "STRESS")
+    step_id = list(result.steps.get_ids())[-1]
+    increment_id = list(result.steps[step_id].increments.get_ids())[-1]
+    components = result.steps[step_id].increments[increment_id].fields[name].components
+    values = {}
+    for component in ("S11", "S22", "S12"):
+        data = components[component].get_data()
+        values[component] = dict(zip((int(i) for i in data.ids), (float(v) for v in data.values)))
+    reserves = {}
+    for group, ids in node_ids_of_groups(result, faces).items():
+        _, compliance, _ = smeared_laminate(layups[group])
+        angles = sorted(set(angle for angle, _ in ply_blocks(layups[group])))
+        worst = None
+        for node in ids:
+            stress = [values["S11"].get(node, float("nan")), values["S22"].get(node, float("nan")),
+                      values["S12"].get(node, float("nan"))]
+            if any(v != v for v in stress):
+                continue
+            strain = [sum(compliance[i][j] * stress[j] for j in range(3)) for i in range(3)]
+            for angle in angles:
+                reserve, mode = ply_reserve(strain, angle)
+                if worst is None or reserve < worst[0]:
+                    worst = (reserve, 1 / reserve if reserve > 0 else float("inf"), mode)
+        reserves[group] = worst
+    return reserves
+
+
 def group_reserves(result, faces):
     """The smallest Tsai-Wu reserve factor in every tube group, with the failure mode the maximum stress criterion
     gives at that node (Tsai-Wu is an interactive criterion and names no mode)."""
@@ -266,8 +426,12 @@ def node_ids_of_groups(result, faces):
     elements = result.mesh.elements.get_data()
     for group in GROUPS:
         ids = set()
+        # The layers of a layered section have sets of their own; a section of one smeared layer has the set of its
+        # material, which is the group's own
+        prefixes = ((PREFIX + "Laminate_" + group + "_LAYER").upper(), ("MATERIAL_" + PREFIX + "Smeared_" + group).upper())
         for set_name in result.mesh.element_sets.get_names():
-            if set_name.upper().startswith((PREFIX + "Laminate_" + group + "_LAYER").upper()):
+            name = set_name.upper()
+            if name.startswith(prefixes[0]) or name == prefixes[1]:
                 for element_id in result.mesh.element_sets[set_name].get_element_ids():
                     ids.update(elements.get_node_ids(element_id))
         _group_nodes[group] = sorted(ids)
@@ -279,7 +443,35 @@ def mode_name(mode):
             5: "shear"}.get(int(mode) if mode == mode else 0, "-")
 
 
+def evaluate(part, faces, area_of, layups, smeared):
+    """Solves both load cases and returns the stiffnesses, the reserves of every group and the mass."""
+    result = solve("PEDAL", 0)
+    bb = mean_displacement(result, faces, "BB", "U2")
+    reserves_pedal = smeared_group_reserves(result, faces, layups) if smeared else group_reserves(result, faces)
+    result = solve("HEAD", 0)
+    head = mean_displacement(result, faces, "HEAD", "U2")
+    reserves_head = smeared_group_reserves(result, faces, layups) if smeared else group_reserves(result, faces)
+    return 600 / bb, 500 / head, reserves_pedal, reserves_head, frame_mass(faces, area_of, layups)
+
+
+def report(title, layups, values):
+    bb_stiffness, head_stiffness, reserves_pedal, reserves_head, mass = values
+    log("")
+    log("%s: mass %.0f g, bottom bracket %.0f N/mm (target %.0f), head tube %.0f N/mm (target %.0f)"
+        % (title, mass, bb_stiffness, TARGET_BB_STIFFNESS, head_stiffness, TARGET_HEAD_STIFFNESS))
+    log("  %-12s %-14s %-24s %s" % ("group", "plies 0/45/90", "reserve PEDAL", "reserve HEAD"))
+    for group in GROUPS:
+        r_pedal, r_head = reserves_pedal[group], reserves_head[group]
+        log("  %-12s %-14s %-24s %s" % (group, "/".join(str(n) for n in layups[group]),
+                                       "%.2f %s" % (r_pedal[0], mode_name(r_pedal[2])) if r_pedal else "-",
+                                       "%.2f %s" % (r_head[0], mode_name(r_head[2])) if r_head else "-"))
+
+
 def main():
+    import time
+    smeared = MODE == "smeared"
+    log("laminate model: " + ("smeared, the plies recovered by classical laminate theory" if smeared else
+                              "layered, a layer for every ply block"))
     part = import_frame()
     faces, area_of = tube_faces(part)
     log("tubes: " + ", ".join("%s %s" % (t, ids) for t, ids in faces.items()))
@@ -287,31 +479,18 @@ def main():
     add_orientations(part, faces)
     counts = add_node_sets(part, faces)
     layups = {group: list(counts) for group, (_, counts) in GROUPS.items()}
-    set_sections(part, faces, layups, True)
+    set_sections(part, faces, layups, True, smeared)
     for load_case in ("PEDAL", "HEAD"):
         add_step(load_case, counts)
-    history = []
     for iteration in range(1, ITERATIONS + 1):
-        result = solve("PEDAL", iteration)
-        bb = mean_displacement(result, faces, "BB", "U2")
-        reserves_pedal = group_reserves(result, faces)
-        result = solve("HEAD", iteration)
-        head = mean_displacement(result, faces, "HEAD", "U2")
-        reserves_head = group_reserves(result, faces)
-        bb_stiffness = 600 / bb
-        head_stiffness = 500 / head
-        mass = frame_mass(faces, area_of, layups)
-        log("")
-        log("iteration %d: mass %.0f g, bottom bracket %.0f N/mm (target %.0f), head tube %.0f N/mm (target %.0f)"
-            % (iteration, mass, bb_stiffness, TARGET_BB_STIFFNESS, head_stiffness, TARGET_HEAD_STIFFNESS))
-        log("  %-12s %-14s %-24s %s" % ("group", "plies 0/45/90", "reserve PEDAL", "reserve HEAD"))
+        start = time.time()
+        values = evaluate(part, faces, area_of, layups, smeared)
+        report("iteration %d (%.0f s)" % (iteration, time.time() - start), layups, values)
+        bb_stiffness, head_stiffness, reserves_pedal, reserves_head, mass = values
         changed = False
         for group in GROUPS:
-            r_pedal, r_head = reserves_pedal[group], reserves_head[group]
-            worst = min((r for r in (r_pedal, r_head) if r is not None), key=lambda r: r[0])
-            log("  %-12s %-14s %-24s %s" % (group, "/".join(str(n) for n in layups[group]),
-                                           "%.2f %s" % (r_pedal[0], mode_name(r_pedal[2])) if r_pedal else "-",
-                                           "%.2f %s" % (r_head[0], mode_name(r_head[2])) if r_head else "-"))
+            worst = min((r for r in (reserves_pedal[group], reserves_head[group]) if r is not None),
+                        key=lambda r: r[0])
             # A reserve factor below the safety factor means failure with it
             if worst[0] < SAFETY:
                 if worst[2] in (1, 2):
@@ -333,17 +512,22 @@ def main():
             layups["DOWN"][1] += 1
             layups["HEAD"][1] += 1
             changed = True
-        history.append((iteration, mass, bb_stiffness, head_stiffness))
         if not changed:
             log("  every group holds with the safety factor %.1f and the stiffness targets are met" % SAFETY)
             break
-        set_sections(part, faces, layups, False)
+        if iteration < ITERATIONS:
+            set_sections(part, faces, layups, False, smeared)
+    if smeared and VERIFY:
+        # The last layups checked by the layered model, as CalculiX solves composite shells
+        set_sections(part, faces, layups, False, False)
+        start = time.time()
+        values = evaluate(part, faces, area_of, layups, False)
+        report("layered check of the last layups (%.0f s)" % (time.time() - start), layups, values)
     # The model with the last layups and both load cases, to be opened and looked at in PrePoMax
     pmx.save(os.path.join(HERE, "bike_frame_study.pmx"))
     log("")
     log("final layups (plies 0/+-45/90, each mirrored about the mid-surface):")
     for group in GROUPS:
         log("  %-12s %s" % (group, "/".join(str(n) for n in layups[group])))
-
 
 main()

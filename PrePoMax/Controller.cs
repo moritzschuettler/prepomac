@@ -1823,10 +1823,19 @@ namespace PrePoMax
                 if (!(section is ShellSection) || !_model.Mesh.Elements.TryGetValue(entry.Key, out shellElement) ||
                     !MaterialOrientationCalculator.IsShellElement(shellElement)) continue;
                 //
-                if (section is CompositeShellSection css)
+                if (section is CompositeShellSection css && css.GetSolverLayers().Count > 1)
                 {
                     compositeShellElementIds.Add(entry.Key);
                     numOfCompositeLayers += css.GetSolverLayers().Count;
+                }
+                // CalculiX expands a composite shell of one layer as it does a plain shell, under the number of the
+                // shell element, in the material and at the angle of its layer
+                else if (section is CompositeShellSection single)
+                {
+                    if (!resultMesh.Elements.ContainsKey(entry.Key)) continue;
+                    CompositeLayer layer = single.GetSolverLayers()[0];
+                    AddShellResultElement(data, entry.Key, entry.Key, single, 0, layer.MaterialName, layer.Angle.Value,
+                                          elementOrientations);
                 }
                 // An expanded shell keeps the number of its shell element
                 else if (resultMesh.Elements.ContainsKey(entry.Key))

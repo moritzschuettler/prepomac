@@ -919,7 +919,7 @@ namespace ngm
                     // A pair of triangles that makes a flat quadrilateral (an angle near 180 degrees, as along the line
                     // where two tubes meet) stays two triangles: a shell of such quadrilaterals expanded through its
                     // thickness has a negative Jacobian
-                    try { gmsh::option::setNumber("Mesh.RecombineMinimumQuality", 0.3); } catch (...) { }
+                    try { gmsh::option::setNumber("Mesh.RecombineMinimumQuality", 0.5); } catch (...) { }
                 }
                 if (secondOrder)
                 {
