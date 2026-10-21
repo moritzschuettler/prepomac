@@ -1386,6 +1386,10 @@ namespace System.Windows.Forms
             if (FiltersMouseMessages && !FilterMessage(0x200, IntPtr.Zero, PointParam(e.X, e.Y))) return;
             OnMouseMove(e);
         }
+        // A trackpad has no middle button: a control that navigates a view takes a click with the option key as one
+        protected internal virtual bool OptionClickIsMiddleButton { get { return false; } }
+        // The magnify gesture of a trackpad at a client point; the magnification is positive as the fingers move apart
+        protected internal virtual void OnTouchPadMagnify(int x, int y, double magnification) { }
         internal void HandleMouseWheel(MouseEventArgs e)
         {
             if (FiltersMouseMessages && !FilterMessage(0x20A, new IntPtr(e.Delta << 16), PointParam(e.X, e.Y))) return;

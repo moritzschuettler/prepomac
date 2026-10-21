@@ -146,15 +146,34 @@ namespace PrePoMax.Settings
             set { _solverSettings.FEMasterExe = value; }
         }
         //
-        [CategoryAttribute("OpenRadioss")]
-        [OrderedDisplayName(0, 10, "Starter executable")]
-        [DescriptionAttribute("Select the OpenRadioss starter executable; the engine executable is looked for beside it.")]
+        [CategoryAttribute("Code_Aster")]
+        [OrderedDisplayName(0, 10, "Docker program")]
+        [DescriptionAttribute("The docker program that runs the Code_Aster image.")]
         [EditorAttribute(typeof(System.Windows.Forms.Design.FileNameEditor), typeof(UITypeEditor))]
-        [Id(1, 6)]
-        public string OpenRadiossExe
+        [Id(1, 7)]
+        public string CodeAsterDocker
         {
-            get { return _solverSettings.OpenRadiossExe; }
-            set { _solverSettings.OpenRadiossExe = value; }
+            get { return _solverSettings.CodeAsterDocker; }
+            set { _solverSettings.CodeAsterDocker = value; }
+        }
+        [CategoryAttribute("Code_Aster")]
+        [OrderedDisplayName(1, 10, "Docker context")]
+        [DescriptionAttribute("The Docker context the image runs in, empty for the current one. On Apple Silicon a " +
+                              "colima profile with Rosetta: colima start aster --vm-type vz --vz-rosetta.")]
+        [Id(2, 7)]
+        public string CodeAsterContext
+        {
+            get { return _solverSettings.CodeAsterContext; }
+            set { _solverSettings.CodeAsterContext = value; }
+        }
+        [CategoryAttribute("Code_Aster")]
+        [OrderedDisplayName(2, 10, "Image")]
+        [DescriptionAttribute("The Docker image with Code_Aster (built by macOS/Native/CodeAster/build.sh).")]
+        [Id(3, 7)]
+        public string CodeAsterImage
+        {
+            get { return _solverSettings.CodeAsterImage; }
+            set { _solverSettings.CodeAsterImage = value; }
         }
 
 

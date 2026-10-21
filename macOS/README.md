@@ -35,10 +35,45 @@ cd macOS
 (the program is `macOS/PrePoMax/bin/Debug/net10.0/PrePoMax`). Questions such as the recovery of an unsaved
 session are asked in a window of the program, not in the terminal.
 
+As an app: `./make-app.sh` builds the Release configuration and installs `PrePoMax.app` in /Applications (or
+~/Applications), which then opens from the Launchpad, the Dock or Finder. The command line program is
+`/Applications/PrePoMax.app/Contents/MacOS/PrePoMax.com`.
+
+Navigation of the 3D view:
+
+| | Mouse | Trackpad |
+|---|---|---|
+| Zoom about the pointer | wheel (with ⌘: finer) | two finger scroll, pinch |
+| Rotate | middle button drag | ⌥ option + drag |
+| Pan | ⇧ shift + middle button drag | ⌥ option + ⇧ shift + drag |
+| Zoom by dragging | ⌘ + middle button drag | ⌥ option + ⌘ + drag |
+| Zoom to a box | hold Z and drag a box with the left button | |
+| Rotate in steps | arrow keys | |
+
+Tools > Settings > Navigation sets the speeds and the directions. Python: View > Side Panels > Python Script Editor
+runs scripts (Run, Run selection, or Record and run, which adds the script to the command history); every action
+in the program is recorded in the history, and File > Export > Python session journal writes it as a script.
+
 - The CalculiX solver is found automatically; Tools > Settings > Solver changes it. The macOS builds of ccx only
   have the SPOOLES matrix solver, which is the default.
 - Work directory: `~/PrePoMax/Work`; settings, history and the material library:
   `~/Library/Application Support/PrePoMax`.
+
+## Code_Aster (optional second solver)
+
+Code_Aster 18.1 runs in Docker. Composite shells stay true layered shells (DKT, DEFI_COMPOSITE) instead of being
+expanded to solids as for CalculiX; the results come back as a .frd file with displacements, stresses and the
+Tsai-Wu index, reserve factor and critical ply of composite shells.
+
+```sh
+brew install colima docker
+colima start aster --vm-type vz --vz-rosetta      # Apple Silicon: amd64 through Rosetta
+DOCKER_CONTEXT=colima-aster macOS/Native/CodeAster/build.sh   # builds prepomax/code_aster:18.1 (conda-forge)
+```
+
+Choose CodeAster as the solver of an analysis; Tools > Settings > Code_Aster sets the docker executable, the
+context (`colima-aster`) and the image. colima shares only the home folder, so the work directory must be inside it.
+`colima start` makes its context the current docker context; `docker context use default` switches back.
 
 ## Testing
 

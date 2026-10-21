@@ -45,7 +45,8 @@ namespace CaeJob
         Calculix,
         Abaqus,
         FEMaster,
-        OpenRadioss
+        // 3 was OpenRadioss
+        CodeAster = 4
     }
     //
     [Serializable]
@@ -132,7 +133,8 @@ namespace CaeJob
                 if (_femSolver == FEMSolverEnum.Calculix) return Path.Combine(WorkDirectory, _name + ".frd");
                 else if (_femSolver == FEMSolverEnum.Abaqus) return Path.Combine(WorkDirectory, _name + ".odb");
                 else if (_femSolver == FEMSolverEnum.FEMaster) return Path.Combine(WorkDirectory, _name + ".frd");
-                else if (_femSolver == FEMSolverEnum.OpenRadioss) return Path.Combine(WorkDirectory, _name + "A001");
+                // The command file of Code_Aster writes its results as a CalculiX results file
+                else if (_femSolver == FEMSolverEnum.CodeAster) return Path.Combine(WorkDirectory, _name + ".frd");
                 else throw new NotSupportedException();
             }
         }
@@ -307,8 +309,8 @@ namespace CaeJob
             _tag = null;
             _jobStatus = JobStatus.None;
             //
-            if (_femSolver == FEMSolverEnum.OpenRadioss)
-                _inputFileName = Path.Combine(_workDirectory, _name + "_0000.rad");  // must be first for the timer to work
+            if (_femSolver == FEMSolverEnum.CodeAster)
+                _inputFileName = Path.Combine(_workDirectory, _name + ".export");  // must be first for the timer to work
             else
                 _inputFileName = Path.Combine(_workDirectory, _name + ".inp");  // must be first for the timer to work
             //
@@ -409,69 +411,8 @@ namespace CaeJob
             if (File.Exists(_outputFileName)) File.Delete(_outputFileName);
             if (File.Exists(_errorFileName)) File.Delete(_errorFileName);
             //
-            if (_femSolver == FEMSolverEnum.OpenRadioss) Run_OpenRadioss();
-            else if (Tools.IsWindows10orNewer() && !_compatibilityMode) Run_Win10(_executable, GetArgument());
+            if (Tools.IsWindows10orNewer() && !_compatibilityMode) Run_Win10(_executable, GetArgument());
             else Run_OldWin(_executable, GetArgument());
-        }
-        private void Run_OpenRadioss()
-        {
-            string starterExe = _executable;
-            string engineExe = GetOpenRadiossEngineExe(starterExe);
-            if (!File.Exists(engineExe))
-            {
-                AppendDataToOutput(" The OpenRadioss engine executable was not found: " + engineExe);
-                _jobStatus = JobStatus.Failed;
-                return;
-            }
-            // Starter
-            AppendDataToOutput("");
-            AppendDataToOutput("########   OpenRadioss starter   ########");
-            RunOneExecutable(starterExe, "-i " + _name + "_0000.rad -np 1 -nt " + _numCPUs);
-            if (_jobStatus != JobStatus.OK) return;
-            if (ContainsError(_sbOutput.ToString()) || ContainsError(_sbAllOutput.ToString()))
-            {
-                _jobStatus = JobStatus.Failed;
-                return;
-            }
-            // Engine: run all <name>_0001.rad, <name>_0002.rad, ... files in order
-            string[] engineFileNames = GetOpenRadiossEngineFileNames();
-            if (engineFileNames.Length == 0)
-            {
-                AppendDataToOutput(" No OpenRadioss engine file (" + _name + "_0001.rad) was found.");
-                _jobStatus = JobStatus.Failed;
-                return;
-            }
-            foreach (string engineFileName in engineFileNames)
-            {
-                AppendDataToOutput("");
-                AppendDataToOutput("########   OpenRadioss engine: " + Path.GetFileName(engineFileName) + "   ########");
-                RunOneExecutable(engineExe, "-i " + Path.GetFileName(engineFileName) + " -nt " + _numCPUs);
-                if (_jobStatus != JobStatus.OK) return;
-            }
-        }
-        private void RunOneExecutable(string executable, string argument)
-        {
-            if (Tools.IsWindows10orNewer() && !_compatibilityMode) Run_Win10(executable, argument);
-            else Run_OldWin(executable, argument);
-        }
-        public static string GetOpenRadiossEngineExe(string starterExe)
-        {
-            string fileName = Path.GetFileName(starterExe);
-            string engineFileName = fileName.Replace("starter", "engine");
-            return Path.Combine(Path.GetDirectoryName(starterExe), engineFileName);
-        }
-        private string[] GetOpenRadiossEngineFileNames()
-        {
-            List<string> engineFileNames = new List<string>();
-            int runNumber = 1;
-            while (true)
-            {
-                string engineFileName = Path.Combine(_workDirectory, _name + "_" + runNumber.ToString().PadLeft(4, '0') + ".rad");
-                if (File.Exists(engineFileName)) engineFileNames.Add(engineFileName);
-                else break;
-                runNumber++;
-            }
-            return engineFileNames.ToArray();
         }
         private void bwStart_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
@@ -499,9 +440,10 @@ namespace CaeJob
                     if (length > 15 * 20) resultsExist = true;
                 }
             }
-            else if (_femSolver == FEMSolverEnum.OpenRadioss)
+            else if (_femSolver == FEMSolverEnum.CodeAster)
             {
-                if (File.Exists(ResultsFileName)) resultsExist = true;
+                string resultsFileName = ResultsFileName;
+                if (File.Exists(resultsFileName) && new FileInfo(resultsFileName).Length > 15 * 20) resultsExist = true;
             }
             else throw new NotSupportedException();
             //
@@ -559,9 +501,9 @@ namespace CaeJob
             else if (_femSolver == FEMSolverEnum.FEMaster)
             {
             }
-            else if (_femSolver == FEMSolverEnum.OpenRadioss)
+            else if (_femSolver == FEMSolverEnum.CodeAster)
             {
-                if (text.Contains("ERROR ID :") || text.Contains("ERROR TERMINATION")) return true;
+                if (text.Contains("<EXCEPTION>") || text.Contains("<F>")) return true;
             }
             else throw new NotSupportedException();
             //
@@ -1036,7 +978,8 @@ namespace CaeJob
             if (femSolver == FEMSolverEnum.Calculix) return name;
             else if (femSolver == FEMSolverEnum.Abaqus) return "job=" + name;
             else if (femSolver == FEMSolverEnum.FEMaster) return name + ".inp";
-            else if (femSolver == FEMSolverEnum.OpenRadioss) return "-i " + name + "_0000.rad";
+            // The Docker command of Code_Aster is made by the controller before every run
+            else if (femSolver == FEMSolverEnum.CodeAster) return name;
             else throw new NotSupportedException();
         }
         public static bool IsAdministrator()
@@ -1054,7 +997,6 @@ namespace CaeJob
         private void SetEnvironmentVariables(ProcessStartInfo psi)
         {
             SetNumberOfProcessors(psi);
-            if (_femSolver == FEMSolverEnum.OpenRadioss) SetOpenRadiossEnvironmentVariables(psi);
             if (_environmentVariables != null)
             {
                 foreach (var environmentVariable in _environmentVariables)
@@ -1062,29 +1004,6 @@ namespace CaeJob
                     SetEnvironmentVariable(psi, environmentVariable);
                 }
             }
-        }
-        private void SetOpenRadiossEnvironmentVariables(ProcessStartInfo psi)
-        {
-            // Folder structure: <root>\exec\starter_win64.exe, <root>\hm_cfg_files, <root>\extlib\...
-            string execDirectory = Path.GetDirectoryName(_executable);
-            string rootDirectory = Path.GetDirectoryName(execDirectory);
-            if (rootDirectory == null) return;
-            //
-            string cfgPath = Path.Combine(rootDirectory, "hm_cfg_files");
-            if (Directory.Exists(cfgPath)) SetEnvironmentVariable(psi, new EnvironmentVariable("RAD_CFG_PATH", cfgPath));
-            //
-            string h3dPath = Path.Combine(rootDirectory, "extlib", "h3d", "lib", "win64");
-            if (Directory.Exists(h3dPath)) SetEnvironmentVariable(psi, new EnvironmentVariable("RAD_H3D_PATH", h3dPath));
-            //
-            string hmReaderPath = Path.Combine(rootDirectory, "extlib", "hm_reader", "win64");
-            string intelRuntimePath = Path.Combine(rootDirectory, "extlib", "intelOneAPI_runtime", "win64");
-            string path = execDirectory;
-            if (Directory.Exists(hmReaderPath)) path += ";" + hmReaderPath;
-            if (Directory.Exists(h3dPath)) path += ";" + h3dPath;
-            if (Directory.Exists(intelRuntimePath)) path += ";" + intelRuntimePath;
-            path += ";" + Environment.GetEnvironmentVariable("PATH");
-            if (psi.EnvironmentVariables.ContainsKey("PATH")) psi.EnvironmentVariables.Remove("PATH");
-            psi.EnvironmentVariables.Add("PATH", path);
         }
         private void SetNumberOfProcessors(ProcessStartInfo psi)
         {
@@ -1126,10 +1045,7 @@ namespace CaeJob
             {
                 argument = _argument + " --ncpus " + _numCPUs;
             }
-            else if (_femSolver == FEMSolverEnum.OpenRadioss)
-            {
-                argument = "-i " + _name + "_0000.rad -np 1 -nt " + _numCPUs;
-            }
+            else if (_femSolver == FEMSolverEnum.CodeAster) argument = _argument;
             else throw new NotSupportedException();
             //
             return argument;

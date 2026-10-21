@@ -42,6 +42,7 @@ namespace System.Windows.Forms
             AddHandler(PointerReleasedEvent, OnPointerReleasedHandler, RoutingStrategies.Bubble, true);
             AddHandler(PointerMovedEvent, OnPointerMovedHandler, RoutingStrategies.Bubble, true);
             AddHandler(PointerWheelChangedEvent, OnPointerWheelHandler, RoutingStrategies.Bubble, true);
+            AddHandler(Gestures.PointerTouchPadGestureMagnifyEvent, OnMagnifyHandler, RoutingStrategies.Bubble, true);
             AddHandler(PointerEnteredEvent, OnPointerEnteredHandler, RoutingStrategies.Direct, true);
             AddHandler(PointerExitedEvent, OnPointerExitedHandler, RoutingStrategies.Direct, true);
             AddHandler(GotFocusEvent, OnGotFocusHandler, RoutingStrategies.Bubble, true);
@@ -329,6 +330,12 @@ namespace System.Windows.Forms
             if (OwnerOf(e.Source) != Owner) return;
             PointerPoint point = e.GetCurrentPoint(this);
             MouseButtons button = Input.ButtonOf(point.Properties.PointerUpdateKind);
+            if (button == MouseButtons.Left && (e.KeyModifiers & KeyModifiers.Alt) != 0 && Owner.OptionClickIsMiddleButton)
+            {
+                button = MouseButtons.Middle;
+                Input.LeftIsMiddle = true;
+                Input.Update(e);
+            }
             System.Drawing.Point p = ClientPoint(e);
             if (Content == null || Owner.CapturesMouseOverContent)
             {
@@ -348,6 +355,11 @@ namespace System.Windows.Forms
             Input.Update(e);
             if (!IsMine(e)) return;
             MouseButtons button = Input.ButtonOf(e.InitialPressMouseButton);
+            if (button == MouseButtons.Left && Input.LeftIsMiddle)
+            {
+                button = MouseButtons.Middle;
+                Input.LeftIsMiddle = false;
+            }
             System.Drawing.Point p = ClientPoint(e);
             bool inside = new Rect(Bounds.Size).Contains(e.GetPosition(this));
             if (CapturedControl == Owner)
@@ -378,6 +390,15 @@ namespace System.Windows.Forms
             HandledMouseEventArgs args = new HandledMouseEventArgs(MouseButtons.None, 0, p.X, p.Y, delta);
             Toolkit.Dispatch(() => Owner.HandleMouseWheel(args));
             if (args.Handled) e.Handled = true;
+        }
+        private void OnMagnifyHandler(object sender, PointerDeltaEventArgs e)
+        {
+            Input.Update(e);
+            if (OwnerOf(e.Source) != Owner) return;
+            System.Drawing.Point p = ClientPoint(e);
+            double magnification = e.Delta.X;
+            Toolkit.Dispatch(() => Owner.OnTouchPadMagnify(p.X, p.Y, magnification));
+            e.Handled = true;
         }
         private void OnPointerEnteredHandler(object sender, PointerEventArgs e)
         {

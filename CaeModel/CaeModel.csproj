@@ -109,7 +109,8 @@
     <Compile Include="FileInOut\Input\Mmg\MmgFileReader.cs" />
     <Compile Include="FileInOut\Input\ObjFileReader\ObjFileReader.cs" />
     <Compile Include="FileInOut\Output\Abaqus\AbaqusFileWriter.cs" />
-    <Compile Include="FileInOut\Output\OpenRadioss\OpenRadiossFileWriter.cs" />
+    <Compile Include="FileInOut\Output\CodeAster\CodeAsterFileWriter.cs" />
+    <Compile Include="FileInOut\Output\CodeAster\CodeAsterPostScript.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqElement.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqSurface.cs" />
     <Compile Include="FileInOut\Output\Abaqus\Keywords\ModelDefinition\Constraints\AbqRigidBody.cs" />

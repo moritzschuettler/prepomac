@@ -47,7 +47,8 @@
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Input\Mmg\MmgFileReader.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Input\ObjFileReader\ObjFileReader.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Abaqus\AbaqusFileWriter.cs" />
-    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\OpenRadioss\OpenRadiossFileWriter.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\CodeAster\CodeAsterFileWriter.cs" />
+    <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\CodeAster\CodeAsterPostScript.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqElement.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Abaqus\Keywords\ModelDefinition\AbqSurface.cs" />
     <Compile Include="$(RepoRoot)CaeModel\FileInOut\Output\Abaqus\Keywords\ModelDefinition\Constraints\AbqRigidBody.cs" />

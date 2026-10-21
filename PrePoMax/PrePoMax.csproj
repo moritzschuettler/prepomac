@@ -205,7 +205,6 @@
     <Compile Include="Commands\_Compatibility\v2.6.3\CExportPartsAsGmshMesh.cs" />
     <Compile Include="Commands\0000_File\CExportToAbaqus.cs" />
     <Compile Include="Commands\0000_File\CExportToCalculix.cs" />
-    <Compile Include="Commands\0000_File\CExportToOpenRadioss.cs" />
     <Compile Include="Commands\0000_File\COpenFile.cs" />
     <Compile Include="Commands\0000_File\CSaveToPmx.cs" />
     <Compile Include="Commands\0000_File\CImportFile.cs" />

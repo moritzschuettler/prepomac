@@ -372,6 +372,8 @@ namespace System.Windows.Forms
 
         public static Keys ModifierKeys { get { return ToKeys(_modifiers); } }
         public static MouseButtons MouseButtons { get { return _buttons; } }
+        // The left button of a press with the option key acts as the middle button until it is released
+        public static bool LeftIsMiddle { get; set; }
         public static System.Drawing.Point MousePosition { get { return _mousePosition; } }
 
         public static Keys ToKeys(KeyModifiers modifiers)
@@ -397,7 +399,7 @@ namespace System.Windows.Forms
                 }
                 PointerPointProperties properties = e.GetCurrentPoint(visual).Properties;
                 MouseButtons buttons = MouseButtons.None;
-                if (properties.IsLeftButtonPressed) buttons |= MouseButtons.Left;
+                if (properties.IsLeftButtonPressed) buttons |= LeftIsMiddle ? MouseButtons.Middle : MouseButtons.Left;
                 if (properties.IsRightButtonPressed) buttons |= MouseButtons.Right;
                 if (properties.IsMiddleButtonPressed) buttons |= MouseButtons.Middle;
                 _buttons = buttons;

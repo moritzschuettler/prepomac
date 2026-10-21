@@ -31,7 +31,6 @@ EXCEPTIONS = {
 # The commands of the composites modeler of Yvan Blanchard, merged into this version: the modeler has no Python API,
 # so they are driven from the GUI only, and a journal records the refusal the base class writes for them
 COMPOSITES_MODELER_COMMANDS = [
-    "ExportToOpenRadiossCommand",
     "RemoveOrphanElementsCommand",
     "ExtractShellMeshCommand",
     "ExtrudeShellFromSectionsCommand",

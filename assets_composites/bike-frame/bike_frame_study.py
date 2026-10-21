@@ -43,6 +43,8 @@ DENSITY = 1.55e-9                   # t/mm^3
 SAFETY = 1.5
 ITERATIONS = int(os.environ.get("FRAME_ITERATIONS", "6"))
 MODE = os.environ.get("FRAME_MODE", "smeared").lower()
+# calculix, or codeaster: the plies as true composite shells of Code_Aster (in Docker), which are not expanded
+SOLVER = os.environ.get("FRAME_SOLVER", "calculix").lower()
 VERIFY = os.environ.get("FRAME_VERIFY", "1") == "1"
 TARGET_BB_STIFFNESS = 150.0         # N/mm, sideways at the bottom bracket
 TARGET_HEAD_STIFFNESS = 90.0        # N/mm, sideways at the head tube
@@ -337,7 +339,10 @@ def solve(load_case, iteration):
             [step_name])
     job = PREFIX + load_case
     if not pmx.jobs.contains(job):
-        pmx.jobs.add(job)
+        if SOLVER == "codeaster":
+            pmx.jobs.add(job, fem_solver="CodeAster")
+        else:
+            pmx.jobs.add(job)
     status = pmx.jobs[job].run(timeout=1800)
     if status != "OK":
         raise Exception("The load case " + load_case + " did not solve: " + status + "\n" +
@@ -443,7 +448,61 @@ def mode_name(mode):
             5: "shear"}.get(int(mode) if mode == mode else 0, "-")
 
 
+def aster_evaluate(faces, area_of, layups):
+    """Both load cases by Code_Aster: the results carry the nodes of the model and the Tsai-Wu field of its plies."""
+    values = []
+    for load_case, group, component, force in (("PEDAL", "BB", "U2", 600.0), ("HEAD", "HEAD", "U2", 500.0)):
+        result = solve(load_case, 0)
+        step_id = list(result.steps.get_ids())[-1]
+        increment_id = list(result.steps[step_id].increments.get_ids())[-1]
+        fields = result.steps[step_id].increments[increment_id].fields
+        disp = fields["DISP"].components[component]
+        reserve = fields["TSAIWU"].components["RESERVE"]
+        ply = fields["TSAIWU"].components["PLY"]
+        group_nodes = model_group_nodes(faces)
+        moved = [disp.get_value(n) for n in group_nodes[group] if n in result_nodes(result)]
+        reserves = {}
+        for name, ids in group_nodes.items():
+            worst = None
+            for node in ids:
+                if node not in result_nodes(result):
+                    continue
+                value = reserve.get_value(node)
+                if value == value and (worst is None or value < worst[0]):
+                    worst = (value, 1 / value if value > 0 else float("inf"), 0)
+            reserves[name] = worst
+        values.append((force / (sum(moved) / len(moved)), reserves))
+    (bb, reserves_pedal), (head, reserves_head) = values
+    return bb, head, reserves_pedal, reserves_head, frame_mass(faces, area_of, layups)
+
+
+_model_nodes = {}
+_result_nodes = {}
+
+
+def model_group_nodes(faces):
+    """The model nodes of every tube group, which Code_Aster writes its results on."""
+    if not _model_nodes:
+        part = pmx.model.parts.first()
+        for group, (tubes, _) in GROUPS.items():
+            name = PREFIX + "Group_" + group
+            if name not in list(pmx.model.node_sets.get_names()):
+                pmx.model.node_sets.add(name, node_selection(part, [i for t in tubes for i in faces[t]]))
+            _model_nodes[group] = list(pmx.model.node_sets[name].get_node_ids())
+    return _model_nodes
+
+
+def result_nodes(result):
+    key = id(result)
+    if key not in _result_nodes:
+        _result_nodes.clear()
+        _result_nodes[key] = set(int(i) for i in result.mesh.nodes.get_data().ids)
+    return _result_nodes[key]
+
+
 def evaluate(part, faces, area_of, layups, smeared):
+    if SOLVER == "codeaster":
+        return aster_evaluate(faces, area_of, layups)
     """Solves both load cases and returns the stiffnesses, the reserves of every group and the mass."""
     result = solve("PEDAL", 0)
     bb = mean_displacement(result, faces, "BB", "U2")
@@ -469,7 +528,7 @@ def report(title, layups, values):
 
 def main():
     import time
-    smeared = MODE == "smeared"
+    smeared = MODE == "smeared" and SOLVER != "codeaster"
     log("laminate model: " + ("smeared, the plies recovered by classical laminate theory" if smeared else
                               "layered, a layer for every ply block"))
     part = import_frame()
@@ -517,7 +576,7 @@ def main():
             break
         if iteration < ITERATIONS:
             set_sections(part, faces, layups, False, smeared)
-    if smeared and VERIFY:
+    if smeared and VERIFY and SOLVER != "codeaster":
         # The last layups checked by the layered model, as CalculiX solves composite shells
         set_sections(part, faces, layups, False, False)
         start = time.time()

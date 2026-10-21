@@ -959,11 +959,6 @@ namespace PrePoMax
             CExportToAbaqus comm = new CExportToAbaqus(fileName);
             _commands.AddAndExecute(comm);
         }
-        public void ExportToOpenRadiossCommand(string fileName)
-        {
-            CExportToOpenRadioss comm = new CExportToOpenRadioss(fileName);
-            _commands.AddAndExecute(comm);
-        }
         //
         public void ExportGeometryPartsCommand(string[] partNames, string fileName, GeometryExportFormatEnum format)
         {
@@ -3515,18 +3510,32 @@ namespace PrePoMax
             //
             _form.WriteDataToOutput("Model exported to file: " + fileName);
         }
-        public void ExportToOpenRadioss(string fileName)
+        // The study of Code_Aster in the work directory, and the Docker command of the job that runs it: the work directory is
+        // mounted into the container as /work, and a run_aster of the image solves it and writes the results as a .frd file
+        public void ExportToCodeAster(string exportFileName, AnalysisJob job)
         {
             SuppressExplodedView();
             UpdateNCalcParameters();
-            OpenRadiossFileWriter.Write(fileName, _model);
-            ResumeExplodedViews(false);
+            string[] warnings;
+            try
+            {
+                warnings = CodeAsterFileWriter.Write(exportFileName, _model, "/work");
+            }
+            finally
+            {
+                ResumeExplodedViews(false);
+            }
+            foreach (string warning in warnings) _form.WriteDataToOutput("Code_Aster: " + warning);
             //
-            string rootName = Path.GetFileNameWithoutExtension(fileName);
-            string directory = Path.GetDirectoryName(fileName);
-            _form.WriteDataToOutput("Model exported to files: " +
-                                    Path.Combine(directory, rootName + "_0000.rad") + ", " +
-                                    Path.Combine(directory, rootName + "_0001.rad") + ", ...");
+            string workDirectory = Path.GetDirectoryName(Path.GetFullPath(exportFileName));
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT && !workDirectory.StartsWith(home, StringComparison.Ordinal))
+                _form.WriteDataToOutput("Code_Aster: the work directory " + workDirectory + " is outside the home folder, " +
+                                        "which colima does not share with Docker by default.");
+            SolverSettings ss = _settings.Solver;
+            string context = string.IsNullOrWhiteSpace(ss.CodeAsterContext) ? "" : "--context " + ss.CodeAsterContext + " ";
+            job.Argument = context + "run --rm --platform linux/amd64 -v \"" + workDirectory + ":/work\" " + ss.CodeAsterImage +
+                           " run_aster /work/" + Path.GetFileName(exportFileName);
         }
         public void ExportPartsAsGmshMesh(string fileName)
         {
@@ -21466,12 +21475,12 @@ namespace PrePoMax
                         if (!entry.Value.NumCPUsOverridden)
                             entry.Value.NumCPUs = ss.NumCPUs;
                     }
-                    else if (entry.Value.FEMSolver == FEMSolverEnum.OpenRadioss)
+                    else if (entry.Value.FEMSolver == FEMSolverEnum.CodeAster)
                     {
                         if (!entry.Value.WorkDirectoryOverridden)
                             entry.Value.WorkDirectory = Settings.GetWorkDirectory();
                         if (!entry.Value.ExecutableOverridden)
-                            entry.Value.Executable = ss.OpenRadiossExe;
+                            entry.Value.Executable = ss.CodeAsterDocker;
                         if (!entry.Value.NumCPUsOverridden)
                             entry.Value.NumCPUs = ss.NumCPUs;
                     }
@@ -22060,9 +22069,9 @@ namespace PrePoMax
         }
         public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool asynchronous = true, int timeoutMilliseconds = 0)
         {
-            // OpenRadioss reads a .rad starter file, the other solvers an .inp file
             string inputFileName = GetCalculiXInpFileName(jobName);
-            if (_jobs[jobName].FEMSolver == FEMSolverEnum.OpenRadioss) inputFileName = Path.ChangeExtension(inputFileName, ".rad");
+            // Code_Aster reads the study file of run_aster
+            if (_jobs[jobName].FEMSolver == FEMSolverEnum.CodeAster) inputFileName = Path.ChangeExtension(inputFileName, ".export");
             bool useBackgroundWorker = asynchronous;
             AnalysisJob job = _jobs[jobName];
             string workDirectory = Path.GetDirectoryName(inputFileName);
@@ -22374,15 +22383,11 @@ namespace PrePoMax
                 files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".frd"));
                 files.Add(Path.Combine(directory, inputFileNameWithoutExtension + ".res"));
             }
-            else if (job.FEMSolver == FEMSolverEnum.OpenRadioss)
+            else if (job.FEMSolver == FEMSolverEnum.CodeAster)
             {
-                // Delete old starter/engine/restart/animation/time history files
-                string[] oldFiles = Directory.GetFiles(directory, inputFileNameWithoutExtension + "_????.rad");
-                files.AddRange(oldFiles);
-                files.AddRange(Directory.GetFiles(directory, inputFileNameWithoutExtension + "_????.rst"));
-                files.AddRange(Directory.GetFiles(directory, inputFileNameWithoutExtension + "A???"));
-                files.AddRange(Directory.GetFiles(directory, inputFileNameWithoutExtension + "T??"));
-                files.AddRange(Directory.GetFiles(directory, inputFileNameWithoutExtension + "_????.out"));
+                foreach (string extension in new[] { ".frd", ".mess", ".msh", ".comm" })
+                    files.Add(Path.Combine(directory, inputFileNameWithoutExtension + extension));
+                files.Add(Path.Combine(directory, inputFileNameWithoutExtension + "_ppm.json"));
             }
             else throw new NotSupportedException();
             //
@@ -22406,8 +22411,7 @@ namespace PrePoMax
             }
             else if (job.FEMSolver == FEMSolverEnum.Abaqus) ExportToAbaqus(inputFileName);
             else if (job.FEMSolver == FEMSolverEnum.FEMaster) ExportToCalculix(inputFileName, null, false);
-            else if (job.FEMSolver == FEMSolverEnum.OpenRadioss)
-                ExportToOpenRadioss(Path.ChangeExtension(inputFileName, ".rad"));
+            else if (job.FEMSolver == FEMSolverEnum.CodeAster) ExportToCodeAster(inputFileName, job);
             else throw new NotSupportedException();
             //
             job.JobStatusChanged = JobStatusChanged;

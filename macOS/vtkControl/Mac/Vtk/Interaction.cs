@@ -93,6 +93,11 @@ namespace Kitware.VTK
         public void SetEventInformationFlipY(int x, int y, int ctrl, int shift, sbyte keycode, int repeatcount, string keysym)
         {
             int height = _renderWindow != null ? _renderWindow.GetSize()[1] : 0;
+            // The mouse events of the view pass no keys; the Win32 interactor of VTK reads them itself, so shift pans
+            // and control (or command) zooms a drag with the middle button
+            System.Windows.Forms.Keys keys = System.Windows.Forms.Control.ModifierKeys;
+            if ((keys & System.Windows.Forms.Keys.Control) != 0) ctrl = 1;
+            if ((keys & System.Windows.Forms.Keys.Shift) != 0) shift = 1;
             SetEventInformation(x, height - y - 1, ctrl, shift, keycode, repeatcount, keysym);
         }
         public void SetKeyEventInformation(int ctrl, int shift, sbyte keycode, int repeatcount, string keysym)

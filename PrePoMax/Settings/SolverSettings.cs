@@ -31,7 +31,9 @@ namespace PrePoMax
         private bool _binaryResultsFile;
         private string _abaqusExe;
         private string _femasterExe;
-        private string _openRadiossExe;
+        private string _codeAsterDocker;
+        private string _codeAsterContext;
+        private string _codeAsterImage;
         public static string NonEnglishDirectoryWarning = "The selected work directory path contains non-English characters. " +
                                                           "Some program features might not work as expected.";
 
@@ -116,12 +118,30 @@ namespace PrePoMax
             get { return Tools.GetGlobalPath(_femasterExe); }
             set { _femasterExe = SetExecutable(value, "FEMaster"); }
         }
-        // The OpenRadioss starter; the engine is the program of the same name with engine for starter beside it
-        public string OpenRadiossExe
+        // Code_Aster runs in Docker: the docker program, the Docker context (empty for the current one) and the image
+        public string CodeAsterDocker
         {
-            get { return Tools.GetGlobalPath(_openRadiossExe); }
-            set { _openRadiossExe = SetExecutable(value, "OpenRadioss"); }
+            get
+            {
+                if (!string.IsNullOrEmpty(_codeAsterDocker)) return _codeAsterDocker;
+                foreach (string candidate in new[] { "/opt/homebrew/bin/docker", "/usr/local/bin/docker", "/usr/bin/docker" })
+                    if (File.Exists(candidate)) return candidate;
+                return "docker";
+            }
+            set { _codeAsterDocker = value; }
         }
+        public string CodeAsterContext
+        {
+            get { return _codeAsterContext ?? DefaultCodeAsterContext; }
+            set { _codeAsterContext = value; }
+        }
+        public string CodeAsterImage
+        {
+            get { return string.IsNullOrEmpty(_codeAsterImage) ? DefaultCodeAsterImage : _codeAsterImage; }
+            set { _codeAsterImage = value; }
+        }
+        public const string DefaultCodeAsterContext = "colima-aster";
+        public const string DefaultCodeAsterImage = "prepomax/code_aster:18.1";
 
 
         // Constructors
@@ -153,7 +173,9 @@ namespace PrePoMax
             _binaryResultsFile = false;
             _abaqusExe = null;
             _femasterExe = null;
-            _openRadiossExe = null;
+            _codeAsterDocker = null;
+            _codeAsterContext = null;
+            _codeAsterImage = null;
         }
         private static string SetExecutable(string value, string solverName)
         {

@@ -2221,37 +2221,6 @@ namespace PrePoMax
                 ExceptionTools.Show(this, ex);
             }
         }
-        private void tsmiExportToOpenRadioss_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                _controller.CurrentView = ViewGeometryModelResults.Model;
-                //
-                if (CheckValidity())
-                {
-                    using (SaveFileDialog saveFileDialog = new SaveFileDialog())
-                    {
-                        saveFileDialog.Filter = "OpenRadioss files | *.rad";
-                        if (_controller.OpenedFileName != null)
-                            saveFileDialog.FileName = Path.GetFileNameWithoutExtension(_controller.OpenedFileName) + ".rad";
-                        if (saveFileDialog.ShowDialog(this) == DialogResult.OK)
-                        {
-                            // the filter adds the extension to the file name
-                            SetStateWorking(Globals.ExportingText);
-                            _controller.ExportToOpenRadiossCommand(saveFileDialog.FileName);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ExceptionTools.Show(this, ex);
-            }
-            finally
-            {
-                SetStateReady(Globals.ExportingText);
-            }
-        }
         private void tsmiExportTo3mf_Click(object sender, EventArgs e)
         {
             try
@@ -6575,10 +6544,6 @@ namespace PrePoMax
             tsmiLoad.DropDownItems.Insert(0, new ToolStripMenuItem("Add Blade Aerodynamic Load...", null,
                                                                    tsmiCreateBladeAeroLoad_Click));
             tsmiLoad.DropDownItems.Insert(1, new ToolStripSeparator());
-            // OpenRadioss export
-            tsmiExport.DropDownItems.Insert(tsmiExport.DropDownItems.IndexOf(tsmiExportModel) + 1,
-                                            new ToolStripMenuItem("Model as OpenRadioss *.rad", null,
-                                                                  tsmiExportToOpenRadioss_Click));
             // Orphan elements
             tsmiTools.DropDownItems.Insert(tsmiTools.DropDownItems.IndexOf(tsmiQuery),
                                            new ToolStripMenuItem("Clean Orphan Elements", null, tsmiCleanOrphanElements_Click));
@@ -10176,15 +10141,6 @@ namespace PrePoMax
             LastOpenResultsAccepted = false;
             //
             AnalysisJob job = _controller.GetJob(jobName);
-            //
-            if (job.FEMSolver == FEMSolverEnum.OpenRadioss)
-            {
-                MessageBoxes.ShowWarning("PrePoMax cannot display OpenRadioss results. Use the anim_to_vtk and " +
-                                         "th_to_csv converters from the OpenRadioss exec folder to convert the " +
-                                         "animation (" + job.Name + "A001, ...) and time history files from the " +
-                                         "work directory: " + job.WorkDirectory);
-                return;
-            }
             //
             bool openResults = true;
             string parameters = Globals.FromMonitorForm;
