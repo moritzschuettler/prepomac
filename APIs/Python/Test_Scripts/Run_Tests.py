@@ -71,6 +71,7 @@ COMMAND_LINE = re.compile(r"^#\s*PrePoMax\.com\s+(?P<arguments>.*)$")
 EXIT_CODE = re.compile(r"^#\s*Expected process exit code\s+(?P<code>\d+)")
 REPORT_CHECK = re.compile(r"^#\s*Expected report\s+(?P<path>\S+)\s+(?P<operator>=|contains)\s+(?P<value>.+?)\s*$")
 # The switches a test may ask for in its header; everything else the runner supplies itself
+SETTINGS_FILE = None
 HEADER_SWITCHES = ("-f", "-u", "--rpc", "--scriptArgs", "--timeout")
 STATUS_BY_CODE = {0: "Ok", 1: "OptionError", 2: "ModelError", 3: "ScriptError", 4: "TimedOut",
                   5: "PromptRefused", 6: "LauncherError", 7: "Cancelled"}
@@ -251,6 +252,9 @@ def build_command(test, executable, work_directory, report_file):
     command += ["-g", "No", "-x", "Yes", "-w", work_directory, "--report", report_file, "--timeout", str(test.timeout)]
     if "--rpc" in test.switches:
         command += ["--rpc", test.switches["--rpc"]]
+        # The automation server serves only with an access token, which a settings file given here can carry
+        if SETTINGS_FILE is not None:
+            command += ["--settings", SETTINGS_FILE]
     return command
 
 
@@ -318,7 +322,14 @@ def main():
     parser.add_argument("--exe", default=DEFAULT_EXE)
     parser.add_argument("--work", default=None)
     parser.add_argument("--filter", nargs="+", default=None)
+    parser.add_argument("--settings", default=None,
+                        help="a settings file with an automation access token, for the tests of the automation server")
     args = parser.parse_args()
+    global SETTINGS_FILE
+    SETTINGS_FILE = os.path.abspath(args.settings) if args.settings else None
+    # The tests that start child sessions of their own hand them the same file
+    if SETTINGS_FILE is not None:
+        os.environ["PPM_TEST_SETTINGS"] = SETTINGS_FILE
     try:
         tests = collect(args.filter)
     except (RuntimeError, ValueError) as error:

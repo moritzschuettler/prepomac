@@ -200,6 +200,7 @@ namespace PrePoMax
         {
             Console.WriteLine("----------Error---------------");
             Console.WriteLine(ex.Message);
+            if (Environment.GetEnvironmentVariable("PPM_TRACE") == "1") Console.WriteLine(ex.ToString());
             Console.WriteLine("----------Finished------------");
             Console.WriteLine("Process finished with errors.");
             Console.WriteLine("");
@@ -372,8 +373,30 @@ namespace PrePoMax
         // signals the event named after this process, which reaches it in any case. Either ends the run the way the
         // time limit does, so the journal and the report are written; the launcher kills the process after a grace
         // period, or at once on a second Ctrl+C
+#if NET
+        // macOS and Linux: Ctrl+C and a kill of the launcher reach the process as SIGINT and SIGTERM
+        private static System.Runtime.InteropServices.PosixSignalRegistration[] _posixSignalRegistrations;
+#endif
         private static void StartCancelListener()
         {
+#if NET
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                Action<System.Runtime.InteropServices.PosixSignalContext> handler = context =>
+                {
+                    context.Cancel = true;
+                    ThreadPool.QueueUserWorkItem(delegate (object state) { Cancel(); });
+                };
+                _posixSignalRegistrations = new[]
+                {
+                    System.Runtime.InteropServices.PosixSignalRegistration.Create(
+                        System.Runtime.InteropServices.PosixSignal.SIGINT, handler),
+                    System.Runtime.InteropServices.PosixSignalRegistration.Create(
+                        System.Runtime.InteropServices.PosixSignal.SIGTERM, handler)
+                };
+                return;
+            }
+#endif
             try
             {
                 _cancelEvent = new EventWaitHandle(false, EventResetMode.ManualReset,

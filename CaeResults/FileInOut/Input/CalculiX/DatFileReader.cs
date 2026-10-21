@@ -80,10 +80,11 @@ namespace CaeResults
         {
             { FeElementTypeLinearTria.CAX3.ToString(), 180 },
             { FeElementTypeParabolicTria.CAX6.ToString(), 180 },
-            { FeElementTypeLinearQuad.CAX4.ToString(), 360 },
+            // The ccx of Windows writes CAX4 and CAX8R for 1 degree, the ccx builds of macOS (2.23) for 2 degrees
+            { FeElementTypeLinearQuad.CAX4.ToString(), Environment.OSVersion.Platform == PlatformID.Win32NT ? 360 : 180 },
             { FeElementTypeLinearQuad.CAX4R.ToString(), 180 },
             { FeElementTypeParabolicQuad.CAX8.ToString(), 180 },
-            { FeElementTypeParabolicQuad.CAX8R.ToString(), 360 }
+            { FeElementTypeParabolicQuad.CAX8R.ToString(), Environment.OSVersion.Platform == PlatformID.Win32NT ? 360 : 180 }
         };
         private static readonly HashSet<string> _axisymmetricSegmentStatisticsFieldNames = new HashSet<string>()
         {

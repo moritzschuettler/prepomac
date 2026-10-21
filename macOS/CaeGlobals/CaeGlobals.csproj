@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- The version comes from Properties/AssemblyInfo.cs of the shared sources -->
+    <GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
     <AssemblyName>CaeGlobals</AssemblyName>
     <RootNamespace>CaeGlobals</RootNamespace>
   </PropertyGroup>

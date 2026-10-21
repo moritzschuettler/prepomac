@@ -25,6 +25,8 @@ int main(int argc, char** argv)
     ngm::RegisterGeometryCommands();
     ngm::RegisterMeshCommands();
     ngm::RegisterOperationCommands();
+    ngm::RegisterFaceCommands();
+    ngm::RegisterEditCommands();
     if (argc < 2)
     {
         std::cerr << "Usage: NetGenMesher <command> <arguments>" << std::endl;

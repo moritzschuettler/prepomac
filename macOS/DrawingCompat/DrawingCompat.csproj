@@ -2,6 +2,8 @@
   <!-- System.Drawing (GDI+) for macOS on SkiaSharp. The assembly has the name of the package System.Drawing.Common, so
        the type forwards of the System.Drawing facade of .NET, the resources of the forms and serialized data find it. -->
   <PropertyGroup>
+    <!-- The version of System.Drawing and System.Windows.Forms is set in AssemblyInfo.cs -->
+    <GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
     <AssemblyName>System.Drawing.Common</AssemblyName>
     <RootNamespace>System.Drawing</RootNamespace>
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>

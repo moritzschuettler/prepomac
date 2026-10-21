@@ -10657,7 +10657,7 @@ namespace PrePoMax
         }
         private void SetColorForResultParts(string[] partNames)
         {
-            if (_controller.AllResults.CurrentResult.Mesh == null) return;
+            if (_controller.AllResults.CurrentResult?.Mesh == null) return;
             //
             using (FrmGetColor frmGetColor = new FrmGetColor())
             {
@@ -10722,7 +10722,7 @@ namespace PrePoMax
         {
             try
             {
-                if (_controller.AllResults.CurrentResult.Mesh == null) return;
+                if (_controller.AllResults.CurrentResult?.Mesh == null) return;
                 //
                 ItemSetDataEditor.SetForms(_frmSelectItemSet, false, _frmReferencePoint);
                 ShowForm(_frmReferencePoint, "Create Result Reference Point", null);
@@ -11204,7 +11204,7 @@ namespace PrePoMax
         #region Help menu  #########################################################################################################
         private void tsmiHomePage_Click(object sender, EventArgs e)
         {
-            System.Diagnostics.Process.Start(Globals.HomePage);
+            CaeGlobals.Tools.OpenInShell(Globals.HomePage);
         }
         private void tsmiAbout_Click(object sender, EventArgs e)
         {

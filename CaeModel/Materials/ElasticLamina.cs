@@ -26,6 +26,9 @@ namespace CaeModel
         public const int TemperatureId = 6;
         public const int NumberOfValues = 7;
         private EquationContainer[][] _laminaConstantsTemp;         //ISerializable
+        // The Lamina of the composites modeler of Yvan Blanchard completed the out-of-plane constants with v23 = v12; the
+        // laminae of its files keep that, so the models made with it are analyzed as they were
+        private bool _poissonsRatio23IsPoissonsRatio12;             //ISerializable
 
 
         // Properties                                                                                                               
@@ -52,6 +55,12 @@ namespace CaeModel
             {
                 switch (entry.Name)
                 {
+                    case "_laminaTemp":         // the Lamina of the composites modeler
+                        _poissonsRatio23IsPoissonsRatio12 = true;
+                        goto case "_laminaConstantsTemp";
+                    case "_poissonsRatio23IsPoissonsRatio12":
+                        _poissonsRatio23IsPoissonsRatio12 = (bool)entry.Value;
+                        break;
                     case "_laminaConstantsTemp":
                         if (entry.Value is double[][] values)
                             SetLaminaConstantsTemp(values, false);
@@ -139,7 +148,7 @@ namespace CaeModel
             double e1 = row[YoungsModulus1Id].Value;
             double e2 = row[YoungsModulus2Id].Value;
             double v12 = row[PoissonsRatio12Id].Value;
-            double v23 = GetPoissonsRatio23(e2, row[ShearModulus23Id].Value);
+            double v23 = GetPoissonsRatio23(rowId);
             double s11 = 1 / e1;
             double s22 = 1 / e2;
             double s12 = -v12 / e1;
@@ -163,6 +172,13 @@ namespace CaeModel
         public static double GetPoissonsRatio23(double youngsModulus2, double shearModulus23)
         {
             return youngsModulus2 / (2 * shearModulus23) - 1;
+        }
+        // The v23 the lamina is completed with: E2 / (2 G23) - 1, or v12 for a lamina of the composites modeler
+        public double GetPoissonsRatio23(int rowId)
+        {
+            EquationContainer[] row = _laminaConstantsTemp[rowId];
+            if (_poissonsRatio23IsPoissonsRatio12) return row[PoissonsRatio12Id].Value;
+            return GetPoissonsRatio23(row[YoungsModulus2Id].Value, row[ShearModulus23Id].Value);
         }
         public void CheckTemperatures()
         {
@@ -191,6 +207,7 @@ namespace CaeModel
             base.GetObjectData(info, context);
             //
             info.AddValue("_laminaConstantsTemp", _laminaConstantsTemp, typeof(EquationContainer[][]));
+            info.AddValue("_poissonsRatio23IsPoissonsRatio12", _poissonsRatio23IsPoissonsRatio12);
         }
     }
 }

@@ -1088,9 +1088,12 @@ namespace System.Windows.Forms
         {
             if (_backgroundImage != null) Toolkit.DrawBackgroundImage(pevent.Graphics, _backgroundImage, ClientRectangle, _backgroundImageLayout);
         }
+        // Above zero while a control paints, which Avalonia does in its render pass: no visual may change then
+        [ThreadStatic] internal static int PaintDepth;
         internal void PaintInternal(Graphics g, Rectangle clip)
         {
             PaintEventArgs e = new PaintEventArgs(g, clip);
+            PaintDepth++;
             try
             {
                 OnPaintBackground(e);
@@ -1099,6 +1102,10 @@ namespace System.Windows.Forms
             catch (Exception ex)
             {
                 Application.OnThreadException(ex);
+            }
+            finally
+            {
+                PaintDepth--;
             }
         }
         protected void InvokePaint(Control c, PaintEventArgs e) { c.OnPaint(e); }

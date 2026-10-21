@@ -4,6 +4,7 @@
     <AssemblyName>PrePoMax</AssemblyName>
     <RootNamespace>PrePoMax</RootNamespace>
     <OutputType>Exe</OutputType>
+    <AssemblyVersion>3.0.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(RepoRoot)PrePoMax\Common\ExecutableJobRunner.cs" />
@@ -890,6 +891,10 @@
   </ItemGroup>
   <!-- The files listed in windows-only.txt are replaced on macOS -->
   <!-- The CAD and Netgen mesher process (macOS build of NetGenMesher, see Native/NetGenMesher) -->
+  <!-- The Mmg remeshers, built once from the upstream sources (see Native/Mmg) -->
+  <Target Name="BuildMmg" BeforeTargets="BeforeBuild" Condition="!Exists('..\Native\Mmg\build\bin\mmg3d_O3')">
+    <Exec Command="sh ../Native/Mmg/build.sh" />
+  </Target>
   <Target Name="BuildNetGenMesher" BeforeTargets="BeforeBuild"
           Inputs="@(NetGenMesherSource)" Outputs="..\Native\NetGenMesher\build\NetGenMesher">
     <Exec Command="sh ../Native/NetGenMesher/build.sh" />
@@ -897,6 +902,9 @@
   <ItemGroup>
     <NetGenMesherSource Include="..\Native\NetGenMesher\*.cpp;..\Native\NetGenMesher\*.h;..\Native\NetGenMesher\CMakeLists.txt" />
     <None Include="..\Native\NetGenMesher\build\NetGenMesher" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Netgen\NetGenMesher" />
+    <None Include="PrePoMax.com" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Native\Mmg\build\bin\mmgs_O3" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Mmg\mmgs" />
+    <None Include="..\Native\Mmg\build\bin\mmg3d_O3" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Mmg\mmg3d" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CaeGlobals\CaeGlobals.csproj" />

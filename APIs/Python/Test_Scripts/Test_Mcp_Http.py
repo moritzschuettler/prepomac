@@ -39,13 +39,17 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+# The settings file Run_Tests.py was given with --settings: the automation server of a child session serves only with
+# the access token of its settings, so the children read the same file
+TEST_SETTINGS = ["--settings", os.environ["PPM_TEST_SETTINGS"]] if os.environ.get("PPM_TEST_SETTINGS") else []
+
 # A console program started from a process without a visible console opens a window of its own
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 PROTOCOL_VERSION = "2024-11-05"
 CHILD_TIMEOUT = 240
 MAXIMUM_BODY = 4 * 1024 * 1024
-SESSIONS = os.path.join(os.environ["LOCALAPPDATA"], "PrePoMax", "sessions")
+SESSIONS = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~/Library/Application Support")), "PrePoMax", "sessions")
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 EXPECTED_TOOLS = ["get_guide", "list_sessions", "get_status", "describe_api", "read_model",
                   "read_topology", "eval_expression", "run_python", "get_call", "cancel_call",
@@ -145,7 +149,7 @@ class ChildSession(object):
         # The cube is given explicitly, so that what the tools report is the cube and not whatever
         # the application would have started with
         self.process = subprocess.Popen([sys.executable, "--rpc", "On", "--rpcPort", str(port),
-                                         "-g", "No", "--noSettingsSave",
+                                         "-g", "No", "--noSettingsSave", *TEST_SETTINGS,
                                          "-f", os.path.join(MODELS, "cube.inp"), "-u", "MM_TON_S_C",
                                          "--timeout", str(CHILD_TIMEOUT), "-w", self.directory] +
                                         (arguments or []),
@@ -689,7 +693,8 @@ def check_screenshot(endpoint):
     check(view["value"] == "femodel", "a refused screenshot must leave the view alone: " + str(view["value"]))
     print("screenshot: an empty field refused, the view left as it was")
     # A picture that cannot be written is refused before the view is set up for it
-    for file_name in ["mcp_refused.jpg", "mcp_<refused>.png"]:
+    # (a name with < > is valid outside Windows, a name with the null character is valid nowhere)
+    for file_name in ["mcp_refused.jpg", "mcp_<refused>.png" if os.name == "nt" else "mcp_\0refused.png"]:
         text = endpoint.failing_tool("screenshot", {"view": "geometry", "file_name": file_name})
         check("argument file_name" in text and "Nothing was done" in text,
               "the file name " + file_name + " must be refused naming file_name: " + text)

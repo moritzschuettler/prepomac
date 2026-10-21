@@ -15,6 +15,38 @@ import json
 import os
 import time
 
+
+class _SocketPipe(object):
+    """The automation pipe outside Windows: .NET serves a named pipe there as a Unix domain socket."""
+
+    def __init__(self, path):
+        import socket
+        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            self._socket.connect(path)
+        except OSError:
+            self._socket.close()
+            raise
+        self._io = self._socket.makefile("rwb", buffering=0)
+
+    def write(self, data):
+        self._io.write(data)
+
+    def read(self, size):
+        return self._io.read(size)
+
+    def close(self):
+        self._io.close()
+        self._socket.close()
+
+
+def open_pipe(process_id):
+    """Opens the automation pipe of the PrePoMax process with the id, on Windows and elsewhere."""
+    if os.name == "nt":
+        return open("\\\\.\\pipe\\PrePoMax." + str(process_id), "r+b", buffering=0)
+    import tempfile as _tempfile
+    return _SocketPipe(os.path.join(_tempfile.gettempdir(), "CoreFxPipe_PrePoMax." + str(process_id)))
+
 PIPE_NAME = r"\\.\pipe\PrePoMax." + str(os.getpid())
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
@@ -36,7 +68,7 @@ class Client(object):
         deadline = time.time() + timeout
         while True:
             try:
-                self._pipe = open(PIPE_NAME, "r+b", buffering=0)
+                self._pipe = open_pipe(os.getpid())
                 return
             except (IOError, OSError):
                 # The listener creates its first pipe instance on a thread of its own
@@ -439,7 +471,9 @@ def check_screenshot(client):
     error = client.error("screenshot", {"file_name": "viewport.jpg"})
     check(error["code"] == INVALID_PARAMS, "another extension must be refused: " + str(error))
     # A name with a character no file name may hold is refused as an argument, not failed as an internal error
-    error = client.error("screenshot", {"file_name": "view|port.png"})
+    # ('|' is a valid character of a file name outside Windows, the null character is valid nowhere)
+    illegal = "view|port.png" if os.name == "nt" else "view\0port.png"
+    error = client.error("screenshot", {"file_name": illegal})
     check(error["code"] == INVALID_PARAMS and "file_name" in error["message"] and
           "Nothing was done" in error["message"], "an invalid file name must be refused: " + str(error))
     print("screenshot: a file name with an illegal character refused")

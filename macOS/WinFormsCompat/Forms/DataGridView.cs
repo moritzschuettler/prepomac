@@ -1120,6 +1120,17 @@ namespace System.Windows.Forms
         public event EventHandler Sorted;
 
         protected virtual void OnCellClick(DataGridViewCellEventArgs e) { CellClick?.Invoke(this, e); }
+        // The test automation clicks a cell as the mouse does
+        internal void AutomationClickCell(int columnIndex, int rowIndex)
+        {
+            CurrentCell = Rows[rowIndex].Cells[columnIndex];
+            OnCellMouseDown(new DataGridViewCellMouseEventArgs(columnIndex, rowIndex, 1, 1,
+                                                                new MouseEventArgs(MouseButtons.Left, 1, 1, 1, 0)));
+            OnCellClick(new DataGridViewCellEventArgs(columnIndex, rowIndex));
+            OnCellContentClick(new DataGridViewCellEventArgs(columnIndex, rowIndex));
+            OnCellMouseUp(new DataGridViewCellMouseEventArgs(columnIndex, rowIndex, 1, 1,
+                                                              new MouseEventArgs(MouseButtons.Left, 1, 1, 1, 0)));
+        }
         protected virtual void OnCellContentClick(DataGridViewCellEventArgs e) { CellContentClick?.Invoke(this, e); }
         protected virtual void OnCellDoubleClick(DataGridViewCellEventArgs e) { CellDoubleClick?.Invoke(this, e); }
         protected virtual void OnCellMouseClick(DataGridViewCellMouseEventArgs e) { CellMouseClick?.Invoke(this, e); }

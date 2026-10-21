@@ -11,6 +11,11 @@
 //   file <path|path...>              answers the next file or folder dialog with the paths (no path cancels it)
 //   invoke <type.method>             calls a static method without parameters (test hooks of the application)
 //   dump [form name]                 writes the control tree of the active or the named form
+//   sweep [skip text;skip text...]  clicks every menu item of the main form and closes what it opens; the
+//                                    items whose path contains one of the texts are skipped
+//   cellclick <grid> <row> <column>  clicks a cell of a data grid view (the column by its name or header text)
+//   cell <grid> <row> <column> <text> sets the value of a cell as an edit does
+//   selectrow <grid> <text>          selects the row of a data grid view or the item of a list view with the text
 //   log <text>                       writes the text to the output
 //   quit                             closes the application
 // Each executed command is written to the error output, so the log shows how far a script got.
@@ -159,6 +164,52 @@ namespace System.Windows.Forms
                     case "log":
                         Console.Error.WriteLine("[automation] " + argument);
                         break;
+                    case "cellclick":
+                    case "cell":
+                        {
+                            string[] a = argument.Split(new[] { ' ' }, command == "cell" ? 4 : 3);
+                            DataGridView grid = Find(ActiveForm(), a[0]) as DataGridView;
+                            if (grid == null) throw new InvalidOperationException("No grid " + a[0]);
+                            int row = int.Parse(a[1]);
+                            DataGridViewColumn column = grid.Columns.Cast<DataGridViewColumn>()
+                                .FirstOrDefault(c => c.Name == a[2] || c.HeaderText == a[2]) ??
+                                grid.Columns[int.Parse(a[2])];
+                            if (command == "cellclick") grid.AutomationClickCell(column.Index, row);
+                            else
+                            {
+                                grid.CurrentCell = grid.Rows[row].Cells[column.Index];
+                                grid.Rows[row].Cells[column.Index].Value = a.Length > 3 ? a[3] : "";
+                            }
+                            break;
+                        }
+                    case "selectrow":
+                        {
+                            string[] a = argument.Split(new[] { ' ' }, 2);
+                            Control control = Find(ActiveForm(), a[0]);
+                            if (control is DataGridView grid)
+                            {
+                                grid.ClearSelection();
+                                foreach (DataGridViewRow row in grid.Rows)
+                                {
+                                    if (row.Cells.Cast<DataGridViewCell>().Any(c => Convert.ToString(c.Value) == a[1]))
+                                    {
+                                        row.Selected = true;
+                                        grid.CurrentCell = row.Cells[0];
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (control is ListView list)
+                            {
+                                list.SelectedIndices.Clear();
+                                foreach (ListViewItem item in list.Items) if (item.Text == a[1]) item.Selected = true;
+                            }
+                            else throw new InvalidOperationException("No grid or list " + a[0]);
+                            break;
+                        }
+                    case "sweep":
+                        StartSweep(argument);
+                        break;
                     case "quit":
                         Environment.Exit(0);
                         break;
@@ -208,6 +259,91 @@ namespace System.Windows.Forms
             }
             // The 3D views draw with OpenGL, which the bitmap does not show; their own pictures are written next to it
             SnapshotHook?.Invoke(form, file);
+        }
+        // Menu sweep: every menu item is clicked once, then the forms and message boxes it opened are closed
+        public static bool Sweeping { get; private set; }
+        private static List<(string Path, ToolStripMenuItem Item)> _sweepItems;
+        private static int _sweepIndex;
+        private static DispatcherTimer _sweepTimer;
+        private static int _sweepPhase;
+        private static void StartSweep(string skipArgument)
+        {
+            string[] skip = (skipArgument ?? "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                                               .Select(t => t.Trim()).ToArray();
+            Form main = Application.OpenForms.Count > 0 ? Application.OpenForms[0] : null;
+            MenuStrip menu = main?.MainMenuStrip ?? FindAll(main).OfType<MenuStrip>().FirstOrDefault();
+            _sweepItems = new List<(string, ToolStripMenuItem)>();
+            if (menu != null) CollectMenuItems(menu.Items, "", skip);
+            _sweepIndex = 0;
+            _sweepPhase = 0;
+            Sweeping = true;
+            _commands.Clear();          // the sweep runs alone; quit follows it
+            _commands.Enqueue("quit");
+            _timer.Stop();
+            Console.Error.WriteLine("[sweep] " + _sweepItems.Count + " menu items");
+            _sweepTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+            _sweepTimer.Tick += (s, e) => SweepStep();
+            _sweepTimer.Start();
+        }
+        private static void CollectMenuItems(ToolStripItemCollection items, string path, string[] skip)
+        {
+            foreach (ToolStripItem item in items)
+            {
+                if (!(item is ToolStripMenuItem mi)) continue;
+                string itemPath = path + "/" + Clean(mi.Text);
+                if (skip.Any(t => itemPath.IndexOf(t, StringComparison.OrdinalIgnoreCase) >= 0)) continue;
+                if (mi.DropDownItems.Count > 0) CollectMenuItems(mi.DropDownItems, itemPath, skip);
+                else _sweepItems.Add((itemPath, mi));
+            }
+        }
+        private static void SweepStep()
+        {
+            _sweepTimer.Stop();
+            try
+            {
+                // Close what the previous item opened: message boxes first, then the forms other than the main form
+                if (WinFormsCompat.Native.MessageBoxWindow.OpenButtons != null)
+                {
+                    var buttons = WinFormsCompat.Native.MessageBoxWindow.OpenButtons;
+                    string answer = new[] { "Cancel", "No", "OK", "Yes" }.FirstOrDefault(b => buttons.ContainsKey(b)) ??
+                                    buttons.Keys.First();
+                    Console.Error.WriteLine("[sweep] message box answered " + answer);
+                    buttons[answer]();
+                    _sweepTimer.Start();
+                    return;
+                }
+                Form main = Application.OpenForms[0];
+                foreach (Form form in Application.OpenForms.Cast<Form>().ToArray())
+                {
+                    if (form == main || !form.Visible) continue;
+                    Control cancel = Find(form, "Cancel") ?? Find(form, "Close") ?? Find(form, "btnCancel") ?? Find(form, "btnClose");
+                    Console.Error.WriteLine("[sweep] closing " + form.Name);
+                    if (cancel is Button b && b.Visible && b.Enabled) b.PerformClick();
+                    else form.Close();
+                    if (form.Visible) form.Hide();
+                    _sweepTimer.Start();
+                    return;
+                }
+                if (_sweepIndex >= _sweepItems.Count)
+                {
+                    Sweeping = false;
+                    Console.Error.WriteLine("[sweep] done");
+                    _timer.Interval = TimeSpan.FromMilliseconds(500);
+                    _timer.Start();
+                    return;
+                }
+                var entry = _sweepItems[_sweepIndex++];
+                Console.Error.WriteLine("[sweep] " + entry.Path + (entry.Item.Enabled ? "" : " (disabled)"));
+                _sweepTimer.Interval = TimeSpan.FromMilliseconds(900);
+                _sweepTimer.Start();        // before the click: a modal dialog runs the next steps in its loop
+                if (entry.Item.Enabled) entry.Item.PerformClick();
+                return;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[sweep] exception: " + ex);
+            }
+            _sweepTimer.Start();
         }
         // Set by the application to add pictures of native views to a snapshot
         public static Action<Form, string> SnapshotHook;

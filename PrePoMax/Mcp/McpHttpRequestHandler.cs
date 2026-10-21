@@ -133,12 +133,14 @@ namespace PrePoMax.Mcp
             }
             if (request.ContentLength64 > MaximumBodyLength)
             {
+                DrainBody(request);
                 WriteText(413, "The request body must not exceed " + MaximumBodyLength + " bytes.");
                 return;
             }
             string body;
             if (!TryReadBody(request, out body))
             {
+                DrainBody(request);
                 WriteText(413, "The request body must not exceed " + MaximumBodyLength + " bytes.");
                 return;
             }
@@ -199,6 +201,25 @@ namespace PrePoMax.Mcp
                 body = new UTF8Encoding(false).GetString(bytes, start, bytes.Length - start);
             }
             return true;
+        }
+        // The body of a refused request is read to its end, up to a limit, before the answer is sent: a socket closed
+        // while the client is still sending resets the connection on macOS and Linux, and the client then never
+        // reads the answer
+        private static void DrainBody(HttpListenerRequest request)
+        {
+            const long MaximumDrainLength = 64L * 1024 * 1024;
+            try
+            {
+                byte[] buffer = new byte[64 * 1024];
+                long total = 0;
+                int count;
+                while (total < MaximumDrainLength &&
+                       (count = request.InputStream.Read(buffer, 0, buffer.Length)) > 0) total += count;
+            }
+            catch (Exception)
+            {
+                // The client is gone
+            }
         }
         private void WriteText(int statusCode, string message)
         {

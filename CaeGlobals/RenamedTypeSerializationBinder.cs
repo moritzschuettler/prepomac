@@ -51,13 +51,29 @@ namespace CaeGlobals
                 { "PrePoMax.SplitPartMeshData", "CaeMesh.SplitPartMeshData, CaeMesh" },
                 { "CaeMesh.SurfaceExtraction", "CaeMesh.FaceOffset, CaeMesh" },
                 // The extrude mesh item was removed; its selected source surfaces are swept by a sweep mesh item
-                { "CaeMesh.ExtrudeMesh", "CaeMesh.SweepMesh, CaeMesh" }
+                { "CaeMesh.ExtrudeMesh", "CaeMesh.SweepMesh, CaeMesh" },
+                // The lamina material of the composites modeler of Yvan Blanchard
+                { "CaeModel.Lamina", "CaeModel.ElasticLamina, CaeModel" },
+                { "CaeModel.EngineeringConstants", "CaeModel.ElasticEngineeringConstants, CaeModel" }
             };
         }
         public override Type BindToType(string assemblyName, string typeName)
         {
             Type unityHolder = BinaryFormatterTools.BindUnityHolder(typeName);
             if (unityHolder != null) return unityHolder;
+#if NET
+            // .NET (Core) loads an assembly only in the version the file names, the .NET Framework takes any version of an
+            // assembly without a strong name: files of other PrePoMax versions and of the Windows build name other versions
+            Type renamed = BindRenamedType(assemblyName, typeName);
+            Type type = renamed ?? BinaryFormatterTools.ResolveIgnoringVersions(assemblyName, typeName);
+            if (_trace) Console.Error.WriteLine("[binder] " + typeName + ", " + assemblyName + " -> " +
+                                                (type == null ? "default" : type.AssemblyQualifiedName));
+            return type;
+        }
+        private static readonly bool _trace = Environment.GetEnvironmentVariable("PPM_TRACE_BINDER") == "1";
+        private Type BindRenamedType(string assemblyName, string typeName)
+        {
+#endif
             if (_renamedTypeNames.Count == 0 || typeName == null) return null;
             //
             string renamedTypeName;

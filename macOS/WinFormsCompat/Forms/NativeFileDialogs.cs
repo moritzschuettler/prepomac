@@ -17,6 +17,12 @@ namespace System.Windows.Forms
         internal static DialogResult Show(CommonDialog dialog)
         {
             if (AutomationAnswers.Count > 0) return Answer(dialog, AutomationAnswers.Dequeue());
+            // A menu sweep of the test automation cancels every file dialog
+            if (Automation.Sweeping)
+            {
+                Console.Error.WriteLine("[sweep] file dialog cancelled");
+                return DialogResult.Cancel;
+            }
             //
             Avalonia.Controls.Window owner = OwnerWindow();
             IStorageProvider provider = owner?.StorageProvider;

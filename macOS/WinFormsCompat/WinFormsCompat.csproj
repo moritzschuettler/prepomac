@@ -2,6 +2,8 @@
   <!-- System.Windows.Forms and System.Drawing for macOS. The WinForms API that PrePoMax uses is implemented on Avalonia
        (controls, windows, layout) and SkiaSharp (painting, images, fonts), so that the PrePoMax forms run unchanged. -->
   <PropertyGroup>
+    <!-- The version of System.Drawing and System.Windows.Forms is set in AssemblyInfo.cs -->
+    <GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
     <AssemblyName>System.Windows.Forms</AssemblyName>
     <RootNamespace>System.Windows.Forms</RootNamespace>
     <NoWarn>$(NoWarn);CS0436;CS1685</NoWarn>
@@ -21,6 +23,7 @@
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.1" />
     <PackageReference Include="Avalonia.Themes.Simple" Version="11.3.1" />
+    <PackageReference Include="Avalonia.Headless" Version="11.3.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DrawingCompat\DrawingCompat.csproj" />

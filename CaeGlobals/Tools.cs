@@ -232,6 +232,40 @@ namespace CaeGlobals
                 }
             }
         }
+        // Opens a web page or a file with the program the system has for it; .NET Core starts a process without the
+        // shell unless asked to
+        public static void OpenInShell(string urlOrFileName)
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(urlOrFileName) { UseShellExecute = true });
+        }
+        // ccx prints "the PARDISO library is not linked" only when it was built without it, so the text is in the program
+        // exactly when the solver is missing (library: PARDISO, PASTIX)
+        private static readonly Dictionary<string, bool> _calculixSolverSupport = new Dictionary<string, bool>();
+        public static bool CalculixHasSolver(string executable, string library)
+        {
+            if (string.IsNullOrEmpty(executable) || !File.Exists(executable)) return true;
+            string key = executable + "|" + library;
+            lock (_calculixSolverSupport)
+            {
+                bool supported;
+                if (_calculixSolverSupport.TryGetValue(key, out supported)) return supported;
+                byte[] marker = Encoding.ASCII.GetBytes("the " + library + " library is not linked");
+                supported = true;
+                try
+                {
+                    byte[] program = File.ReadAllBytes(executable);
+                    for (int i = 0; i + marker.Length <= program.Length && supported; i++)
+                    {
+                        int k = 0;
+                        while (k < marker.Length && program[i + k] == marker[k]) k++;
+                        if (k == marker.Length) supported = false;
+                    }
+                }
+                catch { }
+                _calculixSolverSupport[key] = supported;
+                return supported;
+            }
+        }
         // Windows version
         public static string GetWindowsName()
         {

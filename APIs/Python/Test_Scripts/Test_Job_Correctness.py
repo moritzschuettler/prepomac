@@ -49,10 +49,17 @@ import tempfile
 import time
 
 PREFIX = "PyTest_Job_"
+# Names no path may hold: the characters Windows refuses are valid elsewhere, the null character is valid nowhere
+BAD_DIRECTORY = "C:\\bad<|>directory" if os.name == "nt" else "/tmp/bad\0directory"
+BAD_EXECUTABLE = "bad|solver.exe" if os.name == "nt" else "bad\0solver"
 # A shell that simply waits is a solver that never finishes, which is what a timeout needs
-SLEEPING_SOLVER = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "System32", "WindowsPowerShell",
-                               "v1.0", "powershell.exe")
-SLEEPING_ARGUMENT = "-NoProfile -NonInteractive -Command \"Start-Sleep -Seconds 30\""
+if os.name == "nt":
+    SLEEPING_SOLVER = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "System32", "WindowsPowerShell",
+                                   "v1.0", "powershell.exe")
+    SLEEPING_ARGUMENT = "-NoProfile -NonInteractive -Command \"Start-Sleep -Seconds 30\""
+else:
+    SLEEPING_SOLVER = "/bin/sleep"
+    SLEEPING_ARGUMENT = "30"
 
 
 def check(condition, message):
@@ -221,9 +228,13 @@ def test_a_solver_that_crashes(work):
     # A solver that ends with an exit code other than zero has failed, although it printed no error: a crashed
     # CalculiX stops without one, leaving the results of the steps before the crash
     name = PREFIX + "Crash"
-    pmx.jobs.add(name, fem_solver="Calculix", executable=SLEEPING_SOLVER,
-                 argument="-NoProfile -NonInteractive -Command \"Set-Content " + name + ".frd ('x' * 400); exit 3\"",
-                 work_directory=work)
+    if os.name == "nt":
+        executable = SLEEPING_SOLVER
+        argument = "-NoProfile -NonInteractive -Command \"Set-Content " + name + ".frd ('x' * 400); exit 3\""
+    else:
+        executable = "/bin/sh"
+        argument = "-c \"printf '%0400d' 0 > " + name + ".frd; exit 3\""
+    pmx.jobs.add(name, fem_solver="Calculix", executable=executable, argument=argument, work_directory=work)
     status = pmx.jobs[name].run(timeout=60)
     check(status == "FailedWithResults", "a solver that left results and exited with code 3 returned " + status)
     check("exit code 3" in pmx.jobs[name].get_output(), "the output must name the exit code")
@@ -275,16 +286,16 @@ def test_invalid_paths():
     # A path the file system cannot hold is refused naming the argument, before anything is recorded,
     # so the read-backs that build file names from it never meet it
     name = PREFIX + "BadPath"
-    check_refused(lambda: pmx.jobs.add(name, work_directory="C:\\bad<|>directory"), ["'work_directory'"],
+    check_refused(lambda: pmx.jobs.add(name, work_directory=BAD_DIRECTORY), ["'work_directory'"],
                   "an invalid work directory was accepted")
     check_refused(lambda: pmx.jobs.add(name, work_directory=""), ["'work_directory'"],
                   "an empty work directory was accepted")
-    check_refused(lambda: pmx.jobs.add(name, executable="bad|solver.exe"), ["'executable'"],
+    check_refused(lambda: pmx.jobs.add(name, executable=BAD_EXECUTABLE), ["'executable'"],
                   "an invalid executable was accepted")
     check(not pmx.jobs.contains(name), "a refused analysis was recorded")
     explicit = pmx.jobs[PREFIX + "Explicit"]
     work_directory = explicit.work_directory
-    check_refused(lambda: pmx.jobs.replace(PREFIX + "Explicit", work_directory="C:\\bad<|>directory"),
+    check_refused(lambda: pmx.jobs.replace(PREFIX + "Explicit", work_directory=BAD_DIRECTORY),
                   ["'work_directory'"], "a replace with an invalid work directory was accepted")
     check(explicit.work_directory == work_directory, "a refused replace changed the work directory")
     check(explicit.results_file_name.startswith(work_directory), "the results file name must still read back")
@@ -303,6 +314,17 @@ def test_environment_variable_refusals():
 
 def wait_for_solver_process(timeout_seconds):
     """True once the sleeping solver runs as a child of this process, False when it did not start in time."""
+    if os.name != "nt":
+        # pgrep lists the children of this process by the name of the solver
+        import subprocess
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline:
+            found = subprocess.run(["pgrep", "-P", str(os.getpid()), "-x", os.path.basename(SLEEPING_SOLVER)],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if found.returncode == 0:
+                return True
+            time.sleep(0.1)
+        return False
     import clr
     clr.AddReference("System.Management")
     from System.Diagnostics import Process
@@ -1311,8 +1333,12 @@ def test_axisymmetric_section_print_per_revolution(work):
                                                                              'Edge'))
     check(pmx.model.parts.get_element_types(part.name) == {'linear_tria': 'CAX3', 'linear_quad': 'CAX4'},
           "the mixed ring has the element types " + str(pmx.model.parts.get_element_types(part.name)))
-    # CAX3 for 2 degrees and CAX4 for 1 degree: no single factor is right, so the history is left as CalculiX gives it
-    segment_area = math.pi * (15.0 ** 2 - 10.0 ** 2) / 180 + math.pi * (20.0 ** 2 - 15.0 ** 2) / 360
+    # CAX3 for 2 degrees and CAX4 for 1 degree: no single factor is right, so the history is left as CalculiX gives it.
+    # The ccx builds of macOS write CAX4 for 2 degrees as well, so there the history is given for the full revolution
+    if os.name == "nt":
+        segment_area = math.pi * (15.0 ** 2 - 10.0 ** 2) / 180 + math.pi * (20.0 ** 2 - 15.0 ** 2) / 360
+    else:
+        segment_area = revolved_area
     area, _ = run_ring_section_print(PREFIX + "Axi_Section_CAX3_CAX4", work)
     check(abs(area - segment_area) < 1e-3 * segment_area, "the section print of CAX3 and CAX4 elements of an " +
           "axisymmetric model is not left as CalculiX writes it: the area is " + str(area) + " instead of " +
@@ -1482,9 +1508,28 @@ def test_axisymmetric_buckling_per_revolution(work):
           " in the history and " + str(integrated) + " in the field instead of one half, after the base state")
 
 
+def calculix_has_pardiso():
+    """Whether the CalculiX of the settings is linked with PARDISO, as the ccx of Windows is."""
+    probe = PREFIX + "Pardiso_Probe"
+    pmx.jobs.add(probe)
+    executable = pmx.jobs[probe].executable
+    pmx.jobs.remove(probe)
+    # A ccx without PARDISO says so in a message it carries: the PARDISO library is not linked
+    try:
+        with open(executable, "rb") as program:
+            return b"the PARDISO library is not linked" not in program.read()
+    except (IOError, OSError):
+        return True
+
+
 def test_axisymmetric_gap_and_mass_per_revolution(work):
     # A compression only support acts on the 2 degree segment like a spring, so its stiffness is given for the full
     # revolution. The gap is closed by a nonlinear step, as a linear one takes half its stiffness at the closure
+    if os.name != "nt" and not calculix_has_pardiso():
+        # The open gaps leave the matrix singular for SPOOLES, the only direct solver of the macOS builds of ccx
+        print("Skipped the compression only support: the ccx has no PARDISO solver, and SPOOLES finds the matrix of "
+              "the open gaps singular.")
+        return
     revolved_area = math.pi * (20.0 ** 2 - 10.0 ** 2)
     add_ring_section(PREFIX + "Stiff_Light", [pmx.create.elastic(1e9, 0), pmx.create.density(1e-15)])
     pmx.model.constraints.add_compression_only(PREFIX + "Ring_Support",

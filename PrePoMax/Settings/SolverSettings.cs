@@ -80,7 +80,15 @@ namespace PrePoMax
         }
         public SolverTypeEnum CalculixDefaultSolverType
         {
-            get { return _calculixDefaultSolverType; }
+            get
+            {
+                // A ccx built without PARDISO or PaStiX (the Homebrew builds of macOS) solves with SPOOLES
+                if (Environment.OSVersion.Platform != PlatformID.Win32NT &&
+                    (_calculixDefaultSolverType == SolverTypeEnum.Pardiso || _calculixDefaultSolverType == SolverTypeEnum.PaStiX) &&
+                    !Tools.CalculixHasSolver(CalculixExe, _calculixDefaultSolverType == SolverTypeEnum.Pardiso ? "PARDISO" : "PASTIX"))
+                    return SolverTypeEnum.Spooles;
+                return _calculixDefaultSolverType;
+            }
             set { _calculixDefaultSolverType = value; }
         }
         public List<EnvironmentVariable> EnvironmentVariables

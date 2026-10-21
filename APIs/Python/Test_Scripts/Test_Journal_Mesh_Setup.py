@@ -25,12 +25,16 @@ import tempfile
 import time
 import urllib.request
 
+# The settings file Run_Tests.py was given with --settings: the automation server of a child session serves only with
+# the access token of its settings, so the children read the same file
+TEST_SETTINGS = ["--settings", os.environ["PPM_TEST_SETTINGS"]] if os.environ.get("PPM_TEST_SETTINGS") else []
+
 # A console program started from a process without a visible console opens a window of its own
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 MODEL = "box_and_cylinder.brep"
-SESSIONS = os.path.join(os.environ["LOCALAPPDATA"], "PrePoMax", "sessions")
+SESSIONS = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~/Library/Application Support")), "PrePoMax", "sessions")
 PROTOCOL_VERSION = "2024-11-05"
 CHILD_TIMEOUT = 600
 PREFIX = "PyTest_Journal_"
@@ -143,7 +147,7 @@ class ChildSession(object):
         self.directory = tempfile.mkdtemp(prefix="journal_mesh_setup_")
         self.log = open(os.path.join(self.directory, "child.log"), "w")
         arguments = [sys.executable, "--rpc", "On", "--rpcPort", str(free_port()), "-g", "No",
-                     "--noSettingsSave", "--timeout", str(CHILD_TIMEOUT), "-w", self.directory,
+                     "--noSettingsSave", *TEST_SETTINGS, "--timeout", str(CHILD_TIMEOUT), "-w", self.directory,
                      "-f", os.path.join(MODELS, MODEL), "-u", "MM_TON_S_C"]
         self.process = subprocess.Popen(arguments, stdout=self.log, stderr=subprocess.STDOUT, creationflags=NO_WINDOW)
 

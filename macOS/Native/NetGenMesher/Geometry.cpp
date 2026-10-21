@@ -121,24 +121,71 @@ namespace ngm
             {
                 TopoDS_Shape shape;
                 if (!ReadShape(args[0], shape, kind)) return 1;
-                if (shape.ShapeType() == TopAbs_COMPOUND && toCompounds)
-                {
-                    for (TopoDS_Iterator it(shape); it.More(); it.Next()) bodies.push_back(it.Value());
-                }
-                else bodies.push_back(shape);
+                // The solids that share faces are found over the whole file
+                bodies.push_back(shape);
             }
             int partCount = 0, compoundCount = 0;
             for (const TopoDS_Shape& body : bodies)
             {
-                // A body of several solids, such as a multi-body product of a STEP file, stays one compound part
-                if (toCompounds && kind != "IGES" && CountSolids(body) > 1 &&
-                    (body.ShapeType() == TopAbs_COMPOUND || body.ShapeType() == TopAbs_COMPSOLID))
+                // Solids that share faces (a part cut into cells, fragmented solids) are one compound part; solids that
+                // only lie side by side and the free shells and faces are parts of their own
+                std::vector<TopoDS_Shape> parts = GetParts(body);
+                std::vector<TopoDS_Shape> solids, others;
+                for (const TopoDS_Shape& part : parts)
+                    (part.ShapeType() == TopAbs_SOLID ? solids : others).push_back(part);
+                std::vector<int> group(solids.size(), -1);
+                std::vector<std::vector<int>> groups;
+                if (toCompounds)
                 {
-                    TopoDS_Shape divided = SplitClosedFaces(body, numOfSplitFaces);
-                    if (!WriteBrep(divided, Numbered(base, "_compound_", ++compoundCount))) return 1;
-                    continue;
+                    std::vector<TopTools_IndexedMapOfShape> faces(solids.size());
+                    for (size_t i = 0; i < solids.size(); i++) TopExp::MapShapes(solids[i], TopAbs_FACE, faces[i]);
+                    for (size_t i = 0; i < solids.size(); i++)
+                    {
+                        if (group[i] >= 0) continue;
+                        group[i] = (int)groups.size();
+                        groups.push_back({ (int)i });
+                        for (size_t g = 0; g < groups.back().size(); g++)
+                        {
+                            int a = groups.back()[g];
+                            for (size_t j = 0; j < solids.size(); j++)
+                            {
+                                if (group[j] >= 0) continue;
+                                bool shared = false;
+                                for (int f = 1; f <= faces[j].Extent() && !shared; f++) shared = faces[a].Contains(faces[j](f));
+                                if (shared)
+                                {
+                                    group[j] = group[i];
+                                    groups.back().push_back((int)j);
+                                }
+                            }
+                        }
+                    }
                 }
-                for (const TopoDS_Shape& part : GetParts(body))
+                else for (size_t i = 0; i < solids.size(); i++) groups.push_back({ (int)i });
+                // A body of several solids a STEP product makes is one compound part as well
+                bool oneCompound = toCompounds && kind != "IGES" && solids.size() > 1 && groups.size() > 1 &&
+                                   kind == "STEP" && others.empty() &&
+                                   (body.ShapeType() == TopAbs_COMPOUND || body.ShapeType() == TopAbs_COMPSOLID) &&
+                                   bodies.size() > 1;
+                if (oneCompound) groups = { [&]() { std::vector<int> all; for (size_t i = 0; i < solids.size(); i++) all.push_back((int)i); return all; }() };
+                for (auto& members : groups)
+                {
+                    if (members.size() > 1)
+                    {
+                        TopoDS_Compound compound;
+                        BRep_Builder builder;
+                        builder.MakeCompound(compound);
+                        for (int m : members) builder.Add(compound, solids[m]);
+                        TopoDS_Shape divided = SplitClosedFaces(compound, numOfSplitFaces);
+                        if (!WriteBrep(divided, Numbered(base, "_compound_", ++compoundCount))) return 1;
+                    }
+                    else
+                    {
+                        TopoDS_Shape divided = SplitClosedFaces(solids[members[0]], numOfSplitFaces);
+                        if (!WriteBrep(divided, Numbered(base, "_", ++partCount))) return 1;
+                    }
+                }
+                for (const TopoDS_Shape& part : others)
                 {
                     TopoDS_Shape divided = SplitClosedFaces(part, numOfSplitFaces);
                     if (!WriteBrep(divided, Numbered(base, "_", ++partCount))) return 1;

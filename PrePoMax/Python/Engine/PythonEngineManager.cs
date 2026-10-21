@@ -206,9 +206,66 @@ namespace PrePoMax.Python
                 }
             }
         }
+        private static string ToPythonString(string text)
+        {
+            return "'" + text.Replace("\\", "\\\\").Replace("'", "\\'") + "'";
+        }
+        // The shared Python library and its home (the folder with lib/python3.x) on macOS
+        private static bool FindMacPython(out string library, out string home)
+        {
+            library = null;
+            home = null;
+            List<string> homes = new List<string>();
+            string bundled = Path.Combine(Application.StartupPath, "Python");
+            homes.Add(bundled);
+            string[] minors = { "12", "13", "11", "10" };
+            foreach (string minor in minors)
+            {
+                homes.Add("/opt/homebrew/opt/python@3." + minor + "/Frameworks/Python.framework/Versions/3." + minor);
+                homes.Add("/Library/Frameworks/Python.framework/Versions/3." + minor);
+                homes.Add("/usr/local/opt/python@3." + minor + "/Frameworks/Python.framework/Versions/3." + minor);
+            }
+            foreach (string candidate in homes)
+            {
+                if (!Directory.Exists(candidate)) continue;
+                foreach (string minor in minors)
+                {
+                    foreach (string name in new[] { "lib/libpython3." + minor + ".dylib", "Python" })
+                    {
+                        string fileName = Path.Combine(candidate, name);
+                        if (File.Exists(fileName) && Directory.Exists(Path.Combine(candidate, "lib", "python3." + minor)))
+                        {
+                            library = fileName;
+                            home = candidate;
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
         private static void StartEngine()
         {
             if (_engineStarted) return;
+            // macOS: the Python of the application bundle or an installed Python 3
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                string library, home;
+                if (!FindMacPython(out library, out home))
+                    throw new FileNotFoundException("Python 3.10 to 3.13 was not found. Install it, for example with " +
+                                                    "'brew install python@3.12'.", "libpython3.dylib");
+                Runtime.PythonDLL = library;
+                PythonEngine.PythonHome = home;
+                _pythonHome = home;
+                PythonEngine.Initialize();
+                // As in the embedded Python of Windows the program that hosts Python is sys.executable, so a script
+                // starts another PrePoMax session with it
+                string host = Path.Combine(Application.StartupPath, "PrePoMax");
+                PythonEngine.RunSimpleString("import sys\nsys.executable = " + ToPythonString(host) + "\n");
+                PythonEngine.BeginAllowThreads();
+                _engineStarted = true;
+                return;
+            }
             //
             string pythonDll = Application.StartupPath + Globals.PythonDll;
             string pythonDir = Path.GetDirectoryName(pythonDll);
@@ -568,7 +625,9 @@ namespace PrePoMax.Python
                     PythonExecution execution = BeginExecution();
                     try
                     {
-                        PythonEngine.Exec(code, null, _scope);
+                        // The scope is the globals, as for a script and the console: with separate globals a
+                        // comprehension or a function cannot see its names before Python 3.12
+                        PythonEngine.Exec(code, _scope);
                     }
                     finally
                     {
@@ -614,7 +673,7 @@ namespace PrePoMax.Python
                     PythonExecution execution = BeginExecution();
                     try
                     {
-                        using (PyObject value = PythonEngine.Eval(expression, null, _scope))
+                        using (PyObject value = PythonEngine.Eval(expression, _scope))
                         {
                             result.Repr = GetRepr(value);
                             result.Text = value == null ? "" : value.ToString();
@@ -666,7 +725,7 @@ namespace PrePoMax.Python
             {
                 try
                 {
-                    using (PyObject value = PythonEngine.Eval(expression, null, _scope))
+                    using (PyObject value = PythonEngine.Eval(expression, _scope))
                     {
                         try
                         {

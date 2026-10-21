@@ -304,3 +304,5 @@ PrePoMax.Mac/
 /generate_binaries.bat
 /prepomax-composites_V0.2.0-winb64_20260408_104920.zip
 /generate_binaries.bat
+macOS/Native/Mmg/src/
+macOS/Native/Mmg/build/

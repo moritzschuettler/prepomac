@@ -6,6 +6,8 @@
 //   BREP_MERGE_SOLIDS <in> <out> <solid ids>        the solids fused into one; <out>.origins is written
 #include "Common.h"
 
+#include <TopTools_MapOfShape.hxx>
+
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepBuilderAPI_MakeSolid.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
@@ -137,7 +139,29 @@ namespace ngm
             fuse.Build();
             if (!fuse.IsDone()) { Error("The solids could not be merged."); return 1; }
             ShapeUpgrade_UnifySameDomain unify(fuse.Shape(), true, true, false);
+            // The faces the merged solid shares with the other solids stay divided as those solids divide them: their
+            // edges are kept
+            TopTools_MapOfShape keep;
+            for (int i = 1; i <= maps.solids.Extent(); i++)
+            {
+                if (merged.count(i)) continue;
+                for (TopExp_Explorer ex(maps.solids(i), TopAbs_EDGE); ex.More(); ex.Next())
+                {
+                    keep.Add(ex.Current());
+                    for (TopTools_ListIteratorOfListOfShape it(fuse.Modified(ex.Current())); it.More(); it.Next())
+                        keep.Add(it.Value());
+                }
+            }
+            unify.KeepShapes(keep);
             unify.Build();
+            // Solids that do not touch over faces stay apart, and are not merged
+            int numOfMerged = 0;
+            for (TopExp_Explorer ex(unify.Shape(), TopAbs_SOLID); ex.More(); ex.Next()) numOfMerged++;
+            if (merged.size() > 1 && numOfMerged != 1)
+            {
+                Error("The solids could not be merged into one solid: they must touch over faces.");
+                return 1;
+            }
             TopoDS_Compound compound;
             BRep_Builder builder;
             builder.MakeCompound(compound);

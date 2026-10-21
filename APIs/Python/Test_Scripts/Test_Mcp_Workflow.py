@@ -30,11 +30,47 @@ import time
 import urllib.error
 import urllib.request
 
+# The settings file Run_Tests.py was given with --settings: the automation server of a child session serves only with
+# the access token of its settings, so the children read the same file
+TEST_SETTINGS = ["--settings", os.environ["PPM_TEST_SETTINGS"]] if os.environ.get("PPM_TEST_SETTINGS") else []
+
+
+class _SocketPipe(object):
+    """The automation pipe outside Windows: .NET serves a named pipe there as a Unix domain socket."""
+
+    def __init__(self, path):
+        import socket
+        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            self._socket.connect(path)
+        except OSError:
+            self._socket.close()
+            raise
+        self._io = self._socket.makefile("rwb", buffering=0)
+
+    def write(self, data):
+        self._io.write(data)
+
+    def read(self, size):
+        return self._io.read(size)
+
+    def close(self):
+        self._io.close()
+        self._socket.close()
+
+
+def open_pipe(process_id):
+    """Opens the automation pipe of the PrePoMax process with the id, on Windows and elsewhere."""
+    if os.name == "nt":
+        return open("\\\\.\\pipe\\PrePoMax." + str(process_id), "r+b", buffering=0)
+    import tempfile as _tempfile
+    return _SocketPipe(os.path.join(_tempfile.gettempdir(), "CoreFxPipe_PrePoMax." + str(process_id)))
+
 # A console program started from a process without a visible console opens a window of its own
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
-SESSIONS = os.path.join(os.environ["LOCALAPPDATA"], "PrePoMax", "sessions")
+SESSIONS = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~/Library/Application Support")), "PrePoMax", "sessions")
 PROTOCOL_VERSION = "2024-11-05"
 CHILD_TIMEOUT = 600
 PREFIX = "Mcp_"
@@ -140,7 +176,7 @@ class PipeProbe(object):
         deadline = time.time() + timeout
         while True:
             try:
-                self._pipe = open(self.name, "r+b", buffering=0)
+                self._pipe = open_pipe(process_id)
                 return
             except (IOError, OSError):
                 if time.time() > deadline:
@@ -172,7 +208,7 @@ class ChildSession(object):
         self.directory = tempfile.mkdtemp(prefix="mcp_flow_")
         self.log = open(os.path.join(self.directory, "child.log"), "w")
         arguments = [sys.executable, "--rpc", "On", "--rpcPort", str(free_port()), "-g", "No",
-                     "--noSettingsSave", "--timeout", str(CHILD_TIMEOUT), "-w", self.directory]
+                     "--noSettingsSave", *TEST_SETTINGS, "--timeout", str(CHILD_TIMEOUT), "-w", self.directory]
         if model is not None:
             arguments += ["-f", os.path.join(MODELS, model), "-u", unit_system]
         self.process = subprocess.Popen(arguments, stdout=self.log, stderr=subprocess.STDOUT, creationflags=NO_WINDOW)

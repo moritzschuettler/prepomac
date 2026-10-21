@@ -883,7 +883,18 @@ namespace CaeJob
             {
                 string outputData = _sbOutput.ToString();
                 //
-                if (_outputFileName != null) File.AppendAllText(_outputFileName, outputData);
+                if (_outputFileName != null)
+                {
+                    try
+                    {
+                        File.AppendAllText(_outputFileName, outputData);
+                    }
+                    catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        // The work directory was removed while the job ran: the output stays in memory only
+                        _outputFileName = null;
+                    }
+                }
                 //
                 GetDatFileContents();
                 GetStatusFileContents();

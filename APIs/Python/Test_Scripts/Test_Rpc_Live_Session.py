@@ -73,6 +73,42 @@ import sys
 import tempfile
 import time
 
+# The settings file Run_Tests.py was given with --settings: the automation server of a child session serves only with
+# the access token of its settings, so the children read the same file
+TEST_SETTINGS = ["--settings", os.environ["PPM_TEST_SETTINGS"]] if os.environ.get("PPM_TEST_SETTINGS") else []
+
+
+class _SocketPipe(object):
+    """The automation pipe outside Windows: .NET serves a named pipe there as a Unix domain socket."""
+
+    def __init__(self, path):
+        import socket
+        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            self._socket.connect(path)
+        except OSError:
+            self._socket.close()
+            raise
+        self._io = self._socket.makefile("rwb", buffering=0)
+
+    def write(self, data):
+        self._io.write(data)
+
+    def read(self, size):
+        return self._io.read(size)
+
+    def close(self):
+        self._io.close()
+        self._socket.close()
+
+
+def open_pipe(process_id):
+    """Opens the automation pipe of the PrePoMax process with the id, on Windows and elsewhere."""
+    if os.name == "nt":
+        return open("\\\\.\\pipe\\PrePoMax." + str(process_id), "r+b", buffering=0)
+    import tempfile as _tempfile
+    return _SocketPipe(os.path.join(_tempfile.gettempdir(), "CoreFxPipe_PrePoMax." + str(process_id)))
+
 # A console program started from a process without a visible console opens a window of its own
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -121,7 +157,7 @@ class Client(object):
         deadline = time.time() + timeout
         while True:
             try:
-                self._pipe = open(name, "r+b", buffering=0)
+                self._pipe = open_pipe(pid)
                 return
             except (IOError, OSError):
                 # The child is still starting: it opens the pipe once the window is up
@@ -174,7 +210,7 @@ class ChildSession(object):
         # test is about
         if file_name is None:
             file_name = os.path.join(MODELS, "cube.inp")
-        self.process = subprocess.Popen([sys.executable, "--rpc", mode, "-g", "No", "--noSettingsSave",
+        self.process = subprocess.Popen([sys.executable, "--rpc", mode, "-g", "No", "--noSettingsSave", *TEST_SETTINGS,
                                          "-f", file_name, "-u", "MM_TON_S_C",
                                          "--timeout", str(CHILD_TIMEOUT), "-w", self.directory] +
                                         (arguments or []),
@@ -964,7 +1000,7 @@ def check_journal_of_compound_group(client):
     # A regeneration skips a mesh of a part it cannot find and still ends successfully, so the model it writes
     # is what is checked
     completed = subprocess.run([sys.executable, "-r", saved, "-o", "Yes", "-g", "No", "-x", "Yes", "-w", directory,
-                                "--noSettingsSave", "--timeout", str(CHILD_TIMEOUT)],
+                                "--noSettingsSave", *TEST_SETTINGS, "--timeout", str(CHILD_TIMEOUT)],
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=CHILD_TIMEOUT + 60,
                                creationflags=NO_WINDOW)
     output = completed.stdout.decode("utf-8", "replace")

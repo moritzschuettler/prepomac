@@ -782,7 +782,8 @@ namespace System.Windows.Forms
         {
             get
             {
-                if (_window != null && _window.IsVisible)
+                // Off the UI thread the window cannot be asked, and the position last set is the answer
+                if (_window != null && Dispatcher.UIThread.CheckAccess() && _window.IsVisible && !IsPlacedOffScreen)
                 {
                     double scaling = _window.DesktopScaling;
                     return new Point((int)Math.Round(_window.Position.X / scaling), (int)Math.Round(_window.Position.Y / scaling));
@@ -933,9 +934,13 @@ namespace System.Windows.Forms
             catch { }
         }
         private bool _syncingSize;
+        private bool IsPlacedOffScreen { get { return _locationSet && (_location.X <= -10000 || _location.Y <= -10000); } }
         private void OnWindowResized()
         {
             if (_window == null || _syncingSize) return;
+            // A window placed off screen, as a session without a window is, is fitted onto the screen by macOS; it keeps
+            // the size it was given, as it does on Windows, so the viewport and what is picked in it stay the same
+            if (IsPlacedOffScreen) return;
             Size client = new Size((int)Math.Round(_window.ClientSize.Width), (int)Math.Round(_window.ClientSize.Height));
             if (client == ClientSize) return;
             _syncingSize = true;

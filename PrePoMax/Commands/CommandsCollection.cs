@@ -107,7 +107,8 @@ namespace PrePoMax.Commands
 
 
         // Events                                                                                                                   
-        public event Action<string, string> EnableDisableUndoRedo;
+        // The subscriber is the controller, which is not saved with the commands
+        [field: NonSerialized] public event Action<string, string> EnableDisableUndoRedo;
 
 
         // Constructor                                                                                                              

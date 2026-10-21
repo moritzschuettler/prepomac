@@ -112,11 +112,16 @@ def sleep_past_the_time_limit():
 
 
 def cancel_this_run():
-    # PrePoMax.com signals this event on Ctrl+C, and the application ends the run as cancelled
-    import System
-    from System.Threading import EventWaitHandle
-    process_id = System.Diagnostics.Process.GetCurrentProcess().Id
-    EventWaitHandle.OpenExisting("PrePoMax.Cancel." + str(process_id)).Set()
+    # PrePoMax.com signals this event on Ctrl+C, and the application ends the run as cancelled. On macOS and Linux
+    # Ctrl+C reaches the application as SIGINT
+    if os.name != "nt":
+        import signal
+        os.kill(os.getpid(), signal.SIGINT)
+    else:
+        import System
+        from System.Threading import EventWaitHandle
+        process_id = System.Diagnostics.Process.GetCurrentProcess().Id
+        EventWaitHandle.OpenExisting("PrePoMax.Cancel." + str(process_id)).Set()
     deadline = time.time() + SLEEP_SECONDS
     while time.time() < deadline:
         time.sleep(0.5)

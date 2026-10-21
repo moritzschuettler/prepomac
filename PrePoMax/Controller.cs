@@ -3711,7 +3711,7 @@ namespace PrePoMax
         }
         public void ExportResultParts(string[] partNames, string fileName, ResultsExportFormatEnum format)
         {
-            if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null ||
+            if (_allResults.CurrentResult == null || _allResults.CurrentResult?.Mesh == null ||
                 _allResults.CurrentResult.Mesh.Parts == null)
                 throw new CaeException("There is no result to export.");
             if (format == ResultsExportFormatEnum.Stl && _currentFieldData == null)
@@ -22020,6 +22020,29 @@ namespace PrePoMax
                 EndUpdateBatch();
             }
         }
+        // A model of the Windows build solves with PARDISO, which the ccx builds of macOS do not have: their steps are
+        // solved with SPOOLES
+        private void ReplaceMissingCalculixSolvers(string inputFileName, string executable)
+        {
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT || !File.Exists(inputFileName)) return;
+            string[] lines = File.ReadAllLines(inputFileName);
+            bool changed = false;
+            foreach (string library in new[] { "PARDISO", "PASTIX" })
+            {
+                if (Tools.CalculixHasSolver(executable, library)) continue;
+                System.Text.RegularExpressions.Regex solver = new System.Text.RegularExpressions.Regex(
+                    @"(,\s*solver\s*=\s*)" + library + @"\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    if (!lines[i].StartsWith("*") || !solver.IsMatch(lines[i])) continue;
+                    lines[i] = solver.Replace(lines[i], "${1}Spooles");
+                    changed = true;
+                }
+                if (changed) _form.WriteDataToOutput("The ccx " + executable + " has no " + library + " solver: the " +
+                                                     "steps are solved with SPOOLES.");
+            }
+            if (changed) File.WriteAllLines(inputFileName, lines);
+        }
         public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool asynchronous = true, int timeoutMilliseconds = 0)
         {
             // OpenRadioss reads a .rad starter file, the other solvers an .inp file
@@ -22361,7 +22384,11 @@ namespace PrePoMax
         }
         private bool RunJob(string inputFileName, AnalysisJob job, bool useBackgroundWorker = true, int timeoutMilliseconds = 0)
         {
-            if (job.FEMSolver == FEMSolverEnum.Calculix) ExportToCalculix(inputFileName);
+            if (job.FEMSolver == FEMSolverEnum.Calculix)
+            {
+                ExportToCalculix(inputFileName);
+                ReplaceMissingCalculixSolvers(inputFileName, job.Executable);
+            }
             else if (job.FEMSolver == FEMSolverEnum.Abaqus) ExportToAbaqus(inputFileName);
             else if (job.FEMSolver == FEMSolverEnum.FEMaster) ExportToCalculix(inputFileName, null, false);
             else if (job.FEMSolver == FEMSolverEnum.OpenRadioss)
@@ -22810,7 +22837,7 @@ namespace PrePoMax
         //******************************************************************************************
         public string[] GetResultPartNames()
         {
-            if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return null;
+            if (_allResults.CurrentResult == null || _allResults.CurrentResult?.Mesh == null) return null;
             return _allResults.CurrentResult.Mesh.Parts.Keys.ToArray();
         }
         public BasePart GetResultPart(string partName)
@@ -22830,7 +22857,7 @@ namespace PrePoMax
         }
         public BasePart[] GetResultParts()
         {
-            if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return null;
+            if (_allResults.CurrentResult == null || _allResults.CurrentResult?.Mesh == null) return null;
             //
             int i = 0;
             BasePart[] parts = new BasePart[_allResults.CurrentResult.Mesh.Parts.Count];
@@ -22839,7 +22866,7 @@ namespace PrePoMax
         }
         public BasePart[] GetResultParts<T>()
         {
-            if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return null;
+            if (_allResults.CurrentResult == null || _allResults.CurrentResult?.Mesh == null) return null;
             //
             List<BasePart> parts = new List<BasePart>();
             foreach (var entry in _allResults.CurrentResult.Mesh.Parts)
@@ -23154,7 +23181,7 @@ namespace PrePoMax
         }
         public FeReferencePoint[] GetAllResultReferencePoints()
         {
-            if (_allResults.CurrentResult.Mesh == null) return null;
+            if (_allResults.CurrentResult?.Mesh == null) return null;
             return _allResults.CurrentResult.Mesh.ReferencePoints.Values.ToArray();
         }
         public void HideResultReferencePoints(string[] referencePointNames)
@@ -23499,7 +23526,7 @@ namespace PrePoMax
         }
         public int[] GetResultStepIDs()
         {
-            if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return new int[0]; // on empty model
+            if (_allResults.CurrentResult == null || _allResults.CurrentResult?.Mesh == null) return new int[0]; // on empty model
             //
             return _allResults.CurrentResult.GetAllStepIds();
         }
@@ -23519,11 +23546,11 @@ namespace PrePoMax
         }
         public ResultFieldOutput[] GetResultFieldOutputs()
         {
-            return _allResults.CurrentResult.GetResultFieldOutputs();
+            return _allResults.CurrentResult?.GetResultFieldOutputs() ?? new ResultFieldOutput[0];
         }
         public NamedClass[] GetVisibleResultFieldOutputsAsNamedItems()
         {
-            return _allResults.CurrentResult.GetVisibleFieldsAsNamedItems();
+            return _allResults.CurrentResult?.GetVisibleFieldsAsNamedItems() ?? new NamedClass[0];
         }
         public ResultFieldOutput GetResultFieldOutput(string resultFieldOutputName)
         {
@@ -23668,7 +23695,7 @@ namespace PrePoMax
         }
         public NamedClass[] GetResultHistoryOutputsAsNamedItems()
         {
-            return _allResults.CurrentResult.GetHistoryOutputsAsNamedItems();
+            return _allResults.CurrentResult?.GetHistoryOutputsAsNamedItems() ?? new NamedClass[0];
         }
         public void GetHistoryOutputData(HistoryResultData historyData, out string[] columnNames, out object[][] rowBasedData,
                                          bool forCsv)
@@ -23687,7 +23714,7 @@ namespace PrePoMax
         }
         public ResultHistoryOutput[] GetResultHistoryOutputs()
         {
-            return _allResults.CurrentResult.GetResultHistoryOutputs();
+            return _allResults.CurrentResult?.GetResultHistoryOutputs() ?? new ResultHistoryOutput[0];
         }
         public ResultHistoryOutput GetResultHistoryOutput(string resultHistoryOutputName)
         {
@@ -27867,7 +27894,7 @@ namespace PrePoMax
             {
 
                 if (_currentView != ViewGeometryModelResults.Results || _allResults.CurrentResult == null ||
-                    _allResults.CurrentResult.Mesh == null || _allResults.CurrentResult.Mesh.Parts.Count == 0) return;
+                    _allResults.CurrentResult?.Mesh == null || _allResults.CurrentResult.Mesh.Parts.Count == 0) return;
                 // Clear
                 _form.ClearButKeepParts();
                 //
@@ -33208,7 +33235,7 @@ namespace PrePoMax
                     _form.Clear3D();    // Removes section cut
                     ClearAnimationLocatorData();
                     //
-                    if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return;
+                    if (_allResults.CurrentResult == null || _allResults.CurrentResult?.Mesh == null) return;
                     if (_allResults.CurrentResult.GetAllComponentNames().Length == 0)
                         _viewResultsType = ViewResultsTypeEnum.Undeformed;
                     //
@@ -33957,7 +33984,7 @@ namespace PrePoMax
             _form.Clear3D();
             ClearAnimationLocatorData();
             //
-            if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return false;
+            if (_allResults.CurrentResult == null || _allResults.CurrentResult?.Mesh == null) return false;
             if (_allResults.CurrentResult.GetAllComponentNames().Length == 0) _viewResultsType = ViewResultsTypeEnum.Undeformed;
             //
             ApplyResultsUnitSystem();
@@ -34069,7 +34096,7 @@ namespace PrePoMax
             _form.Clear3D();
             //
             numFrames = -1;
-            if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return false;
+            if (_allResults.CurrentResult == null || _allResults.CurrentResult?.Mesh == null) return false;
             if (_allResults.CurrentResult.GetAllComponentNames().Length == 0) _viewResultsType = ViewResultsTypeEnum.Undeformed;
             //
             ApplyResultsUnitSystem();
@@ -34239,7 +34266,7 @@ namespace PrePoMax
         public bool DrawHarmonicAnimation(int numFrames)
         {
             ClearAnimationLocatorData();
-            if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return false;
+            if (_allResults.CurrentResult == null || _allResults.CurrentResult?.Mesh == null) return false;
             if (_allResults.CurrentResult.GetAllComponentNames().Length == 0) _viewResultsType = ViewResultsTypeEnum.Undeformed;
             //
             float scale = GetScale();
@@ -34570,7 +34597,7 @@ namespace PrePoMax
         }
         public void UpdatePartsScalarFields()
         {
-            if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return;
+            if (_allResults.CurrentResult == null || _allResults.CurrentResult?.Mesh == null) return;
             // Settings                                                              
             SetPostLegendAndStatusBlockSettings();
             //

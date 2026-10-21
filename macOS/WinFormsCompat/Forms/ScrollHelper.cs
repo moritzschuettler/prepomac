@@ -51,9 +51,21 @@ namespace System.Windows.Forms
                 return new Rect(insets.Left, insets.Top + client.Height - h, Math.Max(0, client.Width - (VerticalVisible ? SystemInformation.VerticalScrollBarWidth : 0)), h);
             });
         }
+        private (int, int, int, Size) _applied;
         // The size of the content; the scroll bars are shown when it does not fit
         public void SetExtent(int width, int height, int fixedTop = 0)
         {
+            // A control that lays out while it paints changes its scroll bars after the render pass
+            Size clientSize = _owner.ClientSize;
+            if (Control.PaintDepth > 0)
+            {
+                ExtentWidth = width;
+                ExtentHeight = height;
+                if (_applied != (width, height, fixedTop, clientSize))
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => SetExtent(width, height, fixedTop));
+                return;
+            }
+            _applied = (width, height, fixedTop, clientSize);
             Ensure();
             ExtentWidth = width;
             ExtentHeight = height;

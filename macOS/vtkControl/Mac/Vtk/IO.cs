@@ -32,9 +32,11 @@ namespace Kitware.VTK
         internal SKBitmap ToBitmap()
         {
             int w = GetDimensions()[0], h = GetDimensions()[1];
-            SKBitmap bitmap = new SKBitmap(new SKImageInfo(w, h, SKColorType.Rgba8888, SKAlphaType.Unpremul));
-            byte[] rgba = new byte[w * h * 4];
             int c = Math.Max(1, Components);
+            // An image without alpha is opaque, which a PNG then writes as RGB, as VTK does
+            SKBitmap bitmap = new SKBitmap(new SKImageInfo(w, h, SKColorType.Rgba8888,
+                                                           c == 4 ? SKAlphaType.Unpremul : SKAlphaType.Opaque));
+            byte[] rgba = new byte[w * h * 4];
             for (int y = 0; y < h; y++)
             {
                 int src = (h - 1 - y) * w * c, dst = y * w * 4;

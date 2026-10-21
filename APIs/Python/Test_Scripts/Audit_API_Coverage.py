@@ -28,6 +28,32 @@ EXCEPTIONS = {
     "AddDefaultJobCommand": "application default lifecycle",
     "RunPythonScriptCommand": "embedded script lifecycle",
 }
+# The commands of the composites modeler of Yvan Blanchard, merged into this version: the modeler has no Python API,
+# so they are driven from the GUI only, and a journal records the refusal the base class writes for them
+COMPOSITES_MODELER_COMMANDS = [
+    "ExportToOpenRadiossCommand",
+    "RemoveOrphanElementsCommand",
+    "ExtractShellMeshCommand",
+    "ExtrudeShellFromSectionsCommand",
+    "ExtrudeShellUniformCommand",
+    "AddCompositeLayupCommand",
+    "ReplaceCompositeLayupCommand",
+    "DuplicateCompositeLayupsCommand",
+    "RemoveCompositeLayupsCommand",
+    "ImportCompositeLayupsFromCsvCommand",
+    "ImportCompositeLayupFromH5Command",
+    "ImportDiscreteOrientationsXmlCommand",
+    "AddRosetteCommand",
+    "ReplaceRosetteCommand",
+    "DuplicateRosettesCommand",
+    "RemoveRosettesCommand",
+    "ImportRosetteCurvesFromStepCommand",
+    "AddBladeAerodynamicLoadCommand",
+    "AddBladeAeroPressureLoadCommand",
+]
+COMPOSITES_MODELER_REASON = "the composites modeler, which has no Python API"
+for _name in COMPOSITES_MODELER_COMMANDS:
+    EXCEPTIONS[_name] = COMPOSITES_MODELER_REASON
 # An add_* that makes something no replace_* could edit, because it is built from other items once
 ADD_WITHOUT_REPLACE = {
     "add_compound": "a compound part is built once from the named parts",
@@ -39,6 +65,8 @@ JOURNAL_EXCEPTIONS = {
     "Command": "the base class, whose ToPython writes the refusal",
     "CommandsCollection": "the recorder rather than a command",
 }
+for _name in COMPOSITES_MODELER_COMMANDS:
+    JOURNAL_EXCEPTIONS["C" + _name[:-len("Command")]] = COMPOSITES_MODELER_REASON
 # The API files whose add_* members build something no replace_* re-specifies, because they make no model or
 # result item: a selection collects picks and IDs, and an annotation is view state that is not recorded
 ADD_WITHOUT_REPLACE_FILES = {

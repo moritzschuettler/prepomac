@@ -55,7 +55,7 @@ namespace PrePoMax.Forms
                 AutoSize = true,
                 Location = new Point(20, 85)
             };
-            llUrl.LinkClicked += (s, e) => Process.Start(_url);
+            llUrl.LinkClicked += (s, e) => CaeGlobals.Tools.OpenInShell(_url);
             //
             Button btnClose = new Button
             {

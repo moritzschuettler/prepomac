@@ -17,6 +17,9 @@ import os
 import shutil
 import tempfile
 
+# A name no file may hold: "|" is valid outside Windows, the null character is valid nowhere
+BAD_FILE_NAME = "bad|name.png" if os.name == "nt" else "bad\0name.png"
+
 # The pictures saved under names of the test go into a folder of their own, which main removes whether the
 # test passes or not
 TEMPORARY_FOLDER = tempfile.mkdtemp(prefix="PyTest_View_")
@@ -203,13 +206,13 @@ def test_the_picture():
     # A relative name lands where the screenshot tool of the automation server puts it, not in the
     # working directory of the process
     relative = pmx.view.save_image("PyTest_Relative.png")
-    expected = os.path.join(os.environ["TEMP"], "PrePoMax", "PyTest_Relative.png")
+    expected = os.path.join(tempfile.gettempdir(), "PrePoMax", "PyTest_Relative.png")
     check(os.path.exists(relative), "the relative image must exist: " + relative)
     # TEMP may hold the short form of the same folder, so the files are compared, not the spellings
     check(os.path.exists(expected) and os.path.samefile(relative, expected),
           "a relative name must be placed in the PrePoMax temporary folder: " + relative)
     os.remove(relative)
-    check_refused(lambda: pmx.view.save_image("bad|name.png"), ["'file_name'"], "an invalid file name was accepted")
+    check_refused(lambda: pmx.view.save_image(BAD_FILE_NAME), ["'file_name'"], "an invalid file name was accepted")
     pmx.view.set_parameters(camera)
 
 

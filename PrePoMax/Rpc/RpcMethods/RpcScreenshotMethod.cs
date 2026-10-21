@@ -77,6 +77,10 @@ namespace PrePoMax.Rpc
                 string extension;
                 try
                 {
+                    // .NET (Core) no longer refuses the characters a path may not hold, so they are looked for here
+                    if (fileName.IndexOfAny(Path.GetInvalidPathChars()) >= 0 ||
+                        Path.GetFileName(fileName).IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                        throw new ArgumentException("The name holds a character no file name may hold.");
                     extension = Path.GetExtension(fileName);
                 }
                 catch (ArgumentException exception)

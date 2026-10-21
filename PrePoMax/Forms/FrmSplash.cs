@@ -66,22 +66,22 @@ namespace PrePoMax.Forms
         }
         private void llHomePage_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start(Globals.HomePage);
+            CaeGlobals.Tools.OpenInShell(Globals.HomePage);
         }
 
         private void llKimm_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start("https://www.kimm.re.kr/eng");
+            CaeGlobals.Tools.OpenInShell("https://www.kimm.re.kr/eng");
         }
 
         private void llSmartDo_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start("https://www.smartdo.co/");
+            CaeGlobals.Tools.OpenInShell("https://www.smartdo.co/");
         }
 
         private void llCapgemini_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start("https://www.capgemini.com/");
+            CaeGlobals.Tools.OpenInShell("https://www.capgemini.com/");
         }
     }
 }

@@ -46,8 +46,32 @@ session are asked in a window of the program, not in the terminal.
 commands: menu, click, set, select, file, snapshot, dump, ...). `PPM_TRACE=1` writes the first chance exceptions
 with their stack traces to the error output.
 
-## Status
+The Python test suite runs every test script without a window:
 
-Working: model tree, forms, 3D view (OpenGL), .inp import, STEP/IGES/BREP import, Gmsh meshing, analysis with ccx,
-results. In progress: Netgen meshing and the remaining CAD operations of NetGenMesher, Mmg and QuadWild, the
-composite workflow tests, Python/MCP on macOS and the app bundle.
+```sh
+cd APIs/Python/Test_Scripts
+python3 Run_Tests.py --exe ../../../macOS/PrePoMax/bin/Debug/net10.0/PrePoMax.com --settings <settings file>
+```
+
+The automation server (RPC, MCP) serves only with an access token. The tests of the server need a settings file
+that carries one: generate it in Tools > Settings > Automation, or give the tests a copy of the settings with a
+token (`--settings`), which the child sessions of the tests then read as well.
+
+## Rendering
+
+The views are rendered by a 60 Hz timer; `PPM_DISPLAY_LINK=1` uses the display link of macOS instead. A session
+without a window (`-g No`) runs on the headless platform of Avalonia, so scripts, regenerations and the automation
+server also run while the display sleeps or the screen is locked; its pictures are rendered by an OpenGL context of
+their own (`PPM_NATIVE_BATCH=1` uses the native platform instead).
+
+## Known limitations
+
+- QuadWild: PrePoMax ships modified Windows binaries of QuadWild-BiMDF whose source is not available, so the
+  QuadWild mesher is not available on macOS.
+- Netgen meshing is done by gmsh (its 3D algorithm is the Frontal/Netgen one). Structured (transfinite) four-sided
+  and polar three-sided faces and the numbers of elements set on edges are supported; three-sided faces meshed as
+  three blocks ("Mapped") are meshed unstructured.
+- The macOS builds of ccx have only the SPOOLES direct solver (no PARDISO). Models that are badly conditioned, such
+  as a body held only by compression only supports, can be found singular by SPOOLES.
+- Files of the composites modeler of Yvan Blanchard (PrePoMax 2.4.5 dev) open; their laminae keep the out-of-plane
+  constants of that version (v23 = v12).

@@ -59,4 +59,6 @@ namespace ngm
     void RegisterGeometryCommands();
     void RegisterMeshCommands();
     void RegisterOperationCommands();
+    void RegisterFaceCommands();
+    void RegisterEditCommands();
 }

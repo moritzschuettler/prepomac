@@ -15,7 +15,7 @@ set(OCC_LIBRARIES
     TKernel TKMath TKG2d TKG3d TKGeomBase TKGeomAlgo TKBRep TKTopAlgo TKPrim TKBO TKBool TKFillet TKOffset
     TKShHealing TKMesh TKFeat TKHLR TKXSBase TKDE TKDESTEP TKDEIGES TKCDF TKLCAF TKCAF TKXCAF)
 
-add_executable(NetGenMesher main.cpp Common.cpp Visualization.cpp Geometry.cpp Mesh.cpp Operations.cpp)
+add_executable(NetGenMesher main.cpp Common.cpp Visualization.cpp Geometry.cpp Mesh.cpp Operations.cpp Faces.cpp Edit.cpp)
 target_include_directories(NetGenMesher PRIVATE "${OCC_INCLUDE_DIR}" "${HOMEBREW_PREFIX}/include")
 target_link_directories(NetGenMesher PRIVATE "${HOMEBREW_PREFIX}/lib")
 target_link_libraries(NetGenMesher PRIVATE ${OCC_LIBRARIES} gmsh)

@@ -436,6 +436,12 @@ namespace ngm
         out << "VIS file format: 2\n";
         out << "Coordinate system: Global Cartesian\n";
         out << "Length unit: Model\n";
+        // The counts tell, among others, whether a split gave back the body it was given
+        out << "Number of solids: " << maps.solids.Extent() << "\n";
+        out << "Number of shells: " << maps.shells.Extent() << "\n";
+        out << "Number of faces: " << maps.faces.Extent() << "\n";
+        out << "Number of edges: " << maps.edges.Extent() << "\n";
+        out << "Number of vertices: " << maps.vertices.Extent() << "\n";
         out << "Geometry\n";
         for (int i = 1; i <= maps.solids.Extent(); i++) WriteSolid(out, maps.solids(i), i, maps);
         for (int i = 1; i <= maps.shells.Extent(); i++) WriteShell(out, maps.shells(i), i, maps);
