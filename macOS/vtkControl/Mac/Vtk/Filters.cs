@@ -108,7 +108,14 @@ namespace Kitware.VTK
             if (input is vtkPolyData pd) output.DeepCopy(pd);
             else output.Initialize();
         }
-        public static long EdgeKey(long a, long b) { return a < b ? (a << 32) + b : (b << 32) + a; }
+        // The key of the edge between two points, the same both ways round. (a << 32) + b alone hashes to a ^ b, which
+        // the neighbouring point ids of a mesh share by the thousands; the product with an odd number is a one-to-one
+        // map of the 64 bit keys that spreads them
+        public static long EdgeKey(long a, long b)
+        {
+            long key = a < b ? (a << 32) + b : (b << 32) + a;
+            return unchecked(key * -7046029254386353131L);
+        }
         // The boundary faces of the 3D cells of a data set: the faces used by one cell, with the cell they belong to
         public static List<(int type, long[] ids, long cell)> BoundaryFaces(vtkDataSet input, bool keepQuadratic)
         {
@@ -912,42 +919,57 @@ namespace Kitware.VTK
         // Orders the polygons of each connected region like its first polygon
         private static void MakeConsistent(List<long[]> polys, vtkPolyData input)
         {
-            var edgePolys = new Dictionary<long, List<int>>();
-            for (int i = 0; i < polys.Count; i++)
+            // The polygons of every edge: most edges have two, so those are kept in a pair and only the edges of more
+            // polygons get a list
+            int count = polys.Count;
+            var edgePair = new Dictionary<long, (int First, int Second)>(count * 2);
+            var edgeMore = new Dictionary<long, List<int>>();
+            for (int i = 0; i < count; i++)
             {
                 long[] p = polys[i];
                 for (int j = 0; j < p.Length; j++)
                 {
                     long key = FilterTools.EdgeKey(p[j], p[(j + 1) % p.Length]);
-                    if (!edgePolys.TryGetValue(key, out var list)) edgePolys[key] = list = new List<int>();
-                    list.Add(i);
+                    if (!edgePair.TryGetValue(key, out var pair)) edgePair[key] = (i, -1);
+                    else if (pair.Second < 0) edgePair[key] = (pair.First, i);
+                    else
+                    {
+                        if (!edgeMore.TryGetValue(key, out var list)) edgeMore[key] = list = new List<int>();
+                        list.Add(i);
+                    }
                 }
             }
-            bool[] visited = new bool[polys.Count];
-            for (int start = 0; start < polys.Count; start++)
+            bool[] visited = new bool[count];
+            int[] queue = new int[count];
+            for (int start = 0; start < count; start++)
             {
                 if (visited[start]) continue;
                 visited[start] = true;
-                Queue<int> queue = new Queue<int>();
-                queue.Enqueue(start);
-                while (queue.Count > 0)
+                int head = 0, tail = 0;
+                queue[tail++] = start;
+                while (head < tail)
                 {
-                    int i = queue.Dequeue();
+                    int i = queue[head++];
                     long[] p = polys[i];
                     for (int j = 0; j < p.Length; j++)
                     {
                         long a = p[j], b = p[(j + 1) % p.Length];
-                        foreach (int k in edgePolys[FilterTools.EdgeKey(a, b)])
-                        {
-                            if (visited[k]) continue;
-                            long[] q = polys[k];
-                            // A consistent neighbour runs the shared edge the other way
-                            int ia = Array.IndexOf(q, a);
-                            if (ia >= 0 && q[(ia + 1) % q.Length] == b) Array.Reverse(q);
-                            visited[k] = true;
-                            queue.Enqueue(k);
-                        }
+                        long key = FilterTools.EdgeKey(a, b);
+                        var pair = edgePair[key];
+                        Visit(pair.First, a, b);
+                        if (pair.Second >= 0) Visit(pair.Second, a, b);
+                        if (edgeMore.TryGetValue(key, out var more)) foreach (int k in more) Visit(k, a, b);
                     }
+                }
+                void Visit(int k, long a, long b)
+                {
+                    if (visited[k]) return;
+                    long[] q = polys[k];
+                    // A consistent neighbour runs the shared edge the other way
+                    int ia = Array.IndexOf(q, a);
+                    if (ia >= 0 && q[(ia + 1) % q.Length] == b) Array.Reverse(q);
+                    visited[k] = true;
+                    queue[tail++] = k;
                 }
             }
         }

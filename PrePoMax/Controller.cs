@@ -176,7 +176,13 @@ namespace PrePoMax
         // States
         public bool ModelInitialized
         {
-            get { return _commands != null && _commands.CurrPositionIndex > 0; }
+            // A model saved by a script before the script entered the history has no commands, but has its parts
+            get
+            {
+                return (_commands != null && _commands.CurrPositionIndex > 0) ||
+                       (_model != null && ((_model.Geometry != null && _model.Geometry.Parts.Count > 0) ||
+                                           (_model.Mesh != null && _model.Mesh.Parts.Count > 0)));
+            }
         }
         public bool ResultsInitialized
         {

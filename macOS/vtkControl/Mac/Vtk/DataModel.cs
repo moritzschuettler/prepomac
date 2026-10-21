@@ -812,7 +812,20 @@ namespace Kitware.VTK
             for (int i = 0; i < npts && i < array.CellSize(index); i++) array.Connectivity[(int)(start + i)] = pts[i];
             Modified();
         }
+        // The bounds are asked for by every camera step; they are computed again only after the points or cells changed
+        private ulong _boundsTime = ulong.MaxValue;
+        private double[] _bounds;
         protected override double[] UsedPointBounds()
+        {
+            ulong time = DataTime;
+            if (_bounds == null || _boundsTime != time)
+            {
+                _bounds = ComputeUsedPointBounds();
+                _boundsTime = time;
+            }
+            return (double[])_bounds.Clone();
+        }
+        private double[] ComputeUsedPointBounds()
         {
             if (GetNumberOfCells() == 0) return _points.GetBounds();
             double[] b = new double[] { double.MaxValue, -double.MaxValue, double.MaxValue, -double.MaxValue,

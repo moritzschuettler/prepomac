@@ -1237,6 +1237,8 @@ namespace System.Windows.Forms
             if (anchorNative is AC.Panel panel) panel.Children.Add(_popup);
             _popup.PlacementTarget = anchorNative;
             _popup.PlacementRect = new Avalonia.Rect(origin, new Avalonia.Size(1, 1));
+            // The items of the drop-down still hang in the frame of its last opening, which lets them go first
+            if (Host.Parent is AC.Decorator oldFrame) oldFrame.Child = null;
             _popup.Child = new AC.Border
             {
                 Child = Host,

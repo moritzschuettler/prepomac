@@ -818,6 +818,7 @@ namespace FastColoredTextBoxNS
             EnsureEditor();
             // The text view has no positions before it is laid out
             TextViewPosition? p;
+            if (!_editor.TextArea.TextView.VisualLinesValid) return Place.Empty;
             try { p = _editor.GetPositionFromPoint(new Avalonia.Point(point.X, point.Y)); }
             catch (InvalidOperationException) { p = null; }
             return p == null ? Place.Empty : new Place(p.Value.Column - 1, p.Value.Line - 1);

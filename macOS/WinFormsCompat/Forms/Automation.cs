@@ -120,6 +120,12 @@ namespace System.Windows.Forms
                             if (control is ComboBox cb) cb.SelectedIndex = index;
                             else if (control is ListBox lb) lb.SelectedIndex = index;
                             else if (control is ListView lv) { lv.SelectedIndices.Clear(); lv.Items[index].Selected = true; }
+                            else if (control is TabControl tc)
+                            {
+                                var watch = System.Diagnostics.Stopwatch.StartNew();
+                                tc.SelectedIndex = index;
+                                Console.Error.WriteLine("[automation] tab " + index + " selected in " + watch.ElapsedMilliseconds + " ms");
+                            }
                             else throw new InvalidOperationException("No list " + a[0]);
                             break;
                         }
