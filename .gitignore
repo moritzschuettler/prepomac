@@ -306,3 +306,6 @@ PrePoMax.Mac/
 /generate_binaries.bat
 macOS/Native/Mmg/src/
 macOS/Native/Mmg/build/
+
+# Made by the bike frame study
+assets_composites/bike-frame/bike_frame_study.pmx

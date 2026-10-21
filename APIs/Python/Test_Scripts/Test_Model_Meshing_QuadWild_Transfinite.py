@@ -23,6 +23,13 @@
 import os
 import sys
 
+
+def quadwild_available():
+    """Whether the QuadWild programs ship beside PrePoMax: they are Windows programs of a modified QuadWild, which
+    is not available for macOS."""
+    folder = os.path.join(os.path.dirname(sys.executable), "Meshers", "QuadWild")
+    return any(os.path.isfile(os.path.join(folder, name)) for name in ("quadwild.exe", "quadwild"))
+
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 QUADWILD = "PyTest_QuadWild"
 
@@ -150,6 +157,10 @@ def split_side_face(part):
 
 def main():
     check(pmx.model.is_open(), "a model must be open")
+    if not quadwild_available():
+        print("Skipped: the QuadWild programs are not available on this platform.")
+        print("TEST PASSED")
+        return
     box = [part for part in pmx.model.geometry.parts if part.get_face_data().count == 6][0]
     cylinder = [part for part in pmx.model.geometry.parts if part.get_face_data().count == 5][0]
     open_box = delete_face(box, int(list(box.get_face_data().ids)[0]))

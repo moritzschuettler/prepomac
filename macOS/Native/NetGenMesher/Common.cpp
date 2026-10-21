@@ -1,5 +1,9 @@
 // PrePoMax for macOS - NetGenMesher: reading and writing of shapes and the helpers of all commands.
 #include "Common.h"
+#include <map>
+#include <functional>
+#include <TopoDS_Shell.hxx>
+#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
 
 #include <BRepTools.hxx>
 #include <BRep_Builder.hxx>
@@ -179,11 +183,45 @@ namespace ngm
             parts.push_back(shell.Current());
             TopExp::MapShapes(shell.Current(), TopAbs_FACE, solidFaces);
         }
+        // Faces of no shell that share edges are one body, a shell of them; a face alone stays a face
+        std::vector<TopoDS_Shape> freeFaces;
         for (TopExp_Explorer face(shape, TopAbs_FACE, TopAbs_SHELL); face.More(); face.Next())
         {
             if (solidFaces.Contains(face.Current()) || used.Contains(face.Current())) continue;
             used.Add(face.Current());
-            parts.push_back(face.Current());
+            freeFaces.push_back(face.Current());
+        }
+        std::vector<int> group(freeFaces.size());
+        for (size_t i = 0; i < group.size(); i++) group[i] = (int)i;
+        std::function<int(int)> root = [&](int i) { return group[i] == i ? i : group[i] = root(group[i]); };
+        TopTools_IndexedDataMapOfShapeListOfShape edgeFaces;
+        TopTools_IndexedMapOfShape faceIndex;
+        for (const TopoDS_Shape& face : freeFaces)
+        {
+            faceIndex.Add(face);
+            TopExp::MapShapesAndAncestors(face, TopAbs_EDGE, TopAbs_FACE, edgeFaces);
+        }
+        for (int e = 1; e <= edgeFaces.Extent(); e++)
+        {
+            int first = -1;
+            for (TopTools_ListIteratorOfListOfShape it(edgeFaces(e)); it.More(); it.Next())
+            {
+                int index = faceIndex.FindIndex(it.Value()) - 1;
+                if (index < 0) continue;
+                if (first < 0) first = index;
+                else group[root(index)] = root(first);
+            }
+        }
+        std::map<int, std::vector<TopoDS_Shape>> groups;
+        for (size_t i = 0; i < freeFaces.size(); i++) groups[root((int)i)].push_back(freeFaces[i]);
+        for (auto& entry : groups)
+        {
+            if (entry.second.size() == 1) { parts.push_back(entry.second[0]); continue; }
+            BRep_Builder builder;
+            TopoDS_Shell shell;
+            builder.MakeShell(shell);
+            for (const TopoDS_Shape& face : entry.second) builder.Add(shell, face);
+            parts.push_back(shell);
         }
         return parts;
     }

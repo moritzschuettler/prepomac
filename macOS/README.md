@@ -69,8 +69,10 @@ their own (`PPM_NATIVE_BATCH=1` uses the native platform instead).
 - QuadWild: PrePoMax ships modified Windows binaries of QuadWild-BiMDF whose source is not available, so the
   QuadWild mesher is not available on macOS.
 - Netgen meshing is done by gmsh (its 3D algorithm is the Frontal/Netgen one). Structured (transfinite) four-sided
-  and polar three-sided faces and the numbers of elements set on edges are supported; three-sided faces meshed as
-  three blocks ("Mapped") are meshed unstructured.
+  faces, three-sided faces as three blocks ("Mapped") or polar, and the numbers of elements set on edges are
+  supported. The tests of QuadWild skip the QuadWild steps.
+- Two sweep cases of the tests differ from Windows (gmsh 4.15 of Homebrew, 4.13 on Windows): the mirrored revolve
+  mesh of revolve_end_cap.brep and the second order of the tetrahedral cells of sweep_plate_overhang.brep.
 - The macOS builds of ccx have only the SPOOLES direct solver (no PARDISO). Models that are badly conditioned, such
   as a body held only by compression only supports, can be found singular by SPOOLES.
 - Files of the composites modeler of Yvan Blanchard (PrePoMax 2.4.5 dev) open; their laminae keep the out-of-plane

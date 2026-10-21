@@ -30,6 +30,13 @@
 import os
 import sys
 
+
+def quadwild_available():
+    """Whether the QuadWild programs ship beside PrePoMax: they are Windows programs of a modified QuadWild, which
+    is not available for macOS."""
+    folder = os.path.join(os.path.dirname(sys.executable), "Meshers", "QuadWild")
+    return any(os.path.isfile(os.path.join(folder, name)) for name in ("quadwild.exe", "quadwild"))
+
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 SWEEP = "PyTest_Sweep"
 SIZE = "PyTest_Size"
@@ -305,8 +312,11 @@ def main():
     test_split_box(box)
     test_quarter_cylinder(cylinder)
     test_polar_quarter_cylinder(cylinder)
-    test_split_box(box, "QuadWild")
-    test_quarter_cylinder(cylinder, "QuadWild")
+    if quadwild_available():
+        test_split_box(box, "QuadWild")
+        test_quarter_cylinder(cylinder, "QuadWild")
+    else:
+        print("Skipped the QuadWild sweeps: the QuadWild programs are not available on this platform.")
     print("TEST PASSED")
 
 

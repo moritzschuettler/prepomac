@@ -22,6 +22,10 @@
 #include <TopoDS.hxx>
 
 #include <gmsh.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <iostream>
+#include <functional>
 
 #include <algorithm>
 #include <array>
@@ -179,9 +183,19 @@ namespace ngm
             }
             return data;
         }
+        // A three-sided face meshed as three structured blocks: its corners (vertex tags) and its sides as curves
+        struct MappedFace
+        {
+            int surface = 0;
+            std::vector<int> corners;
+            std::vector<std::vector<int>> sides;
+        };
+
         // The edge counts of the structured faces settled so that the opposite sides of every face have the same number of
-        // elements; the counts set are kept and the free edges are moved. Faces that cannot agree are dropped
-        bool ApplyTransfinite(const TransfiniteData& data, const ShapeMaps& maps, double size, bool recombine)
+        // elements; the counts set are kept and the free edges are moved. Faces that cannot agree are dropped. A three-sided
+        // face that is not polar is meshed as three blocks, whose sides must have an even number of elements together
+        bool ApplyTransfinite(const TransfiniteData& data, const ShapeMaps& maps, double size, bool recombine,
+                              std::vector<MappedFace>& mappedFaces)
         {
             std::map<int, int> faceTags, edgeTags, vertexTags;
             for (auto& entry : MatchEntities(2, maps.faces)) faceTags[entry.second] = entry.first;
@@ -229,7 +243,7 @@ namespace ngm
             for (auto& face : data.faces)
             {
                 if ((int)face.sides.size() != face.numOfSides) continue;
-                if (face.numOfSides == 4 || (face.numOfSides == 3 && face.polar >= 0)) faces.push_back(&face);
+                if (face.numOfSides == 4 || face.numOfSides == 3) faces.push_back(&face);
             }
             for (auto* face : faces)
                 for (auto& side : face->sides)
@@ -246,12 +260,16 @@ namespace ngm
                     pairs.push_back({ sides[0], sides[2] }); pairFace.push_back((int)f);
                     pairs.push_back({ sides[1], sides[3] }); pairFace.push_back((int)f);
                 }
-                else
+                else if (faces[f]->polar >= 0)
                 {
                     int p = faces[f]->polar;
                     pairs.push_back({ sides[(p + 2) % 3], sides[p] }); pairFace.push_back((int)f);
                 }
             }
+            // The three-block faces: every side shorter than the other two together, the three together even
+            std::vector<int> triples;
+            for (size_t f = 0; f < faces.size(); f++)
+                if (faces[f]->numOfSides == 3 && faces[f]->polar < 0) triples.push_back((int)f);
             auto sum = [&](const std::vector<int>& side) { int n = 0; for (int e : side) n += counts[e]; return n; };
             std::set<int> dropped;
             for (int iteration = 0; iteration < 200; iteration++)
@@ -279,7 +297,38 @@ namespace ngm
                     if (best > 0) { counts[best] -= difference; changed = true; continue; }
                     dropped.insert(pairFace[i]);
                 }
+                for (int f : triples)
+                {
+                    if (dropped.count(f)) continue;
+                    auto& sides = faces[f]->sides;
+                    int total = sum(sides[0]) + sum(sides[1]) + sum(sides[2]);
+                    int longest = 0;
+                    for (int k = 1; k < 3; k++) if (sum(sides[k]) > sum(sides[longest])) longest = k;
+                    // The longest side must be shorter than the other two together, and the sum even: the other two
+                    // sides take the elements needed
+                    int excess = 2 * sum(sides[longest]) - total;
+                    int needed = excess >= 0 ? excess + 1 : 0;
+                    if ((total + needed) % 2) needed++;
+                    if (needed == 0) continue;
+                    int best = -1;
+                    double bestRatio = -1;
+                    for (int k = 0; k < 3; k++)
+                    {
+                        if (k == longest) continue;
+                        for (int e : sides[k])
+                            if (!fixed.count(e) && length(e) / counts[e] > bestRatio) { bestRatio = length(e) / counts[e]; best = e; }
+                    }
+                    if (best < 0) { dropped.insert(f); continue; }
+                    counts[best] += needed;
+                    changed = true;
+                }
                 if (!changed) break;
+            }
+            for (int f : triples)
+            {
+                auto& sides = faces[f]->sides;
+                int a = sum(sides[0]), b = sum(sides[1]), c = sum(sides[2]);
+                if ((a + b + c) % 2 != 0 || 2 * std::max(a, std::max(b, c)) >= a + b + c) dropped.insert(f);
             }
             // Opposite sides whose numbers of elements are all set and differ cannot be meshed as a structured grid
             for (size_t i = 0; i < pairs.size(); i++)
@@ -328,6 +377,26 @@ namespace ngm
                     corners.push_back(tag->second);
                 }
                 if ((int)corners.size() != n) continue;
+                if (n == 3 && face.polar < 0)
+                {
+                    MappedFace mapped;
+                    mapped.surface = faceTag->second;
+                    mapped.corners = corners;
+                    bool complete = true;
+                    for (auto& side : face.sides)
+                    {
+                        std::vector<int> curves;
+                        for (int e : side)
+                        {
+                            auto tag = edgeTags.find(e);
+                            if (tag == edgeTags.end()) { complete = false; break; }
+                            curves.push_back(tag->second);
+                        }
+                        mapped.sides.push_back(curves);
+                    }
+                    if (complete) { mappedFaces.push_back(mapped); numOfFaces++; }
+                    continue;
+                }
                 // The collapsed corner of a polar face comes first
                 if (face.polar > 0) std::rotate(corners.begin(), corners.begin() + face.polar, corners.end());
                 gmsh::model::mesh::setTransfiniteSurface(faceTag->second, "Left", corners);
@@ -336,6 +405,249 @@ namespace ngm
             }
             Log("Structured faces: " + std::to_string(numOfFaces) + " of " + std::to_string(data.faces.size()) + ".");
             return true;
+        }
+
+        // The nodes of a side of a face from its first corner on, the corners included: the vertex nodes and the nodes of
+        // its curves in the order of the curve parameter, every curve walked the way the side runs
+        bool SideNodes(const std::vector<int>& curves, int startVertex, std::vector<std::size_t>& tags,
+                       std::vector<std::array<double, 3>>& points, int& endVertex)
+        {
+            auto vertexNode = [&](int vertex, std::size_t& tag, std::array<double, 3>& point) {
+                std::vector<std::size_t> nodeTags;
+                std::vector<double> coord, param;
+                gmsh::model::mesh::getNodes(nodeTags, coord, param, 0, vertex, false, false);
+                if (nodeTags.empty() || coord.size() < 3) return false;
+                tag = nodeTags[0];
+                point = { coord[0], coord[1], coord[2] };
+                return true;
+            };
+            int current = startVertex;
+            std::size_t tag;
+            std::array<double, 3> point;
+            if (!vertexNode(current, tag, point)) return false;
+            tags.push_back(tag);
+            points.push_back(point);
+            for (int curve : curves)
+            {
+                gmsh::vectorpair ends;
+                gmsh::model::getBoundary({ { 1, curve } }, ends, false, false, false);
+                if (ends.size() != 2) return false;
+                int first = std::abs(ends[0].second), last = std::abs(ends[1].second);
+                bool forward = first == current;
+                if (!forward && last != current) return false;
+                std::vector<std::size_t> nodeTags;
+                std::vector<double> coord, param;
+                gmsh::model::mesh::getNodes(nodeTags, coord, param, 1, curve, false, true);
+                std::vector<std::size_t> order(nodeTags.size());
+                for (std::size_t i = 0; i < order.size(); i++) order[i] = i;
+                std::sort(order.begin(), order.end(), [&](std::size_t x, std::size_t y) { return param[x] < param[y]; });
+                if (!forward) std::reverse(order.begin(), order.end());
+                for (std::size_t i : order)
+                {
+                    tags.push_back(nodeTags[i]);
+                    points.push_back({ coord[3 * i], coord[3 * i + 1], coord[3 * i + 2] });
+                }
+                current = forward ? last : first;
+                if (!vertexNode(current, tag, point)) return false;
+                tags.push_back(tag);
+                points.push_back(point);
+            }
+            endVertex = current;
+            return true;
+        }
+        // The three-sided faces meshed as three structured blocks, on the mesh of their curves: a node on every side
+        // splits it, the three are joined to a centre node, and every block is filled by transfinite interpolation
+        // between its sides, its nodes put onto the face. gmsh then meshes only the faces left empty
+        void BuildMappedFaces(const std::vector<MappedFace>& mappedFaces, bool recombine)
+        {
+            std::size_t nextTag = 0;
+            gmsh::model::mesh::getMaxNodeTag(nextTag);
+            nextTag++;
+            for (const MappedFace& face : mappedFaces)
+            {
+                // The sides from their corners: side k runs from corner k to corner k + 1
+                std::vector<std::vector<std::size_t>> sideTags(3);
+                std::vector<std::vector<std::array<double, 3>>> sidePoints(3);
+                bool valid = true;
+                for (int k = 0; k < 3 && valid; k++)
+                {
+                    int end = 0;
+                    valid = SideNodes(face.sides[k], face.corners[k], sideTags[k], sidePoints[k], end) &&
+                            end == face.corners[(k + 1) % 3];
+                }
+                if (!valid) { Log("A three-sided face could not be meshed as three blocks."); continue; }
+                // Side k has n[k] segments; with A, B, C the corners 0, 1, 2 the sides are c = AB, a = BC, b = CA
+                int c = (int)sideTags[0].size() - 1, a = (int)sideTags[1].size() - 1, b = (int)sideTags[2].size() - 1;
+                int sa = (b + c - a) / 2, sb = (a + c - b) / 2, sc = (a + b - c) / 2;
+                if (sa < 1 || sb < 1 || sc < 1 || (a + b + c) % 2) { Log("A three-sided face cannot be split into blocks."); continue; }
+                // The split nodes: on AB after sb segments from A, on BC after sc from B, on CA after sa from C
+                int mc = sb, ma = sc, mb = sa;
+                std::vector<std::size_t> newTags;
+                std::vector<double> newCoord, newParam;
+                auto onFace = [&](const std::array<double, 3>& p, std::size_t& tag) {
+                    std::vector<double> closest, uv;
+                    gmsh::model::getClosestPoint(2, face.surface, { p[0], p[1], p[2] }, closest, uv);
+                    tag = nextTag++;
+                    newTags.push_back(tag);
+                    newCoord.insert(newCoord.end(), closest.begin(), closest.begin() + 3);
+                    newParam.insert(newParam.end(), uv.begin(), uv.begin() + 2);
+                    return std::array<double, 3>{ closest[0], closest[1], closest[2] };
+                };
+                std::array<double, 3> Mc = sidePoints[0][mc], Ma = sidePoints[1][ma], Mb = sidePoints[2][mb];
+                std::array<double, 3> center;
+                for (int i = 0; i < 3; i++) center[i] = (Ma[i] + Mb[i] + Mc[i]) / 3;
+                std::size_t centerTag;
+                center = onFace(center, centerTag);
+                // The spokes from the split nodes to the centre, the centre last
+                auto spoke = [&](const std::array<double, 3>& from, std::size_t fromTag, int segments,
+                                 std::vector<std::size_t>& tags, std::vector<std::array<double, 3>>& points) {
+                    tags = { fromTag };
+                    points = { from };
+                    for (int i = 1; i < segments; i++)
+                    {
+                        double t = (double)i / segments;
+                        std::array<double, 3> p;
+                        for (int k = 0; k < 3; k++) p[k] = from[k] + t * (center[k] - from[k]);
+                        std::size_t tag;
+                        points.push_back(onFace(p, tag));
+                        tags.push_back(tag);
+                    }
+                    tags.push_back(centerTag);
+                    points.push_back(center);
+                };
+                std::vector<std::size_t> spokeATags, spokeBTags, spokeCTags;
+                std::vector<std::array<double, 3>> spokeA, spokeB, spokeC;
+                spoke(Ma, sideTags[1][ma], sa, spokeATags, spokeA);
+                spoke(Mb, sideTags[2][mb], sb, spokeBTags, spokeB);
+                spoke(Mc, sideTags[0][mc], sc, spokeCTags, spokeC);
+                // A block from its four sides: bottom and top of nu segments, left and right of nv segments, all running
+                // from the corner at their start; the grid nodes in rows
+                std::vector<std::size_t> elements;
+                auto block = [&](std::vector<std::size_t> bottomT, std::vector<std::array<double, 3>> bottomP,
+                                 std::vector<std::size_t> topT, std::vector<std::array<double, 3>> topP,
+                                 std::vector<std::size_t> leftT, std::vector<std::array<double, 3>> leftP,
+                                 std::vector<std::size_t> rightT, std::vector<std::array<double, 3>> rightP) {
+                    int nu = (int)bottomT.size() - 1, nv = (int)leftT.size() - 1;
+                    std::vector<std::vector<std::size_t>> grid(nv + 1, std::vector<std::size_t>(nu + 1));
+                    for (int i = 0; i <= nu; i++) { grid[0][i] = bottomT[i]; grid[nv][i] = topT[i]; }
+                    for (int j = 0; j <= nv; j++) { grid[j][0] = leftT[j]; grid[j][nu] = rightT[j]; }
+                    for (int j = 1; j < nv; j++)
+                        for (int i = 1; i < nu; i++)
+                        {
+                            double u = (double)i / nu, v = (double)j / nv;
+                            std::array<double, 3> p;
+                            for (int k = 0; k < 3; k++)
+                                p[k] = (1 - v) * bottomP[i][k] + v * topP[i][k] + (1 - u) * leftP[j][k] + u * rightP[j][k] -
+                                       ((1 - u) * (1 - v) * bottomP[0][k] + u * (1 - v) * bottomP[nu][k] +
+                                        (1 - u) * v * topP[0][k] + u * v * topP[nu][k]);
+                            std::size_t tag;
+                            onFace(p, tag);
+                            grid[j][i] = tag;
+                        }
+                    for (int j = 0; j < nv; j++)
+                        for (int i = 0; i < nu; i++)
+                        {
+                            std::size_t q[4] = { grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i] };
+                            elements.insert(elements.end(), q, q + 4);
+                        }
+                };
+                auto part = [](const std::vector<std::size_t>& tags, int from, int to) {
+                    std::vector<std::size_t> r;
+                    if (from <= to) for (int i = from; i <= to; i++) r.push_back(tags[i]);
+                    else for (int i = from; i >= to; i--) r.push_back(tags[i]);
+                    return r;
+                };
+                auto partP = [](const std::vector<std::array<double, 3>>& points, int from, int to) {
+                    std::vector<std::array<double, 3>> r;
+                    if (from <= to) for (int i = from; i <= to; i++) r.push_back(points[i]);
+                    else for (int i = from; i >= to; i--) r.push_back(points[i]);
+                    return r;
+                };
+                auto& T0 = sideTags[0]; auto& T1 = sideTags[1]; auto& T2 = sideTags[2];
+                auto& P0 = sidePoints[0]; auto& P1 = sidePoints[1]; auto& P2 = sidePoints[2];
+                // Block A: bottom A -> Mc (side 0), top Mb -> centre (spoke B), left A -> Mb (side 2 backwards),
+                // right Mc -> centre (spoke C)
+                block(part(T0, 0, mc), partP(P0, 0, mc), spokeBTags, spokeB,
+                      part(T2, b, mb), partP(P2, b, mb), spokeCTags, spokeC);
+                // Block B: bottom B -> Ma (side 1), top Mc -> centre, left B -> Mc (side 0 backwards), right Ma -> centre
+                block(part(T1, 0, ma), partP(P1, 0, ma), spokeCTags, spokeC,
+                      part(T0, c, mc), partP(P0, c, mc), spokeATags, spokeA);
+                // Block C: bottom C -> Mb (side 2), top Ma -> centre, left C -> Ma (side 1 backwards), right Mb -> centre
+                block(part(T2, 0, mb), partP(P2, 0, mb), spokeATags, spokeA,
+                      part(T1, a, ma), partP(P1, a, ma), spokeBTags, spokeB);
+                gmsh::model::mesh::addNodes(2, face.surface, newTags, newCoord, newParam);
+                // The quadrilaterals face the way the surface does
+                std::vector<double> normal, uv = { newParam[0], newParam[1] };
+                gmsh::model::getNormal(face.surface, uv, normal);
+                std::map<std::size_t, std::array<double, 3>> position;
+                for (std::size_t i = 0; i < newTags.size(); i++)
+                    position[newTags[i]] = { newCoord[3 * i], newCoord[3 * i + 1], newCoord[3 * i + 2] };
+                for (int k = 0; k < 3; k++)
+                    for (std::size_t i = 0; i < sideTags[k].size(); i++) position[sideTags[k][i]] = sidePoints[k][i];
+                auto& q0 = position[elements[0]]; auto& q1 = position[elements[1]]; auto& q2 = position[elements[2]];
+                double e1[3] = { q1[0] - q0[0], q1[1] - q0[1], q1[2] - q0[2] }, e2[3] = { q2[0] - q0[0], q2[1] - q0[1], q2[2] - q0[2] };
+                double n[3] = { e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0] };
+                bool flip = normal.size() >= 3 && n[0] * normal[0] + n[1] * normal[1] + n[2] * normal[2] < 0;
+                if (flip)
+                    for (std::size_t e = 0; e < elements.size(); e += 4) std::swap(elements[e + 1], elements[e + 3]);
+                if (recombine) gmsh::model::mesh::addElementsByType(face.surface, 3, {}, elements);
+                else
+                {
+                    std::vector<std::size_t> triangles;
+                    for (std::size_t e = 0; e < elements.size(); e += 4)
+                    {
+                        std::size_t t[6] = { elements[e], elements[e + 1], elements[e + 2],
+                                             elements[e], elements[e + 2], elements[e + 3] };
+                        triangles.insert(triangles.end(), t, t + 6);
+                    }
+                    gmsh::model::mesh::addElementsByType(face.surface, 2, {}, triangles);
+                }
+            }
+            if (!mappedFaces.empty()) gmsh::option::setNumber("Mesh.MeshOnlyEmpty", 1);
+        }
+
+        // Generates the mesh and runs what follows on it in a child process when quadrilaterals are recombined: the
+        // blossom recombination of gmsh crashes on some faces, and the mesh is then made again by the simple
+        // recombination. Returns the status of the run that finished.
+        int GenerateWithRecombinationFallback(int dimension, bool recombine, const std::function<void()>& prepare,
+                                              const std::function<int()>& finish)
+        {
+            if (!recombine)
+            {
+                prepare();
+                gmsh::model::mesh::generate(dimension);
+                return finish();
+            }
+            std::cout.flush();
+            std::cerr.flush();
+            pid_t child = fork();
+            if (child == 0)
+            {
+                int status = 1;
+                try
+                {
+                    prepare();
+                    gmsh::model::mesh::generate(dimension);
+                    status = finish();
+                }
+                catch (const std::exception& ex) { Error(std::string("Meshing failed: ") + ex.what()); }
+                catch (...) { Error("Meshing failed."); }
+                std::cout.flush();
+                std::cerr.flush();
+                _exit(status);
+            }
+            if (child > 0)
+            {
+                int childStatus = 0;
+                waitpid(child, &childStatus, 0);
+                if (WIFEXITED(childStatus)) return WEXITSTATUS(childStatus);
+                Log("The blossom recombination failed; the quadrilaterals are recombined by the simple algorithm.");
+            }
+            // The child meshed a copy of the model, which in this process is still unmeshed
+            gmsh::option::setNumber("Mesh.RecombinationAlgorithm", 0);
+            prepare();
+            gmsh::model::mesh::generate(dimension);
+            return finish();
         }
 
         // gmsh element node orders (equal to Abaqus) turned into the Netgen orders PrePoMax reads back
@@ -586,14 +898,16 @@ namespace ngm
                 gmsh::option::setNumber("Geometry.OCCParallel", 1);
                 gmsh::model::add("NetGenMesher");
                 gmsh::vectorpair imported;
-                gmsh::model::occ::importShapesNativePointer(&shape, imported, false);
+                // Only the highest dimension is imported: the edges of a compound of faces would otherwise come in a
+                // second time as free curves, on which the second order mesh cannot be made
+                gmsh::model::occ::importShapesNativePointer(&shape, imported, true);
                 gmsh::model::occ::synchronize();
                 //
                 gmsh::option::setNumber("Mesh.MeshSizeMax", maxh);
                 gmsh::option::setNumber("Mesh.MeshSizeMin", minh);
                 gmsh::option::setNumber("Mesh.MeshSizeFromCurvature", std::max(0.0, 2 * M_PI * elementsPerCurve));
                 gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary", 1);
-                gmsh::option::setNumber("Mesh.Algorithm", quadDominated ? 8 : 6);
+                gmsh::option::setNumber("Mesh.Algorithm", 6);   // quadrilaterals recombined; 8 leaves trimmed tubes partly unmeshed
                 gmsh::option::setNumber("Mesh.Algorithm3D", 4);                 // Frontal: the Netgen mesher
                 gmsh::option::setNumber("Mesh.OptimizeNetgen", optimize3D > 0 ? 1 : 0);
                 gmsh::option::setNumber("Mesh.Optimize", 1);
@@ -602,6 +916,10 @@ namespace ngm
                 {
                     gmsh::option::setNumber("Mesh.RecombineAll", 1);
                     gmsh::option::setNumber("Mesh.RecombinationAlgorithm", 1);
+                    // A pair of triangles that makes a flat quadrilateral (an angle near 180 degrees, as along the line
+                    // where two tubes meet) stays two triangles: a shell of such quadrilaterals expanded through its
+                    // thickness has a negative Jacobian
+                    try { gmsh::option::setNumber("Mesh.RecombineMinimumQuality", 0.3); } catch (...) { }
                 }
                 if (secondOrder)
                 {
@@ -629,6 +947,7 @@ namespace ngm
                     });
                 }
                 // The structured faces and the numbers of elements set on edges
+                std::vector<MappedFace> mappedFaces;
                 std::string transfiniteFileName = parameters.count("transfinite_filename") ?
                                                   parameters["transfinite_filename"] : "";
                 while (!transfiniteFileName.empty() && std::isspace((unsigned char)transfiniteFileName.back()))
@@ -638,7 +957,7 @@ namespace ngm
                     Bnd_Box box;
                     BRepBndLib::Add(shape, box);
                     double size = maxh < 1e9 ? maxh : (box.IsVoid() ? 1.0 : std::sqrt(box.SquareExtent()) / 10);
-                    if (!ApplyTransfinite(ReadTransfinite(transfiniteFileName), maps, size, quadDominated))
+                    if (!ApplyTransfinite(ReadTransfinite(transfiniteFileName), maps, size, quadDominated, mappedFaces))
                     {
                         gmsh::finalize();
                         return 1;
@@ -646,12 +965,17 @@ namespace ngm
                 }
                 int dimension = onlyEdges ? 1 : (maps.solids.Extent() > 0 ? 3 : 2);
                 Log("Meshing " + std::string(dimension == 3 ? "solid" : dimension == 2 ? "surface" : "edge") + " geometry...");
-                gmsh::model::mesh::generate(dimension);
-                if (secondOrder && !onlyEdges) gmsh::model::mesh::setOrder(2);
-                //
-                std::map<int, int> faceIds = MatchEntities(2, maps.faces);
-                std::map<int, int> edgeIds = MatchEntities(1, maps.edges);
-                status = WriteVol(args[1], &maps, &shape, faceIds, edgeIds, onlyEdges);
+                auto prepare = [&]() {
+                    if (mappedFaces.empty() || onlyEdges) return;
+                    gmsh::model::mesh::generate(1);
+                    BuildMappedFaces(mappedFaces, quadDominated);
+                };
+                status = GenerateWithRecombinationFallback(dimension, quadDominated && !onlyEdges, prepare, [&]() {
+                    if (secondOrder && !onlyEdges) gmsh::model::mesh::setOrder(2);
+                    std::map<int, int> faceIds = MatchEntities(2, maps.faces);
+                    std::map<int, int> edgeIds = MatchEntities(1, maps.edges);
+                    return WriteVol(args[1], &maps, &shape, faceIds, edgeIds, onlyEdges);
+                });
             }
             catch (const std::exception& ex)
             {
@@ -708,7 +1032,7 @@ namespace ngm
                 gmsh::model::geo::synchronize();
                 gmsh::option::setNumber("Mesh.MeshSizeMax", maxh);
                 gmsh::option::setNumber("Mesh.MeshSizeMin", minh);
-                gmsh::option::setNumber("Mesh.Algorithm", quadDominated ? 8 : 6);
+                gmsh::option::setNumber("Mesh.Algorithm", 6);   // quadrilaterals recombined; 8 leaves trimmed tubes partly unmeshed
                 gmsh::option::setNumber("Mesh.Algorithm3D", 4);
                 gmsh::option::setNumber("Mesh.OptimizeNetgen", 1);
                 if (quadDominated) gmsh::option::setNumber("Mesh.RecombineAll", 1);
