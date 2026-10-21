@@ -1,63 +1,30 @@
 # Third-party licenses
 
 PrePoMax is distributed under the GNU General Public License v3 (see [LICENSE](../LICENSE) in the
-repository root). It ships several third-party mesher binaries that are not built from this
-repository. This folder holds the license texts that must be distributed alongside them.
+repository root). The macOS build uses the third-party components below. Most are installed with
+Homebrew and linked at run time; only Mmg is built by this repository and shipped inside the app.
+`macOS/make-app.sh` copies this folder into `PrePoMax.app/Contents/Resources/Licenses`.
 
-The `AfterBuild` post-build event in `PrePoMax/PrePoMax.csproj` copies these into the build output,
-so a release built from this repository carries them automatically. Each mesher's license is copied
-only when that mesher's binary is actually present in the base folder.
-
-## Inventory
-
-| Component | Shipped as | License | Verified from |
+| Component | How the macOS build uses it | License | License text |
 |---|---|---|---|
-| PrePoMax | `PrePoMax.exe` | GPL-3.0 | `LICENSE` in this repository |
-| Gmsh 4.13, patched | `lib\gmsh-4.13.dll`, vendored in `ThirdParty/gmsh-4.13.0-Windows64-sdk/` | GPL-2.0-or-later, with an exception permitting combination with Netgen, METIS, OpenCASCADE and ParaView | `share/doc/gmsh/LICENSE.txt` in the vendored SDK under `ThirdParty/` |
-| OpenCASCADE 7.7.0 | statically linked into `lib\gmsh-4.13.dll` | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
-| Mmg | `Meshers\Mmg\mmgs.exe` (5.5.2), `Meshers\Mmg\mmg3d.exe` (5.7.0), vendored in `ThirdParty/mmg/` | LGPL-3.0-or-later | `LICENSE` at github.com/MmgTools/mmg |
-| QuadWild-BiMDF 0.0.2, modified | `Meshers\QuadWild\quadwild.exe`, `Meshers\QuadWild\quad_from_patches.exe`, vendored in `ThirdParty/quadwild-bimdf/` | GPL-3.0 | `LICENSE` at github.com/cgg-bern/quadwild-bimdf |
-| NetGenMesher | `Meshers\Netgen\NetGenMesher.exe`, vendored in `ThirdParty/netgen/` | GPL-3.0 (own build, same license as PrePoMax) | the author |
-| Netgen 5.3.1 | `Meshers\Netgen\nglib.dll` | LGPL-2.1 | `LICENSE` at github.com/NGSolve/netgen |
-| OpenCASCADE 8.0.1 | `Meshers\Netgen\TK*.dll` | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
-| pthreads-win32 2.9.1 | `Meshers\Netgen\pthreadVC2.dll` | LGPL-2.1 | `COPYING.LIB` in the prebuilt package used for the build |
-| zlib 1.2.11 | `Meshers\Netgen\zlib.dll` | zlib License | license notice in the vendored `zlib.h` |
-| lp_solve 5.5.2.11 | `lib\lpsolve55.dll`, vendored in `ThirdParty/lpsolve/` | LGPL-2.1 | `README.txt` of the lp_solve 5.5 sources, sourceforge.net/projects/lpsolve |
+| PrePoMax | the application | GPL-3.0 | [LICENSE](../LICENSE) |
+| NetGenMesher (macOS) | `Meshers/Netgen/NetGenMesher`, built from `macOS/Native/NetGenMesher` | GPL-3.0 (same as PrePoMax) | [LICENSE](../LICENSE) |
+| Gmsh 4.15 | Homebrew `gmsh`, linked by NetGenMesher | GPL-2.0-or-later, with an exception permitting combination with OpenCASCADE | [gmsh/](gmsh/) |
+| OpenCASCADE 7.9 | Homebrew `opencascade`, linked by NetGenMesher | LGPL-2.1 with the Open CASCADE exception | github.com/Open-Cascade-SAS/OCCT |
+| Mmg 5.7.0 | `Meshers/Mmg/mmgs`, `Meshers/Mmg/mmg3d`, built from the upstream sources by `macOS/Native/Mmg/build.sh` | LGPL-3.0-or-later | [mmg/](mmg/) |
+| lp_solve 5.5 | Homebrew `lp_solve` | LGPL-2.1 | [lpsolve/](lpsolve/) |
+| Avalonia 11.3 | NuGet package, the user interface | MIT | github.com/AvaloniaUI/Avalonia |
+| SkiaSharp | NuGet package, drawing | MIT | github.com/mono/SkiaSharp |
+| CalculiX | installed separately (Homebrew tap `costerwi/calculix`), run as a separate program | GPL-2.0 | calculix.de |
+| Code_Aster 18.1 (optional) | conda-forge package in a Docker image built by `macOS/Native/CodeAster/build.sh`, run as a separate program | GPL-3.0 | code-aster.org |
 
-Gmsh, Mmg and QuadWild are all GPL/LGPL v3-compatible with PrePoMax's own GPL-3.0, so bundling them
-raises no license-compatibility question. Mmg's own LICENSE requires that both `COPYING.LESSER`
-(LGPL-3) and `COPYING` (GPL-3) travel with the binaries, which is why all three files are here.
-
-## Gmsh build
-
-`lib\gmsh-4.13.dll` is no longer the binary from the upstream Gmsh SDK. It is built from patched
-Gmsh sources, published at `gitlab.com/MatejB/gmsh` on the branch `prepomax-quadqs-transfinite`, so
-that the quasi-structured quad algorithm leaves alone the element counts a swept mesh pins on its
-curves, a quadrangle is never split into triangles that fold over each other, and a curve is sized by
-the curvature of its faces in its own direction rather than by their largest curvature, which made a
-straight edge along a narrow fillet as fine as the fillet is round.
-Everything else in `ThirdParty/gmsh-4.13.0-Windows64-sdk/` is still the upstream SDK, the import
-library and the headers among it.
-
-The build is configured without the graphical interface and without the OpenCASCADE application
-framework, neither of which PrePoMax calls, and links OpenCASCADE statically, so the dll carries no
-`TK*.dll` beside it exactly as the upstream one did. It is built with Microsoft's compiler, which
-cannot compile Gmsh's OpenMP directives, so the parallel tetrahedral mesher runs on one thread
-where the upstream binary used several.
-
-## Netgen runtime set
-
-`NetGenMesher.exe` is the author's own build and is GPL-3, and the libraries it links are covered
-above. OpenCASCADE 8.0.1 was built locally with its optional image, video, visualization and
-parallel-runtime dependencies disabled, so the former FreeImage, FFmpeg, FreeType, jemalloc,
-OpenVR and TBB dlls no longer ship. See [netgen/NOTICE.md](netgen/NOTICE.md).
+Gmsh, Mmg and lp_solve are GPL/LGPL licenses compatible with PrePoMax's own GPL-3.0. Mmg's license
+requires that both `COPYING.LESSER` (LGPL-3) and `COPYING` (GPL-3) travel with the binaries, which is
+why all three files are in [mmg/](mmg/).
 
 ## Corresponding source
 
-GPL-3 section 6 and LGPL-3 require a route to the source for the binaries that are conveyed. For each
-component above, record the exact upstream version shipped and keep the matching source archive, or
-publish a written offer with the release. The versions currently shipped are listed in the table.
-
-Gmsh is the one component shipped as a modified binary, so its corresponding source is the branch
-named under "Gmsh build" above rather than an upstream release, and that branch has to stay
-published for as long as the binary is conveyed.
+GPL-3 section 6 and LGPL-3 require a route to the source for binaries that are conveyed. The app built
+by `make-app.sh` contains PrePoMax, NetGenMesher and Mmg, all built from this repository and from the
+upstream Mmg sources that `macOS/Native/Mmg/build.sh` downloads. A binary release should name the
+exact versions shipped and keep the matching source archives, or carry a written offer.

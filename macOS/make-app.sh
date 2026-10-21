@@ -22,6 +22,9 @@ exec ./PrePoMax "$@"
 EOF
 chmod +x "$STAGE/Contents/MacOS/PrePoMaxLauncher"
 cp Native/AppIcon.icns "$STAGE/Contents/Resources/AppIcon.icns"
+# The license texts of PrePoMax and of the components the app carries or links
+cp -R ../Licenses "$STAGE/Contents/Resources/Licenses"
+cp ../LICENSE "$STAGE/Contents/Resources/Licenses/LICENSE"
 VERSION=$(git -C .. describe --tags --always 2>/dev/null || echo 3.0)
 cat > "$STAGE/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

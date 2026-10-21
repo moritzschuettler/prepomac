@@ -7,10 +7,9 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="$(RepoRoot)vtkControl\**\*.cs" Exclude="$(RepoRoot)vtkControl\obj\**;$(RepoRoot)vtkControl\bin\**;$(RepoRoot)vtkControl\Properties\AssemblyInfo.cs;$(RepoRoot)vtkControl\Tools\PrecisionTouchpad.cs" />
+    <Compile Include="$(RepoRoot)vtkControl\**\*.cs" Exclude="$(RepoRoot)vtkControl\obj\**;$(RepoRoot)vtkControl\bin\**;$(RepoRoot)vtkControl\Properties\AssemblyInfo.cs" />
     <Compile Include="Mac\**\*.cs" />
   </ItemGroup>
-  <!-- Replaced on macOS: Tools\PrecisionTouchpad.cs (Windows raw input of the touchpad) -->
   <ItemGroup>
     <ProjectReference Include="..\CaeGlobals\CaeGlobals.csproj" />
     <ProjectReference Include="..\CaeMesh\CaeMesh.csproj" />

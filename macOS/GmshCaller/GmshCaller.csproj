@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- The Gmsh mesher process of PrePoMax: the same program as GmshCaller/Program.cs of the Windows build. It runs
+  <!-- The Gmsh mesher process of PrePoMax: the program of the shared GmshCaller/Program.cs. It runs
        next to PrePoMax, so a crash of gmsh does not end the application. -->
   <PropertyGroup>
     <AssemblyName>GmshCaller</AssemblyName>

@@ -1,141 +1,250 @@
-﻿# Prerequisites
-*  Visual Studio 2026 Community (development environment) - https://www.visualstudio.com/downloads/
-*  ActiViz OpenSource Edition 5.8.0 (64-bit Windows XP or later) (3D library used for graphics - must be installed only on the development PC; users do not need it) - https://prepomax.fs.um.si/downloads/
+﻿# PrePoMax for macOS
 
-# PrePoMax Visual Studio setup
-*  Download a Master branch of the PrePoMax package and extract it to a PrePoMax folder
-*  Open the solution: "PrePoMax\PrePoMax.sln"
+A native macOS port of [PrePoMax](https://prepomax.fs.um.si) 3.0, the open-source pre- and post-processor for the
+CalculiX finite element solver, including the composites modeler of
+[Yvan Blanchard's fork](https://gitlab.com/yvanblanchard/pre-po-max-composites): composite shell sections, laminates,
+ply orientations and the Tsai-Wu, maximum stress and other failure criteria.
 
-# Recreate the references to the VTK library
-First delete the two existing references to the VTK library:
-*  Open Solution Explorer: View->Solution Explorer
-*  In Solution Explorer find the vtkControl project and then find the References branch
-*  Delete the references starting with Kitware. (right click and Delete).
- 
-Secondly add the two references again using the following procedure:
-*  Right click on References from vtkControl project in the Solution Explorer Window and selected Add Reference
-*  A Reference manager window opens where you select Browse on the left side and then press the Browse button on the bottom right
-*  Browse for the file Kitware.VTK.dll which should be in the ActiViz installation folder: "C:\Program Files\ActiViz.NET 5.8.0 OpenSource Edition\bin\Kitware.VTK.dll"
-*  Repeat the procedure for the file Kitware.mummy.Runtime.dll: "C:\Program Files\ActiViz.NET 5.8.0 OpenSource Edition\bin\Kitware.mummy.Runtime.dll"
+It runs as a normal Mac app on Apple Silicon, without Windows, a virtual machine or Wine. It is a community port, not
+an official PrePoMax release. PrePoMax is written by Matej Borovinšek (University of Maribor), and the composites
+modeler by Yvan Blanchard.
 
-At last change the active solution platform using the main menu: **Build** -> **Configuration Manager** and select **x64** as the **Active solution platform**.
+**Status:** usable, still being tested. 77 of the 79 API test scripts pass; see [Known limitations](#known-limitations).
+Bug reports are very welcome: [open an issue](https://github.com/moritzschuettler/prepomac-composites/issues) with the
+steps, a small model (.pmx or the CAD file), and your macOS version and chip.
 
-Start the compilation and execution of the project by pressing the Start button...
+## Contents
 
-Compiling PrePoMax produces a working meshing setup on its own. The Netgen, Mmg and Gmsh binaries
-are vendored in [ThirdParty/](ThirdParty/) and the build copies them into `Meshers\Netgen`,
-`Meshers\Mmg` and `lib`, together with the license texts from [Licenses/](Licenses/). Nothing has to
-be copied by hand for meshing to work.
+- [Install](#install)
+- [Using PrePoMax on a Mac](#using-prepomax-on-a-mac)
+- [Code_Aster as a second solver](#code_aster-as-a-second-solver)
+- [Driving PrePoMax from an AI agent](#driving-prepomax-from-an-ai-agent)
+- [Validation](#validation)
+- [Known limitations](#known-limitations)
+- [Development](#development)
+- [License](#license)
 
-The rest of the base folder (Models, Solver, Python, Tools, Help) still has to be taken from the
-latest released version of PrePoMax's base folder. Then set the working folder and the solver
-(CalculiX) executable file name in Settings -> Calculix.
+## Install
 
-# License
+There is no binary download yet: the app is built from the source. That takes about 15 minutes, most of it for
+installing the tools. Tested on Apple Silicon with macOS 15; macOS 13 or newer should work, Intel Macs are untested.
 
-PrePoMax is licensed under the GNU General Public License v3 - see [LICENSE](LICENSE).
+### 1. The tools
 
-It also ships third-party mesher binaries that are not built from this repository: Gmsh
-(GPL-2.0-or-later, with an exception), Mmg (LGPL-3.0-or-later), and NetGenMesher (GPL-3.0), which in
-turn links Netgen, OpenCASCADE and pthreads-win32 (all LGPL-2.1). Their license texts live in
-[Licenses/](Licenses/) and the build copies them into the output folder next to the binaries they
-cover, so a build from this repository carries them automatically.
+```sh
+xcode-select --install                          # compilers for the native parts
+# .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0
+brew install cmake opencascade gmsh lp_solve    # Homebrew: https://brew.sh
+brew install costerwi/calculix/calculix-ccx     # CalculiX
+```
 
-See [Licenses/README.md](Licenses/README.md) for the full inventory, the corresponding-source
-obligation, and the handful of libraries bundled with the OpenCASCADE distribution whose terms are
-still to be established.
+Any CalculiX `ccx` works; PrePoMax finds it in /opt/homebrew/bin, /usr/local/bin or the PATH.
 
-# Driving PrePoMax from an AI agent
+### 2. Build and install the app
 
-PrePoMax serves an MCP endpoint itself, on this computer only, while its automation server is on. An
-agent client connects to an address rather than starting a process, so nothing is left running when
-PrePoMax is closed.
+```sh
+git clone https://github.com/moritzschuettler/prepomac-composites.git
+cd prepomac-composites/macOS
+./make-app.sh
+```
 
-1. In PrePoMax, switch on **Tools - Automation Server**. The server needs an access token, and the
-   first time there is none PrePoMax offers to generate one - answer yes. To have the server on after
-   every restart, set **Tools - Settings - Automation - Start with the application**.
-2. Read the *Access token* and the *Address* from **Tools - Settings - Automation**. A token can also
-   be generated there, or generated again, from the context menu of the *Access token* entry. The
-   address is also written to the output window when the server starts. Copy it rather than assuming
-   the port: it is 8756 unless that port was taken, and then the server answers on the next free one,
-   which the *Address* shows while the server runs.
-3. Point the client at them. For Claude Code, with the address you read:
+`make-app.sh` builds the Release configuration, packs it into `PrePoMax.app` and installs it in /Applications (or
+~/Applications when /Applications is not writable). PrePoMax then opens from the Launchpad, the Dock or Finder. To
+update, run `git pull` and `./make-app.sh` again.
 
-```bash
+The command line program, for scripts and batch runs, is `/Applications/PrePoMax.app/Contents/MacOS/PrePoMax.com`:
+
+```sh
+PrePoMax.com --script my_study.py -g No -x Yes -w ~/PrePoMax/Work
+```
+
+## Using PrePoMax on a Mac
+
+The program works as on Windows; the [PrePoMax documentation and tutorials](https://prepomax.fs.um.si) apply. The
+differences:
+
+- **Folders:** the work directory is `~/PrePoMax/Work`; settings, history and the material library are in
+  `~/Library/Application Support/PrePoMax`.
+- **Shortcuts:** the ⌘ command key does what the Ctrl key does on Windows.
+- **Solver:** CalculiX is found automatically; Tools > Settings > Solver changes it. The macOS builds of ccx only have
+  the SPOOLES matrix solver, which is the default.
+- **Meshing:** the Netgen mesher of Windows is replaced by gmsh, so meshes differ from Windows ones.
+
+### Navigating the 3D view
+
+| Action | Mouse | Trackpad |
+|---|---|---|
+| Zoom at the pointer | wheel (with ⌘ in finer steps) | two-finger scroll, or pinch |
+| Rotate | drag with the middle button | ⌥ option + drag |
+| Pan | ⇧ shift + drag with the middle button | ⌥ option + ⇧ shift + drag |
+| Zoom by dragging | ⌘ + drag with the middle button | ⌥ option + ⌘ + drag |
+| Zoom to a box | hold Z and drag a box with the left button | |
+| Fit the model | "Zoom to fit" in the toolbar | |
+| Rotate in steps | arrow keys | |
+
+Tools > Settings > Navigation sets the speeds and the directions.
+
+### Python scripts and recording
+
+- **Run scripts:** View > Side Panels > Python Script Editor. *Run script*, *Run selection*, or *Record and run*,
+  which also adds the script to the command history of the model.
+- **Record:** every action in the program is recorded in the command history; File > Export > Python session journal
+  writes it as a Python script that repeats it.
+- The Python API is documented in [Python_API_Overview.md](Python_API_Overview.md). Example studies are in
+  [assets_composites/](assets_composites/), among them a carbon bike frame with ply optimization
+  ([bike_frame_study.py](assets_composites/bike-frame/bike_frame_study.py)).
+
+## Code_Aster as a second solver
+
+[Code_Aster](https://code-aster.org) 18.1 can solve the same models in Docker. It keeps composite shells as true
+layered shells (DKT, DEFI_COMPOSITE), where CalculiX expands every ply block into solid elements. The results come back
+as a CalculiX .frd file with the displacements, the stresses, and for composite shells the Tsai-Wu index, reserve factor
+and critical ply.
+
+```sh
+brew install colima docker
+colima start aster --vm-type vz --vz-rosetta                      # amd64 through Rosetta on Apple Silicon
+DOCKER_CONTEXT=colima-aster macOS/Native/CodeAster/build.sh       # builds the image prepomax/code_aster:18.1
+```
+
+Choose CodeAster as the solver of an analysis. Tools > Settings > Code_Aster sets the docker executable, the context
+(`colima-aster`) and the image. colima shares only the home folder, so the work directory must be inside it.
+`colima start` makes its context the current docker context; `docker context use default` switches back.
+
+Supported: static steps with fixed and displacement boundary conditions, concentrated forces and moments, gravity;
+shells (plain and composite) and solids (linear and quadratic tetrahedra, linear hexahedra and wedges).
+
+## Driving PrePoMax from an AI agent
+
+PrePoMax serves an MCP endpoint itself, on this computer only, while its automation server is on. An agent client
+connects to an address rather than starting a process, so nothing is left running when PrePoMax is closed.
+
+1. Switch on **Tools > Automation Server**. The server needs an access token; the first time there is none, PrePoMax
+   offers to generate one. To have the server on after every start, set **Tools > Settings > Automation > Start with
+   the application**.
+2. Read the *Access token* and the *Address* from **Tools > Settings > Automation**. The port is 8756 unless that port
+   was taken; then the server answers on the next free one, which the *Address* shows.
+3. Point the client at them. For Claude Code:
+
+```sh
 claude mcp add --scope user --transport http prepomax http://127.0.0.1:8756/mcp --header "Authorization: Bearer <token>"
 ```
 
-`--scope user` registers the server for every project; without it Claude Code registers it for the
-current directory only. `/mcp` in Claude Code shows the connection and reconnects it - after
-PrePoMax was closed and opened again, the client has to reconnect.
-
-Another MCP client takes the same address and header in its configuration, usually in this form:
+Another MCP client takes the same address and header in its configuration:
 
 ```json
 {"mcpServers": {"prepomax": {"type": "http", "url": "http://127.0.0.1:8756/mcp",
                              "headers": {"Authorization": "Bearer <token>"}}}}
 ```
 
-A client that speaks only stdio needs a bridge to HTTP, such as `mcp-remote`. So does a client that
-runs in a browser: the endpoint refuses every request that carries an `Origin` header, which is what
-keeps web pages out.
+A client that speaks only stdio needs a bridge to HTTP, such as `mcp-remote`. So does a client in a browser: the
+endpoint refuses every request with an `Origin` header, which keeps web pages out.
 
-The token is kept in that folder's `settings.bin` and can only be generated, never typed. The server
-will not start without one, and there is no command line switch for it, so a folder has to be opened
-once with its window before an unattended run can serve. Unpack PrePoMax into a folder inside your
-user profile, such as `C:\Users\<you>\PrePoMax`: other local accounts can read a folder created
-directly under `C:\`, and with it the token in `settings.bin`.
+The token is kept in `settings.bin` in `~/Library/Application Support/PrePoMax` and can only be generated, never typed.
+A client that cannot connect means PrePoMax is closed or its automation server is off.
 
-A newly unpacked PrePoMax starts without a token on purpose: `settings.bin` is part of the
-redistributable, and a token left in it would be shipped to everyone. The first run in a folder
-clears whatever token its settings carry - PrePoMax knows it is the first run because its own
-`trace.info` marker is absent - and the settings page has a *Clear the access token* action to use
-before preparing a release. After an update, generate a token in the new folder, or keep the old
-one: start the new version once and close it, then copy `settings.bin` over from the old folder. A
-`settings.bin` copied in before that first start loses its token, because the first start clears it.
+The application serves the agent its own guide through the tool **`get_guide`**: the order of the work, what a number
+without a unit means, how to find the face that was meant, and what to do when a call is refused.
+[AgentSkill/prepomax/SKILL.md](AgentSkill/prepomax/SKILL.md) is a Claude Code skill that points an agent at it; copy it
+to `~/.claude/skills/prepomax/SKILL.md`. [Python_API_Overview.md](Python_API_Overview.md), section *Agent integration*,
+documents the tools and the security gates.
 
-**A client that cannot connect means PrePoMax is closed, or its automation server is off.** Nothing
-answers on the address unless the session is open - that is what serving it from the application
-buys - so open PrePoMax and switch the server on. It is worth telling the agent as much in the
-project's own instructions, so that it asks rather than working around it.
+## Validation
 
-The application serves the agent its own guide: **`get_guide`** is how the work is ordered, what a
-number without a unit means, how to find the face that was meant, and what to do when a call is
-refused. It travels with the version, so there is nothing to keep in step on the client side.
-`Help\Python\SKILL.md`, in the installation folder (and in [AgentSkill/prepomax/](AgentSkill/prepomax/)
-in this repository), is a Claude Code skill that points an agent at it. Copy it to
-`<project>/.claude/skills/prepomax/SKILL.md` to have it in one project, or to
-`~/.claude/skills/prepomax/SKILL.md` to have it in all of them.
+[assets_composites/plate-validation](assets_composites/plate-validation) compares the composite shells with classical
+laminate theory, for CalculiX with layered shells, CalculiX with the smeared laminate of the bike frame study, and
+Code_Aster (`./run_validation.sh`). The loads are scaled to an analytic Tsai-Wu reserve factor of 2:
 
-`Python_API_Overview.md`, section *Agent integration*, documents the tools, the security gates, the
-port, and the pipe the same server also keeps for a client that speaks its protocol directly.
+| Case | CalculiX layered | CalculiX smeared | Code_Aster |
+|---|---|---|---|
+| Simply supported [0/90]s plate, Navier: deflection / reserve | +0.2 % / −0.2 % | +1.2 % / −9.2 % | −0.1 % / 0.0 % |
+| [±45/0/90]s strip in tension | +1.3 % / −7.5 % | −0.6 % / 0.0 % | +0.3 % / 0.0 % |
+| The same strip as a cantilever | −6.5 % / −3.7 % | −54 % / +28 % | −8.5 % / −4.0 % |
 
-# Structure
+The cantilever formula assumes a strip free to twist, which the clamp prevents, so both solvers are a few percent
+stiffer than it while agreeing with each other within 2 %. The smeared laminate holds for membrane loads only, so it is
+meant for quick optimization loops, with a final check of the layered model.
 
-The PrePoMax is a solution which consists of 14 projects:
-*  APIs: classes for interfacing with PrePoMax from other programs (Python, ...)
-*  CaeGlobals: global classes for all other projects to use
-*  CaeJob: classes for running the analysis
-*  CaeMesh: classes for FE mesh: nodes, elements, sets, ...
-*  CaeModel: classes for FE model. Model contains FE mesh + materials, sections, ...
-*  CaeResults: classes for FE results. Results contain FE mesh + field outputs, ...
-*  GmshCaller: a stand alone executable used for running the Gmsh routines
-*  GmshCommon: wrapper for the Gmsh mesher from https://github.com/tsvilans/gmsh_common 
-*  PrePoMax: classes for user interface
-*  PrePoMaxCmd: the console subsystem launcher deployed as PrePoMax.com, so that a command line run
-   waits and receives the exit code
-*  STL: classes for stl geometry import
-*  ThreeMF: classes for 3MF geometry export
-*  UserControls: classes for more complex user controls, as model tree view...
-*  vtkControl: classes for 3D visualization
+## Known limitations
 
-PrePoMax is compiled in an exe file all the other projects are compiled in dll files.
+- Two API tests fail: the mirrored revolve mesh of `revolve_end_cap.brep`, and the second-order tetrahedra of
+  `sweep_plate_overhang.brep`, whose volume is about 1 % off (gmsh 4.15 of Homebrew, 4.13 on Windows).
+- Netgen meshing is done by gmsh (its 3D algorithm is the Frontal/Netgen one). Structured (transfinite) four-sided
+  faces, three-sided faces as three blocks ("Mapped") or polar, and the numbers of elements set on edges are supported.
+- QuadWild is not available: PrePoMax ships modified Windows binaries of QuadWild-BiMDF whose source is not public.
+- The macOS builds of ccx have only the SPOOLES direct solver (no PARDISO). Badly conditioned models, such as a body
+  held only by compression-only supports, can be found singular, and large models are slower.
+- On the carbon bike frame model, CalculiX and Code_Aster differ by about 50 % in stiffness, although they agree on the
+  plates above; the cause is not found yet (shell junctions or supports are suspected).
+- The trackpad navigation is new and needs testing.
+- The help page of the Python editor is not built yet; [Python_API_Overview.md](Python_API_Overview.md) has its content.
+- Files of the composites modeler of Yvan Blanchard (PrePoMax 2.4.5 dev) open; their laminae keep the out-of-plane
+  constants of that version (v23 = v12).
 
-Alongside the projects, [ThirdParty/](ThirdParty/) holds the binaries that are not built here and
-are deployed by the build: `netgen/` (NetGenMesher and its OpenCASCADE runtime), `mmg/` (the Mmg
-executables) and `gmsh-4.13.0-Windows64-sdk/` (the Gmsh sdk that GmshCommon links against and whose
-dll is shipped).
+## Development
 
-The internal structure of the program is quite complex and there are almost no comments in the code (no time to write them) but I am using very descriptive names. Each class has its own file with .cs extension. You can browse the files in the Solution Explorer.
+```sh
+cd macOS
+./build.sh              # Debug build (./build.sh Release for Release)
+./run.sh                # starts macOS/PrePoMax/bin/Debug/net10.0/PrePoMax
+```
 
-The PrePoMax project has a Forms folder and inside it is a FrmMain.cs file/class. This is the main form. The form communicates exclusively with the Controller.cs file/class which holds all data about the model. The program records all user actions in order to be able to repeat them later (while running PrePoMax select Edit -> Regenerate History) so all needed user functions/subroutines are not called directly but via Commands. There is a special Command class for each user action...
+`build.sh` uses a .NET 10 SDK even when the `dotnet` of the PATH is an older one. The build also compiles the native
+parts: `Native/Win32Compat.c`, `Native/NetGenMesher` (the CAD and mesher process on OpenCASCADE and gmsh) and
+`Native/Mmg` (downloaded and built once).
+
+### Structure
+
+The shared PrePoMax sources are in the folders of the repository root; the projects in [macOS/](macOS/) compile them
+and replace only what depends on Windows.
+
+| Folder | Content |
+|---|---|
+| `PrePoMax` | the user interface: `Forms/FrmMain.cs` is the main form, `Controller.cs` holds the model |
+| `CaeModel`, `CaeMesh`, `CaeResults` | the FE model (materials, sections, steps, ...), the mesh, the results |
+| `CaeJob` | running the solvers |
+| `CaeGlobals` | classes shared by all projects |
+| `APIs` | the Python API and the automation server (RPC, MCP) |
+| `UserControls`, `vtkControl` | the model tree and the other controls, the 3D view |
+| `GmshCaller`, `STL`, `3MF` | the gmsh process, STL import, 3MF export |
+| `macOS/WinFormsCompat` | Windows Forms on [Avalonia](https://avaloniaui.net) |
+| `macOS/DrawingCompat` | System.Drawing on SkiaSharp |
+| `macOS/vtkControl/Mac/Vtk` | the VTK classes PrePoMax uses, on OpenGL |
+| `macOS/FastColoredTextBox`, `macOS/ZedGraph` | the code editor and the charts |
+| `macOS/Native` | NetGenMesher, Mmg, the Win32 stubs, the Code_Aster image |
+| `APIs/Python/Test_Scripts` | the test suite |
+
+The macOS projects list the shared files one by one, so a new source file in a shared folder is added to the project
+of its folder in `macOS/`.
+
+PrePoMax records every user action as a command, so that a model can be rebuilt (Edit > Regenerate History): user
+functions are not called directly but through a command class for each action, in `PrePoMax/Commands`.
+
+### Testing
+
+The Python test suite runs every test script without a window:
+
+```sh
+cd APIs/Python/Test_Scripts
+python3 Run_Tests.py --exe ../../../macOS/PrePoMax/bin/Debug/net10.0/PrePoMax.com --settings <settings file>
+```
+
+The automation server (RPC, MCP) serves only with an access token. Its tests need a settings file that carries one:
+generate it in Tools > Settings > Automation, or give the tests a copy of the settings with a token (`--settings`).
+
+`PPM_AUTOMATION=<script>` runs a GUI test script after the start (see `macOS/WinFormsCompat/Forms/Automation.cs` for
+the commands: menu, click, set, select, file, snapshot, dump, ...). `PPM_TRACE=1` writes the first chance exceptions
+with their stack traces to the error output.
+
+### Rendering
+
+The views are rendered by a 60 Hz timer; `PPM_DISPLAY_LINK=1` uses the display link of macOS instead. A session
+without a window (`-g No`) runs on the headless platform of Avalonia, so scripts, regenerations and the automation
+server also run while the display sleeps or the screen is locked; its pictures are rendered by an OpenGL context of
+their own (`PPM_NATIVE_BATCH=1` uses the native platform instead).
+
+## License
+
+PrePoMax is licensed under the GNU General Public License v3, see [LICENSE](LICENSE), and so is this port. The
+third-party components keep their own licenses; [Licenses/README.md](Licenses/README.md) lists them, and the app carries
+their texts in `Contents/Resources/Licenses`.

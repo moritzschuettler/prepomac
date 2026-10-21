@@ -1,4 +1,4 @@
-// PrePoMax for macOS - the touchpad of the view (vtkControl/Tools/PrecisionTouchpad.cs). Windows reads the contacts of a
+// PrePoMax for macOS - the touchpad of the view. Windows reads the contacts of a
 // precision touchpad from raw HID input; macOS turns the trackpad gestures into precise scroll and magnify events, which
 // the view receives as wheel messages, so no touchpad device is registered here.
 using System;
