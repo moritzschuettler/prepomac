@@ -1,0 +1,44 @@
+name: Bug report
+description: Something does not work or looks wrong in PrePoMax for macOS
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. File > New, 3D, mm ton s °C
+        2. File > Import, bracket.step
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: model
+    attributes:
+      label: Model
+      description: Attach a small model that shows the problem (.pmx, or the CAD file; zip it if GitHub refuses the type).
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and chip
+      placeholder: macOS 15.5, Apple M2
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: PrePoMax commit
+      description: The output of `git log --oneline -1` in your clone.
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or error message
+      description: The text of the output window or the terminal (`PPM_TRACE=1 ./run.sh` writes the stack traces).
+      render: text

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/moritzschuettler/prepomac/discussions
+    about: Ask how something works or share what you built with it.
+  - name: PrePoMax on Windows
+    url: https://gitlab.com/MatejB/PrePoMax/-/issues
+    about: Problems that also happen in the original PrePoMax belong to the original project.

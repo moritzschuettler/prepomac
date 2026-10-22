@@ -1,0 +1,25 @@
+# Builds PrePoMax for macOS on every push and pull request, so a change that breaks the build is seen before it is
+# merged. The native parts (Win32Compat, NetGenMesher, Mmg) are built by the build as on a developer's Mac.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install the libraries
+        run: brew install cmake opencascade gmsh lp_solve
+
+      - name: Build
+        run: macOS/build.sh Release

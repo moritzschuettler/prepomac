@@ -1,5 +1,7 @@
 ﻿# PrePoMax for macOS
 
+[![Build](https://github.com/moritzschuettler/prepomac/actions/workflows/build.yml/badge.svg)](https://github.com/moritzschuettler/prepomac/actions/workflows/build.yml)
+
 A native macOS port of [PrePoMax](https://prepomax.fs.um.si) 3.0, the open-source pre- and post-processor for the
 CalculiX finite element solver, including the composites modeler of
 [Yvan Blanchard's fork](https://gitlab.com/yvanblanchard/pre-po-max-composites): composite shell sections, laminates,
@@ -11,7 +13,8 @@ modeler by Yvan Blanchard.
 
 **Status:** usable, still being tested. 77 of the 79 API test scripts pass; see [Known limitations](#known-limitations).
 Bug reports are very welcome: [open an issue](https://github.com/moritzschuettler/prepomac/issues) with the
-steps, a small model (.pmx or the CAD file), and your macOS version and chip.
+steps, a small model (.pmx or the CAD file), and your macOS version and chip. Pull requests are welcome too, see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Contents
 
@@ -48,6 +51,8 @@ cd prepomac/macOS
 ./make-app.sh
 ```
 
+The clone carries the whole history of PrePoMax (about 260 MB); `git clone --depth 1 ...` is quicker.
+
 `make-app.sh` builds the Release configuration, packs it into `PrePoMax.app` and installs it in /Applications (or
 ~/Applications when /Applications is not writable). PrePoMax then opens from the Launchpad, the Dock or Finder. To
 update, run `git pull` and `./make-app.sh` again.
@@ -68,7 +73,8 @@ differences:
 - **Shortcuts:** the ⌘ command key does what the Ctrl key does on Windows.
 - **Solver:** CalculiX is found automatically; Tools > Settings > Solver changes it. The macOS builds of ccx only have
   the SPOOLES matrix solver, which is the default.
-- **Meshing:** the Netgen mesher of Windows is replaced by gmsh, so meshes differ from Windows ones.
+- **Meshing:** the Netgen mesher of Windows is replaced by gmsh. The Netgen mesh items stay in the menus and are
+  meshed by gmsh with its Netgen 3D algorithm, so meshes differ from Windows ones.
 
 ### Navigating the 3D view
 
@@ -191,7 +197,8 @@ cd macOS
 
 `build.sh` uses a .NET 10 SDK even when the `dotnet` of the PATH is an older one. The build also compiles the native
 parts: `Native/Win32Compat.c`, `Native/NetGenMesher` (the CAD and mesher process on OpenCASCADE and gmsh) and
-`Native/Mmg` (downloaded and built once).
+`Native/Mmg` (downloaded and built once). How to contribute a change is in [CONTRIBUTING.md](CONTRIBUTING.md); every
+push and pull request is built on a macOS runner of GitHub Actions.
 
 ### Structure
 
