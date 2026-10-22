@@ -10,7 +10,7 @@ an official PrePoMax release. PrePoMax is written by Matej Borovinšek (Universi
 modeler by Yvan Blanchard.
 
 **Status:** usable, still being tested. 77 of the 79 API test scripts pass; see [Known limitations](#known-limitations).
-Bug reports are very welcome: [open an issue](https://github.com/moritzschuettler/prepomac-composites/issues) with the
+Bug reports are very welcome: [open an issue](https://github.com/moritzschuettler/prepomac/issues) with the
 steps, a small model (.pmx or the CAD file), and your macOS version and chip.
 
 ## Contents
@@ -43,8 +43,8 @@ Any CalculiX `ccx` works; PrePoMax finds it in /opt/homebrew/bin, /usr/local/bin
 ### 2. Build and install the app
 
 ```sh
-git clone https://github.com/moritzschuettler/prepomac-composites.git
-cd prepomac-composites/macOS
+git clone https://github.com/moritzschuettler/prepomac.git
+cd prepomac/macOS
 ./make-app.sh
 ```
 

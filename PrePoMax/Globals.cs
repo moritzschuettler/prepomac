@@ -37,7 +37,7 @@ namespace PrePoMax
         }
         public static string WindowTitle
         {
-            get { return ProgramName + " - Composites Modeler"; }
+            get { return ProgramName; }
         }
         // State names
         public static string ReadyText = "Ready";

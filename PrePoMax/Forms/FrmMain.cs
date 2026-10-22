@@ -391,7 +391,7 @@ namespace PrePoMax
             //    this.Size = new Size(resolution.Width, resolution.Height);
             //    this.WindowState = FormWindowState.Maximized;
             //}
-            Text = Globals.ProgramName + " - Composites Modeler";
+            Text = Globals.WindowTitle;
             if (!_hideWindow) this.TopMost = true;
             //
             if (_cmdOptions.ShowGui == "Yes")
