@@ -24131,6 +24131,8 @@ namespace PrePoMax
                 else if (typeof(Material).IsAssignableFrom(itemType)) dictionary = _model.Materials;
                 else if (typeof(Section).IsAssignableFrom(itemType)) dictionary = _model.Sections;
                 else if (typeof(MaterialOrientation).IsAssignableFrom(itemType)) dictionary = _model.MaterialOrientations;
+                else if (typeof(CompositeLayup).IsAssignableFrom(itemType)) dictionary = _model.CompositeLayups;
+                else if (typeof(Rosette).IsAssignableFrom(itemType)) dictionary = _model.Rosettes;
                 else if (typeof(CaeModel.Constraint).IsAssignableFrom(itemType)) dictionary = _model.Constraints;
                 else if (typeof(SurfaceInteraction).IsAssignableFrom(itemType)) dictionary = _model.SurfaceInteractions;
                 else if (typeof(ContactPair).IsAssignableFrom(itemType)) dictionary = _model.ContactPairs;
