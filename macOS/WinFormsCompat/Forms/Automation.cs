@@ -17,7 +17,8 @@
 //   cell <grid> <row> <column> <text> sets the value of a cell as an edit does
 //   selectrow <grid> <text>          selects the row of a data grid view or the item of a list view with the text
 //   log <text>                       writes the text to the output
-//   quit                             closes the application
+//   close                            closes the main form as its close button does
+//   quit                             ends the application at once
 // Each executed command is written to the error output, so the log shows how far a script got.
 
 using System;
@@ -215,6 +216,9 @@ namespace System.Windows.Forms
                         }
                     case "sweep":
                         StartSweep(argument);
+                        break;
+                    case "close":
+                        Application.OpenForms.Cast<Form>().FirstOrDefault()?.Close();
                         break;
                     case "quit":
                         Environment.Exit(0);

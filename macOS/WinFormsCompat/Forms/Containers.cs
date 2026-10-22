@@ -280,7 +280,14 @@ namespace System.Windows.Forms
         {
             if (_selectedIndex >= _pages.Count) _selectedIndex = _pages.Count - 1;
             UpdatePages();
-            if (index <= _selectedIndex) OnSelectedIndexChanged(EventArgs.Empty);
+            // Pages removed while their window is being disposed change no selection, as on Windows
+            if (index <= _selectedIndex && !IsBeingDisposed()) OnSelectedIndexChanged(EventArgs.Empty);
+        }
+        private bool IsBeingDisposed()
+        {
+            for (Control control = this; control != null; control = control.Parent)
+                if (control.Disposing || control.IsDisposed) return true;
+            return false;
         }
         private void UpdatePages()
         {
