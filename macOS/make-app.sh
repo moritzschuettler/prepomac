@@ -16,8 +16,9 @@ else
     ./build.sh Release
     OUT=PrePoMax/bin/Release/net10.0
 fi
+# A folder that is given is made and used; only /Applications falls back to ~/Applications
 TARGET=${1:-/Applications}
-[ -w "$TARGET" ] || TARGET="$HOME/Applications"
+[ -n "$1" ] || [ -w "$TARGET" ] || TARGET="$HOME/Applications"
 mkdir -p "$TARGET"
 APP="$TARGET/PrePoMax.app"
 STAGE=$(mktemp -d)/PrePoMax.app
