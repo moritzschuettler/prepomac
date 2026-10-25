@@ -29,10 +29,26 @@ steps, a small model (.pmx or the CAD file), and your macOS version and chip. Pu
 
 ## Install
 
-There is no binary download yet: the app is built from the source. That takes about 15 minutes, most of it for
-installing the tools. Tested on Apple Silicon with macOS 15; macOS 13 or newer should work, Intel Macs are untested.
+### Download (Apple Silicon)
 
-### 1. The tools
+The [releases](https://github.com/moritzschuettler/prepomac/releases) carry `PrePoMax-macOS-arm64.zip`, an app that
+needs nothing else installed: OpenCASCADE, gmsh, lp_solve, CalculiX, a Python with NumPy and the .NET runtime are
+inside it. Unzip it and move `PrePoMax.app` to /Applications.
+
+The app is not signed with an Apple developer certificate, so macOS refuses to open it the first time. Either open
+System Settings > Privacy & Security and click *Open Anyway* after the first try, or clear the download flag once in
+the terminal:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/PrePoMax.app
+```
+
+### Build from the source
+
+Building takes about 15 minutes, most of it for installing the tools. Tested on Apple Silicon with macOS 15; macOS 13
+or newer should work, Intel Macs are untested.
+
+#### 1. The tools
 
 ```sh
 xcode-select --install                          # compilers for the native parts
@@ -43,7 +59,7 @@ brew install costerwi/calculix/calculix-ccx     # CalculiX
 
 Any CalculiX `ccx` works; PrePoMax finds it in /opt/homebrew/bin, /usr/local/bin or the PATH.
 
-### 2. Build and install the app
+#### 2. Build and install the app
 
 ```sh
 git clone https://github.com/moritzschuettler/prepomac.git
@@ -71,8 +87,8 @@ differences:
 - **Folders:** the work directory is `~/PrePoMax/Work`; settings, history and the material library are in
   `~/Library/Application Support/PrePoMax`.
 - **Shortcuts:** the ⌘ command key does what the Ctrl key does on Windows.
-- **Solver:** CalculiX is found automatically; Tools > Settings > Solver changes it. The macOS builds of ccx only have
-  the SPOOLES matrix solver, which is the default.
+- **Solver:** CalculiX is found automatically (the downloaded app carries its own); Tools > Settings > Solver changes
+  it. The macOS builds of ccx only have the SPOOLES matrix solver, which is the default.
 - **Meshing:** the Netgen mesher of Windows is replaced by gmsh. The Netgen mesh items stay in the menus and are
   meshed by gmsh with its Netgen 3D algorithm, so meshes differ from Windows ones.
 

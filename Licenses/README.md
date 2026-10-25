@@ -15,12 +15,22 @@ Homebrew and linked at run time; only Mmg is built by this repository and shippe
 | lp_solve 5.5 | Homebrew `lp_solve` | LGPL-2.1 | [lpsolve/](lpsolve/) |
 | Avalonia 11.3 | NuGet package, the user interface | MIT | github.com/AvaloniaUI/Avalonia |
 | SkiaSharp | NuGet package, drawing | MIT | github.com/mono/SkiaSharp |
-| CalculiX | installed separately (Homebrew tap `costerwi/calculix`), run as a separate program | GPL-2.0 | calculix.de |
+| CalculiX | installed separately (Homebrew tap `costerwi/calculix`), run as a separate program; the downloaded app carries it in `Contents/MacOS/Solver` | GPL-2.0 | [calculix/](calculix/) |
 | Code_Aster 18.1 (optional) | conda-forge package in a Docker image built by `macOS/Native/CodeAster/build.sh`, run as a separate program | GPL-3.0 | code-aster.org |
 
 Gmsh, Mmg and lp_solve are GPL/LGPL licenses compatible with PrePoMax's own GPL-3.0. Mmg's license
 requires that both `COPYING.LESSER` (LGPL-3) and `COPYING` (GPL-3) travel with the binaries, which is
 why all three files are in [mmg/](mmg/).
+
+## The downloaded app
+
+The stand-alone app of the releases (`make-app.sh --standalone`, see `macOS/bundle-deps.py`) also carries the
+libraries above that Homebrew provides, together with the libraries they load (FLTK, cairo, FreeType, the X11
+libraries, TBB, OpenBLAS, Open MPI, the GCC runtime and others), CalculiX, a Python 3.12 of
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone) with NumPy, and the .NET runtime
+(MIT). The license files of every Homebrew formula it takes files from are copied into
+`Contents/Resources/Licenses/Bundled`, with `VERSIONS.txt` naming the formula versions shipped; the Python keeps its
+own license in `Contents/MacOS/Python/lib/python3.12/LICENSE.txt`.
 
 ## Corresponding source
 

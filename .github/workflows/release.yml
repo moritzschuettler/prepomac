@@ -1,0 +1,46 @@
+# Builds the stand-alone PrePoMax.app (with the Homebrew libraries, CalculiX, a Python and the .NET runtime inside,
+# see macOS/bundle-deps.py) and attaches it as a zip to a GitHub release. A pushed tag v* makes the release; a manual
+# run only keeps the zip as an artifact of the run.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install the libraries and CalculiX
+        run: |
+          brew install cmake opencascade gmsh lp_solve
+          brew install costerwi/calculix/calculix-ccx
+
+      - name: Build the stand-alone app
+        run: macOS/make-app.sh --standalone "$RUNNER_TEMP/dist"
+
+      - name: Zip it
+        run: ditto -c -k --keepParent "$RUNNER_TEMP/dist/PrePoMax.app" PrePoMax-macOS-arm64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PrePoMax-macOS-arm64
+          path: PrePoMax-macOS-arm64.zip
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" PrePoMax-macOS-arm64.zip --title "PrePoMax for macOS $GITHUB_REF_NAME" --generate-notes

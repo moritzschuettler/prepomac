@@ -4,6 +4,7 @@
 macOS/Native/NetGenMesher/build/
 macOS/Native/Mmg/src/
 macOS/Native/Mmg/build/
+macOS/Native/Python/
 
 # Editors and the system
 .vs/

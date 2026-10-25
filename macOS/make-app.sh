@@ -1,12 +1,21 @@
 #!/bin/bash
 # Builds PrePoMax.app from the Release build and installs it in /Applications (or ~/Applications when /Applications is
-# not writable): ./make-app.sh [install folder]
+# not writable): ./make-app.sh [--standalone] [install folder]
 # The app opens from the Launchpad, the Dock or Finder like any other; the command line program stays
-# Contents/MacOS/PrePoMax.com inside it.
+# Contents/MacOS/PrePoMax.com inside it. With --standalone the app carries the Homebrew libraries, CalculiX and a
+# Python of its own (bundle-deps.py), so that it runs on a Mac without Homebrew, as the downloadable release does.
 set -e
 cd "$(dirname "$0")"
-./build.sh Release
-OUT=PrePoMax/bin/Release/net10.0
+STANDALONE=0
+if [ "$1" = "--standalone" ]; then STANDALONE=1; shift; fi
+if [ "$STANDALONE" = 1 ]; then
+    # The .NET runtime goes into the app as well
+    ./build.sh Release -r osx-arm64 --self-contained
+    OUT=PrePoMax/bin/Release/net10.0/osx-arm64
+else
+    ./build.sh Release
+    OUT=PrePoMax/bin/Release/net10.0
+fi
 TARGET=${1:-/Applications}
 [ -w "$TARGET" ] || TARGET="$HOME/Applications"
 mkdir -p "$TARGET"
@@ -45,6 +54,7 @@ cat > "$STAGE/Contents/Info.plist" <<EOF
 </dict>
 </plist>
 EOF
+[ "$STANDALONE" = 1 ] && python3 bundle-deps.py "$STAGE"
 # The build signs its programs ad hoc; the bundle is signed again as a whole
 codesign --force --deep --sign - "$STAGE" > /dev/null 2>&1 || true
 rm -rf "${APP:?}"
