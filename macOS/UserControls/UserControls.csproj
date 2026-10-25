@@ -97,7 +97,7 @@
     <Compile Include="$(RepoRoot)UserControls\TextBoxes\NumericTextBox.Designer.cs" />
     <Compile Include="$(RepoRoot)UserControls\Properties\Resources.Designer.cs" />
     <Compile Include="$(RepoRoot)UserControls\ProperyGrid\TabEnabledPropertyGrid.cs" />
-    <Compile Include="$(RepoRoot)UserControls\Trees\CodersLabTreeView.cs" />
+    <Compile Include="$(RepoRoot)UserControls\Trees\CoderslabTreeView.cs" />
     <Compile Include="$(RepoRoot)UserControls\ToolStrip\ToolStripFocus.cs" />
     <Compile Include="$(RepoRoot)UserControls\ToolStrip\ToolStripFocus.Designer.cs" />
     <Compile Include="$(RepoRoot)UserControls\Trees\Extensions.cs" />
@@ -145,7 +145,7 @@
     <EmbeddedResource Include="$(RepoRoot)UserControls\TextBoxes\NumericTextBox.resx" LogicalName="UserControls.NumericTextBox.resources" />
     <EmbeddedResource Include="$(RepoRoot)UserControls\Properties\Resources.resx" LogicalName="UserControls.Properties.Resources.resources" />
     <EmbeddedResource Include="$(RepoRoot)UserControls\ProperyGrid\TabEnabledPropertyGrid.resx" LogicalName="UserControls.TabEnabledPropertyGrid.resources" />
-    <EmbeddedResource Include="$(RepoRoot)UserControls\Trees\CodersLabTreeView.resx" LogicalName="UserControls.CodersLabTreeView.resources" />
+    <EmbeddedResource Include="$(RepoRoot)UserControls\Trees\CoderslabTreeView.resx" LogicalName="UserControls.CodersLabTreeView.resources" />
     <EmbeddedResource Include="$(RepoRoot)UserControls\SidePanel\AdvisorPanel.resx" LogicalName="UserControls.AdvisorPanel.resources" />
     <EmbeddedResource Include="$(RepoRoot)UserControls\UITypeEditors\FrmGetDampingRatios.resx" LogicalName="UserControls.FrmGetDampingRatios.resources" />
     <EmbeddedResource Include="$(RepoRoot)UserControls\ViewportTextEditor.resx" LogicalName="UserControls.ViewportTextEditor.resources" />

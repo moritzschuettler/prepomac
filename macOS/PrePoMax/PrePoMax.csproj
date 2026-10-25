@@ -404,15 +404,15 @@
     <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.2.3\CActivateDeactivate.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Commands\CommandsCollection.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Commands\00_Base\Command.cs" />
-    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.1.0\CActivateDeactivateMultilpe.cs" />
-    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.1.0\CAddReferencePoint.cs" />
-    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.1.0\CDuplicateReferencePoints.cs" />
-    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.1.0\CHideReferencePoints.cs" />
-    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.1.0\CPropagateHisotryOutput.cs" />
-    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.1.0\CRemoveReferencePoints.cs" />
-    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.1.0\CReplaceHisotryOutput.cs" />
-    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.1.0\CReplaceReferencePoint.cs" />
-    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.1.0\CShowReferencePoints.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\V2.1.0\CActivateDeactivateMultilpe.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\V2.1.0\CAddReferencePoint.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\V2.1.0\CDuplicateReferencePoints.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\V2.1.0\CHideReferencePoints.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\V2.1.0\CPropagateHisotryOutput.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\V2.1.0\CRemoveReferencePoints.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\V2.1.0\CReplaceHisotryOutput.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\V2.1.0\CReplaceReferencePoint.cs" />
+    <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\V2.1.0\CShowReferencePoints.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Commands\_Compatibility\v2.2.0\CDeleteStlPartFacesCommand.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Controller.cs" />
     <Compile Include="$(RepoRoot)PrePoMax\Controller.HistoryOutputTables.cs" />
@@ -882,7 +882,7 @@
     <EmbeddedResource Include="$(RepoRoot)PrePoMax\Forms\83_ResultHistoryOutput\FrmResultHistoryOutput.resx" LogicalName="PrePoMax.Forms.FrmResultHistoryOutput.resources" />
     <EmbeddedResource Include="$(RepoRoot)PrePoMax\Forms\83_ResultHistoryOutput\FrmViewResultHistoryOutput.resx" LogicalName="PrePoMax.FrmViewResultHistoryOutput.resources" />
     <EmbeddedResource Include="$(RepoRoot)PrePoMax\Forms\84_Transformation\FrmTransformation.resx" LogicalName="PrePoMax.Forms.FrmTransformation.resources" />
-    <EmbeddedResource Include="$(RepoRoot)PrePoMax\Forms\FrmMain.resx" LogicalName="PrePoMax.FrmMain.resources" />
+    <EmbeddedResource Include="$(RepoRoot)PrePoMax\Forms\frmMain.resx" LogicalName="PrePoMax.FrmMain.resources" />
     <EmbeddedResource Include="$(RepoRoot)PrePoMax\Forms\FrmSplash.resx" LogicalName="PrePoMax.Forms.FrmSplash.resources" />
     <EmbeddedResource Include="$(RepoRoot)PrePoMax\Forms\FrmPythonStop.resx" LogicalName="PrePoMax.Forms.FrmPythonStop.resources" />
     <EmbeddedResource Include="$(RepoRoot)PrePoMax\Properties\Resources.resx" LogicalName="PrePoMax.Properties.Resources.resources" />

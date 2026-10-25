@@ -609,6 +609,8 @@ namespace System.Windows.Forms
             int start = link == null ? 0 : Math.Min(link.Start, text.Length);
             int length = link == null || link.Length == 0 ? text.Length - start : Math.Min(link.Length, text.Length - start);
             if (length < 0) length = 0;
+            // A text block draws its text and its inlines one after the other, so the text goes into the inlines alone
+            _textBlock.Text = null;
             _textBlock.Inlines = new InlineCollection();
             if (start > 0) _textBlock.Inlines.Add(new Run(text.Substring(0, start)));
             Run linkRun = new Run(text.Substring(start, length))

@@ -30,6 +30,8 @@ namespace PrePoMax.Forms
             //
             ShowHelp = false;
             labProgramName.Text = Globals.WindowTitle;
+            // The text names Windows, which the ports for other systems leave out
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT) lHelp.Text = lHelp.Text.Replace(" on Windows platform", "");
             // Select the image
             Random rand = new Random(DateTime.Now.Millisecond);
             int splashId = rand.Next(2) + 1;
