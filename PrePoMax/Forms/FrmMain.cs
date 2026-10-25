@@ -1891,7 +1891,8 @@ namespace PrePoMax
                     tsmiEdit.Enabled = true;
                     // File menu
                     foreach (ToolStripItem item in tsmiFile.DropDownItems) item.Enabled = true;
-                    tsmiImportFile.Enabled = _controller.ModelInitialized;
+                    // Import without a model starts a new one first (see ImportFile)
+                    tsmiImportFile.Enabled = true;
                     // Tools menu
                     tsmiParameters.Enabled = true;
                     tsmiQuery.Enabled = true;
@@ -1899,7 +1900,7 @@ namespace PrePoMax
                     tsmiCaptureViewport.Enabled = true;
                     tsmiCaptureViewportAs.Enabled = true;
                     // Toolbar File
-                    tsbImport.Enabled = _controller.ModelInitialized;
+                    tsbImport.Enabled = true;
                     tsbSave.Enabled = true;
                 }
                 else
@@ -1907,6 +1908,8 @@ namespace PrePoMax
                     // File menu
                     tsmiNew.Enabled = true;
                     tsmiOpen.Enabled = true;
+                    tsmiImportFile.Enabled = true;
+                    tsbImport.Enabled = true;
                     tsmiRunHistoryFile.Enabled = true;
                     tsmiOpenRecent.Enabled = true;
                     tsmiExit.Enabled = true;
@@ -2474,8 +2477,16 @@ namespace PrePoMax
         {
             try
             {
+                // Without a model the import starts a new one, as File > New does, and says so
                 if (!_controller.ModelInitialized)
-                    throw new CaeException("There is no model to import into. First create a new model.");
+                {
+                    MessageBoxes.ShowInfo("There is no model to import into yet, so a new model is created first: " +
+                                          "select its model space and unit system. Next time you can also start " +
+                                          "with File > New.");
+                    New(ModelSpaceEnum.Undefined, UnitSystemType.Undefined);
+                    // The new model dialog was cancelled
+                    if (!_controller.ModelInitialized) return;
+                }
                 // If the model space or the unit system are undefined
                 IfNeededSelectAndSetNewModelProperties();
                 //
