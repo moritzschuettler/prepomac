@@ -895,7 +895,7 @@
   </Target>
   <!-- The Windows API stubs, installed under the names .NET probes for kernel32.dll and user32.dll (see Native/build.sh) -->
   <Target Name="BuildWin32Compat" BeforeTargets="BeforeBuild"
-          Inputs="..\Native\Win32Compat.c;..\Native\build.sh" Outputs="..\Native\bin\libWin32Compat.dylib">
+          Inputs="..\Native\Win32Compat.c;..\Native\build.sh" Outputs="..\Native\bin\libWin32Compat.$(NativeLibExtension)">
     <Exec Command="sh ../Native/build.sh" />
   </Target>
   <Target Name="BuildNetGenMesher" BeforeTargets="BeforeBuild"
@@ -906,7 +906,7 @@
     <NetGenMesherSource Include="..\Native\NetGenMesher\*.cpp;..\Native\NetGenMesher\*.h;..\Native\NetGenMesher\CMakeLists.txt" />
     <None Include="..\Native\NetGenMesher\build\NetGenMesher" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Netgen\NetGenMesher" />
     <None Include="PrePoMax.com" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\Native\bin\libWin32Compat.dylib;..\Native\bin\libkernel32.dll.dylib;..\Native\bin\libuser32.dll.dylib;..\Native\bin\libuser32.dylib" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Native\bin\libWin32Compat.$(NativeLibExtension);..\Native\bin\libkernel32.dll.$(NativeLibExtension);..\Native\bin\libuser32.dll.$(NativeLibExtension);..\Native\bin\libuser32.$(NativeLibExtension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\Native\Mmg\build\bin\mmgs_O3" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Mmg\mmgs" />
     <None Include="..\Native\Mmg\build\bin\mmg3d_O3" CopyToOutputDirectory="PreserveNewest" Link="Meshers\Mmg\mmg3d" />
   </ItemGroup>

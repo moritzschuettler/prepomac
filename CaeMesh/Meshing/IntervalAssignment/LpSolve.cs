@@ -54,7 +54,11 @@ namespace CaeMesh
                         foreach (string candidate in new[] { Path.Combine(folder, "liblpsolve55.dylib"),
                                                              Path.Combine(folder, "..", "Frameworks", "liblpsolve55.dylib"),
                                                              "/opt/homebrew/lib/liblpsolve55.dylib",
-                                                             "/usr/local/lib/liblpsolve55.dylib" })
+                                                             "/usr/local/lib/liblpsolve55.dylib",
+                                                             // Linux (experimental)
+                                                             "/usr/lib/liblpsolve55.so",
+                                                             "/usr/lib/lp_solve/liblpsolve55.so",
+                                                             "/usr/local/lib/liblpsolve55.so" })
                         {
                             if (File.Exists(candidate) && NativeLibrary.TryLoad(candidate, out IntPtr handle)) return handle;
                         }

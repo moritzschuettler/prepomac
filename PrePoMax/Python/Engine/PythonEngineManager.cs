@@ -210,7 +210,7 @@ namespace PrePoMax.Python
         {
             return "'" + text.Replace("\\", "\\\\").Replace("'", "\\'") + "'";
         }
-        // The shared Python library and its home (the folder with lib/python3.x) on macOS
+        // The shared Python library and its home (the folder with lib/python3.x) on macOS and Linux
         private static bool FindMacPython(out string library, out string home)
         {
             library = null;
@@ -218,19 +218,26 @@ namespace PrePoMax.Python
             List<string> homes = new List<string>();
             string bundled = Path.Combine(Application.StartupPath, "Python");
             homes.Add(bundled);
-            string[] minors = { "12", "13", "11", "10" };
+            string[] minors = { "12", "13", "14", "11", "10" };
             foreach (string minor in minors)
             {
                 homes.Add("/opt/homebrew/opt/python@3." + minor + "/Frameworks/Python.framework/Versions/3." + minor);
                 homes.Add("/Library/Frameworks/Python.framework/Versions/3." + minor);
                 homes.Add("/usr/local/opt/python@3." + minor + "/Frameworks/Python.framework/Versions/3." + minor);
             }
+            // Linux (experimental): the Python of the distribution
+            homes.Add("/usr");
+            homes.Add("/usr/local");
             foreach (string candidate in homes)
             {
                 if (!Directory.Exists(candidate)) continue;
                 foreach (string minor in minors)
                 {
-                    foreach (string name in new[] { "lib/libpython3." + minor + ".dylib", "Python" })
+                    foreach (string name in new[] { "lib/libpython3." + minor + ".dylib", "Python",
+                                                    "lib/libpython3." + minor + ".so",
+                                                    "lib/libpython3." + minor + ".so.1.0",
+                                                    "lib/x86_64-linux-gnu/libpython3." + minor + ".so.1.0",
+                                                    "lib/aarch64-linux-gnu/libpython3." + minor + ".so.1.0" })
                     {
                         string fileName = Path.Combine(candidate, name);
                         if (File.Exists(fileName) && Directory.Exists(Path.Combine(candidate, "lib", "python3." + minor)))

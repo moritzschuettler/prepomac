@@ -23,7 +23,7 @@ namespace GmshCommon
 
         public static void EnsureResolver() { }
 
-        // libgmsh.dylib next to the application (app bundle), from GMSH_LIBRARY, or from Homebrew
+        // libgmsh.dylib next to the application (app bundle), from GMSH_LIBRARY, or from Homebrew; libgmsh.so on Linux
         private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
         {
             if (libraryName != Lib) return IntPtr.Zero;
@@ -34,6 +34,13 @@ namespace GmshCommon
             candidates.Add(Path.Combine(AppContext.BaseDirectory, "..", "Frameworks", "libgmsh.dylib"));
             candidates.Add("/opt/homebrew/lib/libgmsh.dylib");
             candidates.Add("/usr/local/lib/libgmsh.dylib");
+            // Linux (experimental): the library of the distribution or of the gmsh SDK
+            string gmshDir = Environment.GetEnvironmentVariable("GMSH_DIR");
+            if (!string.IsNullOrEmpty(gmshDir)) candidates.Add(Path.Combine(gmshDir, "lib", "libgmsh.so"));
+            candidates.Add("/usr/lib/libgmsh.so");
+            candidates.Add("/usr/local/lib/libgmsh.so");
+            candidates.Add("/usr/lib/x86_64-linux-gnu/libgmsh.so");
+            candidates.Add("/usr/lib/aarch64-linux-gnu/libgmsh.so");
             foreach (string candidate in candidates)
             {
                 if (File.Exists(candidate) && NativeLibrary.TryLoad(candidate, out IntPtr handle)) return handle;

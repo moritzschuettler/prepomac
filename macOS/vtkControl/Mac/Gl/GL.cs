@@ -325,6 +325,22 @@ namespace Kitware.VTK.Gl
         private uint Compile(int type, string source)
         {
             uint shader = _createShader(type);
+            if (TryCompile(shader, source, out string log)) return shader;
+            // Mesa (Linux) takes arrays of arrays only from GLSL 4.30 on, where the compiler of macOS takes them in
+            // older shaders: with the extension enabled they compile there too
+            if (log.Contains("arrays of arrays"))
+            {
+                int at = source.IndexOf("#version", StringComparison.Ordinal);
+                string patched = at < 0
+                    ? "#extension GL_ARB_arrays_of_arrays : enable\n" + source
+                    : source.Insert(source.IndexOf('\n', at) + 1, "#extension GL_ARB_arrays_of_arrays : enable\n");
+                if (TryCompile(shader, patched, out log)) return shader;
+            }
+            _deleteShader(shader);
+            throw new InvalidOperationException("The OpenGL shader could not be compiled: " + log);
+        }
+        private bool TryCompile(uint shader, string source, out string log)
+        {
             byte[] bytes = Encoding.ASCII.GetBytes(source + "\0");
             fixed (byte* p = bytes)
             {
@@ -334,15 +350,17 @@ namespace Kitware.VTK.Gl
             _compileShader(shader);
             int status;
             _getShaderiv(shader, COMPILE_STATUS, &status);
-            if (status == 0)
+            if (status != 0)
             {
-                int length;
-                _getShaderiv(shader, INFO_LOG_LENGTH, &length);
-                byte[] log = new byte[Math.Max(1, length)];
-                fixed (byte* l = log) _getShaderInfoLog(shader, log.Length, &length, l);
-                throw new InvalidOperationException("The OpenGL shader could not be compiled: " + Encoding.ASCII.GetString(log));
+                log = null;
+                return true;
             }
-            return shader;
+            int length;
+            _getShaderiv(shader, INFO_LOG_LENGTH, &length);
+            byte[] buffer = new byte[Math.Max(1, length)];
+            fixed (byte* l = buffer) _getShaderInfoLog(shader, buffer.Length, &length, l);
+            log = Encoding.ASCII.GetString(buffer);
+            return false;
         }
     }
 }

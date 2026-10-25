@@ -11,6 +11,9 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #include <stdlib.h>
+#ifdef __linux__
+#include <sys/syscall.h>
+#endif
 
 typedef intptr_t (*SendMessageCallback)(intptr_t hwnd, int msg, intptr_t wParam, intptr_t lParam);
 typedef int (*IntCallback3)(intptr_t a, int b, int c);
@@ -64,9 +67,13 @@ int TerminateProcess(intptr_t process, uint32_t exitCode)
 }
 int GetCurrentThreadId(void)
 {
+#ifdef __linux__
+    return (int)syscall(SYS_gettid);
+#else
     uint64_t tid = 0;
     pthread_threadid_np(NULL, &tid);
     return (int)tid;
+#endif
 }
 intptr_t GetModuleHandleW(const uint16_t *name) { return 1; }
 intptr_t GetModuleHandle(const uint16_t *name) { return 1; }

@@ -11,11 +11,11 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <!-- The Windows API compatibility library (kernel32.dll, user32.dll) is built with clang and copied to the applications -->
-  <Target Name="BuildWin32Compat" BeforeTargets="BeforeBuild" Inputs="..\Native\Win32Compat.c" Outputs="..\Native\bin\libWin32Compat.dylib">
+  <Target Name="BuildWin32Compat" BeforeTargets="BeforeBuild" Inputs="..\Native\Win32Compat.c" Outputs="..\Native\bin\libWin32Compat.$(NativeLibExtension)">
     <Exec Command="sh ../Native/build.sh" />
   </Target>
   <ItemGroup>
-    <None Include="..\Native\bin\*.dylib" CopyToOutputDirectory="PreserveNewest" Link="%(Filename)%(Extension)" />
+    <None Include="..\Native\bin\*.$(NativeLibExtension)" CopyToOutputDirectory="PreserveNewest" Link="%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.1" />

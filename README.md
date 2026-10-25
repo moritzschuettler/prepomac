@@ -18,7 +18,7 @@ steps, a small model (.pmx or the CAD file), and your macOS version and chip. Pu
 
 ## Contents
 
-- [Install](#install)
+- [Install](#install) (and [Linux](#linux-experimental))
 - [Using PrePoMax on a Mac](#using-prepomax-on-a-mac)
 - [Code_Aster as a second solver](#code_aster-as-a-second-solver)
 - [Driving PrePoMax from an AI agent](#driving-prepomax-from-an-ai-agent)
@@ -78,6 +78,40 @@ The command line program, for scripts and batch runs, is `/Applications/PrePoMax
 ```sh
 PrePoMax.com --script my_study.py -g No -x Yes -w ~/PrePoMax/Work
 ```
+
+### Linux (experimental)
+
+The same sources build and run on Linux, as [@oofsdfs](https://github.com/oofsdfs) found out on Arch Linux
+([#2](https://github.com/moritzschuettler/prepomac/issues/2)). The build, the CAD import, both meshers and the Python
+scripts are checked without a window on Debian 13 (arm64); the user interface has been seen running on Arch Linux with
+X11. Labels may be cut off, because the port replaces the Windows fonts by those of macOS.
+
+Arch Linux:
+
+```sh
+sudo pacman -S git base-devel cmake opencascade lpsolve dotnet-sdk python
+yay -S gmsh-bin                                  # or: the gmsh SDK from gmsh.info, with GMSH_DIR=<its folder>
+```
+
+Debian 13 / Ubuntu (OpenCASCADE 7.8 or newer):
+
+```sh
+sudo apt install build-essential cmake git python3 libpython3-dev libgmsh-dev liblpsolve55-dev \
+    libocct-data-exchange-dev libocct-modeling-algorithms-dev libocct-modeling-data-dev libocct-foundation-dev \
+    libocct-ocaf-dev
+# .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0
+```
+
+Then:
+
+```sh
+git clone https://github.com/moritzschuettler/prepomac.git
+cd prepomac/macOS
+./build.sh Release
+./run.sh Release                                 # or PrePoMax/bin/Release/net10.0/PrePoMax.com for scripts
+```
+
+CalculiX `ccx` is found in the PATH.
 
 ## Using PrePoMax on a Mac
 
