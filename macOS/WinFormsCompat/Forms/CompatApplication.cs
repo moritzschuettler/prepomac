@@ -39,10 +39,14 @@ namespace System.Windows.Forms
             // display link is used only on request (PPM_DISPLAY_LINK=1) and while the display is awake
             bool timerRendering = batch || IsMainDisplayAsleep() ||
                                   Environment.GetEnvironmentVariable("PPM_DISPLAY_LINK") != "1";
-            AppBuilder.Configure<CompatApplication>()
+            AppBuilder builder = AppBuilder.Configure<CompatApplication>()
                       .UsePlatformDetect()
-                      .With(new MacOSPlatformOptions { ShowInDock = !batch, DisableDefaultApplicationMenuItems = false })
-                      .AfterSetup(builder =>
+                      .With(new MacOSPlatformOptions { ShowInDock = !batch, DisableDefaultApplicationMenuItems = false });
+            // The user interface font, where the system font is not used (see System.Drawing.Font.UiFamily)
+            if (System.Drawing.Font.UiFamily != null)
+                builder = builder.With(new Avalonia.Media.FontManagerOptions { DefaultFamilyName = System.Drawing.Font.UiFamily });
+            builder
+                      .AfterSetup(setup =>
                       {
                           if (timerRendering)
                           {

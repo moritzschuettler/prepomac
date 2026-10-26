@@ -527,6 +527,18 @@ namespace System.Drawing
         private readonly GraphicsUnit _unit;
         [NonSerialized] private SKTypeface _typeface;
 
+        // The family of the user interface text, or null for the system font of macOS (SF). The system font of macOS 26
+        // draws some characters, such as the middle dot of N·mm, as black bars, so Helvetica Neue is used there.
+        // PPM_UI_FONT names another family, or "system" for the system font
+        private static readonly Lazy<string> _uiFamily = new Lazy<string>(() =>
+        {
+            string family = Environment.GetEnvironmentVariable("PPM_UI_FONT");
+            if (!string.IsNullOrWhiteSpace(family))
+                return family.Trim().Equals("system", StringComparison.OrdinalIgnoreCase) ? null : family.Trim();
+            return OperatingSystem.IsMacOSVersionAtLeast(26) ? "Helvetica Neue" : null;
+        });
+        public static string UiFamily { get { return _uiFamily.Value; } }
+
         public string Name { get { return _name; } }
         public string OriginalFontName { get { return _name; } }
         public FontFamily FontFamily { get { return new FontFamily(_name); } }
@@ -620,7 +632,7 @@ namespace System.Drawing
                     SKFontStyle style = new SKFontStyle(Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
                                                         SKFontStyleWidth.Normal,
                                                         Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright);
-                    string family = MapFamily(_name);
+                    string family = MapFamily(_name) ?? UiFamily;
                     _typeface = family == null ? SKFontManager.Default.MatchFamily(".AppleSystemUIFont", style) : null;
                     if (_typeface == null && family != null) _typeface = SKTypeface.FromFamilyName(family, style);
                     if (_typeface == null) _typeface = SKTypeface.FromFamilyName("Helvetica Neue", style) ?? SKTypeface.Default;

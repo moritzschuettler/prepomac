@@ -118,7 +118,7 @@ namespace System.Windows.Forms
         public static double FontSizeOf(System.Drawing.Font font) { return font.SizeInPixels * FontScale; }
         public static FontFamily FontFamilyOf(System.Drawing.Font font)
         {
-            string family = System.Drawing.Font.MapFamily(font.Name);
+            string family = System.Drawing.Font.MapFamily(font.Name) ?? System.Drawing.Font.UiFamily;
             return family == null ? (UiFontFamily == "$Default" ? FontFamily.Default : new FontFamily(UiFontFamily)) : new FontFamily(family);
         }
         public static void ApplyFont(AC.Control element, System.Drawing.Font font)
