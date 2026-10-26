@@ -1073,6 +1073,9 @@ namespace System.Windows.Forms
             {
                 ShowWindow(ownerForm?._window);
                 AC.Window ownerWindow = ownerForm?._window;
+                // Windows keeps a dialog above its owner even when the owner is TopMost; macOS puts a topmost window on a
+                // level of its own above every normal one, so the dialog goes there too while it is open
+                if (ownerWindow != null && ownerWindow.Topmost) _window.Topmost = true;
                 if (ownerWindow != null && ownerWindow.IsVisible) _ = _window.ShowDialog(ownerWindow);
                 else _window.Show();
                 FormClosed += OnModalClosed;
@@ -1084,6 +1087,7 @@ namespace System.Windows.Forms
             finally
             {
                 _modal = false;
+                if (_window != null) _window.Topmost = _topMost;
             }
             if (_dialogResult == DialogResult.None) _dialogResult = DialogResult.Cancel;
             ownerForm?.Activate();

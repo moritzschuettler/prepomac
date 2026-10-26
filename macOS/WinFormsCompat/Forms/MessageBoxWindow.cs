@@ -100,6 +100,8 @@ namespace WinFormsCompat.Native
             window.Closed += (s, e) => closed = true;
             window.Opened += (s, e) => focusButton?.Focus();
             Window owner = ActiveWindow();
+            // Above a topmost owner, as Windows keeps it (see Form.ShowDialog)
+            if (owner != null && owner.Topmost) window.Topmost = true;
             if (owner != null) _ = window.ShowDialog(owner);
             else
             {
