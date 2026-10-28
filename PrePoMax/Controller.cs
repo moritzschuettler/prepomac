@@ -7828,21 +7828,9 @@ namespace PrePoMax
                     GetSplitGeometryPickNodes(pointAndNormal.SplitterData);
                 foreach (int id in ids)
                 {
-                    GeometryType geometryType = (GeometryType)FeMesh.GetItemTypePartIdsFromGeometryId(id)[1];
-                    // An edge can mean either the point on it or the direction it runs in, and where the
-                    // user clicked is what decides
-                    if (geometryType.IsEdge())
-                    {
-                        bool nearPoint = IsSplitGeometryPickOnThePoint(id, pickNodes, pointAndNormal);
-                        if (nearPoint && TryGetSplitGeometryPoint(id, out point)) pointAndNormal.Point = point;
-                        else if (TryGetSplitGeometryDirection(id, out direction))
-                            pointAndNormal.Normal = direction;
-                    }
-                    else
-                    {
-                        if (TryGetSplitGeometryPoint(id, out point)) pointAndNormal.Point = point;
-                        if (TryGetSplitGeometryDirection(id, out direction)) pointAndNormal.Normal = direction;
-                    }
+                    GetSplitGeometryPickPointAndNormal(id, pickNodes, pointAndNormal, out point, out direction);
+                    if (point != null) pointAndNormal.Point = point;
+                    if (direction != null) pointAndNormal.Normal = direction;
                 }
             }
             else if (geometryFeature is SplitByExtendedFace extendedFace)
@@ -7856,6 +7844,93 @@ namespace PrePoMax
             else if (geometryFeature is SplitByExtrudedEdges extrudedEdges)
             {
                 UpdateSplitGeometryExtrusionDirection(extrudedEdges);
+            }
+        }
+        /// <summary>
+        /// What one splitter pick gives a plane by point and normal; a value the pick does not give is null.
+        /// </summary>
+        private void GetSplitGeometryPickPointAndNormal(int geometryId, Dictionary<int, SelectionNodeMouse> pickNodes,
+                                                        SplitByPointAndNormal pointAndNormal, out double[] point,
+                                                        out double[] normal)
+        {
+            GeometryType geometryType = (GeometryType)FeMesh.GetItemTypePartIdsFromGeometryId(geometryId)[1];
+            // An edge can mean either the point on it or the direction it runs in, and where the user clicked
+            // is what decides
+            if (geometryType.IsEdge())
+            {
+                bool nearPoint = IsSplitGeometryPickOnThePoint(geometryId, pickNodes, pointAndNormal);
+                if (nearPoint && TryGetSplitGeometryPoint(geometryId, out point)) { normal = null; return; }
+                point = null;
+                if (!TryGetSplitGeometryDirection(geometryId, out normal)) normal = null;
+            }
+            else
+            {
+                if (!TryGetSplitGeometryPoint(geometryId, out point)) point = null;
+                if (!TryGetSplitGeometryDirection(geometryId, out normal)) normal = null;
+            }
+        }
+        /// <summary>
+        /// Takes back the splitter picks that give the point or the normal the user has just typed. The split
+        /// reads both out of the picks again when it is applied, which would put the picked value back in
+        /// place of the typed one, so a typed value and a pick that gives it cannot stand together, as they
+        /// cannot in the Python API. The values a dropped pick gave stay as numbers.
+        /// </summary>
+        public void DropSplitGeometryPicksOfTypedValue(SplitByPointAndNormal pointAndNormal, bool pointTyped,
+                                                       bool normalTyped)
+        {
+            int[] ids = pointAndNormal.SplitterIds;
+            Selection splitterData = pointAndNormal.SplitterData;
+            if (ids == null || splitterData == null) return;
+            //
+            Dictionary<int, SelectionNodeMouse> pickNodes = GetSplitGeometryPickNodes(splitterData);
+            HashSet<int> droppedIds = new HashSet<int>();
+            double[] point;
+            double[] normal;
+            foreach (int id in ids)
+            {
+                GetSplitGeometryPickPointAndNormal(id, pickNodes, pointAndNormal, out point, out normal);
+                if ((pointTyped && point != null) || (normalTyped && normal != null)) droppedIds.Add(id);
+            }
+            if (droppedIds.Count == 0) return;
+            // A pick by location is a node of its own, while a pick by id lists the ids it took
+            List<SelectionNode> nodes = new List<SelectionNode>();
+            foreach (SelectionNode node in splitterData.Nodes)
+            {
+                if (node is SelectionNodeMouse mouseNode && pickNodes.Any(pair => pair.Value == mouseNode &&
+                                                                                  droppedIds.Contains(pair.Key)))
+                    continue;
+                //
+                if (node is SelectionNodeIds idsNode && idsNode.IsGeometryBased && idsNode.ItemIds != null &&
+                    idsNode.ItemIds.Any(droppedIds.Contains))
+                {
+                    int[] keptIds = idsNode.ItemIds.Where(id => !droppedIds.Contains(id)).ToArray();
+                    if (keptIds.Length > 0)
+                        nodes.Add(new SelectionNodeIds(idsNode.SelectOperation, false, keptIds, true,
+                                                       idsNode.GeometrySelectMode));
+                    continue;
+                }
+                //
+                nodes.Add(node);
+            }
+            if (nodes.Count == 0)
+            {
+                pointAndNormal.SplitterIds = null;
+                pointAndNormal.SplitterData = null;
+                return;
+            }
+            //
+            Selection keptData = new Selection(splitterData, false, false);
+            foreach (SelectionNode node in nodes) keptData.Add(node);
+            pointAndNormal.SplitterData = keptData;
+            // Resolving a selection replaces and then clears the live one, so it is put back afterwards
+            Selection liveSelection = _selection;
+            try
+            {
+                pointAndNormal.SplitterIds = GetIdsFromSelection(keptData);
+            }
+            finally
+            {
+                _selection = liveSelection;
             }
         }
         /// <summary>
@@ -7932,7 +8007,8 @@ namespace PrePoMax
             // the selection of whichever target is armed is highlighted here. An entity that was taken as
             // a point is left out: the point marker is what stands for it, and highlighting the edge as
             // well would say the edge was selected.
-            if (_geometryFeaturePointPicking == GeometryFeaturePointPickingEnum.None) HighlightSelection();
+            if (_geometryFeaturePointPicking == GeometryFeaturePointPickingEnum.None)
+                HighlightSelection(true, !AreSplitGeometryIdsOnShellPart(GetSelectionIds(false)));
             else HighlightGeometryFeatureSelectionWithoutPoints(geometryFeature);
             //
             double[] extent = GetSplitGeometryRegionExtent(partNames);
@@ -9453,7 +9529,22 @@ namespace PrePoMax
             foreach (int id in ids)
                 if (!IsSplitGeometryPickOnThePoint(id, pickNodes, geometryFeature)) idsToHighlight.Add(id);
             //
-            if (idsToHighlight.Count > 0) HighlightItemsByGeometryIds(idsToHighlight.ToArray(), true, false);
+            if (idsToHighlight.Count > 0)
+                HighlightItemsByGeometryIds(idsToHighlight.ToArray(), !AreSplitGeometryIdsOnShellPart(idsToHighlight),
+                                            false);
+        }
+        // A face of a shell is split whichever of its sides was picked, so it is highlighted on both of them
+        private bool AreSplitGeometryIdsOnShellPart(IEnumerable<int> ids)
+        {
+            if (_selection.SelectItem != vtkSelectItem.Geometry &&
+                _selection.SelectItem != vtkSelectItem.GeometrySurface) return false;
+            //
+            foreach (int id in ids)
+            {
+                BasePart part = _model.Geometry.GetPartFromId(FeMesh.GetPartIdFromGeometryId(id));
+                if (part != null && part.PartType == PartType.Shell) return true;
+            }
+            return false;
         }
         private void DrawSplitGeometryPointSymbols(GeometryFeature geometryFeature)
         {

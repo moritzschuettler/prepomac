@@ -22,7 +22,9 @@ namespace CaeMesh
     /// are never changed, so sides they leave no way to agree are returned, for the meshing to be refused. Lowering
     /// evens out counts that are close: an edge that borders a free face keeps at least 0.8 of the count the mesh size
     /// asks for, since the free mesh beside it is made to that size, unless the numbers the user set leave no room.
-    /// An element size the user set is kept like a number, within the range of counts that keeps it.
+    /// An element size the user set is kept like a number, within the range of counts that keeps it. No edge is lowered
+    /// below the count that keeps its elements within the maximum element size, unless the numbers the user set leave
+    /// no other way.
     /// </summary>
     public static class TransfiniteEdgeCountBalancer
     {
@@ -42,7 +44,8 @@ namespace CaeMesh
         /// are the numbers the mesh size asks for and freeFaceEdgeIds the edges that border a face meshed free.
         /// Returns the pairs left unequal, none when every pair is balanced, and the three-sided faces left without
         /// valid numbers in unbalancedTriples. sizedEdgeIdCounts holds the numbers of elements the element sizes the
-        /// user set ask for, which the balance keeps within GetElementSizeCountRange.
+        /// user set ask for, which the balance keeps within GetElementSizeCountRange, and maxSizeCounts the fewest
+        /// elements that keep the elements of an edge within the maximum element size.
         /// </summary>
         public static List<TransfiniteSidePair> Balance(Dictionary<int, int> edgeIdCount,
                                                         Dictionary<int, int> naturalCounts,
@@ -50,7 +53,8 @@ namespace CaeMesh
                                                         List<TransfiniteSideTriple> triples,
                                                         out List<TransfiniteSideTriple> unbalancedTriples,
                                                         HashSet<int> freeFaceEdgeIds = null,
-                                                        Dictionary<int, int> sizedEdgeIdCounts = null)
+                                                        Dictionary<int, int> sizedEdgeIdCounts = null,
+                                                        Dictionary<int, int> maxSizeCounts = null)
         {
             int count;
             List<TransfiniteSidePair> unbalanced;
@@ -68,7 +72,7 @@ namespace CaeMesh
             {
                 Dictionary<int, int> balancedCounts = new Dictionary<int, int>(edgeIdCount);
                 if (BalanceBySolve(balancedCounts, naturalCounts, pinnedEdgeIds, edgeIdLowestCount, sizedEdgeIdCounts,
-                                   pairs, triples, out unbalanced, out unbalancedTriples) &&
+                                   maxSizeCounts, pairs, triples, out unbalanced, out unbalancedTriples) &&
                     unbalanced.Count == 0 && unbalancedTriples.Count == 0)
                 {
                     foreach (var entry in balancedCounts) edgeIdCount[entry.Key] = entry.Value;
@@ -77,7 +81,7 @@ namespace CaeMesh
             }
             // The numbers the user set leave no room for the lowest counts, so they give way
             if (!BalanceBySolve(edgeIdCount, naturalCounts, pinnedEdgeIds, new Dictionary<int, int>(), sizedEdgeIdCounts,
-                                pairs, triples, out unbalanced, out unbalancedTriples))
+                                maxSizeCounts, pairs, triples, out unbalanced, out unbalancedTriples))
                 throw new CaeException("lp_solve found no element counts for the structured faces.");
             return unbalanced;
         }
@@ -87,7 +91,7 @@ namespace CaeMesh
         /// </summary>
         private static bool BalanceBySolve(Dictionary<int, int> edgeIdCount, Dictionary<int, int> naturalCounts,
                                            HashSet<int> pinnedEdgeIds, Dictionary<int, int> edgeIdLowestCount,
-                                           Dictionary<int, int> sizedEdgeIdCounts,
+                                           Dictionary<int, int> sizedEdgeIdCounts, Dictionary<int, int> maxSizeCounts,
                                            List<TransfiniteSidePair> pairs, List<TransfiniteSideTriple> triples,
                                            out List<TransfiniteSidePair> unbalanced,
                                            out List<TransfiniteSideTriple> unbalancedTriples)
@@ -112,6 +116,8 @@ namespace CaeMesh
                 }
                 else if (edgeIdLowestCount.TryGetValue(edgeId, out count)) problem.SetMinimum(edgeId, count);
                 else problem.AddEdge(edgeId);
+                if (!pinnedEdgeIds.Contains(edgeId) && maxSizeCounts != null &&
+                    maxSizeCounts.TryGetValue(edgeId, out count)) problem.SetMaxSizeCount(edgeId, count);
             }
             foreach (var pair in pairs)
                 problem.AddEqualSums("Surface " + pair.FaceId, IntervalRowTierEnum.Hard, pair.SideA, pair.SideB, pair.FaceId);

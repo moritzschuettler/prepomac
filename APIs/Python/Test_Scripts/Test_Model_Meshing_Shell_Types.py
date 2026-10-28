@@ -26,10 +26,22 @@
 #  - The open quarter cylinder by a Netgen item with quad_dominated=True keeps every face and its area. Netgen meshing
 #    its faces in parallel joined the quadrilaterals of every face but the first to the points of other faces, which
 #    came out as one mesh face many times the area of the shell.
+#  - shell_end_chain.brep, imported by the script: a tube with rounded ends, whose end faces are four-sided with one
+#    side a chain of five curved edges, from a fraction of a millimetre to almost 10 mm long, that the curvature sizes
+#    at 24 elements against 6 on the side across. Lowering the chain, the balance took every element but one from its
+#    longest edges, which were the cheapest to take, and the mesh had elements of 11 mm against a maximum size of 3. No
+#    element is longer than the maximum size by more than a tenth, and every edge keeps the elements that hold it within
+#    the maximum size.
 #
 #  PrePoMax.com -f box_and_cylinder.brep -u MM_TON_S_C --script Test_Model_Meshing_Shell_Types.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
+
+import math
+import os
+import sys
+
+MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 
 
 def check(condition, message):
@@ -232,6 +244,45 @@ def check_element_sizes(part):
     items.remove(["PyTest_Edge_A", "PyTest_Sizes"])
 
 
+def check_max_size_kept():
+    """A chain of short curved edges lowered against the side across keeps every edge within the maximum size."""
+    max_size = 3.0
+    names = set(part.name for part in pmx.model.geometry.parts)
+    pmx.import_file(os.path.join(MODELS, "shell_end_chain.brep"))
+    part = [part for part in pmx.model.geometry.parts if part.name not in names][0]
+    items = pmx.model.mesh.setup_items
+    items.add_meshing_parameters("PyTest_Chain", pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]),
+                                 relative_size=False, max_size=max_size, min_size=0.26, grading=0.3,
+                                 elements_per_edge=2.0, elements_per_curve=2.0, second_order=False)
+    kinds = mesh(part)
+    check(list(kinds.keys()) == ["quadrilateral"], "the tube must be meshed by quadrilaterals only: " + str(kinds))
+    #
+    meshed = [mesh_part for mesh_part in pmx.model.parts if mesh_part.name == part.name][0]
+    coordinates = dict(zip([int(i) for i in meshed.get_node_ids()], [list(c) for c in meshed.get_node_coordinates()]))
+    data = pmx.model.elements.get_data()
+    offsets = [int(i) for i in data.offsets]
+    connectivity = [int(i) for i in data.connectivity]
+    index = dict((int(element_id), i) for i, element_id in enumerate(data.ids))
+    longest = 0
+    for element_id in meshed.get_element_ids():
+        i = index[int(element_id)]
+        corners = [coordinates[node] for node in connectivity[offsets[i]:offsets[i] + 4]]
+        for k in range(4):
+            longest = max(longest, math.sqrt(sum((corners[k][j] - corners[(k + 1) % 4][j]) ** 2 for j in range(3))))
+    print("longest element edge:", longest, "of the maximum size", max_size)
+    check(longest <= 1.1 * max_size, "an element edge is " + str(longest) + " long against the maximum size " +
+          str(max_size))
+    #
+    edges = part.get_edge_data()
+    short = []
+    for geometry_id, length in zip([int(i) for i in edges.geometry_ids], [float(l) for l in edges.lengths]):
+        count = pmx.create.selection_by_ids('femodel', 'nodes', 'geometry', [geometry_id]).preview().count - 1
+        if count < math.ceil(length / max_size - 1E-6):
+            short.append((geometry_id, round(length, 3), count))
+    check(len(short) == 0, "edges given fewer elements than the maximum size needs (id, length, count): " + str(short))
+    items.remove(["PyTest_Chain"])
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     cad = list(pmx.model.geometry.parts)
@@ -257,6 +308,7 @@ def main():
           str(irregular) + " irregular nodes")
     check_polar(open_cylinder)
     check_netgen_quad_dominated(open_cylinder)
+    check_max_size_kept()
     print("TEST PASSED")
 
 
