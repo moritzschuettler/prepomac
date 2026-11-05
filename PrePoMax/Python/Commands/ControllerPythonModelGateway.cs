@@ -125,6 +125,8 @@ namespace PrePoMax.Python
                                                  string.Join(" ", _controller.GetErrors()).Replace(Environment.NewLine, " "));
                 }
             }
+            // As File - Import leaves it: the camera of an empty model would show none of the imported parts
+            if (_controller.Form != null && CountModelParts() > numOfParts) _controller.Form.SetFrontBackView(false, true);
         }
         private int CountModelParts()
         {
