@@ -9,7 +9,6 @@
 
 using System;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 
 namespace vtkControl.Native
@@ -17,7 +16,7 @@ namespace vtkControl.Native
     // A native render window with one renderer. It belongs to the thread that created it: its OpenGL context is
     // current there, so every call and the Dispose must come from that thread. There is deliberately no finalizer,
     // since a finalizer runs on another thread and would release the context from the wrong one
-    public sealed class VtkNativeView : IDisposable
+    public sealed partial class VtkNativeView : IDisposable
     {
         // Variables
         private IntPtr _handle;
@@ -168,77 +167,6 @@ namespace vtkControl.Native
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_box_zoom(Handle(), x1, y1, x2, y2));
         }
         //
-        public void AddPartActor(string name, VtkNativePartStyle style, VtkNativeMeshData geometry,
-                                 VtkNativeMeshData modelEdges, VtkNativeMeshData modelEdgesToDraw)
-        {
-            if (name == null) throw new ArgumentNullException("name");
-            if (geometry == null) throw new ArgumentNullException("geometry");
-            IntPtr handle = Handle();
-            //
-            using (VtkNativePinnedMesh pinnedGeometry = geometry.Pin())
-            using (VtkNativePinnedMesh pinnedModelEdges = modelEdges == null ? null : modelEdges.Pin())
-            using (VtkNativePinnedMesh pinnedModelEdgesToDraw = modelEdgesToDraw == null ? null : modelEdgesToDraw.Pin())
-            {
-                VtkNativeMesh geometryMesh = pinnedGeometry.Mesh;
-                IntPtr modelEdgesPointer = IntPtr.Zero;
-                IntPtr modelEdgesToDrawPointer = IntPtr.Zero;
-                try
-                {
-                    // The optional meshes are passed by pointer, so a missing one is a null pointer
-                    if (pinnedModelEdges != null) modelEdgesPointer = ToUnmanaged(pinnedModelEdges.Mesh);
-                    if (pinnedModelEdgesToDraw != null) modelEdgesToDrawPointer = ToUnmanaged(pinnedModelEdgesToDraw.Mesh);
-                    VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_part_actor(handle, VtkNativeLibrary.ToUtf8(name),
-                                                                                      ref style, ref geometryMesh,
-                                                                                      modelEdgesPointer,
-                                                                                      modelEdgesToDrawPointer));
-                }
-                finally
-                {
-                    if (modelEdgesPointer != IntPtr.Zero) Marshal.FreeHGlobal(modelEdgesPointer);
-                    if (modelEdgesToDrawPointer != IntPtr.Zero) Marshal.FreeHGlobal(modelEdgesToDrawPointer);
-                }
-            }
-        }
-        public void ClearActors()
-        {
-            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_clear_actors(Handle()));
-        }
-        public void SetEdgesVisibility(vtkEdgesVisibility edgesVisibility)
-        {
-            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_edges_visibility(Handle(), (int)edgesVisibility));
-        }
-        public void SetLighting(double ambient, double diffuse)
-        {
-            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_lighting(Handle(), ambient, diffuse));
-        }
-        //
-        public void AddMeshActor(string name, double[] points, int[] cells, byte[] cellTypes, double[] colorRgb,
-                                 bool edgesVisible)
-        {
-            if (name == null) throw new ArgumentNullException("name");
-            if (points == null || points.Length % 3 != 0)
-                throw new ArgumentException("The points must be a multiple of 3 coordinates.", "points");
-            if (cells == null) throw new ArgumentNullException("cells");
-            if (cellTypes == null) throw new ArgumentNullException("cellTypes");
-            CheckLength(colorRgb, 3, "colorRgb");
-            //
-            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_mesh_actor(Handle(), VtkNativeLibrary.ToUtf8(name),
-                                                                              points, points.Length / 3, cells,
-                                                                              cells.Length, cellTypes, cellTypes.Length,
-                                                                              colorRgb, edgesVisible ? 1 : 0));
-        }
-        public void RemoveActor(string name)
-        {
-            if (name == null) throw new ArgumentNullException("name");
-            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_remove_actor(Handle(), VtkNativeLibrary.ToUtf8(name)));
-        }
-        public string[] GetActorNames()
-        {
-            IntPtr handle = Handle();
-            return VtkNativeLibrary.GetStringList((byte[] buffer, int capacity, out int required) =>
-                VtkNativeMethods.vtkn_view_get_actor_names(handle, buffer, capacity, out required));
-        }
-        //
         // RGB rows, bottom row first
         public byte[] ReadPixels(int magnification, out int width, out int height)
         {
@@ -256,61 +184,6 @@ namespace vtkControl.Native
             if (fileName == null) throw new ArgumentNullException("fileName");
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_write_png(Handle(), VtkNativeLibrary.ToUtf8(fileName),
                                                                          magnification));
-        }
-        // Picking: the screen to model step of a selection. A point pick returns false when nothing was picked; the
-        // direction of projection is set either way
-        public bool PickPoint(int x, int y, int selectionDistance, bool limitDistance, string[] selectableParts,
-                              out double[] point, out double[] direction, out string partName, out int cellId)
-        {
-            IntPtr handle = Handle();
-            byte[] selectable = selectableParts == null ? null : VtkNativeLibrary.ToUtf8List(selectableParts);
-            VtkNativePointPick pick = new VtkNativePointPick();
-            byte[] name = new byte[256];
-            int required;
-            VtkNativeStatus status = VtkNativeMethods.vtkn_view_pick_point(handle, x, y, selectionDistance,
-                                                                          limitDistance ? 1 : 0, selectable, ref pick,
-                                                                          name, name.Length, out required);
-            if (status == VtkNativeStatus.BufferTooSmall)
-            {
-                name = new byte[required];
-                status = VtkNativeMethods.vtkn_view_pick_point(handle, x, y, selectionDistance, limitDistance ? 1 : 0,
-                                                              selectable, ref pick, name, name.Length, out required);
-            }
-            VtkNativeLibrary.Check(status);
-            direction = new double[] { pick.DirectionX, pick.DirectionY, pick.DirectionZ };
-            cellId = pick.CellId;
-            if (pick.Hit == 0)
-            {
-                point = null;
-                partName = null;
-                return false;
-            }
-            point = new double[] { pick.PointX, pick.PointY, pick.PointZ };
-            partName = Encoding.UTF8.GetString(name, 0, required - 1);
-            return true;
-        }
-        // An area pick: the parts rendered inside the box, and the six frustum planes as origin and normal
-        public string[] PickArea(int x1, int y1, int x2, int y2, out double[][] planes)
-        {
-            IntPtr handle = Handle();
-            double[] values = new double[36];
-            string[] names = VtkNativeLibrary.GetStringList((byte[] buffer, int capacity, out int required) =>
-                VtkNativeMethods.vtkn_view_pick_area(handle, x1, y1, x2, y2, values, buffer, capacity, out required));
-            planes = new double[6][];
-            for (int i = 0; i < 6; i++)
-            {
-                planes[i] = new double[6];
-                Array.Copy(values, 6 * i, planes[i], 0, 6);
-            }
-            return names;
-        }
-        // Forwards a mouse event to the widgets; true when a widget took it
-        public bool HandleMouseEvent(VtkNativeEvent mouseEvent, int x, int y)
-        {
-            int handled;
-            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_handle_mouse_event(Handle(), (int)mouseEvent, x, y,
-                                                                                  out handled));
-            return handled != 0;
         }
         //
         public void Dispose()

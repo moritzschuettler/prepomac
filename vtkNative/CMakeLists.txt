@@ -26,33 +26,41 @@ find_package(VTK 9.7 REQUIRED COMPONENTS
 
 add_library(vtkNative SHARED
     include/vtkNative.h
+    include/vtkNativeCore.h
+    include/vtkNativeGeometry.h
+    include/vtkNativeSelection.h
+    include/vtkNativeWidgets.h
     src/vtkNativeApi.cpp
-    src/vtkNativeBorderWidget.cpp
-    src/vtkNativeBorderWidget.h
     src/vtkNativeError.cpp
     src/vtkNativeError.h
+    src/vtkNativeGuard.h
     src/vtkNativeOutputWindow.cpp
     src/vtkNativeOutputWindow.h
-    src/vtkNativePartActor.cpp
-    src/vtkNativePartActor.h
-    src/vtkNativeRect.h
     src/vtkNativeRenderWindow.cpp
     src/vtkNativeRenderWindow.h
-    src/vtkNativeScalarBar.cpp
-    src/vtkNativeScalarBar.h
-    src/vtkNativeScalarBarWidget.cpp
-    src/vtkNativeScalarBarWidget.h
-    src/vtkNativeTextWidget.cpp
-    src/vtkNativeTextWidget.h
     src/vtkNativeView.cpp
     src/vtkNativeView.h
     src/vtkNativeViewCamera.cpp
-    src/vtkNativeViewPick.cpp
-    src/vtkNativeWidgetHighlight.cpp
-    src/vtkNativeWidgetHighlight.h
-    src/vtkNativeWidgetSet.cpp
-    src/vtkNativeWidgetSet.h)
-target_include_directories(vtkNative PRIVATE include src)
+    src/Geometry/vtkNativeApiGeometry.cpp
+    src/Geometry/vtkNativePartActor.cpp
+    src/Geometry/vtkNativePartActor.h
+    src/Selection/vtkNativeApiSelection.cpp
+    src/Selection/vtkNativeViewPick.cpp
+    src/Widgets/vtkNativeApiWidgets.cpp
+    src/Widgets/vtkNativeBorderWidget.cpp
+    src/Widgets/vtkNativeBorderWidget.h
+    src/Widgets/vtkNativeRect.h
+    src/Widgets/vtkNativeScalarBar.cpp
+    src/Widgets/vtkNativeScalarBar.h
+    src/Widgets/vtkNativeScalarBarWidget.cpp
+    src/Widgets/vtkNativeScalarBarWidget.h
+    src/Widgets/vtkNativeTextWidget.cpp
+    src/Widgets/vtkNativeTextWidget.h
+    src/Widgets/vtkNativeWidgetHighlight.cpp
+    src/Widgets/vtkNativeWidgetHighlight.h
+    src/Widgets/vtkNativeWidgetSet.cpp
+    src/Widgets/vtkNativeWidgetSet.h)
+target_include_directories(vtkNative PRIVATE include src src/Geometry src/Selection src/Widgets)
 target_compile_definitions(vtkNative PRIVATE VTKNATIVE_EXPORTS)
 target_link_libraries(vtkNative PRIVATE ${VTK_LIBRARIES})
 if(MSVC)

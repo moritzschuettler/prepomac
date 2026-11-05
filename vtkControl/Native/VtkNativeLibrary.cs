@@ -67,11 +67,23 @@ namespace vtkControl.Native
                     throw new VtkNativeException(VtkNativeStatus.LibraryNotLoaded,
                                                  "The native library has API version " + apiVersion + ", expected " +
                                                  VtkNativeMethods.ApiVersion + ": " + path);
+                CheckAreaVersion(1, "geometry", VtkNativeMethods.GeometryApiVersion, path);
+                CheckAreaVersion(2, "widgets", VtkNativeMethods.WidgetsApiVersion, path);
+                CheckAreaVersion(3, "selection", VtkNativeMethods.SelectionApiVersion, path);
                 //
                 _logCallback = OnLog;
                 Check(VtkNativeMethods.vtkn_set_log_callback(_logCallback, IntPtr.Zero));
                 _loaded = true;
             }
+        }
+        // Each area of the API carries its own version (vtkn_area)
+        private static void CheckAreaVersion(int area, string areaName, int expected, string path)
+        {
+            int version = VtkNativeMethods.vtkn_get_area_api_version(area);
+            if (version != expected)
+                throw new VtkNativeException(VtkNativeStatus.LibraryNotLoaded,
+                                             "The native library has " + areaName + " API version " + version +
+                                             ", expected " + expected + ": " + path);
         }
         public static string GetVtkVersion()
         {

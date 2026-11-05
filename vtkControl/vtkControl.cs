@@ -70,6 +70,8 @@ namespace vtkControl
         private HashSet<string> _nativeMirrorNames;
         private List<vtkProp> _nativeMirrorHiddenProps;
         private VtkNativeScalarBar _nativeMirrorScalarBar;
+        private VtkNativeArea _nativeAreas;
+        private bool _nativeInWindow;
         private List<vtkProp> _nativeMirrorScalarBarHiddenProps;
         private List<vtkMaxBorderWidget> _nativeMirrorScalarBarHiddenWidgets;
         private vtkRenderWindowInteractor _renderWindowInteractor;
@@ -10168,22 +10170,46 @@ namespace vtkControl
         public VtkNativeView NativeMirror { get { return _nativeMirror; } }
         public void EnableNativeMirror(bool enable)
         {
-            if (enable && _nativeMirror == null)
+            SetNativeAreas(enable ? VtkNativeArea.All : VtkNativeArea.None, false);
+        }
+        public VtkNativeArea NativeAreas { get { return _nativeAreas; } }
+        public bool NativeInWindow { get { return _nativeInWindow; } }
+        // The areas this control sends to a native view, and the view: the off screen mirror the checks compare, or
+        // the native view in the window that covers the ActiViz one for a review. ActiViz keeps running underneath;
+        // the caller redraws, so the native view receives the current scene
+        public void SetNativeAreas(VtkNativeArea areas, bool inWindow)
+        {
+            if (_nativeMirror != null)
             {
-                int[] size = _renderWindow.GetSize();
-                _nativeMirror = VtkNativeView.CreateOffScreen(Math.Max(1, size[0]), Math.Max(1, size[1]));
-                _nativeMirrorNames = new HashSet<string>();
-                SyncNativeMirror();
-                CreateNativeMirrorScalarBar();
-            }
-            else if (!enable && _nativeMirror != null)
-            {
-                _nativeMirrorScalarBar.Dispose();
+                if (_nativeMirrorScalarBar != null) _nativeMirrorScalarBar.Dispose();
                 _nativeMirrorScalarBar = null;
-                _nativeMirror.Dispose();
+                if (_nativeInWindow)
+                {
+                    _nativeMirror.ClearActors();
+                    _nativeMirror.Render();
+                    ShowNativeView(false);
+                }
+                else _nativeMirror.Dispose();
                 _nativeMirror = null;
                 _nativeMirrorNames = null;
             }
+            _nativeAreas = areas;
+            _nativeInWindow = inWindow && areas != VtkNativeArea.None;
+            if (areas == VtkNativeArea.None) return;
+            //
+            if (_nativeInWindow)
+            {
+                ShowNativeView(true);
+                _nativeMirror = _nativeHost.View;
+            }
+            else
+            {
+                int[] size = _renderWindow.GetSize();
+                _nativeMirror = VtkNativeView.CreateOffScreen(Math.Max(1, size[0]), Math.Max(1, size[1]));
+            }
+            _nativeMirrorNames = new HashSet<string>();
+            SyncNativeMirror();
+            if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorScalarBar();
         }
         public string[] GetNativeMirrorNames()
         {
@@ -10202,7 +10228,8 @@ namespace vtkControl
         }
         private void MirrorPart(vtkMaxActorData data, vtkMaxActor actor)
         {
-            if (_nativeMirror == null || data.Layer != vtkRendererLayer.Base || !data.IsAPart) return;
+            if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Geometry) == 0) return;
+            if (data.Layer != vtkRendererLayer.Base || !data.IsAPart) return;
             if (data.Geometry == null || data.Geometry.Cells.CellNodeIds == null) return;
             //
             VtkNativePartStyle style = VtkNativePartStyle.FromActorData(data);
@@ -10315,7 +10342,7 @@ namespace vtkControl
         // must end in the same selection
         public void PickWithNativeMirror(int x1, int y1, bool boxSelection, int x2, int y2)
         {
-            if (_nativeMirror == null) return;
+            if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Selection) == 0) return;
             MouseEventArgs mea = new MouseEventArgs(MouseButtons.Left, 1, x1, y1, 0);
             string[] pickedActorNames;
             if (_selectBy == vtkSelectBy.Off) return;

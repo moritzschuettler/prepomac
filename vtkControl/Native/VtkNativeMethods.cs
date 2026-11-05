@@ -12,13 +12,14 @@ using System.Runtime.InteropServices;
 
 namespace vtkControl.Native
 {
-    // The declarations of vtkNative.h, one to one. Strings go in as zero terminated UTF-8 byte arrays and come out
-    // through byte buffers, because .NET Framework has no UTF-8 string marshalling that .NET 10 shares
-    internal static class VtkNativeMethods
+    // The declarations of vtkNativeCore.h, one to one; those of the areas are in the partial classes of the area
+    // folders. Strings go in as zero terminated UTF-8 byte arrays and come out through byte buffers, because .NET
+    // Framework has no UTF-8 string marshalling that .NET 10 shares
+    internal static partial class VtkNativeMethods
     {
         // Variables
         public const string LibraryName = "vtkNative.dll";
-        public const int ApiVersion = 4;
+        public const int ApiVersion = 5;
         public const uint LOAD_WITH_ALTERED_SEARCH_PATH = 0x00000008;
 
 
@@ -35,6 +36,8 @@ namespace vtkControl.Native
         //
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int vtkn_get_api_version();
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int vtkn_get_area_api_version(int area);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_get_vtk_version(byte[] buffer, int capacity, out int required);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
@@ -89,78 +92,9 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_view_box_zoom(IntPtr view, int x1, int y1, int x2, int y2);
         //
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_add_part_actor(IntPtr view, byte[] name, ref VtkNativePartStyle style,
-                                                                      ref VtkNativeMesh geometry, IntPtr modelEdges,
-                                                                      IntPtr modelEdgesToDraw);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_clear_actors(IntPtr view);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_set_edges_visibility(IntPtr view, int edgesVisibility);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_set_lighting(IntPtr view, double ambient, double diffuse);
-        //
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_add_mesh_actor(IntPtr view, byte[] name, double[] points,
-                                                                      int pointCount, int[] cells, int cellsLength,
-                                                                      byte[] cellTypes, int cellCount,
-                                                                      double[] colorRgb, int edgesVisible);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_remove_actor(IntPtr view, byte[] name);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_get_actor_names(IntPtr view, byte[] buffer, int capacity,
-                                                                       out int required);
-        //
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_read_pixels(IntPtr view, int magnification, [Out] byte[] buffer,
                                                                    int capacity, out int width, out int height);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_write_png(IntPtr view, byte[] fileName, int magnification);
-        //
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_pick_point(IntPtr view, int x, int y, int selectionDistance,
-                                                                  int limitDistance, byte[] selectableParts,
-                                                                  ref VtkNativePointPick pick, byte[] partName,
-                                                                  int capacity, out int required);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_pick_area(IntPtr view, int x1, int y1, int x2, int y2,
-                                                                 [Out] double[] planes36, byte[] partNames, int capacity,
-                                                                 out int required);
-        //
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_handle_mouse_event(IntPtr view, int eventId, int x, int y,
-                                                                          out int handled);
-        //
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_create(IntPtr view, out IntPtr bar, out int widgetId);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_destroy(IntPtr bar);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_set_text_style(IntPtr bar, ref VtkNativeTextStyle style);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_set_padding(IntPtr bar, int padding);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_set_title(IntPtr bar, byte[] title);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_set_colors(IntPtr bar, ref VtkNativeScalarBarColors colors);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_set_visibility(IntPtr bar, int visible);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_set_frame(IntPtr bar, int backgroundVisible,
-                                                                       double[] backgroundRgb, int borderVisible,
-                                                                       double[] borderRgb);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_set_position(IntPtr bar, int anchor, double x, double y);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_get_rectangle(IntPtr bar, [Out] int[] rectangle4);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_get_value_label_rectangle(IntPtr bar, int minimum,
-                                                                                       [Out] int[] rectangle4,
-                                                                                       out int found);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_hit_value_label(IntPtr bar, int x, int y, out int label,
-                                                                             [Out] int[] rectangle4);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_scalar_bar_get_highlight_rectangle(IntPtr bar, [Out] int[] rectangle4,
-                                                                                     out int visible);
     }
 }
