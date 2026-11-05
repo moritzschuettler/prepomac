@@ -440,5 +440,7 @@ combines a native hit box with the C# label and limits. The color transfer funct
 About 2,000 lines of old C# ported to about 1,920 lines of C++ and C API and 470 lines of C# in 36 minutes, with
 5 port/render fix cycles, at 10 % of the 5 hour window.
 
-User review time: to be noted by the user. For the interactive feel, the embedded check can be watched by running
-`Test_Embedded_ScalarBar.py` from the Python panel of a visible PrePoMax with Joint_Hinge open.
+User review time: to be noted by the user. For the interactive feel, run `VtkPilot/Phase3/Toggle_Native_ScalarBar.py`
+from the Python panel of a visible PrePoMax: the first run shows the VTK 9.7 view with a mesh and the native scalar
+bar and leaves it open (double clicks are echoed to the output), the next run closes it. (`Test_Embedded_ScalarBar.py`
+is the automated check and closes the view when it is done.)
