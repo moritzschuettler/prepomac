@@ -5,6 +5,7 @@
 #include <vtkCellArray.h>
 #include <vtkCellData.h>
 #include <vtkCellType.h>
+#include <vtkCellTypes.h>
 #include <vtkDataSetMapper.h>
 #include <vtkDoubleArray.h>
 #include <vtkIdTypeArray.h>
@@ -12,6 +13,7 @@
 #include <vtkOpenGLShaderProperty.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
+#include <vtkPolyDataMapper.h>
 #include <vtkPolyDataNormals.h>
 #include <vtkProperty.h>
 
@@ -281,6 +283,25 @@ namespace vtkn
         }
     }
 
+
+    vtkn_part_style DefaultStyle()
+    {
+        vtkn_part_style style = {};
+        style.ambient = 0.5;
+        style.diffuse = 0.5;
+        style.line_width = 1;
+        style.node_size = 1;
+        style.backface_culling = 1;
+        style.lighting = 1;
+        style.use_global_lighting = 1;
+        style.use_edge_visibility = 1;
+        style.visible = 1;
+        style.layer = VTKN_LAYER_BASE;
+        style.representation = VTKN_REPRESENTATION_UNKNOWN;
+        style.section_view_possible = 1;
+        return style;
+    }
+
     PartActor::PartActor(const vtkn_part_style& style, const vtkn_mesh& geometry, const vtkn_mesh* modelEdges,
                          const vtkn_mesh* modelEdgesToDraw)
         : Style(style)
@@ -288,7 +309,80 @@ namespace vtkn
         CheckMesh(geometry, "part geometry");
         if (modelEdges != nullptr) CheckMesh(*modelEdges, "model edges");
         if (modelEdgesToDraw != nullptr) CheckMesh(*modelEdgesToDraw, "model edges to draw");
-        //
+        // vtkMaxActor(data, false, createNodalActor): a geometry without cells is drawn as its nodes
+        bool nodal = style.nodal || (geometry.cell_count == 0 && geometry.point_count > 0);
+        if (nodal) CreateNodal(geometry);
+        else CreateFromMesh(geometry, modelEdges, modelEdgesToDraw);
+        ApplyStyleSizes();
+        UpdateColor();
+        // VTK 5.8 drew smoothed points as flat round dots; VTK 9 has no point smoothing and draws squares, so the
+        // nodes are drawn as sphere imposters without lighting, which are flat round dots
+        Geometry->GetProperty()->SetLighting(style.lighting != 0 && !nodal);
+    }
+
+    PartActor::PartActor(const vtkn_part_style& style, vtkPolyData* polyData) : Style(style)
+    {
+        vtkNew<vtkDataSetMapper> mapper;
+        mapper->SetInputData(polyData);
+        CreateFromMapper(mapper);
+    }
+
+    PartActor::PartActor(const vtkn_part_style& style, vtkAlgorithmOutput* output) : Style(style)
+    {
+        vtkNew<vtkPolyDataMapper> mapper;
+        mapper->SetInputConnection(output);
+        mapper->ScalarVisibilityOff();
+        CreateFromMapper(mapper);
+    }
+
+    // vtkMaxActor(data, mapper): no edges and no locator, the drawing fields of the data
+    void PartActor::CreateFromMapper(vtkMapper* mapper)
+    {
+        Geometry = vtkSmartPointer<vtkActor>::New();
+        Geometry->SetMapper(mapper);
+        Geometry->SetPickable(Style.pickable != 0);
+        Geometry->GetProperty()->SetLineWidth(static_cast<float>(Style.line_width));
+        Geometry->GetProperty()->SetPointSize(static_cast<float>(Style.node_size));
+        UseInfiniteViewer(Geometry);
+        UpdateColor();
+        Geometry->GetProperty()->SetLighting(Style.lighting != 0);
+    }
+
+    // Port of CreateNodalActor. The picking of nodes goes through the parts, so a nodal actor is only pickable when
+    // its data says so; ActiViz left it pickable without a locator
+    void PartActor::CreateNodal(const vtkn_mesh& geometry)
+    {
+        vtkNew<vtkDoubleArray> coordinates;
+        coordinates->SetNumberOfComponents(3);
+        coordinates->SetNumberOfTuples(geometry.point_count);
+        if (geometry.point_count > 0)
+            std::memcpy(coordinates->GetPointer(0), geometry.coordinates,
+                        sizeof(double) * 3 * static_cast<size_t>(geometry.point_count));
+        vtkNew<vtkPoints> points;
+        points->SetData(coordinates);
+        vtkNew<vtkCellArray> vertices;
+        for (vtkIdType i = 0; i < geometry.point_count; i++) vertices->InsertNextCell(1, &i);
+        vtkNew<vtkPolyData> pointsPolyData;
+        pointsPolyData->SetPoints(points);
+        pointsPolyData->SetVerts(vertices);
+        if (geometry.point_ids != nullptr)
+        {
+            std::vector<int> pointIds(geometry.point_ids, geometry.point_ids + geometry.point_count);
+            pointsPolyData->GetPointData()->SetGlobalIds(ToIdArray(pointIds));
+        }
+        vtkNew<vtkPolyDataMapper> mapper;
+        mapper->SetInputData(pointsPolyData);
+        mapper->ScalarVisibilityOff();
+        Geometry = vtkSmartPointer<vtkActor>::New();
+        Geometry->SetMapper(mapper);
+        Geometry->SetPickable(Style.pickable != 0);
+        Geometry->GetProperty()->RenderPointsAsSpheresOn();
+        UseInfiniteViewer(Geometry);
+    }
+
+    void PartActor::CreateFromMesh(const vtkn_mesh& geometry, const vtkn_mesh* modelEdges,
+                                   const vtkn_mesh* modelEdgesToDraw)
+    {
         vtkSmartPointer<vtkPolyData> polyActor;
         vtkSmartPointer<vtkPolyData> polyEdges;
         BuildPolyData(geometry, true, polyActor, polyEdges);
@@ -304,10 +398,14 @@ namespace vtkn
         vtkNew<vtkDataSetMapper> mapper;
         mapper->SetInputData(polyActor);
         mapper->ScalarVisibilityOff();
+        // A surface that is not a part, such as the faces of a constraint, covers faces of a part exactly. VTK 5.8
+        // drew the later of two equal depths, VTK 9 mixes them, so such a surface is pulled a step in front of the
+        // parts (the polygon offset of the view is 2, 1) and stays behind the edge lines
+        if (!Style.is_a_part) mapper->SetRelativeCoincidentTopologyPolygonOffsetParameters(-1, -1);
         Geometry = vtkSmartPointer<vtkActor>::New();
         Geometry->SetMapper(mapper);
         // A part is picked when it is pickable and its cells carry the element ids
-        bool pickable = style.pickable != 0 && polyActor->GetCellData()->GetGlobalIds() != nullptr;
+        bool pickable = Style.pickable != 0 && polyActor->GetCellData()->GetGlobalIds() != nullptr;
         Geometry->SetPickable(pickable ? 1 : 0);
         if (pickable)
         {
@@ -316,7 +414,7 @@ namespace vtkn
         }
         UseInfiniteViewer(Geometry);
         // Element edges
-        if (style.can_have_element_edges)
+        if (Style.can_have_element_edges)
         {
             vtkNew<vtkDataSetMapper> edgesMapper;
             edgesMapper->SetInputData(polyEdges);
@@ -324,12 +422,18 @@ namespace vtkn
             ElementEdges->SetMapper(edgesMapper);
             ElementEdges->PickableOff();
         }
-        // Model edges; those another part draws are left out of the drawn ones
+        // Model edges; those another part draws are left out of the drawn ones, and the part is highlighted by the
+        // ones it owns
         if (modelEdges != nullptr)
         {
             vtkSmartPointer<vtkPolyData> polyModelEdges;
             vtkSmartPointer<vtkPolyData> unused;
-            BuildPolyData(modelEdgesToDraw != nullptr ? *modelEdgesToDraw : *modelEdges, false, polyModelEdges, unused);
+            BuildPolyData(*modelEdges, false, polyModelEdges, unused);
+            if (modelEdgesToDraw != nullptr)
+            {
+                ModelEdgesForHighlight = polyModelEdges;
+                BuildPolyData(*modelEdgesToDraw, false, polyModelEdges, unused);
+            }
             vtkNew<vtkDataSetMapper> modelEdgesMapper;
             modelEdgesMapper->SetInputData(polyModelEdges);
             ModelEdges = vtkSmartPointer<vtkActor>::New();
@@ -337,7 +441,7 @@ namespace vtkn
             ModelEdges->PickableOff();
             // A part without element edges, such as a geometry part, shows its model edges in the element
             // edges mode
-            if (!style.can_have_element_edges)
+            if (!Style.can_have_element_edges)
             {
                 vtkNew<vtkDataSetMapper> elementEdgesMapper;
                 elementEdgesMapper->SetInputData(polyModelEdges);
@@ -346,14 +450,30 @@ namespace vtkn
                 ElementEdges->PickableOff();
             }
         }
-        //
-        Geometry->GetProperty()->SetLineWidth(static_cast<float>(style.line_width));
-        Geometry->GetProperty()->SetPointSize(static_cast<float>(style.node_size));
-        if (ModelEdges != nullptr) ModelEdges->GetProperty()->SetPointSize(static_cast<float>(style.node_size));
-        if (ElementEdges != nullptr) ElementEdges->GetProperty()->SetPointSize(static_cast<float>(style.node_size));
-        //
-        UpdateColor();
-        Geometry->GetProperty()->SetLighting(style.lighting != 0);
+    }
+
+    void PartActor::ApplyStyleSizes()
+    {
+        Geometry->GetProperty()->SetLineWidth(static_cast<float>(Style.line_width));
+        Geometry->GetProperty()->SetPointSize(static_cast<float>(Style.node_size));
+        if (ModelEdges != nullptr) ModelEdges->GetProperty()->SetPointSize(static_cast<float>(Style.node_size));
+        if (ElementEdges != nullptr) ElementEdges->GetProperty()->SetPointSize(static_cast<float>(Style.node_size));
+    }
+
+    vtkPolyData* PartActor::GetPolyData()
+    {
+        vtkMapper* mapper = Geometry->GetMapper();
+        if (mapper == nullptr) return nullptr;
+        if (mapper->GetInputAlgorithm() != nullptr && mapper->GetNumberOfInputConnections(0) > 0)
+            mapper->GetInputAlgorithm()->Update();
+        return vtkPolyData::SafeDownCast(mapper->GetInput());
+    }
+
+    vtkPolyData* PartActor::GetModelEdgesForHighlight()
+    {
+        if (ModelEdgesForHighlight != nullptr) return ModelEdgesForHighlight;
+        if (ModelEdges == nullptr) return nullptr;
+        return vtkPolyData::SafeDownCast(ModelEdges->GetMapper()->GetInput());
     }
 
     bool PartActor::Owns(vtkProp* prop) const
@@ -381,6 +501,12 @@ namespace vtkn
         if (ModelEdges != nullptr) renderer->RemoveActor(ModelEdges);
     }
 
+    void PartActor::SetVisible(bool visible)
+    {
+        Style.visible = visible ? 1 : 0;
+        Geometry->SetVisibility(visible);
+    }
+
     void PartActor::SetGlobalLighting(double ambient, double diffuse)
     {
         if (!Style.use_global_lighting) return;
@@ -389,7 +515,7 @@ namespace vtkn
         UpdateColor();
     }
 
-    // Port of vtkMaxActor.UpdateColor without the color table and the result contours
+    // Port of vtkMaxActor.UpdateColor without the color table
     void PartActor::UpdateColor()
     {
         const double* color = Style.color;
@@ -398,9 +524,13 @@ namespace vtkn
         property->SetAmbient(Style.ambient);
         property->SetDiffuse(Style.diffuse);
         property->SetOpacity(opacity);
-        property->SetColor(color[0], color[1], color[2]);
-        property->SetSpecular(0.6);
-        property->SetSpecularPower(100);
+        if (!Style.color_contours)
+        {
+            property->SetColor(color[0], color[1], color[2]);
+            property->SetSpecular(0.6);
+            property->SetSpecularPower(100);
+        }
+        else property->SetAmbientColor(1, 1, 1);
         //
         if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 0.8, opacity * 0.7);
         if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 0.5, opacity * 0.4);
@@ -410,43 +540,92 @@ namespace vtkn
             backface->SetAmbient(Style.ambient);
             backface->SetDiffuse(Style.diffuse);
             backface->SetOpacity(Style.backface_color[3]);
-            backface->SetColor(Style.backface_color[0], Style.backface_color[1], Style.backface_color[2]);
-            backface->SetSpecular(0.6);
-            backface->SetSpecularPower(100);
+            if (!Style.color_contours)
+            {
+                backface->SetColor(Style.backface_color[0], Style.backface_color[1], Style.backface_color[2]);
+                backface->SetSpecular(0.6);
+                backface->SetSpecularPower(100);
+            }
+            else backface->SetAmbientColor(1, 1, 1);
             Geometry->SetBackfaceProperty(backface);
         }
     }
 
-    // Port of ApplyEdgeVisibilityAndBackfaceCullingToActor, ...ToActorEdges and ...ToModelEdges for the base layer
     void PartActor::ApplyEdgesVisibility(vtkn_edges_visibility edgesVisibility)
     {
-        bool visible = Style.visible != 0;
-        vtkProperty* property = Geometry->GetProperty();
-        if (!Style.use_edge_visibility) Geometry->SetVisibility(visible);
-        else
+        ApplyEdgesVisibility(edgesVisibility, VTKN_LAYER_BASE, false);
+    }
+
+    // Port of ApplyEdgeVisibilityAndBackfaceCullingToActor, ...ToActorEdges and ...ToModelEdges. The overlay layer
+    // keeps the formatting of its geometry
+    void PartActor::ApplyEdgesVisibility(vtkn_edges_visibility edgesVisibility, vtkn_layer layer,
+                                         bool sectionViewActive)
+    {
+        bool visible = Style.visible != 0 && !GeometryHiddenBySectionView;
+        if (layer != VTKN_LAYER_OVERLAY)
         {
-            if (edgesVisibility == VTKN_EDGES_ELEMENT_EDGES) property->SetInterpolationToFlat();
-            else property->SetInterpolationToPhong();
-            //
-            if (edgesVisibility == VTKN_EDGES_WIREFRAME) Geometry->VisibilityOff();
+            vtkProperty* property = Geometry->GetProperty();
+            if (!Style.use_edge_visibility) Geometry->SetVisibility(visible);
             else
             {
-                property->SetRepresentationToSurface();
-                Geometry->SetVisibility(visible);
-                property->SetBackfaceCulling(Style.backface_culling != 0);
+                if (edgesVisibility == VTKN_EDGES_ELEMENT_EDGES) property->SetInterpolationToFlat();
+                else property->SetInterpolationToPhong();
+                //
+                if (edgesVisibility == VTKN_EDGES_WIREFRAME && layer == VTKN_LAYER_BASE) Geometry->VisibilityOff();
+                else
+                {
+                    property->SetRepresentationToSurface();
+                    Geometry->SetVisibility(visible);
+                    property->SetBackfaceCulling(Style.backface_culling != 0);
+                    if (Style.representation == VTKN_REPRESENTATION_SOLID_AS_SHELL && sectionViewActive)
+                        property->BackfaceCullingOff();
+                }
             }
         }
-        //
+        // The edges of an actor outside the base layer follow the edges mode only
+        bool edgesVisible = layer != VTKN_LAYER_BASE || visible;
         if (ModelEdges != nullptr)
         {
-            ModelEdges->SetVisibility(visible && (edgesVisibility == VTKN_EDGES_MODEL_EDGES ||
-                                                  edgesVisibility == VTKN_EDGES_WIREFRAME));
+            ModelEdges->SetVisibility(edgesVisible && (edgesVisibility == VTKN_EDGES_MODEL_EDGES ||
+                                                       edgesVisibility == VTKN_EDGES_WIREFRAME));
             ModelEdges->GetProperty()->BackfaceCullingOn();
         }
         if (ElementEdges != nullptr)
         {
-            ElementEdges->SetVisibility(visible && edgesVisibility == VTKN_EDGES_ELEMENT_EDGES);
+            ElementEdges->SetVisibility(edgesVisible && edgesVisibility == VTKN_EDGES_ELEMENT_EDGES);
             ElementEdges->GetProperty()->BackfaceCullingOn();
         }
+    }
+
+    // Port of ApplySelectionFormattingToActor: nodes and edges in the full highlight color, surfaces darker and
+    // lit, every point larger and a line of the default width wider
+    void PartActor::ApplySelectionFormatting(const HighlightColors& colors)
+    {
+        if (Style.keep_own_color) return;
+        vtkPolyData* polyData = GetPolyData();
+        bool onlyEdges = true;
+        bool onlyNodes = true;
+        if (polyData != nullptr)
+        {
+            vtkNew<vtkCellTypes> types;
+            polyData->GetDistinctCellTypes(types);
+            for (vtkIdType i = 0; i < types->GetNumberOfTypes(); i++)
+            {
+                unsigned char cellType = types->GetCellType(i);
+                if (cellType != VTK_LINE && cellType != VTK_QUADRATIC_EDGE) onlyEdges = false;
+                if (cellType != VTK_VERTEX) onlyNodes = false;
+            }
+        }
+        double k = onlyNodes || onlyEdges ? 1 : 0.7;
+        double lighting = onlyNodes || onlyEdges ? 1 : 0.6;
+        vtkProperty* property = Geometry->GetProperty();
+        property->SetPointSize(property->GetPointSize() + 2);
+        const double* color = Style.use_secondary_highlight_color ? colors.Secondary : colors.Primary;
+        property->SetColor(color[0] * k, color[1] * k, color[2] * k);
+        property->SetAmbient(lighting);
+        property->SetDiffuse(lighting);
+        if (property->GetLineWidth() == 1) property->SetLineWidth(2.2f);
+        property->SetOpacity(1);
+        Geometry->PickableOff();
     }
 }

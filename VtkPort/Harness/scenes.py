@@ -40,6 +40,54 @@ SCENES = {
 }
 
 
+# Stream G (geometry): the scenes of its slices, and the steps that must run after the native areas are switched on,
+# since switching them on redraws the model and so drops highlights and hidden actors set before
+def _view(view):
+    return lambda pmx: setattr(pmx.view, "current", view)
+
+
+def _on_ui_controller(call):
+    import vtkport
+    return vtkport.on_ui(lambda: call(vtkport.CONTROLLER))
+
+
+def _highlight_hinge(pmx):
+    import System
+    _on_ui_controller(lambda c: c.HighlightElements(System.Array[System.Int32](list(range(1, 400, 7)))))
+    _on_ui_controller(lambda c: c.HighlightNodes(System.Array[System.Array[System.Double]](
+        [System.Array[System.Double]([0.0, 0.0, 0.0]), System.Array[System.Double]([10.0, 5.0, 2.0])])))
+
+
+def _hide_lever(pmx):
+    import System
+    _on_ui_controller(lambda c: c.HideModelParts(System.Array[System.String](["Lever"])))
+
+
+def _highlight_geometry_part(pmx):
+    import System
+    _on_ui_controller(lambda c: c.HighlightGeometryParts(
+        System.Array[System.String]([list(pmx.model.geometry.parts)[0].name])))
+
+
+SCENES.update({
+    "shell_femodel": (os.path.join(JOINTS, "Joint_Plates_Hinge.pmx"), [], _view("femodel")),
+    "springs_femodel": (os.path.join(JOINTS, "Joint_Plates_Springs_Hinge.pmx"), [], _view("femodel")),
+    "hinge_highlight": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+    "hinge_hidden": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+    "solid_geometry_highlight": (os.path.join(MODELS, "L_bracket_r.step"), ["-u", "MM_TON_S_C"], _view("geometry")),
+})
+AFTER_ENABLE = {
+    "hinge_highlight": _highlight_hinge,
+    "hinge_hidden": _hide_lever,
+    "solid_geometry_highlight": _highlight_geometry_part,
+}
+
+
+def after_enable(name, pmx):
+    if name in AFTER_ENABLE:
+        AFTER_ENABLE[name](pmx)
+
+
 def setup(name, pmx):
     SCENES[name][2](pmx)
 

@@ -382,11 +382,15 @@ namespace vtkn
         vtkCamera* camera = Renderer->GetActiveCamera();
         double range[2];
         double overlayRange[2];
+        double selectionRange[2];
         Renderer->ResetCameraClippingRange();
         camera->GetClippingRange(range);
+        SelectionRenderer->ResetCameraClippingRange();
+        camera->GetClippingRange(selectionRange);
         OverlayRenderer->ResetCameraClippingRange();
         camera->GetClippingRange(overlayRange);
-        camera->SetClippingRange(std::min(range[0], overlayRange[0]), std::max(range[1], overlayRange[1]));
+        camera->SetClippingRange(std::min(range[0], std::min(selectionRange[0], overlayRange[0])),
+                                 std::max(range[1], std::max(selectionRange[1], overlayRange[1])));
     }
 
     // Port of vtkInteractorStyleControl.AdjustCameraDistance: the camera stands just outside the sphere around
@@ -416,7 +420,7 @@ namespace vtkn
     bool View::ComputeVisiblePropBounds(double bounds[6])
     {
         bool found = false;
-        vtkRenderer* renderers[2] = { Renderer, OverlayRenderer };
+        vtkRenderer* renderers[3] = { Renderer, SelectionRenderer, OverlayRenderer };
         for (vtkRenderer* renderer : renderers)
         {
             double rendererBounds[6];

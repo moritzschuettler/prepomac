@@ -209,6 +209,7 @@ namespace vtkControl
                 {
                     _edgesVisibility = value;
                     ApplyEdgesVisibilityAndBackfaceCulling();
+                    MirrorGeometry("EdgesVisibility", () => _nativeMirror.SetEdgesVisibility(value));
                 }
             }
         }
@@ -4110,6 +4111,7 @@ namespace vtkControl
         {
             vtkMaxActor actor = new vtkMaxActor(data, false, true);
             AddActorGeometry(actor, data.Layer);
+            MirrorActor(data, actor, true);
             //
             if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
             else AdjustCameraDistanceAndClipping();
@@ -4122,7 +4124,7 @@ namespace vtkControl
             vtkMaxActor actor = new vtkMaxActor(data);
             //
             AddActor(actor);
-            MirrorPart(data, actor);
+            MirrorActor(data, actor, false);
             //
             if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
             else AdjustCameraDistanceAndClipping();
@@ -4141,7 +4143,7 @@ namespace vtkControl
             //);
             //
             foreach (var actor in actors) AddActor(actor);
-            for (int i = 0; i < actors.Length; i++) MirrorPart(data[i], actors[i]);
+            for (int i = 0; i < actors.Length; i++) MirrorActor(data[i], actors[i], false);
             //
             if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
             else AdjustCameraDistanceAndClipping();
@@ -5389,6 +5391,7 @@ namespace vtkControl
         public void AddActor(vtkMaxActor actor)
         {
             AddActor(actor, actor.Layer);
+            MirrorBufferedActor(actor);
         }
         private PartExchangeData GetVolumeGridData(string sourceName)
         {
@@ -5603,7 +5606,9 @@ namespace vtkControl
         #region Highlight geometry  ################################################################################################
         public void HighlightActor(string actorName)
         {
+            int selectedCount = _selectedActors.Count;
             HighlightAllActorsByName(actorName);
+            MirrorHighlightActor(actorName, selectedCount);
             if (_sectionViewData.Active && _actors.TryGetValue(actorName, out vtkMaxActor actor) && actor.SectionViewActor != null)
                 HighlightAllActorsByName(actor.SectionViewActor.Name);
         }
@@ -5783,6 +5788,7 @@ namespace vtkControl
             ApplyEdgesVisibilityAndBackfaceCulling();
             ApplyVisibilityToActorNodes();
             _style.AdjustCameraDistanceAndClipping();
+            MirrorGeometry("HideShowActors", () => _nativeMirror.HideShowActors(actorNames, visible));
         }
         private void HideShowActor(vtkMaxActor actor, bool visible)
         {
@@ -5809,6 +5815,8 @@ namespace vtkControl
                     HideShowActor(actor, actorVisible);
                 }
             }
+            MirrorGeometry("UpdateResultRepresentationVisibility",
+                           () => _nativeMirror.UpdateResultRepresentationVisibility(partNames, visible, update));
             //
             if (update)
             {
@@ -7597,6 +7605,7 @@ namespace vtkControl
                 _renderer.SetGradientBackground(gradient);
                 _renderer.SetBackground2(topColor.R / 255.0, topColor.G / 255.0, topColor.B / 255.0);
                 _renderer.SetBackground(bottomColor.R / 255.0, bottomColor.G / 255.0, bottomColor.B / 255.0);
+                MirrorGeometry("SetBackground", SyncNativeMirror);
                 if (redraw) RenderScene();
             }
         }
@@ -7683,6 +7692,8 @@ namespace vtkControl
                 //
                 ApplySelectionFormattingToActor(actor);
             }
+            MirrorGeometry("SetHighlightColor",
+                           () => _nativeMirror.SetHighlightColors(primaryHighlightColor, secondaryHighlightColor));
             RenderScene();
         }
         public void SetMouseHighlightColor(Color mouseHighlightColor)
@@ -9257,6 +9268,7 @@ namespace vtkControl
             ClearSelection();
             ClearOverlay();
             RemoveSectionView();
+            MirrorClear(VtkNativeClear.All);
         }
         public void ClearButKeepParts()
         {
@@ -9299,6 +9311,7 @@ namespace vtkControl
             //
             ClearSelection();
             ClearOverlay();
+            MirrorClear(VtkNativeClear.ButKeepParts);
         }
         public void ClearSelection(bool clearAllMouseSelection = true)
         {
@@ -9334,6 +9347,7 @@ namespace vtkControl
             _selectedActors.Clear();
             if (_coorSysSelectionSymbols != null) _coorSysSelectionSymbols.Clear();
             if (_materialAxesSelectionSymbols != null) _materialAxesSelectionSymbols.Clear();
+            MirrorClear(VtkNativeClear.Selection);
             //
             RenderScene();
         }
@@ -9387,6 +9401,7 @@ namespace vtkControl
             _measurementArrowInputs.Clear();
             _measurementArrowSymbolSizes.Clear();
             if (_coorSysSymbols != null) _coorSysSymbols.Clear();
+            MirrorClear(VtkNativeClear.Overlay);
             //
             RenderScene();
         }
@@ -9414,6 +9429,8 @@ namespace vtkControl
 
             nodeActor.VtkMaxActorVisible = visible;
             lineActor.VtkMaxActorVisible = visible;
+            MirrorActorVisible(nodeActor, visible);
+            MirrorActorVisible(lineActor, visible);
 
             if (arrowCoordinates != null && arrowNormals != null)
             {
@@ -9620,6 +9637,7 @@ namespace vtkControl
                     removed = true;
                 }
             }
+            MirrorGeometry("RemoveOverlayActors", () => _nativeMirror.RemoveOverlayActors(actorNames));
             if (removed) RenderScene();
         }
         private void ReleaseActorGraphicsResources(vtkMaxActor actor)
@@ -10256,6 +10274,7 @@ namespace vtkControl
                     if (actor.ElementEdges != null) mirroredProps.Add(actor.ElementEdges);
                     if (actor.ModelEdges != null) mirroredProps.Add(actor.ModelEdges);
                 }
+                if (_nativeMirrorAllGeometry) mirroredProps.UnionWith(GetNativeMirroredProps());
                 // The overlay and selection props are hidden too, not only left undrawn: their bounds take part in
                 // the framing of a view
                 _nativeMirrorHiddenProps = new List<vtkProp>();
@@ -10274,6 +10293,8 @@ namespace vtkControl
                 _selectionRenderer.SetDraw(0);
                 _widgetRenderer.SetDraw(0);
                 if (_nativeMirrorScalarBar != null) _nativeMirrorScalarBar.SetVisibility(false);
+                _overlayRenderer.SetDraw(_nativeMirrorAllGeometry ? 1 : 0);
+                _selectionRenderer.SetDraw(_nativeMirrorAllGeometry ? 1 : 0);
             }
             else if (!partsOnly && _nativeMirrorHiddenProps != null)
             {

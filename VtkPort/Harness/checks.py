@@ -81,6 +81,9 @@ def check_scenes(out_dir):
     for record_file in sorted(glob.glob(os.path.join(out_dir, "*_scene.json"))):
         with open(record_file) as stream:
             record = json.load(stream)
+        for error in record.get("mirror_errors", []):
+            failed += 1
+            print("FAIL mirror error in %s: %s" % (record["scene"], error))
         for image in record["images"]:
             total += 1
             camera = compare_cameras(image["old_camera"], image["new_camera"])

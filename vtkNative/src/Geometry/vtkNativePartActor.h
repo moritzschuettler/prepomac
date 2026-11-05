@@ -1,33 +1,56 @@
 // PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
 //
-// A part of the model as vtkMaxActor draws it: the surface cells PrePoMax extracted, triangulated with smooth point
-// normals, the element edges and the model edges as their own actors, the part colors and the visibility rules of
-// the edges mode. Port of the part path of vtkMaxActor (CreatePolyFromData, AddCellDataToPoly, UpdateColor) and of
-// the ApplyEdgeVisibilityAndBackfaceCulling* methods of vtkControl.
+// An actor as vtkMaxActor draws it, in any layer: the surface cells PrePoMax extracted, triangulated with smooth
+// point normals, the element edges and the model edges as their own actors, the colors and the visibility rules of
+// the edges mode; or the nodes of a geometry as vertices; or the output of a symbol pipeline. Port of vtkMaxActor
+// (CreatePolyFromData, CreateNodalActor, AddCellDataToPoly, UpdateColor) and of the ApplyEdgeVisibility* and
+// ApplySelectionFormattingToActor methods of vtkControl.
 #pragma once
 
 #include "vtkNative.h"
 
 #include <vtkActor.h>
+#include <vtkAlgorithmOutput.h>
 #include <vtkCellLocator.h>
 #include <vtkPolyData.h>
 #include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
 
+#include <string>
+
 namespace vtkn
 {
+    // The colors vtkControl formats the selection layer with
+    struct HighlightColors
+    {
+        double Primary[3] = { 1, 0, 0 };
+        double Secondary[3] = { 1, 0, 0 };
+    };
+
     class PartActor
     {
     public:
         PartActor(const vtkn_part_style& style, const vtkn_mesh& geometry, const vtkn_mesh* modelEdges,
                   const vtkn_mesh* modelEdgesToDraw);
+        // An actor drawing a poly data or the output of a pipeline, as vtkMaxActor(data, mapper)
+        PartActor(const vtkn_part_style& style, vtkPolyData* polyData);
+        PartActor(const vtkn_part_style& style, vtkAlgorithmOutput* output);
 
         void AddTo(vtkRenderer* renderer);
         void RemoveFrom(vtkRenderer* renderer);
         void SetGlobalLighting(double ambient, double diffuse);
         void ApplyEdgesVisibility(vtkn_edges_visibility edgesVisibility);
+        // ApplyEdgeVisibilityAndBackfaceCullingToActor and ...ToActorEdges for the given layer
+        void ApplyEdgesVisibility(vtkn_edges_visibility edgesVisibility, vtkn_layer layer, bool sectionViewActive);
+        void ApplySelectionFormatting(const HighlightColors& colors);
 
         vtkActor* GetGeometry() { return Geometry; }
+        vtkActor* GetElementEdges() { return ElementEdges; }
+        vtkActor* GetModelEdges() { return ModelEdges; }
+        // The input of the geometry mapper
+        vtkPolyData* GetPolyData();
+        // The model edges a part is highlighted by: the ones it owns, also when it draws fewer
+        vtkPolyData* GetModelEdgesForHighlight();
         bool Owns(vtkProp* prop) const;
         // The locator of the surface cells, whose global ids are the element ids; null for a part that cannot be
         // picked, as vtkMaxActor.CellLocator
@@ -36,11 +59,30 @@ namespace vtkn
         void SetPickOpacity();
         void UpdateColor();
 
+        const vtkn_part_style& GetStyle() const { return Style; }
+        vtkn_layer GetLayer() const { return static_cast<vtkn_layer>(Style.layer); }
+        bool IsAPart() const { return Style.is_a_part != 0; }
+        bool IsVisible() const { return Style.visible != 0; }
+        // vtkMaxActor.VtkMaxActorVisible
+        void SetVisible(bool visible);
+        const std::string& GetParentName() const { return ParentName; }
+        void SetParentName(const std::string& parentName) { ParentName = parentName; }
+        bool GetGeometryHiddenBySectionView() const { return GeometryHiddenBySectionView; }
+        void SetGeometryHiddenBySectionView(bool hidden) { GeometryHiddenBySectionView = hidden; }
+
     private:
+        void CreateFromMesh(const vtkn_mesh& geometry, const vtkn_mesh* modelEdges, const vtkn_mesh* modelEdgesToDraw);
+        void CreateNodal(const vtkn_mesh& geometry);
+        void CreateFromMapper(vtkMapper* mapper);
+        void ApplyStyleSizes();
+
         vtkn_part_style Style;
+        std::string ParentName;
+        bool GeometryHiddenBySectionView = false;
         vtkSmartPointer<vtkActor> Geometry;
         vtkSmartPointer<vtkActor> ElementEdges;
         vtkSmartPointer<vtkActor> ModelEdges;
+        vtkSmartPointer<vtkPolyData> ModelEdgesForHighlight;
         vtkSmartPointer<vtkCellLocator> CellLocator;
     };
 
@@ -50,4 +92,6 @@ namespace vtkn
     // asked the unique element edges
     void BuildPolyData(const vtkn_mesh& mesh, bool extractEdges, vtkSmartPointer<vtkPolyData>& polyActor,
                        vtkSmartPointer<vtkPolyData>& polyEdges);
+    // The style vtkMaxActor has before any data sets it, as its default constructor leaves it
+    vtkn_part_style DefaultStyle();
 }

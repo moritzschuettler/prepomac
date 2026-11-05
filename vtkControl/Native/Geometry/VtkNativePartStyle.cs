@@ -38,6 +38,15 @@ namespace vtkControl.Native
         public int UseEdgeVisibility;
         public int Pickable;
         public int Visible;
+        public int Layer;
+        public int Representation;
+        public int IsAPart;
+        public int DrawOnGeometry;
+        public int UseSecondaryHighlightColor;
+        public int KeepOwnColor;
+        public int ColorContours;
+        public int SectionViewPossible;
+        public int Nodal;
 
 
         // Static methods
@@ -64,7 +73,21 @@ namespace vtkControl.Native
             style.UseEdgeVisibility = data.UseEdgeVisibility ? 1 : 0;
             style.Pickable = data.Pickable ? 1 : 0;
             style.Visible = 1;
+            style.Layer = (int)ToNativeLayer(data.Layer);
+            style.Representation = (int)data.ActorRepresentation;
+            style.IsAPart = data.IsAPart ? 1 : 0;
+            style.DrawOnGeometry = data.DrawOnGeometry ? 1 : 0;
+            style.UseSecondaryHighlightColor = data.UseSecondaryHighlightColor ? 1 : 0;
+            style.KeepOwnColor = data.KeepOwnColor ? 1 : 0;
+            style.ColorContours = data.ColorContours ? 1 : 0;
+            style.SectionViewPossible = data.SectionViewPossible ? 1 : 0;
             return style;
+        }
+        public static VtkNativeLayer ToNativeLayer(vtkRendererLayer layer)
+        {
+            if (layer == vtkRendererLayer.Selection) return VtkNativeLayer.Selection;
+            if (layer == vtkRendererLayer.Overlay) return VtkNativeLayer.Overlay;
+            return VtkNativeLayer.Base;
         }
 
 

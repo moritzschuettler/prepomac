@@ -5,9 +5,29 @@
 #include "vtkNativeGuard.h"
 #include "vtkNativeView.h"
 
+#include <cstring>
+#include <set>
 #include <vector>
 
 using namespace vtkn;
+
+namespace
+{
+    std::set<std::string> ToNameSet(const char* names, const char* argumentName)
+    {
+        if (names == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, std::string("The argument '") + argumentName +
+                                                                        "' must not be null.");
+        std::set<std::string> set;
+        for (const char* name = names; *name != '\0'; name += std::strlen(name) + 1) set.insert(name);
+        return set;
+    }
+
+    vtkn_layer ToLayer(int32_t layer)
+    {
+        Require(layer >= VTKN_LAYER_BASE && layer <= VTKN_LAYER_OVERLAY, "The layer is not one of vtkn_layer.");
+        return static_cast<vtkn_layer>(layer);
+    }
+}
 
 extern "C"
 {
@@ -20,6 +40,93 @@ extern "C"
             Require(geometry != nullptr, "The argument 'geometry' must not be null.");
             View::FromHandle(view)->AddPartActor(ToName(name, "name"), *style, *geometry, model_edges,
                                                  model_edges_to_draw);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_add_actor(vtkn_view view, const char* name, const char* parent_name,
+                                              const vtkn_part_style* style, const vtkn_mesh* geometry,
+                                              const vtkn_mesh* model_edges, const vtkn_mesh* model_edges_to_draw)
+    {
+        return GuardVtk([&]() {
+            Require(style != nullptr, "The argument 'style' must not be null.");
+            Require(geometry != nullptr, "The argument 'geometry' must not be null.");
+            View::FromHandle(view)->AddActor(ToName(name, "name"), parent_name != nullptr ? parent_name : "", *style,
+                                             *geometry, model_edges, model_edges_to_draw);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_actor_visible(vtkn_view view, const char* name, int32_t layer,
+                                                      int32_t visible)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetActorVisible(ToName(name, "name"), ToLayer(layer), visible != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_highlight_actor(vtkn_view view, const char* name)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->HighlightActor(ToName(name, "name"));
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_hide_show_actors(vtkn_view view, const char* names, int32_t visible)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->HideShowActors(ToNameSet(names, "names"), visible != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_update_result_representation_visibility(vtkn_view view, const char* part_names,
+                                                                            int32_t visible, int32_t update)
+    {
+        return GuardVtk([&]() {
+            View* target = View::FromHandle(view);
+            target->UpdateResultRepresentationVisibility(ToNameSet(part_names, "part_names"), visible != 0);
+            if (update != 0) target->AdjustCameraDistanceAndClipping();
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_add_symbol_actor(vtkn_view view, const char* name, const vtkn_part_style* style,
+                                                     const double* points, int32_t point_count, const double* normals,
+                                                     int32_t normal_count, const vtkn_symbol_parameters* parameters)
+    {
+        return GuardVtk([&]() {
+            Require(style != nullptr, "The argument 'style' must not be null.");
+            Require(parameters != nullptr, "The argument 'parameters' must not be null.");
+            View::FromHandle(view)->AddSymbolActor(ToName(name, "name"), *style, points, point_count, normals,
+                                                   normal_count, *parameters);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_clear(vtkn_view view, int32_t what)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->Clear(static_cast<vtkn_clear>(what));
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_remove_overlay_actors(vtkn_view view, const char* names)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->RemoveOverlayActors(ToNameSet(names, "names"));
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_highlight_colors(vtkn_view view, const double* primary_rgb,
+                                                         const double* secondary_rgb)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetHighlightColors(primary_rgb, secondary_rgb);
             return VTKN_OK;
         });
     }

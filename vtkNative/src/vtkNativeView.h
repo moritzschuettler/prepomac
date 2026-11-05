@@ -74,6 +74,22 @@ namespace vtkn
         std::string GetActorNames();
         void SetEdgesVisibility(vtkn_edges_visibility edgesVisibility);
         void SetLighting(double ambient, double diffuse);
+        // Geometry (Geometry/vtkNativeViewGeometry.cpp)
+        void AddActor(const std::string& name, const std::string& parentName, const vtkn_part_style& style,
+                      const vtkn_mesh& geometry, const vtkn_mesh* modelEdges, const vtkn_mesh* modelEdgesToDraw);
+        void AddActor(const std::string& name, std::unique_ptr<PartActor> actor);
+        PartActor* FindActor(const std::string& name, vtkn_layer layer);
+        void SetActorVisible(const std::string& name, vtkn_layer layer, bool visible);
+        void HighlightActor(const std::string& name);
+        void HideShowActors(const std::set<std::string>& names, bool visible);
+        void UpdateResultRepresentationVisibility(const std::set<std::string>& partNames, bool visible);
+        void Clear(vtkn_clear what);
+        void RemoveOverlayActors(const std::set<std::string>& names);
+        void SetHighlightColors(const double* primary, const double* secondary);
+        void ApplyEdgesVisibilityAndBackfaceCulling();
+        void AddSymbolActor(const std::string& name, const vtkn_part_style& style, const double* points,
+                            int pointCount, const double* normals, int normalCount,
+                            const vtkn_symbol_parameters& parameters);
 
         std::vector<uint8_t> ReadPixels(int magnification, int& width, int& height);
         void WritePng(const std::string& fileName, int magnification);
@@ -135,5 +151,19 @@ namespace vtkn
         std::map<std::string, std::unique_ptr<PartActor>> Parts;
         vtkn_event_callback Callback = nullptr;
         void* UserData = nullptr;
+        // Geometry: the selection layer and the actors of the overlay and selection layers, beside the base layer
+        // Parts; the selection renderer draws between the overlay and the widgets, as in vtkControl
+        void InitializeGeometry();
+        void HideShowActor(PartActor* actor, bool visible);
+        vtkRenderer* GetLayerRenderer(const PartActor& actor);
+        vtkSmartPointer<vtkRenderer> SelectionRenderer;
+        // The base layer actors that are not parts (symbols, constraint faces, nodes): Parts holds only what
+        // picking and the parts of the checks consider
+        std::map<std::string, std::unique_ptr<PartActor>> BaseActors;
+        std::vector<PartActor*> GetBaseActors();
+        std::map<std::string, std::unique_ptr<PartActor>> OverlayParts;
+        std::vector<std::unique_ptr<PartActor>> SelectedParts;
+        HighlightColors Highlight;
+        bool SectionViewActive = false;
     };
 }

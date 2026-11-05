@@ -28,6 +28,8 @@ def main():
     vtkport.PMX = pmx
     scenes.setup(SCENE, pmx)
     names = vtkport.enable_native([a for a in AREAS.split(",") if a])
+    scenes.after_enable(SCENE, pmx)
+    vtkport.on_ui(lambda: vtkport.VTK.SetNativeMirrorAllGeometry("geometry" in AREAS.split(",")))
     vtkport.parts_only(True)
     start_camera = vtkport.camera_list(pmx.view.get_parameters())
     record = {"scene": SCENE, "areas": AREAS, "mirrored": names, "start_camera": start_camera, "images": []}
@@ -39,6 +41,7 @@ def main():
             vtkport.save_pair(out_dir, name)
             record["images"].append({"file": name, "view": view, "viewport": [width, height],
                                      "old_camera": old_camera, "new_camera": new_camera})
+    record["mirror_errors"] = list(vtkport.on_ui(lambda: list(vtkport.VTK.GetNativeMirrorErrors())))
     vtkport.disable_native()
     record["seconds"] = round(time.time() - started, 1)
     with open(os.path.join(out_dir, SCENE + "_scene.json"), "w") as stream:
