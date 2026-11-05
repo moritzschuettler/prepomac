@@ -37,6 +37,11 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_pick_point(vtkn_view view, int32_t x, i
                                                      int32_t limit_distance, const char* selectable_parts,
                                                      vtkn_point_pick* pick, char* part_name, int32_t capacity,
                                                      int32_t* required);
+/* How a point pick finds its point. Exact (the default, slice C of the pilot): the ray of the pixel is intersected
+   with the picked part, and where the pixel misses, a cell pick catches geometry within the selection distance.
+   Not exact, as vtkControl picked with ActiViz: the point is rebuilt from the depth of the hardware pick and there is
+   no pick within the distance, which VTK 5.8 made but never caught anything with */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_exact_picking(vtkn_view view, int32_t exact);
 /* An area pick from (x1, y1) to (x2, y2): the six planes of the frustum, each as origin and normal (36 values), and
    the parts rendered inside it as a string list */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_pick_area(vtkn_view view, int32_t x1, int32_t y1, int32_t x2, int32_t y2,

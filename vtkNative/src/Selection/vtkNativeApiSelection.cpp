@@ -65,6 +65,14 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_set_exact_picking(vtkn_view view, int32_t exact)
+    {
+        return Guard([&]() {
+            View::FromHandle(view)->SetExactPicking(exact != 0);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_get_closest_cell(vtkn_view view, const double* point3, double max_distance,
                                                      const char* selectable_parts, vtkn_closest_cell* cell)
     {

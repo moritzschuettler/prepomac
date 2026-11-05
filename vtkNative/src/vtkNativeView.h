@@ -84,6 +84,7 @@ namespace vtkn
                        const std::set<std::string>* selectableParts, double point[3], double direction[3],
                        std::string& partName, int& cellId);
         std::vector<std::string> PickArea(int x1, int y1, int x2, int y2, double planes36[36]);
+        void SetExactPicking(bool exact) { ExactPicking = exact; }
         // Id resolution (Selection/vtkNativeViewSelection.cpp)
         void GetClosestCell(double point[3], double maxDistance, const std::set<std::string>* selectableParts,
                             vtkn_closest_cell& cell);
@@ -162,5 +163,6 @@ namespace vtkn
         std::map<std::string, vtkSmartPointer<vtkUnstructuredGrid>> VolumeGrids;
         vtkSmartPointer<vtkRenderer> HighlightRenderer;
         std::vector<Highlight> Highlights;
+        bool ExactPicking = true;
     };
 }

@@ -113,6 +113,7 @@
     <Compile Include="Native\Selection\VtkNativeClosestCell.cs" />
     <Compile Include="Native\Selection\VtkNativeHighlightStyle.cs" />
     <Compile Include="Native\Selection\vtkControl.NativeIds.cs" />
+    <Compile Include="Native\Selection\vtkControl.NativeHighlight.cs" />
     <Compile Include="Native\Widgets\VtkNativeMethods.Widgets.cs" />
     <Compile Include="Native\Widgets\VtkNativeView.Widgets.cs" />
     <Compile Include="Native\Widgets\VtkNativeWidgetAnchor.cs" />

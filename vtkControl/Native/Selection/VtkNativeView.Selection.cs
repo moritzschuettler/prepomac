@@ -65,6 +65,12 @@ namespace vtkControl.Native
             }
             return names;
         }
+        // Exact picking (the default): the point on the ray of the pixel and, where the pixel misses, the geometry
+        // within the selection distance; else the point from the depth of the pick and no pick within the distance
+        public void SetExactPicking(bool exact)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_exact_picking(Handle(), exact ? 1 : 0));
+        }
         //
         // The id resolution. The surface cell closest to the point among the visible or the selectable parts, with
         // the node ids and coordinates of the cell, null when no part was searched. The element id is -1 when the

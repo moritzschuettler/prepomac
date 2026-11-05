@@ -9374,6 +9374,7 @@ namespace vtkControl
             }
             //
             _mouseSelectionCurrentIds = null;
+            ClearNativeMouseSelection();
             //
             if (_probeWidget != null && _probeWidget.GetVisibility() == 1) _probeWidget.VisibilityOff();
             if (render) RenderScene();
@@ -10201,6 +10202,7 @@ namespace vtkControl
                 _nativeMirrorScalarBar = null;
                 if (_nativeInWindow)
                 {
+                    WireNativeWindowSelection(_nativeMirror, false);
                     _nativeMirror.ClearActors();
                     _nativeMirror.Render();
                     ShowNativeView(false);
@@ -10217,6 +10219,7 @@ namespace vtkControl
             {
                 ShowNativeView(true);
                 _nativeMirror = _nativeHost.View;
+                WireNativeWindowSelection(_nativeMirror, true);
             }
             else
             {
@@ -10404,6 +10407,7 @@ namespace vtkControl
         {
             string[] selectable = _selectableActorsFilter == null ? null : _selectableActorsFilter.ToArray();
             string partName;
+            _nativeMirror.SetExactPicking(_nativeExactPicking);
             _nativeMirror.PickPoint(x, y, _selectionDistance, _renderingOn && _userPick, selectable, out point,
                                     out direction, out partName, out _);
             return partName;

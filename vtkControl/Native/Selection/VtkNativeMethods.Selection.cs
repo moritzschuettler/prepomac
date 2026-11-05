@@ -30,6 +30,8 @@ namespace vtkControl.Native
                                                                  [Out] double[] planes36, byte[] partNames, int capacity,
                                                                  out int required);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_exact_picking(IntPtr view, int exact);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_get_closest_cell(IntPtr view, double[] point3, double maxDistance,
                                                                         byte[] selectableParts,
                                                                         ref VtkNativeClosestCell cell);

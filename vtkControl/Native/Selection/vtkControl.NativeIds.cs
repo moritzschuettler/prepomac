@@ -22,12 +22,19 @@ namespace vtkControl
     {
         // Variables
         private bool _nativeIdResolution = true;
+        private bool _nativeExactPicking = true;
         private Dictionary<string, Tuple<VtkNativeView, vtkMaxActor, int, PartExchangeData>> _nativeVolumeGrids;
 
 
         // Properties
         // On by default; the checks switch it off to resolve the picks of the ActiViz path the old way
         public bool NativeIdResolution { get { return _nativeIdResolution; } set { _nativeIdResolution = value; } }
+        // The picking behavior the native view brings (slice C of the pilot), a decision still open: on, a point pick
+        // takes the exact point on the ray of the pixel and catches geometry within the selection distance where the
+        // pixel misses; off, it rebuilds the point from the depth of the pick and catches nothing beyond the pixel,
+        // as the ActiViz path does in effect. Selections recorded with ActiViz on an element border can resolve to
+        // the neighboring element either way
+        public bool NativeExactPicking { get { return _nativeExactPicking; } set { _nativeExactPicking = value; } }
         private bool UseNativeIdResolution
         {
             get

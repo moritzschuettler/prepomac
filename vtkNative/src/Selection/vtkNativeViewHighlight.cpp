@@ -44,6 +44,20 @@ namespace vtkn
             actor->PickableOff();
             return actor;
         }
+
+        // VTK 9 lights a line or a point as if it faced the light and the camera, and draws an unlit one in the sum
+        // of its ambient and diffuse colors, so the orange highlight of a line came out yellow; VTK 5.8 drew it in
+        // about its own color, which an unlit actor with the color as its ambient color only gives
+        bool HasOnlyLinesAndPoints(vtkDataSet* data)
+        {
+            for (vtkIdType i = 0; i < data->GetNumberOfCells(); i++)
+            {
+                int cellType = data->GetCellType(i);
+                if (cellType != VTK_VERTEX && cellType != VTK_POLY_VERTEX && cellType != VTK_LINE &&
+                    cellType != VTK_POLY_LINE && cellType != VTK_QUADRATIC_EDGE) return false;
+            }
+            return true;
+        }
     }
 
     // The selection renderer of vtkControl: the layer between the overlay and the widgets, with the camera and
@@ -74,6 +88,13 @@ namespace vtkn
         property->SetLineWidth(static_cast<float>(style.line_width));
         property->SetOpacity(1);
         property->BackfaceCullingOff();
+        if (HasOnlyLinesAndPoints(actor->GetMapper()->GetInput()))
+        {
+            property->SetLighting(false);
+            property->SetAmbient(1);
+            property->SetDiffuse(0);
+            property->SetSpecular(0);
+        }
         vtkRenderer* renderer = style.on_geometry ? Renderer.GetPointer() : GetHighlightRenderer();
         renderer->AddActor(actor);
         Highlights.push_back({ actor, renderer, style.current != 0 });

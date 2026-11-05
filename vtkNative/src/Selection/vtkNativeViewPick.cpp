@@ -133,7 +133,7 @@ namespace vtkn
             surfacePicker->PickFromListOn();
             surfacePicker->AddPickList(part->GetGeometry());
             surfacePicker->AddLocator(part->GetCellLocator());
-            if (surfacePicker->Pick(x, y, 0, Renderer) != 0) surfacePicker->GetPickPosition(p);
+            if (ExactPicking && surfacePicker->Pick(x, y, 0, Renderer) != 0) surfacePicker->GetPickPosition(p);
             else
             {
                 Renderer->SetDisplayPoint(x, y, Renderer->GetPickedZ());
@@ -147,7 +147,7 @@ namespace vtkn
             hit = cellId != -1;
         }
         // Within the selection distance of the pixel
-        if (!hit)
+        if (!hit && ExactPicking)
         {
             int* windowSize = RenderWindow->GetSize();
             double windowDiagonal = std::sqrt(static_cast<double>(windowSize[0]) * windowSize[0] +
