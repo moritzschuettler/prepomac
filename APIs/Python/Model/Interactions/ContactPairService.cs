@@ -11,6 +11,7 @@ using CaeGlobals;
 using CaeMesh;
 using CaeMesh.ContactSearchNamespace;
 using CaeModel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -213,6 +214,12 @@ namespace APIs.Python.Model
                                                                    geometryIds.ToArray());
             selection.configure(enable_shell_edge_faces: true);
             return selection;
+        }
+        public string[] GetPartNames(HashSet<int> geometryIds)
+        {
+            string[] partNames = _modelResolver.GetMesh().GetPartNamesFromGeometryIds(geometryIds.ToArray());
+            Array.Sort(partNames, StringComparer.Ordinal);
+            return partNames;
         }
         public void SetActive(NamedClass[] items, bool active)
         {

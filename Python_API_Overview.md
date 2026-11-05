@@ -2115,7 +2115,9 @@ stay `True`; `ignore_hidden` leaves hidden parts out. The search needs the mesh,
 **The result follows the mesh and the geometry.** A recorded script that searches runs the search again when it is
 regenerated, on the mesh the model has then, so a changed geometry, or a mesh fine or coarse enough to move a gap
 across `distance`, finds other pairs, and they are named and numbered as they are found. That is intended: the ties
-follow the model. A script that must add the same pairs every time adds them by their regions instead.
+follow the model. A script that must add the same pairs every time writes their `master_geometry_ids` and
+`slave_geometry_ids` to a file once and adds them from there; the geometry IDs number the faces of the geometry, so
+they hold across a remesh but not across a change of the geometry.
 
 ### `ContactSearchResult`
 
@@ -2151,6 +2153,13 @@ One pair of a `ContactSearchResult`. It is not a model item; its regions can be 
 | `unresolved` | `True` for a tie whose sides the search could not tell apart; all its faces are on the master side. |
 | `master_region` | The master faces, as a new `'femodel'` surface `Selection` of geometry IDs. |
 | `slave_region` | The slave faces the same way, or `None` for an unresolved pair. |
+| `master_geometry_ids` | The geometry IDs of the master faces, sorted, as an `IntList`. The `'geometry'` selection source takes them back. |
+| `slave_geometry_ids` | The geometry IDs of the slave faces the same way, or an empty list for an unresolved pair. |
+| `master_part_names` | The names of the parts of the master faces, sorted, as a `StringList`. |
+| `slave_part_names` | The names of the parts of the slave faces the same way, or an empty list for an unresolved pair. |
+
+The regions resolve to element faces, so `master_region.get_ids()` returns element face IDs; the geometry IDs a
+found pair is made of are read from `master_geometry_ids` and `slave_geometry_ids`.
 
 ```python
 found = pmx.model.contact_pairs.search(0.01, angle_deg=35, pair_type='Tie', group_by='ByParts')
@@ -2162,6 +2171,24 @@ for i, pair in enumerate(pmx.model.contact_pairs.search(0.01)):
     if pair.geometry_type == 'Solid-Solid' and not pair.unresolved:
         pmx.model.constraints.add_tie('Tie-%d' % (i + 1), pair.master_region, pair.slave_region,
                                       position_tolerance=0.01)
+
+# Write the pairs to a file once, review it, and add the ties from it on every later run
+import json
+pairs = [{'name': pair.name,
+          'master_parts': list(pair.master_part_names), 'master_ids': list(pair.master_geometry_ids),
+          'slave_parts': list(pair.slave_part_names), 'slave_ids': list(pair.slave_geometry_ids)}
+         for pair in pmx.model.contact_pairs.search(0.01) if not pair.unresolved]
+with open('pairs.json', 'w') as f:
+    json.dump(pairs, f, indent=1)
+
+with open('pairs.json') as f:
+    for i, pair in enumerate(json.load(f)):
+        # A shell edge face needs the option the found regions carry
+        master = pmx.create.selection_by_ids('femodel', 'surfaces', 'geometry', pair['master_ids'])
+        slave = pmx.create.selection_by_ids('femodel', 'surfaces', 'geometry', pair['slave_ids'])
+        master.configure(enable_shell_edge_faces=True)
+        slave.configure(enable_shell_edge_faces=True)
+        pmx.model.constraints.add_tie('Tie-%d' % (i + 1), master, slave)
 ```
 
 ## Steps and step content

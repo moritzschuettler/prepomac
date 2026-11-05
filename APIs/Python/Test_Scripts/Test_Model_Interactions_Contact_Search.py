@@ -139,6 +139,33 @@ def test_tie_search(below):
     pmx.model.constraints.remove([PREFIX + "Tie"])
 
 
+def test_found_pair_ids(base, above):
+    # The geometry IDs and part names of a found pair are what a script writes to a file and adds from later
+    pair = pmx.model.contact_pairs.search(TOUCHING)[0]
+    master_ids = list(pair.master_geometry_ids)
+    slave_ids = list(pair.slave_geometry_ids)
+    check(len(master_ids) == 1 and len(slave_ids) == 1, "each side must be one face: " + str((master_ids, slave_ids)))
+    check(all((i // 10000) % 10 == 3 for i in master_ids + slave_ids),
+          "a solid face must carry the solid surface type digit 3: " + str(master_ids + slave_ids))
+    master_parts = list(pair.master_part_names)
+    slave_parts = list(pair.slave_part_names)
+    check(len(master_parts) == 1 and len(slave_parts) == 1, "each side must be on one part")
+    check(sorted(master_parts + slave_parts) == sorted([base, above]),
+          "the touching faces lie on " + base + " and " + above + ": " + str(master_parts + slave_parts))
+    check(len(pmx.model.contact_pairs.search(REACHING, group_by='ByParts')) == 2, "the ByParts search must find two")
+    # The geometry source takes the IDs back and resolves them to the same element faces as the found regions
+    create = pmx.create.selection_by_ids
+    master = create('femodel', 'surfaces', 'geometry', master_ids)
+    slave = create('femodel', 'surfaces', 'geometry', slave_ids)
+    check(list(master.get_ids()) == list(pair.master_region.get_ids()),
+          "the master IDs must resolve to the faces of the found master region")
+    check(list(slave.get_ids()) == list(pair.slave_region.get_ids()),
+          "the slave IDs must resolve to the faces of the found slave region")
+    tie = pmx.model.constraints.add_tie(PREFIX + "TieFromIds", master, slave)
+    check(tie.valid, "a tie added from the geometry IDs of a found pair must be valid")
+    pmx.model.constraints.remove([PREFIX + "TieFromIds"])
+
+
 def test_contact_search():
     pmx.model.surface_interactions.add(INTERACTION, pmx.create.surface_behavior('Hard'))
     counts = model_counts()
@@ -172,6 +199,7 @@ def main():
     base, above, below = build_assembly()
     test_refusals()
     test_tie_search(below)
+    test_found_pair_ids(base, above)
     test_contact_search()
     print("TEST PASSED")
 
