@@ -18,7 +18,7 @@ namespace vtkControl.Native
     {
         // Variables
         public const string LibraryName = "vtkNative.dll";
-        public const int ApiVersion = 1;
+        public const int ApiVersion = 2;
         public const uint LOAD_WITH_ALTERED_SEARCH_PATH = 0x00000008;
 
 
@@ -56,7 +56,10 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_view_set_event_callback(IntPtr view, EventCallback callback,
                                                                           IntPtr userData);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_set_background(IntPtr view, double[] topRgb, double[] bottomRgb);
+        public static extern VtkNativeStatus vtkn_view_set_background(IntPtr view, int gradient, double[] topRgb,
+                                                                      double[] bottomRgb);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_smoothing(IntPtr view, int pointSmoothing, int lineSmoothing);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_render(IntPtr view);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
@@ -69,6 +72,32 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_view_set_camera(IntPtr view, double[] values10);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_reset_camera(IntPtr view);
+        //
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_view_parameters(IntPtr view, double[] values10);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_standard_view(IntPtr view, int orientation, int zoomToFit);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_axis_view(IntPtr view, double[] axis, int zoomToFit);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_vertical_axis_view(IntPtr view, double[] axis, int zoomToFit);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_zoom_to_fit(IntPtr view);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_zoom_factor(IntPtr view, double parallelScale);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_box_zoom(IntPtr view, int x1, int y1, int x2, int y2);
+        //
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_add_part_actor(IntPtr view, byte[] name, ref VtkNativePartStyle style,
+                                                                      ref VtkNativeMesh geometry, IntPtr modelEdges,
+                                                                      IntPtr modelEdgesToDraw);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_clear_actors(IntPtr view);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_edges_visibility(IntPtr view, int edgesVisibility);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_lighting(IntPtr view, double ambient, double diffuse);
         //
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_add_mesh_actor(IntPtr view, byte[] name, double[] points,

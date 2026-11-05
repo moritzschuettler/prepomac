@@ -21,6 +21,7 @@
 #include <vtkUnstructuredGrid.h>
 #include <vtkWindowToImageFilter.h>
 
+#include <algorithm>
 #include <cstring>
 #include <mutex>
 #include <set>
@@ -33,13 +34,48 @@ namespace vtkn
         std::set<View*> liveViews;
     }
 
+    // The renderer setup of vtkControl.OnHandleCreated and InitializeControl: layered renderers sharing one camera,
+    // three camera lights, smoothing with two samples, a parallel projection and a gray gradient background
     View::View(bool offScreen) : OffScreen(offScreen)
     {
         Renderer = vtkSmartPointer<vtkRenderer>::New();
+        Renderer->SetLayer(0);
+        OverlayRenderer = vtkSmartPointer<vtkRenderer>::New();
+        OverlayRenderer->SetLayer(1);
+        OverlayRenderer->InteractiveOff();
+        OverlayRenderer->SetActiveCamera(Renderer->GetActiveCamera());
         RenderWindow = vtkSmartPointer<vtkNativeRenderWindow>::New();
         RenderWindow->SetOffScreenRendering(offScreen ? 1 : 0);
+        RenderWindow->SetNumberOfLayers(2);
         RenderWindow->AddRenderer(Renderer);
-        RenderWindow->SetMultiSamples(0);
+        RenderWindow->AddRenderer(OverlayRenderer);
+        RenderWindow->PointSmoothingOn();
+        RenderWindow->LineSmoothingOn();
+        RenderWindow->SetMultiSamples(2);
+        // Camera lights are in camera coordinates: the camera at (0, 0, 1) looks at the origin, up is (0, 1, 0)
+        const double lightPositions[3][3] = { { -1, 1, 1 }, { 1, 1, 1 }, { 0, -1, 0 } };
+        for (const auto& position : lightPositions)
+        {
+            vtkSmartPointer<vtkLight> light = vtkSmartPointer<vtkLight>::New();
+            light->SetPosition(position[0], position[1], position[2]);
+            light->SetFocalPoint(0, 0, 0);
+            light->SetColor(1, 1, 1);
+            light->SetIntensity(0.4);
+            light->SetLightTypeToCameraLight();
+            Renderer->AddLight(light);
+            OverlayRenderer->AddLight(light);
+            Lights.push_back(light);
+        }
+        //
+        Renderer->SetBackground(0.4, 0.4, 0.4);
+        Renderer->SetBackground2(0.8, 0.8, 0.8);
+        Renderer->GradientBackgroundOn();
+        Renderer->GetActiveCamera()->ParallelProjectionOn();
+        vtkMapper::SetResolveCoincidentTopologyToPolygonOffset();
+        // VTK 9 leaves the polygons in place and moves the lines forward by a constant only, which loses to the
+        // depth slope of an oblique face; VTK 5.8 pushed the polygons back by the slope and a unit instead
+        vtkMapper::SetResolveCoincidentTopologyPolygonOffsetParameters(1.0, 1.0);
+        vtkMapper::SetResolveCoincidentTopologyLineOffsetParameters(0.0, 0.0);
         //
         EventCommand = vtkSmartPointer<vtkCallbackCommand>::New();
         EventCommand->SetCallback(&View::OnVtkEvent);
@@ -61,7 +97,9 @@ namespace vtkn
         Renderer->RemoveObserver(EventCommand);
         Renderer->GetActiveCamera()->RemoveObserver(EventCommand);
         Renderer->RemoveAllViewProps();
+        OverlayRenderer->RemoveAllViewProps();
         Actors.clear();
+        Parts.clear();
         if (Interactor != nullptr)
         {
             Interactor->RemoveObserver(InteractorCommand);
@@ -127,12 +165,18 @@ namespace vtkn
         UserData = userData;
     }
 
-    void View::SetBackground(const double* top, const double* bottom)
+    void View::SetBackground(bool gradient, const double* top, const double* bottom)
     {
         Require(top != nullptr && bottom != nullptr, "The background colors must not be null.");
         Renderer->SetBackground(bottom[0], bottom[1], bottom[2]);
         Renderer->SetBackground2(top[0], top[1], top[2]);
-        Renderer->GradientBackgroundOn();
+        Renderer->SetGradientBackground(gradient);
+    }
+
+    void View::SetSmoothing(bool pointSmoothing, bool lineSmoothing)
+    {
+        RenderWindow->SetPointSmoothing(pointSmoothing);
+        RenderWindow->SetLineSmoothing(lineSmoothing);
     }
 
     void View::Render()
@@ -235,23 +279,70 @@ namespace vtkn
         Actors[name] = actor;
     }
 
+    // Port of AddCells for a part: the actor is built, formatted by the edges mode, and the camera distance and
+    // clipping range follow the new bounds without a render
+    void View::AddPartActor(const std::string& name, const vtkn_part_style& style, const vtkn_mesh& geometry,
+                            const vtkn_mesh* modelEdges, const vtkn_mesh* modelEdgesToDraw)
+    {
+        Require(!name.empty(), "The part name must not be empty.");
+        std::unique_ptr<PartActor> part(new PartActor(style, geometry, modelEdges, modelEdgesToDraw));
+        RemoveActor(name);
+        part->AddTo(Renderer);
+        part->ApplyEdgesVisibility(EdgesVisibility);
+        Parts[name] = std::move(part);
+        AdjustCameraDistanceAndClipping();
+    }
+
     void View::RemoveActor(const std::string& name)
     {
         auto entry = Actors.find(name);
-        if (entry == Actors.end()) return;
-        Renderer->RemoveActor(entry->second);
-        Actors.erase(entry);
+        if (entry != Actors.end())
+        {
+            Renderer->RemoveActor(entry->second);
+            Actors.erase(entry);
+        }
+        auto part = Parts.find(name);
+        if (part != Parts.end())
+        {
+            part->second->RemoveFrom(Renderer);
+            Parts.erase(part);
+        }
+    }
+
+    void View::ClearActors()
+    {
+        for (const auto& entry : Actors) Renderer->RemoveActor(entry.second);
+        for (const auto& entry : Parts) entry.second->RemoveFrom(Renderer);
+        Actors.clear();
+        Parts.clear();
     }
 
     std::string View::GetActorNames()
     {
+        std::vector<std::string> sorted;
+        for (const auto& entry : Actors) sorted.push_back(entry.first);
+        for (const auto& entry : Parts) sorted.push_back(entry.first);
+        std::sort(sorted.begin(), sorted.end());
         std::string names;
-        for (const auto& entry : Actors)
+        for (const std::string& name : sorted)
         {
-            names += entry.first;
+            names += name;
             names.push_back('\0');
         }
         return names;
+    }
+
+    void View::SetEdgesVisibility(vtkn_edges_visibility edgesVisibility)
+    {
+        Require(edgesVisibility >= VTKN_EDGES_WIREFRAME && edgesVisibility <= VTKN_EDGES_NONE,
+                "The edges visibility is not one of vtkn_edges_visibility.");
+        EdgesVisibility = edgesVisibility;
+        for (const auto& entry : Parts) entry.second->ApplyEdgesVisibility(EdgesVisibility);
+    }
+
+    void View::SetLighting(double ambient, double diffuse)
+    {
+        for (const auto& entry : Parts) entry.second->SetGlobalLighting(ambient, diffuse);
     }
 
     std::vector<uint8_t> View::ReadPixels(int magnification, int& width, int& height)

@@ -17,6 +17,7 @@ find_package(VTK 9.7 REQUIRED COMPONENTS
     CommonCore
     CommonDataModel
     InteractionStyle
+    FiltersCore
     IOImage
     RenderingCore
     RenderingOpenGL2
@@ -29,10 +30,13 @@ add_library(vtkNative SHARED
     src/vtkNativeError.h
     src/vtkNativeOutputWindow.cpp
     src/vtkNativeOutputWindow.h
+    src/vtkNativePartActor.cpp
+    src/vtkNativePartActor.h
     src/vtkNativeRenderWindow.cpp
     src/vtkNativeRenderWindow.h
     src/vtkNativeView.cpp
-    src/vtkNativeView.h)
+    src/vtkNativeView.h
+    src/vtkNativeViewCamera.cpp)
 target_include_directories(vtkNative PRIVATE include src)
 target_compile_definitions(vtkNative PRIVATE VTKNATIVE_EXPORTS)
 target_link_libraries(vtkNative PRIVATE ${VTK_LIBRARIES})

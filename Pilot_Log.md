@@ -13,7 +13,7 @@ Pilot files live in `VtkPilot/`.
 |---|---|---|---|---|---|---|---|---|
 | 0. Reference | 2026-11-05 09:18 | 2026-11-05 09:27 | 1 user turn, ~45 tool calls | 5 % -> 6 % / 4 % -> 4 %; context 119k -> 188k | 4 (harness only) | 0 | 0 (393 lines of Python harness) | |
 | 1. Groundwork | 2026-11-05 11:00 | 2026-11-05 11:18 | 1 user turn, ~60 tool calls | 13 % -> 17 % / 5 % -> 6 %; context 194k -> 344k | 3 (+3 tooling) | 0 (groundwork adds, replaces nothing) | C API 127, C++ 889, CMake 76; C# P/Invoke layer 639; 49 lines in existing files; 444 lines of test scripts | |
-| 2. Slice A | | | | | | | | |
+| 2. Slice A | 2026-11-05 11:48 | 2026-11-05 12:08 | 1 user turn, ~75 tool calls | 23 % -> 31 % / 7 % -> 8 %; context 356k -> 560k | 3 render (+2 check) | ~1,450 (non-blank lines) | C++ ~1,190, C API +85; C# P/Invoke +423; mirror harness 104; checks 259 | |
 | 3. Slice B | | | | | | | | |
 | 4. Slice C | | | | | | | | |
 
@@ -206,5 +206,95 @@ first test version created a view on the script thread and swallowed its own fai
 - Runtime size (217 MB for the minimal module set).
 
 Phase 1 ended 2026-11-05 11:18. Session usage at end: 5 h window 17 %, weekly 6 %, context 344k tokens. User review
+time: to be noted by the user.
+
+## Phase 2 - Slice A: geometry and views
+
+Started 2026-11-05 11:48 after the user's go-ahead. Session usage at start: 5 h window 23 %, weekly 7 %, context 356k.
+
+### What was ported
+
+| Old C# (ActiViz 5.8) | Native (VTK 9.7) | Old lines* |
+|---|---|---|
+| `vtkMaxActor`: `CreatePolyFromData`, `AddNodeAndCellDataToPoly`, `AddCellDataToPoly` (triangulation of tri, quad, quadratic tri and quad; lines, quadratic edges, vertices; unique element edges), `ComputeNormals`, `UpdateColor` (no color table, no contours) | `vtkNativePartActor.cpp` | 567 |
+| `vtkControl`: `AddCells`, `AddActor`, `AddActorGeometry`, `AddActorEdges` (base layer), the three `ApplyEdgeVisibilityAndBackfaceCulling*` | `View::AddPartActor`, `PartActor::ApplyEdgesVisibility` | 222 |
+| `vtkControl` renderer setup of `OnHandleCreated` / `InitializeControl`: layers, three camera lights, smoothing, samples, background, projection, polygon offset | `View::View` | 47 |
+| `Views` region: view parameters, front/back, top/bottom, left/right, isometric (closest quadrant, closest up), axis view (closest axis up), normal, vertical axis, vertical, rotation pivot, keep zoom around the pivot, zoom factor, zoom to fit, box zoom, `ResetCamera` over base and overlay, bounds, `FinishViewChange` without animation | `vtkNativeViewCamera.cpp` | 529 |
+| `vtkInteractorStyleControl`: `AdjustCameraDistanceAndClipping`, `AdjustCameraDistance`, `ResetClippingRange`, `ComputeVisiblePropBounds` | `vtkNativeViewCamera.cpp` | 86 |
+| **Total** | | **~1,450** |
+
+\* Non-blank lines without empty `//` separators, counted on the committed sources.
+
+Written: C++ 1,190 lines (part actor 488, camera 509, view +144, API +104, minus the replaced bits), C API +85 (two
+structs, two enums, 14 functions, API version 2), C# P/Invoke +423 (`VtkNativeMesh`, `VtkNativeMeshData`,
+`VtkNativePinnedMesh`, `VtkNativePartStyle`, `VtkNativeOrientation`, view methods). The pilot harness in `vtkControl`
+(the mirror, 104 lines) is not port code.
+
+Not ported in this slice although it sits in the same code: the camera animation (`AnimateCamera*`, ~300 lines,
+interaction), the color table and result contours of `UpdateColor` (results), the nodal actor, section view hatch,
+overlay and selection layers of `AddActor*`, the symbol actors (`AddOriented*`, ~1,000 lines), captions. The plan's
+"about 5k lines" for slice A counts all of those; the measured rate below is per ported line.
+
+### How it is checked (`bash VtkPilot/Phase2/Run_SliceA.sh`, 17 s)
+
+- **Mirror:** `vtkControl.EnableNativeMirror` creates an off screen native view; every part `AddCells` adds on the
+  base layer (`IsAPart`) also goes to the native view through `vtkn_view_add_part_actor`, `Clear` and `SetLighting`
+  follow, and window size, background, smoothing and edges mode are synchronized. A `Controller.Redraw` fills it.
+  Mirroring Joint_Hinge (2 parts) adds nothing measurable to the 0.04 s redraw.
+- **Same scene:** `SetNativeMirrorPartsOnly` hides on the ActiViz side every prop of the base, overlay and selection
+  layers that is not a mirrored part, and stops the widget layer drawing.
+- **Same operations:** for each case, viewport (800 x 600, 960 x 540) and view (Isometric, Front, Top,
+  IsometricNegative, Right, Bottom) both paths start from the same camera, run the standard view and zoom to fit,
+  and write their picture and camera.
+- **Cases:** L-bracket geometry (CAD faces, model edges as element edges), L-bracket meshed (tetrahedra surface),
+  Joint_Hinge FE model (two parts).
+- `Compare_SliceA.py`: camera equal to 1e-9 of the model size; the shapes cover each other within one pixel of the
+  outline (>= 0.999); at most 2 % of the pixels differ by more than 24 levels; side by side and difference images.
+
+### Result: 36 of 36 views pass
+
+- **Cameras: bit identical** in all 36 views (difference 0.0). The ported view logic, including the odd world/screen
+  mix of `vtkControl.ResetCamera`, frames every view exactly as ActiViz does.
+- Coverage within a pixel 1.0000 everywhere; plain IoU 0.9675 to 1.0000, the difference being the antialiased
+  silhouette of small parts.
+- Pixels differing by more than 24 levels: 0.19 % to 0.79 %, at the element edges and on the curved fillet.
+
+### Fix cycles
+
+1. (check) The first run framed the views 0.2 % differently. The parts only mode had stopped the overlay layer
+   drawing but left its props visible, and their bounds took part in the old framing. Hiding them made the cameras
+   identical.
+2. (render) Element edges came out dashed: a 0.5 pixel line, which VTK 5.8 drew smoothed as a full line of partial
+   coverage, hits only some samples of VTK 9's multisampling. Lines below a pixel are now drawn one pixel wide with
+   the width folded into the opacity.
+3. (render) The edges still sank into oblique faces. VTK 9.7's coincident topology defaults leave polygons in place
+   (offset 0, 0) and pull lines forward by a constant (0, -4), which loses to the depth slope of an oblique face.
+   VTK 5.8 pushed polygons back by factor 1, units 1. The native view sets those values.
+4. (render) Specular spots on flat faces. VTK 9.7's shader takes the view direction per fragment
+   (`normalize(-vertexVC)`) even under parallel projection, while VTK 5.8 lit with a viewer at infinity; PrePoMax
+   puts the camera just outside the model, so the highlight wandered across faces. A post shader replacement on the
+   part actors sets the view direction to (0, 0, 1).
+5. (check) IoU failed small parts on a one pixel antialiasing border; replaced by coverage within one pixel. The
+   identical cameras show that the geometry itself lines up.
+
+### Findings for the full port
+
+- **VTK 9 rendering defaults are part of the port.** Polygon offset, sub-pixel line width and the local viewer are
+  global behaviors every ported actor inherits; they live once in the native view and part actor, but each new actor
+  kind (symbols, glyphs, results) must be checked against them.
+- **Shader replacements are the tool** for VTK 5.8 looks that VTK 9 no longer offers as a setting.
+- **VTK 9 numbers poly data cells vertices, lines, polygons, whatever the insertion order** (VTK 5.8 kept insertion
+  order). `BuildPolyData` writes the global cell ids in VTK 9 order; slice C's cell picking depends on it.
+- **The comparison harness is reusable:** mirror, parts only, same start camera, compare cameras and pictures. The
+  next actor kinds only need their own `vtkn_*` call in the mirror.
+- **Struct marshalling convention:** blittable structs by `ref`, optional ones as an `IntPtr` (null when absent),
+  arrays inside structs pinned with `GCHandle` for the duration of the call (no `unsafe` code needed).
+
+### Rate
+
+About 1,450 lines of old C# ported to about 1,190 lines of C++, 85 lines of C API and 423 lines of C# glue in one
+20 minute phase, with 3 rendering fix cycles, at 8 % of the 5 hour window.
+
+Phase 2 ended 2026-11-05 12:08. Session usage at end: 5 h window 31 %, weekly 8 %, context 560k tokens. User review
 time: to be noted by the user.
 

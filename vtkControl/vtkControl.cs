@@ -66,6 +66,9 @@ namespace vtkControl
         private vtkRenderer _overlayRenderer;
         private vtkRenderer _widgetRenderer;
         private vtkRenderWindow _renderWindow;
+        private VtkNativeView _nativeMirror;
+        private HashSet<string> _nativeMirrorNames;
+        private List<vtkProp> _nativeMirrorHiddenProps;
         private vtkRenderWindowInteractor _renderWindowInteractor;
         private vtkLight _light1;
         private vtkLight _light2;
@@ -4114,6 +4117,7 @@ namespace vtkControl
             vtkMaxActor actor = new vtkMaxActor(data);
             //
             AddActor(actor);
+            MirrorPart(data, actor);
             //
             if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
             else AdjustCameraDistanceAndClipping();
@@ -4132,6 +4136,7 @@ namespace vtkControl
             //);
             //
             foreach (var actor in actors) AddActor(actor);
+            for (int i = 0; i < actors.Length; i++) MirrorPart(data[i], actors[i]);
             //
             if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
             else AdjustCameraDistanceAndClipping();
@@ -7593,6 +7598,7 @@ namespace vtkControl
                     entry.Value.Diffuse = diffuse; // calls update color
                 }
             }
+            if (_nativeMirror != null) _nativeMirror.SetLighting(ambient, diffuse);
             if (redraw) RenderScene();
         }
         public void SetSmoothing(bool pointSmoothing, bool lineSmoothing, bool redraw)
@@ -9213,7 +9219,12 @@ namespace vtkControl
             _renderer.RemoveActor(_captionTmpActor);
             _captionActorAddedToBase = false;
             //_renderer.RemoveAllViewProps();  this removes all other actors for min/max values ...
-            _actors.Clear();            
+            _actors.Clear();
+            if (_nativeMirror != null)
+            {
+                _nativeMirror.ClearActors();
+                _nativeMirrorNames.Clear();
+            }            
             _cellPicker.RemoveAllLocators();
             _propPicker.InitializePickList();
             _animationActors.Clear();
@@ -10140,6 +10151,98 @@ namespace vtkControl
         {
             _nativeHost.Visible = show;
             if (show) _nativeHost.BringToFront();
+        }
+        //
+        // The mirror: an off screen VTK 9.7 view that receives every part this control adds, so the slices of the
+        // pilot can be compared with the ActiViz path in the same scene
+        public VtkNativeView NativeMirror { get { return _nativeMirror; } }
+        public void EnableNativeMirror(bool enable)
+        {
+            if (enable && _nativeMirror == null)
+            {
+                int[] size = _renderWindow.GetSize();
+                _nativeMirror = VtkNativeView.CreateOffScreen(Math.Max(1, size[0]), Math.Max(1, size[1]));
+                _nativeMirrorNames = new HashSet<string>();
+                SyncNativeMirror();
+            }
+            else if (!enable && _nativeMirror != null)
+            {
+                _nativeMirror.Dispose();
+                _nativeMirror = null;
+                _nativeMirrorNames = null;
+            }
+        }
+        public string[] GetNativeMirrorNames()
+        {
+            return _nativeMirrorNames == null ? new string[0] : _nativeMirrorNames.ToArray();
+        }
+        // The window size, the background, the smoothing and the edges mode follow this control
+        public void SyncNativeMirror()
+        {
+            if (_nativeMirror == null) return;
+            int[] size = _renderWindow.GetSize();
+            _nativeMirror.SetSize(Math.Max(1, size[0]), Math.Max(1, size[1]));
+            _nativeMirror.SetBackground(_renderer.GetGradientBackground(), _renderer.GetBackground2(),
+                                        _renderer.GetBackground());
+            _nativeMirror.SetSmoothing(_renderWindow.GetPointSmoothing() == 1, _renderWindow.GetLineSmoothing() == 1);
+            _nativeMirror.SetEdgesVisibility(_edgesVisibility);
+        }
+        private void MirrorPart(vtkMaxActorData data, vtkMaxActor actor)
+        {
+            if (_nativeMirror == null || data.Layer != vtkRendererLayer.Base || !data.IsAPart) return;
+            if (data.Geometry == null || data.Geometry.Cells.CellNodeIds == null) return;
+            //
+            VtkNativePartStyle style = VtkNativePartStyle.FromActorData(data);
+            style.Ambient = actor.Ambient;
+            style.Diffuse = actor.Diffuse;
+            style.Visible = actor.VtkMaxActorVisible ? 1 : 0;
+            _nativeMirror.AddPartActor(actor.Name, style, VtkNativeMeshData.FromPartExchangeData(data.Geometry),
+                                       VtkNativeMeshData.FromPartExchangeData(data.ModelEdges),
+                                       VtkNativeMeshData.FromPartExchangeData(data.ModelEdgesToDraw));
+            _nativeMirrorNames.Add(actor.Name);
+        }
+        // Shows only what the mirror holds: the props of the base layer that belong to no mirrored part are hidden
+        // and the overlay, selection and widget layers are not drawn, so the two paths draw the same scene
+        public void SetNativeMirrorPartsOnly(bool partsOnly)
+        {
+            if (partsOnly && _nativeMirrorHiddenProps == null)
+            {
+                HashSet<vtkProp> mirroredProps = new HashSet<vtkProp>();
+                foreach (string name in _nativeMirrorNames)
+                {
+                    vtkMaxActor actor;
+                    if (!_actors.TryGetValue(name, out actor)) continue;
+                    if (actor.Geometry != null) mirroredProps.Add(actor.Geometry);
+                    if (actor.ElementEdges != null) mirroredProps.Add(actor.ElementEdges);
+                    if (actor.ModelEdges != null) mirroredProps.Add(actor.ModelEdges);
+                }
+                // The overlay and selection props are hidden too, not only left undrawn: their bounds take part in
+                // the framing of a view
+                _nativeMirrorHiddenProps = new List<vtkProp>();
+                foreach (vtkRenderer renderer in new vtkRenderer[] { _renderer, _overlayRenderer, _selectionRenderer })
+                {
+                    vtkPropCollection props = renderer.GetViewProps();
+                    props.InitTraversal();
+                    for (vtkProp prop = props.GetNextProp(); prop != null; prop = props.GetNextProp())
+                    {
+                        if (mirroredProps.Contains(prop) || prop.GetVisibility() == 0) continue;
+                        prop.VisibilityOff();
+                        _nativeMirrorHiddenProps.Add(prop);
+                    }
+                }
+                _overlayRenderer.SetDraw(0);
+                _selectionRenderer.SetDraw(0);
+                _widgetRenderer.SetDraw(0);
+            }
+            else if (!partsOnly && _nativeMirrorHiddenProps != null)
+            {
+                foreach (vtkProp prop in _nativeMirrorHiddenProps) prop.VisibilityOn();
+                _nativeMirrorHiddenProps = null;
+                _overlayRenderer.SetDraw(1);
+                _selectionRenderer.SetDraw(1);
+                _widgetRenderer.SetDraw(1);
+            }
+            RenderScene();
         }
         #endregion  ################################################################################################################
 

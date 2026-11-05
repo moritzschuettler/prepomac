@@ -91,7 +91,12 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Native\VtkNativeLibrary.cs" />
+    <Compile Include="Native\VtkNativeMesh.cs" />
+    <Compile Include="Native\VtkNativeMeshData.cs" />
     <Compile Include="Native\VtkNativeMethods.cs" />
+    <Compile Include="Native\VtkNativeOrientation.cs" />
+    <Compile Include="Native\VtkNativePartStyle.cs" />
+    <Compile Include="Native\VtkNativePinnedMesh.cs" />
     <Compile Include="Native\VtkNativeStatus.cs" />
     <Compile Include="Native\VtkNativeView.cs" />
     <Compile Include="Tools\Extensions.cs" />

@@ -40,7 +40,7 @@ extern "C" {
 #endif
 
 /* Raised whenever the C API changes incompatibly; the managed side refuses a library with another value */
-#define VTKN_API_VERSION 1
+#define VTKN_API_VERSION 2
 
 typedef enum vtkn_status
 {
@@ -69,6 +69,64 @@ typedef enum vtkn_event
     VTKN_EVENT_CAMERA_MODIFIED = 5     /* values: the 10 camera values of vtkn_view_get_camera */
 } vtkn_event;
 
+/* Mirrors vtkEdgesVisibility of vtkControl */
+typedef enum vtkn_edges_visibility
+{
+    VTKN_EDGES_WIREFRAME = 0,
+    VTKN_EDGES_ELEMENT_EDGES = 1,
+    VTKN_EDGES_MODEL_EDGES = 2,
+    VTKN_EDGES_NONE = 3
+} vtkn_edges_visibility;
+
+/* The standard view directions of pmx.view.set_orientation */
+typedef enum vtkn_orientation
+{
+    VTKN_VIEW_FRONT = 0,
+    VTKN_VIEW_BACK = 1,
+    VTKN_VIEW_TOP = 2,
+    VTKN_VIEW_BOTTOM = 3,
+    VTKN_VIEW_LEFT = 4,
+    VTKN_VIEW_RIGHT = 5,
+    VTKN_VIEW_ISOMETRIC = 6,
+    VTKN_VIEW_ISOMETRIC_NEGATIVE = 7,
+    VTKN_VIEW_NORMAL = 8,
+    VTKN_VIEW_VERTICAL = 9
+} vtkn_orientation;
+
+/* A mesh as arrays the caller owns for the duration of the call. coordinates: point_count * 3. cells: for each
+   cell its node count followed by its point indices (the VTK legacy layout), cells_length values in total.
+   cell_types: cell_count VTK cell type codes. point_ids and cell_ids: the PrePoMax node and element ids, or null */
+typedef struct vtkn_mesh
+{
+    const double* coordinates;
+    int32_t point_count;
+    const int32_t* cells;
+    int32_t cells_length;
+    const uint8_t* cell_types;
+    int32_t cell_count;
+    const int32_t* point_ids;
+    const int32_t* cell_ids;
+} vtkn_mesh;
+
+/* How a part is drawn: the drawing fields of vtkMaxActorData. Colors are RGBA in [0, 1] */
+typedef struct vtkn_part_style
+{
+    double color[4];
+    double backface_color[4];
+    double ambient;
+    double diffuse;
+    double line_width;
+    double node_size;
+    int32_t has_backface_color;
+    int32_t can_have_element_edges;
+    int32_t backface_culling;
+    int32_t lighting;
+    int32_t use_global_lighting;
+    int32_t use_edge_visibility;
+    int32_t pickable;
+    int32_t visible;
+} vtkn_part_style;
+
 typedef struct vtkn_view_s* vtkn_view;
 
 typedef void (VTKN_CALL* vtkn_log_callback)(void* user_data, int32_t level, const char* message);
@@ -90,8 +148,10 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_set_size(vtkn_view view, int32_t width,
 VTKN_API vtkn_status VTKN_CALL vtkn_view_get_size(vtkn_view view, int32_t* width, int32_t* height);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_event_callback(vtkn_view view, vtkn_event_callback callback,
                                                              void* user_data);
-VTKN_API vtkn_status VTKN_CALL vtkn_view_set_background(vtkn_view view, const double* top_rgb,
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_background(vtkn_view view, int32_t gradient, const double* top_rgb,
                                                          const double* bottom_rgb);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_smoothing(vtkn_view view, int32_t point_smoothing,
+                                                        int32_t line_smoothing);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_render(vtkn_view view);
 /* The OpenGL vendor, renderer and version the view's context reports, as text */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_get_render_info(vtkn_view view, char* buffer, int32_t capacity,
@@ -101,6 +161,29 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_get_render_info(vtkn_view view, char* b
 VTKN_API vtkn_status VTKN_CALL vtkn_view_get_camera(vtkn_view view, double* values10);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_camera(vtkn_view view, const double* values10);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_reset_camera(vtkn_view view);
+
+/* Views, the port of the Views region of vtkControl without the animation. Every change ends the way vtkControl
+   ends one: the camera is moved to the distance of the visible geometry, the clipping range is reset, and the view
+   is rendered. view_parameters is SetViewParameters: the 10 camera values followed by that same finish */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_view_parameters(vtkn_view view, const double* values10);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_standard_view(vtkn_view view, int32_t orientation, int32_t zoom_to_fit);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_axis_view(vtkn_view view, const double* axis, int32_t zoom_to_fit);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_vertical_axis_view(vtkn_view view, const double* axis,
+                                                                 int32_t zoom_to_fit);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_zoom_to_fit(vtkn_view view);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_zoom_factor(vtkn_view view, double parallel_scale);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_box_zoom(vtkn_view view, int32_t x1, int32_t y1, int32_t x2, int32_t y2);
+
+/* Parts, the port of the part path of vtkMaxActor and AddCells. Adding a name that exists replaces that part.
+   model_edges and model_edges_to_draw may be null */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_add_part_actor(vtkn_view view, const char* name,
+                                                         const vtkn_part_style* style, const vtkn_mesh* geometry,
+                                                         const vtkn_mesh* model_edges,
+                                                         const vtkn_mesh* model_edges_to_draw);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_clear_actors(vtkn_view view);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_edges_visibility(vtkn_view view, int32_t edges_visibility);
+/* The ambient and diffuse light of the parts that use the global lighting */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_lighting(vtkn_view view, double ambient, double diffuse);
 
 /* Actors are named; adding a name that exists replaces that actor.
    points: point_count * 3 coordinates. cells: for each cell its node count followed by its point indices

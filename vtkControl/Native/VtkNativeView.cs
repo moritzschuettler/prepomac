@@ -93,9 +93,19 @@ namespace vtkControl.Native
         }
         public void SetBackground(double[] topRgb, double[] bottomRgb)
         {
+            SetBackground(true, topRgb, bottomRgb);
+        }
+        public void SetBackground(bool gradient, double[] topRgb, double[] bottomRgb)
+        {
             CheckLength(topRgb, 3, "topRgb");
             CheckLength(bottomRgb, 3, "bottomRgb");
-            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_background(Handle(), topRgb, bottomRgb));
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_background(Handle(), gradient ? 1 : 0, topRgb,
+                                                                              bottomRgb));
+        }
+        public void SetSmoothing(bool pointSmoothing, bool lineSmoothing)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_smoothing(Handle(), pointSmoothing ? 1 : 0,
+                                                                             lineSmoothing ? 1 : 0));
         }
         public void Render()
         {
@@ -122,6 +132,83 @@ namespace vtkControl.Native
         public void ResetCamera()
         {
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_reset_camera(Handle()));
+        }
+        // Views: each ends as vtkControl ends a view change, with the camera distance, the clipping range and a render
+        public void SetViewParameters(double[] values)
+        {
+            CheckLength(values, 10, "values");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_view_parameters(Handle(), values));
+        }
+        public void SetStandardView(VtkNativeOrientation orientation, bool zoomToFit)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_standard_view(Handle(), (int)orientation,
+                                                                                 zoomToFit ? 1 : 0));
+        }
+        public void SetAxisView(double[] axis, bool zoomToFit)
+        {
+            CheckLength(axis, 3, "axis");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_axis_view(Handle(), axis, zoomToFit ? 1 : 0));
+        }
+        public void SetVerticalAxisView(double[] axis, bool zoomToFit)
+        {
+            CheckLength(axis, 3, "axis");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_vertical_axis_view(Handle(), axis, zoomToFit ? 1 : 0));
+        }
+        public void ZoomToFit()
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_zoom_to_fit(Handle()));
+        }
+        public void SetZoomFactor(double parallelScale)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_zoom_factor(Handle(), parallelScale));
+        }
+        public void BoxZoom(int x1, int y1, int x2, int y2)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_box_zoom(Handle(), x1, y1, x2, y2));
+        }
+        //
+        public void AddPartActor(string name, VtkNativePartStyle style, VtkNativeMeshData geometry,
+                                 VtkNativeMeshData modelEdges, VtkNativeMeshData modelEdgesToDraw)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            if (geometry == null) throw new ArgumentNullException("geometry");
+            IntPtr handle = Handle();
+            //
+            using (VtkNativePinnedMesh pinnedGeometry = geometry.Pin())
+            using (VtkNativePinnedMesh pinnedModelEdges = modelEdges == null ? null : modelEdges.Pin())
+            using (VtkNativePinnedMesh pinnedModelEdgesToDraw = modelEdgesToDraw == null ? null : modelEdgesToDraw.Pin())
+            {
+                VtkNativeMesh geometryMesh = pinnedGeometry.Mesh;
+                IntPtr modelEdgesPointer = IntPtr.Zero;
+                IntPtr modelEdgesToDrawPointer = IntPtr.Zero;
+                try
+                {
+                    // The optional meshes are passed by pointer, so a missing one is a null pointer
+                    if (pinnedModelEdges != null) modelEdgesPointer = ToUnmanaged(pinnedModelEdges.Mesh);
+                    if (pinnedModelEdgesToDraw != null) modelEdgesToDrawPointer = ToUnmanaged(pinnedModelEdgesToDraw.Mesh);
+                    VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_part_actor(handle, VtkNativeLibrary.ToUtf8(name),
+                                                                                      ref style, ref geometryMesh,
+                                                                                      modelEdgesPointer,
+                                                                                      modelEdgesToDrawPointer));
+                }
+                finally
+                {
+                    if (modelEdgesPointer != IntPtr.Zero) Marshal.FreeHGlobal(modelEdgesPointer);
+                    if (modelEdgesToDrawPointer != IntPtr.Zero) Marshal.FreeHGlobal(modelEdgesToDrawPointer);
+                }
+            }
+        }
+        public void ClearActors()
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_clear_actors(Handle()));
+        }
+        public void SetEdgesVisibility(vtkEdgesVisibility edgesVisibility)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_edges_visibility(Handle(), (int)edgesVisibility));
+        }
+        public void SetLighting(double ambient, double diffuse)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_lighting(Handle(), ambient, diffuse));
         }
         //
         public void AddMeshActor(string name, double[] points, int[] cells, byte[] cellTypes, double[] colorRgb,
@@ -190,6 +277,12 @@ namespace vtkControl.Native
         {
             if (Thread.CurrentThread.ManagedThreadId != _threadId)
                 throw new InvalidOperationException("A native view is used only on the thread that created it.");
+        }
+        private static IntPtr ToUnmanaged(VtkNativeMesh mesh)
+        {
+            IntPtr pointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(VtkNativeMesh)));
+            Marshal.StructureToPtr(mesh, pointer, false);
+            return pointer;
         }
         private static void CheckLength(double[] values, int length, string argumentName)
         {

@@ -126,10 +126,112 @@ extern "C"
         });
     }
 
-    vtkn_status VTKN_CALL vtkn_view_set_background(vtkn_view view, const double* top_rgb, const double* bottom_rgb)
+    vtkn_status VTKN_CALL vtkn_view_set_background(vtkn_view view, int32_t gradient, const double* top_rgb,
+                                                   const double* bottom_rgb)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->SetBackground(top_rgb, bottom_rgb);
+            View::FromHandle(view)->SetBackground(gradient != 0, top_rgb, bottom_rgb);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_smoothing(vtkn_view view, int32_t point_smoothing, int32_t line_smoothing)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetSmoothing(point_smoothing != 0, line_smoothing != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_view_parameters(vtkn_view view, const double* values10)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetViewParameters(values10);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_standard_view(vtkn_view view, int32_t orientation, int32_t zoom_to_fit)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetStandardView(static_cast<vtkn_orientation>(orientation), zoom_to_fit != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_axis_view(vtkn_view view, const double* axis, int32_t zoom_to_fit)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetAxisView(axis, zoom_to_fit != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_vertical_axis_view(vtkn_view view, const double* axis, int32_t zoom_to_fit)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetVerticalAxisView(axis, zoom_to_fit != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_zoom_to_fit(vtkn_view view)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->ZoomToFit();
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_zoom_factor(vtkn_view view, double parallel_scale)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetZoomFactor(parallel_scale);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_box_zoom(vtkn_view view, int32_t x1, int32_t y1, int32_t x2, int32_t y2)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->BoxZoom(x1, y1, x2, y2);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_add_part_actor(vtkn_view view, const char* name, const vtkn_part_style* style,
+                                                   const vtkn_mesh* geometry, const vtkn_mesh* model_edges,
+                                                   const vtkn_mesh* model_edges_to_draw)
+    {
+        return GuardVtk([&]() {
+            Require(style != nullptr, "The argument 'style' must not be null.");
+            Require(geometry != nullptr, "The argument 'geometry' must not be null.");
+            View::FromHandle(view)->AddPartActor(ToName(name, "name"), *style, *geometry, model_edges,
+                                                 model_edges_to_draw);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_clear_actors(vtkn_view view)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->ClearActors();
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_edges_visibility(vtkn_view view, int32_t edges_visibility)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetEdgesVisibility(static_cast<vtkn_edges_visibility>(edges_visibility));
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_lighting(vtkn_view view, double ambient, double diffuse)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetLighting(ambient, diffuse);
             return VTKN_OK;
         });
     }
