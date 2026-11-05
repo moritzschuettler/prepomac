@@ -111,14 +111,16 @@ namespace vtkn
         Renderer->RemoveActor(BorderActor);
     }
 
+    // The C# widgets put the background back under the border and the text only; the content of a subclass, such
+    // as the color boxes of the scalar bar, stayed under it until the next restacking. The whole widget is
+    // restacked over the background instead
     void BorderWidget::BackgroundVisibilityOn()
     {
         if (BackgroundVisibility) return;
         BackgroundVisibility = true;
         if (!Visibility) return;
-        if (BorderVisibility) Renderer->RemoveActor(BorderActor);
         Renderer->AddActor(BackgroundActor);
-        if (BorderVisibility) Renderer->AddActor(BorderActor);
+        BringToFront();
     }
 
     void BorderWidget::BackgroundVisibilityOff()

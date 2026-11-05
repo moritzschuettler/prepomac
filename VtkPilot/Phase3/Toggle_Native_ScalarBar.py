@@ -63,6 +63,17 @@ def on_double_click(sender, e):
         print("double click on the scalar bar at (%d, %d): the legend settings would open" % (e.X, e.Y))
 
 
+def legend_frame():
+    """The background and border of the legend settings, read only; without settings the legend is drawn
+    transparent, as PrePoMax draws it by default"""
+    try:
+        controller = FORM.GetType().GetField("_controller", FLAGS).GetValue(FORM)
+        legend = controller.Settings.Legend
+        return str(legend.BackgroundType) == "White", bool(legend.DrawBorder)
+    except Exception:
+        return False, False
+
+
 def toggle():
     host = VTK.NativeHost
     if host.Visible and host.Tag is not None:
@@ -84,13 +95,16 @@ def toggle():
     bar.SetNumberOfColors(9)
     bar.CreateLookupTable(System.Func[System.Double, System.Array[System.Double]](rainbow), 0.0, 134.3)
     bar.SetText("STRESS", "MISES", "MPa", None, "Automatic")
-    bar.SetFrame(True, System.Array[System.Double]([1, 1, 1]), True, System.Array[System.Double]([0, 0, 0]))
+    background, border = legend_frame()
+    bar.SetFrame(background, System.Array[System.Double]([1, 1, 1]), border, System.Array[System.Double]([0, 0, 0]))
     bar.SetPosition(VtkNativeWidgetAnchor.TopLeft, 20, 20)
     bar.MouseDoubleClick += on_double_click
     host.Tag = bar
     view.Render()
-    return ("The VTK 9.7 view with the native scalar bar is shown. Drag the bar, hover over it, double click a value "
-            "label or the title, rotate the mesh beside the bar and resize the window. Run the script again to close.")
+    frame = ("white" if background else "none", "on" if border else "off")
+    return ("The VTK 9.7 view with the native scalar bar is shown (background %s, border %s, as in the legend "
+            "settings). Drag the bar, hover over it, double click a value label or the title, rotate the mesh beside "
+            "the bar and resize the window. Run the script again to close." % frame)
 
 
 box = {}

@@ -56,19 +56,6 @@ namespace vtkn
         Renderer->AddActor(TextActor);
     }
 
-    void TextWidget::BackgroundVisibilityOn()
-    {
-        if (BackgroundVisibility) return;
-        if (!Visibility)
-        {
-            BorderWidget::BackgroundVisibilityOn();
-            return;
-        }
-        Renderer->RemoveActor(TextActor);
-        BorderWidget::BackgroundVisibilityOn();
-        Renderer->AddActor(TextActor);
-    }
-
     void TextWidget::OnSizeChanged()
     {
         int textSize[2];

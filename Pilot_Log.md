@@ -415,6 +415,13 @@ combines a native hit box with the C# label and limits. The color transfer funct
    the frame. **A latent bug in the old widget** too (the old init avoids it only by its call order); the port adds
    the frame actors only while the widget is visible.
 8. (harness) pythonnet needs typed placeholders for `Rectangle` and `string` out arguments.
+9. (port, found in the user's review) In the interactive check the color boxes showed only after the mouse
+   entered the bar. Turning the background on puts the background actor last, over the content a subclass adds,
+   until the next restacking; the C# widgets restacked only the border and the text. The app hides the legend and
+   shows it again after setting its frame, which rebuilds the order, so neither the app nor the comparison showed
+   it. The port restacks the whole widget over the background, and the embedded check now tests that the colors
+   show before any mouse event. The toggle script also takes the frame from the legend settings (transparent by
+   default) instead of a white frame.
 
 ### Findings for the full port
 

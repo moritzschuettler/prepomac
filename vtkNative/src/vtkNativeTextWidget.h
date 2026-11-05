@@ -22,7 +22,6 @@ namespace vtkn
         void VisibilityOn() override;
         void VisibilityOff() override;
         void BringToFront() override;
-        void BackgroundVisibilityOn() override;
         void OnSizeChanged() override;
 
         virtual void SetTextStyle(const vtkn_text_style& style);

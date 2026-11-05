@@ -140,6 +140,23 @@ def main():
     height = state["height"]
     check(child != 0, "the VTK window is a child of the host")
 
+    def color_pixels():
+        # Saturated pixels in the column through the color boxes; nothing else in the view is saturated
+        def read():
+            r = bar.GetRectangle()
+            pixels, width, h = view.ReadPixels(1)
+            x = r.X + 15 + 8
+            count = 0
+            for y in range(h):
+                i = 3 * (y * width + x)
+                values = [pixels[i], pixels[i + 1], pixels[i + 2]]
+                if max(values) - min(values) > 100:
+                    count += 1
+            return count
+        return on_ui(read)
+    saturated = color_pixels()
+    check(saturated > 100, "the color boxes show over the frame before the mouse moves", "%d pixels" % saturated)
+
     def send(message, wparam, x, y):
         on_ui(lambda: USER32.SendMessage(child, message, wparam, x, y))
 
