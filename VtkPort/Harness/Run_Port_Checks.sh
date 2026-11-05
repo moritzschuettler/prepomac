@@ -29,6 +29,7 @@ SUITES=(
     # Stream S
     "selection_s1|pilot VtkPort/Selection/Run_S1.sh"
     "selection_s2|pilot VtkPort/Selection/Run_S2.sh"
+    "selection_s3|pilot VtkPort/Selection/Run_S3.sh"
 )
 
 selected() {
