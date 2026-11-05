@@ -20,7 +20,7 @@ using System.Windows.Forms;
 namespace vtkControl
 {
     public delegate double[] GetPickPointDelegate(out vtkActor pickedActor, int x, int y);
-    class vtkInteractorStyleControl : vtkInteractorStyleTrackballCamera
+    class vtkInteractorStyleControl : vtkInteractorStyleTrackballCamera, ITrackpadNavigationTarget
     {
         // Enum
         private enum EventIds
@@ -1182,6 +1182,14 @@ namespace vtkControl
             int dx = clickPos[0] - rwi.GetLastEventPosition()[0];
             int dy = clickPos[1] - rwi.GetLastEventPosition()[1];
             //
+            RotateByDisplayDelta(dx, dy);
+        }
+        void ITrackpadNavigationTarget.PanByDisplayDelta(double dx, double dy)
+        {
+            PanByDisplayDelta(dx, dy);
+        }
+        void ITrackpadNavigationTarget.RotateByDisplayDelta(double dx, double dy)
+        {
             RotateByDisplayDelta(dx, dy);
         }
         public void RotateByDisplayDelta(double dx, double dy, bool render = true)

@@ -9,6 +9,7 @@
 #include "vtkNativePartActor.h"
 #include "vtkNativeScalarBar.h"
 #include "vtkNativeWidget.h"
+#include "vtkNativeInteractorStyle.h"
 #include "vtkNativeWidgetSet.h"
 
 #include <vtkActor.h>
@@ -93,6 +94,10 @@ namespace vtkn
         Widget* CreateWidget(vtkn_widget_kind kind);
         void DestroyWidget(Widget* widget);
         void SetWidgetHighlight(bool enabled, bool localEnabled);
+        double GetWidgetId(BorderWidget* widget) const;
+        // vtkNativeViewInteraction.cpp
+        InteractorStyle* GetInteractorStyle();
+        void HandleInput(int inputEvent, int x, int y, bool ctrl, bool shift, int keyCode, const char* keySym);
 
     private:
         static void OnVtkEvent(vtkObject* caller, unsigned long eventId, void* clientData, void* callData);
@@ -135,6 +140,9 @@ namespace vtkn
         WidgetSet Widgets;
         std::vector<std::unique_ptr<ScalarBar>> ScalarBars;
         std::vector<std::unique_ptr<Widget>> AreaWidgets;
+        vtkSmartPointer<InteractorStyle> Style;
+        vtkSmartPointer<vtkRenderWindowInteractor> ScriptInteractor;
+        friend class InteractorStyle;
         int NextWidgetId = 1;
         std::vector<vtkSmartPointer<vtkLight>> Lights;
         std::map<std::string, vtkSmartPointer<vtkActor>> Actors;

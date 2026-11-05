@@ -40,6 +40,10 @@ namespace vtkn
         bool ClearProximity();
         bool RefreshHighlights(int x, int y);
         void SetHighlightEnabled(bool enabled, bool localEnabled);
+        // The right button press of the style promotes the widget it pressed
+        void PromoteAndRefresh(BorderWidget* widget, int x, int y);
+        // Whether the last mouse move changed a widget; the style then leaves that move alone
+        bool LastMoveChanged = false;
         // vtkInteractorStyleControl.IsPositionOverWidget: a pick under a widget picks nothing
         bool IsPositionOverWidget(int x, int y);
 

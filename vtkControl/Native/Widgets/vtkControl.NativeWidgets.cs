@@ -50,6 +50,8 @@ namespace vtkControl
             _nativeMirrorWidgets = new Dictionary<string, VtkNativeWidget>();
             _nativeMirroredWidgets = new Dictionary<string, vtkMaxBorderWidget>();
             MirrorWidgetHighlight();
+            MirrorInteractionSettings();
+            _nativeMirror.NativeEvent += NativeMirror_InteractionEvent;
             MirrorWidget(NativeScaleBarName, _scaleWidget, VtkNativeWidgetKind.ScaleBar);
             VtkNativeWidget colorBar = MirrorWidget(NativeColorBarName, _colorBarWidget, VtkNativeWidgetKind.ColorBar);
             colorBar.MouseDoubleClick += colorBarWidget_DoubleClicked;
@@ -93,6 +95,7 @@ namespace vtkControl
         private void DisposeNativeMirrorWidgets()
         {
             if (_nativeMirrorWidgets == null) return;
+            if (_nativeMirror != null) _nativeMirror.NativeEvent -= NativeMirror_InteractionEvent;
             foreach (string name in _nativeMirrorWidgets.Keys.ToArray()) UnmirrorWidget(name);
             _nativeMirrorWidgets = null;
             _nativeMirroredWidgets = null;
@@ -101,6 +104,76 @@ namespace vtkControl
         {
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
             _nativeMirror.SetWidgetHighlight(_widgetHighlightEnabled, _widgetInteractionEnabled);
+        }
+        // The mouse settings of the style
+        private void MirrorInteractionSettings()
+        {
+            if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
+            VtkNativeInteractionSettings settings = new VtkNativeInteractionSettings();
+            settings.RotateSensitivity = _rotateSensitivity;
+            settings.ZoomSensitivity = _zoomSensitivity;
+            settings.InvertZoom = _invertZoom ? 1 : 0;
+            settings.SmoothZoom = _smoothZoom ? 1 : 0;
+            settings.SelectionBoxEnabled = _style.SelectionBoxEnabled ? 1 : 0;
+            settings.SelectionDistance = _selectionDistance;
+            _nativeMirror.SetInteractionSettings(settings);
+        }
+        // The touchpad and the trackpad move the native style as they move the ActiViz one
+        private void MirrorTrackpadGesture(double dragX, double dragY, double zoom)
+        {
+            if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
+            _trackpadNavigation.Apply(new VtkNativeNavigationTarget(_nativeMirror), dragX, dragY, zoom,
+                                      _trackpadCenterX, _trackpadCenterY, _trackpadShift);
+        }
+        private void MirrorEndTrackpadGesture()
+        {
+            if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
+            new VtkNativeNavigationTarget(_nativeMirror).EndMultiTouchGesture();
+        }
+        // The widget a native widget id belongs to: the scalar bar or one of the twins
+        private object GetMirroredWidget(int widgetId)
+        {
+            if (widgetId == 0) return null;
+            if (_nativeMirrorScalarBar != null && _nativeMirrorScalarBar.WidgetId == widgetId) return _scalarBarWidget;
+            foreach (var entry in _nativeMirrorWidgets)
+            {
+                if (entry.Value.WidgetId == widgetId) return _nativeMirroredWidgets[entry.Key];
+            }
+            return null;
+        }
+        // The events of the native style end where the events of vtkInteractorStyleControl end
+        private void NativeMirror_InteractionEvent(object sender, VtkNativeEventArgs e)
+        {
+            switch ((int)e.Event)
+            {
+                case 22:
+                    if (e.Values.Length >= 6)
+                        PickWithNativeMirror((int)e.Values[4], (int)e.Values[5], e.Values[3] != 0, (int)e.Values[0],
+                                             (int)e.Values[1]);
+                    break;
+                case 24:
+                    style_RightButtonPressEvent(GetMirroredWidget((int)e.Values[2]),
+                                                new MouseEventArgs(MouseButtons.Right, 1, (int)e.Values[0],
+                                                                   (int)e.Values[1], 0));
+                    break;
+                case 25:
+                    RotationPointChanged?.Invoke(new double[] { e.Values[0], e.Values[1], e.Values[2] });
+                    break;
+                case 27:
+                    Form_CommitViewportEdit?.Invoke();
+                    break;
+                case 29:
+                    BoxZoomEnded();
+                    break;
+                case 30:
+                    if (_nativeMirror.GetInteractionState()[0] == vtkInteractorStyleControl.VTKIS_ROTATE &&
+                        _probeWidget != null && _probeWidget.GetVisibility() == 1) _probeWidget.VisibilityOff();
+                    break;
+                case 31:
+                    if (!_widgetHighlightLocked) _nativeMirror.SetWidgetHighlight(_widgetHighlightEnabled,
+                                                                                  _widgetInteractionEnabled);
+                    break;
+            }
         }
         // The parts only mode of the mirror draws no widget layer; shown again, each twin takes the visibility of its
         // widget

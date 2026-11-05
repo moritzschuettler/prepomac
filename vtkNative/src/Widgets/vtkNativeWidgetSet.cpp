@@ -118,7 +118,8 @@ namespace vtkn
         bool proximityChanged = UpdateWidgetProximity(x, y);
         bool highlightChanged = UpdateWidgetHighlights(x, y);
         handled = CapturedWidget != nullptr;
-        return widgetMoved || highlightChanged || proximityChanged;
+        LastMoveChanged = widgetMoved || highlightChanged || proximityChanged;
+        return LastMoveChanged;
     }
 
     void WidgetSet::CheckWindowSize()
@@ -165,6 +166,12 @@ namespace vtkn
             if ((*widget)->RightButtonPress(x, y)) return *widget;
         }
         return nullptr;
+    }
+
+    void WidgetSet::PromoteAndRefresh(BorderWidget* widget, int x, int y)
+    {
+        PromoteWidget(widget);
+        UpdateWidgetHighlights(x, y);
     }
 
     bool WidgetSet::ClearHighlights()

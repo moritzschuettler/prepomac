@@ -60,6 +60,8 @@ add_library(vtkNative SHARED
     src/Widgets/vtkNativeCoorSysGeometry.h
     src/Widgets/vtkNativeCoorSysWidget.cpp
     src/Widgets/vtkNativeCoorSysWidget.h
+    src/Widgets/vtkNativeInteractorStyle.cpp
+    src/Widgets/vtkNativeInteractorStyle.h
     src/Widgets/vtkNativeRect.h
     src/Widgets/vtkNativeScalarBar.cpp
     src/Widgets/vtkNativeScalarBar.h
@@ -71,6 +73,7 @@ add_library(vtkNative SHARED
     src/Widgets/vtkNativeStatusBlockWidget.h
     src/Widgets/vtkNativeTextWidget.cpp
     src/Widgets/vtkNativeTextWidget.h
+    src/Widgets/vtkNativeViewInteraction.cpp
     src/Widgets/vtkNativeViewWidgets.cpp
     src/Widgets/vtkNativeWidget.cpp
     src/Widgets/vtkNativeWidget.h

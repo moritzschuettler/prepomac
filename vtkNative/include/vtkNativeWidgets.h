@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_WIDGETS_API_VERSION 2
+#define VTKN_WIDGETS_API_VERSION 3
 
 typedef struct vtkn_scalar_bar_s* vtkn_scalar_bar;
 typedef struct vtkn_widget_s* vtkn_widget;
@@ -53,6 +53,63 @@ typedef enum vtkn_triad_target
 /* The events of this area, raised through the event callback of the view after the core events */
 #define VTKN_EVENT_WIDGET_TARGET_CLICKED 20 /* values: the widget id, the vtkn_triad_target */
 #define VTKN_EVENT_WIDGET_HOVER_CHANGED 21  /* values: the widget id, 1 when the mouse is over a target */
+/* The events of the interaction style (vtkInteractorStyleControl) */
+#define VTKN_EVENT_POINT_PICKED_ON_LEFT_UP 22    /* values: x, y, clicks, box selection, x1, y1, ctrl, shift */
+#define VTKN_EVENT_POINT_PICKED_ON_MOUSE_MOVE 23 /* values: x, y, box selection, x1, y1 */
+#define VTKN_EVENT_RIGHT_BUTTON_PRESS 24         /* values: x, y, the id of the widget under the mouse or 0 */
+#define VTKN_EVENT_ROTATION_POINT_CHANGED 25     /* values: the rotation center x, y, z */
+#define VTKN_EVENT_ZOOM_CHANGED 26               /* values: none */
+#define VTKN_EVENT_MOUSE_INTERACTION 27          /* values: none; a button or the wheel was used */
+#define VTKN_EVENT_CLEAR_MOUSE_SELECTION 28      /* values: none; the box selection was cancelled */
+#define VTKN_EVENT_BOX_ZOOM_ENDED 29             /* values: none */
+#define VTKN_EVENT_INTERACTOR_MODIFIED 30        /* values: none; the camera moved by the style */
+#define VTKN_EVENT_MOUSE_LEFT 31                 /* values: none; the mouse left the view */
+
+/* The input a host sends to the interaction style of a view: what the window of an embedded view receives */
+typedef enum vtkn_input_event
+{
+    VTKN_INPUT_LEFT_BUTTON_DOWN = 0,
+    VTKN_INPUT_LEFT_BUTTON_UP = 1,
+    VTKN_INPUT_MIDDLE_BUTTON_DOWN = 2,
+    VTKN_INPUT_MIDDLE_BUTTON_UP = 3,
+    VTKN_INPUT_RIGHT_BUTTON_DOWN = 4,
+    VTKN_INPUT_RIGHT_BUTTON_UP = 5,
+    VTKN_INPUT_MOUSE_MOVE = 6,
+    VTKN_INPUT_WHEEL_FORWARD = 7,
+    VTKN_INPUT_WHEEL_BACKWARD = 8,
+    VTKN_INPUT_KEY_PRESS = 9,
+    VTKN_INPUT_KEY_RELEASE = 10,
+    VTKN_INPUT_LEAVE = 11
+} vtkn_input_event;
+
+/* The navigation calls of the style that the touchpad, the trackpad and the host use */
+typedef enum vtkn_navigation
+{
+    VTKN_NAVIGATE_ROTATE_BY_DISPLAY_DELTA = 0, /* a, b: dx, dy */
+    VTKN_NAVIGATE_PAN_BY_DISPLAY_DELTA = 1,    /* a, b: dx, dy */
+    VTKN_NAVIGATE_ZOOM_AT_POINT = 2,           /* a: the parallel scale factor, b, c: x, y */
+    VTKN_NAVIGATE_ZOOM_AT_POINT_SMOOTH = 3,    /* a: the parallel scale factor, b, c: x, y */
+    VTKN_NAVIGATE_ROTATE = 4,                  /* a, b, c: azimuth, elevation, roll in degrees */
+    VTKN_NAVIGATE_START_GESTURE = 5,           /* a, b: x, y; c: 1 to show the rotation center */
+    VTKN_NAVIGATE_END_GESTURE = 6,
+    VTKN_NAVIGATE_FINISH_SMOOTH_ZOOM = 7,      /* applies what the smooth zoom has left at once */
+    VTKN_NAVIGATE_STEP_SMOOTH_ZOOM = 8,        /* one frame of the smooth zoom */
+    VTKN_NAVIGATE_RESET_ROTATION_CENTER = 9,
+    VTKN_NAVIGATE_FIRE_SELECTION_TIMER = 10,   /* the mouse move pick a timer makes in an embedded view */
+    VTKN_NAVIGATE_SET_BOX_ZOOM = 11,           /* a: 1 to start a box zoom */
+    VTKN_NAVIGATE_SET_ANIMATING = 12           /* a: 1 while an animation runs; the style takes no input */
+} vtkn_navigation;
+
+/* The settings of the style (the mouse settings of PrePoMax) */
+typedef struct vtkn_interaction_settings
+{
+    double rotate_sensitivity;
+    double zoom_sensitivity;
+    int32_t invert_zoom;
+    int32_t smooth_zoom;
+    int32_t selection_box_enabled;
+    int32_t selection_distance;
+} vtkn_interaction_settings;
 
 /* Formats a number for a label with a .NET number format: writes the text and its zero byte into buffer when it
    fits and returns the size the text needs with its zero byte. Called on the thread that renders the view */
@@ -199,6 +256,19 @@ VTKN_API vtkn_status VTKN_CALL vtkn_arrow_get_leader_line(vtkn_widget widget, do
 /* The triad: the target at a display position, and the update after a camera change made without the view */
 VTKN_API vtkn_status VTKN_CALL vtkn_triad_get_target(vtkn_widget widget, int32_t x, int32_t y, int32_t* target);
 VTKN_API vtkn_status VTKN_CALL vtkn_triad_update_geometry(vtkn_widget widget);
+/* The interaction style of a view: the port of vtkInteractorStyleControl. An embedded view takes its input from
+   its window; an off screen view takes it from vtkn_view_handle_input, which also feeds the widgets first, as the
+   window does. key_sym is the VTK key symbol ("Left", "Escape", ...) or null */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_interaction_settings(vtkn_view view,
+                                                                  const vtkn_interaction_settings* settings);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_handle_input(vtkn_view view, int32_t input_event, int32_t x, int32_t y,
+                                                      int32_t ctrl, int32_t shift, int32_t key_code,
+                                                      const char* key_sym);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_navigate(vtkn_view view, int32_t navigation, double a, double b, double c);
+/* The rotation center in world coordinates, or null for the center of the visible bounds */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_rotation_point(vtkn_view view, const double* point3);
+/* state4: the VTKIS state of the style, the box selection, the box zoom, a smooth zoom still to apply */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_get_interaction_state(vtkn_view view, int32_t* state4);
 /* The widget highlights of a view: off, or the whole widget only instead of the part under the mouse */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_widget_highlight(vtkn_view view, int32_t enabled,
                                                               int32_t local_highlight_enabled);

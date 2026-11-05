@@ -499,4 +499,74 @@ extern "C"
             return VTKN_OK;
         });
     }
+
+    vtkn_status VTKN_CALL vtkn_view_set_interaction_settings(vtkn_view view, const vtkn_interaction_settings* settings)
+    {
+        return GuardVtk([&]() {
+            Require(settings != nullptr, "The argument 'settings' must not be null.");
+            View::FromHandle(view)->GetInteractorStyle()->SetSettings(*settings);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_handle_input(vtkn_view view, int32_t input_event, int32_t x, int32_t y,
+                                                 int32_t ctrl, int32_t shift, int32_t key_code, const char* key_sym)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->HandleInput(input_event, x, y, ctrl != 0, shift != 0, key_code, key_sym);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_navigate(vtkn_view view, int32_t navigation, double a, double b, double c)
+    {
+        return GuardVtk([&]() {
+            InteractorStyle* style = View::FromHandle(view)->GetInteractorStyle();
+            switch (navigation)
+            {
+                case VTKN_NAVIGATE_ROTATE_BY_DISPLAY_DELTA: style->RotateByDisplayDelta(a, b, true); break;
+                case VTKN_NAVIGATE_PAN_BY_DISPLAY_DELTA: style->PanByDisplayDelta(a, b, true); break;
+                case VTKN_NAVIGATE_ZOOM_AT_POINT:
+                    style->ZoomAtDisplayPoint(a, static_cast<int>(b), static_cast<int>(c), true);
+                    break;
+                case VTKN_NAVIGATE_ZOOM_AT_POINT_SMOOTH:
+                    style->ZoomAtDisplayPointSmooth(a, static_cast<int>(b), static_cast<int>(c));
+                    break;
+                case VTKN_NAVIGATE_ROTATE: style->Rotate(a, b, c, true); break;
+                case VTKN_NAVIGATE_START_GESTURE:
+                    style->StartMultiTouchGesture(static_cast<int>(a), static_cast<int>(b), c != 0);
+                    break;
+                case VTKN_NAVIGATE_END_GESTURE: style->EndMultiTouchGesture(); break;
+                case VTKN_NAVIGATE_FINISH_SMOOTH_ZOOM: style->FinishSmoothZoom(); break;
+                case VTKN_NAVIGATE_STEP_SMOOTH_ZOOM: style->StepSmoothZoom(); break;
+                case VTKN_NAVIGATE_RESET_ROTATION_CENTER: style->ResetRotationCenter(); break;
+                case VTKN_NAVIGATE_FIRE_SELECTION_TIMER: style->FireSelectionTimer(); break;
+                case VTKN_NAVIGATE_SET_BOX_ZOOM: style->SetBoxZoomEnabled(a != 0); break;
+                case VTKN_NAVIGATE_SET_ANIMATING: style->SetAnimating(a != 0); break;
+                default: throw Error(VTKN_ERROR_INVALID_ARGUMENT, "The navigation is not one of vtkn_navigation.");
+            }
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_rotation_point(vtkn_view view, const double* point3)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->GetInteractorStyle()->SetRotationPoint(point3);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_get_interaction_state(vtkn_view view, int32_t* state4)
+    {
+        return GuardVtk([&]() {
+            Require(state4 != nullptr, "The argument 'state' must not be null.");
+            InteractorStyle* style = View::FromHandle(view)->GetInteractorStyle();
+            state4[0] = style->GetState();
+            state4[1] = style->IsBoxSelectionActive() ? 1 : 0;
+            state4[2] = style->GetBoxZoomEnabled() ? 1 : 0;
+            state4[3] = style->HasSmoothZoomPending() ? 1 : 0;
+            return VTKN_OK;
+        });
+    }
 }

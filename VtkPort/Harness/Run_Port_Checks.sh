@@ -28,6 +28,8 @@ SUITES=(
     "selection_slice_c|pilot VtkPilot/Phase4/Run_SliceC.sh"
     # Stream W: widgets and interaction
     "widgets_w1|pilot VtkPort/Widgets/Run_W1.sh"
+    "widgets_w2|pilot VtkPort/Widgets/Run_W2.sh"
+    "widgets_w3|pilot VtkPort/Widgets/Run_W3.sh"
 )
 
 selected() {

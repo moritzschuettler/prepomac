@@ -161,6 +161,7 @@ namespace vtkn
         RenderWindow->SetParentId(parentWindow);
         Interactor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
         Interactor->SetInteractorStyle(vtkSmartPointer<vtkInteractorStyleTrackballCamera>::New());
+        Interactor->SetInteractorStyle(GetInteractorStyle());
         Interactor->SetRenderWindow(RenderWindow);
         // A style grabs the event focus between a button press and its release; only a passive observer still
         // sees the events of that drag, the release included

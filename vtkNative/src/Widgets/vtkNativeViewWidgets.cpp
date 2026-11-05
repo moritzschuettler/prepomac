@@ -42,6 +42,19 @@ namespace vtkn
         throw Error(VTKN_ERROR_INVALID_HANDLE, "The widget does not belong to this view.");
     }
 
+    double View::GetWidgetId(BorderWidget* widget) const
+    {
+        for (const auto& bar : ScalarBars)
+        {
+            if (&bar->Widget == widget) return bar->Id;
+        }
+        for (const auto& areaWidget : AreaWidgets)
+        {
+            if (areaWidget->Content.get() == widget) return areaWidget->Id;
+        }
+        return 0;
+    }
+
     void View::SetWidgetHighlight(bool enabled, bool localEnabled)
     {
         Widgets.SetHighlightEnabled(enabled, localEnabled);

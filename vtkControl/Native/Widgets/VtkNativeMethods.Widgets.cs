@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int WidgetsApiVersion = 2;
+        public const int WidgetsApiVersion = 3;
 
 
         // Callbacks
@@ -120,5 +120,17 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_triad_update_geometry(IntPtr widget);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_widget_highlight(IntPtr view, int enabled, int localEnabled);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_interaction_settings(IntPtr view,
+                                                                                ref VtkNativeInteractionSettings settings);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_handle_input(IntPtr view, int inputEvent, int x, int y, int ctrl,
+                                                                    int shift, int keyCode, byte[] keySym);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_navigate(IntPtr view, int navigation, double a, double b, double c);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_rotation_point(IntPtr view, double[] point3);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_get_interaction_state(IntPtr view, [Out] int[] state4);
     }
 }

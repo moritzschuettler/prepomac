@@ -24,7 +24,10 @@ FLAGS = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | B
 WM_MOUSEMOVE = 0x0200
 WM_LBUTTONDOWN = 0x0201
 WM_LBUTTONUP = 0x0202
+WM_MBUTTONDOWN = 0x0207
+WM_MBUTTONUP = 0x0208
 MK_LBUTTON = 1
+MK_MBUTTON = 0x0010
 RESULTS = []
 EMPTY = System.Drawing.Rectangle.Empty
 
@@ -181,13 +184,13 @@ def main():
           "%s -> %s" % (start, moved))
     check(camera() == camera_start, "a drag on the bar leaves the camera")
     time.sleep(0.7)
-    # Beside the bar the style turns the camera
+    # Beside the bar the style turns the camera with the middle button, as PrePoMax does (stream W ported the style)
     bx, by = state["width"] - 80, height - 80
     send(WM_MOUSEMOVE, 0, bx, by)
-    send(WM_LBUTTONDOWN, MK_LBUTTON, bx, by)
+    send(WM_MBUTTONDOWN, MK_MBUTTON, bx, by)
     for step in range(1, 5):
-        send(WM_MOUSEMOVE, MK_LBUTTON, bx - 15 * step, by - 5 * step)
-    send(WM_LBUTTONUP, 0, bx - 60, by - 20)
+        send(WM_MOUSEMOVE, MK_MBUTTON, bx - 15 * step, by - 5 * step)
+    send(WM_MBUTTONUP, 0, bx - 60, by - 20)
     check(camera() != camera_start, "a drag beside the bar turns the camera")
     check(rectangle() == moved, "a drag beside the bar leaves the bar")
     time.sleep(0.7)

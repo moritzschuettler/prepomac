@@ -316,6 +316,7 @@ namespace vtkControl
             _style.ZoomSensitivity = _zoomSensitivity;
             _style.InvertZoom = _invertZoom;
             _style.SmoothZoom = _smoothZoom;
+            MirrorInteractionSettings();
         }
         public void StartBoxZoom()
         {
@@ -682,6 +683,7 @@ namespace vtkControl
             //
             _trackpadGestureActive = false;
             if (_style != null) _style.EndMultiTouchGesture();
+            MirrorEndTrackpadGesture();
         }
         private void FlushTrackpadGesture()
         {
@@ -697,6 +699,7 @@ namespace vtkControl
             _trackpadGestureActive = true;
             //
             _trackpadNavigation.Apply(_style, dragX, dragY, zoom, _trackpadCenterX, _trackpadCenterY, _trackpadShift);
+            MirrorTrackpadGesture(dragX, dragY, zoom);
         }
         private bool HandleTrackpadWheel(ref Message m)
         {
@@ -3513,6 +3516,7 @@ namespace vtkControl
         public void SetRotationPoint(double[] rotationPoint)
         {
             _style.SetRotationPoint(rotationPoint);
+            if (_nativeMirror != null && (_nativeAreas & VtkNativeArea.Widgets) != 0) _nativeMirror.SetRotationPoint(rotationPoint);
         }
         //
         private void ResetCamera()

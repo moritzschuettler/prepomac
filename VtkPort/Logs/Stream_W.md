@@ -9,6 +9,12 @@ at `0a7748af4`, at the same time as streams G and S. Measured as the pilot was (
 |---|---|---|---|---|---|---|---|
 | Setup | 18:12 | 18:18 | 29 % / 13 % at the start | 2 (toolset, `Tests/`) | - | - | |
 | W1 | 18:18 | 18:50 | 29 % -> 47 % / 13 % -> 16 % | 3 port (+2 harness/check) | ~2,480 | C++ 2,089 new + ~730 in existing files; C# 440 new + 215; checks 455 | |
+| W2 | 18:50 | 19:01 | 47 % -> 50 % / 16 % -> 17 % | 2 port (+1 check) | ~1,150 | C++ 1,023 new + API/view ~200; C# 145 new + ~60; checks 606 (with W3) | |
+| W3 | 19:01 | 19:06 | 50 % -> 51 % / 17 % | 1 port (+1 harness) | routing of ~560 (no VTK in it) | C# interface and adapter 45 + ~40 | |
+| **Stream** | **18:12** | **19:12** | **29 % -> 51 % / 13 % -> 17 %** | **6 port (+6 harness/check)** | **~3,600 ported, ~1,100 routed** | | |
+
+The plan's share for the stream was 2 - 3 h of agent time for about 6,100 lines; the stream took about an hour of
+wall clock: W1 about 60 % of its share, W2 and W3 far under theirs. No slice ran over, so nothing was split.
 
 The plan percentages are account wide: streams G and S used the same plan at the same time, so a difference is an
 upper bound for this stream.
@@ -107,3 +113,132 @@ clicks to open the same thing. Pictures as in slice B (coverage within a pixel >
   restacking (the bug slice B fixed for the scalar bar); the native color bar restacks the whole widget. The check
   does not show it, because the control turns the background on when it sets the widget up; it shows when the
   background is switched off and on again in the settings while the color bar is visible.
+
+## W2 - The interaction style
+
+Started 18:50 (47 %, 16 %), ended 19:01 (50 %, 17 %).
+
+### What was ported
+
+`vtkInteractorStyleControl` without its widget part (the widget set of slice B and W1) became
+`vtkn::InteractorStyle`, a `vtkInteractorStyleTrackballCamera` like the C# one: the middle button turns the camera
+about the rotation center (shift pans, ctrl zooms slowly), a middle click picks the rotation center (the model
+point through the native pick of slice C, or the center of the visible bounds beside the model), the orange cross
+while turning, the wheel zooms at the mouse with the smooth zoom (accumulated notches approached over frames, the
+frame budget that switches it off), ctrl for small steps, the arrow keys, escape, z with the box zoom, the left
+button's box selection rubber band (green from right to left), the right button press with the widget under it,
+the 200 ms mouse move pick timer, the multi touch gesture start and end, and the camera distance and clipping after
+every move. Its events (`VTKN_EVENT_POINT_PICKED_ON_LEFT_UP` ... `_MOUSE_LEFT`, 22 - 31) end in the vtkControl
+handlers the C# events end in; `PickWithNativeMirror` gets the left up pick, so selecting in the native window works
+once stream S switches its area on there.
+
+An embedded view takes the input from its window (the style is attached to the Win32 interactor, the widget set
+stays the observer above it); an off screen view gets an interactor of its own that a host feeds through
+`vtkn_view_handle_input`, widgets first as in the window. `vtkn_view_navigate` gives the touchpad and the host the
+navigation calls. Widgets API version 3.
+
+Not ported, dead code of the C# style: `DrawSphereOnLeft`, `AdjustCameraDistance_` and `AdjustCameraDistance__`,
+and the unused event id enum.
+
+### How it is checked (`Run_Port_Checks.sh --filter widgets_w2`, about 50 s)
+
+- `Record_W2.py`: geometry and widgets areas on the mirror, parts only on both paths. Thirteen input sequences, each
+  from the same framed camera, go to `vtkInteractorStyleControl` through its handlers and to the native style
+  through `vtkn_view_handle_input`: rotate (short and long), pan, the slow zoom (with and without a horizontal
+  move), the wheel at two points, the ctrl wheel, the four arrow keys, a rotation center beside and on the model,
+  a zoom and then a rotation, the box zoom (the ActiViz path animates it), and the smooth zoom (the ActiViz timer
+  runs it to the end, the native one is finished at once). The box selection is drawn and cancelled by escape.
+- `Test_Embedded_W2.py`: the native view in the window, driven by real Win32 messages (`WM_MBUTTONDOWN` ...,
+  `WM_KEYDOWN`, `WM_MOUSEWHEEL` with screen coordinates), against the same input to the ActiViz style: a middle
+  drag, a middle drag with shift, two arrow keys, and three wheel notches with the smooth zoom stepped by the timer
+  of the native window.
+- `Compare_W2.py`: the cameras must start alike and end alike to 1e-9 of the model size.
+
+### Result: 20 of 20 checks pass
+
+- The cameras agree to 1e-14 or better after every sequence, the embedded ones included (the smooth zoom: 0 and
+  6e-16; the many timer steps of either path end at the same camera).
+- 2 reported: a rotation center picked on the model leaves the cameras 5e-4 - 8e-4 apart. ActiViz rebuilds the
+  picked point from the depth buffer and the native view intersects the ray (slice C's finding). The second case
+  is a slow zoom drag without a horizontal move, whose release counts as a click, since the C# style compares the
+  x coordinates with each other (`Math.Abs(_clickPos[0] - currClickPos[0]) + Math.Abs(_clickPos[0] - currClickPos[0])`).
+  The port keeps that quirk; **a latent bug of the old code**: it should compare y too.
+
+### Fix cycles
+
+1. (port) The embedded smooth zoom never stepped: VTK 9's Win32 interactor does not report which timer fired
+   (`GetTimerEventId` is not set), so the style compared against a stale id. The selection timer is stopped while
+   the smooth zoom runs, as in C#, so the style takes the timer that runs as the one that fired.
+2. (check) The slow zoom case above failed first and was split into the exact case and the reported one.
+3. (port, found by the full suite) Slice B's embedded check turned the camera with a left drag beside the bar; with
+   the ported style the left button draws the box selection, as in PrePoMax, and the middle button turns. The check
+   now turns with the middle button.
+
+### Rendering defaults found
+
+- None. Key input changed: VTK 9 reports an arrow key with a zero key code and its key symbol, where VTK 5.8 gave the
+  virtual key as the code; the style maps the symbols to the codes the C# style compared.
+
+## W3 - Touchpad, trackpad and the Widgets region
+
+Started 19:01 (50 %), ended 19:06 (51 %).
+
+### What was ported
+
+- **Touchpad and trackpad**: `PrecisionTouchpad`, `TrackpadGestureRecognizer` and the wheel fallback read Windows
+  raw input and wheel messages and contain no VTK, so they stay in C#. `TrackpadNavigation.Apply` now moves an
+  `ITrackpadNavigationTarget`: the ActiViz style implements it, and `VtkNativeNavigationTarget` maps it onto
+  `vtkn_view_navigate`. vtkControl's gesture flush and end drive both while the widgets area is on.
+- **The Widgets region**: everything in it reaches the native twins through the W1 forwarding (interaction and
+  highlight settings, the scale bar position, the arrows with their placement, removal and hiding). The arrow
+  placement algorithm (`PositionArrowWidget` and its geometry helpers) is pure 2D math over the widget boxes and
+  stays in C#; its moves reach the native arrows. The context menus: the native right button press carries the id
+  of the widget under the mouse, which vtkControl maps back to its widget and hands to `style_RightButtonPressEvent`,
+  so the menus open as before.
+
+### How it is checked (`Run_Port_Checks.sh --filter widgets_w3`, about 25 s)
+
+`Record_W3.py` sends gestures through vtkControl's own path (the recognizer's update, the flush, the end of the
+gesture): a two finger rotation, a pinch, rotation with zoom, a two finger pan with a pan sensitivity, and an
+inverted axis; and a right click on an annotation through both styles. 6 of 6 pass: cameras to 3e-14, the same
+`Form_WidgetPicked` call with the same rectangle.
+
+### Fix cycles
+
+1. (port) An off screen view had no interactor before its first input, and the touchpad's navigation calls came
+   first (an access violation): the off screen view gets its interactor when the style is made.
+2. (harness) The runner was edited while it ran, which bash reads as it goes; rerun.
+
+W2 and W3 are one commit: they share the hook lines in `vtkControl.cs`, the partial class and the project file.
+
+## Not ported, and what stays in C#
+
+- The gesture recognition of the touchpad and trackpad (Windows raw input; no VTK).
+- The arrow placement of the Widgets region (2D math in C#; its moves reach the native arrows).
+- .NET formatting everywhere: the status block lines, the scale bar labels (through a callback), the color bar
+  labels.
+- The hover cursor of the triad (`coorSysWidget_HoverChanged` sets the ActiViz window's cursor); the native event
+  `VTKN_EVENT_WIDGET_HOVER_CHANGED` is raised but not yet wired to a cursor of the native window.
+- The rubber band of the box selection is drawn in the widget layer, as the native view has no selection layer yet
+  (stream S adds it with S2; one line in `View::GetInteractorStyle` moves it there).
+- `vtkControl.SetRotationPoint` reaches the native style through a hook in the Views region; the camera animations
+  of the Views region (`_animating`) do not yet tell the native style (`VTKN_NAVIGATE_SET_ANIMATING` exists).
+
+## Review list for the user (round 2 of the plan: the camera feel and the widgets)
+
+Run `VtkPort/Widgets/Review_W2_Camera.py` from the Python panel of PrePoMax started from this worktree's build
+(`PrePoMax\bin\x64\Debug`); the first run covers the viewport with the native VTK 9.7 view with the parts, the
+widgets and the ActiViz camera, the next run closes it. Click into the view first, so that it has the keyboard.
+
+1. Middle drag: the speed and direction of the turn, the rotation about the center, the orange cross.
+2. Shift + middle drag: the pan follows the mouse; ctrl + middle drag: the slow zoom.
+3. A middle click on the model, then a turn: the model turns about the clicked point; a click beside it: about the
+   center of the model.
+4. The wheel: the smooth zoom at the mouse (does it feel like the ActiViz one, frame by frame?); ctrl + wheel.
+5. Arrow keys (5 degrees), z + left drag (box zoom), a left drag (the rubber band, green from right to left),
+   escape.
+6. The triad: the negative axes near it, the highlights on hover, a click on each cone, end, shaft and the origin.
+7. The widgets on a result (open one first): the status block, the scale bar while zooming, the min/max annotations
+   while turning and dragging, the probe, the color bar of colors by part; hover highlights, drags, double clicks
+   and right click menus.
+8. A touchpad, if the machine has one: two finger turn and pan, pinch.
