@@ -20,23 +20,37 @@ find_package(VTK 9.7 REQUIRED COMPONENTS
     FiltersCore
     IOImage
     RenderingCore
+    RenderingFreeType
     RenderingOpenGL2
     RenderingUI)
 
 add_library(vtkNative SHARED
     include/vtkNative.h
     src/vtkNativeApi.cpp
+    src/vtkNativeBorderWidget.cpp
+    src/vtkNativeBorderWidget.h
     src/vtkNativeError.cpp
     src/vtkNativeError.h
     src/vtkNativeOutputWindow.cpp
     src/vtkNativeOutputWindow.h
     src/vtkNativePartActor.cpp
     src/vtkNativePartActor.h
+    src/vtkNativeRect.h
     src/vtkNativeRenderWindow.cpp
     src/vtkNativeRenderWindow.h
+    src/vtkNativeScalarBar.cpp
+    src/vtkNativeScalarBar.h
+    src/vtkNativeScalarBarWidget.cpp
+    src/vtkNativeScalarBarWidget.h
+    src/vtkNativeTextWidget.cpp
+    src/vtkNativeTextWidget.h
     src/vtkNativeView.cpp
     src/vtkNativeView.h
-    src/vtkNativeViewCamera.cpp)
+    src/vtkNativeViewCamera.cpp
+    src/vtkNativeWidgetHighlight.cpp
+    src/vtkNativeWidgetHighlight.h
+    src/vtkNativeWidgetSet.cpp
+    src/vtkNativeWidgetSet.h)
 target_include_directories(vtkNative PRIVATE include src)
 target_compile_definitions(vtkNative PRIVATE VTKNATIVE_EXPORTS)
 target_link_libraries(vtkNative PRIVATE ${VTK_LIBRARIES})

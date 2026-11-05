@@ -16,6 +16,7 @@ namespace vtkControl.Native
         LeftButtonDown = 2,
         LeftButtonUp = 3,
         MouseMove = 4,
-        CameraModified = 5
+        CameraModified = 5,
+        WidgetDoubleClick = 6
     }
 }

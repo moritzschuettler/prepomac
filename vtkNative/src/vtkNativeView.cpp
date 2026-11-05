@@ -35,7 +35,7 @@ namespace vtkn
     }
 
     // The renderer setup of vtkControl.OnHandleCreated and InitializeControl: layered renderers sharing one camera,
-    // three camera lights, smoothing with two samples, a parallel projection and a gray gradient background
+    // three camera lights, multisampling, a parallel projection and a gray gradient background, and the widget layer
     View::View(bool offScreen) : OffScreen(offScreen)
     {
         Renderer = vtkSmartPointer<vtkRenderer>::New();
@@ -44,11 +44,16 @@ namespace vtkn
         OverlayRenderer->SetLayer(1);
         OverlayRenderer->InteractiveOff();
         OverlayRenderer->SetActiveCamera(Renderer->GetActiveCamera());
+        WidgetRenderer = vtkSmartPointer<vtkRenderer>::New();
+        WidgetRenderer->SetLayer(2);
+        WidgetRenderer->InteractiveOff();
+        WidgetRenderer->SetActiveCamera(Renderer->GetActiveCamera());
         RenderWindow = vtkSmartPointer<vtkNativeRenderWindow>::New();
         RenderWindow->SetOffScreenRendering(offScreen ? 1 : 0);
-        RenderWindow->SetNumberOfLayers(2);
+        RenderWindow->SetNumberOfLayers(3);
         RenderWindow->AddRenderer(Renderer);
         RenderWindow->AddRenderer(OverlayRenderer);
+        RenderWindow->AddRenderer(WidgetRenderer);
         RenderWindow->PointSmoothingOn();
         RenderWindow->LineSmoothingOn();
         // VTK 9 has no line smoothing in its core profile, so the lines are smoothed only by multisampling, and
@@ -85,6 +90,19 @@ namespace vtkn
         EventCommand->SetClientData(this);
         Renderer->AddObserver(vtkCommand::EndEvent, EventCommand);
         Renderer->GetActiveCamera()->AddObserver(vtkCommand::ModifiedEvent, EventCommand);
+        // The widgets follow the window size the way they followed the ModifiedEvt of the ActiViz window
+        WidgetCommand = vtkSmartPointer<vtkCallbackCommand>::New();
+        WidgetCommand->SetCallback(&View::OnWidgetEvent);
+        WidgetCommand->SetClientData(this);
+        RenderWindow->AddObserver(vtkCommand::ModifiedEvent, WidgetCommand);
+        Widgets.SetDoubleClickHandler([this](BorderWidget* widget, int x, int y) {
+            for (const auto& bar : ScalarBars)
+            {
+                if (&bar->Widget != widget) continue;
+                double values[3] = { static_cast<double>(bar->Id), static_cast<double>(x), static_cast<double>(y) };
+                RaiseEvent(VTKN_EVENT_WIDGET_DOUBLE_CLICK, values, 3);
+            }
+        });
         //
         std::lock_guard<std::mutex> lock(registryMutex);
         liveViews.insert(this);
@@ -97,6 +115,8 @@ namespace vtkn
             liveViews.erase(this);
         }
         Callback = nullptr;
+        RenderWindow->RemoveObserver(WidgetCommand);
+        while (!ScalarBars.empty()) DestroyScalarBar(ScalarBars.back().get());
         Renderer->RemoveObserver(EventCommand);
         Renderer->GetActiveCamera()->RemoveObserver(EventCommand);
         Renderer->RemoveAllViewProps();
@@ -106,6 +126,7 @@ namespace vtkn
         if (Interactor != nullptr)
         {
             Interactor->RemoveObserver(InteractorCommand);
+            Interactor->RemoveObserver(WidgetCommand);
             Interactor->Disable();
             Interactor->SetRenderWindow(nullptr);
             Interactor = nullptr;
@@ -143,6 +164,10 @@ namespace vtkn
         Interactor->AddObserver(vtkCommand::LeftButtonPressEvent, InteractorCommand);
         Interactor->AddObserver(vtkCommand::LeftButtonReleaseEvent, InteractorCommand);
         Interactor->AddObserver(vtkCommand::MouseMoveEvent, InteractorCommand);
+        // The widgets see the mouse before the style and keep a press on a widget from moving the camera
+        Interactor->AddObserver(vtkCommand::LeftButtonPressEvent, WidgetCommand, 1.0f);
+        Interactor->AddObserver(vtkCommand::LeftButtonReleaseEvent, WidgetCommand, 1.0f);
+        Interactor->AddObserver(vtkCommand::MouseMoveEvent, WidgetCommand, 1.0f);
         // The host application pumps the messages, so the interactor is initialized and never started
         Interactor->Initialize();
         Embedded = true;
@@ -411,6 +436,64 @@ namespace vtkn
                 view->RaiseEvent(VTKN_EVENT_LEFT_BUTTON_UP, values, 4);
             else if (eventId == vtkCommand::MouseMoveEvent) view->RaiseEvent(VTKN_EVENT_MOUSE_MOVE, values, 4);
         }
+    }
+
+    void View::OnWidgetEvent(vtkObject* caller, unsigned long eventId, void* clientData, void*)
+    {
+        View* view = static_cast<View*>(clientData);
+        if (eventId == vtkCommand::ModifiedEvent)
+        {
+            view->Widgets.CheckWindowSize();
+            return;
+        }
+        int* position = view->Interactor->GetEventPosition();
+        int widgetEvent = eventId == vtkCommand::LeftButtonPressEvent ? VTKN_EVENT_LEFT_BUTTON_DOWN
+                        : eventId == vtkCommand::LeftButtonReleaseEvent ? VTKN_EVENT_LEFT_BUTTON_UP
+                        : VTKN_EVENT_MOUSE_MOVE;
+        try
+        {
+            if (view->HandleMouseEvent(widgetEvent, position[0], position[1]))
+                static_cast<vtkCommand*>(view->WidgetCommand)->AbortFlagOn();
+        }
+        catch (...)
+        {
+        }
+        (void)caller;
+    }
+
+    // The widget part of the press, release and move handlers of vtkInteractorStyleControl
+    bool View::HandleMouseEvent(int eventId, int x, int y)
+    {
+        bool handled = false;
+        bool changed = false;
+        if (eventId == VTKN_EVENT_LEFT_BUTTON_DOWN) changed = Widgets.LeftButtonPress(x, y, handled);
+        else if (eventId == VTKN_EVENT_LEFT_BUTTON_UP) changed = Widgets.LeftButtonRelease(x, y, handled);
+        else if (eventId == VTKN_EVENT_MOUSE_MOVE) changed = Widgets.MouseMove(x, y, handled);
+        else throw Error(VTKN_ERROR_INVALID_ARGUMENT, "The event is not a mouse button or move event.");
+        if (changed) RenderWindow->Render();
+        return handled;
+    }
+
+    ScalarBar* View::CreateScalarBar()
+    {
+        std::unique_ptr<ScalarBar> bar(new ScalarBar(this, NextWidgetId++));
+        bar->Widget.SetRenderer(WidgetRenderer);
+        Widgets.Add(&bar->Widget);
+        ScalarBars.push_back(std::move(bar));
+        return ScalarBars.back().get();
+    }
+
+    void View::DestroyScalarBar(ScalarBar* bar)
+    {
+        for (auto entry = ScalarBars.begin(); entry != ScalarBars.end(); ++entry)
+        {
+            if (entry->get() != bar) continue;
+            Widgets.Remove(&bar->Widget);
+            bar->Widget.RemoveRenderer();
+            ScalarBars.erase(entry);
+            return;
+        }
+        throw Error(VTKN_ERROR_INVALID_HANDLE, "The scalar bar does not belong to this view.");
     }
 
     // The callback belongs to the host; nothing it does may unwind through VTK

@@ -7,6 +7,8 @@
 
 #include "vtkNative.h"
 #include "vtkNativePartActor.h"
+#include "vtkNativeScalarBar.h"
+#include "vtkNativeWidgetSet.h"
 
 #include <vtkActor.h>
 #include <vtkCallbackCommand.h>
@@ -75,8 +77,14 @@ namespace vtkn
         std::vector<uint8_t> ReadPixels(int magnification, int& width, int& height);
         void WritePng(const std::string& fileName, int magnification);
 
+        // Widgets
+        bool HandleMouseEvent(int eventId, int x, int y);
+        ScalarBar* CreateScalarBar();
+        void DestroyScalarBar(ScalarBar* bar);
+
     private:
         static void OnVtkEvent(vtkObject* caller, unsigned long eventId, void* clientData, void* callData);
+        static void OnWidgetEvent(vtkObject* caller, unsigned long eventId, void* clientData, void* callData);
         void RaiseEvent(int32_t eventId, const double* values, int32_t count);
         // vtkNativeViewCamera.cpp
         void SetFrontBackView(bool front);
@@ -102,9 +110,14 @@ namespace vtkn
         vtkSmartPointer<vtkRenderWindow> RenderWindow;
         vtkSmartPointer<vtkRenderer> Renderer;
         vtkSmartPointer<vtkRenderer> OverlayRenderer;
+        vtkSmartPointer<vtkRenderer> WidgetRenderer;
         vtkSmartPointer<vtkRenderWindowInteractor> Interactor;
         vtkSmartPointer<vtkCallbackCommand> EventCommand;
         vtkSmartPointer<vtkCallbackCommand> InteractorCommand;
+        vtkSmartPointer<vtkCallbackCommand> WidgetCommand;
+        WidgetSet Widgets;
+        std::vector<std::unique_ptr<ScalarBar>> ScalarBars;
+        int NextWidgetId = 1;
         std::vector<vtkSmartPointer<vtkLight>> Lights;
         std::map<std::string, vtkSmartPointer<vtkActor>> Actors;
         std::map<std::string, std::unique_ptr<PartActor>> Parts;

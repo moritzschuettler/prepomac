@@ -15,7 +15,7 @@ Pilot files live in `VtkPilot/`.
 | 1. Groundwork | 2026-11-05 11:00 | 2026-11-05 11:18 | 1 user turn, ~60 tool calls | 13 % -> 17 % / 5 % -> 6 %; context 194k -> 344k | 3 (+3 tooling) | 0 (groundwork adds, replaces nothing) | C API 127, C++ 889, CMake 76; C# P/Invoke layer 639; 49 lines in existing files; 444 lines of test scripts | |
 | 2. Slice A | 2026-11-05 11:48 | 2026-11-05 12:08 | 1 user turn, ~75 tool calls | 23 % -> 31 % / 7 % -> 8 %; context 356k -> 560k | 3 render (+2 check) | ~1,450 (non-blank lines) | C++ ~1,190, C API +85; C# P/Invoke +423; mirror harness 104; checks 259 | |
 | 2a. Slice A edge quality (after review) | 2026-11-05 14:39 | 2026-11-05 14:47 | 2 user turns, ~30 tool calls | 2 % -> 3 % / 9 % -> 9 % (5 h window reset); context 131k -> 170k (after a compaction) | 1 render (5 variants measured) | 0 | C++ +19 / -24 | user found it in review |
-| 3. Slice B | | | | | | | | |
+| 3. Slice B | 2026-11-05 15:06 | 2026-11-05 15:42 | 1 user turn, ~75 tool calls | 4 % -> 14 % / 9 % -> 10 %; context 178k -> 520k | 5 port/render (+3 harness/check) | ~2,000 (non-blank lines) | C++ 1,561 new + ~360 in API/view; C API +91; C# 472 new + ~190 changed; checks 607 | |
 | 4. Slice C | | | | | | | | |
 
 Usage is read from the session usage card (`get_usage`): the 5 hour and weekly percentages of the Team plan at the
@@ -338,3 +338,107 @@ Findings for the full port:
   from the ActiViz 9.7 session. That pipeline also covers symbols, selections and SSAO (depth ladder for symbols drawn
   on faces, SSAA instead of MSAA with SSAO), which slices B and C and the remaining actors should take over.
 
+## Phase 3 - Slice B: the scalar bar widget
+
+Started 2026-11-05 15:06 (5 h window 4 %, weekly 9 %, context 178k tokens). Ended 15:42 (14 %, 10 %, 520k).
+
+### What was ported
+
+| Old C# (ActiViz 5.8) | Non-blank lines | Native port | Lines |
+|---|---|---|---|
+| `vtkMaxScalarBarWidget` (layout, bar, labels, value label boxes, hover, edit data) | 811 | `ScalarBarWidget` | 540 |
+| `vtkMaxBorderWidget` (anchors, keep inside, quadrant on resize, drag, hover) | 714 | `BorderWidget` | 416 |
+| `vtkMaxTextWidget`, `vtkMaxWidgetTools` | 181 | `TextWidget` | 148 |
+| `vtkMaxWidgetHighlight` | 162 | `WidgetHighlight` | 145 |
+| widget part of `vtkInteractorStyleControl` (capture, double click, hover, stacking) | ~170 | `WidgetSet`, `View::HandleMouseEvent`, interactor observer | ~260 |
+| `System.Drawing.Rectangle` semantics the widgets compute with | - | `Rect` | 49 |
+
+About 2,000 non-blank lines of old C# became about 1,560 lines of C++ in seven new files plus about 360 lines in the
+view and the C API (`vtkNativeApi.cpp` +153, `vtkNativeView.*` +98, `vtkNative.h` +91, API version 3). The C# side
+gained `VtkNativeScalarBar` (350 lines) and five small mirror types (122 lines).
+
+The split: the native widget does everything that touches VTK (layout from text sizes, drawing, hit tests, drag,
+clamping, resize, highlight, double click detection); C# keeps what is .NET: the label strings (`ToString(format)`
+with the user's number formats), the lookup table built from a color function (`CreateLookupTable` without VTK, the
+color transfer function passed in as `Func<double, double[]>`), the title text, and the value edit data, which
+combines a native hit box with the C# label and limits. The color transfer function of the legend stays in
+`vtkControl`: it belongs to the result coloring, not to this slice.
+
+### How it is checked (`bash VtkPilot/Phase3/Run_SliceB.sh`, about 40 s with the solve)
+
+- `vtkControl` mirrors every legend call into the native scalar bar of the mirror. The hooks sit in the methods the
+  Controller calls (`SetScalarBarColorSpectrum`, `SetScalarBarText`, `SetScalarBarNumberFormat`,
+  `DrawScalarBarBackground/Border`, `InitializeResultWidgetPositions`, the three `CreateLookupTable` calls and the
+  four visibility switches, now routed through two helpers). This is where the real port calls the native widget.
+- `Record_SliceB.py` solves Joint_Hinge, shows only the scalar bar on both paths, and goes through 8 legend
+  configurations: DISP, MISES, smooth, CoolWarm with 5 colors and F2, a manual range with both added colors, the
+  maximum color hidden, manual smooth, no frame. Then the same mouse events go to both, the old style's handlers by
+  reflection and the native view through `vtkn_view_handle_mouse_event`: hover over the title and the maximum and
+  minimum labels, double clicks on both labels and on the title, a drag, a drag into the bottom right corner
+  (clamping), a press beside the widget, and a window resize to 960x540 and back.
+- `Compare_SliceB.py` requires the layout to be **identical**: widget rectangle, hover highlight, labels, value edit
+  boxes with texts and limits, and what each double click opens. Pictures: the dark shapes must cover each other
+  within a pixel (near dark by 24 levels), and the differing pixels are reported.
+- `Test_Embedded_ScalarBar.py` drives the embedded native view with real Win32 mouse messages, so the events take
+  the interactor path: a drag on the bar moves the bar and not the camera, a drag beside it turns the camera, and a
+  real double click on a label raises the C# event with that label.
+
+### Result: 20 of 20 checks pass, embedded 7 of 7
+
+- **Layout identical in all 17 states**: every rectangle, highlight, label list and value edit box, including the
+  drag (170, 120), the clamp at the window edge (614, 202) and the quadrant move on resize (774, 142).
+- **Double clicks identical**: minimum label, maximum label (edit box, text, limits) and title (legend settings).
+- Pictures: coverage 1.0000 everywhere; 1-9 % of the pixels of the widget differ by more than 24 levels, all of it
+  glyph antialiasing. The colors match within one level, the highlight blend included.
+- Slice A (36 of 36) and the groundwork checks still pass with the widget layer added.
+
+### Fix cycles
+
+1. (harness) The color spectrum checks min < max on every assignment; the test sets a large maximum first.
+2. (port) The widget came out 4 px narrower. The C# widget joins its lines with `Environment.NewLine`, and VTK 5.8
+   measured the carriage return as the invisible CR glyph of Arial, as wide as a space; VTK 9 measures it as
+   nothing. Keeping `\r\n` did not help; measuring the CR as a space reproduces every width exactly (two builds).
+3. (mirror) Hiding the maximum color had no effect on the native bar: `vtkMaxColorSpectrum.DeepCopy` does not copy
+   `MinColorVisible` / `MaxColorVisible`, and the mirror read them from the copy. The old widget takes them from the
+   argument; so does the mirror now. **A latent bug in the old code**: any later reader of `_colorSpectrum` gets the
+   default visibility.
+4. (render) The bar was one row higher: VTK 5.8 drew a 2D actor at its position truncated to a whole pixel, VTK 9
+   draws at the fraction. The native widget truncates the drawing positions and keeps the fractions for the hit
+   boxes, as the C# did; the actors are placed again on every move.
+5. (render) Text was one pixel left of and one above the 5.8 glyphs at the same position: a fixed text shift
+   (+1, -1).
+6. (check) A press beside the widget goes on, on the ActiViz path, to pick the model, and the Controller shows the
+   hidden parts again; the test hides them before the picture. The dark mask threshold also flipped on line pixels
+   at 127 / 140; coverage now allows the same 24 levels as the pixel count.
+7. (port) After the scalar bar joined the mirror, slice A showed an empty white box: `BackgroundVisibilityOn` and
+   `BorderVisibilityOn` add their actors even to a hidden widget, and the mirror set up hid the bar before setting
+   the frame. **A latent bug in the old widget** too (the old init avoids it only by its call order); the port adds
+   the frame actors only while the widget is visible.
+8. (harness) pythonnet needs typed placeholders for `Rectangle` and `string` out arguments.
+
+### Findings for the full port
+
+- **2D placement is a rendering default like the polygon offset.** The truncated actor positions and the text shift
+  apply to every 2D widget (status block, scale bar, color bar, text and arrow widgets, the triad), so they belong in
+  the shared `BorderWidget` / `TextWidget` once. One residual: in one of 17 states a multi-line label column sat one
+  row higher (the VTK 9 bitmap placement of that text block); it passes the tolerance and shows only side by side.
+- **Exact layout is achievable and checkable.** With the text widths and the truncation reproduced, every hit box
+  agrees to the pixel, which keeps saved widget positions and the value edit boxes valid.
+- **Event-heavy code ports with its event model.** The widget set is a direct port of the widget part of the style.
+  The embedded window feeds it from an interactor observer whose priority is above the style and which aborts
+  handled events; a host feeds the same path through the C API. Double click timing uses the system double click
+  time on the native side.
+- **The C# side keeps .NET formatting.** Number formats, culture and the title texts stay in C#; only finished
+  strings cross the API. The same holds for the status block, the min/max annotations and the probe widget.
+- **Porting finds latent bugs**: two in this slice (the spectrum copy and the frame of a hidden widget). The port
+  fixes the second; the first is logged for master.
+- **The mirror approach scales to widgets**: hooks in the Controller-facing methods of `vtkControl` plus a "scalar
+  bar only" mode, with the old path driven through its style handlers by reflection.
+
+### Rate
+
+About 2,000 lines of old C# ported to about 1,920 lines of C++ and C API and 470 lines of C# in 36 minutes, with
+5 port/render fix cycles, at 10 % of the 5 hour window.
+
+User review time: to be noted by the user. For the interactive feel, the embedded check can be watched by running
+`Test_Embedded_ScalarBar.py` from the Python panel of a visible PrePoMax with Joint_Hinge open.

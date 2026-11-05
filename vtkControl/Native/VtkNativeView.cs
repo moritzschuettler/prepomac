@@ -256,6 +256,14 @@ namespace vtkControl.Native
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_write_png(Handle(), VtkNativeLibrary.ToUtf8(fileName),
                                                                          magnification));
         }
+        // Forwards a mouse event to the widgets; true when a widget took it
+        public bool HandleMouseEvent(VtkNativeEvent mouseEvent, int x, int y)
+        {
+            int handled;
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_handle_mouse_event(Handle(), (int)mouseEvent, x, y,
+                                                                                  out handled));
+            return handled != 0;
+        }
         //
         public void Dispose()
         {
@@ -267,7 +275,7 @@ namespace vtkControl.Native
             _eventCallback = null;
         }
         //
-        private IntPtr Handle()
+        internal IntPtr Handle()
         {
             if (_handle == IntPtr.Zero) throw new ObjectDisposedException("VtkNativeView");
             CheckThread();

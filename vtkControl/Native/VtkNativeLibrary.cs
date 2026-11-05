@@ -104,6 +104,14 @@ namespace vtkControl.Native
             if (text == null) return null;
             return Encoding.UTF8.GetBytes(text + "\0");
         }
+        // A string list into the C API: every string followed by a zero byte, and one more after the last
+        internal static byte[] ToUtf8List(string[] texts)
+        {
+            StringBuilder builder = new StringBuilder();
+            foreach (string text in texts) builder.Append(text).Append('\0');
+            builder.Append('\0');
+            return Encoding.UTF8.GetBytes(builder.ToString());
+        }
         internal static string FromUtf8(IntPtr text)
         {
             if (text == IntPtr.Zero) return null;

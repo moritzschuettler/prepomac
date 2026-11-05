@@ -87,6 +87,7 @@
     <Compile Include="Native\VtkNativeEvent.cs" />
     <Compile Include="Native\VtkNativeEventArgs.cs" />
     <Compile Include="Native\VtkNativeException.cs" />
+    <Compile Include="Native\VtkNativeFontFamily.cs" />
     <Compile Include="Native\VtkNativeHost.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -97,8 +98,13 @@
     <Compile Include="Native\VtkNativeOrientation.cs" />
     <Compile Include="Native\VtkNativePartStyle.cs" />
     <Compile Include="Native\VtkNativePinnedMesh.cs" />
+    <Compile Include="Native\VtkNativeScalarBar.cs" />
+    <Compile Include="Native\VtkNativeScalarBarColors.cs" />
     <Compile Include="Native\VtkNativeStatus.cs" />
+    <Compile Include="Native\VtkNativeTextStyle.cs" />
+    <Compile Include="Native\VtkNativeValueLabel.cs" />
     <Compile Include="Native\VtkNativeView.cs" />
+    <Compile Include="Native\VtkNativeWidgetAnchor.cs" />
     <Compile Include="Tools\Extensions.cs" />
     <Compile Include="Tools\QuaternionHelper.cs" />
     <Compile Include="Tools\SectionViewCap.cs" />
