@@ -32,6 +32,8 @@ namespace PrePoMax.Forms
         private Controller _controller;
         private UserControls.DoubleBufferedPanel pnlLayup;
         private System.Windows.Forms.Splitter splLayup;
+        private System.Windows.Forms.CheckBox cbSymmetric;
+        private bool _updatingSymmetric;
         private const string _layerColumnName = "LayerName";
         private static readonly double[] _layupHatchSpacings = new double[] { 6, 9, 13 };
         private const int _layupMarkerWidth = 16;
@@ -73,6 +75,7 @@ namespace PrePoMax.Forms
         {
             this.pnlLayup = new UserControls.DoubleBufferedPanel();
             this.splLayup = new System.Windows.Forms.Splitter();
+            this.cbSymmetric = new System.Windows.Forms.CheckBox();
             this.gbType.SuspendLayout();
             this.gbProperties.SuspendLayout();
             this.tpDataPoints.SuspendLayout();
@@ -82,7 +85,20 @@ namespace PrePoMax.Forms
             //
             this.tpDataPoints.Controls.Add(this.splLayup);
             this.tpDataPoints.Controls.Add(this.pnlLayup);
+            this.tpDataPoints.Controls.Add(this.cbSymmetric);
             this.tpDataPoints.Text = "Layers";
+            //
+            // cbSymmetric
+            //
+            this.cbSymmetric.Dock = System.Windows.Forms.DockStyle.Top;
+            this.cbSymmetric.Location = new System.Drawing.Point(3, 3);
+            this.cbSymmetric.Name = "cbSymmetric";
+            this.cbSymmetric.Padding = new System.Windows.Forms.Padding(3, 0, 0, 0);
+            this.cbSymmetric.Size = new System.Drawing.Size(296, 24);
+            this.cbSymmetric.TabIndex = 0;
+            this.cbSymmetric.Text = "Symmetric layup";
+            this.cbSymmetric.UseVisualStyleBackColor = true;
+            this.cbSymmetric.CheckedChanged += new System.EventHandler(this.cbSymmetric_CheckedChanged);
             //
             // splLayup
             //
@@ -156,6 +172,17 @@ namespace PrePoMax.Forms
             if (_viewSection is ViewCompositeShellSection vcss) vcss.UpdateLayupProperties();
             propertyGrid.Refresh();
             dgvData.Invalidate();
+            pnlLayup.Invalidate();
+        }
+        private void cbSymmetric_CheckedChanged(object sender, EventArgs e)
+        {
+            if (_updatingSymmetric || !(_viewSection is ViewCompositeShellSection vcss)) return;
+            if (vcss.Symmetric == cbSymmetric.Checked) return;
+            //
+            vcss.Symmetric = cbSymmetric.Checked;
+            _propertyItemChanged = true;
+            propertyGrid.Refresh();
+            HighlightSection();
             pnlLayup.Invalidate();
         }
         private void pnlLayup_Resize(object sender, EventArgs e)
@@ -246,6 +273,10 @@ namespace PrePoMax.Forms
                      dgvData.DataSource is BindingSource binding)
             {
                 binding.ResetBindings(false);
+            }
+            else if (_viewSection is ViewCompositeShellSection vcssSymmetric && property == nameof(vcssSymmetric.Symmetric))
+            {
+                UpdateSymmetricCheckBox(vcssSymmetric);
             }
             //
             HighlightSection();
@@ -772,6 +803,14 @@ namespace PrePoMax.Forms
             SetGridViewUnit(nameof(CompositeLayerDataPoint.AngleEq), StringAngleDegConverter.GetUnitAbbreviation(),
                             new StringAngleDegFromConverter());
             dgvData.BuildAutocompleteMenu(_controller.GetAllParameterNames());
+            //
+            UpdateSymmetricCheckBox(viewCompositeShellSection);
+        }
+        private void UpdateSymmetricCheckBox(ViewCompositeShellSection viewCompositeShellSection)
+        {
+            _updatingSymmetric = true;
+            cbSymmetric.Checked = viewCompositeShellSection.Symmetric;
+            _updatingSymmetric = false;
         }
         // The layers from layer 1 at the bottom, on the negative side of the normal (axis 3), to the top, each as high as
         // it is thick, as a cross section hatched by its row - a mirrored layer as the layer it mirrors - and named on the
