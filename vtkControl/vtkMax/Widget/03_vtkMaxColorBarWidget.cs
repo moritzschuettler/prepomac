@@ -8,6 +8,7 @@
 // Contributors:
 
 using Kitware.VTK;
+using vtkControl.Native;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -430,6 +431,7 @@ namespace vtkControl
             }
             //
             OnSizeChanged();
+            _nativeMirror?.SetColorsAndLabels(_colors, _labels);
         }
         public void AddColorsAndLabels(Color[] colors, string[] labels)
         {
@@ -451,6 +453,11 @@ namespace vtkControl
 
             _textMapperFooter.SetTextProperty(textProperty);
             _textMapperLabel.SetTextProperty(textProperty);
+        }
+        protected override void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
+        {
+            nativeMirror.SetColorsAndLabels(_colors, _labels);
+            base.CopyStateToNativeMirror(nativeMirror);
         }
 
 

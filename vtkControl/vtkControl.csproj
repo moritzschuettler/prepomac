@@ -110,7 +110,13 @@
     <Compile Include="Native\Geometry\VtkNativeView.Geometry.cs" />
     <Compile Include="Native\Selection\VtkNativeMethods.Selection.cs" />
     <Compile Include="Native\Selection\VtkNativeView.Selection.cs" />
+    <Compile Include="Native\Widgets\vtkControl.NativeWidgets.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Native\Widgets\VtkNativeMethods.Widgets.cs" />
+    <Compile Include="Native\Widgets\VtkNativeTriadTarget.cs" />
+    <Compile Include="Native\Widgets\VtkNativeWidget.cs" />
+    <Compile Include="Native\Widgets\VtkNativeWidgetKind.cs" />
     <Compile Include="Native\Widgets\VtkNativeView.Widgets.cs" />
     <Compile Include="Native\Widgets\VtkNativeWidgetAnchor.cs" />
     <Compile Include="Tools\Extensions.cs" />

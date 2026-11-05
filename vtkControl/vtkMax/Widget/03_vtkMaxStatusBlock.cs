@@ -16,6 +16,7 @@ using System.Windows.Forms;
 using CaeGlobals;
 using Kitware.VTK;
 using static Kitware.VTK.vtkMultiThreshold;
+using vtkControl.Native;
 
 namespace vtkControl
 {
@@ -37,6 +38,7 @@ namespace vtkControl
         private int _nodalDiameter;
         private bool _deformationScaleFactorTextClicked;
         private System.Drawing.Rectangle _deformationScaleFactorRect;
+        private string[] _lines;
 
 
         // Properties                                                                                                               
@@ -80,6 +82,7 @@ namespace vtkControl
             _fieldType = vtkMaxFieldDataType.Static;
             _nodalDiameter = -1;
             _animationType = vtkMaxAnimationType.ScaleFactor;
+            _mirrorText = false;
         }
 
 
@@ -168,6 +171,14 @@ namespace vtkControl
                                                                        (int)(line1And2And3Size[1] - line1And2Size[1]));
             //
             this.SetText(_text);
+            //
+            _lines = new string[] { line1, line2, line3fix, line3factor, line4 ?? "" };
+            _nativeMirror?.SetStatusLines(_lines[0], _lines[1], _lines[2], _lines[3], _lines[4]);
+        }
+        protected override void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
+        {
+            if (_lines != null) nativeMirror.SetStatusLines(_lines[0], _lines[1], _lines[2], _lines[3], _lines[4]);
+            base.CopyStateToNativeMirror(nativeMirror);
         }
 
 

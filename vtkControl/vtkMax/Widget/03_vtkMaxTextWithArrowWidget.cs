@@ -13,6 +13,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Kitware.VTK;
+using vtkControl.Native;
 
 
 namespace vtkControl
@@ -308,10 +309,12 @@ namespace vtkControl
         public void ResetInitialPosition()
         {
             _anchorAlreadySet = false;
+            _nativeMirror?.ResetInitialPosition();
         }
         public void ResetPositionFromAnchor()
         {
             _anchorAlreadySet = false;
+            _nativeMirror?.ResetInitialPosition();
             double[] anchor = _worldAnchorPoint.GetValue();
             SetAnchorPoint(anchor[0], anchor[1], anchor[2]);
         }
@@ -368,6 +371,7 @@ namespace vtkControl
             }
             RecomputeLeader();
             //OnBorderRepresentationModified();
+            _nativeMirror?.SetAnchorPoint(x, y, z);
         }
         public override void SetText(string text)
         {
@@ -412,6 +416,24 @@ namespace vtkControl
             //
             SetPositionFromWorldTopLeft(); // must be here
             RecomputeLeader();             // must be here
+            _nativeMirror?.OffsetPosition(x, y);
+        }
+        // The native box takes the anchor first and then the position of this one, from which it finds its own
+        // corner in the plane of the anchor
+        protected override void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
+        {
+            nativeMirror.SetTextStyle(vtkMaxWidgetTools.GetNativeTextStyle(_textMapper.GetTextProperty()));
+            nativeMirror.SetPadding(_padding);
+            nativeMirror.SetText(GetText());
+            if (!_anchorAlreadySet)
+            {
+                base.CopyStateToNativeMirror(nativeMirror);
+                return;
+            }
+            double[] anchor = _worldAnchorPoint.GetValue();
+            nativeMirror.SetAnchorPoint(anchor[0], anchor[1], anchor[2]);
+            base.CopyStateToNativeMirror(nativeMirror);
+            nativeMirror.OffsetPosition(0, 0);
         }
         
         

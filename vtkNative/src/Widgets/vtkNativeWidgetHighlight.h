@@ -25,9 +25,13 @@ namespace vtkn
         void AddToRenderer(vtkRenderer* renderer);
         void RemoveFromRenderer(vtkRenderer* renderer);
         bool SetRectangle(const Rect& rectangle, double fillOpacity);
+        // A highlight that is not a display rectangle, such as the band along an axis of the triad; corners is
+        // null to clear it
+        bool SetCorners(const double (*corners)[2], double fillOpacity);
         void BringToFront(vtkRenderer* renderer);
         bool Clear();
         bool GetRectangle(Rect& rectangle) const;
+        bool GetCorners(double corners[4][2]) const;
 
     private:
         vtkSmartPointer<vtkPoints> CornerPoints;
@@ -37,6 +41,7 @@ namespace vtkn
         vtkSmartPointer<vtkActor2D> FillActor;
         bool HasRectangle = false;
         Rect Current;
+        double CurrentCorners[4][2] = {};
         double FillOpacity = WidgetFillOpacity;
     };
 }

@@ -53,6 +53,11 @@ namespace vtkn
     {
         Renderer = renderer;
         HighlightRenderer = renderer;
+        // The ActiViz window raised its modified event on every render, so a widget saw the window size before
+        // the first resize; the native window raises it on a resize only, so the size is taken here
+        int* windowSize = Renderer->GetSize();
+        PrevWindowSize[0] = windowSize[0];
+        PrevWindowSize[1] = windowSize[1];
         if (Visibility)
         {
             if (BackgroundVisibility) Renderer->AddActor(BackgroundActor);
@@ -246,6 +251,18 @@ namespace vtkn
         return true;
     }
 
+    bool BorderWidget::IsInside(int x, int y) const
+    {
+        double positionY = PositionY(Renderer->GetSize());
+        return x >= Position[0] && x <= Position[0] + Size[0] && y >= positionY && y <= positionY + Size[1];
+    }
+
+    bool BorderWidget::RightButtonPress(int x, int y)
+    {
+        if (!Visibility) return false;
+        return IsInside(x, y);
+    }
+
     bool BorderWidget::MouseOver(int x, int y)
     {
         return GetDisplayRectangle().Contains(x, y);
@@ -359,5 +376,57 @@ namespace vtkn
     {
         return Rect(static_cast<int>(std::round(Position[0])), static_cast<int>(std::round(Position[1])),
                     static_cast<int>(std::round(Size[0])), static_cast<int>(std::round(Size[1])));
+    }
+
+    void BorderWidget::GetPositionAndSize(double values4[4]) const
+    {
+        values4[0] = Position[0];
+        values4[1] = Position[1];
+        values4[2] = Size[0];
+        values4[3] = Size[1];
+    }
+
+    int BorderWidget::GetWidth() const
+    {
+        return static_cast<int>(std::round(Size[0]));
+    }
+
+    int BorderWidget::GetHeight() const
+    {
+        return static_cast<int>(std::round(Size[1]));
+    }
+
+    void BorderWidget::SetNormalizedPosition(double x, double y)
+    {
+        double position[2] = { x, y };
+        Renderer->NormalizedDisplayToDisplay(position[0], position[1]);
+        SetPosition(VTKN_ANCHOR_BOTTOM_LEFT, position[0], position[1]);
+    }
+
+    bool BorderWidget::GetDisplayTopLeftPoint(double topLeft[2]) const
+    {
+        if (Renderer == nullptr) return false;
+        topLeft[0] = Position[0];
+        topLeft[1] = Anchor == VTKN_ANCHOR_TOP_LEFT ? Renderer->GetSize()[1] - Position[1] : Position[1] + Size[1];
+        return true;
+    }
+
+    void BorderWidget::SetDisplayTopLeftPoint(const double topLeft[2])
+    {
+        if (Renderer == nullptr) return;
+        Position[0] = topLeft[0];
+        if (Anchor == VTKN_ANCHOR_TOP_LEFT) Position[1] = Renderer->GetSize()[1] - topLeft[1];
+        else Position[1] = topLeft[1] - Size[1];
+        OnMovedOrSizeChanged();
+    }
+
+    void BorderWidget::PlaceActor(vtkCoordinate* coordinate, const double offset[2], bool text)
+    {
+        if (Renderer == nullptr) return;
+        double* position = PositionCoordinate->GetComputedDoubleDisplayValue(Renderer);
+        double x = position[0];
+        double y = position[1];
+        coordinate->SetValue(std::floor(x + offset[0]) - x + (text ? TextShiftX : 0),
+                             std::floor(y + offset[1]) - y + (text ? TextShiftY : 0));
     }
 }

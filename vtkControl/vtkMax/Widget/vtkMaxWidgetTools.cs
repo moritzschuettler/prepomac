@@ -13,6 +13,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Kitware.VTK;
+using vtkControl.Native;
 
 namespace vtkControl
 {
@@ -41,6 +42,21 @@ namespace vtkControl
             }
 
             return size;
+        }
+        public static VtkNativeTextStyle GetNativeTextStyle(vtkTextProperty textProperty)
+        {
+            double[] color = textProperty.GetColor();
+            VtkNativeTextStyle style = new VtkNativeTextStyle();
+            style.ColorR = color[0];
+            style.ColorG = color[1];
+            style.ColorB = color[2];
+            style.LineOffset = textProperty.GetLineOffset();
+            style.LineSpacing = textProperty.GetLineSpacing();
+            style.FontSize = textProperty.GetFontSize();
+            style.FontFamily = textProperty.GetFontFamily();
+            style.Bold = textProperty.GetBold();
+            style.Italic = textProperty.GetItalic();
+            return style;
         }
     }
 }

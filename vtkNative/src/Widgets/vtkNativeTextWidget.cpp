@@ -4,6 +4,8 @@
 
 #include <vtkNew.h>
 
+#include <algorithm>
+
 namespace vtkn
 {
     TextWidget::TextWidget()
@@ -72,15 +74,33 @@ namespace vtkn
 
     void TextWidget::SetText(const std::string& text)
     {
-        TextMapper->SetInput(text.c_str());
+        TextMapper->SetInput(ToVtkText(text).c_str());
         OnSizeChanged();
+    }
+
+    void TextWidget::UpdateBorderGeometry()
+    {
+        BorderWidget::UpdateBorderGeometry();
+        const double offset[2] = { static_cast<double>(Padding), static_cast<double>(Padding) };
+        PlaceActor(TextActorCoordinate, offset, true);
+    }
+
+    std::string TextWidget::GetText() const
+    {
+        const char* text = TextMapper->GetInput();
+        return text == nullptr ? std::string() : std::string(text);
+    }
+
+    std::string TextWidget::ToVtkText(std::string text)
+    {
+        std::replace(text.begin(), text.end(), '\r', ' ');
+        return text;
     }
 
     void TextWidget::SetPadding(int padding)
     {
         if (padding == Padding) return;
         Padding = padding;
-        TextActorCoordinate->SetValue(Padding, Padding);
         OnSizeChanged();
     }
 

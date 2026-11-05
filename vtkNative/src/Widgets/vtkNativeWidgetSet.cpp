@@ -25,6 +25,7 @@ namespace vtkn
     void WidgetSet::Add(BorderWidget* widget)
     {
         Widgets.push_back(widget);
+        widget->SetLocalHighlightEnabled(WidgetLocalHighlightEnabled);
         widget->SetShownHandler([this, widget]() { MoveWidgetToTop(widget); });
         widget->SetDoubleClickHandler([this, widget](int x, int y) {
             if (DoubleClickHandler) DoubleClickHandler(widget, x, y);
@@ -113,14 +114,91 @@ namespace vtkn
             PromoteWidget(CapturedWidget);
             CapturedWidgetPromoted = true;
         }
+        // The proximity comes before the hover, so that the content of a widget is updated first
+        bool proximityChanged = UpdateWidgetProximity(x, y);
         bool highlightChanged = UpdateWidgetHighlights(x, y);
         handled = CapturedWidget != nullptr;
-        return widgetMoved || highlightChanged;
+        return widgetMoved || highlightChanged || proximityChanged;
     }
 
     void WidgetSet::CheckWindowSize()
     {
         for (BorderWidget* widget : Widgets) widget->CheckWindowSize();
+    }
+
+    void WidgetSet::CameraModified(bool clearHighlights)
+    {
+        if (clearHighlights) ClearHighlights();
+        for (BorderWidget* widget : Widgets) widget->CameraModified();
+    }
+
+    void WidgetSet::MousePan(int dx, int dy)
+    {
+        for (BorderWidget* widget : Widgets) widget->MousePan(dx, dy);
+    }
+
+    void WidgetSet::MouseRotate(double azimuthAngle, double elevationAngle)
+    {
+        for (BorderWidget* widget : Widgets) widget->MouseRotate(azimuthAngle, elevationAngle);
+    }
+
+    void WidgetSet::MouseWheelScrolled()
+    {
+        for (BorderWidget* widget : Widgets) widget->MouseWheelScrolled();
+    }
+
+    void WidgetSet::MiddleButtonPress(int x, int y)
+    {
+        ClearHighlights();
+        for (BorderWidget* widget : Widgets) widget->MiddleButtonPress(x, y);
+    }
+
+    void WidgetSet::MiddleButtonRelease(int x, int y)
+    {
+        for (BorderWidget* widget : Widgets) widget->MiddleButtonRelease(x, y);
+    }
+
+    BorderWidget* WidgetSet::RightButtonPress(int x, int y)
+    {
+        for (auto widget = Widgets.rbegin(); widget != Widgets.rend(); ++widget)
+        {
+            if ((*widget)->RightButtonPress(x, y)) return *widget;
+        }
+        return nullptr;
+    }
+
+    bool WidgetSet::ClearHighlights()
+    {
+        bool cleared = false;
+        for (BorderWidget* widget : Widgets) cleared |= widget->ClearMouseHover();
+        return cleared;
+    }
+
+    bool WidgetSet::ClearProximity()
+    {
+        bool cleared = false;
+        for (BorderWidget* widget : Widgets) cleared |= widget->ClearMouseProximity();
+        return cleared;
+    }
+
+    bool WidgetSet::RefreshHighlights(int x, int y)
+    {
+        return UpdateWidgetHighlights(x, y);
+    }
+
+    void WidgetSet::SetHighlightEnabled(bool enabled, bool localEnabled)
+    {
+        WidgetHighlightEnabled = enabled;
+        WidgetLocalHighlightEnabled = localEnabled;
+        for (BorderWidget* widget : Widgets) widget->SetLocalHighlightEnabled(localEnabled);
+        if (!enabled) ClearHighlights();
+    }
+
+    bool WidgetSet::UpdateWidgetProximity(int x, int y)
+    {
+        bool proximityChanged = false;
+        for (BorderWidget* widget : Widgets) proximityChanged |= widget->UpdateMouseProximity(x, y);
+        return proximityChanged;
     }
 
     bool WidgetSet::IsPositionOverWidget(int x, int y)

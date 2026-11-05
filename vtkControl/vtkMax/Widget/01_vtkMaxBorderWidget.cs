@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Kitware.VTK;
 using System.Drawing;
 using System.Windows.Forms;
+using vtkControl.Native;
 
 namespace vtkControl
 {
@@ -39,6 +40,8 @@ namespace vtkControl
         protected vtkPolyData _backgroundPolyData;
         protected vtkActor2D _backgroundActor;
         protected vtkMaxWidgetHighlight _highlight;
+        // The native widget this one forwards its calls to while the widgets area of the native port is on
+        protected VtkNativeWidget _nativeMirror;
         //
         protected vtkRenderer _renderer;
         protected vtkRenderer _highlightRenderer;
@@ -166,6 +169,7 @@ namespace vtkControl
                     _renderWindowInteractor.GetInteractorStyle() is vtkInteractorStyleControl visc)
                     visc.VtkMaxWidgetVisibilityOn(this);
             }
+            _nativeMirror?.SetVisibility(true);
         }
         public virtual void VisibilityOff()
         {
@@ -176,6 +180,7 @@ namespace vtkControl
                 if (_backgroundActor != null) _renderer.RemoveActor(_backgroundActor);
                 if (_highlightRenderer != null) _highlight.RemoveFromRenderer(_highlightRenderer);
             }
+            _nativeMirror?.SetVisibility(false);
         }
         public void BorderVisibilityOn()
         {
@@ -184,6 +189,7 @@ namespace vtkControl
                 _borderVisibility = true;
                 if (_borderActor != null) _renderer.AddActor(_borderActor);
             }
+            MirrorFrame(_nativeMirror);
         }
         public void BorderVisibilityOff()
         {
@@ -192,6 +198,7 @@ namespace vtkControl
                 _borderVisibility = false;
                 if (_borderActor != null) _renderer.RemoveActor(_borderActor);
             }
+            MirrorFrame(_nativeMirror);
         }
         public virtual void BackgroundVisibilityOn()
         {
@@ -202,6 +209,7 @@ namespace vtkControl
                 if (_backgroundActor != null) _renderer.AddActor(_backgroundActor);
                 if (_borderVisibility == true) _renderer.AddActor(_borderActor); // add border back
             }
+            MirrorFrame(_nativeMirror);
         }
         public virtual void BackgroundVisibilityOff()
         {
@@ -210,6 +218,7 @@ namespace vtkControl
                 _backgroundVisibility = false;
                 if (_backgroundActor != null) _renderer.RemoveActor(_backgroundActor);
             }
+            MirrorFrame(_nativeMirror);
         }
         public virtual void KeepInsideVisibleBoundsOn()
         {
@@ -651,6 +660,7 @@ namespace vtkControl
             _position[1] = y;
             //
             OnMovedOrSizeChanged();
+            _nativeMirror?.SetPosition(VtkNativeWidgetAnchor.BottomLeft, x, y);
         }
         public void SetTopLeftPosition(int x, int y)
         {
@@ -660,6 +670,7 @@ namespace vtkControl
             _position[1] = y;
             //
             OnMovedOrSizeChanged();
+            _nativeMirror?.SetPosition(VtkNativeWidgetAnchor.TopLeft, x, y);
         }
         public void SetHorizontallyRelativePosition(double x, double y)
         {
@@ -669,6 +680,7 @@ namespace vtkControl
             _position[1] = y;
             //
             OnMovedOrSizeChanged();
+            _nativeMirror?.SetPosition(VtkNativeWidgetAnchor.HorizontallyRelative, x, y);
         }
         public void SetNormalizedPosition(double x, double y)
         {
@@ -679,10 +691,35 @@ namespace vtkControl
         public void SetBorderColor(double r, double g, double b)
         {
             _borderActor.GetProperty().SetColor(r, g, b);
+            MirrorFrame(_nativeMirror);
         }
         public void SetBackgroundColor(double r, double g, double b)
         {
             _backgroundActor.GetProperty().SetColor(r, g, b);
+            MirrorFrame(_nativeMirror);
+        }
+        // The native port of this widget: it receives the current state, in the order the control sets a widget up,
+        // and from then on every call this widget takes. A null mirror stops the forwarding
+        internal void SetNativeMirror(VtkNativeWidget nativeMirror)
+        {
+            _nativeMirror = null;
+            if (nativeMirror != null) CopyStateToNativeMirror(nativeMirror);
+            _nativeMirror = nativeMirror;
+        }
+        protected virtual void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
+        {
+            MirrorFrame(nativeMirror);
+            VtkNativeWidgetAnchor anchor = _widgetPosition == vtkMaxWidgetPosition.FromTopLeft ? VtkNativeWidgetAnchor.TopLeft :
+                                           _widgetPosition == vtkMaxWidgetPosition.HorizontallyRelative ?
+                                           VtkNativeWidgetAnchor.HorizontallyRelative : VtkNativeWidgetAnchor.BottomLeft;
+            nativeMirror.SetPosition(anchor, _position[0], _position[1]);
+            nativeMirror.SetVisibility(_visibility);
+        }
+        private void MirrorFrame(VtkNativeWidget nativeMirror)
+        {
+            if (nativeMirror == null) return;
+            nativeMirror.SetFrame(_backgroundVisibility, _backgroundActor.GetProperty().GetColor(), _borderVisibility,
+                                  _borderActor.GetProperty().GetColor());
         }
 
 

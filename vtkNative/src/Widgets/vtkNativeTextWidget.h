@@ -23,14 +23,20 @@ namespace vtkn
         void VisibilityOff() override;
         void BringToFront() override;
         void OnSizeChanged() override;
+        void UpdateBorderGeometry() override;
 
         virtual void SetTextStyle(const vtkn_text_style& style);
         virtual void SetText(const std::string& text);
         void SetPadding(int padding);
+        std::string GetText() const;
 
         static void ApplyTextStyle(vtkTextProperty* property, const vtkn_text_style& style);
         // vtkMaxWidgetTools.GetTextSize
         static void GetTextSize(vtkTextMapper* mapper, vtkRenderer* renderer, int size[2]);
+        // The C# widgets end their lines with Environment.NewLine, and VTK 5.8 measured the carriage return as the
+        // glyph Arial has for it, invisible and as wide as a space. VTK 9 measures it as nothing, so it becomes a
+        // space and every line keeps the width it had
+        static std::string ToVtkText(std::string text);
 
     protected:
         vtkSmartPointer<vtkActor2D> TextActor;

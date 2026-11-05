@@ -41,7 +41,7 @@ namespace vtkn
         virtual void BackgroundVisibilityOff();
         void SetLocalHighlightEnabled(bool enabled);
 
-        void OnRenderWindowModified();
+        virtual void OnRenderWindowModified();
         virtual void OnMovedOrSizeChanged();
         virtual void OnSizeChanged();
         void CheckWindowSize();
@@ -50,6 +50,16 @@ namespace vtkn
         virtual bool LeftButtonRelease(int x, int y);
         virtual bool MouseOver(int x, int y);
         virtual bool MouseMove(int x, int y);
+        virtual bool RightButtonPress(int x, int y);
+        virtual void MiddleButtonPress(int, int) {}
+        virtual void MiddleButtonRelease(int, int) {}
+        virtual bool UpdateMouseProximity(int, int) { return false; }
+        virtual bool ClearMouseProximity() { return false; }
+        // The camera moved: the widgets that follow the model (the scale bar, the triad, the arrows) update
+        virtual void MousePan(int, int) {}
+        virtual void MouseRotate(double, double) {}
+        virtual void MouseWheelScrolled() {}
+        virtual void CameraModified() {}
         virtual bool UpdateMouseHover(int x, int y, bool mouseOver, bool highlightEntireWidget);
         virtual bool ClearMouseHover();
         virtual void BringToFront();
@@ -59,9 +69,16 @@ namespace vtkn
         void SetPosition(vtkn_widget_anchor anchor, double x, double y);
         void SetBorderColor(double r, double g, double b);
         void SetBackgroundColor(double r, double g, double b);
+        void SetNormalizedPosition(double x, double y);
+        void SetKeepInsideVisibleBounds(bool keepInside) { KeepInsideVisibleBounds = keepInside; }
 
         bool GetVisibility() const { return Visibility; }
         Rect GetRectangle() const;
+        // GetBoundingBox: the position measured from the anchor corner and the size, not rounded
+        void GetPositionAndSize(double values4[4]) const;
+        int GetWidth() const;
+        int GetHeight() const;
+        bool GetShownHighlightCorners(double corners[4][2]) const { return Highlight.GetCorners(corners); }
         bool GetShownHighlight(Rect& rectangle) const { return Highlight.GetRectangle(rectangle); }
 
     protected:
@@ -69,6 +86,15 @@ namespace vtkn
         virtual Rect GetHighlightRectangle(int x, int y);
         virtual double GetHighlightFillOpacity(const Rect&) { return WidgetHighlight::WidgetFillOpacity; }
         double PositionY(const int* rendererSize) const;
+        bool GetDisplayTopLeftPoint(double topLeft[2]) const;
+        void SetDisplayTopLeftPoint(const double topLeft[2]);
+        bool IsInside(int x, int y) const;
+        // VTK 5.8 drew a 2D actor at its position truncated to a whole pixel and VTK 9 draws it at the fraction,
+        // and VTK 9 draws a text bitmap one pixel left of and one above where VTK 5.8 drew its glyphs. A part of a
+        // widget is placed through here, at offset from the widget corner; hit boxes keep the fractions
+        void PlaceActor(vtkCoordinate* coordinate, const double offset[2], bool text);
+        static constexpr double TextShiftX = 1;
+        static constexpr double TextShiftY = -1;
 
         vtkSmartPointer<vtkCoordinate> PositionCoordinate;
         vtkSmartPointer<vtkPoints> BorderPoints;

@@ -8,6 +8,7 @@
 #include "vtkNative.h"
 #include "vtkNativePartActor.h"
 #include "vtkNativeScalarBar.h"
+#include "vtkNativeWidget.h"
 #include "vtkNativeWidgetSet.h"
 
 #include <vtkActor.h>
@@ -88,6 +89,10 @@ namespace vtkn
         bool HandleMouseEvent(int eventId, int x, int y);
         ScalarBar* CreateScalarBar();
         void DestroyScalarBar(ScalarBar* bar);
+        // vtkNativeViewWidgets.cpp
+        Widget* CreateWidget(vtkn_widget_kind kind);
+        void DestroyWidget(Widget* widget);
+        void SetWidgetHighlight(bool enabled, bool localEnabled);
 
     private:
         static void OnVtkEvent(vtkObject* caller, unsigned long eventId, void* clientData, void* callData);
@@ -129,6 +134,7 @@ namespace vtkn
         vtkSmartPointer<vtkCallbackCommand> WidgetCommand;
         WidgetSet Widgets;
         std::vector<std::unique_ptr<ScalarBar>> ScalarBars;
+        std::vector<std::unique_ptr<Widget>> AreaWidgets;
         int NextWidgetId = 1;
         std::vector<vtkSmartPointer<vtkLight>> Lights;
         std::map<std::string, vtkSmartPointer<vtkActor>> Actors;

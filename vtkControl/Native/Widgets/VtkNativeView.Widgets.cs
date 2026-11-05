@@ -22,5 +22,11 @@ namespace vtkControl.Native
                                                                                   out handled));
             return handled != 0;
         }
+        // The hover highlights of the widgets: off, or the whole widget only instead of the part under the mouse
+        public void SetWidgetHighlight(bool enabled, bool localHighlightEnabled)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_widget_highlight(Handle(), enabled ? 1 : 0,
+                                                                                    localHighlightEnabled ? 1 : 0));
+        }
     }
 }

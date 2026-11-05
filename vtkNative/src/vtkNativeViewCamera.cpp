@@ -374,6 +374,7 @@ namespace vtkn
     {
         AdjustCameraDistance();
         ResetClippingRange();
+        Widgets.CameraModified(true);
     }
 
     // Port of vtkInteractorStyleControl.ResetClippingRange: the near and far planes cover every layer
