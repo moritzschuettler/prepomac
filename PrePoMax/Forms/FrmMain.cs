@@ -983,6 +983,9 @@ namespace PrePoMax
         private async Task RunBatchScriptAsync()
         {
             WriteDataToOutput("Starting script: " + _cmdOptions.ScriptFileName);
+            // Without a file to open the script starts from File - New, as the user would, so the history holds the
+            // script after the new model and the model the script builds counts as initialized
+            if (_cmdOptions.FileName == null) _controller.New();
             //
             string[] arguments = null;
             if (_cmdOptions.ScriptArguments != null)
@@ -1756,7 +1759,7 @@ namespace PrePoMax
 
 
         // Menus                                                                                                                    
-        private void SetMenuAndToolStripVisibility()
+        public void SetMenuAndToolStripVisibility()
         {
             if (IsStateRegeneratingOrUndoing()) return;
             //

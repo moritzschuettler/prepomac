@@ -20867,7 +20867,22 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Results  ###########################################################################################################
+        // The commands of a script are recorded only as the script, after it ends, so a model the script built in a
+        // session started without one counts as initialized only then, and the viewport hidden for the empty view is
+        // shown then
         public PythonEngineResult RunPythonScriptCommand(string script, string fileName = null, string[] arguments = null)
+        {
+            bool modelInitialized = ModelInitialized;
+            try
+            {
+                return RecordAndRunPythonScript(script, fileName, arguments);
+            }
+            finally
+            {
+                if (!modelInitialized && ModelInitialized) _form.SetMenuAndToolStripVisibility();
+            }
+        }
+        private PythonEngineResult RecordAndRunPythonScript(string script, string fileName, string[] arguments)
         {
             CRunPythonScript comm = new CRunPythonScript(script, fileName, arguments);
             int numOfCommandsBefore = _commands.NumOfCommandsExecutedWithoutRecording;
