@@ -68,7 +68,7 @@ namespace PrePoMax
         }
         //
         [CategoryAttribute("Data")]
-        [OrderedDisplayName(4, 10, "Symmetric")]
+        [OrderedDisplayName(4, 10, "Symmetric layup")]
         [DescriptionAttribute("Complete the layup with its mirror image: the layers are followed by the same layers in " +
                               "reverse order.")]
         public bool Symmetric
