@@ -76,6 +76,13 @@ SCENES.update({
     "hinge_hidden": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
     "solid_geometry_highlight": (os.path.join(MODELS, "L_bracket_r.step"), ["-u", "MM_TON_S_C"], _view("geometry")),
 })
+SCENES.update({
+    "hinge_symbols": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+    "springs_symbols": (os.path.join(JOINTS, "Joint_Springs_Weld.pmx"), [], _view("femodel")),
+    "slider_symbols": (os.path.join(JOINTS, "Joint_Springs_Slider.pmx"), [], _view("femodel")),
+    "ball_symbols": (os.path.join(JOINTS, "Joint_Springs_Ball.pmx"), [], _view("femodel")),
+    "plates_weld_symbols": (os.path.join(JOINTS, "Joint_Plates_Springs_Weld.pmx"), [], _view("femodel")),
+})
 AFTER_ENABLE = {
     "hinge_highlight": _highlight_hinge,
     "hinge_hidden": _hide_lever,

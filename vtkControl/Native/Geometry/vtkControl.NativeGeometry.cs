@@ -79,6 +79,61 @@ namespace vtkControl
                 if (data.Layer == vtkRendererLayer.Base && data.IsAPart) _nativeMirrorNames.Add(actor.Name);
             });
         }
+        // The symbol methods: the native view builds the symbol from the points and normals of the data, and draws
+        // its silhouette edges when this control draws them
+        private void MirrorSymbol(vtkMaxActor actor, vtkMaxActorData data, VtkNativeSymbol kind, double symbolSize,
+                                  int joint = 0, bool invert = false, bool center = false, double relativeSize = 1)
+        {
+            if (!IsNativeGeometryOn()) return;
+            MirrorSymbol(actor, data, kind, symbolSize, data.Geometry.Nodes.Coor, data.Geometry.Nodes.Normals, joint,
+                         invert, center, relativeSize);
+        }
+        private void MirrorSymbol(vtkMaxActor actor, vtkMaxActorData data, VtkNativeSymbol kind, double symbolSize,
+                                  double[][] points, double[][] normals, int joint = 0, bool invert = false,
+                                  bool center = false, double relativeSize = 1)
+        {
+            if (!IsNativeGeometryOn()) return;
+            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry && data.Layer != vtkRendererLayer.Base) return;
+            MirrorGeometry("AddSymbol " + actor.Name, () =>
+            {
+                List<double> pointValues = new List<double>();
+                foreach (double[] point in points ?? new double[0][])
+                {
+                    if (point != null && point.Length == 3) pointValues.AddRange(point);
+                }
+                double[] normalValues = null;
+                if (kind != VtkNativeSymbol.Sphere && normals != null)
+                {
+                    normalValues = new double[3 * normals.Length];
+                    for (int i = 0; i < normals.Length; i++) Array.Copy(normals[i], 0, normalValues, 3 * i, 3);
+                }
+                VtkNativePartStyle style = VtkNativePartStyle.FromActorData(data);
+                style.Visible = actor.VtkMaxActorVisible ? 1 : 0;
+                VtkNativeSymbolParameters parameters = new VtkNativeSymbolParameters();
+                parameters.Kind = (int)kind;
+                parameters.Joint = joint;
+                parameters.SymbolSize = symbolSize;
+                parameters.RelativeSize = relativeSize;
+                parameters.Invert = invert ? 1 : 0;
+                parameters.Center = center ? 1 : 0;
+                parameters.DrawEdges = _drawSymbolEdges ? 1 : 0;
+                _nativeMirror.AddSymbolActor(actor.Name, style, pointValues.ToArray(), normalValues, parameters);
+                _nativeMirroredActors.Add(actor);
+                vtkMaxActor edges = FindLayerActor(actor.Name + Globals.NameSeparator + "silhouette", data.Layer);
+                if (edges != null) _nativeMirroredActors.Add(edges);
+            });
+        }
+        private vtkMaxActor FindLayerActor(string name, vtkRendererLayer layer)
+        {
+            vtkMaxActor actor;
+            if (layer == vtkRendererLayer.Base && _actors.TryGetValue(name, out actor)) return actor;
+            if (layer == vtkRendererLayer.Overlay && _overlayActors.TryGetValue(name, out actor)) return actor;
+            if (layer == vtkRendererLayer.Selection)
+            {
+                foreach (vtkMaxActor selected in _selectedActors) if (selected.Name == name) return selected;
+            }
+            return null;
+        }
         // AddActor of an actor the Controller kept in its selection buffer: it is built again from its data
         private void MirrorBufferedActor(vtkMaxActor actor)
         {

@@ -4208,6 +4208,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            MirrorSymbol(actor, data, VtkNativeSymbol.Sphere, symbolSize);
         }
         public void AddCoordinateSystemSymbol(double[] origin, double[][] axisDirections, string[] labels,
                                               double symbolSize, vtkRendererLayer layer)
@@ -4454,6 +4455,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            MirrorSymbol(actor, data, VtkNativeSymbol.DisplacementCone, symbolSize);
         }
         public void AddOrientedConeActors(vtkMaxActorData data, double symbolSize)
         {
@@ -4520,6 +4522,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            MirrorSymbol(actor, data, VtkNativeSymbol.Cone, symbolSize);
         }
         public void AddOrientedRotationalConstraintActor(vtkMaxActorData data, double symbolSize)
         {
@@ -4592,6 +4595,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            MirrorSymbol(actor, data, VtkNativeSymbol.RotationalConstraint, symbolSize);
         }
         public void AddOrientedJointActor(vtkMaxActorData data, double symbolSize, vtkJointSymbolEnum symbol)
         {
@@ -4696,6 +4700,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            MirrorSymbol(actor, data, VtkNativeSymbol.Joint, symbolSize, (int)symbol);
         }
         private static void AddCylinderAlongX(vtkAppendPolyData append, double centerX, double length, double radius)
         {
@@ -4929,6 +4934,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            MirrorSymbol(actor, data, VtkNativeSymbol.Arrow, symbolSize, 0, invert, false, relativeSize);
         }
         public void AddOrientedDoubleArrowsActor(vtkMaxActorData data, double symbolSize)
         {
@@ -5019,6 +5025,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            MirrorSymbol(actor, data, VtkNativeSymbol.DoubleArrow, symbolSize);
         }
         public void AddOrientedSpringActor(vtkMaxActorData data, double symbolSize, bool invert)
         {
@@ -5086,6 +5093,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            MirrorSymbol(actor, data, VtkNativeSymbol.Spring, symbolSize);
         }
         private vtkPolyData CreateSpringSource(double diameter, double height, int numOfTurns, int radialResolution,
                                                       out vtkPolyData lineData)
@@ -5277,6 +5285,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            MirrorSymbol(actor, data, VtkNativeSymbol.Thermo, symbolSize, 0, invert);
         }
         public void AddOrientedFluxActor(vtkMaxActorData data, double symbolSize, bool center, bool invert)
         {
@@ -5356,6 +5365,7 @@ namespace vtkControl
             AddActorGeometry(actor, data.Layer);
             //
             if (_drawSymbolEdges) AddSymbolEdges(data, glyph.GetOutputPort());
+            MirrorSymbol(actor, data, VtkNativeSymbol.Flux, symbolSize, 0, invert, center);
         }
         private void AddSymbolEdges(vtkMaxActorData data, vtkAlgorithmOutput output)
         {
@@ -9437,6 +9447,7 @@ namespace vtkControl
                 vtkMaxActor arrowActor = AddMeasurementArrowActor(name, arrowCoordinates, arrowNormals,
                                                                   symbolSize, lineData.Color);
                 arrowActor.VtkMaxActorVisible = visible;
+                MirrorActorVisible(arrowActor, visible);
             }
         }
         private bool CanUpdateMeasurementAnnotation(string name, double[][] nodeCoordinates,
@@ -9602,6 +9613,7 @@ namespace vtkControl
             actor.GeometryProperty.SetRepresentationToSurface();
             ApplySymbolFormattingToActor(actor);
             AddActorGeometry(actor, vtkRendererLayer.Overlay);
+            MirrorSymbol(actor, data, VtkNativeSymbol.Cone, symbolSize, coordinates, normals);
 
             _measurementArrowInputs[name] = input;
             _measurementArrowSymbolSizes[name] = symbolSize;

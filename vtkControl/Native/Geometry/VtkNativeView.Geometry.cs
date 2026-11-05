@@ -48,6 +48,20 @@ namespace vtkControl.Native
             }
         }
         //
+        public void AddSymbolActor(string name, VtkNativePartStyle style, double[] points, double[] normals,
+                                   VtkNativeSymbolParameters parameters)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            if (points == null || points.Length % 3 != 0)
+                throw new ArgumentException("The points must be a multiple of 3 coordinates.", "points");
+            if (normals != null && normals.Length % 3 != 0)
+                throw new ArgumentException("The normals must be a multiple of 3 components.", "normals");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_symbol_actor(Handle(), VtkNativeLibrary.ToUtf8(name),
+                                                                                ref style, points, points.Length / 3,
+                                                                                normals, normals == null ? 0 :
+                                                                                normals.Length / 3, ref parameters));
+        }
+        //
         public void SetActorVisible(string name, VtkNativeLayer layer, bool visible)
         {
             if (name == null) throw new ArgumentNullException("name");
