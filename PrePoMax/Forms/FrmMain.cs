@@ -1205,6 +1205,8 @@ namespace PrePoMax
         private void itemForm_Move(object sender, EventArgs e)
         {
             Form form = sender as Form;
+            //
+            if (form is FrmSelectItemSet) return;
             //Size screenSize =  Screen.GetWorkingArea(form).Size;
             //if (form.Left < 0) form.Left = 0;
             //else if (form.Left + form.Width > screenSize.Width) form.Left = screenSize.Width - form.Width;
