@@ -243,6 +243,44 @@ namespace vtkControl
                 }
             });
         }
+        // InitializeAndAddAnimatedActor: the actor and its frames, before vtkMaxActor.InitializeAnimation releases
+        // the frames it converted
+        private void MirrorAnimatedActor(vtkMaxActorData data, vtkMaxActor actor)
+        {
+            if (!IsNativeGeometryOn() || data.Geometry.NodesAnimation == null) return;
+            MirrorActor(data, actor, false);
+            if (!_nativeMirroredActors.Contains(actor)) return;
+            MirrorGeometry("AddAnimationFrames " + actor.Name, () =>
+            {
+                for (int i = 0; i < data.Geometry.NodesAnimation.Length; i++)
+                {
+                    NodesExchangeData nodes = data.Geometry.NodesAnimation[i];
+                    NodesExchangeData modelEdgesNodes = data.ModelEdges != null && data.ModelEdges.NodesAnimation != null ?
+                                                        data.ModelEdges.NodesAnimation[i] : null;
+                    NodesExchangeData extremeNodes = data.Geometry.ExtremeNodesAnimation != null ?
+                                                     data.Geometry.ExtremeNodesAnimation[i] : null;
+                    VtkNativeExtremeNodes? extremes = null;
+                    if (extremeNodes != null && extremeNodes.Ids != null)
+                        extremes = VtkNativeExtremeNodes.FromNodesExchangeData(extremeNodes);
+                    _nativeMirror.AddAnimationFrame(actor.Name, GetFloatCoordinates(nodes), nodes?.Values, extremes,
+                                                    GetFloatCoordinates(modelEdgesNodes));
+                }
+            });
+        }
+        private static float[] GetFloatCoordinates(NodesExchangeData nodes)
+        {
+            if (nodes == null) return null;
+            if (nodes.FlatCoor != null) return nodes.FlatCoor;
+            if (nodes.Coor == null) return null;
+            float[] coordinates = new float[3 * nodes.Coor.Length];
+            for (int i = 0; i < nodes.Coor.Length; i++)
+            {
+                coordinates[3 * i] = (float)nodes.Coor[i][0];
+                coordinates[3 * i + 1] = (float)nodes.Coor[i][1];
+                coordinates[3 * i + 2] = (float)nodes.Coor[i][2];
+            }
+            return coordinates;
+        }
         // AddActor of an actor the Controller kept in its selection buffer: it is built again from its data
         private void MirrorBufferedActor(vtkMaxActor actor)
         {

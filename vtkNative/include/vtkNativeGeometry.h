@@ -273,6 +273,23 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_show_transformed_actors(vtkn_view view,
    offsets3 three values per name */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_exploded_view_offsets(vtkn_view view, const char* names,
                                                                     const double* offsets3, int32_t count);
+/* One frame of an animated base actor (InitializeAnimation of vtkMaxActor), added in frame order: the point
+   coordinates (point_count * 3, null when the points do not move), the values (null for none), the extreme nodes
+   (null for none) and the model edge coordinates (null when they do not move) */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_add_animation_frame(vtkn_view view, const char* name,
+                                                              const float* coordinates3, int32_t point_count,
+                                                              const float* values, int32_t value_count,
+                                                              const vtkn_extreme_nodes* extremes,
+                                                              const float* model_edge_coordinates3,
+                                                              int32_t model_edge_point_count);
+/* The frame every animated actor shows */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_animation_frame(vtkn_view view, int32_t frame_number);
+/* The bounds of the visible props of the base, selection and overlay layers (GetBoundingBox); has_bounds is 0
+   when nothing is visible */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_get_bounds(vtkn_view view, double* bounds6, int32_t* has_bounds);
+/* RenderToPNG: the picture of the view magnified 1 to 8 times, its background transparent when asked */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_render_to_png(vtkn_view view, const char* file_name,
+                                                        int32_t transparent_background, int32_t magnification);
 /* vtkn_clear */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_clear(vtkn_view view, int32_t what);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_remove_overlay_actors(vtkn_view view, const char* names);

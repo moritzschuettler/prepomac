@@ -82,6 +82,18 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_view_set_exploded_view_offsets(IntPtr view, byte[] names, double[] offsets3,
                                                                                  int count);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_add_animation_frame(IntPtr view, byte[] name, float[] coordinates3,
+                                                                           int pointCount, float[] values, int valueCount,
+                                                                           IntPtr extremes, float[] modelEdgeCoordinates3,
+                                                                           int modelEdgePointCount);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_animation_frame(IntPtr view, int frameNumber);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_get_bounds(IntPtr view, double[] bounds6, out int hasBounds);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_render_to_png(IntPtr view, byte[] fileName, int transparentBackground,
+                                                                     int magnification);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_clear(IntPtr view, int what);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_remove_overlay_actors(IntPtr view, byte[] names);

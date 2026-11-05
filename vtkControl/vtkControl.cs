@@ -8396,6 +8396,7 @@ namespace vtkControl
         }
         private bool InitializeAndAddAnimatedActor(vtkMaxActor actor, vtkMaxActorData data, bool registerNodeIds)
         {
+            MirrorAnimatedActor(data, actor);
             double animationMemorySizeKb = actor.InitializeAnimation(data);
             actor.RecomputeMemorySize();
             _animationFrameData.MemMb += (actor.MemorySize + animationMemorySizeKb) / 1024.0;
@@ -8939,6 +8940,7 @@ namespace vtkControl
             UpdateAnimationLocatorNodes(frameNumber, applySectionView);
             //
             foreach (vtkMaxActor actor in _animationActors.Values) actor.SetAnimationFrame(frameNumber);
+            MirrorGeometry("SetAnimationFrame", () => _nativeMirror.SetAnimationFrame(frameNumber));
             _currentAnimationFrameNumber = frameNumber;
             //
             if (applyTransforms) ApplyTransforms();

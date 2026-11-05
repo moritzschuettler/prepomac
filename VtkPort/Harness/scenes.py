@@ -122,7 +122,22 @@ SCENES.update({
     "hinge_result_symmetry": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("DISP", "ALL")),
     "hinge_pattern": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
 })
+def _animation_frame(number_of_frames, frame):
+    def run(pmx):
+        import vtkport
+
+        def animate():
+            vtkport.CONTROLLER.DrawScaleFactorAnimation(number_of_frames)
+            vtkport.VTK.SetAnimationFrame(frame, False)
+        vtkport.on_ui(animate)
+    return run
+
+
+SCENES.update({
+    "hinge_animation_frame": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("DISP", "ALL")),
+})
 AFTER_ENABLE = {
+    "hinge_animation_frame": _animation_frame(8, 3),
     "hinge_exploded": _exploded,
     "hinge_result_symmetry": _transformations([95.0, 0.0, 0.0], False),
     "hinge_pattern": _transformations([-35.0, 0.0, 0.0], True),
@@ -138,7 +153,8 @@ AFTER_ENABLE = {
 # The result coordinates, the transformed copies and the actor positions of an exploded view are single precision on
 # the ActiViz side: the framing may differ by one float rounding step
 CAMERA_TOLERANCES = {"hinge_result_disp": 1e-7, "hinge_result_mises": 1e-7, "hinge_result_section": 1e-7,
-                     "hinge_result_symmetry": 1e-7, "hinge_exploded": 1e-7, "hinge_pattern": 1e-7}
+                     "hinge_result_symmetry": 1e-7, "hinge_exploded": 1e-7, "hinge_pattern": 1e-7,
+                     "hinge_animation_frame": 1e-7}
 
 
 def after_enable(name, pmx):

@@ -102,6 +102,12 @@ namespace vtkn
         int GetHatchIndex() const { return HatchIndex; }
         bool GetHasVolumeCells() const { return HasVolumeCells; }
         void SetSectionViewHatch(vtkPolyData* hatch, vtkRenderer* renderer);
+        // Animation (G5): the frames of InitializeAnimation and the frame shown
+        void AddAnimationFrame(const float* coordinates, int pointCount, const float* values, int valueCount,
+                               const vtkn_extreme_nodes* extremes, const float* modelEdgeCoordinates,
+                               int modelEdgePointCount);
+        bool IsAnimated() const { return !AnimationFrames.empty(); }
+        void SetAnimationFrame(int frameNumber);
         // SetExplodedViewActorPosition
         void SetPosition(const double position[3]);
         bool GetGeometryHiddenBySectionView() const { return GeometryHiddenBySectionView; }
@@ -126,6 +132,16 @@ namespace vtkn
         int HatchIndex = 0;
         bool HasVolumeCells = false;
         vtkSmartPointer<vtkActor> SectionViewHatch;
+        struct AnimationFrame
+        {
+            vtkSmartPointer<vtkPoints> Points;
+            vtkSmartPointer<vtkDataArray> PointNormals;
+            vtkSmartPointer<vtkPoints> ModelEdgesPoints;
+            vtkSmartPointer<vtkFloatArray> Values;
+            bool HasExtremes = false;
+            vtkn_extreme_nodes Extremes = {};
+        };
+        std::vector<AnimationFrame> AnimationFrames;
         bool GeometryHiddenBySectionView = false;
         vtkSmartPointer<vtkActor> Geometry;
         vtkSmartPointer<vtkActor> ElementEdges;

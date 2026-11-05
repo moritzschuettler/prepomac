@@ -448,6 +448,103 @@ namespace vtkn
         UpdateColor();
     }
 
+    namespace
+    {
+        vtkSmartPointer<vtkPoints> CreateFloatPoints(const float* coordinates, int count)
+        {
+            if (coordinates == nullptr) return nullptr;
+            vtkNew<vtkFloatArray> data;
+            data->SetNumberOfComponents(3);
+            data->SetNumberOfTuples(count);
+            std::memcpy(data->GetPointer(0), coordinates, sizeof(float) * 3 * static_cast<size_t>(count));
+            vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
+            points->SetData(data);
+            return points;
+        }
+    }
+
+    // Port of the frame part of InitializeAnimation: the frame's points, with the normals of the surface at them,
+    // its values and extreme nodes
+    void PartActor::AddAnimationFrame(const float* coordinates, int pointCount, const float* values, int valueCount,
+                                      const vtkn_extreme_nodes* extremes, const float* modelEdgeCoordinates,
+                                      int modelEdgePointCount)
+    {
+        vtkPolyData* polyData = vtkPolyData::SafeDownCast(Geometry->GetMapper()->GetInput());
+        Require(polyData != nullptr, "The actor has no points to animate.");
+        Require(coordinates == nullptr || pointCount == polyData->GetNumberOfPoints(),
+                "There must be one frame point per point of the actor.");
+        AnimationFrame frame;
+        frame.Points = CreateFloatPoints(coordinates, pointCount);
+        frame.ModelEdgesPoints = CreateFloatPoints(modelEdgeCoordinates, modelEdgePointCount);
+        if (values != nullptr)
+        {
+            frame.Values = vtkSmartPointer<vtkFloatArray>::New();
+            frame.Values->SetName("scalars");
+            frame.Values->SetNumberOfValues(valueCount);
+            for (int i = 0; i < valueCount; i++) frame.Values->SetValue(i, values[i]);
+        }
+        if (extremes != nullptr)
+        {
+            frame.HasExtremes = true;
+            frame.Extremes = *extremes;
+        }
+        if (frame.Points != nullptr && polyData->GetPointData()->GetNormals() != nullptr)
+        {
+            vtkNew<vtkPolyData> framePolyData;
+            framePolyData->ShallowCopy(polyData);
+            framePolyData->SetPoints(frame.Points);
+            vtkNew<vtkPolyDataNormals> normalGenerator;
+            normalGenerator->SetInputData(framePolyData);
+            normalGenerator->SplittingOff();
+            normalGenerator->ComputePointNormalsOn();
+            normalGenerator->ComputeCellNormalsOff();
+            normalGenerator->Update();
+            frame.PointNormals = normalGenerator->GetOutput()->GetPointData()->GetNormals();
+        }
+        AnimationFrames.push_back(frame);
+        if (AnimationFrames.size() == 1) SetAnimationFrame(0);
+    }
+
+    // Port of vtkMaxActor.SetAnimationFrame without the volume grid of the frame
+    void PartActor::SetAnimationFrame(int frameNumber)
+    {
+        if (frameNumber < 0 || frameNumber >= static_cast<int>(AnimationFrames.size()))
+            throw Error(VTKN_ERROR_INVALID_ARGUMENT, "The animation frame cannot be set.");
+        const AnimationFrame& frame = AnimationFrames[frameNumber];
+        // VTK 9 computes the bounds of a data set again only when its points changed after the last computation;
+        // the points of a frame are older, so they are marked modified when they are shown
+        if (frame.Points != nullptr) frame.Points->Modified();
+        if (frame.ModelEdgesPoints != nullptr) frame.ModelEdgesPoints->Modified();
+        vtkPolyData* polyData = vtkPolyData::SafeDownCast(Geometry->GetMapper()->GetInput());
+        if (frame.Points != nullptr)
+        {
+            polyData->SetPoints(frame.Points);
+            if (ElementEdges != nullptr)
+            {
+                vtkPolyData* edges = vtkPolyData::SafeDownCast(ElementEdges->GetMapper()->GetInput());
+                if (edges != nullptr && edges->GetNumberOfPoints() == frame.Points->GetNumberOfPoints())
+                    edges->SetPoints(frame.Points);
+            }
+            polyData->GetPointData()->SetNormals(frame.PointNormals);
+        }
+        if (frame.ModelEdgesPoints != nullptr && ModelEdges != nullptr)
+        {
+            vtkPolyData* modelEdges = vtkPolyData::SafeDownCast(ModelEdges->GetMapper()->GetInput());
+            if (modelEdges != nullptr) modelEdges->SetPoints(frame.ModelEdgesPoints);
+        }
+        if (frame.Values != nullptr)
+        {
+            polyData->GetPointData()->SetScalars(frame.Values);
+            PointScalars = frame.Values;
+        }
+        if (frame.HasExtremes)
+        {
+            Extremes = frame.Extremes;
+            HasExtremeNodes = true;
+        }
+        if (CellLocator != nullptr) CellLocator->Modified();
+    }
+
     void PartActor::SetPosition(const double position[3])
     {
         Geometry->SetPosition(position[0], position[1], position[2]);

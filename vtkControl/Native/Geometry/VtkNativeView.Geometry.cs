@@ -204,6 +204,49 @@ namespace vtkControl.Native
                                                                                          values, names.Length));
         }
         //
+        public void AddAnimationFrame(string name, float[] coordinates, float[] values, VtkNativeExtremeNodes? extremes,
+                                      float[] modelEdgeCoordinates)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            IntPtr extremesPointer = IntPtr.Zero;
+            try
+            {
+                if (extremes.HasValue)
+                {
+                    extremesPointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(VtkNativeExtremeNodes)));
+                    Marshal.StructureToPtr(extremes.Value, extremesPointer, false);
+                }
+                VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_animation_frame(
+                    Handle(), VtkNativeLibrary.ToUtf8(name), coordinates, coordinates == null ? 0 : coordinates.Length / 3,
+                    values, values == null ? 0 : values.Length, extremesPointer, modelEdgeCoordinates,
+                    modelEdgeCoordinates == null ? 0 : modelEdgeCoordinates.Length / 3));
+            }
+            finally
+            {
+                if (extremesPointer != IntPtr.Zero) Marshal.FreeHGlobal(extremesPointer);
+            }
+        }
+        //
+        public void SetAnimationFrame(int frameNumber)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_animation_frame(Handle(), frameNumber));
+        }
+        //
+        public double[] GetBounds()
+        {
+            double[] bounds = new double[6];
+            int hasBounds;
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_get_bounds(Handle(), bounds, out hasBounds));
+            return hasBounds == 0 ? null : bounds;
+        }
+        //
+        public void RenderToPng(string fileName, bool transparentBackground, int magnification)
+        {
+            if (fileName == null) throw new ArgumentNullException("fileName");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_render_to_png(Handle(), VtkNativeLibrary.ToUtf8(fileName),
+                                                                              transparentBackground ? 1 : 0, magnification));
+        }
+        //
         public void SetActorVisible(string name, VtkNativeLayer layer, bool visible)
         {
             if (name == null) throw new ArgumentNullException("name");

@@ -285,6 +285,49 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_add_animation_frame(vtkn_view view, const char* name, const float* coordinates3,
+                                                        int32_t point_count, const float* values, int32_t value_count,
+                                                        const vtkn_extreme_nodes* extremes,
+                                                        const float* model_edge_coordinates3,
+                                                        int32_t model_edge_point_count)
+    {
+        return GuardVtk([&]() {
+            std::string actorName = ToName(name, "name");
+            PartActor* actor = View::FromHandle(view)->FindActor(actorName, VTKN_LAYER_BASE);
+            if (actor == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "There is no actor named " + actorName + ".");
+            actor->AddAnimationFrame(coordinates3, point_count, values, value_count, extremes,
+                                     model_edge_coordinates3, model_edge_point_count);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_animation_frame(vtkn_view view, int32_t frame_number)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetAnimationFrame(frame_number);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_get_bounds(vtkn_view view, double* bounds6, int32_t* has_bounds)
+    {
+        return GuardVtk([&]() {
+            Require(bounds6 != nullptr && has_bounds != nullptr, "The output arguments must not be null.");
+            *has_bounds = View::FromHandle(view)->GetVisibleBounds(bounds6) ? 1 : 0;
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_render_to_png(vtkn_view view, const char* file_name, int32_t transparent_background,
+                                                  int32_t magnification)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->RenderToPng(ToName(file_name, "file_name"), transparent_background != 0,
+                                                magnification);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_clear(vtkn_view view, int32_t what)
     {
         return GuardVtk([&]() {

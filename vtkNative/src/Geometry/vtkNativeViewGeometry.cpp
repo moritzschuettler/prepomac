@@ -356,6 +356,15 @@ namespace vtkn
         AddActor(name + ":silhouette", std::move(edges));
     }
 
+    // The actor part of vtkControl.SetAnimationFrame; vtkControl removes and applies the section view and the
+    // transformations around it, and those calls reach this view too
+    void View::SetAnimationFrame(int frameNumber)
+    {
+        for (PartActor* actor : GetBaseActors())
+            if (actor->IsAnimated()) actor->SetAnimationFrame(frameNumber);
+        AdjustCameraDistanceAndClipping();
+    }
+
     // Port of UpdateScalarFormatting without its widgets: the extreme nodes of the visible actors with color
     // contours give the range, the lookup table of the spectrum over it colors them, unknown values white
     void View::UpdateScalarFormatting(const vtkn_color_spectrum& spectrum, bool keepScalarBarVisible,

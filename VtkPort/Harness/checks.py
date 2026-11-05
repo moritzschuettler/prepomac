@@ -64,6 +64,12 @@ def compare_pictures(old_path, new_path, side_by_side_dir=None):
     difference = numpy.abs(a - b).max(axis=2)
     result = {"coverage": coverage, "differing": float((difference > LEVELS).mean()),
               "mean_abs": float(numpy.abs(a - b).mean()), "max": int(difference.max())}
+    alpha_a = Image.open(old_path)
+    alpha_b = Image.open(new_path)
+    if alpha_a.mode == "RGBA" or alpha_b.mode == "RGBA":
+        alpha_difference = numpy.abs(numpy.asarray(alpha_a.convert("RGBA"))[:, :, 3].astype(numpy.int16) -
+                                     numpy.asarray(alpha_b.convert("RGBA"))[:, :, 3].astype(numpy.int16))
+        result["differing"] = max(result["differing"], float((alpha_difference > LEVELS).mean()))
     if side_by_side_dir:
         if not os.path.isdir(side_by_side_dir):
             os.makedirs(side_by_side_dir)

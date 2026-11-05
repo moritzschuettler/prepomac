@@ -93,6 +93,7 @@ namespace vtkn
         void UpdateScalarFormatting(const vtkn_color_spectrum& spectrum, bool keepScalarBarVisible,
                                     bool useAllFrames, double allFramesMin, double allFramesMax);
         bool GetScalarRange(double range[2]);
+        bool GetVisibleBounds(double bounds[6]) { return ComputeVisiblePropBounds(bounds); }
         // Transformations and exploded view (Geometry/vtkNativeTransformations.cpp)
         void AddSymmetry(int symmetryPlane, const double point[3]);
         void AddLinearPattern(const double displacement[3], int numOfItems);
@@ -102,6 +103,8 @@ namespace vtkn
         void ClearTransforms();
         void ShowTransformedActors(bool show);
         void SetExplodedViewOffsets(const std::map<std::string, std::array<double, 3>>& offsets);
+        void SetAnimationFrame(int frameNumber);
+        void RenderToPng(const std::string& fileName, bool transparentBackground, int magnification);
         void CreateSectionView(const vtkn_section_view& sectionView);
         void RemoveSectionView();
         void AddSymbolActor(const std::string& name, const vtkn_part_style& style, const double* points,
