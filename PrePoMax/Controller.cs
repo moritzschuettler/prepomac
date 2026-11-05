@@ -66,6 +66,10 @@ namespace PrePoMax
         [NonSerialized] protected int _updateBatchCount;
         [NonSerialized] protected UpdateType _batchedModelUpdateType;
         [NonSerialized] protected UpdateType _batchedResultsUpdateType;
+        [NonSerialized] protected int _scriptViewUpdateDeferralCount;
+        [NonSerialized] protected bool _scriptModelSymbolsRedrawPending;
+        [NonSerialized] protected Stopwatch _scriptViewUpdateStopwatch;
+        [NonSerialized] protected long _scriptViewUpdateIntervalMs;
         // View
         [NonSerialized] protected ViewGeometryModelResults _currentView;
         [NonSerialized] protected Dictionary<string, double[]> _viewNameRotationCenter;
@@ -685,12 +689,14 @@ namespace PrePoMax
             PythonEngineResult result = null;
             List<string> messages;
             BeginKeywordStateNotificationBatch();
+            BeginScriptViewUpdateDeferral();
             try
             {
                 result = execute();
             }
             finally
             {
+                EndScriptViewUpdateDeferral();
                 messages = EndKeywordStateNotificationBatch();
                 if (result == null) ShowOrDeferKeywordStateMessages(messages);
             }
@@ -24934,14 +24940,85 @@ namespace PrePoMax
             if (modelUpdateType != UpdateType.None) FeModelUpdate(modelUpdateType);
             if (resultsUpdateType != UpdateType.None) FeResultsUpdate(resultsUpdateType);
         }
+        // A script that adds items one call at a time would redraw every symbol and repaint the tree after each of
+        // them, which makes a loop of a few thousand calls take many minutes. While a script runs, the model is still
+        // checked after every call, so validity reads stay correct, but the symbols and the tree are brought up to
+        // date only every so often, at least four times the time an update takes apart, and once at the end
+        public void BeginScriptViewUpdateDeferral()
+        {
+            if (_scriptViewUpdateDeferralCount == 0)
+            {
+                _scriptModelSymbolsRedrawPending = false;
+                _scriptViewUpdateIntervalMs = 1000;
+                _scriptViewUpdateStopwatch = Stopwatch.StartNew();
+                _form.BeginTreeUpdateBatch();
+            }
+            _scriptViewUpdateDeferralCount++;
+        }
+        public void EndScriptViewUpdateDeferral()
+        {
+            if (_scriptViewUpdateDeferralCount <= 0)
+                throw new InvalidOperationException("The script view update deferral is not active.");
+            //
+            _scriptViewUpdateDeferralCount--;
+            if (_scriptViewUpdateDeferralCount > 0) return;
+            //
+            try
+            {
+                RedrawPendingScriptModelSymbols();
+            }
+            finally
+            {
+                _scriptViewUpdateStopwatch = null;
+                _form.EndTreeUpdateBatch();
+            }
+        }
+        // An image of the view shows what the script has done so far
+        public void UpdateDeferredScriptView()
+        {
+            if (_scriptViewUpdateDeferralCount == 0) return;
+            //
+            RedrawPendingScriptModelSymbols();
+            _form.EndTreeUpdateBatch();
+            _form.BeginTreeUpdateBatch();
+        }
+        private void UpdateDeferredScriptViewWhenDue()
+        {
+            if (_scriptViewUpdateStopwatch.ElapsedMilliseconds < _scriptViewUpdateIntervalMs) return;
+            //
+            Stopwatch updateStopwatch = Stopwatch.StartNew();
+            UpdateDeferredScriptView();
+            _scriptViewUpdateIntervalMs = Math.Max(1000, 4 * updateStopwatch.ElapsedMilliseconds);
+            _scriptViewUpdateStopwatch.Restart();
+        }
+        private void RedrawPendingScriptModelSymbols()
+        {
+            if (!_scriptModelSymbolsRedrawPending) return;
+            //
+            _scriptModelSymbolsRedrawPending = false;
+            if (_updateBatchCount > 0) _batchedModelUpdateType |= UpdateType.RedrawSymbols;
+            else RedrawModelSymbols();
+        }
         // Update model
         public void FeModelUpdate(UpdateType updateType)
         {
             if (_updateBatchCount > 0) { _batchedModelUpdateType |= updateType; return; }
             // First check the validity to correctly draw the symbols
             if (updateType.HasFlag(UpdateType.Check)) CheckAndUpdateModelValidity();
-            if (updateType.HasFlag(UpdateType.DrawModel)) DrawModel(updateType.HasFlag(UpdateType.ResetCamera));
-            if (updateType.HasFlag(UpdateType.RedrawSymbols)) RedrawModelSymbols();
+            if (updateType.HasFlag(UpdateType.DrawModel))
+            {
+                DrawModel(updateType.HasFlag(UpdateType.ResetCamera));
+                _scriptModelSymbolsRedrawPending = false;
+            }
+            if (updateType.HasFlag(UpdateType.RedrawSymbols))
+            {
+                if (_scriptViewUpdateDeferralCount > 0)
+                {
+                    _scriptModelSymbolsRedrawPending = true;
+                    UpdateDeferredScriptViewWhenDue();
+                }
+                else RedrawModelSymbols();
+            }
         }
         public void FeResultsUpdate(UpdateType updateType)
         {
