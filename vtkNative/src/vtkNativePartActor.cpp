@@ -306,7 +306,14 @@ namespace vtkn
         mapper->ScalarVisibilityOff();
         Geometry = vtkSmartPointer<vtkActor>::New();
         Geometry->SetMapper(mapper);
-        Geometry->SetPickable(style.pickable ? 1 : 0);
+        // A part is picked when it is pickable and its cells carry the element ids
+        bool pickable = style.pickable != 0 && polyActor->GetCellData()->GetGlobalIds() != nullptr;
+        Geometry->SetPickable(pickable ? 1 : 0);
+        if (pickable)
+        {
+            CellLocator = vtkSmartPointer<vtkCellLocator>::New();
+            CellLocator->SetDataSet(polyActor);
+        }
         UseInfiniteViewer(Geometry);
         // Element edges
         if (style.can_have_element_edges)
@@ -347,6 +354,17 @@ namespace vtkn
         //
         UpdateColor();
         Geometry->GetProperty()->SetLighting(style.lighting != 0);
+    }
+
+    bool PartActor::Owns(vtkProp* prop) const
+    {
+        return prop != nullptr && (prop == Geometry.GetPointer() || prop == ElementEdges.GetPointer() ||
+                                   prop == ModelEdges.GetPointer());
+    }
+
+    void PartActor::SetPickOpacity()
+    {
+        if (Geometry->GetProperty()->GetOpacity() != 1) Geometry->GetProperty()->SetOpacity(1);
     }
 
     void PartActor::AddTo(vtkRenderer* renderer)

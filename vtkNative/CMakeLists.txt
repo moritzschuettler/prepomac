@@ -47,6 +47,7 @@ add_library(vtkNative SHARED
     src/vtkNativeView.cpp
     src/vtkNativeView.h
     src/vtkNativeViewCamera.cpp
+    src/vtkNativeViewPick.cpp
     src/vtkNativeWidgetHighlight.cpp
     src/vtkNativeWidgetHighlight.h
     src/vtkNativeWidgetSet.cpp

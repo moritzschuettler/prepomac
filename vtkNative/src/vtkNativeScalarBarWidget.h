@@ -51,7 +51,7 @@ namespace vtkn
         void GenerateLabels(double offsetX, double offsetY, double size[2]);
         void GenerateBarBorders(double offsetX, double offsetY, double boxWidth, double boxHeight,
                                 double verticalLineLength);
-        void GenerateBarColors(double offsetX, double offsetY, double boxWidth, double boxHeight);
+        void GenerateBarColors(double boxWidth, double boxHeight);
         void AddBarColorCell(int cellId, double boxWidth, double cellHeight, float scalar, double& height);
         void GenerateText(double offsetX, double offsetY, double size[2]);
         void SetOffset(double offset[2], double x, double y);

@@ -9,6 +9,7 @@
 #include "vtkNative.h"
 
 #include <vtkActor.h>
+#include <vtkCellLocator.h>
 #include <vtkPolyData.h>
 #include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
@@ -27,14 +28,20 @@ namespace vtkn
         void ApplyEdgesVisibility(vtkn_edges_visibility edgesVisibility);
 
         vtkActor* GetGeometry() { return Geometry; }
-
-    private:
+        bool Owns(vtkProp* prop) const;
+        // The locator of the surface cells, whose global ids are the element ids; null for a part that cannot be
+        // picked, as vtkMaxActor.CellLocator
+        vtkCellLocator* GetCellLocator() { return CellLocator; }
+        // GetPickPoint picks every part opaque; UpdateColor puts the opacity back
+        void SetPickOpacity();
         void UpdateColor();
 
+    private:
         vtkn_part_style Style;
         vtkSmartPointer<vtkActor> Geometry;
         vtkSmartPointer<vtkActor> ElementEdges;
         vtkSmartPointer<vtkActor> ModelEdges;
+        vtkSmartPointer<vtkCellLocator> CellLocator;
     };
 
     // The legacy cell layout of a vtkn_mesh checked whole: every cell's node count and point indices

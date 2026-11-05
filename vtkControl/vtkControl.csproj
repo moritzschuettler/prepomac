@@ -98,6 +98,7 @@
     <Compile Include="Native\VtkNativeOrientation.cs" />
     <Compile Include="Native\VtkNativePartStyle.cs" />
     <Compile Include="Native\VtkNativePinnedMesh.cs" />
+    <Compile Include="Native\VtkNativePointPick.cs" />
     <Compile Include="Native\VtkNativeScalarBar.cs" />
     <Compile Include="Native\VtkNativeScalarBarColors.cs" />
     <Compile Include="Native\VtkNativeStatus.cs" />

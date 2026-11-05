@@ -16,7 +16,8 @@ Pilot files live in `VtkPilot/`.
 | 2. Slice A | 2026-11-05 11:48 | 2026-11-05 12:08 | 1 user turn, ~75 tool calls | 23 % -> 31 % / 7 % -> 8 %; context 356k -> 560k | 3 render (+2 check) | ~1,450 (non-blank lines) | C++ ~1,190, C API +85; C# P/Invoke +423; mirror harness 104; checks 259 | |
 | 2a. Slice A edge quality (after review) | 2026-11-05 14:39 | 2026-11-05 14:47 | 2 user turns, ~30 tool calls | 2 % -> 3 % / 9 % -> 9 % (5 h window reset); context 131k -> 170k (after a compaction) | 1 render (5 variants measured) | 0 | C++ +19 / -24 | user found it in review |
 | 3. Slice B | 2026-11-05 15:06 | 2026-11-05 15:42 | 1 user turn, ~75 tool calls | 4 % -> 14 % / 9 % -> 10 %; context 178k -> 520k | 5 port/render (+3 harness/check) | ~2,000 (non-blank lines) | C++ 1,561 new + ~360 in API/view; C API +91; C# 472 new + ~190 changed; checks 607 | |
-| 4. Slice C | | | | | | | | |
+| 3a. Slice B review fixes | 2026-11-05 ~16:35 | 2026-11-05 16:47 | 2 user turns, ~25 tool calls | 14 % -> 18 % (account wide) | 1 port (+1 tool) | 0 | C++ +8 / -14; toggle script 93 | user found it in review |
+| 4. Slice C | 2026-11-05 16:57 | 2026-11-05 17:14 | 1 user turn, ~55 tool calls | 18 % -> 22 % / 11 % -> 12 %; context 556k -> 661k | 1 port (+4 harness/check) | ~240 (non-blank lines) | C++ 204 new + 31; C API +72; C# 26 new + 59; mirror pick 78; checks 346 | |
 
 Usage is read from the session usage card (`get_usage`): the 5 hour and weekly percentages of the Team plan at the
 start and end of each phase, plus the context tokens of the session. Token counts per phase are not reported by the
@@ -451,3 +452,175 @@ User review time: to be noted by the user. For the interactive feel, run `VtkPil
 from the Python panel of a visible PrePoMax: the first run shows the VTK 9.7 view with a mesh and the native scalar
 bar and leaves it open (double clicks are echoed to the output), the next run closes it. (`Test_Embedded_ScalarBar.py`
 is the automated check and closes the view when it is done.)
+
+### Follow-up 3a: review fixes (after the user's interactive check)
+
+2026-11-05 about 16:35 - 16:47, two short rounds, 14 % -> 18 % of the 5 h window (account wide; the next phase
+started at 18 %). The automated embedded check closes the view, so a toggle script for the interactive check was
+added (`Toggle_Native_ScalarBar.py`); the user then found the color boxes hidden until the mouse entered the bar
+and the bar not transparent. Fix cycle 9 above (restacking over the background); the toggle script now takes the
+frame from the legend settings.
+
+## Phase 4 - Slice C: selection and picking
+
+Started 2026-11-05 16:57 (5 h window 18 %, weekly 11 %, context 556k tokens). Ended 17:14 (22 %, 12 %, 661k).
+
+### What was ported
+
+The screen to model step of a selection, as the plan scoped it:
+
+| Old C# (ActiViz 5.8) | Non-blank lines | Native port |
+|---|---|---|
+| `GetPickPoint` (hardware pick of the pick list, opaque, selectable filter, cell pick fallback within the selection distance) | ~70 | `View::PickPoint` |
+| `GetGlobalCellIdClosestTo3DPoint` (both overloads: the picked part first, then all visible parts, precision limit) | ~85 | `View::GetGlobalCellIdClosestTo3DPoint` |
+| `GetPropPickerPickPosition`, `GetSelectionPrecision`, `DisplayToWorldScale` | ~25 | in `PickPoint`, `GetSelectionPrecision` |
+| the frustum part of `PickByArea`, `GetPlaneParameters`, `GetActorName` | ~50 | `View::PickArea` |
+| `vtkMaxActor` cell locator and pickability | ~10 | `PartActor` |
+
+About 240 lines became 204 lines of C++ (`vtkNativeViewPick.cpp`) plus 31 in the part actor and widget set, the C API
++72 (`vtkn_view_pick_point`, `vtkn_view_pick_area`, API version 4) and 26 + 59 lines of C#.
+`PickWithNativeMirror` in `vtkControl` (78 lines) is `style_PointPickedOnLeftUpEvt` with the native pick: it raises
+the same `OnMouseLeftButtonUpSelection` / `Controller_ActorsPicked` events, so the Controller resolves the native
+picks exactly as it resolves the ActiViz ones.
+
+### How it is checked (`bash VtkPilot/Phase4/Run_SliceC.sh`, about 90 s)
+
+The Phase 0 pick plan on the solid (meshed L-bracket) and on Joint_Hinge: a 16 x 12 grid of point picks and four
+boxes (inside and crossing, small and large) in the node, element, edge, surface and part modes, 980 picks per path.
+Both paths show only the mirrored parts and frame the view identically (cameras bit identical). Each pick is made
+through `vtkControl.Pick` and through `PickWithNativeMirror`; the Controller resolves both into ids. Compared: ids
+and part names exactly, points, directions and frustum planes to 1e-6 of the view size.
+
+### Result: 1,960 of 1,960 picks pass, 18 reported
+
+- Ids identical for every box and for every point pick except 18 reported ones; part names identical (as sets).
+- Frustum side planes equal to 4e-8 of the view size; directions equal.
+- **13 border picks**: ids of a neighboring element or node, the two points 0.6-0.8 px apart. The native point is
+  the exact intersection of the pixel's ray with the surface (projected back, 0.000 px from the pixel); the ActiViz
+  point is rebuilt from the depth buffer and lies up to 0.4 px off, so on an element border it falls on either side.
+- **5 tolerance picks** (one pixel of the solid, in every mode): only the native path picks, at the model edge 4.7 px
+  from the pixel, within the selection distance of 7 px. `GetPickPoint` is written to pick geometry within that
+  distance when the exact pixel misses; VTK 9's cell picker does, VTK 5.8's did not catch it even two pixels
+  nearer. A behavior change the port brings in line with the code's intent; to be confirmed by the user.
+- Native picks take 20-23 ms against 14-16 ms for ActiViz (the off screen mirror renders with 8 samples, and the
+  pickers are made per pick); not tuned.
+
+### Fix cycles
+
+1. (harness) The select enums live in `CaeGlobals`, not `vtkControl`.
+2. (check) The hinge was framed with its symbols on the ActiViz side; parts only mode, as in slice A, makes the
+   cameras identical.
+3. (port) Points were off by up to several pixels and one pick hit a back face: the depth VTK 9 reports from its
+   hardware selection (`GetPickedZ`, the `ZBUFFER_VALUE` of the selection node) does not rebuild the surface point.
+   After the hardware pick names the part, the native pick intersects the pixel's ray with that part's cells.
+4. (check) Box part names come in another order from the two area pickers; compared as sets. The near plane of
+   the frustum follows the clipping range, which ActiViz also sets from its selection highlights; the planes are
+   compared as planes and the near/far shift is reported (up to 4e-4).
+5. (check) Border and tolerance picks are classified (ray and outline probes) instead of failed.
+
+VTK API change met: `vtkCellLocator::LazyEvaluationOn` is gone in VTK 9 (locators build on first use).
+
+### Findings for the full port
+
+- **The id resolution is not VTK free.** The Controller resolves points and frustums through two `vtkControl`
+  helpers that use VTK: `GetGeometryPickProperties` (closest cell, its face and edge nodes, through the cell
+  locators) and `GetPointAndCellIdsInsideFrustum` (`vtkExtractSelectedFrustum` on the volume grids). In the pilot
+  they ran on the ActiViz side; the full port needs them natively (about 400 lines with their helpers) or in C#.
+  This is the main gap between the plan's assumption and the code.
+- **Native picking is more exact than the old one** (exact ray intersection, tolerance fallback that works), so
+  selections recorded with ActiViz can resolve to a neighboring element on regeneration when they were made on a
+  border. The same happens between any two graphics drivers today; worth knowing for the regression tests.
+- **The hover and the selection highlights are not ported**: they draw Controller data in the selection layer
+  (`PickByNode` ... `PickByGeometryEdgeAngle`, the highlight branch of `PickByArea`), which is geometry work like
+  slice A plus the selection layer, not picking.
+
+### Rate
+
+About 240 lines of picking code ported in 17 minutes at 4 % of the 5 hour window, with 1 port fix cycle; most of
+the phase was the end to end check (980 picks per path resolved by the Controller).
+
+User review time: to be noted by the user.
+
+## Final report
+
+### 1. Measured effort per phase
+
+| Phase | Agent time | 5 h window | Weekly | Old C# ported | Fix cycles (port/render + harness/check) |
+|---|---|---|---|---|---|
+| 0. Reference | 9 min | 1 % | 0 % | - | 0 + 4 |
+| 1. Groundwork | 18 min | 4 % | 1 % | - (adds the C API, build, embedding, two VTK versions in one process) | 3 + 3 |
+| 2. Slice A, geometry and views | 20 min | 8 % | 1 % | ~1,450 | 3 + 2 |
+| 2a. Edge quality after review | 8 min | 1 % | 0 % | - | 1 |
+| 3. Slice B, scalar bar widget | 36 min | 10 % | 1 % | ~2,000 | 5 + 3 |
+| 3a. Review fixes | ~12 min | ~4 % (account wide) | 0 % | - | 1 + 1 |
+| 4. Slice C, picking | 17 min | 4 % | 1 % | ~240 | 1 + 4 |
+| **Total** | **about 2 h** | **about 32 %** | **about 4 %** | **~3,700** | |
+
+User review time is not in the table (to be noted by the user). Each review found one real problem the automated
+checks did not (edge quality, the hidden color boxes), so a review round per slice belongs in the estimate.
+
+### 2. The remaining vtkControl code by kind (non-blank lines)
+
+`vtkControl` is about 22,600 non-blank lines without the pilot's own code (the plan's 23.5k counted blank lines);
+about 3,700 are ported.
+
+| Kind | What | Lines | Ported | Remaining |
+|---|---|---|---|---|
+| Geometry and data | `vtkControl.cs` regions Add geometry 1,516, Section view 1,126, Scalar fields 1,079, Views 962, Clear 413, Animation 389, Settings 274, Follower view 194, Transformations 171, Highlight geometry 131, Hide/Show 81, Exploded view 80, about 1,600 of the code outside regions; `vtkMaxActor` 2,579 and its data, caption, extreme node and animation data 445; coordinate system geometry and symbols 781; lookup table and color spectrum 240; section cap and hatch 391; enums, globals and helpers about 800 | ~13,300 | ~1,450 | **~11,800** |
+| Widgets and interaction | `vtkInteractorStyleControl` 1,587; widgets 4,042 (coordinate system 700, scale 408, color bar 441, status block 176, text with arrow 402 and the ported scalar bar, border, text and highlight); Widgets region 516; touchpad and trackpad 560; designer 467; about 900 of the code outside regions (mouse event handlers) | ~8,100 | ~2,000 | **~6,100** |
+| Selection | Selection region 1,331 (highlight and hover paths, id resolution helpers, geometry selection modes) | ~1,350 | ~240 | **~1,100** |
+
+The split of the code outside regions is estimated from its content (fields, set up, mouse handlers, helpers).
+
+### 3. Estimate for the full port
+
+Measured rate of agent time per 1,000 lines, review fixes included: geometry 19 min (slice A), widgets and
+interaction 23 min (slice B), selection about 70 min (slice C was small and mostly verification; the rate is taken
+with care). The remaining code is harder than the slices in two places: the geometry kind holds the algorithmic
+parts (section view caps and hatches, scalar contours, animation, exploded and follower views, transformations,
+VTK filters), and the interaction style holds the camera feel (rotate, pan, smooth zoom, touchpad), which only the
+user can judge. The ranges carry that as a factor.
+
+| Kind | Remaining | Rate | Factor | Agent time |
+|---|---|---|---|---|
+| Geometry and data | 11,800 | 19 min / 1k | 1.5 - 2.5 | 5.6 - 9.3 h |
+| Widgets and interaction | 6,100 | 23 min / 1k | 0.8 - 1.8 (bases ported; camera feel) | 1.9 - 4.2 h |
+| Selection | 1,100 + ~400 id resolution helpers | 40 - 70 min / 1k | 1 | 1.0 - 1.8 h |
+| Integration (switching the public surface of `vtkControl` to the native library, removing ActiViz, packaging and installer, the Python API regression tests and pictures) | | | +25 - 40 % | 2.1 - 6.1 h |
+| **Total agent time** | | | | **about 11 - 21 h** |
+
+In plan usage that is roughly 2 to 4 full 5 hour windows (the slices used 15-25 % of a window per hour of agent
+work) and roughly half to all of a weekly allowance at the pilot's rate (about 2 % of the week per slice hour).
+Add one user review round per slice: with slices of about 1,500 lines that is 12 - 15 rounds. The groundwork
+(phase 1) is done and does not recur.
+
+Main risks that widen the range: the VTK 9 rendering defaults met so far (polygon offset, line passes and
+multisampling, local viewer specular, 2D truncation, text placement, carriage return widths, picking depth) each
+cost one fix cycle and each new actor kind can bring its own; the section view and the results coloring are the
+largest unported pieces and have no slice yet.
+
+### 4. The C API conventions that worked
+
+The conventions of phase 1 (opaque handles in a live registry, a status and a thread local last error, a guard per
+entry point that also fails on VTK errors, arrays in as pointer and count, strings and arrays out through caller
+buffers with the required size, zero separated string lists, UTF-8 as `byte[]`, `__cdecl`, callbacks as function
+pointer and user data with the delegate held, thread affinity checked on the managed side, no finalizers, an API
+version checked at load), plus what the slices added:
+
+- **Blittable structs by `ref`, optional ones as `IntPtr`, arrays inside structs pinned with `GCHandle`** for the
+  duration of the call (`vtkn_part_style`, `vtkn_mesh`, `vtkn_scalar_bar_colors`, `vtkn_point_pick`). Arrays in C
+  structs (`double color[4]`) are written out field by field in C#.
+- **Objects owned by a view** (`vtkn_scalar_bar`) are handles of their own, in their own registry, destroyed with
+  the view; their events carry a widget id the managed wrapper filters on.
+- **.NET formatting stays in C#.** Number formats, culture and texts are made in C# and cross as finished UTF-8
+  strings; the native side only measures and draws them.
+- **Out structs plus a name buffer** for results with a string (`vtkn_view_pick_point`): the call is repeated when
+  the buffer was too small.
+- **Events that can be fed from either side**: the embedded window feeds the widgets from an interactor observer
+  with a priority above the style that aborts handled events, and a host can feed the same path through
+  `vtkn_view_handle_mouse_event`.
+- **Rendering defaults live once in the native view** (offsets, multisampling, forced opaque edges, infinite
+  viewer, 2D truncation, text shift), not per actor.
+- **The mirror as the test method**: hooks in the Controller-facing methods of `vtkControl` send every change to an
+  off screen native view, a mode shows only what the slice ports, and the same operations run on both paths in one
+  process; layout and ids are compared exactly, pictures with a tolerance and side by side images.

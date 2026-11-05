@@ -18,7 +18,7 @@ namespace vtkControl.Native
     {
         // Variables
         public const string LibraryName = "vtkNative.dll";
-        public const int ApiVersion = 3;
+        public const int ApiVersion = 4;
         public const uint LOAD_WITH_ALTERED_SEARCH_PATH = 0x00000008;
 
 
@@ -115,6 +115,16 @@ namespace vtkControl.Native
                                                                    int capacity, out int width, out int height);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_write_png(IntPtr view, byte[] fileName, int magnification);
+        //
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_pick_point(IntPtr view, int x, int y, int selectionDistance,
+                                                                  int limitDistance, byte[] selectableParts,
+                                                                  ref VtkNativePointPick pick, byte[] partName,
+                                                                  int capacity, out int required);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_pick_area(IntPtr view, int x1, int y1, int x2, int y2,
+                                                                 [Out] double[] planes36, byte[] partNames, int capacity,
+                                                                 out int required);
         //
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_handle_mouse_event(IntPtr view, int eventId, int x, int y,

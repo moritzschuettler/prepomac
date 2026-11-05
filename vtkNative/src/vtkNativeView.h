@@ -21,6 +21,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -77,6 +78,12 @@ namespace vtkn
         std::vector<uint8_t> ReadPixels(int magnification, int& width, int& height);
         void WritePng(const std::string& fileName, int magnification);
 
+        // Picking (vtkNativeViewPick.cpp)
+        bool PickPoint(int x, int y, int selectionDistance, bool limitDistance,
+                       const std::set<std::string>* selectableParts, double point[3], double direction[3],
+                       std::string& partName, int& cellId);
+        std::vector<std::string> PickArea(int x1, int y1, int x2, int y2, double planes36[36]);
+
         // Widgets
         bool HandleMouseEvent(int eventId, int x, int y);
         ScalarBar* CreateScalarBar();
@@ -84,6 +91,11 @@ namespace vtkn
 
     private:
         static void OnVtkEvent(vtkObject* caller, unsigned long eventId, void* clientData, void* callData);
+        // vtkNativeViewPick.cpp
+        PartActor* FindPart(vtkProp* prop, std::string* name);
+        int GetGlobalCellIdClosestTo3DPoint(double point[3], PartActor* onlyPart,
+                                            const std::set<std::string>* selectableParts, double maxDistance2);
+        double GetSelectionPrecision(int selectionDistance);
         static void OnWidgetEvent(vtkObject* caller, unsigned long eventId, void* clientData, void* callData);
         void RaiseEvent(int32_t eventId, const double* values, int32_t count);
         // vtkNativeViewCamera.cpp

@@ -226,7 +226,7 @@ namespace vtkn
         // Bar
         double offsetY = -lineOffset + 2.0 / 7 * sizeOfOne[1];
         GenerateBarBorders(Padding, offsetY + size1[1], boxWidth, boxHeight, verticalLineLength);
-        GenerateBarColors(Padding, offsetY + size1[1], boxWidth, boxHeight);
+        GenerateBarColors(boxWidth, boxHeight);
         // Title
         double size3[2];
         GenerateText(Padding, size2[1], size3);
@@ -342,7 +342,7 @@ namespace vtkn
         }
     }
 
-    void ScalarBarWidget::GenerateBarColors(double offsetX, double offsetY, double boxWidth, double boxHeight)
+    void ScalarBarWidget::GenerateBarColors(double boxWidth, double boxHeight)
     {
         BarColorsPolygons->Reset();
         int numOfAllTableColors = static_cast<int>(LookupTable->GetNumberOfTableValues());

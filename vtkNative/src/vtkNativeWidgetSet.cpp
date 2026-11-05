@@ -123,6 +123,15 @@ namespace vtkn
         for (BorderWidget* widget : Widgets) widget->CheckWindowSize();
     }
 
+    bool WidgetSet::IsPositionOverWidget(int x, int y)
+    {
+        for (BorderWidget* widget : Widgets)
+        {
+            if (widget->MouseOver(x, y)) return true;
+        }
+        return false;
+    }
+
     void WidgetSet::PromoteWidget(BorderWidget* widget)
     {
         MoveWidgetToTop(widget);

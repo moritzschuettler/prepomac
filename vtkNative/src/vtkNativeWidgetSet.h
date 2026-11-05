@@ -27,6 +27,8 @@ namespace vtkn
         bool LeftButtonRelease(int x, int y, bool& handled);
         bool MouseMove(int x, int y, bool& handled);
         void CheckWindowSize();
+        // vtkInteractorStyleControl.IsPositionOverWidget: a pick under a widget picks nothing
+        bool IsPositionOverWidget(int x, int y);
 
     private:
         void PromoteWidget(BorderWidget* widget);

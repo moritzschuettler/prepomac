@@ -10309,6 +10309,84 @@ namespace vtkControl
                                             _scalarBarWidget.GetBorderVisibility() == 1,
                                             _scalarBarWidget.GetBorderProperty().GetColor());
         }
+        //
+        // Picking through the mirror: style_PointPickedOnLeftUpEvt with the screen to model step made by the native
+        // view. The events it raises are the ones the Controller resolves into ids, so a pick through either path
+        // must end in the same selection
+        public void PickWithNativeMirror(int x1, int y1, bool boxSelection, int x2, int y2)
+        {
+            if (_nativeMirror == null) return;
+            MouseEventArgs mea = new MouseEventArgs(MouseButtons.Left, 1, x1, y1, 0);
+            string[] pickedActorNames;
+            if (_selectBy == vtkSelectBy.Off) return;
+            else if (_selectBy == vtkSelectBy.Widget)
+            {
+                Form_CommitViewportEdit?.Invoke();
+            }
+            else if (_selectBy == vtkSelectBy.Default)
+            {
+                if (!boxSelection) pickedActorNames = new string[] { NativeMirrorPickPoint(x1, y1, out _, out _) };
+                else pickedActorNames = NativeMirrorPickArea(x1, y1, x2, y2, out _);
+                Controller_ActorsPicked?.Invoke(mea, ModifierKeys, pickedActorNames.ToArray());
+            }
+            else
+            {
+                vtkSelectOperation selectOperation;
+                if (Control.ModifierKeys == (Keys.Shift | Keys.Control)) selectOperation = vtkSelectOperation.Intersect;
+                else if (Control.ModifierKeys == Keys.Shift) selectOperation = vtkSelectOperation.Add;
+                else if (Control.ModifierKeys == Keys.Control) selectOperation = vtkSelectOperation.Subtract;
+                else selectOperation = vtkSelectOperation.None;
+                bool completelyInside = x1 > x2;
+                if (!boxSelection)
+                {
+                    double[] direction;
+                    double[] pickedPoint;
+                    string pickedActorName = NativeMirrorPickPoint(x1, y1, out pickedPoint, out direction);
+                    pickedActorNames = pickedActorName == null ? new string[0] : new string[] { pickedActorName };
+                    OnMouseLeftButtonUpSelection?.Invoke(pickedPoint, direction, null, completelyInside,
+                                                         selectOperation, pickedActorNames);
+                }
+                else
+                {
+                    double[][] planeParameters;
+                    pickedActorNames = NativeMirrorPickArea(x1, y1, x2, y2, out planeParameters);
+                    if (pickedActorNames.Length == 0) planeParameters = null;
+                    OnMouseLeftButtonUpSelection?.Invoke(null, null, planeParameters, completelyInside,
+                                                         selectOperation, pickedActorNames);
+                }
+            }
+        }
+        // GetPickPoint with the native view; the selection distance applies to a pick by the user
+        private string NativeMirrorPickPoint(int x, int y, out double[] point, out double[] direction)
+        {
+            string[] selectable = _selectableActorsFilter == null ? null : _selectableActorsFilter.ToArray();
+            string partName;
+            _nativeMirror.PickPoint(x, y, _selectionDistance, _renderingOn && _userPick, selectable, out point,
+                                    out direction, out partName, out _);
+            return partName;
+        }
+        // The names PickByArea reports without a highlight: the picked parts that have a volume grid, each once
+        private string[] NativeMirrorPickArea(int x1, int y1, int x2, int y2, out double[][] planeParameters)
+        {
+            string[] pickedNames = _nativeMirror.PickArea(x1, y1, x2, y2, out planeParameters);
+            List<string> selectedActorNames = new List<string>();
+            HashSet<int> selectedPointGlobalIds = new HashSet<int>();
+            HashSet<int> selectedCellGlobalIds = new HashSet<int>();
+            foreach (string pickedName in pickedNames)
+            {
+                vtkMaxActor maxActor;
+                if (!_actors.TryGetValue(pickedName, out maxActor) || !maxActor.VolumeGridAvailable ||
+                    selectedActorNames.Contains(pickedName)) continue;
+                if (new CaeMesh.BoundingBox(maxActor.Geometry.GetBounds())
+                    .TestBoundsAgainstFrustum(planeParameters) == FrustumBoxResultEnum.Inside &&
+                    TryAddWholePart(maxActor, selectedPointGlobalIds, selectedCellGlobalIds))
+                {
+                    selectedActorNames.Add(pickedName);
+                }
+                else if (maxActor.TryGetVolumeGrid(out _)) selectedActorNames.Add(pickedName);
+            }
+            return selectedActorNames.ToArray();
+        }
         // Shows only the scalar bar on both paths: the props of the 3D layers are hidden, the other widgets are
         // switched off, and the mirror drops its parts
         public void SetNativeMirrorScalarBarOnly(bool scalarBarOnly)
