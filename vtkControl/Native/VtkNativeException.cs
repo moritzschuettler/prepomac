@@ -1,0 +1,37 @@
+// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+//
+// Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
+//
+// Source code: https://github.com/PrePoMax/PrePoMax
+//
+// Author: Matej Borovinšek
+// Contributors:
+
+using System;
+
+namespace vtkControl.Native
+{
+    [Serializable]
+    public class VtkNativeException : Exception
+    {
+        // Variables
+        private readonly VtkNativeStatus _status;
+
+
+        // Properties
+        public VtkNativeStatus Status { get { return _status; } }
+
+
+        // Constructors
+        public VtkNativeException(VtkNativeStatus status, string message)
+            : base(message)
+        {
+            _status = status;
+        }
+        protected VtkNativeException(System.Runtime.Serialization.SerializationInfo info,
+                                     System.Runtime.Serialization.StreamingContext context)
+            : base(info, context)
+        {
+        }
+    }
+}

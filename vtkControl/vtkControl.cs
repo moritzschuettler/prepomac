@@ -10,6 +10,7 @@
 using CaeGlobals;
 using CaeMesh;
 using Kitware.VTK;
+using vtkControl.Native;
 using Octree;
 using System;
 using System.Collections.Generic;
@@ -10130,6 +10131,17 @@ namespace vtkControl
         }
         
         #endregion #################################################################################################################
+
+        #region Native pilot  ######################################################################################################
+        // The VTK 9.7 view of the native pilot. It covers the ActiViz view while it is shown and the ActiViz view
+        // keeps working behind it, so the old and the new path render the same scene in one process
+        public VtkNativeHost NativeHost { get { return _nativeHost; } }
+        public void ShowNativeView(bool show)
+        {
+            _nativeHost.Visible = show;
+            if (show) _nativeHost.BringToFront();
+        }
+        #endregion  ################################################################################################################
 
         public void SwitchLights()
         {

@@ -498,12 +498,23 @@ namespace vtkControl
         /// </summary>
         private void InitializeComponent()
         {
+            this._nativeHost = new global::vtkControl.Native.VtkNativeHost();
             this.SuspendLayout();
+            // 
+            // _nativeHost
+            // 
+            this._nativeHost.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._nativeHost.Location = new System.Drawing.Point(0, 0);
+            this._nativeHost.Name = "_nativeHost";
+            this._nativeHost.Size = new System.Drawing.Size(475, 326);
+            this._nativeHost.TabIndex = 0;
+            this._nativeHost.Visible = false;
             // 
             // vtkControl
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this._nativeHost);
             this.Name = "vtkControl";
             this.Size = new System.Drawing.Size(475, 326);
             this.Load += new System.EventHandler(this.vtkControl_Load);
@@ -514,5 +525,7 @@ namespace vtkControl
         }
 
         #endregion
+
+        private global::vtkControl.Native.VtkNativeHost _nativeHost;
     }
 }
