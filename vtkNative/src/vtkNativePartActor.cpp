@@ -79,13 +79,17 @@ namespace vtkn
             shaderProperty->AddFragmentShaderReplacement("normalize(-vertexVC.xyz)", false, "vec3(0.0, 0.0, 1.0)", true);
         }
 
-        // VTK 5.8 drew a line thinner than a pixel smoothed, as a full line of partial coverage. VTK 9 draws it
-        // through multisampling, where it hits only some of the samples and comes out dashed, so the width below
-        // one pixel is turned into opacity
-        void SetThinLine(vtkProperty* property, double width, double opacity)
+        // VTK 9 draws every actor with an opacity below one in the translucent pass, which renders without
+        // multisampling and tests the depth against a copy of the buffer, so the edges come out jagged and broken.
+        // Forced opaque, they keep their alpha but are blended in the multisampled opaque pass
+        void SetEdgeLine(vtkActor* actor, double width, double opacity)
         {
-            property->SetLineWidth(static_cast<float>(std::max(1.0, width)));
-            property->SetOpacity(opacity * std::min(1.0, width));
+            vtkProperty* property = actor->GetProperty();
+            property->SetColor(0, 0, 0);
+            property->SetLighting(false);
+            property->SetLineWidth(static_cast<float>(width));
+            property->SetOpacity(opacity);
+            actor->SetForceOpaque(true);
         }
 
         vtkSmartPointer<vtkIdTypeArray> ToIdArray(const std::vector<int>& values)
@@ -380,20 +384,8 @@ namespace vtkn
         property->SetSpecular(0.6);
         property->SetSpecularPower(100);
         //
-        if (ModelEdges != nullptr)
-        {
-            vtkProperty* edges = ModelEdges->GetProperty();
-            edges->SetColor(0, 0, 0);
-            edges->SetLighting(false);
-            SetThinLine(edges, 0.8, opacity * 0.7);
-        }
-        if (ElementEdges != nullptr)
-        {
-            vtkProperty* edges = ElementEdges->GetProperty();
-            edges->SetColor(0, 0, 0);
-            edges->SetLighting(false);
-            SetThinLine(edges, 0.5, opacity * 0.4);
-        }
+        if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 0.8, opacity * 0.7);
+        if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 0.5, opacity * 0.4);
         if (Style.has_backface_color && !Style.backface_culling)
         {
             vtkNew<vtkProperty> backface;

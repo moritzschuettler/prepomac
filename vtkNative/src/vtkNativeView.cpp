@@ -51,7 +51,9 @@ namespace vtkn
         RenderWindow->AddRenderer(OverlayRenderer);
         RenderWindow->PointSmoothingOn();
         RenderWindow->LineSmoothingOn();
-        RenderWindow->SetMultiSamples(2);
+        // VTK 9 has no line smoothing in its core profile, so the lines are smoothed only by multisampling, and
+        // two samples leave lines thinner than a pixel dotted
+        RenderWindow->SetMultiSamples(8);
         // Camera lights are in camera coordinates: the camera at (0, 0, 1) looks at the origin, up is (0, 1, 0)
         const double lightPositions[3][3] = { { -1, 1, 1 }, { 1, 1, 1 }, { 0, -1, 0 } };
         for (const auto& position : lightPositions)
@@ -73,9 +75,10 @@ namespace vtkn
         Renderer->GetActiveCamera()->ParallelProjectionOn();
         vtkMapper::SetResolveCoincidentTopologyToPolygonOffset();
         // VTK 9 leaves the polygons in place and moves the lines forward by a constant only, which loses to the
-        // depth slope of an oblique face; VTK 5.8 pushed the polygons back by the slope and a unit instead
-        vtkMapper::SetResolveCoincidentTopologyPolygonOffsetParameters(1.0, 1.0);
-        vtkMapper::SetResolveCoincidentTopologyLineOffsetParameters(0.0, 0.0);
+        // depth slope of an oblique face, so the polygons are pushed back by their slope as in VTK 8 and the lines
+        // pulled forward
+        vtkMapper::SetResolveCoincidentTopologyPolygonOffsetParameters(2.0, 1.0);
+        vtkMapper::SetResolveCoincidentTopologyLineOffsetParameters(-1.0, -8.0);
         //
         EventCommand = vtkSmartPointer<vtkCallbackCommand>::New();
         EventCommand->SetCallback(&View::OnVtkEvent);

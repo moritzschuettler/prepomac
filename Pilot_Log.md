@@ -14,6 +14,7 @@ Pilot files live in `VtkPilot/`.
 | 0. Reference | 2026-11-05 09:18 | 2026-11-05 09:27 | 1 user turn, ~45 tool calls | 5 % -> 6 % / 4 % -> 4 %; context 119k -> 188k | 4 (harness only) | 0 | 0 (393 lines of Python harness) | |
 | 1. Groundwork | 2026-11-05 11:00 | 2026-11-05 11:18 | 1 user turn, ~60 tool calls | 13 % -> 17 % / 5 % -> 6 %; context 194k -> 344k | 3 (+3 tooling) | 0 (groundwork adds, replaces nothing) | C API 127, C++ 889, CMake 76; C# P/Invoke layer 639; 49 lines in existing files; 444 lines of test scripts | |
 | 2. Slice A | 2026-11-05 11:48 | 2026-11-05 12:08 | 1 user turn, ~75 tool calls | 23 % -> 31 % / 7 % -> 8 %; context 356k -> 560k | 3 render (+2 check) | ~1,450 (non-blank lines) | C++ ~1,190, C API +85; C# P/Invoke +423; mirror harness 104; checks 259 | |
+| 2a. Slice A edge quality (after review) | 2026-11-05 14:39 | 2026-11-05 14:47 | 2 user turns, ~30 tool calls | 2 % -> 3 % / 9 % -> 9 % (5 h window reset); context 131k -> 170k (after a compaction) | 1 render (5 variants measured) | 0 | C++ +19 / -24 | user found it in review |
 | 3. Slice B | | | | | | | | |
 | 4. Slice C | | | | | | | | |
 
@@ -266,7 +267,7 @@ overlay and selection layers of `AddActor*`, the symbol actors (`AddOriented*`, 
    identical.
 2. (render) Element edges came out dashed: a 0.5 pixel line, which VTK 5.8 drew smoothed as a full line of partial
    coverage, hits only some samples of VTK 9's multisampling. Lines below a pixel are now drawn one pixel wide with
-   the width folded into the opacity.
+   the width folded into the opacity. (Superseded by follow-up 2a below: the real cause was the translucent pass.)
 3. (render) The edges still sank into oblique faces. VTK 9.7's coincident topology defaults leave polygons in place
    (offset 0, 0) and pull lines forward by a constant (0, -4), which loses to the depth slope of an oblique face.
    VTK 5.8 pushed polygons back by factor 1, units 1. The native view sets those values.
@@ -297,4 +298,43 @@ About 1,450 lines of old C# ported to about 1,190 lines of C++, 85 lines of C AP
 
 Phase 2 ended 2026-11-05 12:08. Session usage at end: 5 h window 31 %, weekly 8 %, context 560k tokens. User review
 time: to be noted by the user.
+
+### Follow-up 2a: edge quality (after the user's review)
+
+The user's review of the side by side pictures found the native element edges of lower quality than ActiViz's: hard,
+unsmoothed one pixel lines. The numeric check had passed them, because they differ in few pixels by much.
+
+Cause: the edges carry an opacity below one (model edges 0.7, element edges 0.4 of the part's), and VTK 9 draws every
+such actor in its translucent pass, which renders without multisampling. The workaround of fix cycle 2 (one pixel
+width, the width folded into the opacity) only hid the dashes this produces. The user's earlier session on the
+ActiViz 9.7 test copy (2026-09-30) had found the same cause and a tested pipeline, which was reused here:
+
+- Edge actors are `SetForceOpaque(true)`: they keep their alpha but are blended in the multisampled opaque pass. The
+  original widths 0.8 and 0.5 are restored and the thin line workaround is gone.
+- Coincident topology offsets: polygons (2, 1), as VTK 8 had, lines (-1, -8), replacing (1, 1) / (0, 0).
+- Multisampling 8 instead of `vtkControl`'s 2. VTK 9's core profile has no line smoothing, so multisampling is the
+  only antialiasing a line gets, and with 2 samples the 0.5 pixel lines of the opaque pass come out dotted.
+
+Five variants were measured against the ActiViz pictures (36 views each; differing = more than 24 levels):
+
+| Variant | Mean differing | Worst view | Mean abs. difference | Look |
+|---|---|---|---|---|
+| Committed slice A (thin lines, translucent pass, old offsets) | 0.43 % | 0.79 % | 0.70 | hard one pixel lines, jagged silhouettes |
+| Forced opaque, multisampling 2 | 0.58 % | 1.48 % | 0.76 | element edges dotted |
+| Forced opaque with the thin line workaround, multisampling 2 | 0.27 % | 0.50 % | 0.61 | smooth, slightly light |
+| **Forced opaque, multisampling 8 (chosen)** | **0.21 %** | **0.45 %** | 0.60 | smooth; edge darkness equal to ActiViz |
+| Forced opaque with the thin line workaround, multisampling 8 | 0.16 % | 0.44 % | 0.53 | smooth, edges 0.026 levels lighter on average |
+
+The chosen variant is the user's tested ActiViz 9.7 pipeline unchanged and needs no workaround; the last row is
+marginally closer per pixel but keeps a workaround. Slice A still passes 36 of 36 with identical cameras, and the
+Phase 1 groundwork checks still pass (ActiViz renders identically after VTK 9.7 rendered).
+
+Findings for the full port:
+
+- **The numeric check misses line quality.** Few pixels, large differences: aliased edges stayed under the 2 % limit.
+  The comparison now also reports the mean absolute difference per variant; a visual review of enlarged crops stays
+  part of each slice.
+- **Prior work transfers directly.** The fix took 8 minutes because the cause and the pipeline were already known
+  from the ActiViz 9.7 session. That pipeline also covers symbols, selections and SSAO (depth ladder for symbols drawn
+  on faces, SSAA instead of MSAA with SSAO), which slices B and C and the remaining actors should take over.
 

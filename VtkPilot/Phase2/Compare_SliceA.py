@@ -62,6 +62,8 @@ def main():
                                     os.path.join(out_dir, "new", image["file"]), side_by_side_dir)
             coverage = tolerant_coverage(os.path.join(out_dir, "old", image["file"]),
                                          os.path.join(out_dir, "new", image["file"]))
+            mean_abs = float(numpy.abs(load(os.path.join(out_dir, "old", image["file"])) -
+                                       load(os.path.join(out_dir, "new", image["file"]))).mean())
             ok = (camera <= CAMERA_TOLERANCE and coverage >= COVERAGE_LIMIT and
                   result["differing_pixels"] <= DIFFERING_LIMIT)
             failed += 0 if ok else 1
@@ -69,11 +71,14 @@ def main():
             worst["iou"] = min(worst["iou"], result["coverage_iou"])
             worst["coverage"] = min(worst.get("coverage", 1.0), coverage)
             worst["camera"] = max(worst["camera"], camera)
+            worst["mean_abs"] = worst.get("mean_abs", 0.0) + mean_abs
             print("%s %-50s camera %.1e, differing %.4f, coverage %.4f (IoU %.4f), max %3d" %
                   ("PASS" if ok else "FAIL", image["file"], camera, result["differing_pixels"], coverage,
                    result["coverage_iou"], result["max_difference"]))
     print("worst: camera %.1e, differing %.4f, coverage %.4f, IoU %.4f" %
           (worst["camera"], worst["differing"], worst.get("coverage", 1.0), worst["iou"]))
+    print("mean absolute difference over all views %.3f levels (line quality; review crops too)" %
+          (worst.get("mean_abs", 0.0) / max(1, total)))
     print("%d of %d views pass" % (total - failed, total))
     print("COMPARE PASSED" if failed == 0 and total > 0 else "COMPARE FAILED")
     return 0 if failed == 0 and total > 0 else 1
