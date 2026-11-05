@@ -32,6 +32,7 @@ namespace vtkn
         // The locator of the surface cells, whose global ids are the element ids; null for a part that cannot be
         // picked, as vtkMaxActor.CellLocator
         vtkCellLocator* GetCellLocator() { return CellLocator; }
+        vtkActor* GetModelEdges() { return ModelEdges; }
         // GetPickPoint picks every part opaque; UpdateColor puts the opacity back
         void SetPickOpacity();
         void UpdateColor();

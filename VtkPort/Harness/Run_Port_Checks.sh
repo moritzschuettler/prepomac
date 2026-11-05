@@ -26,6 +26,8 @@ SUITES=(
     "geometry_slice_a|pilot VtkPilot/Phase2/Run_SliceA.sh"
     "widgets_slice_b|pilot VtkPilot/Phase3/Run_SliceB.sh"
     "selection_slice_c|pilot VtkPilot/Phase4/Run_SliceC.sh"
+    # Stream S
+    "selection_s1|pilot VtkPort/Selection/Run_S1.sh"
 )
 
 selected() {
