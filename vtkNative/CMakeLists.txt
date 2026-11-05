@@ -55,6 +55,7 @@ add_library(vtkNative SHARED
     src/Geometry/vtkNativeSectionView.cpp
     src/Geometry/vtkNativeSymbols.cpp
     src/Geometry/vtkNativeSymbols.h
+    src/Geometry/vtkNativeTransformations.cpp
     src/Geometry/vtkNativeViewGeometry.cpp
     src/Selection/vtkNativeApiSelection.cpp
     src/Selection/vtkNativeViewPick.cpp

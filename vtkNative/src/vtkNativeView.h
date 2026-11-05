@@ -15,11 +15,13 @@
 #include <vtkCamera.h>
 #include <vtkLight.h>
 #include <vtkPlane.h>
+#include <vtkTransform.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
 
+#include <array>
 #include <map>
 #include <memory>
 #include <set>
@@ -91,6 +93,15 @@ namespace vtkn
         void UpdateScalarFormatting(const vtkn_color_spectrum& spectrum, bool keepScalarBarVisible,
                                     bool useAllFrames, double allFramesMin, double allFramesMax);
         bool GetScalarRange(double range[2]);
+        // Transformations and exploded view (Geometry/vtkNativeTransformations.cpp)
+        void AddSymmetry(int symmetryPlane, const double point[3]);
+        void AddLinearPattern(const double displacement[3], int numOfItems);
+        void AddCircularPattern(const double axisPoint[3], const double axisNormal[3], double angle, int numOfItems);
+        void ApplyTransforms();
+        void RemoveTransformedActors();
+        void ClearTransforms();
+        void ShowTransformedActors(bool show);
+        void SetExplodedViewOffsets(const std::map<std::string, std::array<double, 3>>& offsets);
         void CreateSectionView(const vtkn_section_view& sectionView);
         void RemoveSectionView();
         void AddSymbolActor(const std::string& name, const vtkn_part_style& style, const double* points,
@@ -179,6 +190,9 @@ namespace vtkn
         vtkSmartPointer<vtkPlane> SectionPlane;
         vtkn_section_view SectionView = {};
         std::map<std::string, std::string> SectionViewActorNames;
+        std::vector<std::pair<vtkSmartPointer<vtkTransform>, int>> Transforms;
+        std::map<std::string, std::vector<std::string>> TransformedCopies;
+        int TransformedCopyCount = 0;
         bool HasScalarRange = false;
         double ScalarRange[2] = { 0, 1 };
         bool SectionViewActive = false;

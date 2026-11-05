@@ -194,6 +194,15 @@ namespace vtkn
     void View::HideShowActor(PartActor* actor, bool visible)
     {
         actor->SetVisible(visible);
+        for (const auto& entry : TransformedCopies)
+        {
+            if (FindActor(entry.first, VTKN_LAYER_BASE) != actor) continue;
+            for (const std::string& name : entry.second)
+            {
+                PartActor* copy = FindActor(name, VTKN_LAYER_BASE);
+                if (copy != nullptr) copy->SetVisible(visible);
+            }
+        }
         if (!SectionViewActive) return;
         for (const auto& entry : SectionViewActorNames)
         {
@@ -223,6 +232,7 @@ namespace vtkn
         if (what == VTKN_CLEAR_ALL)
         {
             RemoveSectionView();
+            ClearTransforms();
             for (PartActor* actor : GetBaseActors()) actor->RemoveFrom(Renderer);
             Parts.clear();
             BaseActors.clear();

@@ -15,6 +15,7 @@
 #include <vtkFloatArray.h>
 #include <vtkLookupTable.h>
 #include <vtkPlane.h>
+#include <vtkTransform.h>
 #include <vtkPolyData.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkRenderer.h>
@@ -41,6 +42,9 @@ namespace vtkn
         // An actor drawing a poly data or the output of a pipeline, as vtkMaxActor(data, mapper)
         PartActor(const vtkn_part_style& style, vtkPolyData* polyData);
         PartActor(const vtkn_part_style& style, vtkAlgorithmOutput* output);
+        // A transformed copy, as vtkMaxActor(actor) followed by TransformMaxActor: its own transformed data, the
+        // properties of the source, not picked
+        PartActor(const PartActor& source, vtkTransform* transform);
         // A section actor: its faces, element edges and outline, and the result extremes of the part it cuts
         PartActor(const vtkn_part_style& style, vtkPolyData* faces, vtkPolyData* elementEdges,
                   vtkPolyData* modelEdges, const PartActor& part);
@@ -98,6 +102,8 @@ namespace vtkn
         int GetHatchIndex() const { return HatchIndex; }
         bool GetHasVolumeCells() const { return HasVolumeCells; }
         void SetSectionViewHatch(vtkPolyData* hatch, vtkRenderer* renderer);
+        // SetExplodedViewActorPosition
+        void SetPosition(const double position[3]);
         bool GetGeometryHiddenBySectionView() const { return GeometryHiddenBySectionView; }
         void SetGeometryHiddenBySectionView(bool hidden) { GeometryHiddenBySectionView = hidden; }
 

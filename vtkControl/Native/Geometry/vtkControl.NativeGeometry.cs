@@ -226,6 +226,23 @@ namespace vtkControl
                 _nativeMirror.CreateSectionView(sectionView);
             });
         }
+        // ApplyTransforms: the copies ActiViz made of mirrored actors count as mirrored
+        private void MirrorTransforms()
+        {
+            MirrorGeometry("ApplyTransforms", () =>
+            {
+                _nativeMirror.ApplyTransforms();
+                bool added = true;
+                while (added)
+                {
+                    added = false;
+                    foreach (vtkMaxActor actor in _nativeMirroredActors.ToArray())
+                    {
+                        foreach (vtkMaxActor copy in actor.Copies) added |= _nativeMirroredActors.Add(copy);
+                    }
+                }
+            });
+        }
         // AddActor of an actor the Controller kept in its selection buffer: it is built again from its data
         private void MirrorBufferedActor(vtkMaxActor actor)
         {

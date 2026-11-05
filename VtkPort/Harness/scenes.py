@@ -97,7 +97,35 @@ SCENES.update({
     "hinge_result_section": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("STRESS", "MISES")),
     "solid_geometry_section": (os.path.join(MODELS, "L_bracket_r.step"), ["-u", "MM_TON_S_C"], _view("geometry")),
 })
+def _exploded(pmx):
+    pmx.view.apply_exploded_view()
+
+
+def _transformations(symmetry_point, circular):
+    def run(pmx):
+        import System
+        import vtkport
+
+        def apply():
+            vtk = vtkport.VTK
+            vtk.AddSymmetry(0, System.Array[System.Double](symmetry_point))
+            if circular:
+                vtk.AddCircularPattern(System.Array[System.Double]([0.0, 0.0, 0.0]),
+                                       System.Array[System.Double]([0.0, 1.0, 0.0]), 120.0, 3)
+            vtk.ApplyTransforms()
+        vtkport.on_ui(apply)
+    return run
+
+
+SCENES.update({
+    "hinge_exploded": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+    "hinge_result_symmetry": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("DISP", "ALL")),
+    "hinge_pattern": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+})
 AFTER_ENABLE = {
+    "hinge_exploded": _exploded,
+    "hinge_result_symmetry": _transformations([95.0, 0.0, 0.0], False),
+    "hinge_pattern": _transformations([-35.0, 0.0, 0.0], True),
     "hinge_section": _section_view([30.0, 11.0, 5.0], [0.3, 0.2, 1.0], False, True),
     "hinge_result_section": _section_view([30.0, 11.0, 5.0], [0.3, 0.2, 1.0], True, False),
     "solid_geometry_section": _section_view([20.0, 20.0, 5.0], [1.0, 1.0, 0.0], False, True),
@@ -107,8 +135,10 @@ AFTER_ENABLE = {
 }
 
 
-# The result coordinates are single precision: the framing of a deformed shape may differ by one float rounding step
-CAMERA_TOLERANCES = {"hinge_result_disp": 1e-7, "hinge_result_mises": 1e-7, "hinge_result_section": 1e-7}
+# The result coordinates, the transformed copies and the actor positions of an exploded view are single precision on
+# the ActiViz side: the framing may differ by one float rounding step
+CAMERA_TOLERANCES = {"hinge_result_disp": 1e-7, "hinge_result_mises": 1e-7, "hinge_result_section": 1e-7,
+                     "hinge_result_symmetry": 1e-7, "hinge_exploded": 1e-7, "hinge_pattern": 1e-7}
 
 
 def after_enable(name, pmx):

@@ -7031,6 +7031,8 @@ namespace vtkControl
                 Application.DoEvents();
             }
             while (t < 1);
+            MirrorGeometry("PreviewExplodedView", () =>
+                _nativeMirror.SetExplodedViewOffsets(partOffsets.Keys.ToArray(), partOffsets.Values.ToArray()));
         }
         public void RemovePreviewedExplodedView(string[] partNames)
         {
@@ -7043,6 +7045,8 @@ namespace vtkControl
                     (entry.Value.ParentName != null && partNameSet.Contains(entry.Value.ParentName)))
                     SetExplodedViewActorPosition(entry.Value, offset);
             }
+            MirrorGeometry("RemovePreviewedExplodedView", () =>
+                _nativeMirror.SetExplodedViewOffsets(partNames, partNames.Select(name => new double[3]).ToArray()));
             //
             RenderScene();
         }
@@ -7268,12 +7272,14 @@ namespace vtkControl
             transform.Translate(-symmetryPoint[0], -symmetryPoint[1], -symmetryPoint[2]);
             //
             _transforms.Add(transform, 2);  // must be 2 for 1 loop
+            MirrorGeometry("AddSymmetry", () => _nativeMirror.AddSymmetry(symmetryPlane, symmetryPoint));
         }
         public void AddLinearPattern(double[] displacement, int numOfItems)
         {
             vtkTransform transform = vtkTransform.New();
             transform.Translate(displacement[0], displacement[1], displacement[2]);
             _transforms.Add(transform, numOfItems);
+            MirrorGeometry("AddLinearPattern", () => _nativeMirror.AddLinearPattern(displacement, numOfItems));
         }
         public void AddCircularPattern(double[] axisPoint, double[] axisNormal, double angle, int numOfItems)
         {
@@ -7283,10 +7289,13 @@ namespace vtkControl
             transform.Translate(-axisPoint[0], -axisPoint[1], -axisPoint[2]);
             //
             _transforms.Add(transform, numOfItems);
+            MirrorGeometry("AddCircularPattern",
+                           () => _nativeMirror.AddCircularPattern(axisPoint, axisNormal, angle, numOfItems));
         }
         public void ApplyTransforms()
         {
             foreach (var transform in _transforms) TransformAllMaxActors(transform.Key, transform.Value);
+            MirrorTransforms();
             //
             UpdateScalarFormatting();
             //
@@ -7309,6 +7318,7 @@ namespace vtkControl
                     }
                 }
             }
+            MirrorGeometry("RemoveTransformedActors", () => _nativeMirror.RemoveTransformedActors());
         }
         private void RemoveActorWithCopies(vtkMaxActor actor)
         {
@@ -7332,6 +7342,7 @@ namespace vtkControl
                     foreach (var actorCopy in entry.Value.Copies) HideShowActor(actorCopy, false);
                 }
             }
+            MirrorGeometry("HideTransformedActors", () => _nativeMirror.ShowTransformedActors(false));
             ApplyEdgesVisibilityAndBackfaceCulling();
             ApplyVisibilityToActorNodes();
             //_style.AdjustCameraDistanceAndClipping();
@@ -7345,6 +7356,7 @@ namespace vtkControl
                     foreach (var actorCopy in entry.Value.Copies) HideShowActor(actorCopy, entry.Value.VtkMaxActorVisible);
                 }
             }
+            MirrorGeometry("ShowTransformedActors", () => _nativeMirror.ShowTransformedActors(true));
             ApplyEdgesVisibilityAndBackfaceCulling();
             ApplyVisibilityToActorNodes();
             //_style.AdjustCameraDistanceAndClipping();

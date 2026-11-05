@@ -159,6 +159,51 @@ namespace vtkControl.Native
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_remove_section_view(Handle()));
         }
         //
+        public void AddSymmetry(int symmetryPlane, double[] point)
+        {
+            CheckLength(point, 3, "point");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_symmetry(Handle(), symmetryPlane, point));
+        }
+        //
+        public void AddLinearPattern(double[] displacement, int numberOfItems)
+        {
+            CheckLength(displacement, 3, "displacement");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_linear_pattern(Handle(), displacement, numberOfItems));
+        }
+        //
+        public void AddCircularPattern(double[] axisPoint, double[] axisNormal, double angle, int numberOfItems)
+        {
+            CheckLength(axisPoint, 3, "axisPoint");
+            CheckLength(axisNormal, 3, "axisNormal");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_circular_pattern(Handle(), axisPoint, axisNormal, angle,
+                                                                                    numberOfItems));
+        }
+        //
+        public void ApplyTransforms()
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_apply_transforms(Handle()));
+        }
+        //
+        public void RemoveTransformedActors()
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_remove_transformed_actors(Handle()));
+        }
+        //
+        public void ShowTransformedActors(bool show)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_show_transformed_actors(Handle(), show ? 1 : 0));
+        }
+        //
+        public void SetExplodedViewOffsets(string[] names, double[][] offsets)
+        {
+            if (names == null || offsets == null || names.Length != offsets.Length)
+                throw new ArgumentException("There must be one offset per name.");
+            double[] values = new double[3 * offsets.Length];
+            for (int i = 0; i < offsets.Length; i++) Array.Copy(offsets[i], 0, values, 3 * i, 3);
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_exploded_view_offsets(Handle(), VtkNativeLibrary.ToUtf8List(names),
+                                                                                         values, names.Length));
+        }
+        //
         public void SetActorVisible(string name, VtkNativeLayer layer, bool visible)
         {
             if (name == null) throw new ArgumentNullException("name");

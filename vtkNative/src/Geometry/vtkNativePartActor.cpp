@@ -16,6 +16,9 @@
 #include <vtkPolyDataMapper.h>
 #include <vtkPolyDataNormals.h>
 #include <vtkProperty.h>
+#include <vtkReverseSense.h>
+#include <vtkTransformFilter.h>
+#include <vtkTransformPolyDataFilter.h>
 #include <vtkUnsignedCharArray.h>
 
 #include <algorithm>
@@ -379,6 +382,77 @@ namespace vtkn
         ApplyStyleSizes();
         UpdateColor();
         Geometry->GetProperty()->SetLighting(style.lighting != 0);
+    }
+
+    namespace
+    {
+        // Port of TransformActor: the transformed data of an actor, its cells reversed by a mirror so that their
+        // front faces stay outside
+        vtkSmartPointer<vtkActor> TransformActor(vtkActor* source, vtkTransform* transform, bool polyDataMapper)
+        {
+            vtkPolyData* polyData = vtkPolyData::SafeDownCast(source->GetMapper()->GetInput());
+            vtkNew<vtkTransformPolyDataFilter> transformFilter;
+            transformFilter->SetInputData(polyData);
+            transformFilter->SetTransform(transform);
+            transformFilter->Update();
+            vtkSmartPointer<vtkPolyData> output = vtkSmartPointer<vtkPolyData>::New();
+            double scale[3];
+            transform->GetScale(scale);
+            if (scale[0] < 0 || scale[1] < 0 || scale[2] < 0)
+            {
+                vtkNew<vtkReverseSense> reverseSense;
+                reverseSense->SetInputConnection(transformFilter->GetOutputPort());
+                reverseSense->ReverseNormalsOff();
+                reverseSense->ReverseCellsOn();
+                reverseSense->Update();
+                output->DeepCopy(reverseSense->GetOutput());
+            }
+            else output->DeepCopy(transformFilter->GetOutput());
+            vtkSmartPointer<vtkMapper> mapper;
+            if (polyDataMapper) mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+            else mapper = vtkSmartPointer<vtkDataSetMapper>::New();
+            mapper->SetInputDataObject(output);
+            mapper->SetScalarVisibility(source->GetMapper()->GetScalarVisibility());
+            vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
+            actor->SetMapper(mapper);
+            actor->GetProperty()->DeepCopy(source->GetProperty());
+            actor->SetVisibility(source->GetVisibility());
+            actor->PickableOff();
+            return actor;
+        }
+    }
+
+    PartActor::PartActor(const PartActor& source, vtkTransform* transform)
+        : Style(source.Style), ParentName(source.ParentName), SourceCells(source.SourceCells),
+          ColorTable(source.ColorTable), Extremes(source.Extremes), HasExtremeNodes(source.HasExtremeNodes),
+          HatchIndex(source.HatchIndex), HasVolumeCells(source.HasVolumeCells)
+    {
+        std::copy(source.SectionColor, source.SectionColor + 4, SectionColor);
+        Style.pickable = 0;
+        Geometry = TransformActor(source.Geometry, transform, vtkPolyDataMapper::SafeDownCast(source.Geometry->GetMapper()) != nullptr);
+        UseInfiniteViewer(Geometry);
+        if (source.ElementEdges != nullptr) ElementEdges = TransformActor(source.ElementEdges, transform, false);
+        if (source.ModelEdges != nullptr) ModelEdges = TransformActor(source.ModelEdges, transform, false);
+        vtkPolyData* polyData = vtkPolyData::SafeDownCast(Geometry->GetMapper()->GetInput());
+        if (source.PointScalars != nullptr && polyData != nullptr)
+            PointScalars = vtkFloatArray::SafeDownCast(polyData->GetPointData()->GetArray("scalars"));
+        if (source.VolumeGrid != nullptr)
+        {
+            vtkNew<vtkTransformFilter> gridTransform;
+            gridTransform->SetInputData(source.VolumeGrid);
+            gridTransform->SetTransform(transform);
+            gridTransform->Update();
+            VolumeGrid = vtkSmartPointer<vtkUnstructuredGrid>::New();
+            VolumeGrid->DeepCopy(gridTransform->GetOutput());
+        }
+        UpdateColor();
+    }
+
+    void PartActor::SetPosition(const double position[3])
+    {
+        Geometry->SetPosition(position[0], position[1], position[2]);
+        if (ModelEdges != nullptr) ModelEdges->SetPosition(position[0], position[1], position[2]);
+        if (ElementEdges != nullptr) ElementEdges->SetPosition(position[0], position[1], position[2]);
     }
 
     vtkSmartPointer<vtkUnstructuredGrid> BuildUnstructuredGrid(const vtkn_mesh& mesh)

@@ -258,6 +258,21 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_set_section_view_data(vtkn_view view, c
 /* CreateSectionView, or UpdateSectionView when one is active */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_create_section_view(vtkn_view view, const vtkn_section_view* section_view);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_remove_section_view(vtkn_view view);
+/* AddSymmetry (plane 0, 1, 2 for x, y, z), AddLinearPattern and AddCircularPattern (angle in degrees) collect
+   transformations; ApplyTransforms adds the transformed copies of the base actors */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_add_symmetry(vtkn_view view, int32_t symmetry_plane, const double* point3);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_add_linear_pattern(vtkn_view view, const double* displacement3,
+                                                             int32_t number_of_items);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_add_circular_pattern(vtkn_view view, const double* axis_point3,
+                                                               const double* axis_normal3, double angle,
+                                                               int32_t number_of_items);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_apply_transforms(vtkn_view view);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_remove_transformed_actors(vtkn_view view);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_show_transformed_actors(vtkn_view view, int32_t show);
+/* The positions of the named base actors and of the actors whose parent they are: names is a string list,
+   offsets3 three values per name */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_exploded_view_offsets(vtkn_view view, const char* names,
+                                                                    const double* offsets3, int32_t count);
 /* vtkn_clear */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_clear(vtkn_view view, int32_t what);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_remove_overlay_actors(vtkn_view view, const char* names);

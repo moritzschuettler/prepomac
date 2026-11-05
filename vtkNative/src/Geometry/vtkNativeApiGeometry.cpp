@@ -217,6 +217,74 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_add_symmetry(vtkn_view view, int32_t symmetry_plane, const double* point3)
+    {
+        return GuardVtk([&]() {
+            Require(point3 != nullptr, "The argument 'point3' must not be null.");
+            View::FromHandle(view)->AddSymmetry(symmetry_plane, point3);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_add_linear_pattern(vtkn_view view, const double* displacement3,
+                                                       int32_t number_of_items)
+    {
+        return GuardVtk([&]() {
+            Require(displacement3 != nullptr, "The argument 'displacement3' must not be null.");
+            View::FromHandle(view)->AddLinearPattern(displacement3, number_of_items);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_add_circular_pattern(vtkn_view view, const double* axis_point3,
+                                                         const double* axis_normal3, double angle,
+                                                         int32_t number_of_items)
+    {
+        return GuardVtk([&]() {
+            Require(axis_point3 != nullptr && axis_normal3 != nullptr, "The axis must not be null.");
+            View::FromHandle(view)->AddCircularPattern(axis_point3, axis_normal3, angle, number_of_items);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_apply_transforms(vtkn_view view)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->ApplyTransforms();
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_remove_transformed_actors(vtkn_view view)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->RemoveTransformedActors();
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_show_transformed_actors(vtkn_view view, int32_t show)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->ShowTransformedActors(show != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_exploded_view_offsets(vtkn_view view, const char* names,
+                                                              const double* offsets3, int32_t count)
+    {
+        return GuardVtk([&]() {
+            Require(names != nullptr && (count == 0 || offsets3 != nullptr), "The names and offsets must not be null.");
+            std::map<std::string, std::array<double, 3>> offsets;
+            const char* name = names;
+            for (int i = 0; i < count && *name != '\0'; i++, name += std::strlen(name) + 1)
+                offsets[name] = { offsets3[3 * i], offsets3[3 * i + 1], offsets3[3 * i + 2] };
+            View::FromHandle(view)->SetExplodedViewOffsets(offsets);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_clear(vtkn_view view, int32_t what)
     {
         return GuardVtk([&]() {

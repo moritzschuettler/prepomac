@@ -66,6 +66,22 @@ namespace vtkControl.Native
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_remove_section_view(IntPtr view);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_add_symmetry(IntPtr view, int symmetryPlane, double[] point3);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_add_linear_pattern(IntPtr view, double[] displacement3, int numberOfItems);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_add_circular_pattern(IntPtr view, double[] axisPoint3, double[] axisNormal3,
+                                                                            double angle, int numberOfItems);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_apply_transforms(IntPtr view);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_remove_transformed_actors(IntPtr view);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_show_transformed_actors(IntPtr view, int show);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_exploded_view_offsets(IntPtr view, byte[] names, double[] offsets3,
+                                                                                 int count);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_clear(IntPtr view, int what);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_remove_overlay_actors(IntPtr view, byte[] names);
