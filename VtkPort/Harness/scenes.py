@@ -90,6 +90,10 @@ AFTER_ENABLE = {
 }
 
 
+# The result coordinates are single precision: the framing of a deformed shape may differ by one float rounding step
+CAMERA_TOLERANCES = {"hinge_result_disp": 1e-7, "hinge_result_mises": 1e-7}
+
+
 def after_enable(name, pmx):
     if name in AFTER_ENABLE:
         AFTER_ENABLE[name](pmx)

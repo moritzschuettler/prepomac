@@ -106,7 +106,7 @@ namespace vtkn
     // VTK 9 numbers the cells of a poly data vertices first, then lines, then polygons, whatever order they were
     // inserted in (VTK 5.8 kept the insertion order), so the cell ids are collected per kind and joined that way
     void BuildPolyData(const vtkn_mesh& mesh, bool extractEdges, vtkSmartPointer<vtkPolyData>& polyActor,
-                       vtkSmartPointer<vtkPolyData>& polyEdges)
+                       vtkSmartPointer<vtkPolyData>& polyEdges, std::vector<int>* sourceCells)
     {
         polyActor = vtkSmartPointer<vtkPolyData>::New();
         polyEdges = vtkSmartPointer<vtkPolyData>::New();
@@ -127,6 +127,9 @@ namespace vtkn
         std::vector<int> vertCellIds;
         std::vector<int> lineCellIds;
         std::vector<int> polyCellIds;
+        std::vector<int> vertSources;
+        std::vector<int> lineSources;
+        std::vector<int> polySources;
         std::set<int> uniqueVertexIds;
         std::set<std::pair<int, int>> uniqueEdgeCells;
         std::set<std::array<int, 3>> uniquePolyEdgeCells;
@@ -177,6 +180,7 @@ namespace vtkn
                 vtkIdType id = n[0];
                 verts->InsertNextCell(1, &id);
                 vertCellIds.push_back(cellId);
+                vertSources.push_back(i);
             }
             else if (isEdge)
             {
@@ -185,6 +189,7 @@ namespace vtkn
                     vtkIdType ids[2] = { n[0], n[1] };
                     lines->InsertNextCell(2, ids);
                     lineCellIds.push_back(cellId);
+                    lineSources.push_back(i);
                 }
                 else
                 {
@@ -194,6 +199,8 @@ namespace vtkn
                     lines->InsertNextCell(2, second);
                     lineCellIds.push_back(cellId);
                     lineCellIds.push_back(cellId);
+                    lineSources.push_back(i);
+                    lineSources.push_back(i);
                 }
             }
             else if (isSurface)
@@ -236,12 +243,21 @@ namespace vtkn
                     }
                 }
             }
-            else throw Error(VTKN_ERROR_INVALID_ARGUMENT, "A cell type of the part is not supported: " +
+            if (isSurface) polySources.resize(polyCellIds.size(), i);
+            if (!isVertex && !isEdge && !isSurface)
+                throw Error(VTKN_ERROR_INVALID_ARGUMENT, "A cell type of the part is not supported: " +
                                                           std::to_string(cellType));
         }
         polyActor->SetVerts(verts);
         polyActor->SetLines(lines);
         polyActor->SetPolys(polys);
+        if (sourceCells != nullptr)
+        {
+            sourceCells->clear();
+            sourceCells->insert(sourceCells->end(), vertSources.begin(), vertSources.end());
+            sourceCells->insert(sourceCells->end(), lineSources.begin(), lineSources.end());
+            sourceCells->insert(sourceCells->end(), polySources.begin(), polySources.end());
+        }
         //
         if (extractEdges)
         {
@@ -385,7 +401,7 @@ namespace vtkn
     {
         vtkSmartPointer<vtkPolyData> polyActor;
         vtkSmartPointer<vtkPolyData> polyEdges;
-        BuildPolyData(geometry, true, polyActor, polyEdges);
+        BuildPolyData(geometry, true, polyActor, polyEdges, &SourceCells);
         // Smooth shading: point normals without splitting, which would change the topology
         vtkNew<vtkPolyDataNormals> normalGenerator;
         normalGenerator->SetInputData(polyActor);
@@ -397,7 +413,6 @@ namespace vtkn
         //
         vtkNew<vtkDataSetMapper> mapper;
         mapper->SetInputData(polyActor);
-        mapper->ScalarVisibilityOff();
         // A surface that is not a part, such as the faces of a constraint, covers faces of a part exactly. VTK 5.8
         // drew the later of two equal depths, VTK 9 mixes them, so such a surface is pulled a step in front of the
         // parts (the polygon offset of the view is 2, 1) and stays behind the edge lines
@@ -521,16 +536,48 @@ namespace vtkn
         const double* color = Style.color;
         double opacity = color[3];
         vtkProperty* property = Geometry->GetProperty();
-        property->SetAmbient(Style.ambient);
-        property->SetDiffuse(Style.diffuse);
-        property->SetOpacity(opacity);
-        if (!Style.color_contours)
+        if (!ColorTable.empty())
         {
-            property->SetColor(color[0], color[1], color[2]);
+            // The color table replaces the ambient material color and not the ambient component, so the ambient
+            // component is baked into the color table
+            double diffuse = std::min(Style.diffuse, 0.999);
+            int count = static_cast<int>(ColorTable.size());
+            vtkNew<vtkLookupTable> cellLut;
+            cellLut->SetNumberOfTableValues(count + 1);
+            cellLut->Build();
+            cellLut->SetTableValue(0, Style.ambient, Style.ambient, Style.ambient, 1);
+            for (int i = 0; i < count; i++)
+                cellLut->SetTableValue(i + 1, Style.ambient * ColorTable[i][0], Style.ambient * ColorTable[i][1],
+                                       Style.ambient * ColorTable[i][2], 1);
+            Geometry->GetMapper()->SetLookupTable(cellLut);
+            Geometry->GetMapper()->SetScalarRange(-1, count - 1);
+            property->SetAmbient(1);
+            property->SetDiffuse(diffuse);
+            property->SetDiffuseColor(color[0], color[1], color[2]);
+            property->SetOpacity(opacity);
+            property->SetSpecularColor(color[0], color[1], color[2]);
             property->SetSpecular(0.6);
             property->SetSpecularPower(100);
         }
-        else property->SetAmbientColor(1, 1, 1);
+        else
+        {
+            property->SetAmbient(Style.ambient);
+            property->SetDiffuse(Style.diffuse);
+            property->SetOpacity(opacity);
+            if (!Style.color_contours)
+            {
+                property->SetColor(color[0], color[1], color[2]);
+                property->SetSpecular(0.6);
+                property->SetSpecularPower(100);
+            }
+            else
+            {
+                property->SetAmbientColor(1, 1, 1);
+                // VTK 5.8 lit the colors of the results with the default global ambient light of OpenGL (0.2) on
+                // top of the ambient of the actor; VTK 9 has no global ambient light
+                property->SetAmbient(Style.ambient * 1.2);
+            }
+        }
         //
         if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 0.8, opacity * 0.7);
         if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 0.5, opacity * 0.4);
@@ -549,6 +596,79 @@ namespace vtkn
             else backface->SetAmbientColor(1, 1, 1);
             Geometry->SetBackfaceProperty(backface);
         }
+    }
+
+    void PartActor::SetPointScalars(const float* values, int count, const vtkn_extreme_nodes* extremes)
+    {
+        vtkPolyData* polyData = vtkPolyData::SafeDownCast(Geometry->GetMapper()->GetInput());
+        Require(polyData != nullptr, "The actor has no point data for scalars.");
+        if (values == nullptr)
+        {
+            polyData->GetPointData()->RemoveArray("scalars");
+            PointScalars = nullptr;
+            HasExtremeNodes = false;
+            Extremes = {};
+            Geometry->GetMapper()->SetInterpolateScalarsBeforeMapping(0);
+            return;
+        }
+        Require(count == polyData->GetNumberOfPoints(), "There must be one scalar value per point of the actor.");
+        PointScalars = vtkSmartPointer<vtkFloatArray>::New();
+        PointScalars->SetName("scalars");
+        PointScalars->SetNumberOfValues(count);
+        for (int i = 0; i < count; i++) PointScalars->SetValue(i, values[i]);
+        polyData->GetPointData()->SetScalars(PointScalars);
+        HasExtremeNodes = extremes != nullptr;
+        if (extremes != nullptr) Extremes = *extremes;
+    }
+
+    // Port of the cell scalars of CreatePolyFromData and of the color table of vtkMaxActor: each triangle, line
+    // and vertex takes the value of the cell it came from
+    void PartActor::SetCellColors(const float* values, int count, const double* rgb, int rgbCount)
+    {
+        vtkPolyData* polyData = vtkPolyData::SafeDownCast(Geometry->GetMapper()->GetInput());
+        Require(polyData != nullptr, "The actor has no cell data for colors.");
+        if (values != nullptr)
+        {
+            CellScalars = vtkSmartPointer<vtkFloatArray>::New();
+            CellScalars->SetNumberOfValues(static_cast<vtkIdType>(SourceCells.size()));
+            for (size_t i = 0; i < SourceCells.size(); i++)
+            {
+                int source = SourceCells[i];
+                Require(source < count, "There must be one value per cell of the actor.");
+                CellScalars->SetValue(static_cast<vtkIdType>(i), values[source]);
+            }
+            polyData->GetCellData()->SetScalars(CellScalars);
+        }
+        ColorTable.clear();
+        for (int i = 0; i < rgbCount; i++) ColorTable.push_back({ rgb[3 * i], rgb[3 * i + 1], rgb[3 * i + 2] });
+        UpdateColor();
+    }
+
+    // The actor part of UpdateScalarFormatting: with color contours the result values are the active scalars and
+    // are interpolated before mapping; without them no point scalars are active and the actor takes its colors
+    void PartActor::ApplyScalarVisibility()
+    {
+        vtkPolyData* polyData = vtkPolyData::SafeDownCast(Geometry->GetMapper()->GetInput());
+        if (polyData == nullptr) return;
+        vtkMapper* mapper = Geometry->GetMapper();
+        if (Style.color_contours)
+        {
+            if (PointScalars != nullptr) polyData->GetPointData()->SetActiveScalars("scalars");
+            if (mapper->GetInterpolateScalarsBeforeMapping() != 1) mapper->SetInterpolateScalarsBeforeMapping(1);
+        }
+        else
+        {
+            polyData->GetPointData()->SetActiveScalars("none");
+            if (mapper->GetInterpolateScalarsBeforeMapping() != 0) mapper->SetInterpolateScalarsBeforeMapping(0);
+            UpdateColor();
+        }
+    }
+
+    void PartActor::SetResultLookupTable(vtkLookupTable* lookupTable, const double range[2])
+    {
+        vtkMapper* mapper = Geometry->GetMapper();
+        mapper->SetScalarRange(range[0], range[1]);
+        mapper->SetLookupTable(lookupTable);
     }
 
     void PartActor::ApplyEdgesVisibility(vtkn_edges_visibility edgesVisibility)

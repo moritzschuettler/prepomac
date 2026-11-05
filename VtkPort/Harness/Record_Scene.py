@@ -41,6 +41,7 @@ def main():
             vtkport.save_pair(out_dir, name)
             record["images"].append({"file": name, "view": view, "viewport": [width, height],
                                      "old_camera": old_camera, "new_camera": new_camera})
+    record["camera_tolerance"] = scenes.CAMERA_TOLERANCES.get(SCENE)
     record["mirror_errors"] = list(vtkport.on_ui(lambda: list(vtkport.VTK.GetNativeMirrorErrors())))
     vtkport.disable_native()
     record["seconds"] = round(time.time() - started, 1)

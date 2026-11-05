@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int GeometryApiVersion = 2;
+        public const int GeometryApiVersion = 3;
 
 
         // Methods
@@ -42,6 +42,20 @@ namespace vtkControl.Native
                                                                         double[] points, int pointCount, double[] normals,
                                                                         int normalCount,
                                                                         ref VtkNativeSymbolParameters parameters);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_actor_scalars(IntPtr view, byte[] name, float[] values, int count,
+                                                                         IntPtr extremes);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_actor_cell_colors(IntPtr view, byte[] name, int layer, float[] values,
+                                                                             int count, double[] rgb, int rgbCount);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_actors_color_contours(IntPtr view, byte[] names, int colorContours);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_update_scalar_formatting(IntPtr view, ref VtkNativeColorSpectrum spectrum,
+                                                                                int keepScalarBarVisible, int useAllFrames,
+                                                                                double allFramesMin, double allFramesMax);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_get_scalar_range(IntPtr view, double[] range2, out int hasRange);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_clear(IntPtr view, int what);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]

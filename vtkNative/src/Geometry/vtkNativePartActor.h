@@ -12,11 +12,15 @@
 #include <vtkActor.h>
 #include <vtkAlgorithmOutput.h>
 #include <vtkCellLocator.h>
+#include <vtkFloatArray.h>
+#include <vtkLookupTable.h>
 #include <vtkPolyData.h>
 #include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
 
+#include <array>
 #include <string>
+#include <vector>
 
 namespace vtkn
 {
@@ -67,6 +71,18 @@ namespace vtkn
         void SetVisible(bool visible);
         const std::string& GetParentName() const { return ParentName; }
         void SetParentName(const std::string& parentName) { ParentName = parentName; }
+        // Results (G3): the point values and extreme nodes, the cell values with their color table, the coloring by
+        // the lookup table of the results
+        void SetPointScalars(const float* values, int count, const vtkn_extreme_nodes* extremes);
+        bool HasExtremes() const { return HasExtremeNodes; }
+        const vtkn_extreme_nodes& GetExtremes() const { return Extremes; }
+        bool HasPointScalars() const { return PointScalars != nullptr; }
+        void SetCellColors(const float* values, int count, const double* rgb, int rgbCount);
+        bool GetColorContours() const { return Style.color_contours != 0; }
+        void SetColorContours(bool colorContours) { Style.color_contours = colorContours ? 1 : 0; }
+        // The part of UpdateScalarFormatting for one actor: the scalars are shown with color contours, else hidden
+        void ApplyScalarVisibility();
+        void SetResultLookupTable(vtkLookupTable* lookupTable, const double range[2]);
         bool GetGeometryHiddenBySectionView() const { return GeometryHiddenBySectionView; }
         void SetGeometryHiddenBySectionView(bool hidden) { GeometryHiddenBySectionView = hidden; }
 
@@ -78,6 +94,12 @@ namespace vtkn
 
         vtkn_part_style Style;
         std::string ParentName;
+        std::vector<int> SourceCells;
+        vtkSmartPointer<vtkFloatArray> PointScalars;
+        vtkSmartPointer<vtkFloatArray> CellScalars;
+        std::vector<std::array<double, 3>> ColorTable;
+        vtkn_extreme_nodes Extremes = {};
+        bool HasExtremeNodes = false;
         bool GeometryHiddenBySectionView = false;
         vtkSmartPointer<vtkActor> Geometry;
         vtkSmartPointer<vtkActor> ElementEdges;
@@ -91,7 +113,7 @@ namespace vtkn
     // Port of AddNodeAndCellDataToPoly: triangles for the surface cells, lines for the edges, vertices, and when
     // asked the unique element edges
     void BuildPolyData(const vtkn_mesh& mesh, bool extractEdges, vtkSmartPointer<vtkPolyData>& polyActor,
-                       vtkSmartPointer<vtkPolyData>& polyEdges);
+                       vtkSmartPointer<vtkPolyData>& polyEdges, std::vector<int>* sourceCells = nullptr);
     // The style vtkMaxActor has before any data sets it, as its default constructor leaves it
     vtkn_part_style DefaultStyle();
 }

@@ -90,7 +90,8 @@ def check_scenes(out_dir):
             picture = compare_pictures(os.path.join(out_dir, "old", image["file"]),
                                        os.path.join(out_dir, "new", image["file"]),
                                        os.path.join(out_dir, "side_by_side"))
-            ok = (camera <= CAMERA_TOLERANCE and picture["coverage"] >= COVERAGE_LIMIT and
+            camera_tolerance = record.get("camera_tolerance") or CAMERA_TOLERANCE
+            ok = (camera <= camera_tolerance and picture["coverage"] >= COVERAGE_LIMIT and
                   picture["differing"] <= DIFFERING_LIMIT)
             failed += 0 if ok else 1
             mean_abs.append(picture["mean_abs"])

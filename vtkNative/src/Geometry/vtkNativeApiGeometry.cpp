@@ -106,6 +106,67 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_set_actor_scalars(vtkn_view view, const char* name, const float* values,
+                                                      int32_t count, const vtkn_extreme_nodes* extremes)
+    {
+        return GuardVtk([&]() {
+            std::string actorName = ToName(name, "name");
+            PartActor* actor = View::FromHandle(view)->FindActor(actorName, VTKN_LAYER_BASE);
+            if (actor == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "There is no actor named " + actorName + ".");
+            actor->SetPointScalars(values, count, extremes);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_actor_cell_colors(vtkn_view view, const char* name, int32_t layer,
+                                                          const float* values, int32_t count, const double* rgb,
+                                                          int32_t rgb_count)
+    {
+        return GuardVtk([&]() {
+            Require(rgb_count == 0 || rgb != nullptr, "The argument 'rgb' must not be null.");
+            std::string actorName = ToName(name, "name");
+            PartActor* actor = View::FromHandle(view)->FindActor(actorName, ToLayer(layer));
+            if (actor == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "There is no actor named " + actorName + ".");
+            actor->SetCellColors(values, count, rgb, rgb_count);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_actors_color_contours(vtkn_view view, const char* names,
+                                                              int32_t color_contours)
+    {
+        return GuardVtk([&]() {
+            View* target = View::FromHandle(view);
+            for (const std::string& name : ToNameSet(names, "names"))
+            {
+                PartActor* actor = target->FindActor(name, VTKN_LAYER_BASE);
+                if (actor != nullptr) actor->SetColorContours(color_contours != 0);
+            }
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_update_scalar_formatting(vtkn_view view, const vtkn_color_spectrum* spectrum,
+                                                             int32_t keep_scalar_bar_visible, int32_t use_all_frames,
+                                                             double all_frames_min, double all_frames_max)
+    {
+        return GuardVtk([&]() {
+            Require(spectrum != nullptr, "The argument 'spectrum' must not be null.");
+            View::FromHandle(view)->UpdateScalarFormatting(*spectrum, keep_scalar_bar_visible != 0,
+                                                           use_all_frames != 0, all_frames_min, all_frames_max);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_get_scalar_range(vtkn_view view, double* range2, int32_t* has_range)
+    {
+        return GuardVtk([&]() {
+            Require(range2 != nullptr && has_range != nullptr, "The output arguments must not be null.");
+            *has_range = View::FromHandle(view)->GetScalarRange(range2) ? 1 : 0;
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_clear(vtkn_view view, int32_t what)
     {
         return GuardVtk([&]() {

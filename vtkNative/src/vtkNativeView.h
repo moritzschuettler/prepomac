@@ -87,6 +87,9 @@ namespace vtkn
         void RemoveOverlayActors(const std::set<std::string>& names);
         void SetHighlightColors(const double* primary, const double* secondary);
         void ApplyEdgesVisibilityAndBackfaceCulling();
+        void UpdateScalarFormatting(const vtkn_color_spectrum& spectrum, bool keepScalarBarVisible,
+                                    bool useAllFrames, double allFramesMin, double allFramesMax);
+        bool GetScalarRange(double range[2]);
         void AddSymbolActor(const std::string& name, const vtkn_part_style& style, const double* points,
                             int pointCount, const double* normals, int normalCount,
                             const vtkn_symbol_parameters& parameters);
@@ -164,6 +167,8 @@ namespace vtkn
         std::map<std::string, std::unique_ptr<PartActor>> OverlayParts;
         std::vector<std::unique_ptr<PartActor>> SelectedParts;
         HighlightColors Highlight;
+        bool HasScalarRange = false;
+        double ScalarRange[2] = { 0, 1 };
         bool SectionViewActive = false;
     };
 }

@@ -29,6 +29,7 @@ SUITES=(
     # Stream G (geometry)
     "geometry_g1|scenes geometry shell_femodel springs_femodel hinge_highlight hinge_hidden solid_geometry_highlight"
     "geometry_g2|scenes geometry hinge_symbols springs_symbols slider_symbols ball_symbols plates_weld_symbols"
+    "geometry_g3|scenes geometry hinge_result_disp hinge_result_mises"
 )
 
 selected() {

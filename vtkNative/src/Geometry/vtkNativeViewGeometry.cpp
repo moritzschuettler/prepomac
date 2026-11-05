@@ -3,6 +3,7 @@
 // The geometry operations of a view: the actors of the three 3D layers and what vtkControl does with them. Port of
 // the regions Add geometry (AddCells, AddPoints, AddActor*), Highlight geometry, Hide/Show geometry and Clear, and of
 // the edges visibility of all layers.
+#include "vtkNativeColorSpectrum.h"
 #include "vtkNativeError.h"
 #include "vtkNativeSymbols.h"
 #include "vtkNativeView.h"
@@ -18,6 +19,7 @@
 #include <vtkProperty.h>
 
 #include <algorithm>
+#include <cmath>
 
 namespace vtkn
 {
@@ -334,6 +336,79 @@ namespace vtkn
         edgesStyle.line_width = 1.5;
         std::unique_ptr<PartActor> edges(new PartActor(edgesStyle, silhouette->GetOutputPort()));
         AddActor(name + ":silhouette", std::move(edges));
+    }
+
+    // Port of UpdateScalarFormatting without its widgets: the extreme nodes of the visible actors with color
+    // contours give the range, the lookup table of the spectrum over it colors them, unknown values white
+    void View::UpdateScalarFormatting(const vtkn_color_spectrum& spectrum, bool keepScalarBarVisible,
+                                      bool useAllFrames, double allFramesMin, double allFramesMax)
+    {
+        const vtkn_extreme_nodes* minNode = nullptr;
+        const vtkn_extreme_nodes* maxNode = nullptr;
+        const vtkn_extreme_nodes* fallbackMinNode = nullptr;
+        const vtkn_extreme_nodes* fallbackMaxNode = nullptr;
+        std::vector<PartActor*> actors = GetBaseActors();
+        for (PartActor* actor : actors)
+        {
+            if (!actor->HasExtremes()) continue;
+            const vtkn_extreme_nodes& extremes = actor->GetExtremes();
+            if (!std::isnan(extremes.min_value) &&
+                (fallbackMinNode == nullptr || extremes.min_value < fallbackMinNode->min_value))
+                fallbackMinNode = &extremes;
+            if (!std::isnan(extremes.max_value) &&
+                (fallbackMaxNode == nullptr || extremes.max_value > fallbackMaxNode->max_value))
+                fallbackMaxNode = &extremes;
+            actor->ApplyScalarVisibility();
+            if (!actor->IsVisible() || !actor->GetColorContours()) continue;
+            if (minNode == nullptr || maxNode == nullptr)
+            {
+                minNode = &extremes;
+                maxNode = &extremes;
+            }
+            else
+            {
+                if (!std::isnan(extremes.min_value) && extremes.min_value < minNode->min_value) minNode = &extremes;
+                if (!std::isnan(extremes.max_value) && extremes.max_value > maxNode->max_value) maxNode = &extremes;
+            }
+        }
+        if (minNode == nullptr || maxNode == nullptr)
+        {
+            if (!keepScalarBarVisible || fallbackMinNode == nullptr || fallbackMaxNode == nullptr)
+            {
+                HasScalarRange = false;
+                return;
+            }
+            minNode = fallbackMinNode;
+            maxNode = fallbackMaxNode;
+        }
+        double minValue = minNode->min_value;
+        double maxValue = maxNode->max_value;
+        if (spectrum.min_max_type == VTKN_SPECTRUM_MIN_MAX_AUTOMATIC && useAllFrames)
+        {
+            minValue = allFramesMin;
+            maxValue = allFramesMax;
+        }
+        vtkSmartPointer<vtkLookupTable> lookupTable = CreateActorLookupTable(spectrum, minValue, maxValue);
+        double range[2];
+        lookupTable->GetTableRange(range);
+        vtkNew<vtkLookupTable> lookup;
+        lookup->DeepCopy(lookupTable);
+        lookup->SetNanColor(1, 1, 1, 1);
+        for (PartActor* actor : actors)
+        {
+            if (actor->GetColorContours() && actor->IsVisible() && actor->HasPointScalars())
+                actor->SetResultLookupTable(lookup, range);
+        }
+        HasScalarRange = true;
+        ScalarRange[0] = range[0];
+        ScalarRange[1] = range[1];
+    }
+
+    bool View::GetScalarRange(double range[2])
+    {
+        range[0] = ScalarRange[0];
+        range[1] = ScalarRange[1];
+        return HasScalarRange;
     }
 
     // Port of ApplyEdgesVisibilityAndBackfaceCulling: the base and selection layers follow the edges mode, the

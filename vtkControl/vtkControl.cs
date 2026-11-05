@@ -5793,12 +5793,12 @@ namespace vtkControl
                 if (_overlayActors.TryGetValue(name, out actor)) actor.VtkMaxActorVisible = true;
             }
             //
+            MirrorGeometry("HideShowActors", () => _nativeMirror.HideShowActors(actorNames, visible));
             if (updateColorContours) UpdateScalarFormatting();
             //
             ApplyEdgesVisibilityAndBackfaceCulling();
             ApplyVisibilityToActorNodes();
             _style.AdjustCameraDistanceAndClipping();
-            MirrorGeometry("HideShowActors", () => _nativeMirror.HideShowActors(actorNames, visible));
         }
         private void HideShowActor(vtkMaxActor actor, bool visible)
         {
@@ -8357,6 +8357,7 @@ namespace vtkControl
             if (data.CanHaveElementEdges && actor.ElementEdges != null) AddActorEdges(actor, false, vtkRendererLayer.Base);
             // Add modelEdges
             if (actor.ModelEdges != null) AddActorEdges(actor, true, data.Layer);
+            MirrorActor(data, actor, false);
             //
             if (update) UpdateScalarsAndCameraAndRedraw();
         }
@@ -8404,6 +8405,7 @@ namespace vtkControl
         //
         private void UpdateScalarFormatting()
         {
+            MirrorScalarFormatting();
             vtkMaxActor actor;
             vtkMapper mapper;
             vtkPointData pointData;
@@ -8655,6 +8657,7 @@ namespace vtkControl
             {
                 RemoveActorScalarField(actorName);
             }
+            MirrorActorScalarField(actorName, values, extremeNodes);
             //
             if (update) UpdateScalarsAndRedraw();
         }
@@ -8805,6 +8808,8 @@ namespace vtkControl
         public void UpdateActorsColorContoursVisibility(string[] actorNames, bool colorContours)
         {
             foreach (var name in actorNames) UpdateActorColorContoursVisibility(name, colorContours);
+            MirrorGeometry("UpdateActorsColorContoursVisibility",
+                           () => _nativeMirror.SetActorsColorContours(actorNames, colorContours));
             //
             UpdateScalarFormatting();
             //

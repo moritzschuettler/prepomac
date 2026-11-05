@@ -62,6 +62,67 @@ namespace vtkControl.Native
                                                                                 normals.Length / 3, ref parameters));
         }
         //
+        public void SetActorScalars(string name, float[] values, VtkNativeExtremeNodes? extremes)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            IntPtr extremesPointer = IntPtr.Zero;
+            try
+            {
+                if (extremes.HasValue)
+                {
+                    extremesPointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(VtkNativeExtremeNodes)));
+                    Marshal.StructureToPtr(extremes.Value, extremesPointer, false);
+                }
+                VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_actor_scalars(Handle(), VtkNativeLibrary.ToUtf8(name),
+                                                                                     values, values == null ? 0 :
+                                                                                     values.Length, extremesPointer));
+            }
+            finally
+            {
+                if (extremesPointer != IntPtr.Zero) Marshal.FreeHGlobal(extremesPointer);
+            }
+        }
+        //
+        public void SetActorCellColors(string name, VtkNativeLayer layer, float[] values, Color[] colorTable)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            double[] rgb = new double[colorTable == null ? 0 : 3 * colorTable.Length];
+            for (int i = 0; i < rgb.Length / 3; i++)
+            {
+                rgb[3 * i] = colorTable[i].R / 255d;
+                rgb[3 * i + 1] = colorTable[i].G / 255d;
+                rgb[3 * i + 2] = colorTable[i].B / 255d;
+            }
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_actor_cell_colors(Handle(), VtkNativeLibrary.ToUtf8(name),
+                                                                                     (int)layer, values, values == null ? 0 :
+                                                                                     values.Length, rgb, rgb.Length / 3));
+        }
+        //
+        public void SetActorsColorContours(string[] names, bool colorContours)
+        {
+            if (names == null) throw new ArgumentNullException("names");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_actors_color_contours(Handle(),
+                                                                                         VtkNativeLibrary.ToUtf8List(names),
+                                                                                         colorContours ? 1 : 0));
+        }
+        //
+        public void UpdateScalarFormatting(VtkNativeColorSpectrum spectrum, bool keepScalarBarVisible, bool useAllFrames,
+                                           double allFramesMin, double allFramesMax)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_update_scalar_formatting(Handle(), ref spectrum,
+                                                                                        keepScalarBarVisible ? 1 : 0,
+                                                                                        useAllFrames ? 1 : 0, allFramesMin,
+                                                                                        allFramesMax));
+        }
+        //
+        public double[] GetScalarRange()
+        {
+            double[] range = new double[2];
+            int hasRange;
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_get_scalar_range(Handle(), range, out hasRange));
+            return hasRange == 0 ? null : range;
+        }
+        //
         public void SetActorVisible(string name, VtkNativeLayer layer, bool visible)
         {
             if (name == null) throw new ArgumentNullException("name");

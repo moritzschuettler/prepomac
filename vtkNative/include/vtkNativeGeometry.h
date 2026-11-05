@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_GEOMETRY_API_VERSION 2
+#define VTKN_GEOMETRY_API_VERSION 3
 
 /* Mirrors vtkRendererLayer of vtkControl: the base layer, the selection layer drawn over it, the overlay layer */
 typedef enum vtkn_layer
@@ -90,6 +90,64 @@ typedef struct vtkn_symbol_parameters
     int32_t draw_edges;
 } vtkn_symbol_parameters;
 
+/* Mirrors vtkColorSpectrumType, vtkColorSpectrumMode and vtkColorSpectrumMinMaxType */
+typedef enum vtkn_spectrum_type
+{
+    VTKN_SPECTRUM_COOL_WARM = 0,
+    VTKN_SPECTRUM_RAINBOW = 1,
+    VTKN_SPECTRUM_RAINBOW_DESATURATED = 2,
+    VTKN_SPECTRUM_TURBO = 3,
+    VTKN_SPECTRUM_JET = 4,
+    VTKN_SPECTRUM_WARM = 5,
+    VTKN_SPECTRUM_COOL = 6,
+    VTKN_SPECTRUM_CIVIDIS = 7,
+    VTKN_SPECTRUM_VIRIDIS = 8,
+    VTKN_SPECTRUM_PLASMA = 9,
+    VTKN_SPECTRUM_BLACK_BODY = 10,
+    VTKN_SPECTRUM_INFERNO = 11,
+    VTKN_SPECTRUM_KINDLMANN = 12,
+    VTKN_SPECTRUM_GRAYSCALE = 13
+} vtkn_spectrum_type;
+
+typedef enum vtkn_spectrum_mode
+{
+    VTKN_SPECTRUM_MODE_DISCRETE = 0,
+    VTKN_SPECTRUM_MODE_SMOOTH = 1
+} vtkn_spectrum_mode;
+
+typedef enum vtkn_spectrum_min_max
+{
+    VTKN_SPECTRUM_MIN_MAX_AUTOMATIC = 0,
+    VTKN_SPECTRUM_MIN_MAX_MANUAL = 1
+} vtkn_spectrum_min_max;
+
+/* The fields of vtkMaxColorSpectrum the coloring of the results reads; colors RGB in [0, 1] */
+typedef struct vtkn_color_spectrum
+{
+    int32_t type;
+    int32_t mode;
+    int32_t min_max_type;
+    int32_t number_of_colors;
+    int32_t reverse_colors;
+    int32_t reserved;
+    double color_brightness;
+    double min_user_value;
+    double max_user_value;
+    double min_color[3];
+    double max_color[3];
+} vtkn_color_spectrum;
+
+/* The nodes with the smallest and the largest value of a result field, as vtkMaxExtreemeNode */
+typedef struct vtkn_extreme_nodes
+{
+    int32_t min_id;
+    int32_t max_id;
+    double min_coordinates[3];
+    double max_coordinates[3];
+    double min_value;
+    double max_value;
+} vtkn_extreme_nodes;
+
 /* A mesh as arrays the caller owns for the duration of the call. coordinates: point_count * 3. cells: for each
    cell its node count followed by its point indices (the VTK legacy layout), cells_length values in total.
    cell_types: cell_count VTK cell type codes. point_ids and cell_ids: the PrePoMax node and element ids, or null */
@@ -164,6 +222,23 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_add_symbol_actor(vtkn_view view, const 
                                                            int32_t point_count, const double* normals,
                                                            int32_t normal_count,
                                                            const vtkn_symbol_parameters* parameters);
+/* The result values at the points of a base actor (null removes them) and its extreme nodes (null for none) */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actor_scalars(vtkn_view view, const char* name, const float* values,
+                                                            int32_t count, const vtkn_extreme_nodes* extremes);
+/* The values of the cells of an actor, one per cell of its mesh, and the color table they index (rgb_count colors) */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actor_cell_colors(vtkn_view view, const char* name, int32_t layer,
+                                                                const float* values, int32_t count,
+                                                                const double* rgb, int32_t rgb_count);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actors_color_contours(vtkn_view view, const char* names,
+                                                                    int32_t color_contours);
+/* UpdateScalarFormatting: the result range over the visible actors with color contours colors them through the
+   lookup table of the spectrum; with use_all_frames the given range of all animation frames is used instead */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_update_scalar_formatting(vtkn_view view, const vtkn_color_spectrum* spectrum,
+                                                                   int32_t keep_scalar_bar_visible,
+                                                                   int32_t use_all_frames, double all_frames_min,
+                                                                   double all_frames_max);
+/* The range the last scalar formatting colored with, and whether there was one */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_get_scalar_range(vtkn_view view, double* range2, int32_t* has_range);
 /* vtkn_clear */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_clear(vtkn_view view, int32_t what);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_remove_overlay_actors(vtkn_view view, const char* names);

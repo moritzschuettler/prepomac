@@ -46,6 +46,8 @@ add_library(vtkNative SHARED
     src/vtkNativeView.h
     src/vtkNativeViewCamera.cpp
     src/Geometry/vtkNativeApiGeometry.cpp
+    src/Geometry/vtkNativeColorSpectrum.cpp
+    src/Geometry/vtkNativeColorSpectrum.h
     src/Geometry/vtkNativePartActor.cpp
     src/Geometry/vtkNativePartActor.h
     src/Geometry/vtkNativeSymbols.cpp

@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using CaeGlobals;
 using Kitware.VTK;
 using vtkControl.Native;
 
@@ -77,6 +78,7 @@ namespace vtkControl
                                        VtkNativeMeshData.FromPartExchangeData(data.ModelEdgesToDraw));
                 _nativeMirroredActors.Add(actor);
                 if (data.Layer == vtkRendererLayer.Base && data.IsAPart) _nativeMirrorNames.Add(actor.Name);
+                MirrorActorColors(data, actor.Name);
             });
         }
         // The symbol methods: the native view builds the symbol from the points and normals of the data, and draws
@@ -133,6 +135,45 @@ namespace vtkControl
                 foreach (vtkMaxActor selected in _selectedActors) if (selected.Name == name) return selected;
             }
             return null;
+        }
+        // The result values, extreme nodes, cell values and color table vtkMaxActor takes from its data
+        private void MirrorActorColors(vtkMaxActorData data, string name)
+        {
+            PartExchangeData geometry = data.Geometry;
+            if (geometry.Nodes.Values != null && data.Layer == vtkRendererLayer.Base)
+            {
+                VtkNativeExtremeNodes? extremes = null;
+                if (geometry.ExtremeNodes != null && geometry.ExtremeNodes.Ids != null)
+                    extremes = VtkNativeExtremeNodes.FromNodesExchangeData(geometry.ExtremeNodes);
+                _nativeMirror.SetActorScalars(name, geometry.Nodes.Values, extremes);
+            }
+            if ((geometry.Cells.Values != null && geometry.Cells.Ids != null) || data.ColorTable != null)
+            {
+                float[] cellValues = geometry.Cells.Ids != null ? geometry.Cells.Values : null;
+                _nativeMirror.SetActorCellColors(name, VtkNativePartStyle.ToNativeLayer(data.Layer), cellValues,
+                                                 data.ColorTable);
+            }
+        }
+        // UpdateScalarFormatting: the native view colors its result actors from its own extreme nodes
+        private void MirrorScalarFormatting()
+        {
+            MirrorGeometry("UpdateScalarFormatting", () =>
+            {
+                bool useAllFrames = _animationFrameData != null && _animationFrameData.UseAllFrameData;
+                double[] range = useAllFrames ? _animationFrameData.AllFramesScalarRange : new double[] { 0, 0 };
+                _nativeMirror.UpdateScalarFormatting(VtkNativeColorSpectrum.FromColorSpectrum(_colorSpectrum),
+                                                     _keepScalarBarVisible, useAllFrames, range[0], range[1]);
+            });
+        }
+        private void MirrorActorScalarField(string actorName, float[] values, NodesExchangeData extremeNodes)
+        {
+            MirrorGeometry("UpdateActorScalarField " + actorName, () =>
+            {
+                VtkNativeExtremeNodes? extremes = null;
+                if (values != null && extremeNodes != null && extremeNodes.Ids != null)
+                    extremes = VtkNativeExtremeNodes.FromNodesExchangeData(extremeNodes);
+                _nativeMirror.SetActorScalars(actorName, values, extremes);
+            });
         }
         // AddActor of an actor the Controller kept in its selection buffer: it is built again from its data
         private void MirrorBufferedActor(vtkMaxActor actor)
