@@ -10987,9 +10987,9 @@ namespace PrePoMax
                 CloseAllForms();
                 form.Text = text;
                 if (itemToEditName != null) form.Text += ": " + itemToEditName;
+                SetFormLocation((Form)form);
                 if (form.PrepareForm(stepName, itemToEditName))
                 {
-                    SetFormLocation((Form)form);
                     ((Form)form).Show(this);
                 }
                 else
