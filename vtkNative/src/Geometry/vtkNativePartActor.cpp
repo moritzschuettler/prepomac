@@ -429,7 +429,8 @@ namespace vtkn
     {
         std::copy(source.SectionColor, source.SectionColor + 4, SectionColor);
         Style.pickable = 0;
-        Geometry = TransformActor(source.Geometry, transform, vtkPolyDataMapper::SafeDownCast(source.Geometry->GetMapper()) != nullptr);
+        bool polyDataMapper = vtkPolyDataMapper::SafeDownCast(source.Geometry->GetMapper()) != nullptr;
+        Geometry = TransformActor(source.Geometry, transform, polyDataMapper);
         UseInfiniteViewer(Geometry);
         if (source.ElementEdges != nullptr) ElementEdges = TransformActor(source.ElementEdges, transform, false);
         if (source.ModelEdges != nullptr) ModelEdges = TransformActor(source.ModelEdges, transform, false);
