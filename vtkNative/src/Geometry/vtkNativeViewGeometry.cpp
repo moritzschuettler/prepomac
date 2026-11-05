@@ -194,6 +194,13 @@ namespace vtkn
     void View::HideShowActor(PartActor* actor, bool visible)
     {
         actor->SetVisible(visible);
+        if (!SectionViewActive) return;
+        for (const auto& entry : SectionViewActorNames)
+        {
+            if (FindActor(entry.first, VTKN_LAYER_BASE) != actor) continue;
+            PartActor* sectionViewActor = FindActor(entry.second, VTKN_LAYER_BASE);
+            if (sectionViewActor != nullptr) sectionViewActor->SetVisible(visible);
+        }
     }
 
     void View::UpdateResultRepresentationVisibility(const std::set<std::string>& partNames, bool visible)
@@ -215,6 +222,7 @@ namespace vtkn
         Require(what >= VTKN_CLEAR_ALL && what <= VTKN_CLEAR_OVERLAY, "The clear mode is not one of vtkn_clear.");
         if (what == VTKN_CLEAR_ALL)
         {
+            RemoveSectionView();
             for (PartActor* actor : GetBaseActors()) actor->RemoveFrom(Renderer);
             Parts.clear();
             BaseActors.clear();

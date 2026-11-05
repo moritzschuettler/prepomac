@@ -57,6 +57,15 @@ namespace vtkControl.Native
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_get_scalar_range(IntPtr view, double[] range2, out int hasRange);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_section_view_data(IntPtr view, byte[] name, IntPtr volumeGrid,
+                                                                             float[] values, int valueCount,
+                                                                             double[] sectionColorRgba, int hatchIndex,
+                                                                             int hasVolumeCells);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_create_section_view(IntPtr view, ref VtkNativeSectionView sectionView);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_remove_section_view(IntPtr view);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_clear(IntPtr view, int what);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_remove_overlay_actors(IntPtr view, byte[] names);

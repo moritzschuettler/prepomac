@@ -18,7 +18,9 @@ find_package(VTK 9.7 REQUIRED COMPONENTS
     CommonDataModel
     InteractionStyle
     FiltersCore
+    FiltersExtraction
     FiltersGeneral
+    FiltersGeometry
     FiltersHybrid
     FiltersModeling
     FiltersSources
@@ -50,6 +52,7 @@ add_library(vtkNative SHARED
     src/Geometry/vtkNativeColorSpectrum.h
     src/Geometry/vtkNativePartActor.cpp
     src/Geometry/vtkNativePartActor.h
+    src/Geometry/vtkNativeSectionView.cpp
     src/Geometry/vtkNativeSymbols.cpp
     src/Geometry/vtkNativeSymbols.h
     src/Geometry/vtkNativeViewGeometry.cpp

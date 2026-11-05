@@ -5874,6 +5874,7 @@ namespace vtkControl
                         if (actor.SectionViewPossible) AddSectionViewActors(actor);
                     }
                     if (_sectionViewData.ElementWise) AddSectionViewSkinActorsToSurfaceActors();
+                    MirrorSectionView(point, normal);
                     //
                     UpdateScalarFormatting();
                     _style.AdjustCameraDistanceAndClipping();
@@ -5906,6 +5907,7 @@ namespace vtkControl
                         if (actor.SectionViewPossible) AddSectionViewActors(actor);
                     }
                     if (_sectionViewData.ElementWise) AddSectionViewSkinActorsToSurfaceActors();
+                    MirrorSectionView(point, normal);
                     //
                     UpdateScalarFormatting();
                     _style.AdjustCameraDistanceAndClipping();
@@ -5930,6 +5932,7 @@ namespace vtkControl
                     }
                     //
                     _sectionViewData.Reset();
+                    MirrorGeometry("RemoveSectionView", () => _nativeMirror.RemoveSectionView());
                     //
                     UpdateScalarFormatting();
                     _style.AdjustCameraDistanceAndClipping();
@@ -10292,6 +10295,7 @@ namespace vtkControl
                     if (actor.ModelEdges != null) mirroredProps.Add(actor.ModelEdges);
                 }
                 if (_nativeMirrorAllGeometry) mirroredProps.UnionWith(GetNativeMirroredProps());
+                else MirrorPartsOnly();
                 // The overlay and selection props are hidden too, not only left undrawn: their bounds take part in
                 // the framing of a view
                 _nativeMirrorHiddenProps = new List<vtkProp>();

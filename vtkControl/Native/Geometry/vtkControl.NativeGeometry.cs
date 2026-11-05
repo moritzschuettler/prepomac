@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using CaeGlobals;
 using Kitware.VTK;
@@ -35,6 +36,15 @@ namespace vtkControl
         public void SetNativeMirrorAllGeometry(bool allGeometry)
         {
             _nativeMirrorAllGeometry = allGeometry;
+        }
+        // The parts only mode of the pilot checks: the native view keeps the base layer only, as ActiViz then draws
+        private void MirrorPartsOnly()
+        {
+            MirrorGeometry("PartsOnly", () =>
+            {
+                _nativeMirror.Clear(VtkNativeClear.Overlay);
+                _nativeMirror.Clear(VtkNativeClear.Selection);
+            });
         }
         public string[] GetNativeMirrorErrors()
         {
@@ -175,6 +185,47 @@ namespace vtkControl
                 _nativeMirror.SetActorScalars(actorName, values, extremes);
             });
         }
+        // CreateSectionView and UpdateSectionView: every mirrored part that may be cut gets its volume grid, the
+        // color of its section faces (formatted here, as Lighten is a .NET extension) and its hatch index
+        private void MirrorSectionView(double[] point, double[] normal)
+        {
+            MirrorGeometry("SectionView", () =>
+            {
+                Dictionary<string, int> hatchIndices = new Dictionary<string, int>();
+                foreach (vtkMaxActor actor in _actors.Values.ToArray())
+                {
+                    if (!actor.SectionViewPossible || !actor.VolumeGridAvailable ||
+                        !_nativeMirroredActors.Contains(actor)) continue;
+                    PartExchangeData data = GetVolumeGridData(actor.VolumeGridSourceName ?? actor.Name);
+                    if (data == null || data.Cells == null || data.Cells.CellNodeIds == null) continue;
+                    //
+                    System.Drawing.Color color = actor.Color;
+                    if (_sectionViewData.LightenColors) color = color.Lighten();
+                    else if (_sectionViewData.SectionColor != System.Drawing.Color.Empty) color = _sectionViewData.SectionColor;
+                    string hatchGroup = Controller_GetSectionViewHatchGroup?.Invoke(actor.Name) ?? actor.Name;
+                    int hatchIndex;
+                    if (!hatchIndices.TryGetValue(hatchGroup, out hatchIndex))
+                    {
+                        hatchIndex = hatchIndices.Count;
+                        hatchIndices.Add(hatchGroup, hatchIndex);
+                    }
+                    _nativeMirror.SetSectionViewData(actor.Name, VtkNativeMeshData.FromPartExchangeData(data),
+                                                     data.Nodes.Values, color, hatchIndex, actor.HasVolumeCells);
+                    if (actor.SectionViewActor != null) _nativeMirroredActors.Add(actor.SectionViewActor);
+                }
+                VtkNativeSectionView sectionView = new VtkNativeSectionView();
+                sectionView.PointX = point[0];
+                sectionView.PointY = point[1];
+                sectionView.PointZ = point[2];
+                sectionView.NormalX = normal[0];
+                sectionView.NormalY = normal[1];
+                sectionView.NormalZ = normal[2];
+                sectionView.ElementWise = _sectionViewData.ElementWise ? 1 : 0;
+                sectionView.Hatch = _sectionViewData.Hatch ? 1 : 0;
+                sectionView.HatchSpacing = _sectionViewData.HatchSpacing;
+                _nativeMirror.CreateSectionView(sectionView);
+            });
+        }
         // AddActor of an actor the Controller kept in its selection buffer: it is built again from its data
         private void MirrorBufferedActor(vtkMaxActor actor)
         {
@@ -214,6 +265,7 @@ namespace vtkControl
                 if (actor.Geometry != null) props.Add(actor.Geometry);
                 if (actor.ElementEdges != null) props.Add(actor.ElementEdges);
                 if (actor.ModelEdges != null) props.Add(actor.ModelEdges);
+                if (actor.SectionViewHatch != null) props.Add(actor.SectionViewHatch);
             }
             return props;
         }

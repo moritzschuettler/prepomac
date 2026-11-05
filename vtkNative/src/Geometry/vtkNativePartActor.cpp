@@ -16,6 +16,7 @@
 #include <vtkPolyDataMapper.h>
 #include <vtkPolyDataNormals.h>
 #include <vtkProperty.h>
+#include <vtkUnsignedCharArray.h>
 
 #include <algorithm>
 #include <array>
@@ -351,6 +352,98 @@ namespace vtkn
         CreateFromMapper(mapper);
     }
 
+    PartActor::PartActor(const vtkn_part_style& style, vtkPolyData* faces, vtkPolyData* elementEdges,
+                         vtkPolyData* modelEdges, const PartActor& part)
+        : Style(style)
+    {
+        vtkNew<vtkPolyDataMapper> mapper;
+        mapper->SetInputData(faces);
+        Geometry = vtkSmartPointer<vtkActor>::New();
+        Geometry->SetMapper(mapper);
+        Geometry->PickableOff();
+        UseInfiniteViewer(Geometry);
+        vtkDataArray* scalars = faces->GetPointData()->GetArray("scalars");
+        PointScalars = vtkFloatArray::SafeDownCast(scalars);
+        HasExtremeNodes = part.HasExtremeNodes;
+        Extremes = part.Extremes;
+        vtkPolyData* edges[2] = { elementEdges, modelEdges };
+        vtkSmartPointer<vtkActor>* actors[2] = { &ElementEdges, &ModelEdges };
+        for (int i = 0; i < 2; i++)
+        {
+            vtkNew<vtkPolyDataMapper> edgesMapper;
+            edgesMapper->SetInputData(edges[i]);
+            *actors[i] = vtkSmartPointer<vtkActor>::New();
+            (*actors[i])->SetMapper(edgesMapper);
+            (*actors[i])->PickableOff();
+        }
+        ApplyStyleSizes();
+        UpdateColor();
+        Geometry->GetProperty()->SetLighting(style.lighting != 0);
+    }
+
+    vtkSmartPointer<vtkUnstructuredGrid> BuildUnstructuredGrid(const vtkn_mesh& mesh)
+    {
+        CheckMesh(mesh, "volume grid");
+        vtkNew<vtkDoubleArray> coordinates;
+        coordinates->SetNumberOfComponents(3);
+        coordinates->SetNumberOfTuples(mesh.point_count);
+        if (mesh.point_count > 0)
+            std::memcpy(coordinates->GetPointer(0), mesh.coordinates, sizeof(double) * 3 * static_cast<size_t>(mesh.point_count));
+        vtkNew<vtkPoints> points;
+        points->SetData(coordinates);
+        vtkNew<vtkCellArray> cells;
+        vtkNew<vtkUnsignedCharArray> types;
+        const int32_t* cell = mesh.cells;
+        for (int i = 0; i < mesh.cell_count; i++)
+        {
+            std::vector<vtkIdType> ids(cell + 1, cell + 1 + cell[0]);
+            cells->InsertNextCell(static_cast<vtkIdType>(ids.size()), ids.data());
+            types->InsertNextValue(mesh.cell_types[i]);
+            cell += cell[0] + 1;
+        }
+        vtkSmartPointer<vtkUnstructuredGrid> grid = vtkSmartPointer<vtkUnstructuredGrid>::New();
+        grid->SetPoints(points);
+        grid->SetCells(types, cells);
+        return grid;
+    }
+
+    void PartActor::AddClippingPlane(vtkPlane* plane)
+    {
+        Geometry->GetMapper()->AddClippingPlane(plane);
+        if (ElementEdges != nullptr) ElementEdges->GetMapper()->AddClippingPlane(plane);
+        if (ModelEdges != nullptr) ModelEdges->GetMapper()->AddClippingPlane(plane);
+        if (Style.representation == VTKN_REPRESENTATION_SOLID_AS_SHELL) Geometry->GetProperty()->BackfaceCullingOff();
+    }
+
+    void PartActor::RemoveAllClippingPlanes()
+    {
+        Geometry->GetMapper()->RemoveAllClippingPlanes();
+        if (ElementEdges != nullptr) ElementEdges->GetMapper()->RemoveAllClippingPlanes();
+        if (ModelEdges != nullptr) ModelEdges->GetMapper()->RemoveAllClippingPlanes();
+    }
+
+    void PartActor::SetSectionViewData(vtkUnstructuredGrid* volumeGrid, const double* sectionColor, int hatchIndex,
+                                       bool hasVolumeCells)
+    {
+        VolumeGrid = volumeGrid;
+        std::copy(sectionColor, sectionColor + 4, SectionColor);
+        HatchIndex = hatchIndex;
+        HasVolumeCells = hasVolumeCells;
+    }
+
+    // AddSectionViewHatch: black lines in the plane, formatted with the model edges by UpdateColor
+    void PartActor::SetSectionViewHatch(vtkPolyData* hatch, vtkRenderer* renderer)
+    {
+        vtkNew<vtkPolyDataMapper> mapper;
+        mapper->SetInputData(hatch);
+        mapper->ScalarVisibilityOff();
+        SectionViewHatch = vtkSmartPointer<vtkActor>::New();
+        SectionViewHatch->SetMapper(mapper);
+        SectionViewHatch->PickableOff();
+        renderer->AddActor(SectionViewHatch);
+        UpdateColor();
+    }
+
     // vtkMaxActor(data, mapper): no edges and no locator, the drawing fields of the data
     void PartActor::CreateFromMapper(vtkMapper* mapper)
     {
@@ -511,6 +604,7 @@ namespace vtkn
 
     void PartActor::RemoveFrom(vtkRenderer* renderer)
     {
+        if (SectionViewHatch != nullptr) renderer->RemoveActor(SectionViewHatch);
         renderer->RemoveActor(Geometry);
         if (ElementEdges != nullptr) renderer->RemoveActor(ElementEdges);
         if (ModelEdges != nullptr) renderer->RemoveActor(ModelEdges);
@@ -520,6 +614,7 @@ namespace vtkn
     {
         Style.visible = visible ? 1 : 0;
         Geometry->SetVisibility(visible);
+        if (SectionViewHatch != nullptr) SectionViewHatch->SetVisibility(visible);
     }
 
     void PartActor::SetGlobalLighting(double ambient, double diffuse)
@@ -580,6 +675,7 @@ namespace vtkn
         }
         //
         if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 0.8, opacity * 0.7);
+        if (SectionViewHatch != nullptr) SetEdgeLine(SectionViewHatch, 0.8, opacity * 0.7);
         if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 0.5, opacity * 0.4);
         if (Style.has_backface_color && !Style.backface_culling)
         {

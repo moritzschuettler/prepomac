@@ -14,7 +14,9 @@
 #include <vtkCellLocator.h>
 #include <vtkFloatArray.h>
 #include <vtkLookupTable.h>
+#include <vtkPlane.h>
 #include <vtkPolyData.h>
+#include <vtkUnstructuredGrid.h>
 #include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
 
@@ -39,6 +41,9 @@ namespace vtkn
         // An actor drawing a poly data or the output of a pipeline, as vtkMaxActor(data, mapper)
         PartActor(const vtkn_part_style& style, vtkPolyData* polyData);
         PartActor(const vtkn_part_style& style, vtkAlgorithmOutput* output);
+        // A section actor: its faces, element edges and outline, and the result extremes of the part it cuts
+        PartActor(const vtkn_part_style& style, vtkPolyData* faces, vtkPolyData* elementEdges,
+                  vtkPolyData* modelEdges, const PartActor& part);
 
         void AddTo(vtkRenderer* renderer);
         void RemoveFrom(vtkRenderer* renderer);
@@ -83,6 +88,16 @@ namespace vtkn
         // The part of UpdateScalarFormatting for one actor: the scalars are shown with color contours, else hidden
         void ApplyScalarVisibility();
         void SetResultLookupTable(vtkLookupTable* lookupTable, const double range[2]);
+        // Section view (G4)
+        void AddClippingPlane(vtkPlane* plane);
+        void RemoveAllClippingPlanes();
+        void SetSectionViewData(vtkUnstructuredGrid* volumeGrid, const double* sectionColor, int hatchIndex,
+                                bool hasVolumeCells);
+        vtkUnstructuredGrid* GetVolumeGrid() { return VolumeGrid; }
+        const double* GetSectionColor() const { return SectionColor; }
+        int GetHatchIndex() const { return HatchIndex; }
+        bool GetHasVolumeCells() const { return HasVolumeCells; }
+        void SetSectionViewHatch(vtkPolyData* hatch, vtkRenderer* renderer);
         bool GetGeometryHiddenBySectionView() const { return GeometryHiddenBySectionView; }
         void SetGeometryHiddenBySectionView(bool hidden) { GeometryHiddenBySectionView = hidden; }
 
@@ -100,6 +115,11 @@ namespace vtkn
         std::vector<std::array<double, 3>> ColorTable;
         vtkn_extreme_nodes Extremes = {};
         bool HasExtremeNodes = false;
+        vtkSmartPointer<vtkUnstructuredGrid> VolumeGrid;
+        double SectionColor[4] = { 0, 0, 0, 1 };
+        int HatchIndex = 0;
+        bool HasVolumeCells = false;
+        vtkSmartPointer<vtkActor> SectionViewHatch;
         bool GeometryHiddenBySectionView = false;
         vtkSmartPointer<vtkActor> Geometry;
         vtkSmartPointer<vtkActor> ElementEdges;
@@ -114,6 +134,8 @@ namespace vtkn
     // asked the unique element edges
     void BuildPolyData(const vtkn_mesh& mesh, bool extractEdges, vtkSmartPointer<vtkPolyData>& polyActor,
                        vtkSmartPointer<vtkPolyData>& polyEdges, std::vector<int>* sourceCells = nullptr);
+    // A volume grid from the legacy cell layout of a vtkn_mesh
+    vtkSmartPointer<vtkUnstructuredGrid> BuildUnstructuredGrid(const vtkn_mesh& mesh);
     // The style vtkMaxActor has before any data sets it, as its default constructor leaves it
     vtkn_part_style DefaultStyle();
 }

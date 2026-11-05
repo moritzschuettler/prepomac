@@ -83,7 +83,24 @@ SCENES.update({
     "ball_symbols": (os.path.join(JOINTS, "Joint_Springs_Ball.pmx"), [], _view("femodel")),
     "plates_weld_symbols": (os.path.join(JOINTS, "Joint_Plates_Springs_Weld.pmx"), [], _view("femodel")),
 })
+def _section_view(point, normal, lighten, hatch):
+    def run(pmx):
+        import System
+        _on_ui_controller(lambda c: c.CreateSectionView(System.Array[System.Double](point),
+                                                        System.Array[System.Double](normal), lighten,
+                                                        System.Drawing.Color.Empty, False, hatch))
+    return run
+
+
+SCENES.update({
+    "hinge_section": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+    "hinge_result_section": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("STRESS", "MISES")),
+    "solid_geometry_section": (os.path.join(MODELS, "L_bracket_r.step"), ["-u", "MM_TON_S_C"], _view("geometry")),
+})
 AFTER_ENABLE = {
+    "hinge_section": _section_view([30.0, 11.0, 5.0], [0.3, 0.2, 1.0], False, True),
+    "hinge_result_section": _section_view([30.0, 11.0, 5.0], [0.3, 0.2, 1.0], True, False),
+    "solid_geometry_section": _section_view([20.0, 20.0, 5.0], [1.0, 1.0, 0.0], False, True),
     "hinge_highlight": _highlight_hinge,
     "hinge_hidden": _hide_lever,
     "solid_geometry_highlight": _highlight_geometry_part,
@@ -91,7 +108,7 @@ AFTER_ENABLE = {
 
 
 # The result coordinates are single precision: the framing of a deformed shape may differ by one float rounding step
-CAMERA_TOLERANCES = {"hinge_result_disp": 1e-7, "hinge_result_mises": 1e-7}
+CAMERA_TOLERANCES = {"hinge_result_disp": 1e-7, "hinge_result_mises": 1e-7, "hinge_result_section": 1e-7}
 
 
 def after_enable(name, pmx):

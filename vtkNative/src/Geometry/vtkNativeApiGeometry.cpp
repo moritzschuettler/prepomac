@@ -5,6 +5,10 @@
 #include "vtkNativeGuard.h"
 #include "vtkNativeView.h"
 
+#include <vtkFloatArray.h>
+#include <vtkNew.h>
+#include <vtkPointData.h>
+
 #include <cstring>
 #include <set>
 #include <vector>
@@ -163,6 +167,52 @@ extern "C"
         return GuardVtk([&]() {
             Require(range2 != nullptr && has_range != nullptr, "The output arguments must not be null.");
             *has_range = View::FromHandle(view)->GetScalarRange(range2) ? 1 : 0;
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_section_view_data(vtkn_view view, const char* name, const vtkn_mesh* volume_grid,
+                                                          const float* values, int32_t value_count,
+                                                          const double* section_color_rgba, int32_t hatch_index,
+                                                          int32_t has_volume_cells)
+    {
+        return GuardVtk([&]() {
+            Require(section_color_rgba != nullptr, "The argument 'section_color_rgba' must not be null.");
+            std::string actorName = ToName(name, "name");
+            PartActor* actor = View::FromHandle(view)->FindActor(actorName, VTKN_LAYER_BASE);
+            if (actor == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "There is no actor named " + actorName + ".");
+            vtkSmartPointer<vtkUnstructuredGrid> grid;
+            if (volume_grid != nullptr)
+            {
+                grid = BuildUnstructuredGrid(*volume_grid);
+                if (values != nullptr)
+                {
+                    Require(value_count == volume_grid->point_count, "There must be one value per volume grid point.");
+                    vtkNew<vtkFloatArray> scalars;
+                    scalars->SetName("scalars");
+                    scalars->SetNumberOfValues(value_count);
+                    for (int i = 0; i < value_count; i++) scalars->SetValue(i, values[i]);
+                    grid->GetPointData()->SetScalars(scalars);
+                }
+            }
+            actor->SetSectionViewData(grid, section_color_rgba, hatch_index, has_volume_cells != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_create_section_view(vtkn_view view, const vtkn_section_view* section_view)
+    {
+        return GuardVtk([&]() {
+            Require(section_view != nullptr, "The argument 'section_view' must not be null.");
+            View::FromHandle(view)->CreateSectionView(*section_view);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_remove_section_view(vtkn_view view)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->RemoveSectionView();
             return VTKN_OK;
         });
     }

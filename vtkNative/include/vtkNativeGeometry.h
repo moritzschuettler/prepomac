@@ -148,6 +148,16 @@ typedef struct vtkn_extreme_nodes
     double max_value;
 } vtkn_extreme_nodes;
 
+/* The section plane of a section view and how its cut faces are drawn */
+typedef struct vtkn_section_view
+{
+    double point[3];
+    double normal[3];
+    int32_t element_wise;
+    int32_t hatch;
+    double hatch_spacing;
+} vtkn_section_view;
+
 /* A mesh as arrays the caller owns for the duration of the call. coordinates: point_count * 3. cells: for each
    cell its node count followed by its point indices (the VTK legacy layout), cells_length values in total.
    cell_types: cell_count VTK cell type codes. point_ids and cell_ids: the PrePoMax node and element ids, or null */
@@ -239,6 +249,15 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_update_scalar_formatting(vtkn_view view
                                                                    double all_frames_max);
 /* The range the last scalar formatting colored with, and whether there was one */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_get_scalar_range(vtkn_view view, double* range2, int32_t* has_range);
+/* What the section view of a base actor needs: its volume grid (volume cells, null for none) with the result
+   values at its points (null for none), the color of its section faces (RGBA) and its hatch index */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_section_view_data(vtkn_view view, const char* name,
+                                                                const vtkn_mesh* volume_grid, const float* values,
+                                                                int32_t value_count, const double* section_color_rgba,
+                                                                int32_t hatch_index, int32_t has_volume_cells);
+/* CreateSectionView, or UpdateSectionView when one is active */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_create_section_view(vtkn_view view, const vtkn_section_view* section_view);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_remove_section_view(vtkn_view view);
 /* vtkn_clear */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_clear(vtkn_view view, int32_t what);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_remove_overlay_actors(vtkn_view view, const char* names);

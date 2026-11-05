@@ -123,6 +123,42 @@ namespace vtkControl.Native
             return hasRange == 0 ? null : range;
         }
         //
+        public void SetSectionViewData(string name, VtkNativeMeshData volumeGrid, float[] values, Color sectionColor,
+                                       int hatchIndex, bool hasVolumeCells)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            double[] color = new double[] { sectionColor.R / 255d, sectionColor.G / 255d, sectionColor.B / 255d,
+                                            sectionColor.A / 255d };
+            IntPtr handle = Handle();
+            using (VtkNativePinnedMesh pinnedGrid = volumeGrid == null ? null : volumeGrid.Pin())
+            {
+                IntPtr gridPointer = IntPtr.Zero;
+                try
+                {
+                    if (pinnedGrid != null) gridPointer = ToUnmanaged(pinnedGrid.Mesh);
+                    VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_section_view_data(handle, VtkNativeLibrary.ToUtf8(name),
+                                                                                             gridPointer, values,
+                                                                                             values == null ? 0 : values.Length,
+                                                                                             color, hatchIndex,
+                                                                                             hasVolumeCells ? 1 : 0));
+                }
+                finally
+                {
+                    if (gridPointer != IntPtr.Zero) Marshal.FreeHGlobal(gridPointer);
+                }
+            }
+        }
+        //
+        public void CreateSectionView(VtkNativeSectionView sectionView)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_create_section_view(Handle(), ref sectionView));
+        }
+        //
+        public void RemoveSectionView()
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_remove_section_view(Handle()));
+        }
+        //
         public void SetActorVisible(string name, VtkNativeLayer layer, bool visible)
         {
             if (name == null) throw new ArgumentNullException("name");

@@ -14,6 +14,7 @@
 #include <vtkCallbackCommand.h>
 #include <vtkCamera.h>
 #include <vtkLight.h>
+#include <vtkPlane.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
@@ -90,6 +91,8 @@ namespace vtkn
         void UpdateScalarFormatting(const vtkn_color_spectrum& spectrum, bool keepScalarBarVisible,
                                     bool useAllFrames, double allFramesMin, double allFramesMax);
         bool GetScalarRange(double range[2]);
+        void CreateSectionView(const vtkn_section_view& sectionView);
+        void RemoveSectionView();
         void AddSymbolActor(const std::string& name, const vtkn_part_style& style, const double* points,
                             int pointCount, const double* normals, int normalCount,
                             const vtkn_symbol_parameters& parameters);
@@ -167,6 +170,15 @@ namespace vtkn
         std::map<std::string, std::unique_ptr<PartActor>> OverlayParts;
         std::vector<std::unique_ptr<PartActor>> SelectedParts;
         HighlightColors Highlight;
+        // Section view (Geometry/vtkNativeSectionView.cpp)
+        void ClearSectionViewActors();
+        void AddSectionViewActors(const std::string& name, PartActor* actor);
+        vtkn_part_style GetSectionViewStyle(PartActor* actor);
+        std::unique_ptr<PartActor> GetSectionViewActorFromSolid(PartActor* actor);
+        std::unique_ptr<PartActor> GetSectionViewActorFromClosedSurface(PartActor* actor);
+        vtkSmartPointer<vtkPlane> SectionPlane;
+        vtkn_section_view SectionView = {};
+        std::map<std::string, std::string> SectionViewActorNames;
         bool HasScalarRange = false;
         double ScalarRange[2] = { 0, 1 };
         bool SectionViewActive = false;
