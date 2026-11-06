@@ -81,10 +81,11 @@ namespace vtkn
         Renderer->GetActiveCamera()->ParallelProjectionOn();
         vtkMapper::SetResolveCoincidentTopologyToPolygonOffset();
         // VTK 9 leaves the polygons in place and moves the lines forward by a constant only, which loses to the
-        // depth slope of an oblique face, so the polygons are pushed back by their slope as in VTK 8 and the lines
-        // pulled forward
+        // depth slope of an oblique face, so the polygons are pushed back by their slope as in VTK 8. The lines stay
+        // in place, as in VTK 5.8: pulled forward by a constant, a hidden edge leaving a corner of a face showed
+        // through it over more and more pixels as the view zoomed in
         vtkMapper::SetResolveCoincidentTopologyPolygonOffsetParameters(2.0, 1.0);
-        vtkMapper::SetResolveCoincidentTopologyLineOffsetParameters(-1.0, -8.0);
+        vtkMapper::SetResolveCoincidentTopologyLineOffsetParameters(0.0, 0.0);
         //
         EventCommand = vtkSmartPointer<vtkCallbackCommand>::New();
         EventCommand->SetCallback(&View::OnVtkEvent);

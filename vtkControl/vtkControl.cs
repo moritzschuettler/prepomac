@@ -10302,6 +10302,11 @@ namespace vtkControl
                 DisposeNativeMirrorWidgets();
                 if (_nativeInWindow)
                 {
+                    // The view the user left the native window with stays
+                    double[] camera = _nativeMirror.GetCamera();
+                    SetViewParameters(false, new double[] { camera[0], camera[1], camera[2] },
+                                      new double[] { camera[3], camera[4], camera[5] },
+                                      new double[] { camera[6], camera[7], camera[8] }, camera[9]);
                     WireNativeWindowSelection(_nativeMirror, false);
                     _nativeMirror.ClearActors();
                     _nativeMirror.Render();
