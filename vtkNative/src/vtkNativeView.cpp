@@ -73,6 +73,7 @@ namespace vtkn
             OverlayRenderer->AddLight(light);
             Lights.push_back(light);
         }
+        InitializeGeometry();
         //
         Renderer->SetBackground(0.4, 0.4, 0.4);
         Renderer->SetBackground2(0.8, 0.8, 0.8);
@@ -343,6 +344,12 @@ namespace vtkn
         for (const auto& entry : Parts) entry.second->RemoveFrom(Renderer);
         Actors.clear();
         Parts.clear();
+        for (const auto& entry : BaseActors) entry.second->RemoveFrom(Renderer);
+        BaseActors.clear();
+        for (const auto& entry : OverlayParts) entry.second->RemoveFrom(OverlayRenderer);
+        for (const auto& actor : SelectedParts) actor->RemoveFrom(GetLayerRenderer(*actor));
+        OverlayParts.clear();
+        SelectedParts.clear();
     }
 
     std::string View::GetActorNames()
@@ -366,11 +373,13 @@ namespace vtkn
                 "The edges visibility is not one of vtkn_edges_visibility.");
         EdgesVisibility = edgesVisibility;
         for (const auto& entry : Parts) entry.second->ApplyEdgesVisibility(EdgesVisibility);
+        ApplyEdgesVisibilityAndBackfaceCulling();
     }
 
     void View::SetLighting(double ambient, double diffuse)
     {
         for (const auto& entry : Parts) entry.second->SetGlobalLighting(ambient, diffuse);
+        for (const auto& entry : BaseActors) entry.second->SetGlobalLighting(ambient, diffuse);
     }
 
     std::vector<uint8_t> View::ReadPixels(int magnification, int& width, int& height)

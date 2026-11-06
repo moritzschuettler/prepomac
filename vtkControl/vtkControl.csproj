@@ -108,6 +108,14 @@
     <Compile Include="Native\VtkNativeView.cs" />
     <Compile Include="Native\Geometry\VtkNativeMethods.Geometry.cs" />
     <Compile Include="Native\Geometry\VtkNativeView.Geometry.cs" />
+    <Compile Include="Native\Geometry\vtkControl.NativeGeometry.cs" />
+    <Compile Include="Native\Geometry\VtkNativeClear.cs" />
+    <Compile Include="Native\Geometry\VtkNativeLayer.cs" />
+    <Compile Include="Native\Geometry\VtkNativeSectionView.cs" />
+    <Compile Include="Native\Geometry\VtkNativeColorSpectrum.cs" />
+    <Compile Include="Native\Geometry\VtkNativeExtremeNodes.cs" />
+    <Compile Include="Native\Geometry\VtkNativeSymbol.cs" />
+    <Compile Include="Native\Geometry\VtkNativeSymbolParameters.cs" />
     <Compile Include="Native\Selection\VtkNativeMethods.Selection.cs" />
     <Compile Include="Native\Selection\VtkNativeView.Selection.cs" />
     <Compile Include="Native\Widgets\VtkNativeMethods.Widgets.cs" />

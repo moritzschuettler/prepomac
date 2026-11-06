@@ -14,11 +14,14 @@
 #include <vtkCallbackCommand.h>
 #include <vtkCamera.h>
 #include <vtkLight.h>
+#include <vtkPlane.h>
+#include <vtkTransform.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
 
+#include <array>
 #include <map>
 #include <memory>
 #include <set>
@@ -74,6 +77,39 @@ namespace vtkn
         std::string GetActorNames();
         void SetEdgesVisibility(vtkn_edges_visibility edgesVisibility);
         void SetLighting(double ambient, double diffuse);
+        // Geometry (Geometry/vtkNativeViewGeometry.cpp)
+        void AddActor(const std::string& name, const std::string& parentName, const vtkn_part_style& style,
+                      const vtkn_mesh& geometry, const vtkn_mesh* modelEdges, const vtkn_mesh* modelEdgesToDraw);
+        void AddActor(const std::string& name, std::unique_ptr<PartActor> actor);
+        PartActor* FindActor(const std::string& name, vtkn_layer layer);
+        void SetActorVisible(const std::string& name, vtkn_layer layer, bool visible);
+        void HighlightActor(const std::string& name);
+        void HideShowActors(const std::set<std::string>& names, bool visible);
+        void UpdateResultRepresentationVisibility(const std::set<std::string>& partNames, bool visible);
+        void Clear(vtkn_clear what);
+        void RemoveOverlayActors(const std::set<std::string>& names);
+        void SetHighlightColors(const double* primary, const double* secondary);
+        void ApplyEdgesVisibilityAndBackfaceCulling();
+        void UpdateScalarFormatting(const vtkn_color_spectrum& spectrum, bool keepScalarBarVisible,
+                                    bool useAllFrames, double allFramesMin, double allFramesMax);
+        bool GetScalarRange(double range[2]);
+        bool GetVisibleBounds(double bounds[6]) { return ComputeVisiblePropBounds(bounds); }
+        // Transformations and exploded view (Geometry/vtkNativeTransformations.cpp)
+        void AddSymmetry(int symmetryPlane, const double point[3]);
+        void AddLinearPattern(const double displacement[3], int numOfItems);
+        void AddCircularPattern(const double axisPoint[3], const double axisNormal[3], double angle, int numOfItems);
+        void ApplyTransforms();
+        void RemoveTransformedActors();
+        void ClearTransforms();
+        void ShowTransformedActors(bool show);
+        void SetExplodedViewOffsets(const std::map<std::string, std::array<double, 3>>& offsets);
+        void SetAnimationFrame(int frameNumber);
+        void RenderToPng(const std::string& fileName, bool transparentBackground, int magnification);
+        void CreateSectionView(const vtkn_section_view& sectionView);
+        void RemoveSectionView();
+        void AddSymbolActor(const std::string& name, const vtkn_part_style& style, const double* points,
+                            int pointCount, const double* normals, int normalCount,
+                            const vtkn_symbol_parameters& parameters);
 
         std::vector<uint8_t> ReadPixels(int magnification, int& width, int& height);
         void WritePng(const std::string& fileName, int magnification);
@@ -135,5 +171,33 @@ namespace vtkn
         std::map<std::string, std::unique_ptr<PartActor>> Parts;
         vtkn_event_callback Callback = nullptr;
         void* UserData = nullptr;
+        // Geometry: the selection layer and the actors of the overlay and selection layers, beside the base layer
+        // Parts; the selection renderer draws between the overlay and the widgets, as in vtkControl
+        void InitializeGeometry();
+        void HideShowActor(PartActor* actor, bool visible);
+        vtkRenderer* GetLayerRenderer(const PartActor& actor);
+        vtkSmartPointer<vtkRenderer> SelectionRenderer;
+        // The base layer actors that are not parts (symbols, constraint faces, nodes): Parts holds only what
+        // picking and the parts of the checks consider
+        std::map<std::string, std::unique_ptr<PartActor>> BaseActors;
+        std::vector<PartActor*> GetBaseActors();
+        std::map<std::string, std::unique_ptr<PartActor>> OverlayParts;
+        std::vector<std::unique_ptr<PartActor>> SelectedParts;
+        HighlightColors Highlight;
+        // Section view (Geometry/vtkNativeSectionView.cpp)
+        void ClearSectionViewActors();
+        void AddSectionViewActors(const std::string& name, PartActor* actor);
+        vtkn_part_style GetSectionViewStyle(PartActor* actor);
+        std::unique_ptr<PartActor> GetSectionViewActorFromSolid(PartActor* actor);
+        std::unique_ptr<PartActor> GetSectionViewActorFromClosedSurface(PartActor* actor);
+        vtkSmartPointer<vtkPlane> SectionPlane;
+        vtkn_section_view SectionView = {};
+        std::map<std::string, std::string> SectionViewActorNames;
+        std::vector<std::pair<vtkSmartPointer<vtkTransform>, int>> Transforms;
+        std::map<std::string, std::vector<std::string>> TransformedCopies;
+        int TransformedCopyCount = 0;
+        bool HasScalarRange = false;
+        double ScalarRange[2] = { 0, 1 };
+        bool SectionViewActive = false;
     };
 }

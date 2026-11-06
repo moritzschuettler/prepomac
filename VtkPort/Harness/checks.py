@@ -64,6 +64,12 @@ def compare_pictures(old_path, new_path, side_by_side_dir=None):
     difference = numpy.abs(a - b).max(axis=2)
     result = {"coverage": coverage, "differing": float((difference > LEVELS).mean()),
               "mean_abs": float(numpy.abs(a - b).mean()), "max": int(difference.max())}
+    alpha_a = Image.open(old_path)
+    alpha_b = Image.open(new_path)
+    if alpha_a.mode == "RGBA" or alpha_b.mode == "RGBA":
+        alpha_difference = numpy.abs(numpy.asarray(alpha_a.convert("RGBA"))[:, :, 3].astype(numpy.int16) -
+                                     numpy.asarray(alpha_b.convert("RGBA"))[:, :, 3].astype(numpy.int16))
+        result["differing"] = max(result["differing"], float((alpha_difference > LEVELS).mean()))
     if side_by_side_dir:
         if not os.path.isdir(side_by_side_dir):
             os.makedirs(side_by_side_dir)
@@ -81,13 +87,17 @@ def check_scenes(out_dir):
     for record_file in sorted(glob.glob(os.path.join(out_dir, "*_scene.json"))):
         with open(record_file) as stream:
             record = json.load(stream)
+        for error in record.get("mirror_errors", []):
+            failed += 1
+            print("FAIL mirror error in %s: %s" % (record["scene"], error))
         for image in record["images"]:
             total += 1
             camera = compare_cameras(image["old_camera"], image["new_camera"])
             picture = compare_pictures(os.path.join(out_dir, "old", image["file"]),
                                        os.path.join(out_dir, "new", image["file"]),
                                        os.path.join(out_dir, "side_by_side"))
-            ok = (camera <= CAMERA_TOLERANCE and picture["coverage"] >= COVERAGE_LIMIT and
+            camera_tolerance = record.get("camera_tolerance") or CAMERA_TOLERANCE
+            ok = (camera <= camera_tolerance and picture["coverage"] >= COVERAGE_LIMIT and
                   picture["differing"] <= DIFFERING_LIMIT)
             failed += 0 if ok else 1
             mean_abs.append(picture["mean_abs"])

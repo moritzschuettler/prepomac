@@ -26,6 +26,13 @@ SUITES=(
     "geometry_slice_a|pilot VtkPilot/Phase2/Run_SliceA.sh"
     "widgets_slice_b|pilot VtkPilot/Phase3/Run_SliceB.sh"
     "selection_slice_c|pilot VtkPilot/Phase4/Run_SliceC.sh"
+    # Stream G (geometry)
+    "geometry_g1|scenes geometry shell_femodel springs_femodel hinge_highlight hinge_hidden solid_geometry_highlight"
+    "geometry_g2|scenes geometry hinge_symbols springs_symbols slider_symbols ball_symbols plates_weld_symbols"
+    "geometry_g3|scenes geometry hinge_result_disp hinge_result_mises"
+    "geometry_g4|scenes geometry hinge_section hinge_result_section solid_geometry_section hinge_exploded hinge_result_symmetry hinge_pattern"
+    "geometry_g5|scenes geometry hinge_animation_frame"
+    "geometry_g5_png|pilot VtkPort/Harness/Run_Png.sh"
 )
 
 selected() {
