@@ -118,7 +118,17 @@
     <Compile Include="Native\Geometry\VtkNativeSymbolParameters.cs" />
     <Compile Include="Native\Selection\VtkNativeMethods.Selection.cs" />
     <Compile Include="Native\Selection\VtkNativeView.Selection.cs" />
+    <Compile Include="Native\Widgets\vtkControl.NativeWidgets.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Native\Widgets\VtkNativeInput.cs" />
+    <Compile Include="Native\Widgets\VtkNativeInteractionSettings.cs" />
     <Compile Include="Native\Widgets\VtkNativeMethods.Widgets.cs" />
+    <Compile Include="Native\Widgets\VtkNativeNavigation.cs" />
+    <Compile Include="Native\Widgets\VtkNativeNavigationTarget.cs" />
+    <Compile Include="Native\Widgets\VtkNativeTriadTarget.cs" />
+    <Compile Include="Native\Widgets\VtkNativeWidget.cs" />
+    <Compile Include="Native\Widgets\VtkNativeWidgetKind.cs" />
     <Compile Include="Native\Widgets\VtkNativeView.Widgets.cs" />
     <Compile Include="Native\Widgets\VtkNativeWidgetAnchor.cs" />
     <Compile Include="Tools\Extensions.cs" />
@@ -128,6 +138,7 @@
     <Compile Include="Tools\PrecisionTouchpad.cs" />
     <Compile Include="Tools\TrackpadGestureRecognizer.cs" />
     <Compile Include="Tools\TrackpadNavigation.cs" />
+    <Compile Include="Tools\ITrackpadNavigationTarget.cs" />
     <Compile Include="Enums\vtkCellType.cs" />
     <Compile Include="vtkControl.cs">
       <SubType>UserControl</SubType>

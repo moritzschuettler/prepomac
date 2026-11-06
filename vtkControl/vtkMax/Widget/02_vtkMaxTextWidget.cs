@@ -13,6 +13,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Kitware.VTK;
+using vtkControl.Native;
 
 namespace vtkControl
 {
@@ -26,6 +27,8 @@ namespace vtkControl
         protected vtkTextMapper _textMapper;
         protected int _padding;
         protected string _numberFormat;
+        // The status block sends its lines to the native widget instead of each text it measures
+        protected bool _mirrorText = true;
 
 
         // Constructors                                                                                                             
@@ -118,11 +121,13 @@ namespace vtkControl
         public virtual void SetTextProperty(vtkTextProperty textProperty)
         {
             _textMapper.SetTextProperty(textProperty);
+            _nativeMirror?.SetTextStyle(vtkMaxWidgetTools.GetNativeTextStyle(textProperty));
         }
         public virtual void SetText(string text)
         {
             _textMapper.SetInput(text);
             OnSizeChanged();
+            if (_mirrorText) _nativeMirror?.SetText(text);
         }
         public void SetPadding(int padding)
         {
@@ -135,10 +140,18 @@ namespace vtkControl
                     OnSizeChanged();
                 }
             }
+            _nativeMirror?.SetPadding(padding);
         }
         public void SetNumberFormat(string numberFormat)
         {
             _numberFormat = numberFormat;
+        }
+        protected override void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
+        {
+            nativeMirror.SetTextStyle(vtkMaxWidgetTools.GetNativeTextStyle(_textMapper.GetTextProperty()));
+            nativeMirror.SetPadding(_padding);
+            if (_mirrorText) nativeMirror.SetText(GetText());
+            base.CopyStateToNativeMirror(nativeMirror);
         }
 
 

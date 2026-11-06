@@ -15,6 +15,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Kitware.VTK;
+using vtkControl.Native;
 
 namespace vtkControl
 {
@@ -525,6 +526,7 @@ namespace vtkControl
         public void UpdateGeometry()
         {
             if (_visibility) GenerateGeometry(false);
+            _nativeMirror?.UpdateTriadGeometry();
         }
         public override void OnSizeChanged()
         {
@@ -710,6 +712,12 @@ namespace vtkControl
             }
             //
             GenerateGeometry(true);
+            _nativeMirror?.SetTextStyle(vtkMaxWidgetTools.GetNativeTextStyle(textProperty));
+        }
+        protected override void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
+        {
+            nativeMirror.SetTextStyle(vtkMaxWidgetTools.GetNativeTextStyle(_labelMappers[0].GetTextProperty()));
+            base.CopyStateToNativeMirror(nativeMirror);
         }
     }
 }

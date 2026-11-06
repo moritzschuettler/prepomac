@@ -74,17 +74,35 @@ namespace vtkn
     bool WidgetHighlight::SetRectangle(const Rect& rectangle, double fillOpacity)
     {
         if (rectangle.IsEmpty()) return Clear();
-        if (HasRectangle && Current == rectangle && std::abs(fillOpacity - FillOpacity) < 1E-12) return false;
         //
-        HasRectangle = true;
-        Current = rectangle;
-        FillOpacity = fillOpacity;
-        FillActor->GetProperty()->SetOpacity(FillOpacity);
         const double corners[NumOfCorners][2] = { { double(rectangle.Left()), double(rectangle.Top()) },
                                                   { double(rectangle.Right()), double(rectangle.Top()) },
                                                   { double(rectangle.Right()), double(rectangle.Bottom()) },
                                                   { double(rectangle.Left()), double(rectangle.Bottom()) } };
-        for (int i = 0; i < NumOfCorners; i++) CornerPoints->SetPoint(i, corners[i][0], corners[i][1], 0);
+        bool changed = SetCorners(corners, fillOpacity);
+        Current = rectangle;
+        return changed;
+    }
+
+    bool WidgetHighlight::SetCorners(const double (*corners)[2], double fillOpacity)
+    {
+        if (corners == nullptr) return Clear();
+        bool sameCorners = HasRectangle;
+        for (int i = 0; i < NumOfCorners && sameCorners; i++)
+            sameCorners = CurrentCorners[i][0] == corners[i][0] && CurrentCorners[i][1] == corners[i][1];
+        if (sameCorners && std::abs(fillOpacity - FillOpacity) < 1E-12) return false;
+        //
+        HasRectangle = true;
+        Current = Rect::FromLTRB(static_cast<int>(corners[0][0]), static_cast<int>(corners[0][1]),
+                                 static_cast<int>(corners[2][0]), static_cast<int>(corners[2][1]));
+        FillOpacity = fillOpacity;
+        FillActor->GetProperty()->SetOpacity(FillOpacity);
+        for (int i = 0; i < NumOfCorners; i++)
+        {
+            CurrentCorners[i][0] = corners[i][0];
+            CurrentCorners[i][1] = corners[i][1];
+            CornerPoints->SetPoint(i, corners[i][0], corners[i][1], 0);
+        }
         CornerPoints->Modified();
         BorderPolyData->Modified();
         FillPolyData->Modified();
@@ -114,6 +132,16 @@ namespace vtkn
     bool WidgetHighlight::GetRectangle(Rect& rectangle) const
     {
         rectangle = HasRectangle ? Current : Rect();
+        return HasRectangle;
+    }
+
+    bool WidgetHighlight::GetCorners(double corners[4][2]) const
+    {
+        for (int i = 0; i < NumOfCorners; i++)
+        {
+            corners[i][0] = HasRectangle ? CurrentCorners[i][0] : 0;
+            corners[i][1] = HasRectangle ? CurrentCorners[i][1] : 0;
+        }
         return HasRectangle;
     }
 }

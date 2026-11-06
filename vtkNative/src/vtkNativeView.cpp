@@ -103,6 +103,12 @@ namespace vtkn
                 double values[3] = { static_cast<double>(bar->Id), static_cast<double>(x), static_cast<double>(y) };
                 RaiseEvent(VTKN_EVENT_WIDGET_DOUBLE_CLICK, values, 3);
             }
+            for (const auto& areaWidget : AreaWidgets)
+            {
+                if (areaWidget->Content.get() != widget) continue;
+                double values[3] = { static_cast<double>(areaWidget->Id), static_cast<double>(x), static_cast<double>(y) };
+                RaiseEvent(VTKN_EVENT_WIDGET_DOUBLE_CLICK, values, 3);
+            }
         });
         //
         std::lock_guard<std::mutex> lock(registryMutex);
@@ -118,6 +124,7 @@ namespace vtkn
         Callback = nullptr;
         RenderWindow->RemoveObserver(WidgetCommand);
         while (!ScalarBars.empty()) DestroyScalarBar(ScalarBars.back().get());
+        while (!AreaWidgets.empty()) DestroyWidget(AreaWidgets.back().get());
         Renderer->RemoveObserver(EventCommand);
         Renderer->GetActiveCamera()->RemoveObserver(EventCommand);
         Renderer->RemoveAllViewProps();
@@ -155,6 +162,7 @@ namespace vtkn
         RenderWindow->SetParentId(parentWindow);
         Interactor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
         Interactor->SetInteractorStyle(vtkSmartPointer<vtkInteractorStyleTrackballCamera>::New());
+        Interactor->SetInteractorStyle(GetInteractorStyle());
         Interactor->SetRenderWindow(RenderWindow);
         // A style grabs the event focus between a button press and its release; only a passive observer still
         // sees the events of that drag, the release included
@@ -179,6 +187,7 @@ namespace vtkn
         Require(width > 0 && height > 0, "The view size must be positive.");
         RenderWindow->SetSize(width, height);
         if (Interactor != nullptr) Interactor->UpdateSize(width, height);
+        Widgets.CheckWindowSize();
     }
 
     void View::GetSize(int& width, int& height)

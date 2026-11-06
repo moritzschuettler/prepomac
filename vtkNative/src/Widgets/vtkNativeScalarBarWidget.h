@@ -97,8 +97,5 @@ namespace vtkn
         double LabelOffset[2] = { 0, 0 };
         double TextOffset[2] = { 0, 0 };
         double BarOffset[2] = { 0, 0 };
-        // VTK 9 draws a text bitmap one pixel left of and one pixel above where VTK 5.8 drew its glyphs
-        static constexpr double TextShiftX = 1;
-        static constexpr double TextShiftY = -1;
     };
 }

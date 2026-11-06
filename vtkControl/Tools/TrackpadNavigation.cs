@@ -62,7 +62,7 @@ namespace vtkControl
         {
             return Math.Pow(_zoomPerNotch, wheelDelta / WheelDeltaPerNotch);
         }
-        internal void Apply(vtkInteractorStyleControl style, double dragPixelsX, double dragPixelsY,
+        internal void Apply(ITrackpadNavigationTarget style, double dragPixelsX, double dragPixelsY,
                           double zoomFactor, int zoomCenterX, int zoomCenterY, bool shiftPressed)
         {
             if (style == null || !style.NavigationAllowed) return;

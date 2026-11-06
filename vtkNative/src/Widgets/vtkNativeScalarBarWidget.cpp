@@ -11,18 +11,6 @@
 
 namespace vtkn
 {
-    namespace
-    {
-        // The C# widget ended its lines with Environment.NewLine, and VTK 5.8 measured the carriage return as the
-        // glyph Arial has for it, invisible and as wide as a space. VTK 9 measures it as nothing, so it becomes a
-        // space and every line keeps the width it had
-        std::string ToVtkText(std::string text)
-        {
-            std::replace(text.begin(), text.end(), '\r', ' ');
-            return text;
-        }
-    }
-
     ScalarBarWidget::ScalarBarWidget()
     {
         BackgroundVisibility = false;
@@ -251,22 +239,13 @@ namespace vtkn
         PlaceActors();
     }
 
-    // VTK 5.8 drew a 2D actor at its position truncated to a whole pixel, VTK 9 draws it at the fraction, so the
-    // drawing positions are truncated; the hit boxes keep computing with the fractions, as the C# widget did
     void ScalarBarWidget::PlaceActors()
     {
-        if (Renderer == nullptr) return;
-        double* position = PositionCoordinate->GetComputedDoubleDisplayValue(Renderer);
-        double widgetPosition[2] = { position[0], position[1] };
-        auto place = [&](vtkCoordinate* coordinate, const double offset[2], bool text) {
-            coordinate->SetValue(std::floor(widgetPosition[0] + offset[0]) - widgetPosition[0] + (text ? TextShiftX : 0),
-                                 std::floor(widgetPosition[1] + offset[1]) - widgetPosition[1] + (text ? TextShiftY : 0));
-        };
-        place(TextActorFooterCoordinate, FooterOffset, true);
-        place(TextActorLabelCoordinate, LabelOffset, true);
-        place(TextActorCoordinate, TextOffset, true);
-        place(BarBorderActorCoordinate, BarOffset, false);
-        place(BarColorsActorCoordinate, BarOffset, false);
+        PlaceActor(TextActorFooterCoordinate, FooterOffset, true);
+        PlaceActor(TextActorLabelCoordinate, LabelOffset, true);
+        PlaceActor(TextActorCoordinate, TextOffset, true);
+        PlaceActor(BarBorderActorCoordinate, BarOffset, false);
+        PlaceActor(BarColorsActorCoordinate, BarOffset, false);
     }
 
     void ScalarBarWidget::GenerateFooter(double offsetX, double offsetY, double size[2])

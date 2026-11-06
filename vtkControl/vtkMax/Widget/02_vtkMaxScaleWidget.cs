@@ -13,6 +13,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Kitware.VTK;
+using vtkControl.Native;
 
 namespace vtkControl
 {
@@ -279,6 +280,7 @@ namespace vtkControl
         {
             _unit = unit;
             GenerateGeometry();
+            _nativeMirror?.SetScaleBarUnit(unit);
         }
         public override void OnRenderWindowModified()
         {
@@ -389,6 +391,7 @@ namespace vtkControl
         {
             _width = width;
             OnSizeChanged();
+            _nativeMirror?.SetScaleBarWidth(width);
         }
         public void SetLabelFormat(string labelFormat)
         {
@@ -396,6 +399,7 @@ namespace vtkControl
             {
                 _labelFormat = labelFormat;
                 OnSizeChanged();
+                _nativeMirror?.SetScaleBarNumberFormat(labelFormat);
             }
         }
         public void SetTextProperty(vtkTextProperty textProperty)
@@ -404,6 +408,7 @@ namespace vtkControl
             {
                 _scaleTextMappers[i].SetTextProperty(textProperty);
             }
+            _nativeMirror?.SetTextStyle(vtkMaxWidgetTools.GetNativeTextStyle(textProperty));
         }
         public void SetPadding(int padding)
         {
@@ -411,7 +416,17 @@ namespace vtkControl
             {
                 _padding = padding;
                 OnSizeChanged();
+                _nativeMirror?.SetPadding(padding);
             }
+        }
+        protected override void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
+        {
+            nativeMirror.SetTextStyle(vtkMaxWidgetTools.GetNativeTextStyle(_scaleTextMappers[0].GetTextProperty()));
+            nativeMirror.SetPadding(_padding);
+            nativeMirror.SetScaleBarNumberFormat(_labelFormat);
+            nativeMirror.SetScaleBarWidth((int)_width);
+            nativeMirror.SetScaleBarUnit(_unit);
+            base.CopyStateToNativeMirror(nativeMirror);
         }
 
 

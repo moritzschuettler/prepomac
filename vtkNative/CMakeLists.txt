@@ -16,6 +16,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(VTK 9.7 REQUIRED COMPONENTS
     CommonCore
     CommonDataModel
+    CommonTransforms
     InteractionStyle
     FiltersCore
     FiltersExtraction
@@ -61,15 +62,33 @@ add_library(vtkNative SHARED
     src/Selection/vtkNativeApiSelection.cpp
     src/Selection/vtkNativeViewPick.cpp
     src/Widgets/vtkNativeApiWidgets.cpp
+    src/Widgets/vtkNativeArrowWidget.cpp
+    src/Widgets/vtkNativeArrowWidget.h
     src/Widgets/vtkNativeBorderWidget.cpp
     src/Widgets/vtkNativeBorderWidget.h
+    src/Widgets/vtkNativeColorBarWidget.cpp
+    src/Widgets/vtkNativeColorBarWidget.h
+    src/Widgets/vtkNativeCoorSysGeometry.cpp
+    src/Widgets/vtkNativeCoorSysGeometry.h
+    src/Widgets/vtkNativeCoorSysWidget.cpp
+    src/Widgets/vtkNativeCoorSysWidget.h
+    src/Widgets/vtkNativeInteractorStyle.cpp
+    src/Widgets/vtkNativeInteractorStyle.h
     src/Widgets/vtkNativeRect.h
     src/Widgets/vtkNativeScalarBar.cpp
     src/Widgets/vtkNativeScalarBar.h
     src/Widgets/vtkNativeScalarBarWidget.cpp
     src/Widgets/vtkNativeScalarBarWidget.h
+    src/Widgets/vtkNativeScaleBarWidget.cpp
+    src/Widgets/vtkNativeScaleBarWidget.h
+    src/Widgets/vtkNativeStatusBlockWidget.cpp
+    src/Widgets/vtkNativeStatusBlockWidget.h
     src/Widgets/vtkNativeTextWidget.cpp
     src/Widgets/vtkNativeTextWidget.h
+    src/Widgets/vtkNativeViewInteraction.cpp
+    src/Widgets/vtkNativeViewWidgets.cpp
+    src/Widgets/vtkNativeWidget.cpp
+    src/Widgets/vtkNativeWidget.h
     src/Widgets/vtkNativeWidgetHighlight.cpp
     src/Widgets/vtkNativeWidgetHighlight.h
     src/Widgets/vtkNativeWidgetSet.cpp

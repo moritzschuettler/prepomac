@@ -317,6 +317,7 @@ namespace vtkControl
             _style.ZoomSensitivity = _zoomSensitivity;
             _style.InvertZoom = _invertZoom;
             _style.SmoothZoom = _smoothZoom;
+            MirrorInteractionSettings();
         }
         public void StartBoxZoom()
         {
@@ -469,6 +470,7 @@ namespace vtkControl
         private void vtkControl_Resize(object sender, EventArgs e)
         {
             if (_renderWindow != null) _renderWindow.Modified();     // this has to be here in order for the vtkMAx widgets to work on maximize/minimize
+            if (_nativeMirror != null && !_nativeInWindow) SyncNativeMirror();
             //if (_renderWindowInteractor != null) _renderWindowInteractor.Render();
 
             if (_coorSysWidget != null) ResetCoorSysWidgetPosition();
@@ -682,6 +684,7 @@ namespace vtkControl
             //
             _trackpadGestureActive = false;
             if (_style != null) _style.EndMultiTouchGesture();
+            MirrorEndTrackpadGesture();
         }
         private void FlushTrackpadGesture()
         {
@@ -697,6 +700,7 @@ namespace vtkControl
             _trackpadGestureActive = true;
             //
             _trackpadNavigation.Apply(_style, dragX, dragY, zoom, _trackpadCenterX, _trackpadCenterY, _trackpadShift);
+            MirrorTrackpadGesture(dragX, dragY, zoom);
         }
         private bool HandleTrackpadWheel(ref Message m)
         {
@@ -3513,6 +3517,7 @@ namespace vtkControl
         public void SetRotationPoint(double[] rotationPoint)
         {
             _style.SetRotationPoint(rotationPoint);
+            if (_nativeMirror != null && (_nativeAreas & VtkNativeArea.Widgets) != 0) _nativeMirror.SetRotationPoint(rotationPoint);
         }
         //
         private void ResetCamera()
@@ -9692,6 +9697,7 @@ namespace vtkControl
             _widgetInteractionEnabled = enabled;
             //
             if (_style != null) _style.SetWidgetLocalHighlightEnabled(enabled);
+            MirrorWidgetHighlight();
             RenderScene();
         }
         public void SetWidgetHighlightLocked(bool locked)
@@ -9703,6 +9709,7 @@ namespace vtkControl
         {
             _widgetHighlightEnabled = enabled;
             if (_style != null) _style.SetWidgetHighlightEnabled(enabled);
+            MirrorWidgetHighlight();
         }
         public void ResetScaleBarPosition()
         {
@@ -9735,6 +9742,7 @@ namespace vtkControl
                 arrowWidget.MouseDoubleClick += arrowWidget_DoubleClicked;
                 // Add
                 _arrowWidgets.Add(name, arrowWidget);
+                MirrorArrowWidget(name, arrowWidget);
             }
             // Edit annotation
             else
@@ -10179,6 +10187,7 @@ namespace vtkControl
         public void RemoveAllArrowWidgets()
         {
             foreach (var entry in _arrowWidgets) entry.Value.RemoveInteractor();
+            foreach (var entry in _arrowWidgets) UnmirrorWidget(entry.Key);
             //
             _arrowWidgets.Clear();
             _animationArrowAnchors.Clear();
@@ -10192,6 +10201,7 @@ namespace vtkControl
                 if (_arrowWidgets.TryGetValue(name, out widget))
                 {
                     widget.RemoveInteractor();
+                    UnmirrorWidget(name);
                     _arrowWidgets.Remove(name);
                     _animationArrowAnchors.Remove(name);
                     _animationArrowAnchorRequests.Remove(name);
@@ -10235,6 +10245,7 @@ namespace vtkControl
             {
                 if (_nativeMirrorScalarBar != null) _nativeMirrorScalarBar.Dispose();
                 _nativeMirrorScalarBar = null;
+                DisposeNativeMirrorWidgets();
                 if (_nativeInWindow)
                 {
                     _nativeMirror.ClearActors();
@@ -10262,6 +10273,7 @@ namespace vtkControl
             _nativeMirrorNames = new HashSet<string>();
             SyncNativeMirror();
             if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorScalarBar();
+            if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorWidgets();
         }
         public string[] GetNativeMirrorNames()
         {
@@ -10330,6 +10342,7 @@ namespace vtkControl
                 if (_nativeMirrorScalarBar != null) _nativeMirrorScalarBar.SetVisibility(false);
                 _overlayRenderer.SetDraw(_nativeMirrorAllGeometry ? 1 : 0);
                 _selectionRenderer.SetDraw(_nativeMirrorAllGeometry ? 1 : 0);
+                ShowNativeMirrorWidgets(false);
             }
             else if (!partsOnly && _nativeMirrorHiddenProps != null)
             {
@@ -10340,6 +10353,7 @@ namespace vtkControl
                 _widgetRenderer.SetDraw(1);
                 if (_nativeMirrorScalarBar != null)
                     _nativeMirrorScalarBar.SetVisibility(_scalarBarWidget.GetVisibility() == 1);
+                ShowNativeMirrorWidgets(true);
             }
             RenderScene();
         }
