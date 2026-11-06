@@ -151,6 +151,11 @@ namespace vtkControl
                         PickWithNativeMirror((int)e.Values[4], (int)e.Values[5], e.Values[3] != 0, (int)e.Values[0],
                                              (int)e.Values[1]);
                     break;
+                case 23:
+                    if (e.Values.Length >= 5)
+                        HoverWithNativeMirror((int)e.Values[0], (int)e.Values[1], e.Values[2] != 0, (int)e.Values[3],
+                                              (int)e.Values[4]);
+                    break;
                 case 24:
                     style_RightButtonPressEvent(GetMirroredWidget((int)e.Values[2]),
                                                 new MouseEventArgs(MouseButtons.Right, 1, (int)e.Values[0],
@@ -161,6 +166,9 @@ namespace vtkControl
                     break;
                 case 27:
                     Form_CommitViewportEdit?.Invoke();
+                    break;
+                case 28:
+                    ClearNativeMouseSelection();
                     break;
                 case 29:
                     BoxZoomEnded();

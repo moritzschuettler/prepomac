@@ -123,6 +123,10 @@
     </Compile>
     <Compile Include="Native\Widgets\VtkNativeInput.cs" />
     <Compile Include="Native\Widgets\VtkNativeInteractionSettings.cs" />
+    <Compile Include="Native\Selection\VtkNativeClosestCell.cs" />
+    <Compile Include="Native\Selection\VtkNativeHighlightStyle.cs" />
+    <Compile Include="Native\Selection\vtkControl.NativeIds.cs" />
+    <Compile Include="Native\Selection\vtkControl.NativeHighlight.cs" />
     <Compile Include="Native\Widgets\VtkNativeMethods.Widgets.cs" />
     <Compile Include="Native\Widgets\VtkNativeNavigation.cs" />
     <Compile Include="Native\Widgets\VtkNativeNavigationTarget.cs" />

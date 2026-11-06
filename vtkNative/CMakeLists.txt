@@ -61,6 +61,8 @@ add_library(vtkNative SHARED
     src/Geometry/vtkNativeViewPicture.cpp
     src/Selection/vtkNativeApiSelection.cpp
     src/Selection/vtkNativeViewPick.cpp
+    src/Selection/vtkNativeViewHighlight.cpp
+    src/Selection/vtkNativeViewSelection.cpp
     src/Widgets/vtkNativeApiWidgets.cpp
     src/Widgets/vtkNativeArrowWidget.cpp
     src/Widgets/vtkNativeArrowWidget.h

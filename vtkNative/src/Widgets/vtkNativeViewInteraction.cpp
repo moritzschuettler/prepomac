@@ -14,8 +14,8 @@ namespace vtkn
         if (Style == nullptr)
         {
             Style = vtkSmartPointer<InteractorStyle>::New();
-            // The rubber band of the box selection is drawn in the widget layer: the view has no selection layer
-            Style->SetView(this, OverlayRenderer, WidgetRenderer);
+            // The rubber band of the box selection is drawn in the selection layer, as in vtkControl
+            Style->SetView(this, OverlayRenderer, SelectionRenderer);
         }
         // An off screen view gets an interactor of its own, which the host feeds; the style needs one even for the
         // navigation calls

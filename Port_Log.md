@@ -11,7 +11,7 @@ in `Pilot_Log.md`.
 | G. Geometry | 2026-11-05 18:12 | 2026-11-05 19:59 | 1 session turn, 7 commits | 29 % -> 52 % / 13 % -> 18 % (account wide) | 6 render + 8 check | ~4,150 of ~11,800 | C++ 3,273, C# 933, `vtkControl.cs` 66, harness 211 | |
 | W. Widgets and interaction | 2026-11-05 18:12 | 2026-11-05 19:12 | 1 session turn, 2 commits | 29 % -> 51 % / 13 % -> 17 % (account wide) | 6 port + 6 harness | ~3,600 ported, ~1,100 routed | C++ ~4,000, C# ~950, checks ~1,060 | |
 | S. Selection | 2026-11-05 18:12 | 2026-11-05 18:52 | 1 session turn, 3 commits | 29 % -> 47 % / 13 % -> 16 % (account wide) | 2 port + 5 harness | ~833 | C++/C API ~670, C# ~710, harness ~520 | |
-| I. Integration | | | | | | | | |
+| I. Integration (merge) | 2026-11-06 07:55 | 2026-11-06 08:15 | 1 user turn | 3 % -> 4 % / 19 %; context 198k -> 205k | 1 compile + 1 behavior + 2 check | 0 (merge) | window check 125, routing 10 | |
 
 The plan's target: 8 - 10 h of agent time, 4 - 6 h of wall clock with three streams, 4 review rounds.
 
@@ -108,3 +108,51 @@ The usage figures are account wide, so each stream's difference includes the oth
 - Review round 2 (W): camera feel and widgets, `VtkPort/Widgets/Review_W2_Camera.py`.
 - Geometry review (G): `Toggle_Native_Window.py` with `AREAS = ["geometry"]`, the 9-point list in `Stream_G.md`.
 - Selection review (S): `VtkPort/Selection/Toggle_Native_Selection.py`, the list in `Stream_S.md`.
+
+## Integration - merging the streams
+
+Started 2026-11-06 07:55 on the user's go-ahead. The three branches were merged into `port/vtk-native` in the order
+G, W, S, so that S's highlights could move onto G's selection layer.
+
+### Conflicts and what was kept
+
+- **Text conflicts**, each resolved by keeping both sides: the suites in `Run_Port_Checks.sh`, the VTK components
+  in `CMakeLists.txt` (the union of G's and S's filter modules), the compile items in `vtkControl.csproj`, the parts
+  only branch of `vtkControl.SetNativeMirrorPartsOnly` (G's layer drawing and W's hiding of the native widgets) and
+  the private members of `vtkNativeView.h`.
+- **One selection layer.** G and S each made a renderer for layer 2. S's `GetHighlightRenderer` now returns G's
+  `SelectionRenderer` (made in `InitializeGeometry`), and S's `struct Highlight` became `HighlightEntry`, since G
+  holds a member named `Highlight`. W's style now draws the rubber band of the box selection in that layer too, as
+  `vtkInteractorStyleControl` does, instead of the widget layer.
+- **A duplicate accessor**: G and S both added `PartActor::GetModelEdges`; one was removed.
+- **The mouse selection in the native window had two handlers.** W's style raises the pick, hover and clear events
+  of `vtkInteractorStyleControl` (`VTKN_EVENT_POINT_PICKED_ON_*`, `_CLEAR_MOUSE_SELECTION`), and S had wired its
+  own handler of the raw button and move events. With all three areas on (S's review script), both handled a click.
+  W's handler now also routes the hover (to `HoverWithNativeMirror`) and the clear, and S's raw handler is wired
+  only when the widgets area is off. A click still gave one selection node before the fix (the controller took the
+  second pick as the same selection), so the cost was double work rather than a wrong selection.
+
+### Checks
+
+- `VtkPort/Harness/Test_Window_Events.py` (suite `integration_window`), new: the native view in the window driven
+  by Win32 messages, with and without the widgets area. One selection handler is subscribed, a move over the model
+  draws a hover after the style's selection timer, and a click adds one selection node and selects one element. It
+  fails on the build before the fix (both handlers subscribed).
+- The full `Run_Port_Checks.sh` on the merged build (before the window fix), 07:59 - 08:06, with a private `TEMP`:
+  all passed - groundwork, geometry scenes 36/36, slice A 36/36, slice B 20/20 and the embedded check, slice C
+  1,960/1,960, G1 60/60, G2 60/60, G3 24/24, G4 72/72, G5 12/12, PNG 4/4, W1 35/35, W2 20/20 and the embedded
+  check, W3 6/6, S1 1,960/1,960, S2 74/74, S3 1,372/1,372.
+- After the window fix, `--filter widgets selection integration`, 08:07 - 08:13: all passed again, with
+  `integration_window`.
+
+### Effort
+
+07:55 - 08:15, about 20 minutes, in one user turn. The usage window had reset before the merge: 3 % -> 4 % of the 5 hour window, the weekly at 19 %; context 198k -> 205k at the end.
+Fix cycles: 1 compile (the duplicate accessor), 1 behavior (the window handlers), 2 check (the hinge's saved
+camera misses the model, the hover waits for the selection timer).
+
+### Still open after the integration
+
+- The rest of stream G (see "Not finished" above), and the user's decision on `NativeExactPicking`.
+- The reviews: camera and widgets (W), geometry (G), selection (S); S's review script is now the one that shows all
+  three areas together.

@@ -22,6 +22,7 @@
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
+#include <vtkUnstructuredGrid.h>
 
 #include <array>
 #include <map>
@@ -121,6 +122,21 @@ namespace vtkn
                        const std::set<std::string>* selectableParts, double point[3], double direction[3],
                        std::string& partName, int& cellId);
         std::vector<std::string> PickArea(int x1, int y1, int x2, int y2, double planes36[36]);
+        void SetExactPicking(bool exact) { ExactPicking = exact; }
+        // Id resolution (Selection/vtkNativeViewSelection.cpp)
+        void GetClosestCell(double point[3], double maxDistance, const std::set<std::string>* selectableParts,
+                            vtkn_closest_cell& cell);
+        void GetClosestCellsOnParts(const double point[3], const std::vector<std::string>& names, double* distances,
+                                    double* normals);
+        double GetSelectionPrecisionInModel(int selectionDistance);
+        void GetPartBounds(const std::string& name, double bounds[6]);
+        void SetVolumeGrid(const std::string& name, const vtkn_mesh* grid);
+        void GetIdsInsideFrustum(const std::string& name, const double* planes, int planeCount,
+                                 std::vector<int>& pointIds, std::vector<int>& cellIds);
+        // Selection layer (Selection/vtkNativeViewHighlight.cpp)
+        void AddHighlight(const vtkn_mesh& mesh, const vtkn_highlight_style& style);
+        void AddPartHighlight(const std::string& name, const vtkn_highlight_style& style);
+        void ClearHighlights(bool currentOnly);
 
         // Widgets
         bool HandleMouseEvent(int eventId, int x, int y);
@@ -213,5 +229,17 @@ namespace vtkn
         bool HasScalarRange = false;
         double ScalarRange[2] = { 0, 1 };
         bool SectionViewActive = false;
+        // The selection area: the volume grids of the parts, and the highlights drawn into the selection layer
+        struct HighlightEntry
+        {
+            vtkSmartPointer<vtkActor> Actor;
+            vtkRenderer* Renderer;
+            bool Current;
+        };
+        vtkRenderer* GetHighlightRenderer();
+        void AddHighlightActor(vtkActor* actor, const vtkn_highlight_style& style);
+        std::map<std::string, vtkSmartPointer<vtkUnstructuredGrid>> VolumeGrids;
+        std::vector<HighlightEntry> Highlights;
+        bool ExactPicking = true;
     };
 }

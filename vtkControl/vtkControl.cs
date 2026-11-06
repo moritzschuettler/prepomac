@@ -2144,6 +2144,11 @@ namespace vtkControl
         public void GetClosestCellsOnActors(double[] point, string[] actorNames, out double[] distances,
                                             out double[][] normals)
         {
+            if (UseNativeIdResolution)
+            {
+                _nativeMirror.GetClosestCellsOnParts(point, actorNames, out distances, out normals);
+                return;
+            }
             distances = new double[actorNames.Length];
             normals = new double[actorNames.Length][];
             Dictionary<string, int> actorNameIndices = new Dictionary<string, int>();
@@ -2193,6 +2198,11 @@ namespace vtkControl
         }
         public void GetGeometryPickProperties(double[] point, out int elementId, out int[] edgeNodeIds, out int[] cellFaceNodeIds)
         {
+            if (UseNativeIdResolution)
+            {
+                NativeGetGeometryPickProperties(point, out elementId, out edgeNodeIds, out cellFaceNodeIds);
+                return;
+            }
             // Turn rendering off in order to 
             vtkCellLocator cellLocator;
             vtkCell cell;
@@ -2210,6 +2220,7 @@ namespace vtkControl
         }
         public double GetSelectionPrecision()
         {
+            if (UseNativeIdResolution) return _nativeMirror.GetSelectionPrecision(_selectionDistance);
             return vtkInteractorStyleControl.DisplayToWorldScale(_renderer, _selectionDistance);
         }
         public void SetSelectionDistance(int distanceInPixels)
@@ -2220,6 +2231,11 @@ namespace vtkControl
         // Item selection - Frustum                                                                                                 
         public void GetPointAndCellIdsInsideFrustum(double[][] planeParameters, out int[] pointIds, out int[] cellIds)
         {
+            if (UseNativeIdResolution)
+            {
+                NativeGetPointAndCellIdsInsideFrustum(planeParameters, out pointIds, out cellIds);
+                return;
+            }
             vtkDataArray normals = vtkDoubleArray.New();
             normals.SetNumberOfComponents(3);
             vtkPoints points = vtkPoints.New();
@@ -9409,6 +9425,7 @@ namespace vtkControl
             }
             //
             _mouseSelectionCurrentIds = null;
+            ClearNativeMouseSelection();
             //
             if (_probeWidget != null && _probeWidget.GetVisibility() == 1) _probeWidget.VisibilityOff();
             if (render) RenderScene();
@@ -10248,6 +10265,7 @@ namespace vtkControl
                 DisposeNativeMirrorWidgets();
                 if (_nativeInWindow)
                 {
+                    WireNativeWindowSelection(_nativeMirror, false);
                     _nativeMirror.ClearActors();
                     _nativeMirror.Render();
                     ShowNativeView(false);
@@ -10264,6 +10282,7 @@ namespace vtkControl
             {
                 ShowNativeView(true);
                 _nativeMirror = _nativeHost.View;
+                WireNativeWindowSelection(_nativeMirror, (areas & VtkNativeArea.Widgets) == 0);
             }
             else
             {
@@ -10458,6 +10477,7 @@ namespace vtkControl
         {
             string[] selectable = _selectableActorsFilter == null ? null : _selectableActorsFilter.ToArray();
             string partName;
+            _nativeMirror.SetExactPicking(_nativeExactPicking);
             _nativeMirror.PickPoint(x, y, _selectionDistance, _renderingOn && _userPick, selectable, out point,
                                     out direction, out partName, out _);
             return partName;

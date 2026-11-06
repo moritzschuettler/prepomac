@@ -37,6 +37,12 @@ SUITES=(
     "widgets_w1|pilot VtkPort/Widgets/Run_W1.sh"
     "widgets_w2|pilot VtkPort/Widgets/Run_W2.sh"
     "widgets_w3|pilot VtkPort/Widgets/Run_W3.sh"
+    # Stream S
+    "selection_s1|pilot VtkPort/Selection/Run_S1.sh"
+    "selection_s2|pilot VtkPort/Selection/Run_S2.sh"
+    "selection_s3|pilot VtkPort/Selection/Run_S3.sh"
+    # Integration
+    "integration_window|pilot VtkPort/Harness/Run_Window_Events.sh"
 )
 
 selected() {
