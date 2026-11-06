@@ -110,6 +110,21 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_add_glyph_actor(vtkn_view view, const char* name, const char* parent_name,
+                                                    const vtkn_part_style* style, const float* coordinates3,
+                                                    int32_t point_count, const float* values, const int32_t* lines,
+                                                    int32_t line_count, const int32_t* vertices,
+                                                    int32_t vertex_count, const vtkn_extreme_nodes* extremes)
+    {
+        return GuardVtk([&]() {
+            Require(style != nullptr, "The argument 'style' must not be null.");
+            View::FromHandle(view)->AddGlyphActor(ToName(name, "name"), parent_name != nullptr ? parent_name : "",
+                                                  *style, coordinates3, point_count, values, lines, line_count,
+                                                  vertices, vertex_count, extremes);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_set_actor_scalars(vtkn_view view, const char* name, const float* values,
                                                       int32_t count, const vtkn_extreme_nodes* extremes)
     {

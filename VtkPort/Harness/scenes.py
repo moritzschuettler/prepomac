@@ -136,7 +136,25 @@ def _animation_frame(number_of_frames, frame):
 SCENES.update({
     "hinge_animation_frame": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("DISP", "ALL")),
 })
+def _result_plot(field, component, result_type):
+    def setup(pmx):
+        _results(field, component)(pmx)
+        pmx.view.result_type = result_type
+    return setup
+
+
+SCENES.update({
+    "hinge_result_vector": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _result_plot("DISP", "ALL", "VectorPlot")),
+    "hinge_result_tensor": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [],
+                            _result_plot("STRESS", "PRINCIPAL_MAX", "TensorPlot")),
+    "hinge_vector_animation_frame": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [],
+                                     _result_plot("DISP", "ALL", "VectorPlot")),
+    "hinge_tensor_animation_frame": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [],
+                                     _result_plot("STRESS", "PRINCIPAL_MAX", "TensorPlot")),
+})
 AFTER_ENABLE = {
+    "hinge_vector_animation_frame": _animation_frame(8, 3),
+    "hinge_tensor_animation_frame": _animation_frame(8, 5),
     "hinge_animation_frame": _animation_frame(8, 3),
     "hinge_exploded": _exploded,
     "hinge_result_symmetry": _transformations([95.0, 0.0, 0.0], False),
@@ -154,7 +172,14 @@ AFTER_ENABLE = {
 # the ActiViz side: the framing may differ by one float rounding step
 CAMERA_TOLERANCES = {"hinge_result_disp": 1e-7, "hinge_result_mises": 1e-7, "hinge_result_section": 1e-7,
                      "hinge_result_symmetry": 1e-7, "hinge_exploded": 1e-7, "hinge_pattern": 1e-7,
-                     "hinge_animation_frame": 1e-7}
+                     "hinge_animation_frame": 1e-7, "hinge_result_vector": 1e-7, "hinge_result_tensor": 1e-7,
+                     "hinge_vector_animation_frame": 1e-7, "hinge_tensor_animation_frame": 1e-7}
+
+
+# The vector and tensor plots draw thousands of dots: VTK 5.8 smoothed their edges, the sphere imposters of VTK 9 have
+# hard edges (rendering default 1 of stream G), which alone differs on up to 6 % of the pixels
+DIFFERING_LIMITS = {"hinge_result_vector": 0.07, "hinge_result_tensor": 0.07, "hinge_vector_animation_frame": 0.07,
+                    "hinge_tensor_animation_frame": 0.07}
 
 
 def after_enable(name, pmx):

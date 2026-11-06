@@ -62,6 +62,36 @@ namespace vtkControl.Native
                                                                                 normals.Length / 3, ref parameters));
         }
         //
+        public void AddGlyphActor(string name, string parentName, VtkNativePartStyle style, float[] coordinates,
+                                  float[] values, int[] lines, int[] vertices, VtkNativeExtremeNodes? extremes)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            if (coordinates == null || coordinates.Length % 3 != 0)
+                throw new ArgumentException("The coordinates must be a multiple of 3 values.", "coordinates");
+            if (values == null || values.Length != coordinates.Length / 3)
+                throw new ArgumentException("There must be one value per point.", "values");
+            if (lines == null || lines.Length % 2 != 0)
+                throw new ArgumentException("The lines must be pairs of point indices.", "lines");
+            if (vertices == null) throw new ArgumentNullException("vertices");
+            IntPtr extremesPointer = IntPtr.Zero;
+            try
+            {
+                if (extremes.HasValue)
+                {
+                    extremesPointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(VtkNativeExtremeNodes)));
+                    Marshal.StructureToPtr(extremes.Value, extremesPointer, false);
+                }
+                byte[] parent = parentName == null ? null : VtkNativeLibrary.ToUtf8(parentName);
+                VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_glyph_actor(Handle(), VtkNativeLibrary.ToUtf8(name), parent,
+                                                                                   ref style, coordinates, values.Length,
+                                                                                   values, lines, lines.Length / 2, vertices,
+                                                                                   vertices.Length, extremesPointer));
+            }
+            finally
+            {
+                if (extremesPointer != IntPtr.Zero) Marshal.FreeHGlobal(extremesPointer);
+            }
+        }
         public void SetActorScalars(string name, float[] values, VtkNativeExtremeNodes? extremes)
         {
             if (name == null) throw new ArgumentNullException("name");

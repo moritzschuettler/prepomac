@@ -7876,6 +7876,7 @@ namespace vtkControl
                 actor.MaxNode = new vtkMaxExtreemeNode(extremes.Ids[1], extremes.Coor[1], extremes.Values[1]);
             }
             AddActorGeometry(actor, data.Layer);
+            MirrorGlyphActor(actor, data, coordinates, values, numArrows, _numPointsPerLineArrow, numNodalPoints);
         }
         public void AddTensorFieldActor(vtkMaxActorData data, double maxAbsValue, double maxGlyphLength, double arrowSize)
         {
@@ -8026,6 +8027,7 @@ namespace vtkControl
                 actor.MaxNode = new vtkMaxExtreemeNode(extremes.Ids[1], extremes.Coor[1], extremes.Values[1]);
             }
             AddActorGeometry(actor, data.Layer);
+            MirrorGlyphActor(actor, data, coordinates, values, numArrows, _numPointsPerLineArrow, numNodalPoints);
         }
         public bool AddAnimatedVectorFieldActor(vtkMaxActorData data, double maxMagnitude, double maxArrowLength, double arrowSize)
         {
@@ -8065,6 +8067,8 @@ namespace vtkControl
             vtkMaxActor actor = new vtkMaxActor(data, mapper);
             actor.GeometryProperty.SetColor(1, 1, 1);
             actor.GeometryProperty.SetLighting(false);
+            MirrorGlyphActor(actor, data, GetFloatCoordinates(glyphFrames[0]), glyphFrames[0].Values,
+                             numArrowsPerNode * numSourceNodes, _numPointsPerLineArrow, numSourceNodes);
             //
             return InitializeAndAddAnimatedActor(actor, data, false);
         }
@@ -8272,11 +8276,13 @@ namespace vtkControl
             // actor without renderable cells so the scalar bar and extreme-value widgets
             // remain available while zero-length arrows are omitted.
             vtkPolyData polyData = vtkPolyData.New();
+            float[] coordinates = new float[0];
+            float[] values = new float[0];
             if (data.Geometry.ExtremeNodes != null)
             {
                 NodesExchangeData extremes = data.Geometry.ExtremeNodes;
-                float[] coordinates = new float[6];
-                float[] values = new float[2];
+                coordinates = new float[6];
+                values = new float[2];
                 for (int i = 0; i < 2; i++)
                 {
                     coordinates[3 * i] = (float)extremes.Coor[i][0];
@@ -8312,6 +8318,7 @@ namespace vtkControl
                 actor.MaxNode = new vtkMaxExtreemeNode(extremes.Ids[1], extremes.Coor[1], extremes.Values[1]);
             }
             AddActorGeometry(actor, data.Layer);
+            MirrorGlyphActor(actor, data, coordinates, values, 0, _numPointsPerLineArrow, 0);
         }
         private static void AddLineArrow(float[] coordinates, float[] values, vtkCellArray lines, int arrowId,
                                          float scalarValue, double startX, double startY, double startZ,

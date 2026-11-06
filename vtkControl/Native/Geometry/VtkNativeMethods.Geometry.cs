@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int GeometryApiVersion = 3;
+        public const int GeometryApiVersion = 4;
 
 
         // Methods
@@ -42,6 +42,12 @@ namespace vtkControl.Native
                                                                         double[] points, int pointCount, double[] normals,
                                                                         int normalCount,
                                                                         ref VtkNativeSymbolParameters parameters);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_add_glyph_actor(IntPtr view, byte[] name, byte[] parentName,
+                                                                       ref VtkNativePartStyle style, float[] coordinates3,
+                                                                       int pointCount, float[] values, int[] lines,
+                                                                       int lineCount, int[] vertices, int vertexCount,
+                                                                       IntPtr extremes);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_actor_scalars(IntPtr view, byte[] name, float[] values, int count,
                                                                          IntPtr extremes);

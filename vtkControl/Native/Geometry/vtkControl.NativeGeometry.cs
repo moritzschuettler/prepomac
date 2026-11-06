@@ -135,6 +135,35 @@ namespace vtkControl
                 if (edges != null) _nativeMirroredActors.Add(edges);
             });
         }
+        // AddVectorFieldActor, AddTensorFieldActor and the animated plots: the line arrows of pointsPerArrow points
+        // each, followed by the points of the nodes, which the native view draws unlit in the colors of their values
+        private void MirrorGlyphActor(vtkMaxActor actor, vtkMaxActorData data, float[] coordinates, float[] values,
+                                      int arrowCount, int pointsPerArrow, int vertexCount)
+        {
+            if (!IsNativeGeometryOn()) return;
+            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry && data.Layer != vtkRendererLayer.Base) return;
+            MirrorGeometry("AddGlyphActor " + actor.Name, () =>
+            {
+                int[] lines = new int[8 * arrowCount];
+                for (int i = 0; i < arrowCount; i++)
+                {
+                    int pointId = pointsPerArrow * i;
+                    int[] arrow = { pointId, pointId + 1, pointId + 2, pointId + 3, pointId + 3, pointId + 4, pointId + 4,
+                                    pointId + 2 };
+                    Array.Copy(arrow, 0, lines, 8 * i, arrow.Length);
+                }
+                int[] vertices = Enumerable.Range(pointsPerArrow * arrowCount, vertexCount).ToArray();
+                VtkNativeExtremeNodes? extremes = null;
+                NodesExchangeData extremeNodes = data.Geometry.ExtremeNodes;
+                if (extremeNodes != null && extremeNodes.Ids != null)
+                    extremes = VtkNativeExtremeNodes.FromNodesExchangeData(extremeNodes);
+                VtkNativePartStyle style = VtkNativePartStyle.FromActorData(data);
+                style.Visible = actor.VtkMaxActorVisible ? 1 : 0;
+                _nativeMirror.AddGlyphActor(actor.Name, actor.ParentName, style, coordinates ?? new float[0],
+                                            values ?? new float[0], lines, vertices, extremes);
+                _nativeMirroredActors.Add(actor);
+            });
+        }
         private vtkMaxActor FindLayerActor(string name, vtkRendererLayer layer)
         {
             vtkMaxActor actor;
@@ -248,7 +277,7 @@ namespace vtkControl
         private void MirrorAnimatedActor(vtkMaxActorData data, vtkMaxActor actor)
         {
             if (!IsNativeGeometryOn() || data.Geometry.NodesAnimation == null) return;
-            MirrorActor(data, actor, false);
+            if (!_nativeMirroredActors.Contains(actor)) MirrorActor(data, actor, false);
             if (!_nativeMirroredActors.Contains(actor)) return;
             MirrorGeometry("AddAnimationFrames " + actor.Name, () =>
             {

@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_GEOMETRY_API_VERSION 3
+#define VTKN_GEOMETRY_API_VERSION 4
 
 /* Mirrors vtkRendererLayer of vtkControl: the base layer, the selection layer drawn over it, the overlay layer */
 typedef enum vtkn_layer
@@ -232,6 +232,16 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_add_symbol_actor(vtkn_view view, const 
                                                            int32_t point_count, const double* normals,
                                                            int32_t normal_count,
                                                            const vtkn_symbol_parameters* parameters);
+/* A vector or a tensor plot (AddVectorFieldActor, AddTensorFieldActor and AddEmptyScalarFieldActor of vtkControl):
+   line arrows and the points they start from, colored by their values without lighting. coordinates3 holds
+   point_count * 3 values and values one per point; lines are line_count pairs of point indices and vertices
+   vertex_count point indices. extremes may be null. A base actor of the same name is replaced */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_add_glyph_actor(vtkn_view view, const char* name, const char* parent_name,
+                                                          const vtkn_part_style* style, const float* coordinates3,
+                                                          int32_t point_count, const float* values,
+                                                          const int32_t* lines, int32_t line_count,
+                                                          const int32_t* vertices, int32_t vertex_count,
+                                                          const vtkn_extreme_nodes* extremes);
 /* The result values at the points of a base actor (null removes them) and its extreme nodes (null for none) */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actor_scalars(vtkn_view view, const char* name, const float* values,
                                                             int32_t count, const vtkn_extreme_nodes* extremes);

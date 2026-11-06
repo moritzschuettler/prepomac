@@ -837,6 +837,13 @@ namespace vtkn
                 property->SetSpecular(0.6);
                 property->SetSpecularPower(100);
             }
+            else if (!Style.lighting)
+            {
+                // VTK 5.8 drew the colors of an unlit actor as they are; VTK 9 adds its ambient and diffuse parts
+                property->SetColor(1, 1, 1);
+                property->SetAmbient(0);
+                property->SetDiffuse(1);
+            }
             else
             {
                 property->SetAmbientColor(1, 1, 1);

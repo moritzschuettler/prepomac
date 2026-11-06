@@ -33,6 +33,7 @@ SUITES=(
     "geometry_g4|scenes geometry hinge_section hinge_result_section solid_geometry_section hinge_exploded hinge_result_symmetry hinge_pattern"
     "geometry_g5|scenes geometry hinge_animation_frame"
     "geometry_g5_png|pilot VtkPort/Harness/Run_Png.sh"
+    "geometry_g6|scenes geometry hinge_result_vector hinge_result_tensor hinge_vector_animation_frame hinge_tensor_animation_frame"
     # Stream W: widgets and interaction
     "widgets_w1|pilot VtkPort/Widgets/Run_W1.sh"
     "widgets_w2|pilot VtkPort/Widgets/Run_W2.sh"

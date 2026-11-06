@@ -113,6 +113,10 @@ namespace vtkn
         void AddSymbolActor(const std::string& name, const vtkn_part_style& style, const double* points,
                             int pointCount, const double* normals, int normalCount,
                             const vtkn_symbol_parameters& parameters);
+        void AddGlyphActor(const std::string& name, const std::string& parentName, const vtkn_part_style& style,
+                           const float* coordinates, int pointCount, const float* values, const int32_t* lines,
+                           int lineCount, const int32_t* vertices, int vertexCount,
+                           const vtkn_extreme_nodes* extremes);
 
         std::vector<uint8_t> ReadPixels(int magnification, int& width, int& height);
         void WritePng(const std::string& fileName, int magnification);

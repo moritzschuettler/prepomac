@@ -9,8 +9,10 @@
 #include "vtkNativeView.h"
 
 #include <vtkCamera.h>
+#include <vtkCellArray.h>
 #include <vtkDistanceToCamera.h>
 #include <vtkDoubleArray.h>
+#include <vtkFloatArray.h>
 #include <vtkGlyph3D.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
@@ -354,6 +356,54 @@ namespace vtkn
         edgesStyle.line_width = 1.5;
         std::unique_ptr<PartActor> edges(new PartActor(edgesStyle, silhouette->GetOutputPort()));
         AddActor(name + ":silhouette", std::move(edges));
+    }
+
+    // Port of the poly data of AddVectorFieldActor, AddTensorFieldActor and CreateAnimatedGlyphPolyData: float points,
+    // the lines of the arrows and the vertices of the points, drawn by vtkMaxActor(data, mapper). The points are
+    // flat round dots, as the nodes of G1
+    void View::AddGlyphActor(const std::string& name, const std::string& parentName, const vtkn_part_style& style,
+                             const float* coordinates, int pointCount, const float* values, const int32_t* lines,
+                             int lineCount, const int32_t* vertices, int vertexCount,
+                             const vtkn_extreme_nodes* extremes)
+    {
+        Require(pointCount >= 0 && lineCount >= 0 && vertexCount >= 0, "The counts must not be negative.");
+        Require(pointCount == 0 || (coordinates != nullptr && values != nullptr),
+                "The coordinates and values must not be null.");
+        Require(lineCount == 0 || lines != nullptr, "The lines must not be null.");
+        Require(vertexCount == 0 || vertices != nullptr, "The vertices must not be null.");
+        Require(style.layer == VTKN_LAYER_BASE, "A glyph actor is drawn in the base layer.");
+        vtkNew<vtkFloatArray> coordinateArray;
+        coordinateArray->SetNumberOfComponents(3);
+        coordinateArray->SetNumberOfTuples(pointCount);
+        if (pointCount > 0)
+            std::copy(coordinates, coordinates + 3 * static_cast<size_t>(pointCount), coordinateArray->GetPointer(0));
+        vtkNew<vtkPoints> points;
+        points->SetData(coordinateArray);
+        vtkNew<vtkCellArray> lineCells;
+        for (int i = 0; i < lineCount; i++)
+        {
+            vtkIdType ids[2] = { lines[2 * i], lines[2 * i + 1] };
+            Require(ids[0] >= 0 && ids[0] < pointCount && ids[1] >= 0 && ids[1] < pointCount,
+                    "A line point index is out of range.");
+            lineCells->InsertNextCell(2, ids);
+        }
+        vtkNew<vtkCellArray> vertexCells;
+        for (int i = 0; i < vertexCount; i++)
+        {
+            vtkIdType id = vertices[i];
+            Require(id >= 0 && id < pointCount, "A vertex point index is out of range.");
+            vertexCells->InsertNextCell(1, &id);
+        }
+        vtkNew<vtkPolyData> polyData;
+        polyData->SetPoints(points);
+        polyData->SetLines(lineCells);
+        polyData->SetVerts(vertexCells);
+        //
+        std::unique_ptr<PartActor> actor(new PartActor(style, polyData));
+        actor->SetParentName(parentName);
+        actor->GetGeometry()->GetProperty()->RenderPointsAsSpheresOn();
+        if (pointCount > 0) actor->SetPointScalars(values, pointCount, extremes);
+        AddActor(name, std::move(actor));
     }
 
     // The actor part of vtkControl.SetAnimationFrame; vtkControl removes and applies the section view and the
