@@ -29,6 +29,9 @@ namespace vtkControl
         private readonly HashSet<vtkMaxActor> _nativeMirroredActors = new HashSet<vtkMaxActor>();
         private readonly List<string> _nativeMirrorErrors = new List<string>();
         private bool _nativeMirrorAllGeometry;
+        private readonly ConditionalWeakTable<vtkMaxActor, string> _nativeCopyNames =
+            new ConditionalWeakTable<vtkMaxActor, string>();
+        private int _nativeTransformIndex;
 
 
         // Methods
@@ -332,7 +335,20 @@ namespace vtkControl
                 }
             });
         }
-        // ApplyTransforms: the copies ActiViz made of mirrored actors count as mirrored
+        // TransformAllMaxActors: a copy is named natively after the actor it starts from, the transformation and its
+        // place in the row
+        private void NameNativeCopy(vtkMaxActor copy, vtkMaxActor source, int item)
+        {
+            _nativeCopyNames.Remove(copy);
+            _nativeCopyNames.Add(copy, GetNativeName(source) + ":t" + _nativeTransformIndex + "-" + item);
+        }
+        private string GetNativeName(vtkMaxActor actor)
+        {
+            string name;
+            return _nativeCopyNames.TryGetValue(actor, out name) ? name : actor.Name;
+        }
+        // ApplyTransforms: the copies ActiViz made of mirrored actors count as mirrored, and a copy of a directional
+        // result gets the values ApplyResultFieldTransformation computed for it
         private void MirrorTransforms()
         {
             MirrorGeometry("ApplyTransforms", () =>
@@ -344,10 +360,33 @@ namespace vtkControl
                     added = false;
                     foreach (vtkMaxActor actor in _nativeMirroredActors.ToArray())
                     {
-                        foreach (vtkMaxActor copy in actor.Copies) added |= _nativeMirroredActors.Add(copy);
+                        foreach (vtkMaxActor copy in actor.Copies)
+                        {
+                            if (!_nativeMirroredActors.Add(copy)) continue;
+                            added = true;
+                            MirrorTransformedResultValues(copy);
+                        }
                     }
                 }
             });
+        }
+        private void MirrorTransformedResultValues(vtkMaxActor copy)
+        {
+            if (!copy.HasTransformedResultField || copy.GeometryMapper == null) return;
+            vtkDataArray scalars = copy.GeometryMapper.GetInput()?.GetPointData().GetArray(Globals.ScalarArrayName);
+            if (scalars == null) return;
+            float[] values = new float[scalars.GetNumberOfTuples()];
+            for (int i = 0; i < values.Length; i++) values[i] = (float)scalars.GetTuple1(i);
+            VtkNativeExtremeNodes? extremes = null;
+            if (copy.MinNode != null && copy.MaxNode != null && copy.MinNode.Coor != null && copy.MaxNode.Coor != null)
+            {
+                NodesExchangeData extremeNodes = new NodesExchangeData();
+                extremeNodes.Ids = new int[] { copy.MinNode.Id, copy.MaxNode.Id };
+                extremeNodes.Coor = new double[][] { copy.MinNode.Coor, copy.MaxNode.Coor };
+                extremeNodes.Values = new float[] { copy.MinNode.Value, copy.MaxNode.Value };
+                extremes = VtkNativeExtremeNodes.FromNodesExchangeData(extremeNodes);
+            }
+            _nativeMirror.SetActorScalars(GetNativeName(copy), values, extremes);
         }
         // InitializeAndAddAnimatedActor: the actor and its frames, before vtkMaxActor.InitializeAnimation releases
         // the frames it converted

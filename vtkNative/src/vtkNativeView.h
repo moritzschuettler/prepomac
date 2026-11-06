@@ -251,7 +251,6 @@ namespace vtkn
         std::set<int> SectionViewKeptElementIds;
         std::vector<std::pair<vtkSmartPointer<vtkTransform>, int>> Transforms;
         std::map<std::string, std::vector<std::string>> TransformedCopies;
-        int TransformedCopyCount = 0;
         bool HasScalarRange = false;
         double ScalarRange[2] = { 0, 1 };
         bool SectionViewActive = false;

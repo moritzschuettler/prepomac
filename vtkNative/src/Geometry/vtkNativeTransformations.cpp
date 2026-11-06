@@ -39,11 +39,14 @@ namespace vtkn
     }
 
     // Port of ApplyTransforms and TransformAllMaxActors: every base actor, the copies of an earlier transformation
-    // included, gets numOfItems - 1 copies, each transformed from the one before
+    // included, gets numOfItems - 1 copies, each transformed from the one before. A copy is named after the actor
+    // it starts from, the transformation and its place in the row (<name>:t<transformation>-<item>), which vtkControl
+    // names its own copies by, so that it can send them their directional result values
     void View::ApplyTransforms()
     {
-        for (const auto& entry : Transforms)
+        for (size_t transformIndex = 0; transformIndex < Transforms.size(); transformIndex++)
         {
+            const auto& entry = Transforms[transformIndex];
             std::vector<std::pair<std::string, PartActor*>> actors;
             for (const auto& part : Parts) actors.push_back({ part.first, part.second.get() });
             for (const auto& actor : BaseActors) actors.push_back({ actor.first, actor.second.get() });
@@ -54,7 +57,7 @@ namespace vtkn
                 for (int i = 0; i < entry.second - 1; i++)
                 {
                     std::unique_ptr<PartActor> copy(new PartActor(*baseActor, entry.first));
-                    std::string name = actor.first + ":transformation-" + std::to_string(++TransformedCopyCount);
+                    std::string name = actor.first + ":t" + std::to_string(transformIndex) + "-" + std::to_string(i + 1);
                     PartActor* added = copy.get();
                     AddActor(name, std::move(copy));
                     TransformedCopies[baseName].push_back(name);

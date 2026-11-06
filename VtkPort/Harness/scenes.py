@@ -287,6 +287,20 @@ CAMERA_TOLERANCES["hinge_animated_section_element_wise"] = 1e-7
 SECTION_EDGE_ON_COVERAGE = 0.998
 
 
+# Directional results on transformed copies: U1 changes sign under the symmetry, the principal direction of a tensor
+# turns with the circular pattern
+SCENES.update({
+    "hinge_result_symmetry_u1": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("DISP", "U1")),
+    "hinge_result_pattern_s11": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("STRESS", "S11")),
+})
+AFTER_ENABLE.update({
+    "hinge_result_symmetry_u1": _transformations([95.0, 0.0, 0.0], False),
+    "hinge_result_pattern_s11": _transformations([95.0, 0.0, 0.0], True),
+})
+CAMERA_TOLERANCES["hinge_result_symmetry_u1"] = 1e-7
+CAMERA_TOLERANCES["hinge_result_pattern_s11"] = 1e-7
+
+
 # Coordinate systems of the model in the overlay layer (two sizes, one rotated), a selected one and material axes
 def _coordinate_systems(pmx):
     import math

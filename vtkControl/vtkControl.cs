@@ -7325,7 +7325,12 @@ namespace vtkControl
         }
         public void ApplyTransforms()
         {
-            foreach (var transform in _transforms) TransformAllMaxActors(transform.Key, transform.Value);
+            _nativeTransformIndex = 0;
+            foreach (var transform in _transforms)
+            {
+                TransformAllMaxActors(transform.Key, transform.Value);
+                _nativeTransformIndex++;
+            }
             MirrorTransforms();
             //
             UpdateScalarFormatting();
@@ -7405,6 +7410,7 @@ namespace vtkControl
                 {
                     transformedActor = new vtkMaxActor(baseActor);
                     transformedActor.Name = GetTransformedActorName(transformedActor.Name);
+                    NameNativeCopy(transformedActor, actor, i + 1);
                     //
                     baseActor.Copies.Add(transformedActor);
                     //

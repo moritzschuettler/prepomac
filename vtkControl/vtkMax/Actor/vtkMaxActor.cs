@@ -112,6 +112,8 @@ namespace vtkControl
         public string Name { get { return _name; } set { _name = value; } }
         public string ParentName { get { return _parentName; } set { _parentName = value; } }
         public vtkMaxExtreemeNode MinNode { get { return _minNode; } set { _minNode = value; } }
+        // Directional result values follow the transformation of the actor
+        public bool HasTransformedResultField { get { return _geometryResultField != null; } }
         public vtkMaxExtreemeNode MaxNode { get { return _maxNode; } set { _maxNode = value; } }
         //
         public vtkMapper GeometryMapper
