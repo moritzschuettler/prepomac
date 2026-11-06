@@ -161,8 +161,11 @@ namespace vtkn
     // asked the unique element edges
     void BuildPolyData(const vtkn_mesh& mesh, bool extractEdges, vtkSmartPointer<vtkPolyData>& polyActor,
                        vtkSmartPointer<vtkPolyData>& polyEdges, std::vector<int>* sourceCells = nullptr);
-    // A volume grid from the legacy cell layout of a vtkn_mesh
+    // A volume grid from the legacy cell layout of a vtkn_mesh, with the node and element ids as the arrays named
+    // below when the mesh has them
     vtkSmartPointer<vtkUnstructuredGrid> BuildUnstructuredGrid(const vtkn_mesh& mesh);
+    constexpr const char* SectionViewNodeIdsName = "SectionViewNodeIds";
+    constexpr const char* SectionViewElementIdsName = "SectionViewElementIds";
     // The style vtkMaxActor has before any data sets it, as its default constructor leaves it
     vtkn_part_style DefaultStyle();
 }

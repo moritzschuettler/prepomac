@@ -2,8 +2,8 @@
 //
 // The section view of a view: the parts are clipped by the section plane and each part with a volume grid gets a
 // section actor, the cut of its volume grid or the cap of its closed surface, with the cut element edges, the
-// outline and optionally a hatch. Port of the Section view region of vtkControl (without the element-wise
-// section) and of SectionViewCap and SectionViewHatch.
+// outline and optionally a hatch; the element-wise section keeps whole elements instead. Port of the Section view
+// region of vtkControl and of SectionViewCap and SectionViewHatch.
 #include "vtkNativeError.h"
 #include "vtkNativeView.h"
 
@@ -13,17 +13,22 @@
 #include <vtkClipClosedSurface.h>
 #include <vtkCutter.h>
 #include <vtkDataArray.h>
+#include <vtkDataSetSurfaceFilter.h>
 #include <vtkDelaunay2D.h>
+#include <vtkExtractCells.h>
+#include <vtkExtractEdges.h>
 #include <vtkExtractGeometry.h>
 #include <vtkFeatureEdges.h>
 #include <vtkGeometryFilter.h>
 #include <vtkGenericCell.h>
 #include <vtkIdList.h>
+#include <vtkMapper.h>
 #include <vtkNew.h>
 #include <vtkPlaneCollection.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
 #include <vtkStripper.h>
+#include <vtkUnstructuredGridGeometryFilter.h>
 #include <vtkUnstructuredGrid.h>
 
 #include <algorithm>
@@ -317,6 +322,251 @@ namespace vtkn
             if (!keepScalars) copy->GetPointData()->RemoveArray("scalars");
             return copy;
         }
+
+        // The element-wise section (GetSectionViewActorsElementWise and its helpers)
+        typedef std::vector<vtkIdType> FaceNodeKey;
+
+        // GetPlaneSideOfBounds: 1 when the box is all on the visible side, -1 when all behind, else 0
+        int GetPlaneSideOfBounds(vtkPlane* plane, const double bounds[6])
+        {
+            bool positive = false;
+            bool negative = false;
+            for (int i = 0; i < 8; i++)
+            {
+                double value = plane->EvaluateFunction(bounds[i & 1], bounds[2 + ((i >> 1) & 1)], bounds[4 + ((i >> 2) & 1)]);
+                if (value > 0) positive = true;
+                else negative = true;
+            }
+            if (positive && !negative) return 1;
+            if (negative && !positive) return -1;
+            return 0;
+        }
+
+        vtkDataArray* GetNodeIds(vtkDataSet* data) { return data->GetPointData()->GetArray(SectionViewNodeIdsName); }
+        vtkDataArray* GetElementIds(vtkDataSet* data) { return data->GetCellData()->GetArray(SectionViewElementIdsName); }
+
+        FaceNodeKey GetFaceNodeKey(vtkIdType count, const vtkIdType* pointIds, vtkDataArray* nodeIds)
+        {
+            FaceNodeKey key(count);
+            for (vtkIdType i = 0; i < count; i++) key[i] = static_cast<vtkIdType>(nodeIds->GetTuple1(pointIds[i]));
+            std::sort(key.begin(), key.end());
+            return key;
+        }
+
+        // Unlike vtkGeometryFilter this filter keeps the quadratic faces as quadratic cells
+        vtkSmartPointer<vtkUnstructuredGrid> GetBoundary(vtkUnstructuredGrid* grid)
+        {
+            vtkNew<vtkUnstructuredGridGeometryFilter> geometryFilter;
+            geometryFilter->SetInputData(grid);
+            geometryFilter->Update();
+            return vtkUnstructuredGrid::SafeDownCast(geometryFilter->GetOutput());
+        }
+
+        std::set<FaceNodeKey> GetFaceNodeKeys(vtkUnstructuredGrid* faces)
+        {
+            std::set<FaceNodeKey> keys;
+            vtkDataArray* nodeIds = GetNodeIds(faces);
+            vtkNew<vtkIdList> pointIds;
+            for (vtkIdType i = 0; i < faces->GetNumberOfCells(); i++)
+            {
+                faces->GetCellPoints(i, pointIds);
+                keys.insert(GetFaceNodeKey(pointIds->GetNumberOfIds(), pointIds->GetPointer(0), nodeIds));
+            }
+            return keys;
+        }
+
+        // LabelSectionFaces: a face of the remaining elements that is not on the part surface was exposed by the cut
+        std::vector<int> LabelSectionFaces(vtkUnstructuredGrid* boundary, const std::set<FaceNodeKey>& outerFaces)
+        {
+            vtkDataArray* nodeIds = GetNodeIds(boundary);
+            std::vector<int> faceTypes(boundary->GetNumberOfCells());
+            vtkNew<vtkIdList> pointIds;
+            for (vtkIdType i = 0; i < boundary->GetNumberOfCells(); i++)
+            {
+                boundary->GetCellPoints(i, pointIds);
+                FaceNodeKey key = GetFaceNodeKey(pointIds->GetNumberOfIds(), pointIds->GetPointer(0), nodeIds);
+                faceTypes[i] = outerFaces.count(key) > 0 ? 0 : 1;
+            }
+            return faceTypes;
+        }
+
+        // ExtractSectionFaces: the faces named by their ids, with the ids as global ids
+        vtkSmartPointer<vtkUnstructuredGrid> ExtractSectionFaces(vtkUnstructuredGrid* boundary,
+                                                                 const std::vector<int>& faceTypes, int faceType)
+        {
+            vtkNew<vtkIdList> cellIds;
+            for (size_t i = 0; i < faceTypes.size(); i++)
+                if (faceTypes[i] == faceType) cellIds->InsertNextId(static_cast<vtkIdType>(i));
+            if (cellIds->GetNumberOfIds() == 0) return vtkSmartPointer<vtkUnstructuredGrid>::New();
+            vtkNew<vtkExtractCells> extract;
+            extract->SetInputData(boundary);
+            extract->SetCellList(cellIds);
+            extract->Update();
+            vtkSmartPointer<vtkUnstructuredGrid> faces = vtkUnstructuredGrid::SafeDownCast(extract->GetOutput());
+            return faces;
+        }
+
+        // GetFaceEdges: the corner pairs of a face, with the mid node of a quadratic edge last
+        std::vector<std::vector<int>> GetFaceEdges(int cellType, int numOfPoints)
+        {
+            if (cellType == VTK_TRIANGLE) return { { 0, 1 }, { 1, 2 }, { 2, 0 } };
+            if (cellType == VTK_QUAD) return { { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 } };
+            if (cellType == VTK_QUADRATIC_TRIANGLE) return { { 0, 1, 3 }, { 1, 2, 4 }, { 2, 0, 5 } };
+            if (cellType == VTK_QUADRATIC_QUAD) return { { 0, 1, 4 }, { 1, 2, 5 }, { 2, 3, 6 }, { 3, 0, 7 } };
+            std::vector<std::vector<int>> edges;
+            if (cellType == VTK_POLYGON)
+                for (int i = 0; i < numOfPoints; i++) edges.push_back({ i, (i + 1) % numOfPoints });
+            return edges;
+        }
+
+        // GetSectionOutline: the edges of the exposed faces that belong to a single exposed face
+        vtkSmartPointer<vtkUnstructuredGrid> GetSectionOutline(vtkUnstructuredGrid* boundary,
+                                                               const std::vector<int>& faceTypes)
+        {
+            std::map<int64_t, std::vector<vtkIdType>> outlineEdges;
+            std::set<int64_t> sharedEdges;
+            vtkNew<vtkIdList> pointIds;
+            for (vtkIdType i = 0; i < boundary->GetNumberOfCells(); i++)
+            {
+                if (faceTypes[i] != 1) continue;
+                boundary->GetCellPoints(i, pointIds);
+                for (const std::vector<int>& edge : GetFaceEdges(boundary->GetCellType(i),
+                                                                 static_cast<int>(pointIds->GetNumberOfIds())))
+                {
+                    int64_t key = GetEdgeKey(pointIds->GetId(edge[0]), pointIds->GetId(edge[1]));
+                    if (outlineEdges.count(key) > 0) sharedEdges.insert(key);
+                    else
+                    {
+                        std::vector<vtkIdType> edgePointIds;
+                        for (int index : edge) edgePointIds.push_back(pointIds->GetId(index));
+                        outlineEdges[key] = edgePointIds;
+                    }
+                }
+            }
+            vtkSmartPointer<vtkUnstructuredGrid> outline = vtkSmartPointer<vtkUnstructuredGrid>::New();
+            outline->SetPoints(boundary->GetPoints());
+            outline->Allocate(static_cast<vtkIdType>(outlineEdges.size()));
+            for (const auto& entry : outlineEdges)
+            {
+                if (sharedEdges.count(entry.first) > 0) continue;
+                const std::vector<vtkIdType>& ids = entry.second;
+                outline->InsertNextCell(ids.size() == 2 ? VTK_LINE : VTK_QUADRATIC_EDGE,
+                                        static_cast<vtkIdType>(ids.size()), ids.data());
+            }
+            return outline;
+        }
+
+        // The surface vtkDataSetMapper draws for a grid
+        vtkSmartPointer<vtkPolyData> GetSurface(vtkDataSet* data)
+        {
+            vtkNew<vtkDataSetSurfaceFilter> surfaceFilter;
+            surfaceFilter->SetInputData(data);
+            surfaceFilter->Update();
+            return surfaceFilter->GetOutput();
+        }
+
+        // GetSurfaceOfKeptElements: the triangles of the surface of a kept element, and the element edges along them
+        vtkSmartPointer<vtkPolyData> GetSurfaceOfKeptElements(vtkPolyData* surface, vtkPolyData* edges,
+                                                              const std::set<int>& keptElementIds,
+                                                              vtkSmartPointer<vtkPolyData>& croppedEdges)
+        {
+            vtkDataArray* elementIds = surface->GetCellData()->GetGlobalIds();
+            vtkSmartPointer<vtkPolyData> cropped = vtkSmartPointer<vtkPolyData>::New();
+            cropped->SetPoints(surface->GetPoints());
+            cropped->GetPointData()->ShallowCopy(surface->GetPointData());
+            vtkNew<vtkCellArray> polys;
+            vtkNew<vtkIdTypeArray> croppedElementIds;
+            std::set<int64_t> keptEdges;
+            vtkIdType cellId = surface->GetNumberOfVerts() + surface->GetNumberOfLines();
+            vtkCellArray* surfacePolys = surface->GetPolys();
+            vtkNew<vtkIdList> pointIds;
+            for (vtkIdType i = 0; i < surfacePolys->GetNumberOfCells(); i++, cellId++)
+            {
+                surfacePolys->GetCellAtId(i, pointIds);
+                if (cellId >= elementIds->GetNumberOfTuples()) continue;
+                int elementId = static_cast<int>(elementIds->GetTuple1(cellId));
+                if (keptElementIds.count(elementId) == 0) continue;
+                polys->InsertNextCell(pointIds);
+                croppedElementIds->InsertNextValue(elementId);
+                vtkIdType count = pointIds->GetNumberOfIds();
+                for (vtkIdType j = 0; j < count; j++)
+                    keptEdges.insert(GetEdgeKey(pointIds->GetId(j), pointIds->GetId((j + 1) % count)));
+            }
+            cropped->SetPolys(polys);
+            if (croppedElementIds->GetNumberOfTuples() > 0) cropped->GetCellData()->SetGlobalIds(croppedElementIds);
+            //
+            croppedEdges = vtkSmartPointer<vtkPolyData>::New();
+            if (edges != nullptr)
+            {
+                croppedEdges->SetPoints(edges->GetPoints());
+                vtkNew<vtkCellArray> lines;
+                vtkCellArray* edgeLines = edges->GetLines();
+                for (vtkIdType i = 0; i < edgeLines->GetNumberOfCells(); i++)
+                {
+                    edgeLines->GetCellAtId(i, pointIds);
+                    vtkIdType count = pointIds->GetNumberOfIds();
+                    bool keep = count >= 2;
+                    for (vtkIdType j = 0; keep && j < count - 1; j++)
+                        keep = keptEdges.count(GetEdgeKey(pointIds->GetId(j), pointIds->GetId(j + 1))) > 0;
+                    if (keep) lines->InsertNextCell(pointIds);
+                }
+                croppedEdges->SetLines(lines);
+            }
+            return cropped;
+        }
+
+        // GetModelEdgesOfSkin: a model edge line remains when it is a half edge of a remaining face
+        vtkSmartPointer<vtkPolyData> GetModelEdgesOfSkin(vtkPolyData* modelEdges, vtkUnstructuredGrid* skinFaces)
+        {
+            vtkSmartPointer<vtkPolyData> cropped = vtkSmartPointer<vtkPolyData>::New();
+            if (modelEdges == nullptr || modelEdges->GetPointData()->GetGlobalIds() == nullptr) return cropped;
+            std::set<int64_t> skinEdges;
+            vtkDataArray* faceNodeIds = GetNodeIds(skinFaces);
+            vtkNew<vtkIdList> pointIds;
+            for (vtkIdType i = 0; faceNodeIds != nullptr && i < skinFaces->GetNumberOfCells(); i++)
+            {
+                skinFaces->GetCellPoints(i, pointIds);
+                auto node = [&](int index) { return static_cast<vtkIdType>(faceNodeIds->GetTuple1(pointIds->GetId(index))); };
+                for (const std::vector<int>& edge : GetFaceEdges(skinFaces->GetCellType(i),
+                                                                 static_cast<int>(pointIds->GetNumberOfIds())))
+                {
+                    if (edge.size() == 2) skinEdges.insert(GetEdgeKey(node(edge[0]), node(edge[1])));
+                    else
+                    {
+                        skinEdges.insert(GetEdgeKey(node(edge[0]), node(edge[2])));
+                        skinEdges.insert(GetEdgeKey(node(edge[2]), node(edge[1])));
+                    }
+                }
+            }
+            vtkDataArray* edgeNodeIds = modelEdges->GetPointData()->GetGlobalIds();
+            cropped->SetPoints(modelEdges->GetPoints());
+            vtkNew<vtkCellArray> lines;
+            vtkCellArray* edgeLines = modelEdges->GetLines();
+            for (vtkIdType i = 0; i < edgeLines->GetNumberOfCells(); i++)
+            {
+                edgeLines->GetCellAtId(i, pointIds);
+                if (pointIds->GetNumberOfIds() != 2) continue;
+                vtkIdType first = static_cast<vtkIdType>(edgeNodeIds->GetTuple1(pointIds->GetId(0)));
+                vtkIdType second = static_cast<vtkIdType>(edgeNodeIds->GetTuple1(pointIds->GetId(1)));
+                if (skinEdges.count(GetEdgeKey(first, second)) > 0) lines->InsertNextCell(pointIds);
+            }
+            cropped->SetLines(lines);
+            return cropped;
+        }
+
+        vtkPolyData* GetInput(vtkActor* actor)
+        {
+            return actor == nullptr ? nullptr : vtkPolyData::SafeDownCast(actor->GetMapper()->GetInput());
+        }
+
+        // The style of a skin: that of the actor it replaces, not a part and not picked
+        vtkn_part_style GetSkinStyle(PartActor* actor)
+        {
+            vtkn_part_style style = actor->GetStyle();
+            style.is_a_part = 0;
+            style.pickable = 0;
+            return style;
+        }
     }
 
     // Port of CreateSectionView and UpdateSectionView: the plane object stays, so the clipped mappers follow it
@@ -337,8 +587,10 @@ namespace vtkn
         std::vector<std::pair<std::string, PartActor*>> actors;
         for (const auto& entry : Parts) actors.push_back({ entry.first, entry.second.get() });
         for (const auto& entry : BaseActors) actors.push_back({ entry.first, entry.second.get() });
+        SectionViewKeptElementIds.clear();
         for (const auto& entry : actors)
             if (entry.second->GetStyle().section_view_possible) AddSectionViewActors(entry.first, entry.second);
+        if (SectionView.element_wise) AddSectionViewSkinActorsToSurfaceActors();
         ApplyEdgesVisibilityAndBackfaceCulling();
         AdjustCameraDistanceAndClipping();
     }
@@ -364,10 +616,18 @@ namespace vtkn
             BaseActors.erase(actor);
         }
         SectionViewActorNames.clear();
+        for (const auto& entry : SectionViewSkinActorNames)
+        {
+            auto actor = BaseActors.find(entry.second);
+            if (actor == BaseActors.end()) continue;
+            actor->second->RemoveFrom(Renderer);
+            BaseActors.erase(actor);
+        }
+        SectionViewSkinActorNames.clear();
+        for (PartActor* actor : GetBaseActors()) actor->SetGeometryHiddenBySectionView(false);
     }
 
-    // Port of AddSectionViewActors and GetSectionViewActor without the element-wise section, which falls back to
-    // the cut of the volume grid
+    // Port of AddSectionViewActors and GetSectionViewActor
     void View::AddSectionViewActors(const std::string& name, PartActor* actor)
     {
         vtkUnstructuredGrid* volumeGrid = actor->GetVolumeGrid();
@@ -378,6 +638,11 @@ namespace vtkn
         {
             if (representation == VTKN_REPRESENTATION_SOLID && !actor->GetHasVolumeCells())
                 sectionViewActor = GetSectionViewActorFromClosedSurface(actor);
+            else if (SectionView.element_wise)
+            {
+                AddSectionViewActorsElementWise(name, actor);
+                return;
+            }
             else sectionViewActor = GetSectionViewActorFromSolid(actor);
         }
         else if (representation == VTKN_REPRESENTATION_SOLID_AS_SHELL)
@@ -522,5 +787,120 @@ namespace vtkn
                                                                          : vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkPolyData> edges = Copy(cutStrips->GetOutput(), false);
         return std::unique_ptr<PartActor>(new PartActor(GetSectionViewStyle(actor), polyData, edges, edges, *actor));
+    }
+
+    // Port of GetSectionViewActorsElementWise and the element-wise part of AddSectionViewActors: the whole elements on
+    // the visible side of the plane, the faces the cut exposed as the section actor with its outline, and the part
+    // surface of the remaining elements as the skin that replaces the part
+    void View::AddSectionViewActorsElementWise(const std::string& name, PartActor* actor)
+    {
+        vtkUnstructuredGrid* grid = actor->GetVolumeGrid();
+        vtkDataArray* gridElementIds = GetElementIds(grid);
+        if (GetNodeIds(grid) == nullptr || gridElementIds == nullptr) return;
+        vtkPolyData* surface = actor->GetPolyData();
+        vtkPolyData* elementEdges = GetInput(actor->GetElementEdges());
+        vtkPolyData* modelEdges = GetInput(actor->GetModelEdges());
+        // A part the plane does not reach is either untouched or gone
+        int side = GetPlaneSideOfBounds(SectionPlane, grid->GetBounds());
+        if (side > 0)
+        {
+            for (vtkIdType i = 0; i < gridElementIds->GetNumberOfTuples(); i++)
+                SectionViewKeptElementIds.insert(static_cast<int>(gridElementIds->GetTuple1(i)));
+            return;
+        }
+        if (side < 0)
+        {
+            vtkNew<vtkPolyData> empty;
+            vtkNew<vtkUnstructuredGrid> noFaces;
+            vtkSmartPointer<vtkPolyData> skinModelEdges = GetModelEdgesOfSkin(modelEdges, noFaces);
+            std::unique_ptr<PartActor> skinActor(new PartActor(GetSkinStyle(actor), empty, empty, skinModelEdges,
+                                                               *actor));
+            AddSectionViewSkinActor(name, actor, std::move(skinActor));
+            return;
+        }
+        std::set<FaceNodeKey> outerFaces = GetFaceNodeKeys(GetBoundary(grid));
+        // Whole elements on the visible side of the plane
+        vtkNew<vtkExtractGeometry> extract;
+        extract->SetImplicitFunction(SectionPlane);
+        extract->ExtractInsideOff();
+        extract->ExtractBoundaryCellsOff();
+        extract->SetInputData(grid);
+        extract->Update();
+        vtkUnstructuredGrid* kept = vtkUnstructuredGrid::SafeDownCast(extract->GetOutput());
+        std::set<int> keptElementIds;
+        vtkDataArray* keptIds = GetElementIds(kept);
+        for (vtkIdType i = 0; keptIds != nullptr && i < keptIds->GetNumberOfTuples(); i++)
+            keptElementIds.insert(static_cast<int>(keptIds->GetTuple1(i)));
+        SectionViewKeptElementIds.insert(keptElementIds.begin(), keptElementIds.end());
+        // Their boundary: the part surface that remains and the element faces the cut exposed
+        vtkSmartPointer<vtkUnstructuredGrid> boundary = GetBoundary(kept);
+        std::vector<int> faceTypes = LabelSectionFaces(boundary, outerFaces);
+        vtkSmartPointer<vtkUnstructuredGrid> exposedFaces = ExtractSectionFaces(boundary, faceTypes, 1);
+        vtkSmartPointer<vtkUnstructuredGrid> skinFaces = ExtractSectionFaces(boundary, faceTypes, 0);
+        //
+        vtkSmartPointer<vtkPolyData> faces = GetSurface(exposedFaces);
+        vtkNew<vtkExtractEdges> extractEdges;
+        extractEdges->SetInputData(faces);
+        extractEdges->Update();
+        vtkSmartPointer<vtkPolyData> faceEdges = Copy(extractEdges->GetOutput(), false);
+        vtkSmartPointer<vtkPolyData> outline = GetSurface(GetSectionOutline(boundary, faceTypes));
+        outline->GetPointData()->RemoveArray("scalars");
+        std::unique_ptr<PartActor> sectionViewActor(new PartActor(GetSectionViewStyle(actor), faces, faceEdges, outline,
+                                                                   *actor));
+        std::string sectionName = name + ":sectionView:1";
+        AddActor(sectionName, std::move(sectionViewActor));
+        SectionViewActorNames[name] = sectionName;
+        // The skin is cut from the part surface itself, so that it and the surfaces drawn on the part are the same
+        // polygons
+        vtkSmartPointer<vtkPolyData> skinEdges;
+        vtkSmartPointer<vtkPolyData> skin;
+        if (surface != nullptr && surface->GetNumberOfPolys() > 0 && surface->GetCellData()->GetGlobalIds() != nullptr)
+            skin = GetSurfaceOfKeptElements(surface, elementEdges, keptElementIds, skinEdges);
+        else
+        {
+            skin = GetSurface(skinFaces);
+            vtkNew<vtkExtractEdges> extractSkinEdges;
+            extractSkinEdges->SetInputData(skin);
+            extractSkinEdges->Update();
+            skinEdges = Copy(extractSkinEdges->GetOutput(), false);
+        }
+        std::unique_ptr<PartActor> skinActor(new PartActor(GetSkinStyle(actor), skin, skinEdges,
+                                                           GetModelEdgesOfSkin(modelEdges, skinFaces), *actor));
+        AddSectionViewSkinActor(name, actor, std::move(skinActor));
+    }
+
+    // The element-wise section draws the remaining surface itself, so the geometry it replaces is hidden
+    void View::AddSectionViewSkinActor(const std::string& name, PartActor* actor, std::unique_ptr<PartActor> skinActor)
+    {
+        std::string skinName = name + ":sectionView:2";
+        AddActor(skinName, std::move(skinActor));
+        SectionViewSkinActorNames[name] = skinName;
+        actor->SetGeometryHiddenBySectionView(true);
+    }
+
+    // Port of AddSectionViewSkinActorsToSurfaceActors: the surfaces drawn on the parts (loads, contact regions...)
+    // keep the faces of the remaining elements
+    void View::AddSectionViewSkinActorsToSurfaceActors()
+    {
+        std::vector<std::pair<std::string, PartActor*>> actors;
+        for (const auto& entry : BaseActors) actors.push_back({ entry.first, entry.second.get() });
+        for (const auto& entry : actors)
+        {
+            PartActor* actor = entry.second;
+            const vtkn_part_style& style = actor->GetStyle();
+            if (style.is_a_part || !style.section_view_possible || actor->GetVolumeGrid() != nullptr ||
+                SectionViewSkinActorNames.count(entry.first) > 0 || entry.first.find(":sectionView:") != std::string::npos)
+                continue;
+            vtkPolyData* surface = actor->GetPolyData();
+            if (surface == nullptr || surface->GetNumberOfPolys() == 0 || surface->GetCellData()->GetGlobalIds() == nullptr)
+                continue;
+            vtkSmartPointer<vtkPolyData> croppedEdges;
+            vtkSmartPointer<vtkPolyData> cropped = GetSurfaceOfKeptElements(surface, GetInput(actor->GetElementEdges()),
+                                                                            SectionViewKeptElementIds, croppedEdges);
+            vtkNew<vtkPolyData> noModelEdges;
+            std::unique_ptr<PartActor> skinActor(new PartActor(GetSkinStyle(actor), cropped, croppedEdges, noModelEdges,
+                                                               *actor));
+            AddSectionViewSkinActor(entry.first, actor, std::move(skinActor));
+        }
     }
 }

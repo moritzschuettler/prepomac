@@ -596,6 +596,21 @@ namespace vtkn
         vtkSmartPointer<vtkUnstructuredGrid> grid = vtkSmartPointer<vtkUnstructuredGrid>::New();
         grid->SetPoints(points);
         grid->SetCells(types, cells);
+        // The ids of the element-wise section travel through its filters as plain arrays, as AddSectionViewIdArrays
+        if (mesh.point_ids != nullptr)
+        {
+            vtkSmartPointer<vtkIdTypeArray> nodeIds = ToIdArray(std::vector<int>(mesh.point_ids,
+                                                                                 mesh.point_ids + mesh.point_count));
+            nodeIds->SetName(SectionViewNodeIdsName);
+            grid->GetPointData()->AddArray(nodeIds);
+        }
+        if (mesh.cell_ids != nullptr)
+        {
+            vtkSmartPointer<vtkIdTypeArray> elementIds = ToIdArray(std::vector<int>(mesh.cell_ids,
+                                                                                    mesh.cell_ids + mesh.cell_count));
+            elementIds->SetName(SectionViewElementIdsName);
+            grid->GetCellData()->AddArray(elementIds);
+        }
         return grid;
     }
 

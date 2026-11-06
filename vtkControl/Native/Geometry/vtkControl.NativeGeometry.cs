@@ -302,6 +302,12 @@ namespace vtkControl
                 sectionView.Hatch = _sectionViewData.Hatch ? 1 : 0;
                 sectionView.HatchSpacing = _sectionViewData.HatchSpacing;
                 _nativeMirror.CreateSectionView(sectionView);
+                // The element-wise section replaces the cut parts and the surfaces on them by skins
+                foreach (vtkMaxActor actor in _actors.Values.ToArray())
+                {
+                    if (actor.SectionViewSkinActor != null && _nativeMirroredActors.Contains(actor))
+                        _nativeMirroredActors.Add(actor.SectionViewSkinActor);
+                }
             });
         }
         // ApplyTransforms: the copies ActiViz made of mirrored actors count as mirrored

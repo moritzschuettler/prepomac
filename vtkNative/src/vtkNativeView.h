@@ -239,9 +239,16 @@ namespace vtkn
         vtkn_part_style GetSectionViewStyle(PartActor* actor);
         std::unique_ptr<PartActor> GetSectionViewActorFromSolid(PartActor* actor);
         std::unique_ptr<PartActor> GetSectionViewActorFromClosedSurface(PartActor* actor);
+        void AddSectionViewActorsElementWise(const std::string& name, PartActor* actor);
+        void AddSectionViewSkinActorsToSurfaceActors();
+        void AddSectionViewSkinActor(const std::string& name, PartActor* actor, std::unique_ptr<PartActor> skinActor);
         vtkSmartPointer<vtkPlane> SectionPlane;
         vtkn_section_view SectionView = {};
         std::map<std::string, std::string> SectionViewActorNames;
+        // The element-wise section: the skins that replace the cut parts and the surfaces on them, and the elements
+        // the cut keeps
+        std::map<std::string, std::string> SectionViewSkinActorNames;
+        std::set<int> SectionViewKeptElementIds;
         std::vector<std::pair<vtkSmartPointer<vtkTransform>, int>> Transforms;
         std::map<std::string, std::vector<std::string>> TransformedCopies;
         int TransformedCopyCount = 0;

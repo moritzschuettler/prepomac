@@ -83,12 +83,12 @@ SCENES.update({
     "ball_symbols": (os.path.join(JOINTS, "Joint_Springs_Ball.pmx"), [], _view("femodel")),
     "plates_weld_symbols": (os.path.join(JOINTS, "Joint_Plates_Springs_Weld.pmx"), [], _view("femodel")),
 })
-def _section_view(point, normal, lighten, hatch):
+def _section_view(point, normal, lighten, hatch, element_wise=False):
     def run(pmx):
         import System
         _on_ui_controller(lambda c: c.CreateSectionView(System.Array[System.Double](point),
                                                         System.Array[System.Double](normal), lighten,
-                                                        System.Drawing.Color.Empty, False, hatch))
+                                                        System.Drawing.Color.Empty, element_wise, hatch))
     return run
 
 
@@ -237,6 +237,22 @@ AFTER_ENABLE.update({
     "hinge_item_ids": _item_ids,
     "hinge_measurement": _measurement,
 })
+
+
+# The element-wise section: the hinge with its constraint faces, a result, and a plane that misses the lever
+SCENES.update({
+    "hinge_section_element_wise": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+    "hinge_result_section_element_wise": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("STRESS", "MISES")),
+    "hinge_section_element_wise_side": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+})
+AFTER_ENABLE.update({
+    "hinge_section_element_wise": _section_view([30.0, 11.0, 5.0], [0.3, 0.2, 1.0], False, False, True),
+    "hinge_result_section_element_wise": _section_view([30.0, 11.0, 5.0], [0.3, 0.2, 1.0], True, False, True),
+    "hinge_section_element_wise_side": _section_view([12.0, 0.0, 0.0], [1.0, 0.0, 0.0], False, False, True),
+})
+# The exposed faces come from the volume grid, which is single precision on the ActiViz side
+for _name in ["hinge_section_element_wise", "hinge_result_section_element_wise", "hinge_section_element_wise_side"]:
+    CAMERA_TOLERANCES[_name] = 1e-7
 
 
 # Coordinate systems of the model in the overlay layer (two sizes, one rotated), a selected one and material axes
