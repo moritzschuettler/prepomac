@@ -7176,6 +7176,8 @@ namespace vtkControl
                 camera.SetFocalPoint(focalPoint.X, focalPoint.Y, focalPoint.Z);
                 _renderer.SetActiveCamera(camera);
                 _style.AdjustCameraDistanceAndClipping();
+                MirrorFollowerView(new double[][] { new double[] { 1, 0, 0 }, new double[] { 0, 1, 0 }, new double[] { 0, 0, 1 } },
+                                   (-1 * delta).Coor);
                 //
                 _followerViewPointCoor[0] = centerPointCoor;
             }
@@ -7263,6 +7265,7 @@ namespace vtkControl
             //
             _renderer.SetActiveCamera(camera);
             _style.AdjustCameraDistanceAndClipping();
+            MirrorFollowerView(RInv, tInv.Coor);
             //
             _followerViewPointCoor[0] = p1.Coor;
             _followerViewPointCoor[1] = p2.Coor;

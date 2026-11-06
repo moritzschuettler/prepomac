@@ -37,6 +37,8 @@ SUITES=(
     "geometry_g7|scenes geometry hinge_captions hinge_item_ids hinge_measurement"
     "geometry_g8|scenes geometry hinge_coordinate_systems"
     "geometry_g9|scenes geometry hinge_section_element_wise hinge_result_section_element_wise hinge_section_element_wise_side"
+    "geometry_g10|scenes geometry hinge_animated_section hinge_animated_section_element_wise"
+    "geometry_g10_follower|pilot VtkPort/Harness/Run_Follower_View.sh"
     # Stream W: widgets and interaction
     "widgets_w1|pilot VtkPort/Widgets/Run_W1.sh"
     "widgets_w2|pilot VtkPort/Widgets/Run_W2.sh"

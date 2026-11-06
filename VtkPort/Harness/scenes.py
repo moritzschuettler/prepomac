@@ -255,6 +255,38 @@ for _name in ["hinge_section_element_wise", "hinge_result_section_element_wise",
     CAMERA_TOLERANCES[_name] = 1e-7
 
 
+# A section view of an animated result: the section is made again at every frame, from the volume grid at it
+def _animated_section(element_wise):
+    def run(pmx):
+        import System
+        import vtkport
+
+        def animate():
+            vtkport.CONTROLLER.DrawScaleFactorAnimation(8)
+            vtkport.VTK.SetAnimationFrame(2, False)
+            vtkport.CONTROLLER.CreateSectionView(System.Array[System.Double]([30.0, 11.0, 5.0]),
+                                                 System.Array[System.Double]([0.3, 0.2, 1.0]), True,
+                                                 System.Drawing.Color.Empty, element_wise, False)
+            vtkport.VTK.SetAnimationFrame(6, False)
+        vtkport.on_ui(animate)
+    return run
+
+
+SCENES.update({
+    "hinge_animated_section": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("DISP", "ALL")),
+    "hinge_animated_section_element_wise": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("DISP", "ALL")),
+})
+AFTER_ENABLE.update({
+    "hinge_animated_section": _animated_section(False),
+    "hinge_animated_section_element_wise": _animated_section(True),
+})
+CAMERA_TOLERANCES["hinge_animated_section"] = 1e-7
+CAMERA_TOLERANCES["hinge_animated_section_element_wise"] = 1e-7
+# Seen from the right the section plane is nearly edge on: VTK 9 draws a one pixel sliver of the section face that
+# VTK 5.8 left out
+SECTION_EDGE_ON_COVERAGE = 0.998
+
+
 # Coordinate systems of the model in the overlay layer (two sizes, one rotated), a selected one and material axes
 def _coordinate_systems(pmx):
     import math
@@ -295,6 +327,7 @@ DIFFERING_LIMITS = {"hinge_result_vector": 0.07, "hinge_result_tensor": 0.07, "h
 # scene with much text on the background covers a little less
 COVERAGE_LIMITS = {"hinge_captions": 0.99, "hinge_item_ids": 0.99, "hinge_measurement": 0.99,
                    "hinge_coordinate_systems": 0.99}
+COVERAGE_LIMITS["hinge_animated_section"] = SECTION_EDGE_ON_COVERAGE
 
 
 def after_enable(name, pmx):

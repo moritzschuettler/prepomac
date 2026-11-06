@@ -213,6 +213,28 @@ namespace vtkControl
                 _nativeMirror.AddCoordinateSystemSymbol(origin, axisDirections, labels, symbolSize,
                                                         VtkNativePartStyle.ToNativeLayer(layer), materialAxes));
         }
+        // UpdateFollowerViewPint and UpdateFollowerViewPlane: the camera of the native view moves as the camera of this
+        // control did, its points by the rotation and the translation and its view up by the rotation, and is then
+        // fitted as AdjustCameraDistanceAndClipping fits it
+        private void MirrorFollowerView(double[][] rotation, double[] translation)
+        {
+            MirrorGeometry("FollowerView", () =>
+            {
+                double[] camera = _nativeMirror.GetCamera();
+                double[] moved = new double[10];
+                for (int point = 0; point < 3; point++)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        double value = point < 2 ? translation[i] : 0;
+                        for (int j = 0; j < 3; j++) value += rotation[i][j] * camera[3 * point + j];
+                        moved[3 * point + i] = value;
+                    }
+                }
+                moved[9] = camera[9];
+                _nativeMirror.SetViewParameters(moved);
+            });
+        }
         private vtkMaxActor FindLayerActor(string name, vtkRendererLayer layer)
         {
             vtkMaxActor actor;
