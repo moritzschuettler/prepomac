@@ -118,6 +118,19 @@ namespace vtkControl
             settings.SelectionDistance = _selectionDistance;
             _nativeMirror.SetInteractionSettings(settings);
         }
+        // AnimateCamera: the native style takes no input while the camera of this control is animated, as
+        // vtkInteractorStyleControl.Animating
+        private void MirrorStyleAnimating(bool animating)
+        {
+            if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
+            _nativeMirror.Navigate(VtkNativeNavigation.SetAnimating, animating ? 1 : 0);
+        }
+        // StartBoxZoom: the next left drag of the native style zooms to its box
+        private void MirrorStartBoxZoom()
+        {
+            if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
+            _nativeMirror.Navigate(VtkNativeNavigation.SetBoxZoom, 1);
+        }
         // The touchpad and the trackpad move the native style as they move the ActiViz one
         private void MirrorTrackpadGesture(double dragX, double dragY, double zoom)
         {

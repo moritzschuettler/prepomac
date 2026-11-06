@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int SelectionApiVersion = 2;
+        public const int SelectionApiVersion = 3;
 
 
         // Methods
@@ -31,6 +31,9 @@ namespace vtkControl.Native
                                                                  out int required);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_exact_picking(IntPtr view, int exact);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_section_view_pick_mode(IntPtr view, int partSelection,
+                                                                                  int nodeOrElementSelection);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_get_closest_cell(IntPtr view, double[] point3, double maxDistance,
                                                                         byte[] selectableParts,

@@ -71,6 +71,11 @@ namespace vtkControl.Native
         {
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_exact_picking(Handle(), exact ? 1 : 0));
         }
+        public void SetSectionViewPickMode(bool partSelection, bool nodeOrElementSelection)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_section_view_pick_mode(Handle(), partSelection ? 1 : 0,
+                                                                                          nodeOrElementSelection ? 1 : 0));
+        }
         //
         // The id resolution. The surface cell closest to the point among the visible or the selectable parts, with
         // the node ids and coordinates of the cell, null when no part was searched. The element id is -1 when the

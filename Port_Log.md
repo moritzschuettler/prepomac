@@ -13,6 +13,7 @@ in `Pilot_Log.md`.
 | S. Selection | 2026-11-05 18:12 | 2026-11-05 18:52 | 1 session turn, 3 commits | 29 % -> 47 % / 13 % -> 16 % (account wide) | 2 port + 5 harness | ~833 | C++/C API ~670, C# ~710, harness ~520 | |
 | I. Integration (merge) | 2026-11-06 07:55 | 2026-11-06 08:15 | 1 user turn | 3 % -> 4 % / 19 %; context 198k -> 205k | 1 compile + 1 behavior + 2 check | 0 (merge) | window check 125, routing 10 | |
 | G6 - G10. Rest of geometry | 2026-11-06 15:05 | 2026-11-06 16:20 | 1 user turn, 7 commits | 8 % (15:49) -> 12 % / 20 % -> 21 %; context 529k at the end | 2 render + 3 compile + 6 check | ~2,100 (the list the stream left), plus ~200 reused from C# | C++ ~1,280, C# ~320, harness ~410 | |
+| W + S. Leftovers of the widgets and selection | 2026-11-06 16:22 | 2026-11-06 17:25 | 1 user turn | 12 % -> 22 % / 21 % -> 22 %; context 529k -> 730k | 2 port (copies picked, then reverted; box picks) + 2 found (selection box, box zoom) + 5 check | ~250 | C++ ~260, C# ~110, checks ~400 | |
 
 The plan's target: 8 - 10 h of agent time, 4 - 6 h of wall clock with three streams, 4 review rounds.
 
@@ -193,3 +194,27 @@ inside PrePoMax).
   query, picking on section views and transformed copies (the element-wise skins are not picked natively either), box
   selection by drag in the window.
 - The user's decision on `NativeExactPicking`, and the reviews (W, G with the additions 10 - 14, S).
+
+## Leftovers of streams W and S
+
+Started 2026-11-06 at about 16:22 on the user's "Port W and S next"; the details are in the two stream logs
+("Finished after the integration").
+
+- **W:** the hand cursor of the triad in the native window, and the native style takes no input while the camera of
+  the control animates.
+- **S:** picks on section views (the plain cut and the element-wise skins and faces) resolve to their parts as in
+  ActiViz; area picks also report parts drawn in the area behind other geometry, as the OpenGL selection mode of VTK
+  5.8 did; the probe label of a query is shown through the native hover.
+- **Found by the new checks:** the selection box setting and the box zoom of the toolbar never reached the native
+  style, so a drag in the native window clicked instead of selecting a box. Both are mirrored now.
+- **New checks:** `selection_s4`, `selection_s5_probe`, and four more checks in `integration_window` (box selection by
+  a drag, the toolbar box zoom, the triad cursor, a click while animating); the cursor, animation and probe checks
+  fail with their fix switched off.
+- **Left as is, for the `NativeExactPicking` decision:** a pixel on the rim of a hole and a part behind a transformed
+  copy resolve to another point than in ActiViz, which rebuilt the point from the depth buffer.
+
+**Checks.** The full `Run_Port_Checks.sh`, 17:05 - 17:18: all passed - every suite of the stream G run above, and
+S4 with its one known difference (the hole rim pixel, in the four modes that resolve it to an item; 2,936 of 2,940
+picks equal), the probe label, and the window check with its four new checks.
+
+**Effort.** About 16:22 - 17:25 in one user turn; the 5 hour window 12 % -> 22 %, the weekly 21 % -> 22 %.

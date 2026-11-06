@@ -151,3 +151,28 @@ Run `VtkPort/Selection/Toggle_Native_Selection.py` from the Python panel (after 
 4. Drag: the view rotates and nothing is selected.
 5. The hover over the parts of an assembly, near the contact of two parts: the highlighted item belongs to the part
    under the pointer.
+
+## Finished after the integration (2026-11-06)
+
+- **Picking on section views** (`ResolveSectionViewPick`, `GetSectionViewParentActor`): a pick on a cut face resolves
+  to its part by the closest point on the part surface; the skins and exposed faces of the element-wise section carry
+  the element ids, have a locator and are searched for the closest cell as vtkControl searches every visible actor;
+  the select mode reaches the native view (`vtkn_view_set_section_view_pick_mode`, selection API 3). Area picks report
+  a section actor by its part.
+- **Transformed copies**: ActiViz never picks a copy by a point (tried: native copies with the source's locator then
+  picked where ActiViz did not), so they stay unpicked. Area picks differed for another reason: VTK 5.8 picked an area
+  with the OpenGL selection mode, which reports a part drawn in the area also where it is hidden behind another; VTK
+  9 reports the visible only. A shown part with a point in the frustum, on the kept side of a section plane, is now
+  reported too.
+- **The probe label of a query**: `HoverWithNativeMirror` shows the probe as `PickByNode`, `PickByCell`, `PickByEdge`,
+  `PickBySurface` and `PickByActor` do (the node id, the element id, the edge or surface name, the part name) and
+  hides it on a miss; the probe widget's native twin draws it.
+- **Box selection by a drag in the window**: worked once the selection box setting reached the native style (stream
+  W's log).
+- Checks: `selection_s4` (`Run_S4.sh`, the pick plan on the plain and the element-wise section and on a symmetry
+  beside the parts; one known difference, a pixel on the rim of the lever's hole, where ActiViz rebuilds the point on
+  the top face and the exact pick follows the ray into the hole), `selection_s5_probe` (`Test_Probe_Label.py`: the
+  same probe text, position and visibility on both paths for nodes, elements and parts, the native twin shown at the
+  probe; it fails without the port).
+- Not changed: where a copy lies in front of a part, ActiViz rebuilds the point from the depth of the copy and the
+  exact native pick finds the part surface behind it; like the hole rim, `NativeExactPicking` decides it.

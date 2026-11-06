@@ -242,3 +242,18 @@ widgets and the ActiViz camera, the next run closes it. Click into the view firs
    while turning and dragging, the probe, the color bar of colors by part; hover highlights, drags, double clicks
    and right click menus.
 8. A touchpad, if the machine has one: two finger turn and pan, pinch.
+
+## Finished after the integration (2026-11-06, with the leftovers of stream S)
+
+- **The hand cursor of the triad**: the hover handler of the native triad sets the hand cursor of its render window, as
+  `coorSysWidget_HoverChanged` sets it on the ActiViz window.
+- **Animations of the camera**: `AnimateCamera` tells the native style to take no input while it runs
+  (`VTKN_NAVIGATE_SET_ANIMATING`), as it sets `vtkInteractorStyleControl.Animating`.
+- **Found while checking**: the `SelectBy` and `QuerySelectionInProgress` setters switched the selection box of the
+  ActiViz style only, so the native style kept the setting it had when the areas were switched on, and a drag in the
+  native window clicked instead of selecting a box; both setters now send the settings. The box zoom of the toolbar
+  (`StartBoxZoom`) did not reach the native style either.
+- Checked in `Test_Window_Events.py` (`integration_window`), widgets mode: a drag in the window selects the elements the
+  same box selects on the ActiViz path, the box zoom of the toolbar zooms and selects nothing, the cursor over the
+  triad is the hand and away from it is not, and a click while the camera animates raises no pick. The cursor and the
+  animation checks were run once with their fix switched off and failed.

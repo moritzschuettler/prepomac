@@ -31,11 +31,16 @@ MK_LBUTTON = 0x0001
 SIZE = (800, 600)
 HOVER_WAIT = 0.5  # the native style picks on a selection timer, as vtkInteractorStyleControl does
 RESULTS = []
+send_now_function = None
 USER32 = ctypes.WinDLL("user32", use_last_error=True)
 USER32.GetWindow.restype = wintypes.HWND
 USER32.GetWindow.argtypes = [wintypes.HWND, wintypes.UINT]
 USER32.SendMessageW.restype = ctypes.c_ssize_t
 USER32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, ctypes.c_size_t, ctypes.c_ssize_t]
+USER32.GetCursor.restype = wintypes.HANDLE
+USER32.LoadCursorW.restype = wintypes.HANDLE
+USER32.LoadCursorW.argtypes = [wintypes.HINSTANCE, ctypes.c_void_p]
+IDC_HAND = 32649
 
 
 def check(condition, text, detail=""):
@@ -86,6 +91,12 @@ def run_mode(areas, record):
         wy = height - 1 - y
         on_ui(lambda: USER32.SendMessageW(child, message, wparam, (wy << 16) | (x & 0xFFFF)))
 
+    def send_now(message, wparam, x, y):
+        wy = height - 1 - y
+        USER32.SendMessageW(child, message, wparam, (wy << 16) | (x & 0xFFFF))
+    global send_now_function
+    send_now_function = send_now
+
     def set_mode():
         CONTROLLER.ClearSelectionHistory()
         CONTROLLER.SelectItem = vtkSelectItem.Element
@@ -107,9 +118,112 @@ def run_mode(areas, record):
     check(nodes == 1, label + ": a click adds one selection node", nodes)
     check(len(ids) == 1, label + ": a click selects one element", ids)
     record[label] = {"handlers": names, "point": point, "nodes": nodes, "ids": [int(i) for i in ids]}
+    if widgets:
+        record[label].update(check_widgets_style(label, send, x, y))
     on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))
     on_ui(CONTROLLER.ClearSelectionHistory)
     vtkport.disable_native()
+
+
+def check_widgets_style(label, send, x, y):
+    """The native style of the widgets area: a box selection by a drag in the window selects what the same box picks
+    on the ActiViz path; the triad shows the hand cursor; a click while the camera animates selects nothing"""
+    record = {}
+    # Box selection by a drag
+    x1, y1, x2, y2 = x - 80, y - 60, x + 80, y + 60
+
+    def activiz_box():
+        CONTROLLER.ClearSelectionHistory()
+        VTK.Pick(x1, y1, True, x2, y2)
+        return sorted(int(i) for i in CONTROLLER.GetSelectionIds())
+    expected = on_ui(activiz_box)
+    on_ui(CONTROLLER.ClearSelectionHistory)
+    drag_events = []
+
+    def drag_event(sender, e):
+        drag_events.append([int(e.Event)] + [float(v) for v in e.Values])
+    def subscribe(on):
+        if on:
+            VTK.NativeMirror.NativeEvent += drag_event
+        else:
+            VTK.NativeMirror.NativeEvent -= drag_event
+    on_ui(lambda: subscribe(True))
+    send(WM_MOUSEMOVE, 0, x1, y1)
+    send(WM_LBUTTONDOWN, MK_LBUTTON, x1, y1)
+    for i in range(1, 6):
+        send(WM_MOUSEMOVE, MK_LBUTTON, x1 + (x2 - x1) * i // 5, y1 + (y2 - y1) * i // 5)
+    send(WM_LBUTTONUP, 0, x2, y2)
+    on_ui(lambda: subscribe(False))
+    record["drag_events"] = [ev for ev in drag_events if ev[0] in (22, 23, 28)]
+    dragged = on_ui(lambda: sorted(int(i) for i in CONTROLLER.GetSelectionIds()))
+    check(len(expected) > 1 and dragged == expected, label + ": a drag selects the elements of the box",
+          [len(expected), len(dragged)])
+    record["box"] = {"activiz": len(expected), "drag": len(dragged)}
+    on_ui(CONTROLLER.ClearSelectionHistory)
+    # The box zoom of the toolbar: the next drag zooms and selects nothing
+    scale = on_ui(lambda: VTK.NativeMirror.GetCamera()[9])
+    on_ui(VTK.StartBoxZoom)
+    send(WM_LBUTTONDOWN, MK_LBUTTON, x1, y1)
+    for i in range(1, 6):
+        send(WM_MOUSEMOVE, MK_LBUTTON, x1 + (x2 - x1) * i // 5, y1 + (y2 - y1) * i // 5)
+    send(WM_LBUTTONUP, 0, x2, y2)
+    zoomed = on_ui(lambda: VTK.NativeMirror.GetCamera()[9])
+    nodes = on_ui(lambda: CONTROLLER.Selection.Nodes.Count)
+    check(zoomed < 0.8 * scale and nodes == 0, label + ": the box zoom of the toolbar zooms and selects nothing",
+          [scale, zoomed, nodes])
+    record["box_zoom"] = [scale, zoomed]
+    vtkport.frame_both(vtkport.camera_list(pmx.view.get_parameters()), "Isometric")
+    # The hand cursor over the triad
+    hand = USER32.LoadCursorW(None, IDC_HAND)
+    rectangle = on_ui(lambda: VTK.GetNativeMirrorWidget(VTK.NativeTriadName).GetRectangle())
+    cx = rectangle.X + rectangle.Width // 2
+    cy = rectangle.Y + rectangle.Height // 2
+    hovered = False
+    for dx, dy in [(0, 0), (6, 0), (0, 6), (12, 0), (0, 12), (-6, 0), (0, -6), (18, 0), (0, 18)]:
+        send(WM_MOUSEMOVE, 0, cx + dx, cy + dy)
+        if on_ui(lambda: USER32.GetCursor()) == hand:
+            hovered = True
+            break
+    check(hovered, label + ": the triad shows the hand cursor", [cx, cy])
+    send(WM_MOUSEMOVE, 0, x, y)
+    time.sleep(HOVER_WAIT)
+    check(on_ui(lambda: USER32.GetCursor()) != hand, label + ": the cursor is back away from the triad")
+    # A click while the camera of the control animates
+    clicked = {}
+
+    def start():
+        import System.Windows.Forms as forms
+        timer = forms.Timer()
+        timer.Interval = 60
+
+        def tick(sender, args):
+            timer.Stop()
+            events = []
+
+            def native_event(sender, e):
+                if int(e.Event) == 22:
+                    events.append(1)
+            VTK.NativeMirror.NativeEvent += native_event
+            try:
+                send_now_function(WM_LBUTTONDOWN, MK_LBUTTON, x, y)
+                send_now_function(WM_LBUTTONUP, 0, x, y)
+            finally:
+                VTK.NativeMirror.NativeEvent -= native_event
+            clicked["pick_events"] = len(events)
+            clicked["nodes"] = CONTROLLER.Selection.Nodes.Count
+            clicked["animating"] = bool(vtkport.get_field(VTK, "_animating"))
+        timer.Tick += tick
+        CONTROLLER.ClearSelectionHistory()
+        VTK.ViewAnimationEnabled = True
+        timer.Start()
+        VTK.SetFrontBackView(True, True)
+        VTK.ViewAnimationEnabled = False
+    on_ui(start)
+    check(clicked.get("animating") is True and clicked.get("pick_events") == 0 and clicked.get("nodes") == 0,
+          label + ": a click while the camera animates selects nothing", clicked)
+    record["animating_click"] = clicked
+    on_ui(CONTROLLER.ClearSelectionHistory)
+    return record
 
 
 def main():

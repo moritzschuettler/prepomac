@@ -159,6 +159,11 @@ def main():
     vtkport.PMX = pmx
     scenes.setup(SCENE, pmx)
     names = vtkport.enable_native(["geometry", "selection"])
+    # A scene with a step after the switch (a section view, transformed copies) keeps those actors drawn on both
+    # paths, as the geometry checks do
+    if SCENE in scenes.AFTER_ENABLE:
+        scenes.after_enable(SCENE, pmx)
+        vtkport.on_ui(lambda: VTK.SetNativeMirrorAllGeometry(True))
     vtkport.parts_only(True)
     result = record_picks(names)
     result["mirrored_parts"] = names

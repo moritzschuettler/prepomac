@@ -315,6 +315,9 @@ def _exploded_animated(pmx):
     vtkport.on_ui(explode)
 
 
+# Transformed copies beside the parts of the FE model, for the picks of selection_s4
+SCENES["hinge_symmetry"] = (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel"))
+AFTER_ENABLE["hinge_symmetry"] = _transformations([95.0, 0.0, 0.0], False)
 SCENES["hinge_exploded_animated"] = (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel"))
 AFTER_ENABLE["hinge_exploded_animated"] = _exploded_animated
 CAMERA_TOLERANCES["hinge_exploded_animated"] = 1e-7

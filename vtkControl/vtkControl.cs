@@ -220,6 +220,7 @@ namespace vtkControl
             {
                 _querySelectionInProgress = value;
                 _style.SelectionBoxEnabled = !value;
+                MirrorInteractionSettings();
             }
         }
         public vtkSelectBy SelectBy
@@ -269,6 +270,7 @@ namespace vtkControl
                         default:
                             throw new NotSupportedException();
                     }
+                    MirrorInteractionSettings();
                     ClearCurrentMouseSelection();
                 }
             }
@@ -322,6 +324,7 @@ namespace vtkControl
         public void StartBoxZoom()
         {
             _style.BoxZoomEnabled = true;
+            MirrorStartBoxZoom();
         }
 
 
@@ -3871,6 +3874,7 @@ namespace vtkControl
             // focal point (end camera position) in the center of the screen. Then use projections to pan
             // the cmara in 2D display coordinates from the start to end positions
             ((vtkInteractorStyleControl)_renderWindowInteractor.GetInteractorStyle()).Animating = true;
+            MirrorStyleAnimating(true);
             IntPtr pq1 = new IntPtr();
             IntPtr pq2 = new IntPtr();
             IntPtr pq = new IntPtr();
@@ -4043,6 +4047,7 @@ namespace vtkControl
                 _animating = false;
                 //
                 ((vtkInteractorStyleControl)_renderWindowInteractor.GetInteractorStyle()).Animating = false;
+                MirrorStyleAnimating(false);
                 //
                 if (_drawCameraPath) DrawCameraPath();
             }
@@ -10510,6 +10515,11 @@ namespace vtkControl
             string[] selectable = _selectableActorsFilter == null ? null : _selectableActorsFilter.ToArray();
             string partName;
             _nativeMirror.SetExactPicking(_nativeExactPicking);
+            // ResolveSectionViewPick
+            bool partSelection = _selectBy == vtkSelectBy.Default || _selectBy == vtkSelectBy.Part ||
+                                 _selectBy == vtkSelectBy.GeometryPart || _selectItem == vtkSelectItem.Part;
+            _nativeMirror.SetSectionViewPickMode(partSelection, _selectBy == vtkSelectBy.Node ||
+                                                                _selectBy == vtkSelectBy.Element);
             _nativeMirror.PickPoint(x, y, _selectionDistance, _renderingOn && _userPick, selectable, out point,
                                     out direction, out partName, out _);
             return partName;

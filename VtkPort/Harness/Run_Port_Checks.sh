@@ -49,6 +49,8 @@ SUITES=(
     "selection_s1|pilot VtkPort/Selection/Run_S1.sh"
     "selection_s2|pilot VtkPort/Selection/Run_S2.sh"
     "selection_s3|pilot VtkPort/Selection/Run_S3.sh"
+    "selection_s4|pilot VtkPort/Selection/Run_S4.sh"
+    "selection_s5_probe|pilot VtkPort/Selection/Run_S5.sh"
     # Integration
     "integration_window|pilot VtkPort/Harness/Run_Window_Events.sh"
 )

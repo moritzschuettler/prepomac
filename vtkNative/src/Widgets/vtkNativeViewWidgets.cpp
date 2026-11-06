@@ -18,7 +18,9 @@ namespace vtkn
                 double values[2] = { static_cast<double>(id), static_cast<double>(target) };
                 RaiseEvent(VTKN_EVENT_WIDGET_TARGET_CLICKED, values, 2);
             });
+            // coorSysWidget_HoverChanged: the hand cursor over a target of the triad
             triad.SetHoverChangedHandler([this, id](bool hovered) {
+                RenderWindow->SetCurrentCursor(hovered ? VTK_CURSOR_HAND : VTK_CURSOR_DEFAULT);
                 double values[2] = { static_cast<double>(id), hovered ? 1.0 : 0.0 };
                 RaiseEvent(VTKN_EVENT_WIDGET_HOVER_CHANGED, values, 2);
             });

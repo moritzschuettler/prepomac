@@ -61,6 +61,8 @@ namespace vtkn
                     PartActor* added = copy.get();
                     AddActor(name, std::move(copy));
                     TransformedCopies[baseName].push_back(name);
+                    auto source = TransformedCopySources.find(actor.first);
+                    TransformedCopySources[name] = source != TransformedCopySources.end() ? source->second : actor.first;
                     baseName = name;
                     baseActor = added;
                 }
@@ -82,12 +84,14 @@ namespace vtkn
             }
         }
         TransformedCopies.clear();
+        TransformedCopySources.clear();
     }
 
     void View::ClearTransforms()
     {
         Transforms.clear();
         TransformedCopies.clear();
+        TransformedCopySources.clear();
     }
 
     // HideTransformedActors and ShowTransformedActors: the copies take the visibility of their base actor

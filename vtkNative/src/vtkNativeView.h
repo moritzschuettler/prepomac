@@ -142,6 +142,12 @@ namespace vtkn
                        std::string& partName, int& cellId);
         std::vector<std::string> PickArea(int x1, int y1, int x2, int y2, double planes36[36]);
         void SetExactPicking(bool exact) { ExactPicking = exact; }
+        // What the select mode lets a pick on a section view resolve to (ResolveSectionViewPick)
+        void SetSectionViewPickMode(bool partSelection, bool nodeOrElementSelection)
+        {
+            SectionViewPartSelection = partSelection;
+            SectionViewIdSelection = nodeOrElementSelection;
+        }
         // Id resolution (Selection/vtkNativeViewSelection.cpp)
         void GetClosestCell(double point[3], double maxDistance, const std::set<std::string>* selectableParts,
                             vtkn_closest_cell& cell);
@@ -174,6 +180,12 @@ namespace vtkn
         static void OnVtkEvent(vtkObject* caller, unsigned long eventId, void* clientData, void* callData);
         // vtkNativeViewPick.cpp
         PartActor* FindPart(vtkProp* prop, std::string* name);
+        // The section actor or skin a prop belongs to and the part it cuts (GetSectionViewParentActor)
+        PartActor* FindSectionViewActor(vtkProp* prop, std::string* partName, bool* skin);
+        std::vector<std::pair<std::string, PartActor*>> GetSectionViewActors();
+        bool ResolveSectionViewPick(PartActor* sectionViewActor, const std::string& partName, bool skin,
+                                    const std::set<std::string>* selectableParts, double maxDistance2, double point[3],
+                                    int& cellId);
         int GetGlobalCellIdClosestTo3DPoint(double point[3], PartActor* onlyPart,
                                             const std::set<std::string>* selectableParts, double maxDistance2);
         double GetSelectionPrecision(int selectionDistance);
@@ -251,6 +263,8 @@ namespace vtkn
         std::set<int> SectionViewKeptElementIds;
         std::vector<std::pair<vtkSmartPointer<vtkTransform>, int>> Transforms;
         std::map<std::string, std::vector<std::string>> TransformedCopies;
+        // The part a transformed copy was made from, by the copy name
+        std::map<std::string, std::string> TransformedCopySources;
         bool HasScalarRange = false;
         double ScalarRange[2] = { 0, 1 };
         bool SectionViewActive = false;
@@ -266,6 +280,8 @@ namespace vtkn
         std::map<std::string, vtkSmartPointer<vtkUnstructuredGrid>> VolumeGrids;
         std::vector<HighlightEntry> Highlights;
         bool ExactPicking = true;
+        bool SectionViewPartSelection = true;
+        bool SectionViewIdSelection = true;
         // Captions and labels (Geometry/vtkNativeCaptions.cpp): the 2D text of every layer, at world positions that
         // keep their screen offset when the camera changes
         struct CaptionEntry

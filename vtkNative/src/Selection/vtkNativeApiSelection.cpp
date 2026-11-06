@@ -73,6 +73,15 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_set_section_view_pick_mode(vtkn_view view, int32_t part_selection,
+                                                               int32_t node_or_element_selection)
+    {
+        return Guard([&]() {
+            View::FromHandle(view)->SetSectionViewPickMode(part_selection != 0, node_or_element_selection != 0);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_get_closest_cell(vtkn_view view, const double* point3, double max_distance,
                                                      const char* selectable_parts, vtkn_closest_cell* cell)
     {

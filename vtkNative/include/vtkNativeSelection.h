@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_SELECTION_API_VERSION 2
+#define VTKN_SELECTION_API_VERSION 3
 
 /* A point pick. hit is 0 when nothing was picked; the point is then not set. cell_id is the element id of the
    surface cell the point lies on */
@@ -42,6 +42,11 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_pick_point(vtkn_view view, int32_t x, i
    Not exact, as vtkControl picked with ActiViz: the point is rebuilt from the depth of the hardware pick and there is
    no pick within the distance, which VTK 5.8 made but never caught anything with */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_exact_picking(vtkn_view view, int32_t exact);
+/* What a point pick on a section view resolves to (ResolveSectionViewPick): with part_selection a cut face resolves
+   to its part; the faces with element ids (the element-wise section) also resolve to nodes and elements with
+   node_or_element_selection */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_section_view_pick_mode(vtkn_view view, int32_t part_selection,
+                                                                     int32_t node_or_element_selection);
 /* An area pick from (x1, y1) to (x2, y2): the six planes of the frustum, each as origin and normal (36 values), and
    the parts rendered inside it as a string list */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_pick_area(vtkn_view view, int32_t x1, int32_t y1, int32_t x2, int32_t y2,

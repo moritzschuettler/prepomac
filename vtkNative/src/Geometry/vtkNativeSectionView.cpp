@@ -462,7 +462,11 @@ namespace vtkn
             vtkNew<vtkDataSetSurfaceFilter> surfaceFilter;
             surfaceFilter->SetInputData(data);
             surfaceFilter->Update();
-            return surfaceFilter->GetOutput();
+            vtkSmartPointer<vtkPolyData> surface = surfaceFilter->GetOutput();
+            // The element ids of the faces, for picking
+            vtkDataArray* elementIds = GetElementIds(surface);
+            if (elementIds != nullptr) surface->GetCellData()->SetGlobalIds(elementIds);
+            return surface;
         }
 
         // GetSurfaceOfKeptElements: the triangles of the surface of a kept element, and the element edges along them

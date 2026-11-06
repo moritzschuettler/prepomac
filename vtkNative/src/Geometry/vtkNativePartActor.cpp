@@ -365,6 +365,12 @@ namespace vtkn
         Geometry->SetMapper(mapper);
         Geometry->PickableOff();
         UseInfiniteViewer(Geometry);
+        // Faces that carry the element ids are picked like the part surface they stand for
+        if (faces->GetNumberOfPolys() > 0 && faces->GetCellData()->GetGlobalIds() != nullptr)
+        {
+            CellLocator = vtkSmartPointer<vtkCellLocator>::New();
+            CellLocator->SetDataSet(faces);
+        }
         vtkDataArray* scalars = faces->GetPointData()->GetArray("scalars");
         PointScalars = vtkFloatArray::SafeDownCast(scalars);
         HasExtremeNodes = part.HasExtremeNodes;
@@ -428,10 +434,11 @@ namespace vtkn
           HatchIndex(source.HatchIndex), HasVolumeCells(source.HasVolumeCells)
     {
         std::copy(source.SectionColor, source.SectionColor + 4, SectionColor);
-        Style.pickable = 0;
         bool polyDataMapper = vtkPolyDataMapper::SafeDownCast(source.Geometry->GetMapper()) != nullptr;
         Geometry = TransformActor(source.Geometry, transform, polyDataMapper);
         UseInfiniteViewer(Geometry);
+        // ActiViz never picks a copy (checked by selection_s4)
+        Style.pickable = 0;
         if (source.ElementEdges != nullptr) ElementEdges = TransformActor(source.ElementEdges, transform, false);
         if (source.ModelEdges != nullptr) ModelEdges = TransformActor(source.ModelEdges, transform, false);
         vtkPolyData* polyData = vtkPolyData::SafeDownCast(Geometry->GetMapper()->GetInput());

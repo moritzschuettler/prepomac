@@ -2,8 +2,8 @@
 //
 // Picking, the screen to model step of the Selection region of vtkControl: a point pick names a part and gives a
 // point on its surface, an area pick gives the frustum and the parts inside it. Which nodes, elements or surfaces
-// those mean is decided by the caller, as the Controller decides it from what vtkControl reported. Section views
-// are not ported.
+// those mean is decided by the caller, as the Controller decides it from what vtkControl reported. A pick on a
+// section view is resolved to the part it cuts.
 #include "vtkNativeView.h"
 #include "vtkNativeError.h"
 
@@ -24,15 +24,86 @@
 
 namespace vtkn
 {
+    // The part a prop belongs to; a transformed copy is reported by the part it was made from
     PartActor* View::FindPart(vtkProp* prop, std::string* name)
     {
         for (const auto& entry : Parts)
         {
             if (!entry.second->Owns(prop)) continue;
-            if (name != nullptr) *name = entry.first;
+            if (name != nullptr)
+            {
+                auto source = TransformedCopySources.find(entry.first);
+                *name = source != TransformedCopySources.end() ? source->second : entry.first;
+            }
             return entry.second.get();
         }
         return nullptr;
+    }
+
+    // The section actors and skins of the section view that stand for a part, by the part name
+    std::vector<std::pair<std::string, PartActor*>> View::GetSectionViewActors()
+    {
+        std::vector<std::pair<std::string, PartActor*>> actors;
+        if (!SectionViewActive) return actors;
+        for (const auto* names : { &SectionViewActorNames, &SectionViewSkinActorNames })
+        {
+            for (const auto& entry : *names)
+            {
+                if (Parts.count(entry.first) == 0) continue;
+                auto actor = BaseActors.find(entry.second);
+                if (actor != BaseActors.end()) actors.push_back({ entry.first, actor->second.get() });
+            }
+        }
+        return actors;
+    }
+
+    PartActor* View::FindSectionViewActor(vtkProp* prop, std::string* partName, bool* skin)
+    {
+        if (prop == nullptr || !SectionViewActive) return nullptr;
+        for (const auto* names : { &SectionViewActorNames, &SectionViewSkinActorNames })
+        {
+            for (const auto& entry : *names)
+            {
+                auto actor = BaseActors.find(entry.second);
+                if (actor == BaseActors.end() || !actor->second->Owns(prop) || Parts.count(entry.first) == 0) continue;
+                if (partName != nullptr) *partName = entry.first;
+                if (skin != nullptr) *skin = names == &SectionViewSkinActorNames;
+                return actor->second.get();
+            }
+        }
+        return nullptr;
+    }
+
+    // Port of ResolveSectionViewPick: the skin is the part surface itself and the exposed element faces carry the
+    // element ids, so nodes, elements and parts are picked on them; a planar cut face only resolves to its part, by
+    // the closest point on the part surface
+    bool View::ResolveSectionViewPick(PartActor* sectionViewActor, const std::string& partName, bool skin,
+                                      const std::set<std::string>* selectableParts, double maxDistance2,
+                                      double point[3], int& cellId)
+    {
+        PartActor* part = Parts[partName].get();
+        bool facesWithIds = skin || sectionViewActor->GetCellLocator() != nullptr;
+        if (facesWithIds && (skin || SectionViewPartSelection || SectionViewIdSelection))
+        {
+            cellId = GetGlobalCellIdClosestTo3DPoint(point, part, selectableParts, maxDistance2);
+            return cellId != -1;
+        }
+        if (SectionViewPartSelection && part->GetCellLocator() != nullptr)
+        {
+            double closestPoint[3];
+            vtkIdType localCellId = -1;
+            int subId = -1;
+            double distance2 = -1;
+            part->GetCellLocator()->FindClosestPoint(point, closestPoint, localCellId, subId, distance2);
+            if (distance2 >= 0)
+            {
+                std::copy(closestPoint, closestPoint + 3, point);
+                cellId = static_cast<int>(part->GetCellLocator()->GetDataSet()->GetCellData()->GetGlobalIds()
+                                              ->GetTuple1(localCellId));
+                return true;
+            }
+        }
+        return false;
     }
 
     // GetSelectionPrecision: the selection distance in pixels as a model length at the focal plane
@@ -58,12 +129,20 @@ namespace vtkn
             int globalCellId = -1;
             double minDistance = DBL_MAX;
             double pointOut[3] = { 0, 0, 0 };
-            for (const auto& entry : Parts)
+            std::vector<std::pair<std::string, PartActor*>> candidates;
+            for (const auto& entry : Parts) candidates.push_back({ entry.first, entry.second.get() });
+            if (pass == 1)
             {
-                PartActor* part = entry.second.get();
+                for (const auto& entry : GetSectionViewActors()) candidates.push_back(entry);
+            }
+            for (const auto& entry : candidates)
+            {
+                PartActor* part = entry.second;
                 if (pass == 0 && part != onlyPart) continue;
-                bool visible = selectableParts != nullptr ? selectableParts->count(entry.first) > 0
-                                                          : part->GetGeometry()->GetVisibility() != 0;
+                bool shown = part->GetGeometry()->GetVisibility() != 0 && !part->GetGeometryHiddenBySectionView();
+                bool visible = selectableParts != nullptr
+                                   ? selectableParts->count(entry.first) > 0 && !part->GetGeometryHiddenBySectionView()
+                                   : shown;
                 vtkCellLocator* locator = part->GetCellLocator();
                 if (visible && locator != nullptr)
                 {
@@ -107,7 +186,14 @@ namespace vtkn
         for (const auto& entry : Parts)
         {
             if (selectableParts != nullptr)
-                entry.second->GetGeometry()->SetVisibility(selectableParts->count(entry.first) > 0);
+                entry.second->GetGeometry()->SetVisibility(selectableParts->count(entry.first) > 0 &&
+                                                           !entry.second->GetGeometryHiddenBySectionView());
+            entry.second->SetPickOpacity();
+        }
+        std::vector<std::pair<std::string, PartActor*>> sectionViewActors = GetSectionViewActors();
+        for (const auto& entry : sectionViewActors)
+        {
+            entry.second->GetGeometry()->PickableOn();
             entry.second->SetPickOpacity();
         }
         double maxDistance2 = limitDistance ? std::pow(GetSelectionPrecision(selectionDistance), 2) : DBL_MAX;
@@ -122,9 +208,30 @@ namespace vtkn
         {
             if (entry.second->GetCellLocator() != nullptr) propPicker->AddPickList(entry.second->GetGeometry());
         }
+        for (const auto& entry : sectionViewActors) propPicker->AddPickList(entry.second->GetGeometry());
         propPicker->Pick(x, y, 0, Renderer);
         PartActor* part = FindPart(propPicker->GetActor(), &name);
-        if (part != nullptr)
+        bool skin = false;
+        PartActor* sectionViewActor = FindSectionViewActor(propPicker->GetActor(), &name, &skin);
+        bool sectionViewPick = sectionViewActor != nullptr;
+        if (sectionViewPick)
+        {
+            Renderer->SetDisplayPoint(x, y, Renderer->GetPickedZ());
+            Renderer->DisplayToWorld();
+            double* world = Renderer->GetWorldPoint();
+            for (int i = 0; i < 3; i++) p[i] = world[i] / world[3];
+            if (ExactPicking && sectionViewActor->GetCellLocator() != nullptr)
+            {
+                vtkNew<vtkCellPicker> surfacePicker;
+                surfacePicker->SetTolerance(0);
+                surfacePicker->PickFromListOn();
+                surfacePicker->AddPickList(sectionViewActor->GetGeometry());
+                surfacePicker->AddLocator(sectionViewActor->GetCellLocator());
+                if (surfacePicker->Pick(x, y, 0, Renderer) != 0) surfacePicker->GetPickPosition(p);
+            }
+            hit = ResolveSectionViewPick(sectionViewActor, name, skin, selectableParts, maxDistance2, p, cellId);
+        }
+        else if (part != nullptr)
         {
             // vtkControl rebuilt the point from the depth of the pick; the depth VTK 9 reports from its hardware
             // selection misses the surface by pixels, so the ray of the pixel is intersected with the picked part
@@ -147,7 +254,7 @@ namespace vtkn
             hit = cellId != -1;
         }
         // Within the selection distance of the pixel
-        if (!hit && ExactPicking)
+        if (!hit && !sectionViewPick && ExactPicking)
         {
             int* windowSize = RenderWindow->GetSize();
             double windowDiagonal = std::sqrt(static_cast<double>(windowSize[0]) * windowSize[0] +
@@ -158,9 +265,19 @@ namespace vtkn
             {
                 if (entry.second->GetCellLocator() != nullptr) cellPicker->AddLocator(entry.second->GetCellLocator());
             }
+            for (const auto& entry : sectionViewActors)
+            {
+                if (entry.second->GetCellLocator() != nullptr) cellPicker->AddLocator(entry.second->GetCellLocator());
+            }
             cellPicker->Pick(x, y, 0, Renderer);
             part = FindPart(cellPicker->GetActor(), &name);
-            if (part != nullptr)
+            sectionViewActor = FindSectionViewActor(cellPicker->GetActor(), &name, &skin);
+            if (sectionViewActor != nullptr)
+            {
+                cellPicker->GetPickPosition(p);
+                hit = ResolveSectionViewPick(sectionViewActor, name, skin, selectableParts, maxDistance2, p, cellId);
+            }
+            else if (part != nullptr)
             {
                 cellPicker->GetPickPosition(p);
                 cellId = GetGlobalCellIdClosestTo3DPoint(p, part, selectableParts, maxDistance2);
@@ -171,7 +288,12 @@ namespace vtkn
         for (const auto& entry : Parts)
         {
             entry.second->UpdateColor();
-            entry.second->ApplyEdgesVisibility(EdgesVisibility);
+            entry.second->ApplyEdgesVisibility(EdgesVisibility, VTKN_LAYER_BASE, SectionViewActive);
+        }
+        for (const auto& entry : sectionViewActors)
+        {
+            entry.second->GetGeometry()->PickableOff();
+            entry.second->UpdateColor();
         }
         if (!hit)
         {
@@ -187,8 +309,19 @@ namespace vtkn
     // rendered inside the box, each once
     std::vector<std::string> View::PickArea(int x1, int y1, int x2, int y2, double planes36[36])
     {
+        // The section actors and the transformed copies are picked by an area, as the parts they stand for
+        std::vector<vtkActor*> extraActors;
+        for (const auto& entry : GetSectionViewActors()) extraActors.push_back(entry.second->GetGeometry());
+        for (const auto& entry : TransformedCopySources)
+        {
+            auto copy = Parts.find(entry.first);
+            if (copy != Parts.end() && Parts[entry.second]->GetGeometry()->GetPickable())
+                extraActors.push_back(copy->second->GetGeometry());
+        }
+        for (vtkActor* actor : extraActors) actor->PickableOn();
         vtkNew<vtkRenderedAreaPicker> areaPicker;
         areaPicker->AreaPick(x1, y1, x2, y2, Renderer);
+        for (vtkActor* actor : extraActors) actor->PickableOff();
         vtkPlanes* frustum = areaPicker->GetFrustum();
         Require(frustum != nullptr && frustum->GetNumberOfPlanes() == 6, "The area pick returned no frustum.");
         for (int i = 0; i < 6; i++)
@@ -203,8 +336,35 @@ namespace vtkn
         for (vtkProp3D* prop = props->GetNextProp3D(); prop != nullptr; prop = props->GetNextProp3D())
         {
             std::string name;
-            if (FindPart(prop, &name) == nullptr) continue;
+            if (FindPart(prop, &name) == nullptr && FindSectionViewActor(prop, &name, nullptr) == nullptr) continue;
             if (std::find(names.begin(), names.end(), name) == names.end()) names.push_back(name);
+        }
+        // VTK 5.8 picked an area with the OpenGL selection mode, which reports what is drawn in the area also where
+        // it is hidden behind other geometry; VTK 9 reports the visible only. A shown part with a point in the
+        // frustum (on the kept side of a section plane) is reported too
+        for (const auto& entry : Parts)
+        {
+            PartActor* part = entry.second.get();
+            std::string name = entry.first;
+            auto source = TransformedCopySources.find(name);
+            if (source != TransformedCopySources.end()) name = source->second;
+            if (std::find(names.begin(), names.end(), name) != names.end()) continue;
+            if (!part->GetGeometry()->GetVisibility() || part->GetGeometryHiddenBySectionView() ||
+                (source == TransformedCopySources.end() && part->GetCellLocator() == nullptr)) continue;
+            vtkPolyData* polyData = part->GetPolyData();
+            if (polyData == nullptr) continue;
+            double position[3];
+            part->GetGeometry()->GetPosition(position);
+            bool inside = false;
+            for (vtkIdType i = 0; !inside && i < polyData->GetNumberOfPoints(); i++)
+            {
+                double point[3];
+                polyData->GetPoint(i, point);
+                for (int j = 0; j < 3; j++) point[j] += position[j];
+                if (SectionPlane != nullptr && SectionPlane->EvaluateFunction(point) < 0) continue;
+                inside = frustum->EvaluateFunction(point) <= 0;
+            }
+            if (inside) names.push_back(name);
         }
         return names;
     }

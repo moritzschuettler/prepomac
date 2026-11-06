@@ -64,8 +64,8 @@ namespace vtkControl
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Selection) == 0) return;
             _nativeMirror.ClearHighlights(true);
         }
-        // Style_PointPickedOnMouseMoveEvt through the native view. The probe label of a query is a widget and is not
-        // drawn here
+        // Style_PointPickedOnMouseMoveEvt through the native view. The probe label of a query is the probe widget of
+        // this control, whose native twin draws it
         public void HoverWithNativeMirror(int x1, int y1, bool boxSelection, int x2, int y2)
         {
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Selection) == 0) return;
@@ -108,7 +108,11 @@ namespace vtkControl
         {
             double[] pickedPoint;
             string partName = NativeMirrorPickPoint(x, y, out pickedPoint, out _);
-            if (partName == null) return;
+            if (partName == null)
+            {
+                if (_probeWidget != null && _probeWidget.GetVisibility() == 1) _probeWidget.VisibilityOff();
+                return;
+            }
             // The cell of the picked part under the point, as GetGlobalCellIdClosestTo3DPoint with the picked actor
             int[] cellFaceNodeIds;
             double[][] cellFaceNodeCoor;
@@ -123,16 +127,21 @@ namespace vtkControl
                 case vtkSelectBy.Node:
                     int nodeId = NativeGetNodeIdOnCellFaceClosestToPoint(pickedPoint);
                     AddNativeMouseHighlight(Controller_GetNodeActorData(new int[] { nodeId }), true, false);
+                    if (_querySelectionInProgress) ShowNativeProbe(x, y, nodeId.ToString());
                     break;
                 case vtkSelectBy.Element:
                     vtkMaxActorData cellData = Controller_GetCellActorData(new int[] { cellId }, null);
                     AddNativeMouseHighlight(cellData, false, cellData != null && cellData.CanHaveElementEdges);
+                    if (_querySelectionInProgress) ShowNativeProbe(x, y, cellId.ToString());
                     break;
                 case vtkSelectBy.Edge:
                 case vtkSelectBy.GeometryEdge:
                 case vtkSelectBy.GeometryEdgeAngle:
                     int[] edgeNodeIds = GetEdgeNodeIds(pickedPoint, cellId, cellFaceNodeIds);
-                    AddNativeMouseHighlight(Controller_GetEdgeActorData(cellId, edgeNodeIds), false, false);
+                    vtkMaxActorData edgeData = Controller_GetEdgeActorData(cellId, edgeNodeIds);
+                    AddNativeMouseHighlight(edgeData, false, false);
+                    if (_querySelectionInProgress && _selectBy == vtkSelectBy.GeometryEdge && edgeData != null)
+                        ShowNativeProbe(x, y, edgeData.Name);
                     break;
                 case vtkSelectBy.Surface:
                 case vtkSelectBy.GeometrySurface:
@@ -142,6 +151,8 @@ namespace vtkControl
                                                                                                    out noEdgePartName);
                     if (surfaceData != null) AddNativeMouseHighlight(surfaceData, false, false);
                     else if (noEdgePartName != null) AddNativePartMouseHighlight(noEdgePartName);
+                    if (_querySelectionInProgress && _selectBy == vtkSelectBy.GeometrySurface && surfaceData != null)
+                        ShowNativeProbe(x, y, surfaceData.Name);
                     break;
                 case vtkSelectBy.EdgeAngle:
                     NativeHoverEdgeAngle(pickedPoint, cellId, cellFaceNodeIds);
@@ -153,6 +164,7 @@ namespace vtkControl
                 case vtkSelectBy.Part:
                 case vtkSelectBy.GeometryPart:
                     AddNativePartMouseHighlight(partName);
+                    if (_querySelectionInProgress && _selectBy == vtkSelectBy.Part) ShowNativeProbe(x, y, partName);
                     break;
                 case vtkSelectBy.Geometry:
                     NativeHoverGeometry(pickedPoint, cellId, cellFaceNodeIds);
@@ -166,6 +178,14 @@ namespace vtkControl
                 default:
                     throw new NotSupportedException();
             }
+        }
+        // The probe label of PickByNode, PickByCell, PickByEdge, PickBySurface and PickByActor during a query
+        private void ShowNativeProbe(int x, int y, string itemName)
+        {
+            if (_probeWidget == null) return;
+            _probeWidget.SetPosition(x + 20d, y + 10d);
+            _probeWidget.SetText(Controller_GetAnnotationText(itemName));
+            if (_probeWidget.GetVisibility() == 0) _probeWidget.VisibilityOn();
         }
         // PickByEdgeAngle: the closest edge of the cell face as a line of its own
         private void NativeHoverEdgeAngle(double[] pickedPoint, int cellId, int[] cellFaceNodeIds)
