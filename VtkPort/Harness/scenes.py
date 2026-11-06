@@ -239,6 +239,36 @@ AFTER_ENABLE.update({
 })
 
 
+# Coordinate systems of the model in the overlay layer (two sizes, one rotated), a selected one and material axes
+def _coordinate_systems(pmx):
+    import math
+    import System
+    import vtkport
+    from vtkControl import vtkRendererLayer
+
+    def labels(names):
+        return System.Array[System.String](names)
+
+    def add():
+        vtk = vtkport.VTK
+        c, s = math.cos(math.radians(30)), math.sin(math.radians(30))
+        vtk.AddCoordinateSystemSymbol(_doubles([0, 0, 0]), _points([[1, 0, 0], [0, 1, 0], [0, 0, 1]]),
+                                      labels(["X", "Y", "Z"]), 50.0, vtkRendererLayer.Overlay)
+        vtk.AddCoordinateSystemSymbol(_doubles([60, 5, 5]), _points([[c, s, 0], [-s, c, 0], [0, 0, 1]]),
+                                      labels(["R", "T", "Z"]), 70.0, vtkRendererLayer.Overlay)
+        vtk.AddCoordinateSystemSymbol(_doubles([30, 10, 10]), _points([[0, 1, 0], [0, 0, 1], [1, 0, 0]]),
+                                      labels(["X", "Y", "Z"]), 50.0, vtkRendererLayer.Selection)
+        vtk.AddMaterialAxesSymbol(_doubles([80, 0, 0]), _points([[c, 0, s], [0, 1, 0], [-s, 0, c]]),
+                                  labels(["1", "2", "3"]), 40.0)
+    vtkport.on_ui(add)
+
+
+SCENES.update({
+    "hinge_coordinate_systems": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+})
+AFTER_ENABLE["hinge_coordinate_systems"] = _coordinate_systems
+
+
 # The vector and tensor plots draw thousands of dots: VTK 5.8 smoothed their edges, the sphere imposters of VTK 9 have
 # hard edges (rendering default 1 of stream G), which alone differs on up to 6 % of the pixels
 DIFFERING_LIMITS = {"hinge_result_vector": 0.07, "hinge_result_tensor": 0.07, "hinge_vector_animation_frame": 0.07,
@@ -247,7 +277,8 @@ DIFFERING_LIMITS = {"hinge_result_vector": 0.07, "hinge_result_tensor": 0.07, "h
 
 # Text: FreeType of VTK 9 draws some glyphs a row shorter than VTK 5.8 did (the descenders), so the outline of a
 # scene with much text on the background covers a little less
-COVERAGE_LIMITS = {"hinge_captions": 0.99, "hinge_item_ids": 0.99, "hinge_measurement": 0.99}
+COVERAGE_LIMITS = {"hinge_captions": 0.99, "hinge_item_ids": 0.99, "hinge_measurement": 0.99,
+                   "hinge_coordinate_systems": 0.99}
 
 
 def after_enable(name, pmx):

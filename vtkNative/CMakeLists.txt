@@ -53,6 +53,8 @@ add_library(vtkNative SHARED
     src/Geometry/vtkNativeCaptions.cpp
     src/Geometry/vtkNativeColorSpectrum.cpp
     src/Geometry/vtkNativeColorSpectrum.h
+    src/Geometry/vtkNativeCoorSysSymbols.cpp
+    src/Geometry/vtkNativeCoorSysSymbols.h
     src/Geometry/vtkNativePartActor.cpp
     src/Geometry/vtkNativePartActor.h
     src/Geometry/vtkNativeSectionView.cpp

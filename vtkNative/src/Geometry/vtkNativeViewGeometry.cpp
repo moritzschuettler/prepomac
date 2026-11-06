@@ -36,6 +36,24 @@ namespace vtkn
         WidgetRenderer->SetLayer(3);
         RenderWindow->SetNumberOfLayers(4);
         RenderWindow->AddRenderer(SelectionRenderer);
+        CoorSysSymbols.reset(new CoorSysSymbolSet());
+        CoorSysSymbols->SetRenderer(OverlayRenderer);
+        CoorSysSelectionSymbols.reset(new CoorSysSymbolSet());
+        CoorSysSelectionSymbols->SetOverrideColor(Highlight.Primary);
+        CoorSysSelectionSymbols->SetRenderer(SelectionRenderer);
+        MaterialAxesSelectionSymbols.reset(new CoorSysSymbolSet());
+        MaterialAxesSelectionSymbols->SetRenderer(SelectionRenderer);
+    }
+
+    // AddCoordinateSystemSymbol and AddMaterialAxesSymbol
+    void View::AddCoordinateSystemSymbol(const double origin[3], const double axisDirections[3][3],
+                                         const std::array<std::string, 3>& labels, double symbolSize, vtkn_layer layer,
+                                         bool materialAxes)
+    {
+        CoorSysSymbolSet* symbols = materialAxes ? MaterialAxesSelectionSymbols.get()
+                                                 : layer == VTKN_LAYER_SELECTION ? CoorSysSelectionSymbols.get()
+                                                                                 : CoorSysSymbols.get();
+        symbols->AddSymbol(origin, axisDirections, labels, symbolSize);
     }
 
     vtkRenderer* View::GetLayerRenderer(const PartActor& actor)
@@ -265,12 +283,15 @@ namespace vtkn
             for (const auto& actor : SelectedParts) actor->RemoveFrom(GetLayerRenderer(*actor));
             SelectedParts.clear();
             RemoveCaptions(VTKN_LAYER_SELECTION, nullptr);
+            CoorSysSelectionSymbols->Clear();
+            MaterialAxesSelectionSymbols->Clear();
         }
         if (what != VTKN_CLEAR_SELECTION)
         {
             for (const auto& entry : OverlayParts) entry.second->RemoveFrom(OverlayRenderer);
             OverlayParts.clear();
             RemoveCaptions(VTKN_LAYER_OVERLAY, nullptr);
+            CoorSysSymbols->Clear();
         }
     }
 
@@ -297,6 +318,7 @@ namespace vtkn
         {
             if (entry.Layer == VTKN_LAYER_SELECTION) ApplyCaptionSelectionFormatting(entry);
         }
+        CoorSysSelectionSymbols->SetOverrideColor(Highlight.Primary);
     }
 
     // Port of the AddOriented* methods, AddSphereActor and AddSymbolEdges: the symbol source is glyphed onto the

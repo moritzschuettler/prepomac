@@ -269,6 +269,13 @@ namespace vtkControl
             //
             _geometryGenerated = false;
         }
+        // The props the symbols draw with, which the parts only mode of the native checks keeps drawn
+        public vtkProp[] GetProps()
+        {
+            List<vtkProp> props = new List<vtkProp> { _shaftActor, _endActor };
+            foreach (vtkMaxCoorSysSymbol symbol in _symbols) props.AddRange(symbol.GetLabelActors());
+            return props.ToArray();
+        }
         public void Clear()
         {
             foreach (vtkMaxCoorSysSymbol symbol in _symbols) symbol.RemoveLabelsFromRenderer(_renderer);

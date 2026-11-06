@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int GeometryApiVersion = 5;
+        public const int GeometryApiVersion = 6;
 
 
         // Methods
@@ -55,6 +55,11 @@ namespace vtkControl.Native
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_add_labels(IntPtr view, byte[] name, double[] positions3, int count,
                                                                   byte[] labels, double[] colorRgb, int fontSize, int layer);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_add_coordinate_system_symbol(IntPtr view, double[] origin3,
+                                                                                    double[] axisDirections9, byte[] labels,
+                                                                                    double symbolSize, int layer,
+                                                                                    int materialAxes);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_caption_position(IntPtr view, byte[] name, double[] position3);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "vtkNative.h"
+#include "vtkNativeCoorSysSymbols.h"
 #include "vtkNativePartActor.h"
 #include "vtkNativeScalarBar.h"
 #include "vtkNativeWidget.h"
@@ -118,6 +119,9 @@ namespace vtkn
         void AddLabels(const std::string& name, const double* positions, int count, const std::vector<std::string>& labels,
                        const double color[3], int fontSize, vtkn_layer layer);
         void SetCaptionPosition(const std::string& name, const double position[3]);
+        void AddCoordinateSystemSymbol(const double origin[3], const double axisDirections[3][3],
+                                       const std::array<std::string, 3>& labels, double symbolSize, vtkn_layer layer,
+                                       bool materialAxes);
         bool SetCaptionVisible(const std::string& name, vtkn_layer layer, bool visible);
         void SetActorPoints(const std::string& name, vtkn_layer layer, const double* coordinates, int count,
                             const double* normals);
@@ -278,5 +282,10 @@ namespace vtkn
         void UpdateCaptionPositions();
         std::vector<CaptionEntry> Captions;
         vtkSmartPointer<vtkCallbackCommand> CaptionCommand;
+        // The coordinate systems of the model in the overlay layer, and in the selection layer the selected ones in the
+        // highlight color and the material axes in their own colors
+        std::unique_ptr<CoorSysSymbolSet> CoorSysSymbols;
+        std::unique_ptr<CoorSysSymbolSet> CoorSysSelectionSymbols;
+        std::unique_ptr<CoorSysSymbolSet> MaterialAxesSelectionSymbols;
     };
 }

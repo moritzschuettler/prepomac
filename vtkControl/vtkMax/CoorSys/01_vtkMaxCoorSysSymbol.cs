@@ -114,6 +114,10 @@ namespace vtkControl
         {
             return _origin;
         }
+        public vtkActor2D[] GetLabelActors()
+        {
+            return _labelActors;
+        }
         public vtkTextMapper GetLabelMapper(int axisId)
         {
             return _labelMappers[axisId];

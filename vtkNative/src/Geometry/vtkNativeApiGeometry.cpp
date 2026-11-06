@@ -9,6 +9,8 @@
 #include <vtkNew.h>
 #include <vtkPointData.h>
 
+#include <algorithm>
+#include <array>
 #include <cstring>
 #include <set>
 #include <vector>
@@ -154,6 +156,30 @@ extern "C"
             }
             View::FromHandle(view)->AddLabels(ToName(name, "name"), positions3, count, labelList, color_rgb, font_size,
                                               ToLayer(layer));
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_add_coordinate_system_symbol(vtkn_view view, const double* origin3,
+                                                                 const double* axis_directions9, const char* labels,
+                                                                 double symbol_size, int32_t layer,
+                                                                 int32_t material_axes)
+    {
+        return GuardVtk([&]() {
+            Require(origin3 != nullptr, "The argument 'origin3' must not be null.");
+            Require(axis_directions9 != nullptr, "The argument 'axis_directions9' must not be null.");
+            Require(labels != nullptr, "The argument 'labels' must not be null.");
+            double axisDirections[3][3];
+            std::array<std::string, 3> labelList;
+            const char* label = labels;
+            for (int i = 0; i < 3; i++)
+            {
+                std::copy(axis_directions9 + 3 * i, axis_directions9 + 3 * i + 3, axisDirections[i]);
+                labelList[i] = label;
+                label += std::strlen(label) + 1;
+            }
+            View::FromHandle(view)->AddCoordinateSystemSymbol(origin3, axisDirections, labelList, symbol_size,
+                                                              ToLayer(layer), material_axes != 0);
             return VTKN_OK;
         });
     }

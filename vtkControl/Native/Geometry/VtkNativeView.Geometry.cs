@@ -334,6 +334,20 @@ namespace vtkControl.Native
                                                                           positions.Length, VtkNativeLibrary.ToUtf8List(labels),
                                                                           rgb, fontSize, (int)layer));
         }
+        public void AddCoordinateSystemSymbol(double[] origin, double[][] axisDirections, string[] labels, double symbolSize,
+                                              VtkNativeLayer layer, bool materialAxes)
+        {
+            if (origin == null || origin.Length != 3) throw new ArgumentException("The origin needs 3 values.", "origin");
+            if (axisDirections == null || axisDirections.Length != 3)
+                throw new ArgumentException("There must be 3 axis directions.", "axisDirections");
+            if (labels == null || labels.Length != 3) throw new ArgumentException("There must be 3 labels.", "labels");
+            double[] directions = new double[9];
+            for (int i = 0; i < 3; i++) Array.Copy(axisDirections[i], 0, directions, 3 * i, 3);
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_coordinate_system_symbol(Handle(), origin, directions,
+                                                                                            VtkNativeLibrary.ToUtf8List(labels),
+                                                                                            symbolSize, (int)layer,
+                                                                                            materialAxes ? 1 : 0));
+        }
         public void SetCaptionPosition(string name, double[] position)
         {
             if (name == null) throw new ArgumentNullException("name");

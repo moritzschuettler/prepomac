@@ -4239,12 +4239,14 @@ namespace vtkControl
             if (layer == vtkRendererLayer.Selection)
                 _coorSysSelectionSymbols.AddSymbol(origin, axisDirections, labels, symbolSize);
             else _coorSysSymbols.AddSymbol(origin, axisDirections, labels, symbolSize);
+            MirrorCoordinateSystemSymbol(origin, axisDirections, labels, symbolSize, layer, false);
         }
         public void AddMaterialAxesSymbol(double[] origin, double[][] axisDirections, string[] labels, double symbolSize)
         {
             if (symbolSize > _maxSymbolSize) _maxSymbolSize = symbolSize;
             //
             _materialAxesSelectionSymbols.AddSymbol(origin, axisDirections, labels, symbolSize);
+            MirrorCoordinateSystemSymbol(origin, axisDirections, labels, symbolSize, vtkRendererLayer.Selection, true);
         }
         public void AddCaptionActor(string name, string caption, Color color, double[] position,
                                     double[] offsetVector, double fontScaleFactor, vtkRendererLayer layer)

@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_GEOMETRY_API_VERSION 5
+#define VTKN_GEOMETRY_API_VERSION 6
 
 /* Mirrors vtkRendererLayer of vtkControl: the base layer, the selection layer drawn over it, the overlay layer */
 typedef enum vtkn_layer
@@ -253,6 +253,14 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_add_caption(vtkn_view view, const char*
 VTKN_API vtkn_status VTKN_CALL vtkn_view_add_labels(vtkn_view view, const char* name, const double* positions3,
                                                      int32_t count, const char* labels, const double* color_rgb,
                                                      int32_t font_size, int32_t layer);
+/* AddCoordinateSystemSymbol (layer overlay or selection; selected ones in the highlight color) and
+   AddMaterialAxesSymbol (material_axes, in the selection layer in the colors of the axes): a 2D triad at the display
+   position of origin3 along three axis directions (axis_directions9, one after another) with three labels (a string
+   list), its shaft scaled from the symbol size as the triad widget */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_add_coordinate_system_symbol(vtkn_view view, const double* origin3,
+                                                                       const double* axis_directions9,
+                                                                       const char* labels, double symbol_size,
+                                                                       int32_t layer, int32_t material_axes);
 /* UpdateOverlayCaptionActorPosition: the world position of an overlay caption */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_caption_position(vtkn_view view, const char* name,
                                                                const double* position3);

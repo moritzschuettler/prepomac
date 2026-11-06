@@ -203,6 +203,16 @@ namespace vtkControl
             if (actor == null || !_nativeMirroredActors.Contains(actor)) return;
             MirrorGeometry("SetCaptionPosition " + actor.Name, () => _nativeMirror.SetCaptionPosition(actor.Name, position));
         }
+        // AddCoordinateSystemSymbol and AddMaterialAxesSymbol
+        private void MirrorCoordinateSystemSymbol(double[] origin, double[][] axisDirections, string[] labels,
+                                                  double symbolSize, vtkRendererLayer layer, bool materialAxes)
+        {
+            if (!IsNativeGeometryOn()) return;
+            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry) return;
+            MirrorGeometry("AddCoordinateSystemSymbol", () =>
+                _nativeMirror.AddCoordinateSystemSymbol(origin, axisDirections, labels, symbolSize,
+                                                        VtkNativePartStyle.ToNativeLayer(layer), materialAxes));
+        }
         private vtkMaxActor FindLayerActor(string name, vtkRendererLayer layer)
         {
             vtkMaxActor actor;
@@ -385,6 +395,11 @@ namespace vtkControl
             HashSet<vtkProp> props = new HashSet<vtkProp>();
             // ActiViz draws the captions of a layer only with this placeholder actor drawn last in it
             if (_captionTmpActor != null) props.Add(_captionTmpActor);
+            foreach (vtkMaxCoorSysSymbols symbols in new[] { _coorSysSymbols, _coorSysSelectionSymbols,
+                                                            _materialAxesSelectionSymbols })
+            {
+                if (symbols != null) props.UnionWith(symbols.GetProps());
+            }
             foreach (vtkMaxActor actor in _nativeMirroredActors)
             {
                 if (actor.Geometry != null) props.Add(actor.Geometry);
