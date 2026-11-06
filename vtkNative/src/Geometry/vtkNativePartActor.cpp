@@ -895,8 +895,9 @@ namespace vtkn
             }
         }
         //
-        if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 0.8, opacity * 0.7);
-        if (SectionViewHatch != nullptr) SetEdgeLine(SectionViewHatch, 0.8, opacity * 0.7);
+        // vtkControl asks for 0.8 px model edges, which VTK 5.8 drew one pixel wide; the element edges stay thin
+        if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 1.0, opacity * 0.7);
+        if (SectionViewHatch != nullptr) SetEdgeLine(SectionViewHatch, 1.0, opacity * 0.7);
         if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 0.5, opacity * 0.4);
         if (Style.has_backface_color && !Style.backface_culling)
         {

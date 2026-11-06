@@ -334,3 +334,14 @@ tolerance 1e-7 of the result scenes.
 12. Coordinate systems of the model, selected in the tree, and material axes.
 13. The element-wise section view of the FE model and of a result, then animate it.
 14. Animate with the follower view on a node and on three nodes; a symmetry of U1; the exploded view animation.
+
+## Changed after the user's review (2026-11-06)
+
+- **Edges through faces at a large zoom**: the line offset of the mappers was (-1, -8), which pulled every edge toward
+  the camera; at a 1000 times zoom on a corner of the base, a hidden edge leaving the corner showed through the face
+  for about 60 px. VTK 5.8 had no line offset; it is (0, 0) now and 2 - 3 px of the edge are left at the corner. The
+  picture suites pass with the same mean differences, so the edges do not sink into the faces without it.
+- **Model edges 1 px wide**: vtkControl asks for 0.8 px model edges and 0.5 px element edges. VTK 5.8 drew no line
+  thinner than a pixel and smoothed it, VTK 9 draws the true width with multisampling, so the native model edges looked
+  gray, thin and jagged. On the user's choice the model edges (and the hatch of a section view) are 1 px wide; the
+  element edges stay 0.5 px.

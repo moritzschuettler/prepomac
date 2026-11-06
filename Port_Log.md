@@ -218,3 +218,15 @@ S4 with its one known difference (the hole rim pixel, in the four modes that res
 picks equal), the probe label, and the window check with its four new checks.
 
 **Effort.** About 16:22 - 17:25 in one user turn; the 5 hour window 12 % -> 22 %, the weekly 21 % -> 22 %.
+
+## The user's review of the native window
+
+On 2026-11-06, after the leftovers of W and S, the user looked at the native view in the window:
+
+- **Fixed:** turning the native view off now gives its camera to ActiViz, as turning it on already did.
+- **Fixed:** edges no longer show through the faces at a large zoom (the line offset is gone; stream G's log).
+- **Changed:** the model edges and the hatch of a section view are 1 px wide, the element edges stay 0.5 px. The
+  comparison of the widths is `VtkPort/Logs/Edge_Width_Variants.png`.
+- **Left as is:** the scale bar is drawn a little lower; the user accepted it.
+
+**Checks.** The full `Run_Port_Checks.sh` after the width change: all passed, S4 with its one known difference.
