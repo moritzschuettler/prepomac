@@ -232,3 +232,105 @@ native view receives the scene when it is switched on, then follows the changes.
 
 Known differences to look at: the specular glints of flat faces in element edges mode (two triangles of a bore show
 a glint in ActiViz and not natively); the element-wise section shows the plain cut.
+
+## Finishing the stream (G6 - G10), after the integration
+
+Run on `port/vtk-native` after the merge of the three streams, 2026-11-06 from about 15:05 to 16:10, in one user turn
+("Finish G next"). Each slice was committed with its suite; the full `Run_Port_Checks.sh` closed it.
+
+| Slice | Commit | Old C# ported | Suite |
+|---|---|---|---|
+| G6 vector and tensor plots | `62ea153f6` | ~560 (the glyph actors, animated and empty included) | `geometry_g6` 48/48 |
+| G7 captions, labels, annotation updates | `a5e250616` | ~240 | `geometry_g7` 36/36 |
+| G8 coordinate system symbols | `07e681e15` | ~470 (on W's triad geometry) | `geometry_g8` 12/12 |
+| G9 element-wise section view | `8bfbd9b29` | ~580 | `geometry_g9` 36/36 |
+| G10 animated section, follower view, directional copies, exploded steps | `2ec854b84`, `9df66ab58`, last commit | ~260 (camera and values reused from C#) | `geometry_g10` 24/24, `geometry_g10_follower`, `geometry_g10_directional` 24/24, `geometry_g10_exploded` 12/12 |
+
+### G6 - vector and tensor plots
+
+`AddVectorFieldActor`, `AddTensorFieldActor`, the animated plots (`AddAnimatedGlyphFieldActor`,
+`CreateAnimatedGlyphNodes`) and `AddEmptyScalarFieldActor`. vtkControl already computes the line arrows (five points
+each) and the node points; the mirror sends those arrays to `vtkn_view_add_glyph_actor`, which builds the float poly
+data with lines and vertices and draws it unlit in the colors of the values (`vtkMaxActor(data, mapper)`). The frames
+of an animated plot go through the G5 frame path. Scenes: DISP as a vector plot and PRINCIPAL_MAX as a tensor plot,
+static and at a frame of a scale factor animation.
+
+Fix cycles: (render) **Unlit result colors.** VTK 5.8 drew the colors of an unlit actor as they are; VTK 9 adds the
+ambient and diffuse parts of its material even without lighting. An unlit actor with color contours now has ambient 0
+and diffuse 1. (check, rendering default 6) **Thousands of dots.** VTK 5.8 smoothed the edges of the node points; the
+sphere imposters of VTK 9 (default 1) have hard edges, which alone differs on up to 6 % of the pixels of a plot.
+Narrower lines and smaller dots made it worse and were reverted; the four plot scenes have a picture limit of 7 %
+(`DIFFERING_LIMITS` in `scenes.py`, mean difference 2.2 levels, cameras exact).
+
+### G7 - captions, labels and the in-place annotation updates
+
+`AddCaptionActor`, both `AddLabelActor` overloads, `SetAllCaptionPositions` (the pixel offset of a caption is
+recomputed natively before every render), `ApplySelectionFormattingToCaptionActor`, `UpdateOverlayCaptionActorPosition`,
+and the point updates of `UpdateMeasurementAnnotation` and `UpdateOverlayPointsActor` (`vtkn_view_set_actor_points`,
+which moves a symbol's input points and normals). The removal of a measurement annotation is mirrored too. Scenes:
+captions of the overlay and selection layers with an offset and a move, labels of both overloads, the item ids of
+the Controller, a measurement drawn and moved.
+
+Fix cycles: (render) **Captions a pixel high.** VTK 9 draws the text of `vtkCaptionActor2D` as a texture, a pixel
+higher than VTK 5.8; captions are drawn by a text mapper anchored at their world point plus the padding of the
+caption box, as the labels are, which match exactly. (check, rendering default 7) **Text.** FreeType of VTK 9 draws
+some glyphs a row shorter (the descenders), so the outline of a scene with much text on the background covers a
+little less: the text scenes have a coverage limit of 0.99 (`COVERAGE_LIMITS`; stream W uses 0.98). (check) **The
+base layer.** ActiViz never draws a caption added to the base layer, with or without the native view (checked in
+plain ActiViz); PrePoMax adds captions to the overlay and selection layers only. The native view draws them; the scene
+leaves the base layer out.
+
+### G8 - coordinate system symbols
+
+`vtkMaxCoorSysSymbols` and `vtkMaxCoorSysSymbol` (`vtkNativeCoorSysSymbols.cpp`) on the triad geometry stream W
+ported for the widget: the overlay set, the selected set in the highlight color, the material axes in the colors of
+their axes; projected before every render, sorted by depth, the labels sized from the shaft. Passed at once, 12/12.
+
+### G9 - element-wise section view
+
+`GetSectionViewActorsElementWise` and its helpers (`GetPlaneSideOfBounds`, the outer faces, `LabelSectionFaces`,
+`ExtractSectionFaces`, `GetSectionOutline`, `GetSurfaceOfKeptElements`, `GetModelEdgesOfSkin`) and
+`AddSectionViewSkinActorsToSurfaceActors`. The volume grid carries the node and element ids for it. Scenes: the FE
+model, a MISES result with lightened colors, and a plane that leaves one part whole. Fix cycle: (check) the exposed
+faces come from the volume grid, which is single precision on the ActiViz side: the three scenes have the camera
+tolerance 1e-7 of the result scenes.
+
+### G10 - the animated section, the follower view, directional copies and the exploded view animation
+
+- **Section view of an animated part.** Nothing to port: `vtkControl.SetAnimationFrame` removes the section view and
+  creates it again, and the mirror then sends the volume grid at the frame. Checked plain and element-wise. Seen from
+  the right the plane is nearly edge on, and VTK 9 draws a one pixel sliver of the section face that VTK 5.8 left out:
+  the plain scene has a coverage limit of 0.998.
+- **Follower view.** The camera moves of `UpdateFollowerViewPint` and `UpdateFollowerViewPlane` are computed once and
+  applied to the native camera too (its points by the rotation and translation, its view up by the rotation, then
+  fitted as `AdjustCameraDistanceAndClipping`). `Test_Follower_View.py` steps an animation with the view following one
+  node and three nodes: the camera moved 3 % and 8 % of the model size, and the cameras agree within 1e-15.
+- **Directional values of transformed copies.** A native copy is named after the actor it starts from, the
+  transformation and its place in the row (`<name>:t<k>-<i>`), and vtkControl names its copies the same way for the
+  mirror, which sends each copy of a directional result the values `ApplyResultFieldTransformation` computed. Checked
+  with U1 under a symmetry (the copy's colors reverse) and S11 under a symmetry and a circular pattern.
+- **Exploded view animation.** Every step of `PreviewExplodedView` sends the positions the parts reached. Only the end
+  is compared in pictures; a failing step would fail the scene as a mirror error.
+- **Repainting the native view in the window.** `RenderScene` invalidated `vtkControl` only, and Windows does not
+  repaint a child window with it, so a change that no native event followed (an animation step) stayed undrawn in the
+  window. `RenderScene` now invalidates the native host too.
+- `TryGetStableInitialAnimationExtremeNodes` stays in C#: it chooses the anchors of the min/max annotations, which are
+  widgets (stream W routes them).
+
+### Rendering defaults found (continued)
+
+6. Colors of an unlit actor: VTK 9 adds the ambient and diffuse parts without lighting; unlit result actors have ambient
+   0 and diffuse 1.
+7. Text of a caption: drawn by a text mapper rather than the texture of `vtkCaptionActor2D`, a pixel lower. FreeType
+   still draws some descenders a row shorter than VTK 5.8.
+8. An unlit (smoothed) point cloud and a section face seen edge on are drawn with harder edges by VTK 9; the check
+   limits of the scenes say so where it matters.
+
+### Review list (additions)
+
+10. Results of the hinge as a vector plot (DISP) and a tensor plot (PRINCIPAL_MAX), also animated: the dots are crisper
+    than in ActiViz.
+11. Show reference point names and node and element ids; a distance measurement while the model animates.
+12. Coordinate systems of the model, selected in the tree, and material axes.
+13. The element-wise section view of the FE model and of a result, then animate it.
+14. Animate with the follower view on a node and on three nodes; a symmetry of U1; the exploded view animation.

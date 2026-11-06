@@ -7053,6 +7053,7 @@ namespace vtkControl
                 tPrev = t;
                 //
                 AdjustCameraDistanceAndClipping();
+                if (t < 1) MirrorExplodedViewStep(partOffsetsAnimation.Keys);
                 //
                 RenderScene();
                 //
@@ -10786,6 +10787,7 @@ namespace vtkControl
                 if (_coorSysWidget != null) _coorSysWidget.UpdateGeometry();
                 //
                 this.Invalidate();
+                if (_nativeInWindow && _nativeHost != null) _nativeHost.Invalidate();
                 //
                 foreach (var entry in _actors)
                 {

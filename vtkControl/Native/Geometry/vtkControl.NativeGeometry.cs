@@ -238,6 +238,23 @@ namespace vtkControl
                 _nativeMirror.SetViewParameters(moved);
             });
         }
+        // A step of the animation of PreviewExplodedView: the positions the parts have reached
+        private void MirrorExplodedViewStep(IEnumerable<string> partNames)
+        {
+            MirrorGeometry("PreviewExplodedView step", () =>
+            {
+                List<string> names = new List<string>();
+                List<double[]> positions = new List<double[]>();
+                foreach (string partName in partNames)
+                {
+                    vtkMaxActor actor;
+                    if (!_actors.TryGetValue(partName, out actor) || actor.Geometry == null) continue;
+                    names.Add(partName);
+                    positions.Add(actor.Geometry.GetPosition());
+                }
+                _nativeMirror.SetExplodedViewOffsets(names.ToArray(), positions.ToArray());
+            });
+        }
         private vtkMaxActor FindLayerActor(string name, vtkRendererLayer layer)
         {
             vtkMaxActor actor;

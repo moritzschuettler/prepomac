@@ -301,6 +301,25 @@ CAMERA_TOLERANCES["hinge_result_symmetry_u1"] = 1e-7
 CAMERA_TOLERANCES["hinge_result_pattern_s11"] = 1e-7
 
 
+# An animated exploded view: every step of PreviewExplodedView reaches the native view
+def _exploded_animated(pmx):
+    import System
+    import vtkport
+    from System.Collections.Generic import Dictionary
+
+    def explode():
+        offsets = Dictionary[System.String, System.Array[System.Double]]()
+        offsets["Lever"] = System.Array[System.Double]([0.0, 15.0, 25.0])
+        offsets["Base"] = System.Array[System.Double]([-10.0, 0.0, 0.0])
+        vtkport.VTK.PreviewExplodedView(offsets, True, 300)
+    vtkport.on_ui(explode)
+
+
+SCENES["hinge_exploded_animated"] = (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel"))
+AFTER_ENABLE["hinge_exploded_animated"] = _exploded_animated
+CAMERA_TOLERANCES["hinge_exploded_animated"] = 1e-7
+
+
 # Coordinate systems of the model in the overlay layer (two sizes, one rotated), a selected one and material axes
 def _coordinate_systems(pmx):
     import math

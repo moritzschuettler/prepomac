@@ -12,6 +12,7 @@ in `Pilot_Log.md`.
 | W. Widgets and interaction | 2026-11-05 18:12 | 2026-11-05 19:12 | 1 session turn, 2 commits | 29 % -> 51 % / 13 % -> 17 % (account wide) | 6 port + 6 harness | ~3,600 ported, ~1,100 routed | C++ ~4,000, C# ~950, checks ~1,060 | |
 | S. Selection | 2026-11-05 18:12 | 2026-11-05 18:52 | 1 session turn, 3 commits | 29 % -> 47 % / 13 % -> 16 % (account wide) | 2 port + 5 harness | ~833 | C++/C API ~670, C# ~710, harness ~520 | |
 | I. Integration (merge) | 2026-11-06 07:55 | 2026-11-06 08:15 | 1 user turn | 3 % -> 4 % / 19 %; context 198k -> 205k | 1 compile + 1 behavior + 2 check | 0 (merge) | window check 125, routing 10 | |
+| G6 - G10. Rest of geometry | 2026-11-06 15:05 | 2026-11-06 16:20 | 1 user turn, 7 commits | 8 % (15:49) -> 12 % / 20 % -> 21 %; context 529k at the end | 2 render + 3 compile + 6 check | ~2,100 (the list the stream left), plus ~200 reused from C# | C++ ~1,280, C# ~320, harness ~410 | |
 
 The plan's target: 8 - 10 h of agent time, 4 - 6 h of wall clock with three streams, 4 review rounds.
 
@@ -156,3 +157,39 @@ camera misses the model, the hover waits for the selection timer).
 - The rest of stream G (see "Not finished" above), and the user's decision on `NativeExactPicking`.
 - The reviews: camera and widgets (W), geometry (G), selection (S); S's review script is now the one that shows all
   three areas together.
+
+## Stream G finished (G6 - G10)
+
+Started 2026-11-06 at about 15:05 on the user's "Finish G next", on `port/vtk-native`; the details, fix cycles and the
+added review points are in `VtkPort/Logs/Stream_G.md` ("Finishing the stream").
+
+- **Ported:** the vector and tensor plots (G6), captions, labels and the in-place updates of measurement annotations
+  (G7), the coordinate system symbols on W's triad geometry (G8), the element-wise section view (G9), and in G10 the
+  follower view, the directional values of transformed copies and the steps of the exploded view animation. The
+  section view of an animated part needed no port (vtkControl makes it again at every frame), only a check.
+- **Also fixed:** `RenderScene` now repaints the native view in the window, which a change without a native event
+  (an animation step) left undrawn.
+- **Check limits added**, each with its reason in `scenes.py`: the plots draw thousands of dots whose smoothed edges
+  VTK 9 does not reproduce (7 % differing pixels allowed); scenes with much text cover 0.99 of the outline (FreeType
+  descenders); the section seen edge on from the right 0.998. Captions in the base layer are drawn natively, though
+  ActiViz never drew them (PrePoMax does not use them).
+- **New suites:** `geometry_g6` to `geometry_g10`, `geometry_g10_follower` (`Test_Follower_View.py`),
+  `geometry_g10_directional`, `geometry_g10_exploded`.
+
+**Checks.** The full `Run_Port_Checks.sh`, 16:04 - 16:14, with a private `TEMP`: all passed - groundwork, geometry
+scenes 36/36, slice A 36/36, slice B 20/20 and the embedded check, slice C 1,960/1,960, G1 60/60, G2 60/60, G3 24/24,
+G4 72/72, G5 12/12, PNG 4/4, G6 48/48, G7 36/36, G8 12/12, G9 36/36, G10 24/24, the follower view, directional
+copies 24/24, exploded animation 12/12, W1 35/35, W2 20/20 and the embedded check, W3 6/6, S1 1,960/1,960, S2 74/74,
+S3 1,372/1,372, the window check.
+
+**Effort.** About 15:05 - 16:20 in one user turn, 7 commits; the 5 hour window at 8 % at 15:49 and 12 % at the end,
+the weekly 20 % -> 21 %. Fix cycles: 2 render (unlit result colors, caption text height), 3 compile, 6 check (the
+dot and text limits, the base layer caption, float cameras of the element-wise section, the edge-on sliver, numpy
+inside PrePoMax).
+
+### Still open
+
+- Stream W: the triad's hand cursor, pausing the style during view animations. Stream S: the probe label during a
+  query, picking on section views and transformed copies (the element-wise skins are not picked natively either), box
+  selection by drag in the window.
+- The user's decision on `NativeExactPicking`, and the reviews (W, G with the additions 10 - 14, S).

@@ -40,6 +40,7 @@ SUITES=(
     "geometry_g10|scenes geometry hinge_animated_section hinge_animated_section_element_wise"
     "geometry_g10_follower|pilot VtkPort/Harness/Run_Follower_View.sh"
     "geometry_g10_directional|scenes geometry hinge_result_symmetry_u1 hinge_result_pattern_s11"
+    "geometry_g10_exploded|scenes geometry hinge_exploded_animated"
     # Stream W: widgets and interaction
     "widgets_w1|pilot VtkPort/Widgets/Run_W1.sh"
     "widgets_w2|pilot VtkPort/Widgets/Run_W2.sh"
