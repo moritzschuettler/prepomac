@@ -110,6 +110,10 @@ namespace vtkn
         void SetAnimationFrame(int frameNumber);
         // SetExplodedViewActorPosition
         void SetPosition(const double position[3]);
+        // The points of a symbol, which SetPoints moves instead of the glyphs it draws
+        void SetSymbolInput(vtkPolyData* input) { SymbolInput = input; }
+        // UpdateMeasurementActor: the points move and the cells stay; normals (or null) move with a symbol
+        void SetPoints(const double* coordinates, int count, const double* normals);
         bool GetGeometryHiddenBySectionView() const { return GeometryHiddenBySectionView; }
         void SetGeometryHiddenBySectionView(bool hidden) { GeometryHiddenBySectionView = hidden; }
 
@@ -132,6 +136,7 @@ namespace vtkn
         int HatchIndex = 0;
         bool HasVolumeCells = false;
         vtkSmartPointer<vtkActor> SectionViewHatch;
+        vtkSmartPointer<vtkPolyData> SymbolInput;
         struct AnimationFrame
         {
             vtkSmartPointer<vtkPoints> Points;

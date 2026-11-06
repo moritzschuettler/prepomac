@@ -13,8 +13,10 @@
 #include "vtkNativeWidgetSet.h"
 
 #include <vtkActor.h>
+#include <vtkActor2D.h>
 #include <vtkCallbackCommand.h>
 #include <vtkCamera.h>
+#include <vtkCoordinate.h>
 #include <vtkLight.h>
 #include <vtkPlane.h>
 #include <vtkTransform.h>
@@ -22,6 +24,7 @@
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
+#include <vtkTextMapper.h>
 #include <vtkUnstructuredGrid.h>
 
 #include <array>
@@ -110,6 +113,14 @@ namespace vtkn
         void RenderToPng(const std::string& fileName, bool transparentBackground, int magnification);
         void CreateSectionView(const vtkn_section_view& sectionView);
         void RemoveSectionView();
+        void AddCaption(const std::string& name, const std::string& caption, const double position[3],
+                        const double* offset, int fontSize, vtkn_layer layer, bool useSecondaryHighlightColor);
+        void AddLabels(const std::string& name, const double* positions, int count, const std::vector<std::string>& labels,
+                       const double color[3], int fontSize, vtkn_layer layer);
+        void SetCaptionPosition(const std::string& name, const double position[3]);
+        bool SetCaptionVisible(const std::string& name, vtkn_layer layer, bool visible);
+        void SetActorPoints(const std::string& name, vtkn_layer layer, const double* coordinates, int count,
+                            const double* normals);
         void AddSymbolActor(const std::string& name, const vtkn_part_style& style, const double* points,
                             int pointCount, const double* normals, int normalCount,
                             const vtkn_symbol_parameters& parameters);
@@ -245,5 +256,27 @@ namespace vtkn
         std::map<std::string, vtkSmartPointer<vtkUnstructuredGrid>> VolumeGrids;
         std::vector<HighlightEntry> Highlights;
         bool ExactPicking = true;
+        // Captions and labels (Geometry/vtkNativeCaptions.cpp): the 2D text of every layer, at world positions that
+        // keep their screen offset when the camera changes
+        struct CaptionEntry
+        {
+            std::string Name;
+            vtkSmartPointer<vtkActor2D> Actor;
+            vtkn_layer Layer;
+            double Position[3];
+            bool HasOffset;
+            double Offset[3];
+            bool UseSecondaryHighlightColor;
+            // A caption: its world point and its text; null for labels
+            vtkSmartPointer<vtkCoordinate> Anchor;
+            vtkSmartPointer<vtkTextMapper> TextMapper;
+        };
+        vtkRenderer* GetCaptionRenderer(vtkn_layer layer);
+        void AddCaptionEntry(CaptionEntry entry);
+        void RemoveCaptions(vtkn_layer layer, const std::set<std::string>* names);
+        void ApplyCaptionSelectionFormatting(CaptionEntry& entry);
+        void UpdateCaptionPositions();
+        std::vector<CaptionEntry> Captions;
+        vtkSmartPointer<vtkCallbackCommand> CaptionCommand;
     };
 }

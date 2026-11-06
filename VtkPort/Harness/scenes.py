@@ -176,10 +176,78 @@ CAMERA_TOLERANCES = {"hinge_result_disp": 1e-7, "hinge_result_mises": 1e-7, "hin
                      "hinge_vector_animation_frame": 1e-7, "hinge_tensor_animation_frame": 1e-7}
 
 
+def _doubles(values):
+    import System
+    return System.Array[System.Double]([float(v) for v in values])
+
+
+def _points(points):
+    import System
+    return System.Array[System.Array[System.Double]]([_doubles(p) for p in points])
+
+
+# Captions of the overlay and selection layers, as PrePoMax draws them (ActiViz draws no caption added to the base
+# layer, which PrePoMax never does), labels of both overloads and a caption moved in place
+def _captions(pmx):
+    import System
+    import vtkport
+    from System.Drawing import Color
+    from vtkControl import vtkRendererLayer
+
+    def add():
+        vtk = vtkport.VTK
+        vtk.AddCaptionActor("caption_overlay", "Overlay caption", Color.Black, _doubles([40, 0, 0]),
+                            _doubles([20, 20, 0]), 1.2, vtkRendererLayer.Overlay)
+        vtk.AddCaptionActor("caption_selection", "Selected caption", Color.Black, _doubles([0, 10, 10]), None, 0.9,
+                            vtkRendererLayer.Selection)
+        positions = _points([[0, 0, 0], [20, 0, 5], [60, 0, 0]])
+        vtk.AddLabelActor("labels_int", positions, System.Array[System.Int32]([1, 22, 333]), Color.Blue, 0.9,
+                          vtkRendererLayer.Overlay)
+        vtk.AddLabelActor("labels_text", _points([[30, 10, 5], [70, 5, 0]]), System.Array[System.String](["Aa", "Bbb"]),
+                          Color.DarkGreen, 1.0, vtkRendererLayer.Base)
+        vtk.UpdateOverlayCaptionActorPosition("caption_overlay", _doubles([45, 2, 0]))
+    vtkport.on_ui(add)
+
+
+def _item_ids(pmx):
+    import vtkport
+    from PrePoMax import ShowItemIdsEnum
+    vtkport.on_ui(lambda: setattr(vtkport.CONTROLLER, "ShowItemIds", ShowItemIdsEnum.Parts | ShowItemIdsEnum.PartNames))
+
+
+def _measurement(pmx):
+    import vtkport
+
+    def draw():
+        controller = vtkport.CONTROLLER
+        controller.DrawMeasurementAnnotation("distance", _points([[0, 0, 0], [60, 10, 0]]),
+                                             _points([[0, 0, 0], [30, 20, 5], [60, 10, 0]]), True, True)
+        controller.UpdateMeasurementAnnotation("distance", _points([[5, 0, 0], [70, 10, 5]]),
+                                               _points([[5, 0, 0], [35, 25, 5], [70, 10, 5]]), True, True)
+    vtkport.on_ui(draw)
+
+
+SCENES.update({
+    "hinge_captions": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+    "hinge_item_ids": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+    "hinge_measurement": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+})
+AFTER_ENABLE.update({
+    "hinge_captions": _captions,
+    "hinge_item_ids": _item_ids,
+    "hinge_measurement": _measurement,
+})
+
+
 # The vector and tensor plots draw thousands of dots: VTK 5.8 smoothed their edges, the sphere imposters of VTK 9 have
 # hard edges (rendering default 1 of stream G), which alone differs on up to 6 % of the pixels
 DIFFERING_LIMITS = {"hinge_result_vector": 0.07, "hinge_result_tensor": 0.07, "hinge_vector_animation_frame": 0.07,
                     "hinge_tensor_animation_frame": 0.07}
+
+
+# Text: FreeType of VTK 9 draws some glyphs a row shorter than VTK 5.8 did (the descenders), so the outline of a
+# scene with much text on the background covers a little less
+COVERAGE_LIMITS = {"hinge_captions": 0.99, "hinge_item_ids": 0.99, "hinge_measurement": 0.99}
 
 
 def after_enable(name, pmx):

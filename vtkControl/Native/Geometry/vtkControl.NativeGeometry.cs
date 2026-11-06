@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using CaeGlobals;
@@ -163,6 +164,44 @@ namespace vtkControl
                                             values ?? new float[0], lines, vertices, extremes);
                 _nativeMirroredActors.Add(actor);
             });
+        }
+        // AddCaptionActor and AddLabelActor: the text of CreateNewTextProperty at its scaled size
+        private void MirrorCaption(vtkMaxCaptionActor actor, string caption, double[] position, double[] offset,
+                                   double fontScaleFactor, vtkRendererLayer layer)
+        {
+            if (!IsNativeGeometryOn()) return;
+            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry && layer != vtkRendererLayer.Base) return;
+            MirrorGeometry("AddCaption " + actor.Name, () =>
+            {
+                _nativeMirror.AddCaption(actor.Name, caption, position, offset, (int)(16 * fontScaleFactor),
+                                         VtkNativePartStyle.ToNativeLayer(layer), actor.UseSecondaryHighlightColor);
+                _nativeMirroredActors.Add(actor);
+            });
+        }
+        private void MirrorLabels(vtkMaxCaptionActor actor, double[][] positions, string[] labels, Color color,
+                                  double fontScaleFactor, vtkRendererLayer layer)
+        {
+            if (!IsNativeGeometryOn()) return;
+            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry && layer != vtkRendererLayer.Base) return;
+            MirrorGeometry("AddLabels " + actor.Name, () =>
+            {
+                _nativeMirror.AddLabels(actor.Name, positions, labels, color, (int)(16 * fontScaleFactor),
+                                        VtkNativePartStyle.ToNativeLayer(layer));
+                _nativeMirroredActors.Add(actor);
+            });
+        }
+        // UpdateMeasurementAnnotation, UpdateOverlayPointsActor and UpdateOverlayCaptionActorPosition: the overlay
+        // actors keep their cells and move their points
+        private void MirrorActorPoints(vtkMaxActor actor, double[][] coordinates, double[][] normals)
+        {
+            if (actor == null || !_nativeMirroredActors.Contains(actor)) return;
+            MirrorGeometry("SetActorPoints " + actor.Name, () =>
+                _nativeMirror.SetActorPoints(actor.Name, VtkNativePartStyle.ToNativeLayer(actor.Layer), coordinates, normals));
+        }
+        private void MirrorCaptionPosition(vtkMaxActor actor, double[] position)
+        {
+            if (actor == null || !_nativeMirroredActors.Contains(actor)) return;
+            MirrorGeometry("SetCaptionPosition " + actor.Name, () => _nativeMirror.SetCaptionPosition(actor.Name, position));
         }
         private vtkMaxActor FindLayerActor(string name, vtkRendererLayer layer)
         {
@@ -344,12 +383,16 @@ namespace vtkControl
         private HashSet<vtkProp> GetNativeMirroredProps()
         {
             HashSet<vtkProp> props = new HashSet<vtkProp>();
+            // ActiViz draws the captions of a layer only with this placeholder actor drawn last in it
+            if (_captionTmpActor != null) props.Add(_captionTmpActor);
             foreach (vtkMaxActor actor in _nativeMirroredActors)
             {
                 if (actor.Geometry != null) props.Add(actor.Geometry);
                 if (actor.ElementEdges != null) props.Add(actor.ElementEdges);
                 if (actor.ModelEdges != null) props.Add(actor.ModelEdges);
                 if (actor.SectionViewHatch != null) props.Add(actor.SectionViewHatch);
+                vtkMaxCaptionActor captionActor = actor as vtkMaxCaptionActor;
+                if (captionActor != null && captionActor.CaptionActor != null) props.Add(captionActor.CaptionActor);
             }
             return props;
         }

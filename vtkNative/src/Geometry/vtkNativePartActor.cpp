@@ -546,6 +546,26 @@ namespace vtkn
         if (CellLocator != nullptr) CellLocator->Modified();
     }
 
+    void PartActor::SetPoints(const double* coordinates, int count, const double* normals)
+    {
+        vtkPolyData* polyData = SymbolInput != nullptr ? SymbolInput.GetPointer()
+                                                       : vtkPolyData::SafeDownCast(Geometry->GetMapper()->GetInput());
+        Require(polyData != nullptr && polyData->GetPoints() != nullptr, "The actor has no points to move.");
+        Require(count == polyData->GetNumberOfPoints(), "There must be one coordinate per point of the actor.");
+        Require(count == 0 || coordinates != nullptr, "The coordinates must not be null.");
+        vtkPoints* points = polyData->GetPoints();
+        for (int i = 0; i < count; i++) points->SetPoint(i, coordinates + 3 * i);
+        points->Modified();
+        vtkDataArray* pointNormals = polyData->GetPointData()->GetNormals();
+        if (normals != nullptr && pointNormals != nullptr && pointNormals->GetNumberOfTuples() == count)
+        {
+            for (int i = 0; i < count; i++) pointNormals->SetTuple(i, normals + 3 * i);
+            pointNormals->Modified();
+        }
+        polyData->Modified();
+        if (CellLocator != nullptr) CellLocator->Modified();
+    }
+
     void PartActor::SetPosition(const double position[3])
     {
         Geometry->SetPosition(position[0], position[1], position[2]);

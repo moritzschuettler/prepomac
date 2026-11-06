@@ -43,6 +43,7 @@ def main():
                                      "old_camera": old_camera, "new_camera": new_camera})
     record["camera_tolerance"] = scenes.CAMERA_TOLERANCES.get(SCENE)
     record["differing_limit"] = scenes.DIFFERING_LIMITS.get(SCENE)
+    record["coverage_limit"] = scenes.COVERAGE_LIMITS.get(SCENE)
     record["mirror_errors"] = list(vtkport.on_ui(lambda: list(vtkport.VTK.GetNativeMirrorErrors())))
     vtkport.disable_native()
     record["seconds"] = round(time.time() - started, 1)

@@ -125,6 +125,59 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_add_caption(vtkn_view view, const char* name, const char* caption,
+                                                const double* position3, const double* offset3, int32_t font_size,
+                                                int32_t layer, int32_t use_secondary_highlight_color)
+    {
+        return GuardVtk([&]() {
+            Require(caption != nullptr, "The argument 'caption' must not be null.");
+            Require(position3 != nullptr, "The argument 'position3' must not be null.");
+            View::FromHandle(view)->AddCaption(ToName(name, "name"), caption, position3, offset3, font_size,
+                                               ToLayer(layer), use_secondary_highlight_color != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_add_labels(vtkn_view view, const char* name, const double* positions3,
+                                               int32_t count, const char* labels, const double* color_rgb,
+                                               int32_t font_size, int32_t layer)
+    {
+        return GuardVtk([&]() {
+            Require(labels != nullptr, "The argument 'labels' must not be null.");
+            Require(color_rgb != nullptr, "The argument 'color_rgb' must not be null.");
+            std::vector<std::string> labelList;
+            const char* label = labels;
+            for (int i = 0; i < count; i++)
+            {
+                labelList.push_back(label);
+                label += std::strlen(label) + 1;
+            }
+            View::FromHandle(view)->AddLabels(ToName(name, "name"), positions3, count, labelList, color_rgb, font_size,
+                                              ToLayer(layer));
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_caption_position(vtkn_view view, const char* name, const double* position3)
+    {
+        return GuardVtk([&]() {
+            Require(position3 != nullptr, "The argument 'position3' must not be null.");
+            View::FromHandle(view)->SetCaptionPosition(ToName(name, "name"), position3);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_actor_points(vtkn_view view, const char* name, int32_t layer,
+                                                     const double* coordinates3, int32_t count,
+                                                     const double* normals3)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetActorPoints(ToName(name, "name"), ToLayer(layer), coordinates3, count,
+                                                   normals3);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_set_actor_scalars(vtkn_view view, const char* name, const float* values,
                                                       int32_t count, const vtkn_extreme_nodes* extremes)
     {

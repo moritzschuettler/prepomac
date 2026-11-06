@@ -28,6 +28,7 @@ find_package(VTK 9.7 REQUIRED COMPONENTS
     IOImage
     RenderingCore
     RenderingFreeType
+    RenderingLabel
     RenderingOpenGL2
     RenderingUI)
 
@@ -49,6 +50,7 @@ add_library(vtkNative SHARED
     src/vtkNativeView.h
     src/vtkNativeViewCamera.cpp
     src/Geometry/vtkNativeApiGeometry.cpp
+    src/Geometry/vtkNativeCaptions.cpp
     src/Geometry/vtkNativeColorSpectrum.cpp
     src/Geometry/vtkNativeColorSpectrum.h
     src/Geometry/vtkNativePartActor.cpp

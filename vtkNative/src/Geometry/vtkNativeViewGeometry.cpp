@@ -123,6 +123,7 @@ namespace vtkn
     void View::SetActorVisible(const std::string& name, vtkn_layer layer, bool visible)
     {
         PartActor* actor = FindActor(name, layer);
+        if (actor == nullptr && SetCaptionVisible(name, layer, visible)) return;
         if (actor == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "There is no actor named " + name + ".");
         actor->SetVisible(visible);
     }
@@ -238,6 +239,7 @@ namespace vtkn
             for (PartActor* actor : GetBaseActors()) actor->RemoveFrom(Renderer);
             Parts.clear();
             BaseActors.clear();
+            RemoveCaptions(VTKN_LAYER_BASE, nullptr);
         }
         else if (what == VTKN_CLEAR_BUT_KEEP_PARTS)
         {
@@ -255,17 +257,20 @@ namespace vtkn
                 BaseActors[name]->RemoveFrom(Renderer);
                 BaseActors.erase(name);
             }
+            RemoveCaptions(VTKN_LAYER_BASE, nullptr);
         }
         if (what != VTKN_CLEAR_OVERLAY)
         {
             for (PartActor* actor : GetBaseActors()) actor->UpdateColor();
             for (const auto& actor : SelectedParts) actor->RemoveFrom(GetLayerRenderer(*actor));
             SelectedParts.clear();
+            RemoveCaptions(VTKN_LAYER_SELECTION, nullptr);
         }
         if (what != VTKN_CLEAR_SELECTION)
         {
             for (const auto& entry : OverlayParts) entry.second->RemoveFrom(OverlayRenderer);
             OverlayParts.clear();
+            RemoveCaptions(VTKN_LAYER_OVERLAY, nullptr);
         }
     }
 
@@ -278,6 +283,7 @@ namespace vtkn
             entry->second->RemoveFrom(OverlayRenderer);
             OverlayParts.erase(entry);
         }
+        RemoveCaptions(VTKN_LAYER_OVERLAY, &names);
     }
 
     // Port of SetHighlightColor: the actors of the selection layer are formatted again
@@ -287,6 +293,10 @@ namespace vtkn
         std::copy(primary, primary + 3, Highlight.Primary);
         std::copy(secondary, secondary + 3, Highlight.Secondary);
         for (const auto& actor : SelectedParts) actor->ApplySelectionFormatting(Highlight);
+        for (CaptionEntry& entry : Captions)
+        {
+            if (entry.Layer == VTKN_LAYER_SELECTION) ApplyCaptionSelectionFormatting(entry);
+        }
     }
 
     // Port of the AddOriented* methods, AddSphereActor and AddSymbolEdges: the symbol source is glyphed onto the
@@ -334,6 +344,7 @@ namespace vtkn
         symbolStyle.ambient = 0.6;
         symbolStyle.diffuse = 0.6;
         std::unique_ptr<PartActor> actor(new PartActor(symbolStyle, glyph->GetOutputPort()));
+        actor->SetSymbolInput(polyData);
         actor->GetGeometry()->GetProperty()->SetRepresentationToSurface();
         if (symbol.Flat) actor->GetGeometry()->GetProperty()->SetInterpolationToFlat();
         AddActor(name, std::move(actor));

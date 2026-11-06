@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_GEOMETRY_API_VERSION 4
+#define VTKN_GEOMETRY_API_VERSION 5
 
 /* Mirrors vtkRendererLayer of vtkControl: the base layer, the selection layer drawn over it, the overlay layer */
 typedef enum vtkn_layer
@@ -242,6 +242,25 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_add_glyph_actor(vtkn_view view, const c
                                                           const int32_t* lines, int32_t line_count,
                                                           const int32_t* vertices, int32_t vertex_count,
                                                           const vtkn_extreme_nodes* extremes);
+/* A caption (AddCaptionActor of vtkControl): black text of font_size pixels at a world position, moved on the screen
+   by offset3 pixels along a world direction (null for none); in the selection layer in the highlight color. A base
+   or overlay caption replaces the one of its name. The caption is named as an actor of its layer */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_add_caption(vtkn_view view, const char* name, const char* caption,
+                                                      const double* position3, const double* offset3,
+                                                      int32_t font_size, int32_t layer,
+                                                      int32_t use_secondary_highlight_color);
+/* Labels (AddLabelActor): count texts (a string list) at count world positions (positions3), in color_rgb */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_add_labels(vtkn_view view, const char* name, const double* positions3,
+                                                     int32_t count, const char* labels, const double* color_rgb,
+                                                     int32_t font_size, int32_t layer);
+/* UpdateOverlayCaptionActorPosition: the world position of an overlay caption */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_caption_position(vtkn_view view, const char* name,
+                                                               const double* position3);
+/* UpdateMeasurementAnnotation and UpdateOverlayPointsActor: new coordinates for the points of an actor (count must
+   be its point count), and of a symbol actor also its normals (null to keep them) */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actor_points(vtkn_view view, const char* name, int32_t layer,
+                                                           const double* coordinates3, int32_t count,
+                                                           const double* normals3);
 /* The result values at the points of a base actor (null removes them) and its extreme nodes (null for none) */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actor_scalars(vtkn_view view, const char* name, const float* values,
                                                             int32_t count, const vtkn_extreme_nodes* extremes);

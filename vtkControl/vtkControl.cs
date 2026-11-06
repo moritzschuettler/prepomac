@@ -4274,6 +4274,7 @@ namespace vtkControl
             if (offsetVector != null && offsetVector.Length == 3) actor.OffsetVector = offsetVector;
             // Add
             AddActorCaption(actor, layer);
+            MirrorCaption(actor, caption, position, actor.OffsetVector, fontScaleFactor, layer);
             //
             SetAllCaptionPositions();
         }
@@ -4315,6 +4316,9 @@ namespace vtkControl
             actor.Position = positions[0];
             // Add all labels as one overlay actor.
             AddActorCaption(actor, layer);
+            string[] labelTexts = labels.Select(label => label.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                                        .ToArray();
+            MirrorLabels(actor, positions, labelTexts, color, fontScaleFactor, layer);
         }
         public void AddLabelActor(string name, double[][] positions, string[] labels, Color color,
                                   double fontScaleFactor, vtkRendererLayer layer)
@@ -4355,6 +4359,7 @@ namespace vtkControl
             actor.Position = positions[0];
             // Add all labels as one overlay actor.
             AddActorCaption(actor, layer);
+            MirrorLabels(actor, positions, labels, color, fontScaleFactor, layer);
         }
         private vtkActor GetActorTmp(double x, double y, double z)
         {
@@ -9547,7 +9552,11 @@ namespace vtkControl
                 points.Modified();
                 arrowInput.Modified();
                 if (_overlayActors.TryGetValue(arrowActorName, out vtkMaxActor arrowActor))
+                {
                     arrowActor.VtkMaxActorVisible = visible;
+                    MirrorActorPoints(arrowActor, arrowCoordinates, arrowNormals);
+                    MirrorActorVisible(arrowActor, visible);
+                }
             }
         }
         public void UpdateOverlayPointsActor(string actorName, double[][] coordinates)
@@ -9561,6 +9570,7 @@ namespace vtkControl
             {
                 captionActor.Position = position;
                 captionActor.CaptionActor.GetPositionCoordinate().SetValue(position[0], position[1], position[2]);
+                MirrorCaptionPosition(captionActor, position);
             }
         }
         public void RemoveMeasurementAnnotations(string[] names)
@@ -9591,6 +9601,7 @@ namespace vtkControl
             }
             _measurementArrowInputs.Remove(name);
             _measurementArrowSymbolSizes.Remove(name);
+            if (removed) MirrorGeometry("RemoveMeasurementAnnotation", () => _nativeMirror.RemoveOverlayActors(actorNames));
             return removed;
         }
         private void UpdateMeasurementActor(string actorName, double[][] coordinates, bool visible)
@@ -9606,6 +9617,8 @@ namespace vtkControl
             pointSet.Modified();
             actor.GeometryMapper.Modified();
             actor.VtkMaxActorVisible = visible;
+            MirrorActorPoints(actor, coordinates, null);
+            MirrorActorVisible(actor, visible);
         }
         private vtkMaxActor AddMeasurementArrowActor(string name, double[][] coordinates, double[][] normals,
                                                      double symbolSize, Color color)

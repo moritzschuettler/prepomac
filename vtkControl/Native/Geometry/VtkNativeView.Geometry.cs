@@ -309,6 +309,54 @@ namespace vtkControl.Native
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_clear(Handle(), (int)what));
         }
         //
+        public void AddCaption(string name, string caption, double[] position, double[] offset, int fontSize,
+                               VtkNativeLayer layer, bool useSecondaryHighlightColor)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            if (caption == null) throw new ArgumentNullException("caption");
+            if (position == null || position.Length != 3) throw new ArgumentException("The position needs 3 values.", "position");
+            if (offset != null && offset.Length != 3) offset = null;
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_caption(Handle(), VtkNativeLibrary.ToUtf8(name),
+                                                                           VtkNativeLibrary.ToUtf8(caption), position, offset,
+                                                                           fontSize, (int)layer,
+                                                                           useSecondaryHighlightColor ? 1 : 0));
+        }
+        public void AddLabels(string name, double[][] positions, string[] labels, Color color, int fontSize,
+                              VtkNativeLayer layer)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            if (positions == null || labels == null || positions.Length != labels.Length)
+                throw new ArgumentException("The label positions and values must have the same length.");
+            double[] positionValues = new double[3 * positions.Length];
+            for (int i = 0; i < positions.Length; i++) Array.Copy(positions[i], 0, positionValues, 3 * i, 3);
+            double[] rgb = new double[] { color.R / 255d, color.G / 255d, color.B / 255d };
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_add_labels(Handle(), VtkNativeLibrary.ToUtf8(name), positionValues,
+                                                                          positions.Length, VtkNativeLibrary.ToUtf8List(labels),
+                                                                          rgb, fontSize, (int)layer));
+        }
+        public void SetCaptionPosition(string name, double[] position)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            if (position == null || position.Length != 3) throw new ArgumentException("The position needs 3 values.", "position");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_caption_position(Handle(), VtkNativeLibrary.ToUtf8(name),
+                                                                                    position));
+        }
+        public void SetActorPoints(string name, VtkNativeLayer layer, double[][] coordinates, double[][] normals)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            if (coordinates == null) throw new ArgumentNullException("coordinates");
+            double[] coordinateValues = new double[3 * coordinates.Length];
+            for (int i = 0; i < coordinates.Length; i++) Array.Copy(coordinates[i], 0, coordinateValues, 3 * i, 3);
+            double[] normalValues = null;
+            if (normals != null && normals.Length == coordinates.Length)
+            {
+                normalValues = new double[3 * normals.Length];
+                for (int i = 0; i < normals.Length; i++) Array.Copy(normals[i], 0, normalValues, 3 * i, 3);
+            }
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_actor_points(Handle(), VtkNativeLibrary.ToUtf8(name), (int)layer,
+                                                                                coordinateValues, coordinates.Length,
+                                                                                normalValues));
+        }
         public void RemoveOverlayActors(string[] names)
         {
             if (names == null) throw new ArgumentNullException("names");
