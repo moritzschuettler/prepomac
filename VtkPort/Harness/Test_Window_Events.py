@@ -207,7 +207,27 @@ def check_mouse_actions(label, send, x, y):
               label + ": a right click on a part picks it through the native view", picked)
     finally:
         install(saved)
-        on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))
+    # A selection clears the highlight and draws it again; the native view renders none of it before the window paints,
+    # or the highlight blinks (a camera the native view already showed was handed to it, which renders)
+    from System.Windows.Forms import MouseButtons
+    renders = []
+
+    def on_render(sender, e):
+        if int(e.Event) == 1:
+            renders.append(1)
+
+    def select_twice():
+        VTK.NativeMirror.NativeEvent += on_render
+        try:
+            for _ in range(2):
+                VTK.Controller_ActorsPicked.Invoke(MouseEventArgs(MouseButtons.Left, 1, x, y, 0), getattr(Keys, "None"),
+                                                   System.Array[System.String](["Lever"]))
+        finally:
+            VTK.NativeMirror.NativeEvent -= on_render
+    on_ui(select_twice)
+    check(len(renders) == 0, label + ": a selection renders nothing before the window paints", len(renders))
+    on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))
+    on_ui(CONTROLLER.ClearSelectionHistory)
     # A click on the triad animates both cameras
     modified = []
 

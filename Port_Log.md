@@ -284,7 +284,11 @@ On 2026-11-06, after the leftovers of W and S, the user looked at the native vie
 ## The user's sixth review (2026-11-07)
 
 - **Fixed:** switching the exploded view off no longer shows the parts unexploded for a frame before the animation.
-- **Open:** a flicker of a result part on a right click. The right click clears the selection highlight and draws it
-  again, as on the ActiViz path; what paints the window in between was not found, and the user is asked what flickers.
+- **Fixed (after the user named it the red highlight):** the selection highlight blinked on a right click, in the results
+  view most of all. A click clears the highlight and draws it again, and each `RenderScene` handed the camera of the
+  control to the native view, whose `SetViewParameters` renders at once: the frame without the highlight was shown.
+  The native view keeps its own camera distance, so the camera was handed over every time; it is handed over now only
+  when it shows another view (stream W's log).
 
-**Checks.** `geometry_g4`, `geometry_g10_exploded` and `integration_window` passed.
+**Checks.** `geometry_g4`, `geometry_g10_exploded` and `integration_window` passed with the exploded view fix; the full
+`Run_Port_Checks.sh` with both: all passed, S4 with its one known difference.

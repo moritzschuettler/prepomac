@@ -10334,6 +10334,40 @@ namespace vtkControl
             camera.SetViewUp(e.Values[6], e.Values[7], e.Values[8]);
             camera.SetParallelScale(e.Values[9]);
         }
+        // Two parallel cameras show the same view when they look the same way with the same up and scale and their
+        // focal points differ only along the direction of view, as the native view sets its own distance
+        private static bool ShowSameParallelView(double[] a, double[] b)
+        {
+            double tolerance = 1E-9 * Math.Max(1, Math.Abs(a[9]));
+            double[] direction = new double[3];
+            double length = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                direction[i] = a[3 + i] - a[i];
+                length += direction[i] * direction[i];
+            }
+            length = Math.Sqrt(length);
+            if (length == 0) return false;
+            double along = 0;
+            double[] focalDelta = new double[3];
+            for (int i = 0; i < 3; i++)
+            {
+                direction[i] /= length;
+                focalDelta[i] = b[3 + i] - a[3 + i];
+                along += focalDelta[i] * direction[i];
+            }
+            double lengthB = 0;
+            for (int i = 0; i < 3; i++) lengthB += (b[3 + i] - b[i]) * (b[3 + i] - b[i]);
+            lengthB = Math.Sqrt(lengthB);
+            if (lengthB == 0 || Math.Abs(a[9] - b[9]) > tolerance) return false;
+            for (int i = 0; i < 3; i++)
+            {
+                if (Math.Abs((b[3 + i] - b[i]) / lengthB - direction[i]) > 1E-9) return false;
+                if (Math.Abs(a[6 + i] - b[6 + i]) > 1E-9) return false;
+                if (Math.Abs(focalDelta[i] - along * direction[i]) > tolerance) return false;
+            }
+            return true;
+        }
         private void PushCameraToNativeWindow()
         {
             if (!_nativeInWindow || _nativeMirror == null || _nativeWindowIndependent) return;
@@ -10344,10 +10378,9 @@ namespace vtkControl
             double[] values = new double[] { position[0], position[1], position[2], focalPoint[0], focalPoint[1],
                                              focalPoint[2], viewUp[0], viewUp[1], viewUp[2],
                                              camera.GetParallelScale() };
-            double[] current = _nativeMirror.GetCamera();
-            bool same = true;
-            for (int i = 0; i < values.Length && same; i++) same = values[i] == current[i];
-            if (same) return;
+            // The native view renders when it takes a camera, so a camera that shows its view already is not sent:
+            // RenderScene runs also in the middle of a change, a highlight cleared and not yet drawn again
+            if (ShowSameParallelView(values, _nativeMirror.GetCamera())) return;
             _pushingCameraToNativeWindow = true;
             try
             {

@@ -313,3 +313,14 @@ widgets and the ActiViz camera, the next run closes it. Click into the view firs
   fourth review is taken back. While a highlight covers a whole widget, the widget's black border line is hidden, so
   the frame is the same blue on a widget with a border and without one; an inner highlight (a value of the scalar bar)
   leaves the border.
+
+## Changed after the user's sixth review (2026-11-07)
+
+- **The selection highlight blinked on a right click** (the results view most of all): `RenderScene` handed the camera
+  of the control to the native view on every call, since the native view sets its own camera distance and the cameras
+  never compared equal, and the native `SetViewParameters` renders at once. A selection calls `RenderScene` while the
+  highlight is cleared and not yet drawn again, so that frame was shown. The camera is handed over only when it shows
+  another view: another direction, view up or scale, or a focal point moved across the view
+  (`ShowSameParallelView`). Found by recording every render and invalidation of the native view during the right clicks
+  of the Controller's handler. Checked in `integration_window`: two selections through the Controller's handler render
+  the native view no time before the paint (6 renders without the fix).
