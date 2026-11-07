@@ -8,8 +8,8 @@
 #draws a hover highlight. The camera of the control follows the native one, its view changes reach the native view,
 #a highlight leaves the native camera where it is, and the ActiViz window cannot paint over the native view. Writes
 #window_events.json. With the widgets area: a double click on a part reaches the Controller as two clicks, a right
-#click picks through the native view, a click on the triad animates the camera of both views, and the transparency
-#of a part reaches the native view.
+#click picks through the native view, a click on the triad animates the camera of both views, the transparency of a
+#part reaches the native view, and a preview of the exploded view reaches the native view before the paint.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Window_Events.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -239,6 +239,27 @@ def check_mouse_actions(label, send, x, y):
     opaque, transparent, again = [open(path % n, "rb").read() for n in ["opaque", "transparent", "opaque_again"]]
     check(transparent != opaque and again == opaque, label + ": the transparency of the parts reaches the native view",
           names)
+    # Switching the exploded view off first puts the parts back where it had them, without an animation: the native
+    # view has them there by the time the window is invalidated for the paint
+    from System.Collections.Generic import Dictionary
+    offsets = Dictionary[System.String, System.Array[System.Double]]()
+    offsets[names[-1]] = System.Array[System.Double]([30.0, 0.0, 0.0])
+    at_paint = []
+
+    def on_invalidated(sender, e):
+        at_paint.append(list(VTK.NativeMirror.GetBounds()))
+
+    def preview():
+        VTK.NativeHost.Invalidated += on_invalidated
+        try:
+            VTK.PreviewExplodedView(offsets, False, 0)
+        finally:
+            VTK.NativeHost.Invalidated -= on_invalidated
+    on_ui(preview)
+    moved = on_ui(lambda: list(VTK.NativeMirror.GetBounds()))
+    on_ui(lambda: VTK.RemovePreviewedExplodedView(System.Array[System.String](names)))
+    check(len(at_paint) >= 1 and close(at_paint[-1], moved, 1e-6),
+          label + ": a preview of the exploded view reaches the native view before the paint", [at_paint, moved])
 
 
 def check_widgets_style(label, send, x, y):

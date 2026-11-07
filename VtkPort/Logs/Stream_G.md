@@ -406,3 +406,12 @@ tolerance 1e-7 of the result scenes.
 - **A flash on a click with translucent parts, and of the highlight on a right click**: the native pick rendered the
   window with every part opaque and only the pickable parts shown, and that frame was shown. The pick renders without
   swapping the buffers, as vtkControl rendered only its renderer.
+
+## Changed after the user's sixth review (2026-11-07)
+
+- **Switching the exploded view off showed the parts unexploded for a frame**: the Controller first puts the parts back
+  where the exploded view had them, with a preview without animation, and then animates them home. That preview sent
+  the native view its offsets only after its loop, whose `Application.DoEvents` had already painted the window with the
+  parts drawn by the redraw before, unexploded. The last step of the loop sends the offsets before the paint now.
+  Checked in `integration_window`: during a preview without animation the native view holds the new positions when the
+  host is invalidated for the paint (it failed without the fix).

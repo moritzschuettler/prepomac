@@ -7068,15 +7068,17 @@ namespace vtkControl
                 tPrev = t;
                 //
                 AdjustCameraDistanceAndClipping();
+                // The native view has the positions before the window is painted: a preview without animation,
+                // which puts the parts back where an exploded view had them, showed them unexploded for a frame
                 if (t < 1) MirrorExplodedViewStep(partOffsetsAnimation.Keys);
+                else MirrorGeometry("PreviewExplodedView", () =>
+                    _nativeMirror.SetExplodedViewOffsets(partOffsets.Keys.ToArray(), partOffsets.Values.ToArray()));
                 //
                 RenderScene();
                 //
                 Application.DoEvents();
             }
             while (t < 1);
-            MirrorGeometry("PreviewExplodedView", () =>
-                _nativeMirror.SetExplodedViewOffsets(partOffsets.Keys.ToArray(), partOffsets.Values.ToArray()));
         }
         public void RemovePreviewedExplodedView(string[] partNames)
         {

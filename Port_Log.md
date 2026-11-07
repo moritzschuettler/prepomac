@@ -280,3 +280,11 @@ On 2026-11-06, after the leftovers of W and S, the user looked at the native vie
 - **Changed:** the widget highlight is translucent again; the black border of the widget is hidden under it.
 
 **Checks.** The full `Run_Port_Checks.sh`: all passed, S4 with its one known difference.
+
+## The user's sixth review (2026-11-07)
+
+- **Fixed:** switching the exploded view off no longer shows the parts unexploded for a frame before the animation.
+- **Open:** a flicker of a result part on a right click. The right click clears the selection highlight and draws it
+  again, as on the ActiViz path; what paints the window in between was not found, and the user is asked what flickers.
+
+**Checks.** `geometry_g4`, `geometry_g10_exploded` and `integration_window` passed.
