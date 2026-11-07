@@ -76,12 +76,42 @@ SCENES.update({
     "hinge_hidden": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
     "solid_geometry_highlight": (os.path.join(MODELS, "L_bracket_r.step"), ["-u", "MM_TON_S_C"], _view("geometry")),
 })
+
+
+def _surface_loads(pmx):
+    # Drawn before the native areas are switched on, the colored surfaces wait in the selection buffer of the
+    # Controller, which the redraw of enable_native has to build again
+    step = list(pmx.model.steps.get_names())[0]
+    for face in (1, 2, 3, 4, 5, 6):
+        selection = pmx.create.selection_by_ids("femodel", "surfaces", "surfaces", {1: [face]})
+        pmx.model.steps[step].loads.add_pressure("PortPressure%d" % face, selection, 1.0)
+    pmx.view.current = "femodel"
+
+
+def _surface_loads_mirrored(pmx):
+    # The checks hide on the ActiViz side what the native view does not hold, so a surface left out is reported
+    import vtkport
+
+    def run():
+        actors = vtkport.get_field(vtkport.VTK, "_actors")
+        mirrored = vtkport.get_field(vtkport.VTK, "_nativeMirroredActors")
+        errors = vtkport.get_field(vtkport.VTK, "_nativeMirrorErrors")
+        names = [name for name in actors.Keys if "PortPressure" in name]
+        if not names:
+            errors.Add("hinge_surface_loads: no surface of a load was drawn")
+        for name in names:
+            if not mirrored.Contains(actors[name]):
+                errors.Add("hinge_surface_loads: the surface " + name + " is not in the native view")
+    vtkport.on_ui(run)
+
+
 SCENES.update({
     "hinge_symbols": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
     "springs_symbols": (os.path.join(JOINTS, "Joint_Springs_Weld.pmx"), [], _view("femodel")),
     "slider_symbols": (os.path.join(JOINTS, "Joint_Springs_Slider.pmx"), [], _view("femodel")),
     "ball_symbols": (os.path.join(JOINTS, "Joint_Springs_Ball.pmx"), [], _view("femodel")),
     "plates_weld_symbols": (os.path.join(JOINTS, "Joint_Plates_Springs_Weld.pmx"), [], _view("femodel")),
+    "hinge_surface_loads": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _surface_loads),
 })
 def _section_view(point, normal, lighten, hatch, element_wise=False):
     def run(pmx):
@@ -166,6 +196,7 @@ AFTER_ENABLE = {
     "hinge_hidden": _hide_lever,
     "solid_geometry_highlight": _highlight_geometry_part,
 }
+AFTER_ENABLE["hinge_surface_loads"] = _surface_loads_mirrored
 
 
 # The result coordinates, the transformed copies and the actor positions of an exploded view are single precision on
@@ -282,6 +313,14 @@ AFTER_ENABLE.update({
 })
 CAMERA_TOLERANCES["hinge_animated_section"] = 1e-7
 CAMERA_TOLERANCES["hinge_animated_section_element_wise"] = 1e-7
+# The element-wise section crops the surfaces drawn on the parts (here the fixed end of the base) to the remaining
+# elements. ActiViz keeps all their points, so its zoom to fit still frames the whole surface; the native crop keeps
+# the points it draws. The native view is given the ActiViz camera, so the pictures compare what is drawn
+SAME_CAMERA = {"hinge_section_element_wise", "hinge_section_element_wise_side"}
+# The native view then stands at its own distance along the direction of view, which the parallel projection does
+# not show, so the cameras are not compared
+for _name in SAME_CAMERA:
+    CAMERA_TOLERANCES[_name] = 1.0
 # Seen from the right the section plane is nearly edge on: VTK 9 draws a one pixel sliver of the section face that
 # VTK 5.8 left out
 SECTION_EDGE_ON_COVERAGE = 0.998
@@ -357,6 +396,17 @@ AFTER_ENABLE["hinge_coordinate_systems"] = _coordinate_systems
 # hard edges (rendering default 1 of stream G), which alone differs on up to 6 % of the pixels
 DIFFERING_LIMITS = {"hinge_result_vector": 0.07, "hinge_result_tensor": 0.07, "hinge_vector_animation_frame": 0.07,
                     "hinge_tensor_animation_frame": 0.07}
+
+# The element edges are drawn one pixel wide (the user's review of 2026-11-07), where ActiViz drew them half a pixel
+# wide and smoothed, so along every line of the mesh the native picture is darker
+ELEMENT_EDGES_DIFFERING_LIMIT = 0.06
+
+
+def differing_limit(name, view):
+    """The limit of a scene; a meshed one draws element edges"""
+    if name in DIFFERING_LIMITS:
+        return DIFFERING_LIMITS[name]
+    return ELEMENT_EDGES_DIFFERING_LIMIT if view in ("femodel", "results") else None
 
 
 # Text: FreeType of VTK 9 draws some glyphs a row shorter than VTK 5.8 did (the descenders), so the outline of a

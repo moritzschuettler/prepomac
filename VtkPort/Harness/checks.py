@@ -17,6 +17,8 @@ import sys
 import numpy
 from PIL import Image
 
+from scenes import ELEMENT_EDGES_DIFFERING_LIMIT  # noqa: F401
+
 CAMERA_TOLERANCE = 1e-9
 COVERAGE_LIMIT = 0.999
 DIFFERING_LIMIT = 0.02

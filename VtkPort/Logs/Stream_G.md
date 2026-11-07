@@ -345,3 +345,28 @@ tolerance 1e-7 of the result scenes.
   thinner than a pixel and smoothed it, VTK 9 draws the true width with multisampling, so the native model edges looked
   gray, thin and jagged. On the user's choice the model edges (and the hatch of a section view) are 1 px wide; the
   element edges stay 0.5 px.
+
+## Changed after the user's second review (2026-11-07)
+
+- **Element edges 1 px wide** as well, on the user's choice: VTK 5.8 drew the 0.5 px edges one pixel wide. The picture
+  suites give a scene that shows the mesh `ELEMENT_EDGES_DIFFERING_LIMIT` (6 %, `scenes.py`), since along every mesh
+  line the native picture is darker than ActiViz's smoothed half pixel line (up to 4.1 % measured).
+- **Edges through faces, the rest of it**: a short tick of a hidden edge was still drawn at a corner of a face seen at a
+  steep angle. The polygon offset of the view was (2, 1); a polygon is pushed back by its depth slope times the factor,
+  which is largest exactly there. VTK 5.8 used (1, 1), which ActiViz never changed, and so does the native view now; a
+  surface that is not a part keeps its place between the parts and the edges with a relative (-0.5, -1). Measured on
+  384 low angle views of every corner of the hinge at a 1000 times zoom: 15 views with native only edge pixels at
+  (2, 1) (the tick of the user's picture), 4 at (1, 1), and those are 1 - 2 px ends of edges at corners of the lever.
+- **Surfaces of the loads, boundary conditions and constraints missing** in the native window: the Controller keeps
+  the surfaces it draws in its selection buffer and adds them again by `AddActor`, and vtkControl rebuilds a buffered
+  actor natively from the data it recorded when the actor was built. That data was recorded only while the native view
+  was on, so the surfaces drawn before it was switched on never reached it. `MirrorActor` now records the data of every
+  actor that is not a part (parts are built again on every redraw). Clearing the selection buffer on the switch was
+  tried first and left: ActiViz then rebuilds the element-wise section of those surfaces differently.
+- **Check**: the scene `hinge_surface_loads` (`geometry_g2`) draws six pressures before the native view is switched on
+  and reports a mirror error for each load surface the native view does not hold; it fails without the fix. The
+  pictures alone cannot tell, as the parts only mode hides on the ActiViz side what the native view lacks.
+- **Element-wise section and surfaces on the parts**: with the surfaces now mirrored, the two element-wise scenes framed
+  differently. ActiViz crops such a surface to the remaining elements but keeps all its points, so its zoom to fit
+  still frames the whole surface; the native crop keeps the points it draws. The native view is given the ActiViz
+  camera in these scenes (`SAME_CAMERA` in `scenes.py`, also in the S4 pick plan), and the pictures then agree.

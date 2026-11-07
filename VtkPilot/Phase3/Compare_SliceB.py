@@ -23,7 +23,10 @@ from Compare_Reference import compare_images, foreground, load  # noqa: E402
 from Compare_SliceA import grow  # noqa: E402
 
 COVERAGE_LIMIT = 0.98
-DIFFERING_LIMIT = 0.10
+# The lines of the native widgets are drawn into one pixel row, where ActiViz spread them over two gray ones
+DIFFERING_LIMIT = 0.16
+# The band of the hover highlight: its translucent blue lies over the black border line, which is one dark row now
+HIGHLIGHT_BAND = 3
 
 
 def widget_box(a, b):
@@ -44,10 +47,12 @@ def compare_widget(old_path, new_path):
     top, bottom, left, right = box
     a = a[top:bottom, left:right]
     b = b[top:bottom, left:right]
+    band = numpy.zeros(a.shape[:2], dtype=bool)
+    band[HIGHLIGHT_BAND:-HIGHLIGHT_BAND, HIGHLIGHT_BAND:-HIGHLIGHT_BAND] = True
     # Inside the widget the shapes are the dark text and lines; a dark pixel is covered by a pixel of the other
     # picture within one pixel that is dark up to the same 24 levels the pixel count allows
-    dark_a = a.max(axis=2) < 128
-    dark_b = b.max(axis=2) < 128
+    dark_a = (a.max(axis=2) < 128) & band
+    dark_b = (b.max(axis=2) < 128) & band
     near_a = a.max(axis=2) < 128 + 24
     near_b = b.max(axis=2) < 128 + 24
     if dark_a.sum() == 0 or dark_b.sum() == 0:

@@ -18,6 +18,8 @@ import numpy
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Phase0"))
 from Compare_Reference import compare_images, foreground, load  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "VtkPort", "Harness"))
+from checks import ELEMENT_EDGES_DIFFERING_LIMIT  # noqa: E402
 
 CAMERA_TOLERANCE = 1e-9
 COVERAGE_LIMIT = 0.999
@@ -64,8 +66,9 @@ def main():
                                          os.path.join(out_dir, "new", image["file"]))
             mean_abs = float(numpy.abs(load(os.path.join(out_dir, "old", image["file"])) -
                                        load(os.path.join(out_dir, "new", image["file"]))).mean())
+            differing_limit = ELEMENT_EDGES_DIFFERING_LIMIT if "femodel" in image["file"] else DIFFERING_LIMIT
             ok = (camera <= CAMERA_TOLERANCE and coverage >= COVERAGE_LIMIT and
-                  result["differing_pixels"] <= DIFFERING_LIMIT)
+                  result["differing_pixels"] <= differing_limit)
             failed += 0 if ok else 1
             worst["differing"] = max(worst["differing"], result["differing_pixels"])
             worst["iou"] = min(worst["iou"], result["coverage_iou"])

@@ -1,5 +1,6 @@
 // PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
 #include "vtkNativeColorBarWidget.h"
+#include "vtkNativePixelLines.h"
 
 #include <vtkCellArray.h>
 #include <vtkCellData.h>
@@ -32,7 +33,7 @@ namespace vtkn
         barProperty->SetColor(0, 0, 0);
         BarBorderPolyData = vtkSmartPointer<vtkPolyData>::New();
         vtkNew<vtkPolyDataMapper2D> barBorderMapper;
-        barBorderMapper->SetInputData(BarBorderPolyData);
+        SetPixelCenteredInput(barBorderMapper, BarBorderPolyData);
         BarBorderActor = vtkSmartPointer<vtkActor2D>::New();
         BarBorderActor->SetMapper(barBorderMapper);
         BarBorderActor->SetProperty(barProperty);

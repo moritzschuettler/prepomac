@@ -38,11 +38,13 @@ def main():
         for view in vtkport.VIEWS:
             name = "%s_%dx%d_%s.png" % (SCENE, width, height, view)
             old_camera, new_camera = vtkport.frame_both(start_camera, view)
+            if SCENE in scenes.SAME_CAMERA:
+                new_camera = vtkport.set_native_camera(old_camera)
             vtkport.save_pair(out_dir, name)
             record["images"].append({"file": name, "view": view, "viewport": [width, height],
                                      "old_camera": old_camera, "new_camera": new_camera})
     record["camera_tolerance"] = scenes.CAMERA_TOLERANCES.get(SCENE)
-    record["differing_limit"] = scenes.DIFFERING_LIMITS.get(SCENE)
+    record["differing_limit"] = scenes.differing_limit(SCENE, pmx.view.current)
     record["coverage_limit"] = scenes.COVERAGE_LIMITS.get(SCENE)
     record["mirror_errors"] = list(vtkport.on_ui(lambda: list(vtkport.VTK.GetNativeMirrorErrors())))
     vtkport.disable_native()

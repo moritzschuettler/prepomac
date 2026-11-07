@@ -722,8 +722,8 @@ namespace vtkn
         mapper->SetInputData(polyActor);
         // A surface that is not a part, such as the faces of a constraint, covers faces of a part exactly. VTK 5.8
         // drew the later of two equal depths, VTK 9 mixes them, so such a surface is pulled a step in front of the
-        // parts (the polygon offset of the view is 2, 1) and stays behind the edge lines
-        if (!Style.is_a_part) mapper->SetRelativeCoincidentTopologyPolygonOffsetParameters(-1, -1);
+        // parts (the polygon offset of the view is 1, 1) and stays behind the edge lines
+        if (!Style.is_a_part) mapper->SetRelativeCoincidentTopologyPolygonOffsetParameters(-0.5, -1);
         Geometry = vtkSmartPointer<vtkActor>::New();
         Geometry->SetMapper(mapper);
         // A part is picked when it is pickable and its cells carry the element ids
@@ -895,10 +895,10 @@ namespace vtkn
             }
         }
         //
-        // vtkControl asks for 0.8 px model edges, which VTK 5.8 drew one pixel wide; the element edges stay thin
+        // vtkControl asks for 0.8 px model edges and 0.5 px element edges, which VTK 5.8 drew one pixel wide
         if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 1.0, opacity * 0.7);
         if (SectionViewHatch != nullptr) SetEdgeLine(SectionViewHatch, 1.0, opacity * 0.7);
-        if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 0.5, opacity * 0.4);
+        if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 1.0, opacity * 0.4);
         if (Style.has_backface_color && !Style.backface_culling)
         {
             vtkNew<vtkProperty> backface;

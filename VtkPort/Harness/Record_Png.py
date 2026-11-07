@@ -16,6 +16,7 @@ import sys
 
 HARNESS, OUT = " ".join(sys.argv[1:]).split("|")
 sys.path.insert(0, HARNESS)
+import scenes  # noqa: E402
 import vtkport  # noqa: E402
 
 CASES = [(False, 1), (True, 1), (False, 2), (True, 2)]
@@ -45,6 +46,7 @@ def main():
         vtkport.on_ui(write)
         record["images"].append({"file": name, "view": "Isometric", "viewport": [640, 480],
                                  "old_camera": old_camera, "new_camera": new_camera})
+    record["differing_limit"] = scenes.differing_limit("hinge_png", "femodel")
     record["mirror_errors"] = list(vtkport.on_ui(lambda: list(vtkport.VTK.GetNativeMirrorErrors())))
     vtkport.disable_native()
     with open(os.path.join(out_dir, "hinge_png_scene.json"), "w") as stream:

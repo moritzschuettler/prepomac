@@ -80,6 +80,7 @@ add_library(vtkNative SHARED
     src/Widgets/vtkNativeCoorSysWidget.h
     src/Widgets/vtkNativeInteractorStyle.cpp
     src/Widgets/vtkNativeInteractorStyle.h
+    src/Widgets/vtkNativePixelLines.h
     src/Widgets/vtkNativeRect.h
     src/Widgets/vtkNativeScalarBar.cpp
     src/Widgets/vtkNativeScalarBar.h

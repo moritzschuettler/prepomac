@@ -230,3 +230,17 @@ On 2026-11-06, after the leftovers of W and S, the user looked at the native vie
 - **Left as is:** the scale bar is drawn a little lower; the user accepted it.
 
 **Checks.** The full `Run_Port_Checks.sh` after the width change: all passed, S4 with its one known difference.
+
+## The user's second review (2026-11-07)
+
+- **Changed:** the element edges are 1 px wide too.
+- **Fixed:** the tick of a hidden edge at a corner of a steep face: the polygon offset of VTK 5.8, (1, 1), instead of
+  (2, 1) (stream G's log).
+- **Fixed:** the lines of the scale bar and the other widgets are black: they lay on the border between two pixel rows
+  (stream W's log).
+- **Fixed:** the colored surfaces of the loads, boundary conditions and constraints were missing in the native window
+  when they had been drawn before it was switched on (vtkControl, stream G's log); `hinge_surface_loads` checks it.
+- The checks: a limit for the scenes that show the mesh, the widget compares and the element-wise section scenes are
+  adjusted, each with its reason in the stream logs.
+
+**Checks.** The full `Run_Port_Checks.sh`: all passed, S4 with its one known difference.

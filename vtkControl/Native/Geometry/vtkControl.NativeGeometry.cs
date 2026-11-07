@@ -74,11 +74,17 @@ namespace vtkControl
         // the name and the visibility the ActiViz actor ended up with
         private void MirrorActor(vtkMaxActorData data, vtkMaxActor actor, bool nodal)
         {
-            if (!IsNativeGeometryOn() || data == null || data.Geometry == null) return;
+            if (data == null || data.Geometry == null) return;
+            // The Controller keeps the surfaces and node sets it draws in its selection buffer and adds them again
+            // without their data, also after the native view is switched on; the parts it builds again every time
+            if (!data.IsAPart || IsNativeGeometryOn())
+            {
+                _nativeActorData.Remove(actor);
+                _nativeActorData.Add(actor, Tuple.Create(data, nodal));
+            }
+            if (!IsNativeGeometryOn()) return;
             // The parts only mode of the pilot checks keeps the native view to the base layer, as it was before
             if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry && data.Layer != vtkRendererLayer.Base) return;
-            _nativeActorData.Remove(actor);
-            _nativeActorData.Add(actor, Tuple.Create(data, nodal));
             MirrorGeometry("AddActor " + actor.Name, () =>
             {
                 VtkNativePartStyle style = VtkNativePartStyle.FromActorData(data);

@@ -37,8 +37,10 @@ def compare_picture(old_path, new_path, side_by_side_dir):
     union = mask_a | mask_b
     if union.sum() == 0:
         return {"coverage": 1.0, "differing": 0.0}
-    coverage = min(float((mask_a & grow(mask_b)).sum()) / max(1, mask_a.sum()),
-                   float((mask_b & grow(mask_a)).sum()) / max(1, mask_b.sum()))
+    # Within two pixels: the native scale bar stands a pixel higher (accepted in the user's review) and its lines
+    # are drawn into one pixel row, where ActiViz spread them over two
+    coverage = min(float((mask_a & grow(grow(mask_b))).sum()) / max(1, mask_a.sum()),
+                   float((mask_b & grow(grow(mask_a))).sum()) / max(1, mask_b.sum()))
     rows = numpy.where(union.any(axis=1))[0]
     columns = numpy.where(union.any(axis=0))[0]
     difference = numpy.abs(a - b).max(axis=2)

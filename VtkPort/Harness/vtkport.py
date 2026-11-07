@@ -161,6 +161,14 @@ def frame_both(start_camera, orientation):
     return old_camera, on_ui(native)
 
 
+def set_native_camera(camera):
+    """Gives the native view a camera of the ActiViz one (a list of pmx.view.get_parameters) and returns its own"""
+    def run():
+        VTK.NativeMirror.SetViewParameters(System.Array[System.Double]([float(v) for v in camera]))
+        return camera_list(VTK.NativeMirror.GetCamera())
+    return on_ui(run)
+
+
 def save_pair(out_dir, name):
     """Writes the ActiViz picture to old/<name> and the mirror's to new/<name>"""
     pmx = PMX

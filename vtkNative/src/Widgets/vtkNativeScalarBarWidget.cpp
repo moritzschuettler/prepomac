@@ -1,5 +1,6 @@
 // PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
 #include "vtkNativeScalarBarWidget.h"
+#include "vtkNativePixelLines.h"
 #include "vtkNativeError.h"
 
 #include <vtkNew.h>
@@ -43,7 +44,7 @@ namespace vtkn
         BarBorderPolyData->SetPoints(BarBorderPoints);
         BarBorderPolyData->SetLines(BarBorderLines);
         vtkNew<vtkPolyDataMapper2D> barBorderMapper;
-        barBorderMapper->SetInputData(BarBorderPolyData);
+        SetPixelCenteredInput(barBorderMapper, BarBorderPolyData);
         BarBorderActor = vtkSmartPointer<vtkActor2D>::New();
         BarBorderActor->SetMapper(barBorderMapper);
         BarBorderActor->SetProperty(barProperty);

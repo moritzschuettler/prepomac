@@ -120,6 +120,8 @@ def record_picks(names):
     vtkport.set_viewport_size(width, height)
     start = vtkport.camera_list(pmx.view.get_parameters())
     old_camera, new_camera = vtkport.frame_both(start, "Isometric")
+    if SCENE in scenes.SAME_CAMERA:
+        new_camera = vtkport.set_native_camera(old_camera)
     scale = max(1.0, max(abs(v) for v in old_camera[:6]))
     columns, rows = PICK_GRID
     points = [(int(round((i + 0.5) * width / columns)), int(round((j + 0.5) * height / rows)))

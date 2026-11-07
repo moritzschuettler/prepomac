@@ -93,11 +93,13 @@ namespace vtkn
         // and VTK 9 draws a text bitmap one pixel left of and one above where VTK 5.8 drew its glyphs. A part of a
         // widget is placed through here, at offset from the widget corner; hit boxes keep the fractions
         void PlaceActor(vtkCoordinate* coordinate, const double offset[2], bool text);
+        void SetBorderLinePoints(double x, double y);
         static constexpr double TextShiftX = 1;
         static constexpr double TextShiftY = -1;
 
         vtkSmartPointer<vtkCoordinate> PositionCoordinate;
         vtkSmartPointer<vtkPoints> BorderPoints;
+        vtkSmartPointer<vtkPoints> BorderLinePoints;
         vtkSmartPointer<vtkPolyData> BorderPolyData;
         vtkSmartPointer<vtkActor2D> BorderActor;
         vtkSmartPointer<vtkActor2D> BackgroundActor;

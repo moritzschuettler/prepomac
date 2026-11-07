@@ -1,5 +1,6 @@
 // PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
 #include "vtkNativeArrowWidget.h"
+#include "vtkNativePixelLines.h"
 
 #include <vtkArrowSource.h>
 #include <vtkCamera.h>
@@ -30,7 +31,7 @@ namespace vtkn
         leader->InsertCellPoint(1);
         LeaderPolyData->SetLines(leader);
         vtkNew<vtkPolyDataMapper2D> leaderMapper;
-        leaderMapper->SetInputData(LeaderPolyData);
+        SetPixelCenteredInput(leaderMapper, LeaderPolyData);
         LeaderActor = vtkSmartPointer<vtkActor2D>::New();
         LeaderActor->SetMapper(leaderMapper);
         LeaderActor->GetProperty()->SetColor(0, 0, 0);

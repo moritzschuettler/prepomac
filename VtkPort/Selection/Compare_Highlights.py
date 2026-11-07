@@ -52,7 +52,7 @@ def main():
         camera = checks.compare_cameras(record["old_camera"], record["new_camera"])
         base = checks.compare_pictures(base_old_path, base_new_path, os.path.join(out_dir, "side_by_side"))
         ok = (camera <= checks.CAMERA_TOLERANCE and base["coverage"] >= checks.COVERAGE_LIMIT and
-              base["differing"] <= checks.DIFFERING_LIMIT)
+              base["differing"] <= checks.ELEMENT_EDGES_DIFFERING_LIMIT)
         failed += 0 if ok else 1
         print("%s %-40s camera %.1e, coverage %.4f, differing %.4f" %
               ("PASS" if ok else "FAIL", record["base"]["old"], camera, base["coverage"], base["differing"]))

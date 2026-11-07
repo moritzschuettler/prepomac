@@ -20,6 +20,9 @@ namespace vtkn
         BorderPoints->InsertNextPoint(Position[0] + Size[0], Position[1], 0);
         BorderPoints->InsertNextPoint(Position[0] + Size[0], Position[1] + Size[1], 0);
         BorderPoints->InsertNextPoint(Position[0], Position[1] + Size[1], 0);
+        BorderLinePoints = vtkSmartPointer<vtkPoints>::New();
+        BorderLinePoints->SetNumberOfPoints(4);
+        SetBorderLinePoints(Position[0], Position[1]);
         vtkNew<vtkCellArray> lines;
         for (int i = 0; i < 4; i++)
         {
@@ -28,7 +31,7 @@ namespace vtkn
             lines->InsertCellPoint((i + 1) % 4);
         }
         BorderPolyData = vtkSmartPointer<vtkPolyData>::New();
-        BorderPolyData->SetPoints(BorderPoints);
+        BorderPolyData->SetPoints(BorderLinePoints);
         BorderPolyData->SetLines(lines);
         vtkNew<vtkPolyDataMapper2D> borderMapper;
         borderMapper->SetInputData(BorderPolyData);
@@ -352,6 +355,18 @@ namespace vtkn
         BorderPoints->SetPoint(2, x + Size[0], y + Size[1], 0);
         BorderPoints->SetPoint(3, x, y + Size[1], 0);
         BorderPoints->Modified();
+        SetBorderLinePoints(x, y);
+    }
+
+    // The border line runs through the centers of the outermost pixels of the widget (vtkNativePixelLines.h), so it
+    // stays inside the window when the widget lies at its edge
+    void BorderWidget::SetBorderLinePoints(double x, double y)
+    {
+        BorderLinePoints->SetPoint(0, x + 0.5, y + 0.5, 0);
+        BorderLinePoints->SetPoint(1, x + Size[0] - 0.5, y + 0.5, 0);
+        BorderLinePoints->SetPoint(2, x + Size[0] - 0.5, y + Size[1] - 0.5, 0);
+        BorderLinePoints->SetPoint(3, x + 0.5, y + Size[1] - 0.5, 0);
+        BorderLinePoints->Modified();
     }
 
     void BorderWidget::SetPosition(vtkn_widget_anchor anchor, double x, double y)

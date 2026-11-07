@@ -257,3 +257,16 @@ widgets and the ActiViz camera, the next run closes it. Click into the view firs
   same box selects on the ActiViz path, the box zoom of the toolbar zooms and selects nothing, the cursor over the
   triad is the hand and away from it is not, and a click while the camera animates raises no pick. The cursor and the
   animation checks were run once with their fix switched off and failed.
+
+## Changed after the user's review (2026-11-07)
+
+- **The lines of the widgets were gray**: VTK 9 maps a whole display coordinate onto the border between two pixels, so
+  with multisampling a one pixel line covered two rows at half intensity (121 and 121 on the scale bar where ActiViz
+  drew 110 and 134). The lines of the scale bar, the scalar bar, the color bar and the leader of an arrow are moved by
+  half a pixel (`vtkNativePixelLines.h`) and the border of a text widget runs through the centers of its outermost
+  pixels, so it stays in the window when the widget lies at its edge. They are black, one pixel wide.
+- The hover highlight is translucent over the border, as in ActiViz; with the border now one dark row, the highlighted
+  frame shows it as a darker inner row.
+- Checks: slice B allows 16 % differing pixels in a widget (the lines lie in one row where ActiViz spread them over two)
+  and leaves the three pixel band of the highlight out of the coverage of the dark shapes; W1 covers the shapes within
+  two pixels, since the native scale bar also stands a pixel higher (accepted in the review).

@@ -1,5 +1,6 @@
 // PrePoMax - Copyright (C) 2016-2026 Matej Borovinsek
 #include "vtkNativeScaleBarWidget.h"
+#include "vtkNativePixelLines.h"
 #include "vtkNativeTextWidget.h"
 
 #include <vtkNew.h>
@@ -46,7 +47,7 @@ namespace vtkn
         ScaleBorderPolyData->SetPoints(ScaleBackgroundPoints);
         ScaleBorderPolyData->SetLines(ScaleBorderLines);
         vtkNew<vtkPolyDataMapper2D> borderMapper;
-        borderMapper->SetInputData(ScaleBorderPolyData);
+        SetPixelCenteredInput(borderMapper, ScaleBorderPolyData);
         ScaleBorderActor = vtkSmartPointer<vtkActor2D>::New();
         ScaleBorderActor->SetMapper(borderMapper);
         ScaleBorderActor->GetProperty()->SetColor(0, 0, 0);
