@@ -68,6 +68,7 @@ namespace vtkn
         void ResetRotationCenter();
         void UpdateRotationCenterDisplay();
         void SetAnimating(bool animating);
+        void SetOwnerBoxZoom(bool ownerBoxZoom) { OwnerBoxZoom = ownerBoxZoom; }
         bool GetAnimating() const { return Animating; }
         bool IsBoxSelectionActive() const { return BoxSelection; }
         bool GetBoxZoomEnabled() const { return BoxZoomEnabled; }
@@ -130,6 +131,7 @@ namespace vtkn
         bool SelectionBoxEnabled = true;
         bool BoxZoomEnabled = false;
         bool Animating = false;
+        bool OwnerBoxZoom = false;
         int X = 0;
         int Y = 0;
         int NumOfClicks = 1;

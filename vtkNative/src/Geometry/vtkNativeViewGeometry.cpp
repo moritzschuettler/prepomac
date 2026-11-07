@@ -148,6 +148,38 @@ namespace vtkn
         actor->SetVisible(visible);
     }
 
+    namespace
+    {
+        template <typename T>
+        bool RenameKey(std::map<std::string, T>& map, const std::string& oldName, const std::string& newName)
+        {
+            auto entry = map.find(oldName);
+            if (entry == map.end()) return false;
+            T value = std::move(entry->second);
+            map.erase(entry);
+            map[newName] = std::move(value);
+            return true;
+        }
+    }
+
+    // The renaming part of UpdateActor: every table that knows the actor by its name
+    void View::RenameActor(const std::string& oldName, const std::string& newName)
+    {
+        if (oldName == newName) return;
+        if (!RenameKey(Parts, oldName, newName) && !RenameKey(BaseActors, oldName, newName) &&
+            !RenameKey(OverlayParts, oldName, newName)) return;
+        for (auto* actors : { &Parts, &BaseActors, &OverlayParts })
+            for (auto& entry : *actors)
+                if (entry.second->GetParentName() == oldName) entry.second->SetParentName(newName);
+        RenameKey(SectionViewActorNames, oldName, newName);
+        RenameKey(SectionViewSkinActorNames, oldName, newName);
+        RenameKey(TransformedCopies, oldName, newName);
+        for (auto& entry : TransformedCopySources)
+            if (entry.second == oldName) entry.second = newName;
+        RenameKey(VolumeGrids, oldName, newName);
+        RenameKey(Actors, oldName, newName);
+    }
+
     // Port of UpdateActorColor: the copies and the section view were made with the color of the actor
     void View::SetActorColor(const std::string& name, vtkn_layer layer, const double* rgba)
     {
@@ -453,6 +485,7 @@ namespace vtkn
         std::unique_ptr<PartActor> actor(new PartActor(style, polyData));
         actor->SetParentName(parentName);
         actor->GetGeometry()->GetProperty()->RenderPointsAsSpheresOn();
+        actor->KeepPointDepthFlat();
         if (pointCount > 0) actor->SetPointScalars(values, pointCount, extremes);
         AddActor(name, std::move(actor));
     }

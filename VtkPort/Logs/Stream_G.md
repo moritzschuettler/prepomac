@@ -415,3 +415,28 @@ tolerance 1e-7 of the result scenes.
   parts drawn by the redraw before, unexploded. The last step of the loop sends the offsets before the paint now.
   Checked in `integration_window`: during a preview without animation the native view holds the new positions when the
   host is invalidated for the paint (it failed without the fix).
+
+## Changed after the user's seventh review (2026-11-07)
+
+- **Mesh lines on a selected surface took the part's color**: the edges were forced into the opaque pass right after
+  their part, before the red surface drawn on it, so a line kept the green of the part (48, 15, 11 against ActiViz's
+  pure dark red). With the order independent translucency off (fifth review) the edges need no forcing: they are drawn
+  in the translucent pass after every face, as in VTK 5.8, and blend over the face in front.
+- **Reference points all black and gone on a zoom**: a reference point is a larger black dot with the colored dot on it.
+  The round dots are sphere imposters, which write the depth of the sphere's front, so the black one covered the
+  colored one, and a dot on a surface sank into it. A shader replacement writes the depth of the dot's center after
+  the sphere's (`KeepPointDepthFlat`), as VTK 5.8 drew flat dots.
+- **The follower view and transformation points white**: the highlight colors were sent to the native view only when
+  they changed, which happens at the start, before a native view exists (`SyncNativeMirror` sends them now), and the
+  unlit round dots took the highlight color twice (ambient and diffuse, as VTK 9 adds them for an unlit actor). The
+  selection formatting, applied again with every new set of colors, now starts from the actor's own point size and
+  line width: it added two pixels each time, which `hinge_highlight` caught once the colors were sent on every sync.
+- **Renaming a part threw**: `vtkn_view_rename_actor` (geometry API 8) renames the actor and every table that knows it
+  by name (children, section view, copies, volume grid); `UpdateActor` calls it.
+- **A section view on a result with a symmetry threw "There is no actor named Base:transformed-1"**: the section data
+  of a transformed copy went by its ActiViz name; it goes by its native name now, and the native copy moves the volume
+  grid of the part it was made from as the copy was moved (`CopyTransform`).
+- **A new result field changed only the original parts**: the copies kept the old values, and the range they kept made
+  the parts one color. The copies get the values ActiViz computed for them, transformed for a directional field.
+- Checks: `hinge_result_symmetry_field` and `hinge_result_symmetry_section` (`geometry_g10_directional`), through the
+  Controller as the user sets a symmetry; the rename in `integration_window`.

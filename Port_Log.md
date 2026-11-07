@@ -292,3 +292,16 @@ On 2026-11-06, after the leftovers of W and S, the user looked at the native vie
 
 **Checks.** `geometry_g4`, `geometry_g10_exploded` and `integration_window` passed with the exploded view fix; the full
 `Run_Port_Checks.sh` with both: all passed, S4 with its one known difference.
+
+## The user's seventh review (2026-11-07)
+
+- **Fixed:** the arrow keys turn the native view (the keyboard went to the ActiViz window behind it).
+- **Fixed:** the box zoom animates.
+- **Fixed:** the mesh lines of a selected surface are black over its color.
+- **Fixed:** reference points are yellow inside the black ring and stay visible when zoomed.
+- **Fixed:** renaming a part (a new native call).
+- **Fixed:** the follower view and transformation points in the highlight colors.
+- **Fixed:** a section view on a result with a symmetry, and a new result field on the transformed copies.
+
+The details are in the stream logs (W and G). **Checks.** The full `Run_Port_Checks.sh`, from a copy of the build while
+the user's PrePoMax held the build folder: all passed, S4 with its one known difference.

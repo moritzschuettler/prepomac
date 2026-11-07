@@ -259,6 +259,20 @@ def check_mouse_actions(label, send, x, y):
     opaque, transparent, again = [open(path % n, "rb").read() for n in ["opaque", "transparent", "opaque_again"]]
     check(transparent != opaque and again == opaque, label + ": the transparency of the parts reaches the native view",
           names)
+    # A part renamed in the tree is known by its new name in the native view
+    def rename(old, new, alpha=255):
+        def run():
+            color = vtkport.get_field(VTK, "_actors")[old].Color
+            VTK.UpdateActor(old, new, System.Drawing.Color.FromArgb(alpha, color))
+        on_ui(run)
+    errors_before = len(on_ui(lambda: list(VTK.GetNativeMirrorErrors())))
+    rename(names[-1], names[-1] + "_renamed")
+    renamed = list(on_ui(lambda: list(VTK.GetNativeMirrorNames())))
+    rename(names[-1] + "_renamed", names[-1] + "_renamed", 120)
+    rename(names[-1] + "_renamed", names[-1])
+    errors = list(on_ui(lambda: list(VTK.GetNativeMirrorErrors())))[errors_before:]
+    check(names[-1] + "_renamed" in renamed and names[-1] not in renamed and not errors,
+          label + ": a renamed part is known by its new name in the native view", [renamed, errors])
     # Switching the exploded view off first puts the parts back where it had them, without an animation: the native
     # view has them there by the time the window is invalidated for the paint
     from System.Collections.Generic import Dictionary

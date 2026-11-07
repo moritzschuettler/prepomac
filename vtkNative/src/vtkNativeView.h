@@ -91,6 +91,7 @@ namespace vtkn
         PartActor* FindActor(const std::string& name, vtkn_layer layer);
         void SetActorVisible(const std::string& name, vtkn_layer layer, bool visible);
         void SetActorColor(const std::string& name, vtkn_layer layer, const double* rgba);
+        void RenameActor(const std::string& oldName, const std::string& newName);
         void HighlightActor(const std::string& name);
         void HideShowActors(const std::set<std::string>& names, bool visible);
         void UpdateResultRepresentationVisibility(const std::set<std::string>& partNames, bool visible);

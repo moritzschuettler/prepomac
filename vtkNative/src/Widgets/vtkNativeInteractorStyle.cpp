@@ -167,7 +167,14 @@ namespace vtkn
         SelectionBorderActor->VisibilityOff();
         if (!SelectionCanceled && HasClickPos)
         {
-            if (BoxZoomEnabled) Owner->BoxZoom(ClickPos[0], ClickPos[1], mousePos[0], mousePos[1]);
+            // vtkControl animates the box zoom in the window, where its frames reach this view
+            if (BoxZoomEnabled && OwnerBoxZoom)
+            {
+                double box[4] = { static_cast<double>(ClickPos[0]), static_cast<double>(ClickPos[1]),
+                                  static_cast<double>(mousePos[0]), static_cast<double>(mousePos[1]) };
+                Owner->RaiseEvent(VTKN_EVENT_BOX_ZOOM_REQUESTED, box, 4);
+            }
+            else if (BoxZoomEnabled) Owner->BoxZoom(ClickPos[0], ClickPos[1], mousePos[0], mousePos[1]);
             else
             {
                 double values[8] = { static_cast<double>(mousePos[0]), static_cast<double>(mousePos[1]),

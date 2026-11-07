@@ -24,6 +24,7 @@ namespace vtkControl.Native
         ResetRotationCenter = 9,
         FireSelectionTimer = 10,
         SetBoxZoom = 11,
-        SetAnimating = 12
+        SetAnimating = 12,
+        SetOwnerBoxZoom = 13
     }
 }

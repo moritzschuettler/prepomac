@@ -85,18 +85,16 @@ namespace vtkn
             shaderProperty->AddFragmentShaderReplacement("normalize(-vertexVC.xyz)", false, "vec3(0.0, 0.0, 1.0)", true);
         }
 
-        // The edges of an opaque part are forced opaque: they keep their alpha and are blended in the opaque pass,
-        // right after the faces. The edges of a translucent part stay in the translucent pass with its faces: drawn
-        // before them, they would write the depth the faces then lose to along every line, which showed the
-        // background through the part as white lines
-        void SetEdgeLine(vtkActor* actor, double width, double opacity, bool partOpaque)
+        // The edges are translucent and drawn in the translucent pass after every face, as VTK 5.8 drew them: they
+        // blend over the face that is in front, the color of a selected surface drawn on the part among them. The
+        // renderers blend in the multisampled frame (no order independent translucency), so they stay smooth
+        void SetEdgeLine(vtkActor* actor, double width, double opacity)
         {
             vtkProperty* property = actor->GetProperty();
             property->SetColor(0, 0, 0);
             property->SetLighting(false);
             property->SetLineWidth(static_cast<float>(width));
             property->SetOpacity(opacity);
-            actor->SetForceOpaque(partOpaque);
         }
 
         vtkSmartPointer<vtkIdTypeArray> ToIdArray(const std::vector<int>& values)
@@ -435,6 +433,7 @@ namespace vtkn
           HatchIndex(source.HatchIndex), HasVolumeCells(source.HasVolumeCells)
     {
         std::copy(source.SectionColor, source.SectionColor + 4, SectionColor);
+        CopyTransform = transform;
         bool polyDataMapper = vtkPolyDataMapper::SafeDownCast(source.Geometry->GetMapper()) != nullptr;
         Geometry = TransformActor(source.Geometry, transform, polyDataMapper);
         UseInfiniteViewer(Geometry);
@@ -637,10 +636,21 @@ namespace vtkn
         if (ModelEdges != nullptr) ModelEdges->GetMapper()->RemoveAllClippingPlanes();
     }
 
+    // vtkControl gives a transformed copy the volume grid of the part it was made from, which is moved here as the
+    // copy itself was
     void PartActor::SetSectionViewData(vtkUnstructuredGrid* volumeGrid, const double* sectionColor, int hatchIndex,
                                        bool hasVolumeCells)
     {
         VolumeGrid = volumeGrid;
+        if (CopyTransform != nullptr && volumeGrid != nullptr)
+        {
+            vtkNew<vtkTransformFilter> gridTransform;
+            gridTransform->SetInputData(volumeGrid);
+            gridTransform->SetTransform(CopyTransform);
+            gridTransform->Update();
+            VolumeGrid = vtkSmartPointer<vtkUnstructuredGrid>::New();
+            VolumeGrid->DeepCopy(gridTransform->GetOutput());
+        }
         std::copy(sectionColor, sectionColor + 4, SectionColor);
         HatchIndex = hatchIndex;
         HasVolumeCells = hasVolumeCells;
@@ -701,7 +711,19 @@ namespace vtkn
         Geometry->SetMapper(mapper);
         Geometry->SetPickable(Style.pickable != 0);
         Geometry->GetProperty()->RenderPointsAsSpheresOn();
+        KeepPointDepthFlat();
         UseInfiniteViewer(Geometry);
+    }
+
+    // VTK 5.8 drew a point as a flat round dot at the depth of its center. A sphere imposter writes the depth of its
+    // front, so the larger black dot of a reference point covered the colored dot drawn on it, and a dot on a surface
+    // came out of it or sank into it as the view zoomed. The depth of the center is written after the sphere's
+    void PartActor::KeepPointDepthFlat()
+    {
+        vtkOpenGLShaderProperty* shaderProperty = vtkOpenGLShaderProperty::SafeDownCast(Geometry->GetShaderProperty());
+        if (shaderProperty == nullptr) return;
+        shaderProperty->AddFragmentShaderReplacement("//VTK::Depth::Impl", true,
+                                                     "//VTK::Depth::Impl\n  gl_FragDepth = gl_FragCoord.z;\n", false);
     }
 
     void PartActor::CreateFromMesh(const vtkn_mesh& geometry, const vtkn_mesh* modelEdges,
@@ -896,10 +918,9 @@ namespace vtkn
         }
         //
         // vtkControl asks for 0.8 px model edges and 0.5 px element edges, which VTK 5.8 drew one pixel wide
-        bool opaque = opacity >= 1;
-        if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 1.0, opacity * 0.7, opaque);
-        if (SectionViewHatch != nullptr) SetEdgeLine(SectionViewHatch, 1.0, opacity * 0.7, opaque);
-        if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 1.0, opacity * 0.4, opaque);
+        if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 1.0, opacity * 0.7);
+        if (SectionViewHatch != nullptr) SetEdgeLine(SectionViewHatch, 1.0, opacity * 0.7);
+        if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 1.0, opacity * 0.4);
         if (Style.has_backface_color && !Style.backface_culling)
         {
             vtkNew<vtkProperty> backface;
@@ -1058,12 +1079,24 @@ namespace vtkn
         double k = onlyNodes || onlyEdges ? 1 : 0.7;
         double lighting = onlyNodes || onlyEdges ? 1 : 0.6;
         vtkProperty* property = Geometry->GetProperty();
-        property->SetPointSize(property->GetPointSize() + 2);
+        if (UnformattedPointSize < 0)
+        {
+            UnformattedPointSize = property->GetPointSize();
+            UnformattedLineWidth = property->GetLineWidth();
+        }
+        property->SetPointSize(UnformattedPointSize + 2);
         const double* color = Style.use_secondary_highlight_color ? colors.Secondary : colors.Primary;
         property->SetColor(color[0] * k, color[1] * k, color[2] * k);
         property->SetAmbient(lighting);
         property->SetDiffuse(lighting);
-        if (property->GetLineWidth() == 1) property->SetLineWidth(2.2f);
+        // The round dots of the nodes are unlit: VTK 9 adds the ambient and the diffuse part of an unlit actor, which
+        // doubled the highlight color to white, where VTK 5.8 drew it as it is
+        if (!property->GetLighting())
+        {
+            property->SetAmbient(0);
+            property->SetDiffuse(1);
+        }
+        if (UnformattedLineWidth == 1) property->SetLineWidth(2.2f);
         property->SetOpacity(1);
         Geometry->PickableOff();
     }

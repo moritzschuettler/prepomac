@@ -71,6 +71,7 @@ namespace vtkn
         // GetPickPoint picks every part opaque; UpdateColor puts the opacity back
         void SetPickOpacity();
         void UpdateColor();
+        void KeepPointDepthFlat();
         void SetColor(const double* rgba)
         {
             for (int i = 0; i < 4; i++) Style.color[i] = rgba[i];
@@ -137,6 +138,11 @@ namespace vtkn
         vtkn_extreme_nodes Extremes = {};
         bool HasExtremeNodes = false;
         vtkSmartPointer<vtkUnstructuredGrid> VolumeGrid;
+        // The point size and line width before the selection formatting, which is applied again with new colors
+        float UnformattedPointSize = -1;
+        float UnformattedLineWidth = -1;
+        // The transformation a transformed copy was made with
+        vtkSmartPointer<vtkTransform> CopyTransform;
         double SectionColor[4] = { 0, 0, 0, 1 };
         int HatchIndex = 0;
         bool HasVolumeCells = false;

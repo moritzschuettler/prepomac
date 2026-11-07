@@ -8,6 +8,7 @@
 // Contributors:
 
 using System;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace vtkControl.Native
@@ -27,6 +28,8 @@ namespace vtkControl.Native
 
         // Properties
         public VtkNativeView View { get { return _view; } }
+        // The OpenGL window VTK created in this one, which takes the keyboard
+        public IntPtr ViewWindow { get { return IsHandleCreated ? GetWindow(Handle, GW_CHILD) : IntPtr.Zero; } }
 
 
         // Constructors
@@ -37,6 +40,10 @@ namespace vtkControl.Native
 
 
         // Methods
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr hWnd, uint command);
+        private const uint GW_CHILD = 5;
+        //
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);

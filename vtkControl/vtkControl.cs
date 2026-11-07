@@ -10297,6 +10297,7 @@ namespace vtkControl
             {
                 _nativeWindowIndependent = value;
                 ClipActiVizWindowBySiblings(_nativeInWindow && !value);
+                MirrorOwnerBoxZoom();
             }
         }
         public void ShowNativeView(bool show)
@@ -10435,6 +10436,7 @@ namespace vtkControl
             if (_nativeInWindow)
             {
                 ShowNativeView(true);
+                if (ContainsFocus && _nativeHost.ViewWindow != IntPtr.Zero) SetFocus(_nativeHost.ViewWindow);
                 _nativeMirror = _nativeHost.View;
                 WireNativeWindowSelection(_nativeMirror, (areas & VtkNativeArea.Widgets) == 0);
                 _nativeMirror.NativeEvent -= NativeWindow_CameraEvent;
@@ -10449,6 +10451,7 @@ namespace vtkControl
             SyncNativeMirror();
             if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorScalarBar();
             if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorWidgets();
+            MirrorOwnerBoxZoom();
         }
         public string[] GetNativeMirrorNames()
         {
@@ -10464,6 +10467,8 @@ namespace vtkControl
                                         _renderer.GetBackground());
             _nativeMirror.SetSmoothing(_renderWindow.GetPointSmoothing() == 1, _renderWindow.GetLineSmoothing() == 1);
             _nativeMirror.SetEdgesVisibility(_edgesVisibility);
+            // The colors are set once at start, before a native view exists
+            _nativeMirror.SetHighlightColors(_primaryHighlightColor, _secondaryHighlightColor);
         }
         private void MirrorPart(vtkMaxActorData data, vtkMaxActor actor)
         {
@@ -10817,7 +10822,8 @@ namespace vtkControl
             actor.Name = newName;
             //
             UpdateActorColor(actor, newColor);
-            MirrorActorColor(actor, oldName, newColor);
+            MirrorActorRename(actor, oldName, newName);
+            MirrorActorColor(actor, newName, newColor);
             //
             _actors.Remove(oldName);
             _actors.Add(newName, actor);

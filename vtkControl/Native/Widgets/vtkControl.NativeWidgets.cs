@@ -125,6 +125,13 @@ namespace vtkControl
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
             _nativeMirror.Navigate(VtkNativeNavigation.SetAnimating, animating ? 1 : 0);
         }
+        // In the window the box zoom of the native style ends in SetBoxZoom of this control, which animates it
+        private void MirrorOwnerBoxZoom()
+        {
+            if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
+            bool ownerBoxZoom = _nativeInWindow && !_nativeWindowIndependent;
+            _nativeMirror.Navigate(VtkNativeNavigation.SetOwnerBoxZoom, ownerBoxZoom ? 1 : 0);
+        }
         // StartBoxZoom: the next left drag of the native style zooms to its box
         private void MirrorStartBoxZoom()
         {
@@ -189,6 +196,11 @@ namespace vtkControl
                 case 30:
                     if (_nativeMirror.GetInteractionState()[0] == vtkInteractorStyleControl.VTKIS_ROTATE &&
                         _probeWidget != null && _probeWidget.GetVisibility() == 1) _probeWidget.VisibilityOff();
+                    break;
+                case 32:
+                    if (e.Values.Length >= 4)
+                        SetBoxZoom(new int[] { (int)e.Values[0], (int)e.Values[1] },
+                                   new int[] { (int)e.Values[2], (int)e.Values[3] }, true);
                     break;
                 case 31:
                     if (!_widgetHighlightLocked) _nativeMirror.SetWidgetHighlight(_widgetHighlightEnabled,

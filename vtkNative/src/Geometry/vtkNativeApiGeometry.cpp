@@ -82,6 +82,14 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_rename_actor(vtkn_view view, const char* old_name, const char* new_name)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->RenameActor(ToName(old_name, "old_name"), ToName(new_name, "new_name"));
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_highlight_actor(vtkn_view view, const char* name)
     {
         return GuardVtk([&]() {

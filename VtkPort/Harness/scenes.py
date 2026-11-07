@@ -166,6 +166,20 @@ def _transformations(symmetry_point, circular):
     return run
 
 
+def _controller_symmetry(field, component):
+    # The symmetry the way the user sets it: through the Controller, which draws the results again with the copies
+    def run(pmx):
+        import System
+        import CaeResults
+        from System.Collections.Generic import List
+        _results(field, component)(pmx)
+        plane = System.Enum.Parse(CaeResults.SymmetryPlaneEnum, "X")
+        items = List[CaeResults.Transformation]()
+        items.Add(CaeResults.Symmetry("Symmetry-1", System.Array[System.Double]([95.0, 0.0, 0.0]), plane))
+        _on_ui_controller(lambda c: c.SetTransformations(items))
+    return run
+
+
 SCENES.update({
     "hinge_exploded": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
     "hinge_result_symmetry": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _results("DISP", "ALL")),
@@ -377,6 +391,17 @@ def _exploded_animated(pmx):
 # Transformed copies beside the parts of the FE model, for the picks of selection_s4
 SCENES["hinge_symmetry"] = (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel"))
 AFTER_ENABLE["hinge_symmetry"] = _transformations([95.0, 0.0, 0.0], False)
+# A new result field and a section view reach the transformed copies of the native view as well
+SCENES.update({
+    "hinge_result_symmetry_field": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [],
+                                    _controller_symmetry("STRESS", "MISES")),
+    "hinge_result_symmetry_section": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [],
+                                      _controller_symmetry("DISP", "ALL")),
+})
+AFTER_ENABLE["hinge_result_symmetry_field"] = lambda pmx: pmx.view.set_result_field("DISP", "ALL")
+AFTER_ENABLE["hinge_result_symmetry_section"] = _section_view([40.0, 11.0, 0.0], [0.0, 0.0, 1.0], False, False)
+CAMERA_TOLERANCES["hinge_result_symmetry_field"] = 1e-7
+CAMERA_TOLERANCES["hinge_result_symmetry_section"] = 1e-7
 SCENES["hinge_exploded_animated"] = (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel"))
 AFTER_ENABLE["hinge_exploded_animated"] = _exploded_animated
 CAMERA_TOLERANCES["hinge_exploded_animated"] = 1e-7

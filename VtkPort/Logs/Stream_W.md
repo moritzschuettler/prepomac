@@ -324,3 +324,12 @@ widgets and the ActiViz camera, the next run closes it. Click into the view firs
   (`ShowSameParallelView`). Found by recording every render and invalidation of the native view during the right clicks
   of the Controller's handler. Checked in `integration_window`: two selections through the Controller's handler render
   the native view no time before the paint (6 renders without the fix).
+
+## Changed after the user's seventh review (2026-11-07)
+
+- **The arrow keys turned the view only after a click**: `OnGotFocus` of vtkControl gave the keyboard to the ActiViz
+  window behind the native one, whose style turned its own camera; a later `RenderScene` handed it over. In the window
+  the keyboard goes to the native window (`VtkNativeHost.ViewWindow`), also when the window opens with the focus.
+- **The box zoom did not animate**: in the window the native style hands the box to vtkControl
+  (`VTKN_NAVIGATE_SET_OWNER_BOX_ZOOM`, `VTKN_EVENT_BOX_ZOOM_REQUESTED`, widgets API 4), whose `SetBoxZoom` animates it
+  and hands each frame to the native view; the off screen mirror and the independent mode zoom natively.

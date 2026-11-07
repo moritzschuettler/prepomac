@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int WidgetsApiVersion = 3;
+        public const int WidgetsApiVersion = 4;
 
 
         // Callbacks

@@ -309,7 +309,20 @@ namespace vtkControl
                 if (values != null && extremeNodes != null && extremeNodes.Ids != null)
                     extremes = VtkNativeExtremeNodes.FromNodesExchangeData(extremeNodes);
                 _nativeMirror.SetActorScalars(actorName, values, extremes);
+                // UpdateActorScalarField gave the transformed copies the values, transformed for a directional field
+                vtkMaxActor actor;
+                if (_actors.TryGetValue(actorName, out actor)) MirrorCopyScalarFields(actor, values == null);
             });
+        }
+        private void MirrorCopyScalarFields(vtkMaxActor actor, bool removed)
+        {
+            foreach (vtkMaxActor copy in actor.Copies)
+            {
+                if (!_nativeMirroredActors.Contains(copy)) continue;
+                if (removed) _nativeMirror.SetActorScalars(GetNativeName(copy), null, null);
+                else MirrorCopyResultValues(copy);
+                MirrorCopyScalarFields(copy, removed);
+            }
         }
         // CreateSectionView and UpdateSectionView: every mirrored part that may be cut gets its volume grid, the
         // color of its section faces (formatted here, as Lighten is a .NET extension) and its hatch index
@@ -335,7 +348,8 @@ namespace vtkControl
                         hatchIndex = hatchIndices.Count;
                         hatchIndices.Add(hatchGroup, hatchIndex);
                     }
-                    _nativeMirror.SetSectionViewData(actor.Name, VtkNativeMeshData.FromPartExchangeData(data),
+                    // A transformed copy is known natively by its own name
+                    _nativeMirror.SetSectionViewData(GetNativeName(actor), VtkNativeMeshData.FromPartExchangeData(data),
                                                      data.Nodes.Values, color, hatchIndex, actor.HasVolumeCells);
                     if (actor.SectionViewActor != null) _nativeMirroredActors.Add(actor.SectionViewActor);
                 }
@@ -395,7 +409,11 @@ namespace vtkControl
         }
         private void MirrorTransformedResultValues(vtkMaxActor copy)
         {
-            if (!copy.HasTransformedResultField || copy.GeometryMapper == null) return;
+            if (copy.HasTransformedResultField) MirrorCopyResultValues(copy);
+        }
+        private void MirrorCopyResultValues(vtkMaxActor copy)
+        {
+            if (copy.GeometryMapper == null) return;
             vtkDataArray scalars = copy.GeometryMapper.GetInput()?.GetPointData().GetArray(Globals.ScalarArrayName);
             if (scalars == null) return;
             float[] values = new float[scalars.GetNumberOfTuples()];
@@ -463,8 +481,16 @@ namespace vtkControl
             MirrorGeometry("HighlightActor", () => _nativeMirror.HighlightActor(actorName));
             for (int i = selectedCount; i < _selectedActors.Count; i++) _nativeMirroredActors.Add(_selectedActors[i]);
         }
-        // UpdateActor: the color and the opacity of a part or of another mirrored actor; the native actor keeps the
-        // name it was added with
+        // UpdateActor: a new name of a part or of another mirrored actor
+        private void MirrorActorRename(vtkMaxActor actor, string oldName, string newName)
+        {
+            if (actor == null || !IsNativeGeometryOn() || oldName == newName) return;
+            bool part = _nativeMirrorNames != null && _nativeMirrorNames.Remove(oldName);
+            if (part) _nativeMirrorNames.Add(newName);
+            if (!part && !_nativeMirroredActors.Contains(actor)) return;
+            MirrorGeometry("RenameActor " + oldName, () => _nativeMirror.RenameActor(oldName, newName));
+        }
+        // UpdateActor: the color and the opacity of a part or of another mirrored actor
         private void MirrorActorColor(vtkMaxActor actor, string nativeName, Color color)
         {
             if (actor == null || !IsNativeGeometryOn()) return;

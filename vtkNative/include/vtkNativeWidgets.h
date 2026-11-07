@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_WIDGETS_API_VERSION 3
+#define VTKN_WIDGETS_API_VERSION 4
 
 typedef struct vtkn_scalar_bar_s* vtkn_scalar_bar;
 typedef struct vtkn_widget_s* vtkn_widget;
@@ -64,6 +64,7 @@ typedef enum vtkn_triad_target
 #define VTKN_EVENT_BOX_ZOOM_ENDED 29             /* values: none */
 #define VTKN_EVENT_INTERACTOR_MODIFIED 30        /* values: none; the camera moved by the style */
 #define VTKN_EVENT_MOUSE_LEFT 31                 /* values: none; the mouse left the view */
+#define VTKN_EVENT_BOX_ZOOM_REQUESTED 32         /* values: x1, y1, x2, y2; the owner zooms to the box */
 
 /* The input a host sends to the interaction style of a view: what the window of an embedded view receives */
 typedef enum vtkn_input_event
@@ -97,7 +98,8 @@ typedef enum vtkn_navigation
     VTKN_NAVIGATE_RESET_ROTATION_CENTER = 9,
     VTKN_NAVIGATE_FIRE_SELECTION_TIMER = 10,   /* the mouse move pick a timer makes in an embedded view */
     VTKN_NAVIGATE_SET_BOX_ZOOM = 11,           /* a: 1 to start a box zoom */
-    VTKN_NAVIGATE_SET_ANIMATING = 12           /* a: 1 while an animation runs; the style takes no input */
+    VTKN_NAVIGATE_SET_ANIMATING = 12,          /* a: 1 while an animation runs; the style takes no input */
+    VTKN_NAVIGATE_SET_OWNER_BOX_ZOOM = 13      /* a: 1 when the owner zooms to the box of a box zoom */
 } vtkn_navigation;
 
 /* The settings of the style (the mouse settings of PrePoMax) */

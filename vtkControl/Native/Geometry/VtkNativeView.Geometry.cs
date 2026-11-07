@@ -292,6 +292,14 @@ namespace vtkControl.Native
                                                                                (int)layer, rgba));
         }
         //
+        public void RenameActor(string oldName, string newName)
+        {
+            if (oldName == null) throw new ArgumentNullException("oldName");
+            if (newName == null) throw new ArgumentNullException("newName");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_rename_actor(Handle(), VtkNativeLibrary.ToUtf8(oldName),
+                                                                            VtkNativeLibrary.ToUtf8(newName)));
+        }
+        //
         public void HighlightActor(string name)
         {
             if (name == null) throw new ArgumentNullException("name");

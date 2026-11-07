@@ -418,6 +418,8 @@ namespace vtkControl
             if (this._renderWindow != null)
             {
                 System.IntPtr hWnd = (System.IntPtr)this._renderWindow.GetGenericWindowId();
+                // The native view covering the ActiViz one takes the keyboard, the arrow keys among it
+                if (_nativeInWindow && _nativeHost.ViewWindow != System.IntPtr.Zero) hWnd = _nativeHost.ViewWindow;
                 if (System.IntPtr.Zero != hWnd)
                 {
                     try

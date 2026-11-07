@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int GeometryApiVersion = 7;
+        public const int GeometryApiVersion = 8;
 
 
         // Methods
@@ -32,6 +32,8 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_view_set_actor_visible(IntPtr view, byte[] name, int layer, int visible);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_actor_color(IntPtr view, byte[] name, int layer, double[] rgba);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_rename_actor(IntPtr view, byte[] oldName, byte[] newName);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_highlight_actor(IntPtr view, byte[] name);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]

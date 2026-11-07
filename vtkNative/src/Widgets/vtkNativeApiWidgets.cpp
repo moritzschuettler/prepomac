@@ -543,6 +543,7 @@ extern "C"
                 case VTKN_NAVIGATE_FIRE_SELECTION_TIMER: style->FireSelectionTimer(); break;
                 case VTKN_NAVIGATE_SET_BOX_ZOOM: style->SetBoxZoomEnabled(a != 0); break;
                 case VTKN_NAVIGATE_SET_ANIMATING: style->SetAnimating(a != 0); break;
+                case VTKN_NAVIGATE_SET_OWNER_BOX_ZOOM: style->SetOwnerBoxZoom(a != 0); break;
                 default: throw Error(VTKN_ERROR_INVALID_ARGUMENT, "The navigation is not one of vtkn_navigation.");
             }
             return VTKN_OK;
