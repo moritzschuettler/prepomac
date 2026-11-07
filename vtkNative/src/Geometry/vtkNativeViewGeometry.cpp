@@ -146,6 +146,22 @@ namespace vtkn
         actor->SetVisible(visible);
     }
 
+    // Port of UpdateActorColor: the copies and the section view were made with the color of the actor
+    void View::SetActorColor(const std::string& name, vtkn_layer layer, const double* rgba)
+    {
+        PartActor* actor = FindActor(name, layer);
+        if (actor == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "There is no actor named " + name + ".");
+        actor->SetColor(rgba);
+        if (layer != VTKN_LAYER_BASE) return;
+        for (const auto& entry : TransformedCopySources)
+        {
+            if (entry.second != name) continue;
+            PartActor* copy = FindActor(entry.first, VTKN_LAYER_BASE);
+            if (copy != nullptr) copy->SetColor(rgba);
+        }
+        if (SectionViewActive) CreateSectionView(SectionView);
+    }
+
     // Port of HighlightActor, GetHighlightActorFromActorName and GetCopyOfModelEdgesActor: the model edges the part
     // owns, or when it has none its silhouette and free edges seen from the camera, drawn in the selection layer by
     // an actor with the defaults of a new vtkMaxActor

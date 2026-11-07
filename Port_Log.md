@@ -244,3 +244,28 @@ On 2026-11-06, after the leftovers of W and S, the user looked at the native vie
   adjusted, each with its reason in the stream logs.
 
 **Checks.** The full `Run_Port_Checks.sh`: all passed, S4 with its one known difference.
+
+## The user's third review (2026-11-07)
+
+- **Fixed:** the undeformed wireframe of the results is smoothed (stream G's log).
+- **Fixed:** the standard views of the toolbar end in the native window where they animate, and a hover over the tree no
+  longer flickers the view: the ActiViz window painted over the native view, and the two cameras are kept together
+  (stream W's log).
+- **Fixed:** the colors annotated by mesh type, material and section are as bright as in ActiViz and the legend
+  (stream G's log).
+- New checks: `hinge_annotate_materials`, `hinge_result_undeformed_wireframe`, and four camera checks in
+  `integration_window`.
+
+**Checks.** The full `Run_Port_Checks.sh`: all passed with the fourth review below, S4 with its one known difference.
+
+## The user's fourth review (2026-11-07)
+
+- **Fixed:** a double click on a part or the background, and on the minimum or maximum of the scalar bar.
+- **Fixed:** a click on the triad animates the camera.
+- **Fixed:** the hover highlight covers the black border of a widget.
+- **Fixed:** no flicker of the highlight on a right click in the geometry view.
+- **Fixed:** the transparency of the parts (a new native call; stream G's log).
+- The details are in the stream logs (W and G). Not done: a renamed part keeps its old name in the native view; the raw
+  selection mode without the widgets area reports no double clicks.
+
+**Checks.** The full `Run_Port_Checks.sh`: all passed, S4 with its one known difference.

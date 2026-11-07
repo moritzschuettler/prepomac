@@ -74,6 +74,8 @@ def main():
     vtkport.set_viewport_size(800, 600)
     start_camera = vtkport.camera_list(pmx.view.get_parameters())
     vtkport.enable_native(["geometry", "widgets"], in_window=True)
+    # The two navigations are driven apart from the same start and compared where they end
+    on_ui(lambda: setattr(VTK, "NativeWindowIndependent", True))
     vtkport.parts_only(True)
     state = on_ui(lambda: {"child": USER32.GetWindow(VTK.NativeHost.Handle.ToInt64(), 5),
                            "height": VTK.NativeHost.ClientSize.Height})
@@ -159,6 +161,7 @@ def main():
           "the smooth zoom reaches the same camera", "end %.1e" % relative(old, new))
     smooth(False)
     vtkport.parts_only(False)
+    on_ui(lambda: setattr(VTK, "NativeWindowIndependent", False))
     vtkport.disable_native()
     with open(os.path.join(os.path.abspath(OUT), "w2_embedded.json"), "w") as stream:
         json.dump(RESULTS, stream, indent=1)

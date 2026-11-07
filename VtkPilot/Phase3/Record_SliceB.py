@@ -281,13 +281,6 @@ def record_interaction(out_dir, meta):
     def on_settings():
         double_clicks.append(["settings"])
 
-    def native_double_click(sender, e):
-        ok, values = invoke(VTK.NativeMirrorScalarBar, "TryGetValueEditData", e.X, e.Y, count=7)
-        if ok:
-            double_clicks.append(["edit", bool(values[2]), rect_list(values[3]), values[4], values[5], values[6]])
-        else:
-            double_clicks.append(["settings"])
-
     edit_handler = System.Action[System.Boolean, System.Drawing.Rectangle, System.String, System.Double,
                                  System.Double](on_edit)
     settings_handler = Action(on_settings)
@@ -295,8 +288,8 @@ def record_interaction(out_dir, meta):
 
     def install():
         VTK.Form_EditLegendValue = edit_handler
+        # A double click on either path ends in these callbacks of vtkControl
         VTK.Form_ShowLegendSettings = settings_handler
-        VTK.NativeMirrorScalarBar.MouseDoubleClick += native_double_click
     on_ui(install)
     try:
         start = state()
@@ -362,7 +355,6 @@ def record_interaction(out_dir, meta):
         capture(out_dir, "resized_back", meta)
     finally:
         def restore():
-            VTK.NativeMirrorScalarBar.MouseDoubleClick -= native_double_click
             VTK.Form_EditLegendValue = saved[0]
             VTK.Form_ShowLegendSettings = saved[1]
         on_ui(restore)

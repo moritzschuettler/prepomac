@@ -72,6 +72,16 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_set_actor_color(vtkn_view view, const char* name, int32_t layer,
+                                                    const double* rgba)
+    {
+        return GuardVtk([&]() {
+            Require(rgba != nullptr, "The color must not be null.");
+            View::FromHandle(view)->SetActorColor(ToName(name, "name"), ToLayer(layer), rgba);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_highlight_actor(vtkn_view view, const char* name)
     {
         return GuardVtk([&]() {

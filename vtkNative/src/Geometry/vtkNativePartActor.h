@@ -71,6 +71,11 @@ namespace vtkn
         // GetPickPoint picks every part opaque; UpdateColor puts the opacity back
         void SetPickOpacity();
         void UpdateColor();
+        void SetColor(const double* rgba)
+        {
+            for (int i = 0; i < 4; i++) Style.color[i] = rgba[i];
+            UpdateColor();
+        }
 
         const vtkn_part_style& GetStyle() const { return Style; }
         vtkn_layer GetLayer() const { return static_cast<vtkn_layer>(Style.layer); }

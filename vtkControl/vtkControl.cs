@@ -72,6 +72,8 @@ namespace vtkControl
         private VtkNativeScalarBar _nativeMirrorScalarBar;
         private VtkNativeArea _nativeAreas;
         private bool _nativeInWindow;
+        private bool _pushingCameraToNativeWindow;
+        private bool _nativeWindowIndependent;
         private List<vtkProp> _nativeMirrorScalarBarHiddenProps;
         private List<vtkMaxBorderWidget> _nativeMirrorScalarBarHiddenWidgets;
         private vtkRenderWindowInteractor _renderWindowInteractor;
@@ -950,12 +952,20 @@ namespace vtkControl
             }
             else
             {
-                vtkActor pickedActor;
-                GetPickPoint(out pickedActor, e.Location.X, e.Location.Y);
-                //
-                if (pickedActor != null)
+                string pickedActorName;
+                // The native view picks for itself: the ActiViz pick renders into the ActiViz window it covers
+                if (_nativeInWindow && (_nativeAreas & VtkNativeArea.Selection) != 0)
+                    pickedActorName = NativeMirrorPickPoint(e.Location.X, e.Location.Y, out _, out _);
+                else
                 {
-                    Controller_ActorsPicked?.Invoke(e, ModifierKeys, new string[] { GetActorName(pickedActor) });
+                    vtkActor pickedActor;
+                    GetPickPoint(out pickedActor, e.Location.X, e.Location.Y);
+                    pickedActorName = pickedActor == null ? null : GetActorName(pickedActor);
+                }
+                //
+                if (pickedActorName != null)
+                {
+                    Controller_ActorsPicked?.Invoke(e, ModifierKeys, new string[] { pickedActorName });
                 }
                 else Form_ShowViewportContextMenu?.Invoke(e.Location);
             }
@@ -10275,10 +10285,76 @@ namespace vtkControl
         // The VTK 9.7 view of the native pilot. It covers the ActiViz view while it is shown and the ActiViz view
         // keeps working behind it, so the old and the new path render the same scene in one process
         public VtkNativeHost NativeHost { get { return _nativeHost; } }
+        // The checks that drive the ActiViz and the native navigation apart from one start and compare where they end
+        // run the two views independent: the cameras are not kept together and the ActiViz window is not clipped,
+        // since its navigation picks the depth of its own pixels
+        public bool NativeWindowIndependent
+        {
+            get { return _nativeWindowIndependent; }
+            set
+            {
+                _nativeWindowIndependent = value;
+                ClipActiVizWindowBySiblings(_nativeInWindow && !value);
+            }
+        }
         public void ShowNativeView(bool show)
         {
+            ClipActiVizWindowBySiblings(show && !_nativeWindowIndependent);
             _nativeHost.Visible = show;
             if (show) _nativeHost.BringToFront();
+        }
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int index);
+        [DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hWnd, int index, int value);
+        // The ActiViz window is created by VTK without WS_CLIPSIBLINGS, so each of its renders painted over the
+        // native view that covers it: a view animation of this control or the old camera for a moment
+        private void ClipActiVizWindowBySiblings(bool clip)
+        {
+            const int GWL_STYLE = -16;
+            const int WS_CLIPSIBLINGS = 0x04000000;
+            IntPtr hWnd = _renderWindow == null ? IntPtr.Zero : (IntPtr)_renderWindow.GetGenericWindowId();
+            if (hWnd == IntPtr.Zero) return;
+            int style = GetWindowLong(hWnd, GWL_STYLE);
+            int clipped = clip ? style | WS_CLIPSIBLINGS : style & ~WS_CLIPSIBLINGS;
+            if (clipped != style) SetWindowLong(hWnd, GWL_STYLE, clipped);
+        }
+        // In the window the user moves the camera of the native view, and this control keeps its own camera on it, so
+        // that its view changes (the standard views, a zoom to fit and their animations) start where the user is and
+        // reach the native view through RenderScene
+        private void NativeWindow_CameraEvent(object sender, VtkNativeEventArgs e)
+        {
+            if (e.Event != VtkNativeEvent.CameraModified || e.Values.Length < 10 || _pushingCameraToNativeWindow ||
+                _nativeWindowIndependent) return;
+            vtkCamera camera = _renderer.GetActiveCamera();
+            camera.SetPosition(e.Values[0], e.Values[1], e.Values[2]);
+            camera.SetFocalPoint(e.Values[3], e.Values[4], e.Values[5]);
+            camera.SetViewUp(e.Values[6], e.Values[7], e.Values[8]);
+            camera.SetParallelScale(e.Values[9]);
+        }
+        private void PushCameraToNativeWindow()
+        {
+            if (!_nativeInWindow || _nativeMirror == null || _nativeWindowIndependent) return;
+            vtkCamera camera = _renderer.GetActiveCamera();
+            double[] position = camera.GetPosition();
+            double[] focalPoint = camera.GetFocalPoint();
+            double[] viewUp = camera.GetViewUp();
+            double[] values = new double[] { position[0], position[1], position[2], focalPoint[0], focalPoint[1],
+                                             focalPoint[2], viewUp[0], viewUp[1], viewUp[2],
+                                             camera.GetParallelScale() };
+            double[] current = _nativeMirror.GetCamera();
+            bool same = true;
+            for (int i = 0; i < values.Length && same; i++) same = values[i] == current[i];
+            if (same) return;
+            _pushingCameraToNativeWindow = true;
+            try
+            {
+                _nativeMirror.SetViewParameters(values);
+            }
+            finally
+            {
+                _pushingCameraToNativeWindow = false;
+            }
         }
         //
         // The mirror: an off screen VTK 9.7 view that receives every part this control adds, so the slices of the
@@ -10308,6 +10384,7 @@ namespace vtkControl
                                       new double[] { camera[3], camera[4], camera[5] },
                                       new double[] { camera[6], camera[7], camera[8] }, camera[9]);
                     WireNativeWindowSelection(_nativeMirror, false);
+                    _nativeMirror.NativeEvent -= NativeWindow_CameraEvent;
                     _nativeMirror.ClearActors();
                     _nativeMirror.Render();
                     ShowNativeView(false);
@@ -10325,6 +10402,8 @@ namespace vtkControl
                 ShowNativeView(true);
                 _nativeMirror = _nativeHost.View;
                 WireNativeWindowSelection(_nativeMirror, (areas & VtkNativeArea.Widgets) == 0);
+                _nativeMirror.NativeEvent -= NativeWindow_CameraEvent;
+                _nativeMirror.NativeEvent += NativeWindow_CameraEvent;
             }
             else
             {
@@ -10431,6 +10510,7 @@ namespace vtkControl
             _nativeMirrorScalarBar.SetLabelFormat(_scalarBarWidget.GetLabelFormat());
             _nativeMirrorScalarBar.SetPadding(15);
             _nativeMirrorScalarBar.SetVisibility(_scalarBarWidget.GetVisibility() == 1);
+            _nativeMirrorScalarBar.MouseDoubleClick += scalarBarWidget_DoubleClicked;
             MirrorScalarBarFrame();
         }
         private void SetScalarBarWidgetVisibility(bool visible)
@@ -10471,15 +10551,15 @@ namespace vtkControl
         // Picking through the mirror: style_PointPickedOnLeftUpEvt with the screen to model step made by the native
         // view. The events it raises are the ones the Controller resolves into ids, so a pick through either path
         // must end in the same selection
-        public void PickWithNativeMirror(int x1, int y1, bool boxSelection, int x2, int y2)
+        public void PickWithNativeMirror(int x1, int y1, bool boxSelection, int x2, int y2, int clicks = 1)
         {
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Selection) == 0) return;
-            MouseEventArgs mea = new MouseEventArgs(MouseButtons.Left, 1, x1, y1, 0);
+            MouseEventArgs mea = new MouseEventArgs(MouseButtons.Left, clicks, x1, y1, 0);
             string[] pickedActorNames;
             if (_selectBy == vtkSelectBy.Off) return;
             else if (_selectBy == vtkSelectBy.Widget)
             {
-                Form_CommitViewportEdit?.Invoke();
+                if (clicks == 1) Form_CommitViewportEdit?.Invoke();
             }
             else if (_selectBy == vtkSelectBy.Default)
             {
@@ -10702,6 +10782,7 @@ namespace vtkControl
             actor.Name = newName;
             //
             UpdateActorColor(actor, newColor);
+            MirrorActorColor(actor, oldName, newColor);
             //
             _actors.Remove(oldName);
             _actors.Add(newName, actor);
@@ -10802,7 +10883,11 @@ namespace vtkControl
                 if (_coorSysWidget != null) _coorSysWidget.UpdateGeometry();
                 //
                 this.Invalidate();
-                if (_nativeInWindow && _nativeHost != null) _nativeHost.Invalidate();
+                if (_nativeInWindow && _nativeHost != null)
+                {
+                    PushCameraToNativeWindow();
+                    _nativeHost.Invalidate();
+                }
                 //
                 foreach (var entry in _actors)
                 {

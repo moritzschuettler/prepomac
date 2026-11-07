@@ -78,6 +78,23 @@ SCENES.update({
 })
 
 
+def _annotate_materials(pmx):
+    # The materials are drawn through the color table of the parts
+    import System
+    enum = None
+    for assembly in System.AppDomain.CurrentDomain.GetAssemblies():
+        enum = assembly.GetType("PrePoMax.AnnotateWithColorEnum") or enum
+    pmx.view.current = "femodel"
+    _on_ui_controller(lambda c: c.SetAnnotateWithColor(System.Enum.Parse(enum, "Materials")))
+
+
+def _result_undeformed_wireframe(pmx):
+    from CaeResults import UndeformedModelTypeEnum
+    _results("DISP", "ALL")(pmx)
+    _on_ui_controller(lambda c: c.SetUndeformedModelType(UndeformedModelTypeEnum.WireframeBody))
+    _on_ui_controller(lambda c: c.Redraw(False))
+
+
 def _surface_loads(pmx):
     # Drawn before the native areas are switched on, the colored surfaces wait in the selection buffer of the
     # Controller, which the redraw of enable_native has to build again
@@ -112,6 +129,8 @@ SCENES.update({
     "ball_symbols": (os.path.join(JOINTS, "Joint_Springs_Ball.pmx"), [], _view("femodel")),
     "plates_weld_symbols": (os.path.join(JOINTS, "Joint_Plates_Springs_Weld.pmx"), [], _view("femodel")),
     "hinge_surface_loads": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _surface_loads),
+    "hinge_annotate_materials": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _annotate_materials),
+    "hinge_result_undeformed_wireframe": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _result_undeformed_wireframe),
 })
 def _section_view(point, normal, lighten, hatch, element_wise=False):
     def run(pmx):
@@ -204,7 +223,8 @@ AFTER_ENABLE["hinge_surface_loads"] = _surface_loads_mirrored
 CAMERA_TOLERANCES = {"hinge_result_disp": 1e-7, "hinge_result_mises": 1e-7, "hinge_result_section": 1e-7,
                      "hinge_result_symmetry": 1e-7, "hinge_exploded": 1e-7, "hinge_pattern": 1e-7,
                      "hinge_animation_frame": 1e-7, "hinge_result_vector": 1e-7, "hinge_result_tensor": 1e-7,
-                     "hinge_vector_animation_frame": 1e-7, "hinge_tensor_animation_frame": 1e-7}
+                     "hinge_vector_animation_frame": 1e-7, "hinge_tensor_animation_frame": 1e-7,
+                     "hinge_result_undeformed_wireframe": 1e-7}
 
 
 def _doubles(values):

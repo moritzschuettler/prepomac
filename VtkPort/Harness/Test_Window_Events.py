@@ -5,7 +5,11 @@
 #widgets area on, the native style raises the pick, hover and clear events that vtkInteractorStyleControl raises and
 #the widgets handler routes them; without it, the selection area handles the raw button and move events. In both
 #cases a real click (Win32 messages to the VTK window) adds exactly one selection node and a move over the model
-#draws a hover highlight. Writes window_events.json.
+#draws a hover highlight. The camera of the control follows the native one, its view changes reach the native view,
+#a highlight leaves the native camera where it is, and the ActiViz window cannot paint over the native view. Writes
+#window_events.json. With the widgets area: a double click on a part reaches the Controller as two clicks, a right
+#click picks through the native view, a click on the triad animates the camera of both views, and the transparency
+#of a part reaches the native view.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Window_Events.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -27,6 +31,7 @@ VTK = vtkport.VTK
 CONTROLLER = vtkport.CONTROLLER
 on_ui = vtkport.on_ui
 WM_MOUSEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP = 0x0200, 0x0201, 0x0202
+WM_RBUTTONDOWN, WM_RBUTTONUP, MK_RBUTTON = 0x0204, 0x0205, 0x0002
 MK_LBUTTON = 0x0001
 SIZE = (800, 600)
 HOVER_WAIT = 0.5  # the native style picks on a selection timer, as vtkInteractorStyleControl does
@@ -41,6 +46,9 @@ USER32.GetCursor.restype = wintypes.HANDLE
 USER32.LoadCursorW.restype = wintypes.HANDLE
 USER32.LoadCursorW.argtypes = [wintypes.HINSTANCE, ctypes.c_void_p]
 IDC_HAND = 32649
+USER32.GetWindowLongW.restype = ctypes.c_long
+USER32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+GWL_STYLE, WS_CLIPSIBLINGS = -16, 0x04000000
 
 
 def check(condition, text, detail=""):
@@ -120,9 +128,117 @@ def run_mode(areas, record):
     record[label] = {"handlers": names, "point": point, "nodes": nodes, "ids": [int(i) for i in ids]}
     if widgets:
         record[label].update(check_widgets_style(label, send, x, y))
+        check_mouse_actions(label, send, x, y)
     on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))
     on_ui(CONTROLLER.ClearSelectionHistory)
+    check_camera(label)
     vtkport.disable_native()
+
+
+def view_direction(camera):
+    d = [camera[3] - camera[0], camera[4] - camera[1], camera[5] - camera[2]]
+    n = sum(v * v for v in d) ** 0.5
+    return [v / n for v in d]
+
+
+def close(a, b, tolerance=1e-6):
+    return all(abs(x - y) <= tolerance for x, y in zip(a, b))
+
+
+def check_camera(label):
+    import System
+
+    def cameras():
+        return (view_direction(vtkport.camera_list(pmx.view.get_parameters())),
+                view_direction(on_ui(lambda: list(VTK.NativeMirror.GetCamera()))))
+    rotated = System.Array[System.Double]([60.0, 80.0, 90.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 40.0])
+    on_ui(lambda: VTK.NativeMirror.SetViewParameters(rotated))
+    old, new = cameras()
+    check(close(old, new), label + ": the camera of the control follows the native camera", [old, new])
+    on_ui(lambda: VTK.SetFrontBackView(False, True))
+    old, new = cameras()
+    check(close(new, [0, 0, -1]) and close(old, new), label + ": a standard view of the control reaches the native view",
+          [old, new])
+    on_ui(lambda: VTK.NativeMirror.SetViewParameters(rotated))
+    before = on_ui(lambda: list(VTK.NativeMirror.GetCamera()))
+    on_ui(lambda: CONTROLLER.HighlightElements(System.Array[System.Int32](list(range(1, 200, 5)))))
+    after = on_ui(lambda: list(VTK.NativeMirror.GetCamera()))
+    check(close(view_direction(before), view_direction(after)) and abs(before[9] - after[9]) < 1e-9,
+          label + ": a highlight leaves the native camera", [before, after])
+    style = on_ui(lambda: USER32.GetWindowLongW(int(str(vtkport.get_field(VTK, "_renderWindow").GetGenericWindowId())),
+                                                GWL_STYLE))
+    check(style & WS_CLIPSIBLINGS != 0, label + ": the ActiViz window cannot paint over the native view", hex(style))
+
+
+def check_mouse_actions(label, send, x, y):
+    import System
+    from System.Windows.Forms import Keys, MouseEventArgs
+    from vtkControl.Native import VtkNativeTriadTarget
+    picked = []
+
+    def on_picked(e, keys, names):
+        picked.append([str(e.Button), int(e.Clicks), [str(n) for n in names]])
+    recorder = System.Action[MouseEventArgs, Keys, System.Array[System.String]](on_picked)
+    saved = on_ui(lambda: VTK.Controller_ActorsPicked)
+
+    def install(handler):
+        def run():
+            VTK.Controller_ActorsPicked = handler
+            CONTROLLER.SelectBy = vtkSelectBy.Default
+        on_ui(run)
+    vtkport.frame_both(vtkport.camera_list(pmx.view.get_parameters()), "Isometric")
+    x, y = hit_point()
+    install(recorder)
+    try:
+        # Away from the double click time of the clicks before
+        time.sleep(1.0)
+        send(WM_MOUSEMOVE, 0, x, y)
+        for _ in range(2):
+            send(WM_LBUTTONDOWN, MK_LBUTTON, x, y)
+            send(WM_LBUTTONUP, 0, x, y)
+        clicks = [entry[1] for entry in picked if entry[0] == "Left"]
+        check(clicks == [1, 2] and all(entry[2] and entry[2][0] not in ("", "None") for entry in picked),
+              label + ": a double click on a part reaches the Controller as two clicks", picked)
+        del picked[:]
+        time.sleep(1.0)
+        send(WM_RBUTTONDOWN, MK_RBUTTON, x, y)
+        send(WM_RBUTTONUP, 0, x, y)
+        check(len(picked) == 1 and picked[0][0] == "Right" and picked[0][2][0] not in ("", "None"),
+              label + ": a right click on a part picks it through the native view", picked)
+    finally:
+        install(saved)
+        on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))
+    # A click on the triad animates both cameras
+    modified = []
+
+    def on_native(sender, e):
+        if int(e.Event) == 5:
+            modified.append(1)
+
+    def click_triad():
+        VTK.NativeMirror.NativeEvent += on_native
+        VTK.ViewAnimationEnabled = True
+        try:
+            vtkport.invoke(VTK, "NativeMirrorTriad_TargetClicked", VtkNativeTriadTarget.XPositive)
+        finally:
+            VTK.ViewAnimationEnabled = False
+            VTK.NativeMirror.NativeEvent -= on_native
+    on_ui(click_triad)
+    old = view_direction(vtkport.camera_list(pmx.view.get_parameters()))
+    new = view_direction(on_ui(lambda: list(VTK.NativeMirror.GetCamera())))
+    check(close(old, new) and abs(abs(new[0]) - 1) < 1e-6 and len(modified) > 5,
+          label + ": a click on the triad animates the camera of both views", [old, new, len(modified)])
+    # The transparency of a part
+    names = list(on_ui(lambda: list(VTK.GetNativeMirrorNames())))
+    path = os.path.join(OUT, label + "_%s.png")
+    on_ui(lambda: VTK.NativeMirror.WritePng(path % "opaque", 1))
+    on_ui(lambda: CONTROLLER.SetTransparencyForModelParts(System.Array[System.String](names), System.Byte(80)))
+    on_ui(lambda: VTK.NativeMirror.WritePng(path % "transparent", 1))
+    on_ui(lambda: CONTROLLER.SetTransparencyForModelParts(System.Array[System.String](names), System.Byte(255)))
+    on_ui(lambda: VTK.NativeMirror.WritePng(path % "opaque_again", 1))
+    opaque, transparent, again = [open(path % n, "rb").read() for n in ["opaque", "transparent", "opaque_again"]]
+    check(transparent != opaque and again == opaque, label + ": the transparency of the parts reaches the native view",
+          names)
 
 
 def check_widgets_style(label, send, x, y):

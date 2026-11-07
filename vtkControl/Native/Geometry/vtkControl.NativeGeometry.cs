@@ -463,6 +463,16 @@ namespace vtkControl
             MirrorGeometry("HighlightActor", () => _nativeMirror.HighlightActor(actorName));
             for (int i = selectedCount; i < _selectedActors.Count; i++) _nativeMirroredActors.Add(_selectedActors[i]);
         }
+        // UpdateActor: the color and the opacity of a part or of another mirrored actor; the native actor keeps the
+        // name it was added with
+        private void MirrorActorColor(vtkMaxActor actor, string nativeName, Color color)
+        {
+            if (actor == null || !IsNativeGeometryOn()) return;
+            bool part = _nativeMirrorNames != null && _nativeMirrorNames.Contains(nativeName);
+            if (!part && !_nativeMirroredActors.Contains(actor)) return;
+            MirrorGeometry("SetActorColor " + nativeName, () =>
+                _nativeMirror.SetActorColor(nativeName, VtkNativePartStyle.ToNativeLayer(actor.Layer), color));
+        }
         private void MirrorActorVisible(vtkMaxActor actor, bool visible)
         {
             if (actor == null || !_nativeMirroredActors.Contains(actor)) return;

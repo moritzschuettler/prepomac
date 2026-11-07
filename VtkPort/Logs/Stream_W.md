@@ -270,3 +270,39 @@ widgets and the ActiViz camera, the next run closes it. Click into the view firs
 - Checks: slice B allows 16 % differing pixels in a widget (the lines lie in one row where ActiViz spread them over two)
   and leaves the three pixel band of the highlight out of the coverage of the dark shapes; W1 covers the shapes within
   two pixels, since the native scale bar also stands a pixel higher (accepted in the review).
+
+## Changed after the user's third review (2026-11-07)
+
+- **A standard view animated and then snapped back; a hover over the tree flickered the view**: the view changes of
+  vtkControl (the standard views, a zoom to fit, their animations) moved only the ActiViz camera, and the ActiViz
+  window, created by VTK without `WS_CLIPSIBLINGS`, painted each of its renders over the native view that covers it.
+  So the user saw the ActiViz animation, then the native view repainted with its own camera; a highlight rendered
+  ActiViz once with the camera it had when the native view was switched on. Now, while the native view is in the
+  window: the ActiViz window is clipped by its siblings; every camera change of the native view is copied to the
+  ActiViz camera (`NativeWindow_CameraEvent`), so a view change starts where the user is; and `RenderScene` hands the
+  ActiViz camera to the native view, which covers every view change and each frame of its animation.
+- Checked in `integration_window`, both modes: the control's camera follows a native rotation, a front view of the
+  control reaches the native view, a highlight leaves the native camera, and the ActiViz window has `WS_CLIPSIBLINGS`.
+- `Test_Embedded_W2.py` drives the ActiViz and the native navigation apart from one start in the window and compares
+  where they end, which the sync defeats; and the ActiViz navigation picks its center from the depth of its own
+  pixels, which a clipped window no longer owns. `vtkControl.NativeWindowIndependent` switches both off for it.
+- `Run_Port_Checks.sh` takes the build folder to copy from `PREPOMAX_BIN`, for a run while PrePoMax runs from the
+  build folder and its `lib` cannot be updated.
+
+## Changed after the user's fourth review (2026-11-07)
+
+- **A double click on a part or the background did nothing**: the native style counts the clicks and sends the count
+  with the pick, but `PickWithNativeMirror` always reported one click; it takes the count now. The raw selection mode
+  without the widgets area still reports single clicks.
+- **The minimum and maximum of the scalar bar could not be edited**: nothing subscribed to the double click of the
+  native scalar bar (slice B attached its own handler, which hid it). It ends in `scalarBarWidget_DoubleClicked` now,
+  and slice B checks the callbacks of vtkControl on both paths.
+- **A click on the triad did not animate**: in the window it calls the animated views of vtkControl, whose frames
+  reach the native view (the camera sync of the third review); the off screen mirror keeps the direct native view.
+- **The hover highlight did not cover a black widget border**: the highlight frame is drawn opaque in the color VTK 5.8
+  blended from the translucent blue and the half gray border (93, 114, 174).
+- **The highlight flickered on a right click on a selected part**: the right click picked through ActiViz, which
+  rendered into its window behind the native view; in the window it picks through the native view.
+- Checked in `integration_window` (widgets mode): a double click reaches the Controller as one and two clicks, a right
+  click picks the part, a triad click animates both cameras (over a hundred camera steps), and the transparency of the
+  parts changes the native picture and back.

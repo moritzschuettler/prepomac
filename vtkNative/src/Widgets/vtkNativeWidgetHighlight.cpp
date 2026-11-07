@@ -13,8 +13,10 @@ namespace vtkn
     namespace
     {
         const int NumOfCorners = 4;
-        // System.Drawing.Color.RoyalBlue and LightSkyBlue
-        const double BorderColor[3] = { 65 / 255.0, 105 / 255.0, 225 / 255.0 };
+        // The border: VTK 5.8 blended RoyalBlue at half opacity over the half gray border line of the widget; the
+        // border line is one black row now, which showed through, so the border is drawn opaque in the color the
+        // blend had. The fill: LightSkyBlue
+        const double BorderColor[3] = { 93 / 255.0, 114 / 255.0, 174 / 255.0 };
         const double FillColor[3] = { 135 / 255.0, 206 / 255.0, 250 / 255.0 };
     }
 
@@ -38,7 +40,6 @@ namespace vtkn
         BorderActor = vtkSmartPointer<vtkActor2D>::New();
         BorderActor->SetMapper(borderMapper);
         BorderActor->GetProperty()->SetColor(BorderColor[0], BorderColor[1], BorderColor[2]);
-        BorderActor->GetProperty()->SetOpacity(WidgetBorderOpacity);
         BorderActor->GetProperty()->SetLineWidth(WidgetBorderLineWidth);
         BorderActor->VisibilityOff();
         //

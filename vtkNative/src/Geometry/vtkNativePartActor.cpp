@@ -847,21 +847,20 @@ namespace vtkn
         vtkProperty* property = Geometry->GetProperty();
         if (!ColorTable.empty())
         {
-            // The color table replaces the ambient material color and not the ambient component, so the ambient
-            // component is baked into the color table
-            double diffuse = std::min(Style.diffuse, 0.999);
+            // VTK 5.8 put the colors of the table into the ambient material color only, so vtkMaxActor bakes the
+            // ambient component into them. VTK 9 puts a scalar color into both the ambient and the diffuse color,
+            // so the table holds the colors themselves and a cell is lit as a part of its color
             int count = static_cast<int>(ColorTable.size());
             vtkNew<vtkLookupTable> cellLut;
             cellLut->SetNumberOfTableValues(count + 1);
             cellLut->Build();
-            cellLut->SetTableValue(0, Style.ambient, Style.ambient, Style.ambient, 1);
+            cellLut->SetTableValue(0, 1, 1, 1, 1);
             for (int i = 0; i < count; i++)
-                cellLut->SetTableValue(i + 1, Style.ambient * ColorTable[i][0], Style.ambient * ColorTable[i][1],
-                                       Style.ambient * ColorTable[i][2], 1);
+                cellLut->SetTableValue(i + 1, ColorTable[i][0], ColorTable[i][1], ColorTable[i][2], 1);
             Geometry->GetMapper()->SetLookupTable(cellLut);
             Geometry->GetMapper()->SetScalarRange(-1, count - 1);
-            property->SetAmbient(1);
-            property->SetDiffuse(diffuse);
+            property->SetAmbient(Style.ambient);
+            property->SetDiffuse(Style.diffuse);
             property->SetDiffuseColor(color[0], color[1], color[2]);
             property->SetOpacity(opacity);
             property->SetSpecularColor(color[0], color[1], color[2]);
@@ -894,6 +893,9 @@ namespace vtkn
                 property->SetAmbient(Style.ambient * 1.2);
             }
         }
+        // The undeformed wireframe of the results is drawn a step translucent, which VTK 5.8 smoothed; VTK 9 would
+        // draw it in the translucent pass without multisampling (SetEdgeLine)
+        Geometry->SetForceOpaque(Style.representation == VTKN_REPRESENTATION_WIRE);
         //
         // vtkControl asks for 0.8 px model edges and 0.5 px element edges, which VTK 5.8 drew one pixel wide
         if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 1.0, opacity * 0.7);

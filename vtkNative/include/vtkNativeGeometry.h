@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_GEOMETRY_API_VERSION 6
+#define VTKN_GEOMETRY_API_VERSION 7
 
 /* Mirrors vtkRendererLayer of vtkControl: the base layer, the selection layer drawn over it, the overlay layer */
 typedef enum vtkn_layer
@@ -218,6 +218,10 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_add_actor(vtkn_view view, const char* n
 /* The visibility of an existing actor of a layer, as setting vtkMaxActor.VtkMaxActorVisible */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actor_visible(vtkn_view view, const char* name, int32_t layer,
                                                             int32_t visible);
+/* UpdateActorColor: the color and opacity of an existing actor of a layer (rgba, 0 - 1), of its transformed copies
+   and of its section view */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actor_color(vtkn_view view, const char* name, int32_t layer,
+                                                          const double* rgba);
 /* HighlightActor: a copy of the model edges of a base actor, or its silhouette, in the selection layer */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_highlight_actor(vtkn_view view, const char* name);
 /* HideActors and ShowActors; names is a string list: every name followed by a zero byte, and one more zero byte */

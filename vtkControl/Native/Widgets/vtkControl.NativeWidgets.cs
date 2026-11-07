@@ -162,7 +162,7 @@ namespace vtkControl
                 case 22:
                     if (e.Values.Length >= 6)
                         PickWithNativeMirror((int)e.Values[4], (int)e.Values[5], e.Values[3] != 0, (int)e.Values[0],
-                                             (int)e.Values[1]);
+                                             (int)e.Values[1], (int)e.Values[2]);
                     break;
                 case 23:
                     if (e.Values.Length >= 5)
@@ -208,6 +208,12 @@ namespace vtkControl
         private void NativeMirrorTriad_TargetClicked(VtkNativeTriadTarget target)
         {
             if (_nativeMirror == null) return;
+            // In the window the views of this control animate the camera and hand each frame to the native view
+            if (_nativeInWindow && !_nativeWindowIndependent)
+            {
+                coorSysWidget_TargetClicked((vtkMaxCoorSysTarget)(int)target);
+                return;
+            }
             double[][] axes = new double[][] { new double[] { 1, 0, 0 }, new double[] { -1, 0, 0 },
                                                new double[] { 0, 1, 0 }, new double[] { 0, -1, 0 },
                                                new double[] { 0, 0, 1 }, new double[] { 0, 0, -1 } };

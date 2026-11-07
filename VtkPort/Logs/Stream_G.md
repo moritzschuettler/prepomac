@@ -370,3 +370,24 @@ tolerance 1e-7 of the result scenes.
   differently. ActiViz crops such a surface to the remaining elements but keeps all its points, so its zoom to fit
   still frames the whole surface; the native crop keeps the points it draws. The native view is given the ActiViz
   camera in these scenes (`SAME_CAMERA` in `scenes.py`, also in the S4 pick plan), and the pictures then agree.
+
+## Changed after the user's third review (2026-11-07)
+
+- **The undeformed wireframe of the results was jagged**: the Controller draws it with alpha 254, so VTK 9 drew it in
+  the translucent pass without multisampling, as it did the edges. A wire actor is forced opaque now; it keeps its
+  alpha. Scene `hinge_result_undeformed_wireframe` (`geometry_g3`).
+- **Colors annotated by material, section and the like were darker than the legend** (204 against 242 on a top face,
+  188 against 215 on a front face): VTK 5.8 put the colors of a table into the ambient material color only, so
+  vtkMaxActor bakes the ambient component into them, while VTK 9 puts a scalar color into both the ambient and the
+  diffuse color (`ambientIntensity * vertexColor`, `diffuseIntensity * vertexColor` in vtkOpenGLPolyDataMapper.cxx)
+  and multiplied the diffuse light by the ambient a second time. The native table holds the colors themselves with the
+  actor's ambient and diffuse; a cell is lit as a part of its color, and the faces match ActiViz exactly for the
+  materials, the sections and the mesh types (measured on the hinge; the colors by part never used the table). Scene
+  `hinge_annotate_materials` (`geometry_g2`).
+
+## Changed after the user's fourth review (2026-11-07)
+
+- **The transparency of a part did nothing in the native view**: `UpdateActor`, which the Controller calls for a new
+  color or transparency of a part, had no native hook. `vtkn_view_set_actor_color` (geometry API 7) sets the color and
+  opacity of an actor and of its transformed copies and rebuilds an active section view, which took the color when it
+  was made. Not done: a renamed part keeps its old name in the native view.

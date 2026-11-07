@@ -284,6 +284,14 @@ namespace vtkControl.Native
                                                                                  (int)layer, visible ? 1 : 0));
         }
         //
+        public void SetActorColor(string name, VtkNativeLayer layer, System.Drawing.Color color)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            double[] rgba = new double[] { color.R / 255.0, color.G / 255.0, color.B / 255.0, color.A / 255.0 };
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_actor_color(Handle(), VtkNativeLibrary.ToUtf8(name),
+                                                                               (int)layer, rgba));
+        }
+        //
         public void HighlightActor(string name)
         {
             if (name == null) throw new ArgumentNullException("name");
