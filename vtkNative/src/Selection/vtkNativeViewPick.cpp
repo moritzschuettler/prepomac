@@ -200,8 +200,12 @@ namespace vtkn
         bool hit = false;
         double p[3] = { 0, 0, 0 };
         std::string name;
-        // First pick
+        // First pick. vtkControl rendered its renderer only; the render of the window is not shown, or the parts drawn
+        // opaque for the pick would flash in a window with translucent parts
+        int swapBuffers = RenderWindow->GetSwapBuffers();
+        RenderWindow->SwapBuffersOff();
         RenderWindow->Render();
+        RenderWindow->SetSwapBuffers(swapBuffers);
         vtkNew<vtkPropPicker> propPicker;
         propPicker->PickFromListOn();
         for (const auto& entry : Parts)

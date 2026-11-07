@@ -17,6 +17,7 @@ namespace vtkn
     {
     public:
         static constexpr double WidgetFillOpacity = 0.05;
+        static constexpr double WidgetBorderOpacity = 0.5;
         static constexpr float WidgetBorderLineWidth = 2.0f;
 
         WidgetHighlight();

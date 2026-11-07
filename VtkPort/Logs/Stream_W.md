@@ -306,3 +306,10 @@ widgets and the ActiViz camera, the next run closes it. Click into the view firs
 - Checked in `integration_window` (widgets mode): a double click reaches the Controller as one and two clicks, a right
   click picks the part, a triad click animates both cameras (over a hundred camera steps), and the transparency of the
   parts changes the native picture and back.
+
+## Changed after the user's fifth review (2026-11-07)
+
+- **The hover highlight is translucent again** (RoyalBlue at half opacity, as in ActiViz): the opaque frame of the
+  fourth review is taken back. While a highlight covers a whole widget, the widget's black border line is hidden, so
+  the frame is the same blue on a widget with a border and without one; an inner highlight (a value of the scalar bar)
+  leaves the border.

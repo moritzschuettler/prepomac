@@ -59,6 +59,14 @@ namespace vtkn
         // VTK 9 has no line smoothing in its core profile, so the lines are smoothed only by multisampling, and
         // two samples leave lines thinner than a pixel dotted
         RenderWindow->SetMultiSamples(8);
+        // VTK 5.8 blended the translucent geometry into the multisampled frame as it came; the order independent
+        // translucency of VTK 9 draws it into a buffer of its own without multisampling, where its lines come out
+        // jagged and where it does not lose ties of depth to what is already drawn as it did in VTK 5.8
+        for (vtkRenderer* renderer : { Renderer.Get(), OverlayRenderer.Get(), WidgetRenderer.Get() })
+        {
+            renderer->UseOITOff();
+            renderer->UseDepthPeelingOff();
+        }
         // Camera lights are in camera coordinates: the camera at (0, 0, 1) looks at the origin, up is (0, 1, 0)
         const double lightPositions[3][3] = { { -1, 1, 1 }, { 1, 1, 1 }, { 0, -1, 0 } };
         for (const auto& position : lightPositions)

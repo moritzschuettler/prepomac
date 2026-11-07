@@ -32,6 +32,8 @@ namespace vtkn
         SelectionRenderer->SetLayer(2);
         SelectionRenderer->InteractiveOff();
         SelectionRenderer->SetActiveCamera(Renderer->GetActiveCamera());
+        SelectionRenderer->UseOITOff();
+        SelectionRenderer->UseDepthPeelingOff();
         for (const auto& light : Lights) SelectionRenderer->AddLight(light);
         WidgetRenderer->SetLayer(3);
         RenderWindow->SetNumberOfLayers(4);

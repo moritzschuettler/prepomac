@@ -143,6 +143,7 @@ namespace vtkn
         if (LocalHighlightEnabled == enabled) return;
         LocalHighlightEnabled = enabled;
         Highlight.Clear();
+        BorderActor->VisibilityOn();
     }
 
     // The renderWindow_ModifiedEvt handler: the window size is compared with the last one seen
@@ -192,6 +193,7 @@ namespace vtkn
         int windowSize[2] = { size[0], size[1] };
         //
         Highlight.Clear();
+        BorderActor->VisibilityOn();
         //
         double max[2] = { windowSize[0] - Size[0], windowSize[1] - Size[1] };
         if (Anchor == VTKN_ANCHOR_TOP_LEFT) Position[1] = windowSize[1] - Size[1] - Position[1];
@@ -217,6 +219,7 @@ namespace vtkn
     void BorderWidget::OnSizeChanged()
     {
         Highlight.Clear();
+        BorderActor->VisibilityOn();
         OnMovedOrSizeChanged();
     }
 
@@ -297,11 +300,16 @@ namespace vtkn
             bool internalHighlight = !localRectangle.IsEmpty() && localRectangle != displayRectangle;
             rectangle = highlightEntireWidget && !internalHighlight ? displayRectangle : localRectangle;
         }
+        // The translucent blue of a highlight over the whole widget lies on the border line, one black row since the
+        // lines of the widgets are drawn into one pixel row, which showed through as a dark stripe; the border is
+        // hidden while it is covered
+        BorderActor->SetVisibility(rectangle.IsEmpty() || rectangle != displayRectangle);
         return Highlight.SetRectangle(rectangle, GetHighlightFillOpacity(rectangle));
     }
 
     bool BorderWidget::ClearMouseHover()
     {
+        BorderActor->VisibilityOn();
         return Highlight.Clear();
     }
 

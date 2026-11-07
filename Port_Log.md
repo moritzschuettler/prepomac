@@ -269,3 +269,14 @@ On 2026-11-06, after the leftovers of W and S, the user looked at the native vie
   selection mode without the widgets area reports no double clicks.
 
 **Checks.** The full `Run_Port_Checks.sh`: all passed, S4 with its one known difference.
+
+## The user's fifth review (2026-11-07)
+
+- **Fixed:** no flash of the highlight on a right click, and none on a click with translucent parts (the native pick
+  showed its own render).
+- **Fixed:** translucent parts show their edges dark, not as white lines.
+- **Fixed:** the undeformed wireframe is no longer drawn gray over the parts: the native view blends translucent
+  geometry as VTK 5.8 did, without the order independent translucency of VTK 9.
+- **Changed:** the widget highlight is translucent again; the black border of the widget is hidden under it.
+
+**Checks.** The full `Run_Port_Checks.sh`: all passed, S4 with its one known difference.

@@ -85,17 +85,18 @@ namespace vtkn
             shaderProperty->AddFragmentShaderReplacement("normalize(-vertexVC.xyz)", false, "vec3(0.0, 0.0, 1.0)", true);
         }
 
-        // VTK 9 draws every actor with an opacity below one in the translucent pass, which renders without
-        // multisampling and tests the depth against a copy of the buffer, so the edges come out jagged and broken.
-        // Forced opaque, they keep their alpha but are blended in the multisampled opaque pass
-        void SetEdgeLine(vtkActor* actor, double width, double opacity)
+        // The edges of an opaque part are forced opaque: they keep their alpha and are blended in the opaque pass,
+        // right after the faces. The edges of a translucent part stay in the translucent pass with its faces: drawn
+        // before them, they would write the depth the faces then lose to along every line, which showed the
+        // background through the part as white lines
+        void SetEdgeLine(vtkActor* actor, double width, double opacity, bool partOpaque)
         {
             vtkProperty* property = actor->GetProperty();
             property->SetColor(0, 0, 0);
             property->SetLighting(false);
             property->SetLineWidth(static_cast<float>(width));
             property->SetOpacity(opacity);
-            actor->SetForceOpaque(true);
+            actor->SetForceOpaque(partOpaque);
         }
 
         vtkSmartPointer<vtkIdTypeArray> ToIdArray(const std::vector<int>& values)
@@ -893,14 +894,12 @@ namespace vtkn
                 property->SetAmbient(Style.ambient * 1.2);
             }
         }
-        // The undeformed wireframe of the results is drawn a step translucent, which VTK 5.8 smoothed; VTK 9 would
-        // draw it in the translucent pass without multisampling (SetEdgeLine)
-        Geometry->SetForceOpaque(Style.representation == VTKN_REPRESENTATION_WIRE);
         //
         // vtkControl asks for 0.8 px model edges and 0.5 px element edges, which VTK 5.8 drew one pixel wide
-        if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 1.0, opacity * 0.7);
-        if (SectionViewHatch != nullptr) SetEdgeLine(SectionViewHatch, 1.0, opacity * 0.7);
-        if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 1.0, opacity * 0.4);
+        bool opaque = opacity >= 1;
+        if (ModelEdges != nullptr) SetEdgeLine(ModelEdges, 1.0, opacity * 0.7, opaque);
+        if (SectionViewHatch != nullptr) SetEdgeLine(SectionViewHatch, 1.0, opacity * 0.7, opaque);
+        if (ElementEdges != nullptr) SetEdgeLine(ElementEdges, 1.0, opacity * 0.4, opaque);
         if (Style.has_backface_color && !Style.backface_culling)
         {
             vtkNew<vtkProperty> backface;

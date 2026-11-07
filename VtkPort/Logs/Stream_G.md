@@ -391,3 +391,18 @@ tolerance 1e-7 of the result scenes.
   color or transparency of a part, had no native hook. `vtkn_view_set_actor_color` (geometry API 7) sets the color and
   opacity of an actor and of its transformed copies and rebuilds an active section view, which took the color when it
   was made. Not done: a renamed part keeps its old name in the native view.
+
+## Changed after the user's fifth review (2026-11-07)
+
+- **No order independent translucency**: VTK 9 drew the translucent geometry into a buffer of its own without
+  multisampling, where lines came out jagged and where nothing lost a tie of depth to what was already drawn. VTK 5.8
+  blended it into the multisampled frame as it came, and so do the renderers of the native view now (`UseOITOff`,
+  `UseDepthPeelingOff`). The undeformed wireframe (drawn before the deformed parts, alpha 254) is no longer forced
+  opaque: it is smooth and, as in ActiViz, it loses to the model edges of a part that did not move and stays hidden
+  behind the deformed faces (it showed gray there, (43, 43, 43) on the edge of the base, ActiViz (15, 15, 80), now
+  (17, 17, 86)).
+- **White lines through translucent parts**: their edges were forced opaque and drawn before the faces, whose depth
+  then lost to them along every line. Only the edges of an opaque part are forced opaque now.
+- **A flash on a click with translucent parts, and of the highlight on a right click**: the native pick rendered the
+  window with every part opaque and only the pickable parts shown, and that frame was shown. The pick renders without
+  swapping the buffers, as vtkControl rendered only its renderer.
