@@ -305,3 +305,10 @@ On 2026-11-06, after the leftovers of W and S, the user looked at the native vie
 
 The details are in the stream logs (W and G). **Checks.** The full `Run_Port_Checks.sh`, from a copy of the build while
 the user's PrePoMax held the build folder: all passed, S4 with its one known difference.
+
+## The user's eighth review (2026-11-08)
+
+- **Fixed:** the arrow keys turn the native view; the main form handed them to vtkControl, which fed the ActiViz view.
+- **Fixed:** the mesh lines on a surface symbol are the part's own, not two lines over each other.
+
+The details are in the stream logs (W and G). **Checks.** The full `Run_Port_Checks.sh`: all passed, S4 with its one known difference.

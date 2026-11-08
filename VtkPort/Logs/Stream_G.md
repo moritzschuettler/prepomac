@@ -440,3 +440,13 @@ tolerance 1e-7 of the result scenes.
   the parts one color. The copies get the values ActiViz computed for them, transformed for a directional field.
 - Checks: `hinge_result_symmetry_field` and `hinge_result_symmetry_section` (`geometry_g10_directional`), through the
   Controller as the user sets a symmetry; the rename in `integration_window`.
+
+## Changed after the user's eighth review (2026-11-08)
+
+- **The mesh lines of a surface symbol dark and hard**: a surface drawn on the parts (the surface of a load, a
+  boundary condition, a selected surface) has mesh lines of its own, which VTK 5.8 drew half a pixel wide over the half
+  pixel lines of the part beneath. With the one pixel lines of the native view and both drawn after every face since the
+  seventh review, they came out twice as dark (alpha 0.64 against 0.4) and stair stepped. A surface drawn on the parts
+  leaves its mesh lines to the parts while a visible part draws element edges of its own
+  (`View::ApplyEdgesVisibility`, `PartActor::SetElementEdgesDrawnByParts`); on geometry parts, which have none,
+  it keeps them, and so it does in the exploded view, which moves the parts away from it (`hinge_exploded_animated`).

@@ -600,6 +600,8 @@ namespace vtkControl
         private const int MK_SHIFT = 0x0004;
         private const int MK_CONTROL = 0x0008;
         private const int WM_INPUT = 0x00FF;
+        private const int WM_KEYDOWN = 0x0100;
+        private const int WM_KEYUP = 0x0101;
         //
         // VTK creates its own child window and its Win32 interactor consumes WM_MOUSEWHEEL inside it,
         // so the message never reaches this control and has to be taken from the message pump instead
@@ -618,8 +620,19 @@ namespace vtkControl
         protected override void WndProc(ref Message m)
         {
             if (m.Msg == WM_INPUT) HandleRawInput(m.LParam);
+            else if ((m.Msg == WM_KEYDOWN || m.Msg == WM_KEYUP) && ForwardKeyToNativeWindow(ref m)) return;
             //
             base.WndProc(ref m);
+        }
+        // The main form hands the arrow keys to this control while it holds the focus, so that they do not move the
+        // focus; in the window they turn the native view, not the ActiViz one behind it
+        private bool ForwardKeyToNativeWindow(ref Message m)
+        {
+            if (!_nativeInWindow || _nativeHost == null) return false;
+            IntPtr viewWindow = _nativeHost.ViewWindow;
+            if (viewWindow == IntPtr.Zero) return false;
+            m.Result = SendMessage(viewWindow, m.Msg, m.WParam, m.LParam);
+            return true;
         }
         private void vtkControl_HandleCreated(object sender, EventArgs e)
         {
@@ -10306,6 +10319,8 @@ namespace vtkControl
             _nativeHost.Visible = show;
             if (show) _nativeHost.BringToFront();
         }
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int message, IntPtr wParam, IntPtr lParam);
         [DllImport("user32.dll")]
         private static extern int GetWindowLong(IntPtr hWnd, int index);
         [DllImport("user32.dll")]

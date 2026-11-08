@@ -113,6 +113,7 @@ namespace vtkn
     // moved by its offset
     void View::SetExplodedViewOffsets(const std::map<std::string, std::array<double, 3>>& offsets)
     {
+        bool partsDrewElementEdges = PartsDrawElementEdges();
         for (const auto& entry : Parts)
         {
             auto offset = offsets.find(entry.first);
@@ -125,6 +126,7 @@ namespace vtkn
             if (offset == offsets.end()) offset = offsets.find(entry.second->GetParentName());
             if (offset != offsets.end()) entry.second->SetPosition(offset->second.data());
         }
+        if (PartsDrawElementEdges() != partsDrewElementEdges) ApplyEdgesVisibilityAndBackfaceCulling();
         AdjustCameraDistanceAndClipping();
     }
 }

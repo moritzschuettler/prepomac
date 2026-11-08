@@ -111,8 +111,33 @@ namespace vtkn
             actor->ApplySelectionFormatting(Highlight);
             SelectedParts.push_back(std::move(actor));
         }
-        added->ApplyEdgesVisibility(EdgesVisibility, layer, SectionViewActive);
+        if (added->IsAPart()) ApplyEdgesVisibilityAndBackfaceCulling();
+        else ApplyEdgesVisibility(*added, layer, PartsDrawElementEdges());
         AdjustCameraDistanceAndClipping();
+    }
+
+    // A surface drawn on the parts, such as a surface of a load, kept its own mesh lines in VTK 5.8, where they were
+    // half a pixel wide and were drawn over the lines of the part beneath. The one pixel lines of both came out
+    // twice as dark and hard there; the lines of the parts alone are drawn over every face, unless the exploded view
+    // moved the parts away from the surface
+    void View::ApplyEdgesVisibility(PartActor& actor, vtkn_layer layer, bool partsDrawElementEdges)
+    {
+        actor.SetElementEdgesDrawnByParts(partsDrawElementEdges && layer != VTKN_LAYER_OVERLAY && !actor.IsAPart() &&
+                                          actor.GetStyle().draw_on_geometry != 0);
+        actor.ApplyEdgesVisibility(EdgesVisibility, layer, SectionViewActive);
+    }
+
+    bool View::PartsDrawElementEdges()
+    {
+        bool drawn = false;
+        for (const auto& entry : Parts)
+        {
+            const double* position = entry.second->GetGeometry()->GetPosition();
+            if (position[0] != 0 || position[1] != 0 || position[2] != 0) return false;
+            const vtkn_part_style& style = entry.second->GetStyle();
+            if (style.visible != 0 && style.can_have_element_edges != 0) drawn = true;
+        }
+        return drawn;
     }
 
     std::vector<PartActor*> View::GetBaseActors()
@@ -576,9 +601,8 @@ namespace vtkn
     // overlay layer keeps its formatting
     void View::ApplyEdgesVisibilityAndBackfaceCulling()
     {
-        for (PartActor* actor : GetBaseActors())
-            actor->ApplyEdgesVisibility(EdgesVisibility, VTKN_LAYER_BASE, SectionViewActive);
-        for (const auto& actor : SelectedParts)
-            actor->ApplyEdgesVisibility(EdgesVisibility, VTKN_LAYER_SELECTION, SectionViewActive);
+        bool partsDrawElementEdges = PartsDrawElementEdges();
+        for (PartActor* actor : GetBaseActors()) ApplyEdgesVisibility(*actor, VTKN_LAYER_BASE, partsDrawElementEdges);
+        for (const auto& actor : SelectedParts) ApplyEdgesVisibility(*actor, VTKN_LAYER_SELECTION, partsDrawElementEdges);
     }
 }

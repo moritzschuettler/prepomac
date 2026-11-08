@@ -333,3 +333,12 @@ widgets and the ActiViz camera, the next run closes it. Click into the view firs
 - **The box zoom did not animate**: in the window the native style hands the box to vtkControl
   (`VTKN_NAVIGATE_SET_OWNER_BOX_ZOOM`, `VTKN_EVENT_BOX_ZOOM_REQUESTED`, widgets API 4), whose `SetBoxZoom` animates it
   and hands each frame to the native view; the off screen mirror and the independent mode zoom natively.
+
+## Changed after the user's eighth review (2026-11-08)
+
+- **The arrow keys still turned only the ActiViz view**: the focus did reach the native window, but the main form
+  (`MainMouseWheelManagedForm.PreFilterMessage`) sends every arrow key to its pass through control, vtkControl, while
+  that control contains the focus, so that the keys do not move the focus; `vtkControl.OnKeyDown` fed them to the
+  ActiViz interactor. In the window `vtkControl.WndProc` hands the key messages on to the native window
+  (`ForwardKeyToNativeWindow`). `integration_window` posts an arrow key to the focused VTK window, through the message
+  filters, and expects the native view to turn and the control to follow; it failed before the fix.

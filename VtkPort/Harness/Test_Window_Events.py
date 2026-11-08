@@ -9,7 +9,8 @@
 #a highlight leaves the native camera where it is, and the ActiViz window cannot paint over the native view. Writes
 #window_events.json. With the widgets area: a double click on a part reaches the Controller as two clicks, a right
 #click picks through the native view, a click on the triad animates the camera of both views, the transparency of a
-#part reaches the native view, and a preview of the exploded view reaches the native view before the paint.
+#part reaches the native view, a preview of the exploded view reaches the native view before the paint, and an arrow
+#key posted to the focused VTK window passes the message filters of the window and turns the native view.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Window_Events.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -42,6 +43,11 @@ USER32.GetWindow.restype = wintypes.HWND
 USER32.GetWindow.argtypes = [wintypes.HWND, wintypes.UINT]
 USER32.SendMessageW.restype = ctypes.c_ssize_t
 USER32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, ctypes.c_size_t, ctypes.c_ssize_t]
+USER32.PostMessageW.restype = wintypes.BOOL
+USER32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, ctypes.c_size_t, ctypes.c_ssize_t]
+USER32.SetFocus.restype = wintypes.HWND
+USER32.SetFocus.argtypes = [wintypes.HWND]
+WM_KEYDOWN, WM_KEYUP, VK_LEFT = 0x0100, 0x0101, 0x25
 USER32.GetCursor.restype = wintypes.HANDLE
 USER32.LoadCursorW.restype = wintypes.HANDLE
 USER32.LoadCursorW.argtypes = [wintypes.HINSTANCE, ctypes.c_void_p]
@@ -129,6 +135,7 @@ def run_mode(areas, record):
     if widgets:
         record[label].update(check_widgets_style(label, send, x, y))
         check_mouse_actions(label, send, x, y)
+        check_arrow_key(label)
     on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))
     on_ui(CONTROLLER.ClearSelectionHistory)
     check_camera(label)
@@ -168,6 +175,25 @@ def check_camera(label):
     style = on_ui(lambda: USER32.GetWindowLongW(int(str(vtkport.get_field(VTK, "_renderWindow").GetGenericWindowId())),
                                                 GWL_STYLE))
     check(style & WS_CLIPSIBLINGS != 0, label + ": the ActiViz window cannot paint over the native view", hex(style))
+
+
+def check_arrow_key(label):
+    import math
+    vtkport.frame_both(vtkport.camera_list(pmx.view.get_parameters()), "Isometric")
+    child = on_ui(lambda: USER32.GetWindow(VTK.NativeHost.Handle.ToInt64(), 5))
+    # The VTK window holds the focus after a click; the main form then hands the arrow keys to the control
+    on_ui(lambda: USER32.SetFocus(child))
+    before = view_direction(on_ui(lambda: list(VTK.NativeMirror.GetCamera())))
+    # A posted message passes the message filters of the window, as a key typed into it does
+    key_data = 1 | (0x4B << 16) | (1 << 24)
+    USER32.PostMessageW(child, WM_KEYDOWN, VK_LEFT, key_data)
+    USER32.PostMessageW(child, WM_KEYUP, VK_LEFT, key_data | (3 << 30))
+    time.sleep(1.0)
+    after = view_direction(on_ui(lambda: list(VTK.NativeMirror.GetCamera())))
+    old = view_direction(vtkport.camera_list(pmx.view.get_parameters()))
+    angle = math.degrees(math.acos(max(-1.0, min(1.0, sum(a * b for a, b in zip(before, after))))))
+    check(3 < angle < 5.5 and close(old, after, 1e-4), label + ": an arrow key turns the native view and the control "
+          "follows it", [angle, before, after, old])
 
 
 def check_mouse_actions(label, send, x, y):

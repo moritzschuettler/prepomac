@@ -239,6 +239,8 @@ namespace vtkn
         void InitializeGeometry();
         void HideShowActor(PartActor* actor, bool visible);
         vtkRenderer* GetLayerRenderer(const PartActor& actor);
+        void ApplyEdgesVisibility(PartActor& actor, vtkn_layer layer, bool partsDrawElementEdges);
+        bool PartsDrawElementEdges();
         vtkSmartPointer<vtkRenderer> SelectionRenderer;
         // The base layer actors that are not parts (symbols, constraint faces, nodes): Parts holds only what
         // picking and the parts of the checks consider

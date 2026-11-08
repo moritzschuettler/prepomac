@@ -122,6 +122,8 @@ namespace vtkn
         void SetPoints(const double* coordinates, int count, const double* normals);
         bool GetGeometryHiddenBySectionView() const { return GeometryHiddenBySectionView; }
         void SetGeometryHiddenBySectionView(bool hidden) { GeometryHiddenBySectionView = hidden; }
+        // A surface drawn on the parts leaves its mesh lines to the parts, which draw theirs over every face
+        void SetElementEdgesDrawnByParts(bool drawnByParts) { ElementEdgesDrawnByParts = drawnByParts; }
 
     private:
         void CreateFromMesh(const vtkn_mesh& geometry, const vtkn_mesh* modelEdges, const vtkn_mesh* modelEdgesToDraw);
@@ -159,6 +161,7 @@ namespace vtkn
         };
         std::vector<AnimationFrame> AnimationFrames;
         bool GeometryHiddenBySectionView = false;
+        bool ElementEdgesDrawnByParts = false;
         vtkSmartPointer<vtkActor> Geometry;
         vtkSmartPointer<vtkActor> ElementEdges;
         vtkSmartPointer<vtkActor> ModelEdges;

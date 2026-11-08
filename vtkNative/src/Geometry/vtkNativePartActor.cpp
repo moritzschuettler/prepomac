@@ -1052,7 +1052,8 @@ namespace vtkn
         }
         if (ElementEdges != nullptr)
         {
-            ElementEdges->SetVisibility(edgesVisible && edgesVisibility == VTKN_EDGES_ELEMENT_EDGES);
+            ElementEdges->SetVisibility(edgesVisible && edgesVisibility == VTKN_EDGES_ELEMENT_EDGES &&
+                                        !ElementEdgesDrawnByParts);
             ElementEdges->GetProperty()->BackfaceCullingOn();
         }
     }
