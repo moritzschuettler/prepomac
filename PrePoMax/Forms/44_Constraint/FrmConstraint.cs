@@ -351,8 +351,9 @@ namespace PrePoMax.Forms
                             if (cyclicSymmetry.CreationData == null ||
                                 cyclicSymmetry.CreationIds == null ||
                                 cyclicSymmetry.CreationIds.Length == 0)
-                                throw new CaeException("The cyclic symmetry result expansion region selection must " +
-                                                       "contain at least one item.");
+                                throw new CaeException("Displayed sectors is larger than 1, so the result expansion " +
+                                                       "region must be defined. Select the region in the Result " +
+                                                       "expansion region category or set Displayed sectors to 1.");
                         }
                         else if (cyclicSymmetry.RegionType == RegionTypeEnum.PartName ||
                                  cyclicSymmetry.RegionType == RegionTypeEnum.ElementSetName)
@@ -521,6 +522,29 @@ namespace PrePoMax.Forms
                     // Context menu strip
                     propertyGrid.ContextMenuStrip = null;
                 }
+                else if (_viewConstraint is ViewCyclicSymmetry vcs)
+                {
+                    selectedId = lvTypes.FindItemWithText("Cyclic Symmetry").Index;
+                    // Master
+                    if (vcs.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else CheckMissingValueRef(ref cyclicSurfaceNames, vcs.MasterSurfaceName,
+                                              s => { vcs.MasterSurfaceName = s; });
+                    // Slave
+                    if (vcs.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else CheckMissingValueRef(ref cyclicSurfaceNames, vcs.SlaveSurfaceName,
+                                              s => { vcs.SlaveSurfaceName = s; });
+                    // Result expansion region
+                    if (vcs.AffectedRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vcs.AffectedRegionType == RegionTypeEnum.PartName.ToFriendlyString())
+                        CheckMissingValueRef(ref partNames, vcs.PartName, s => { vcs.PartName = s; });
+                    else if (vcs.AffectedRegionType == RegionTypeEnum.ElementSetName.ToFriendlyString())
+                        CheckMissingValueRef(ref elementSetNames, vcs.ElementSetName,
+                                             s => { vcs.ElementSetName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    vcs.PopulateDropDownLists(cyclicSurfaceNames, partNames, elementSetNames);
+                    propertyGrid.ContextMenuStrip = cmsPropertyGrid;
+                }
                 else if (_viewConstraint is ViewTie vt)
                 {
                     selectedId = lvTypes.FindItemWithText("Tie").Index;
@@ -548,29 +572,6 @@ namespace PrePoMax.Forms
                     vj.PopulateDropDownLists(surfaceNames);
                     _controller.Model.UpdateJointAutoValues((Joint)vj.GetBase());
                     // Context menu strip
-                    propertyGrid.ContextMenuStrip = cmsPropertyGrid;
-                }
-                else if (_viewConstraint is ViewCyclicSymmetry vcs)
-                {
-                    selectedId = lvTypes.FindItemWithText("Cyclic Symmetry").Index;
-                    // Master
-                    if (vcs.MasterRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else CheckMissingValueRef(ref cyclicSurfaceNames, vcs.MasterSurfaceName,
-                                              s => { vcs.MasterSurfaceName = s; });
-                    // Slave
-                    if (vcs.SlaveRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else CheckMissingValueRef(ref cyclicSurfaceNames, vcs.SlaveSurfaceName,
-                                              s => { vcs.SlaveSurfaceName = s; });
-                    // Result expansion region
-                    if (vcs.AffectedRegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
-                    else if (vcs.AffectedRegionType == RegionTypeEnum.PartName.ToFriendlyString())
-                        CheckMissingValueRef(ref partNames, vcs.PartName, s => { vcs.PartName = s; });
-                    else if (vcs.AffectedRegionType == RegionTypeEnum.ElementSetName.ToFriendlyString())
-                        CheckMissingValueRef(ref elementSetNames, vcs.ElementSetName,
-                                             s => { vcs.ElementSetName = s; });
-                    else throw new NotSupportedException();
-                    //
-                    vcs.PopulateDropDownLists(cyclicSurfaceNames, partNames, elementSetNames);
                     propertyGrid.ContextMenuStrip = cmsPropertyGrid;
                 }
                 else throw new NotSupportedException();

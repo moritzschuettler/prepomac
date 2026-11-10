@@ -17055,8 +17055,9 @@ namespace PrePoMax
                     if (cyclicSymmetry.CreationData == null ||
                         cyclicSymmetry.CreationIds == null ||
                         cyclicSymmetry.CreationIds.Length == 0)
-                        throw new CaeException("The cyclic symmetry result expansion region selection must contain " +
-                                               "at least one item.");
+                        throw new CaeException("Displayed sectors is larger than 1, so the result expansion region " +
+                                               "must be defined. Select the region in the Result expansion region " +
+                                               "category or set Displayed sectors to 1.");
                     //
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets,
                                                            constraint.Name + "_Ngraph");
