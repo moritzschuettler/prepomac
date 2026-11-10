@@ -312,3 +312,8 @@ the user's PrePoMax held the build folder: all passed, S4 with its one known dif
 - **Fixed:** the mesh lines on a surface symbol are the part's own, not two lines over each other.
 
 The details are in the stream logs (W and G). **Checks.** The full `Run_Port_Checks.sh`: all passed, S4 with its one known difference.
+
+## The user's ninth review (2026-11-10)
+
+- **Confirmed:** the arrow keys work.
+- **Changed:** the colored center of a reference point is 2 px smaller, so its black ring is thicker (Stream G).

@@ -450,3 +450,9 @@ tolerance 1e-7 of the result scenes.
   leaves its mesh lines to the parts while a visible part draws element edges of its own
   (`View::ApplyEdgesVisibility`, `PartActor::SetElementEdgesDrawnByParts`); on geometry parts, which have none,
   it keeps them, and so it does in the exploded view, which moves the parts away from it (`hinge_exploded_animated`).
+
+## Changed after the user's ninth review (2026-11-10)
+
+- **The black ring of a reference point thicker**, on the user's choice: `Controller.DrawReferencePoint` draws the
+  colored dot 5 px smaller than the black one instead of 3 px, which leaves a 2.5 px ring on each side (3 px measured
+  in the native view at the default symbol sizes, 1.5 px in ActiViz before). Both views draw it so.
