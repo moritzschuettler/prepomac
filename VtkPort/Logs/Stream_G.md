@@ -456,6 +456,8 @@ tolerance 1e-7 of the result scenes.
 - **The black ring of a reference point thicker**, on the user's choice: `Controller.DrawReferencePoint` draws the
   colored dot 5 px smaller than the black one instead of 3 px, which leaves a 2.5 px ring on each side (3 px measured
   in the native view at the default symbol sizes, 1.5 px in ActiViz before). Both views draw it so.
+- **The colored dot of a reference point a pixel larger again**, on the user's choice once the dots were smooth: 4 px
+  smaller than the black one, a 5 px center in a 2 px ring at the default symbol sizes.
 - **Round dots with a smoothed edge**: VTK 9 draws a round point as a sphere imposter that keeps or discards a whole
   pixel, which the multisampling cannot smooth, so a dot of a few pixels came out square and the ring of a reference
   point uneven; VTK 5.8 smoothed the edge of a point. A pixel on the edge now covers the share of its samples that the

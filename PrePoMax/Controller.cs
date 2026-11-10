@@ -26057,7 +26057,7 @@ namespace PrePoMax
                           false, false);
                 // Draw the smaller circle
                 if (layer != vtkRendererLayer.Selection)
-                    DrawNodes(referencePoint.Name, coor, color, layer, nodeSize - 5, false, false);
+                    DrawNodes(referencePoint.Name, coor, color, layer, nodeSize - 4, false, false);
                 // Name
                 if (referencePoint.NameVisible)
                 {
