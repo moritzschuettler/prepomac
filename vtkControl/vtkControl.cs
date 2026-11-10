@@ -10468,6 +10468,21 @@ namespace vtkControl
             if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorWidgets();
             MirrorOwnerBoxZoom();
         }
+        // The native view in the window with every area, which the application shows by default; the ActiViz view
+        // stays underneath, the fallback of the settings. The native view starts from the camera the ActiViz one
+        // shows, and the caller redraws, so it receives the current scene
+        public void SetNativeView(bool on)
+        {
+            if (on == (_nativeInWindow && _nativeAreas == VtkNativeArea.All)) return;
+            SetNativeAreas(on ? VtkNativeArea.All : VtkNativeArea.None, on);
+            if (!on) return;
+            //
+            GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp,
+                              out double parallelScale);
+            _nativeMirror.SetViewParameters(new double[] { position[0], position[1], position[2], focalPoint[0],
+                                                           focalPoint[1], focalPoint[2], viewUp[0], viewUp[1],
+                                                           viewUp[2], parallelScale });
+        }
         public string[] GetNativeMirrorNames()
         {
             return _nativeMirrorNames == null ? new string[0] : _nativeMirrorNames.ToArray();

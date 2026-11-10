@@ -17,6 +17,7 @@ using CaeGlobals;
 using System.IO;
 using DynamicTypeDescriptor;
 using System.Drawing;
+using System.Runtime.Serialization;
 
 namespace PrePoMax
 {
@@ -50,6 +51,9 @@ namespace PrePoMax
         private bool _linearDeflectionRelative;
         private double _linearDeflection;
         private double _angularDeflectionDeg;
+        // Older settings files have no renderer, which reads as the VTK 9 view
+        [OptionalField]
+        private bool _activizView;
 
 
         // Properties                                                                                                               
@@ -115,6 +119,7 @@ namespace PrePoMax
                 if (_linearDeflection < 0) _linearDeflection = 0;
             }
         }
+        public bool ActiVizView { get { return _activizView; } set { _activizView = value; } }
         public double AngularDeflectionRad
         {
             get { return Math.Round(_angularDeflectionDeg * Math.PI / 180, 2); }
@@ -156,6 +161,7 @@ namespace PrePoMax
             _linearDeflectionRelative = true;
             _linearDeflection = 0.01;
             _angularDeflectionDeg = 15;
+            _activizView = false;
         }
     }
 }

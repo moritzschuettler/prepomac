@@ -323,3 +323,21 @@ The details are in the stream logs (W and G). **Checks.** The full `Run_Port_Che
 - **Changed:** with the smooth dots, the colored center of a reference point is a pixel larger again (Stream G).
 
 **Checks.** The full `Run_Port_Checks.sh`: all passed, S4 with its one known difference.
+
+## The native view by default (plan step I.2, first half; 2026-11-10)
+
+On the user's "Yes, make it default" after the ninth review.
+
+- **The VTK 9 view is on by default**: once the viewport is shown, FrmMain switches the native view on in the window
+  with every area (`vtkControl.SetNativeView`, which starts it from the camera of the ActiViz view; the caller
+  redraws). The ActiViz view keeps running underneath, as the review mode had it.
+- **The fallback**: Settings > Graphics > Renderer > Viewport, "VTK 9" or "ActiViz (VTK 5.8)"
+  (`GraphicsSettings.ActiVizView`, applied by `Controller.ApplySettings` through `FrmMain.SetNativeView`). The field
+  is `[OptionalField]` and off by default, so a settings file of an older build loads and reads as the VTK 9 view.
+- **Not done**: the plan's run with the mirror reversed (ActiViz off screen behind a native window that holds the
+  data) is not a mode of this code; the native view in the window is still fed by the ActiViz path, which the checks
+  compare it with. That reversal comes with removing ActiViz (step I.2, second half).
+- Next: a day of normal use (review round 4), then the removal of ActiViz.
+
+**Checks.** At startup the native view is in the window with every area, both parts of the hinge mirrored, no mirror
+error. The full `Run_Port_Checks.sh` with the default on: all passed, S4 with its one known difference. `Run_Tests.py --filter Test_Api Test_Selection Test_Workflow Test_Model_Parts Test_Result_Field Test_Rpc_Live`: 13 of 13 passed (with `Test_Analysis`).

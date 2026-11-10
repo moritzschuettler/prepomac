@@ -94,6 +94,9 @@ namespace PrePoMax
         private bool _advisorPanelStateApplied;
         private bool _restoringSidePanelsState;
         private KeyboardHook _keyboardHook;
+        // The VTK 9 view of the settings, switched on once the viewport is shown
+        private bool _nativeView = true;
+        private bool _viewportShown;
         private Dictionary<ViewGeometryModelResults, int> _selectedSymbolIndex;
         private Stack<bool[]> _prevMenuStates;
         private bool _closeAfterRegeneration;
@@ -764,6 +767,8 @@ namespace PrePoMax
             _vtk.Visible = true;
             _vtk.ResetScaleBarPosition();   // start after the vtk size is set
             _vtk.SetZoomFactor(1000);       // set starting zoom larger that the object
+            _viewportShown = true;
+            _vtk.SetNativeView(_nativeView);
             _controller.Redraw();
             // Move _vtk to the edge of the screen to hide the black background
             int left = _vtk.Left;
@@ -12524,6 +12529,18 @@ namespace PrePoMax
         public void SetWidgetHighlightEnabled(bool enabled)
         {
             InvokeIfRequired(_vtk.SetWidgetHighlightEnabled, enabled);
+        }
+        // Renderer
+        public void SetNativeView(bool on)
+        {
+            InvokeIfRequired(() =>
+            {
+                if (on == _nativeView) return;
+                _nativeView = on;
+                if (!_viewportShown) return;
+                _vtk.SetNativeView(on);
+                _controller.Redraw();
+            });
         }
         public void SetSelectionDistance(int distanceInPixels)
         {

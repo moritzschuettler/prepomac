@@ -143,6 +143,15 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.DiffuseComponent; }
             set { _graphicsSettings.DiffuseComponent = value; }
         }
+        // Renderer                                                                                 
+        [CategoryAttribute("Renderer")]
+        [OrderedDisplayName(0, 10, "Viewport")]
+        [DescriptionAttribute("The view of the viewport: the VTK 9 view, or the ActiViz (VTK 5.8) view it replaces.")]
+        public bool NativeView
+        {
+            get { return !_graphicsSettings.ActiVizView; }
+            set { _graphicsSettings.ActiVizView = !value; }
+        }
         // Smoothing                                                                                
         [CategoryAttribute("Smoothing")]
         [OrderedDisplayName(0, 10, "Point smoothing")]
@@ -216,6 +225,7 @@ namespace PrePoMax.Settings
             _dctd.RenameBooleanPropertyToOnOff(nameof(PointSmoothing));
             _dctd.RenameBooleanPropertyToOnOff(nameof(LineSmoothing));
             _dctd.RenameBooleanProperty(nameof(LinearDeflectionRelative), "Relative", "Absolute");
+            _dctd.RenameBooleanProperty(nameof(NativeView), "VTK 9", "ActiViz (VTK 5.8)");
             //
             UpdateVisibilities();
         }
