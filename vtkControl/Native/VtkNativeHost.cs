@@ -43,6 +43,10 @@ namespace vtkControl.Native
         [DllImport("user32.dll")]
         private static extern IntPtr GetWindow(IntPtr hWnd, uint command);
         private const uint GW_CHILD = 5;
+        private const int WM_PARENTNOTIFY = 0x0210;
+        private const int WM_LBUTTONDOWN = 0x0201;
+        private const int WM_RBUTTONDOWN = 0x0204;
+        private const int WM_MBUTTONDOWN = 0x0207;
         //
         protected override void OnHandleCreated(EventArgs e)
         {
@@ -73,6 +77,30 @@ namespace vtkControl.Native
         protected override void OnPaint(PaintEventArgs e)
         {
             if (_view != null) _view.Render();
+        }
+        // A click on the ActiViz view was a click on vtkControl, which took the focus of the form; a click on the
+        // OpenGL window passes the form by, which kept the control focused before, a tool strip or the search box of the
+        // model tree, and so ignored the keys of the view (the space to hide and show). The control takes the focus
+        // here, as it did, and hands it on to the OpenGL window
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_PARENTNOTIFY)
+            {
+                int message = (int)(m.WParam.ToInt64() & 0xFFFF);
+                if ((message == WM_LBUTTONDOWN || message == WM_RBUTTONDOWN || message == WM_MBUTTONDOWN) &&
+                    Parent != null && !IsActiveControlOfForm(Parent)) Parent.Focus();
+            }
+            base.WndProc(ref m);
+        }
+        private bool IsActiveControlOfForm(Control control)
+        {
+            Control active = FindForm()?.ActiveControl;
+            while (active != null)
+            {
+                if (active == control || active == this) return true;
+                active = (active as ContainerControl)?.ActiveControl;
+            }
+            return false;
         }
     }
 }

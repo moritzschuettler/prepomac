@@ -317,3 +317,8 @@ The details are in the stream logs (W and G). **Checks.** The full `Run_Port_Che
 
 - **Confirmed:** the arrow keys work.
 - **Changed:** the colored center of a reference point is 2 px smaller, so its black ring is thicker (Stream G).
+- **Fixed:** round dots (reference points, nodes) have a smoothed edge instead of a square one (Stream G).
+- **Fixed:** a reference point stays drawn with every part hidden, also after its highlight (Stream G).
+- **Fixed, to be confirmed:** the space hides and shows the parts selected in the view (Stream W).
+
+**Checks.** The full `Run_Port_Checks.sh`: all passed, S4 with its one known difference.

@@ -395,18 +395,21 @@ namespace vtkn
     }
 
     // Port of vtkInteractorStyleControl.AdjustCameraDistance: the camera stands just outside the sphere around
-    // the visible geometry, looking at a focal point one unit ahead
+    // the visible geometry, looking at a focal point one unit ahead. A single point, such as a reference point with
+    // every part hidden, has no extent: the camera stood on it and VTK 9 clipped it, where VTK 5.8 still drew it, so
+    // the camera stands one unit back, which puts the focal point the views turn about on the point
     void View::AdjustCameraDistance()
     {
         double b[6];
         if (!ComputeVisiblePropBounds(b)) return;
         //
+        vtkCamera* camera = Renderer->GetActiveCamera();
         double r = 0.5 * std::sqrt((b[0] - b[1]) * (b[0] - b[1]) + (b[2] - b[3]) * (b[2] - b[3]) +
                                    (b[4] - b[5]) * (b[4] - b[5]));
         r *= 1.05;
+        if (r <= 0) r = 1;
         double center[3] = { (b[0] + b[1]) / 2, (b[2] + b[3]) / 2, (b[4] + b[5]) / 2 };
         //
-        vtkCamera* camera = Renderer->GetActiveCamera();
         double pos[3];
         camera->GetPosition(pos);
         double delta[3] = { center[0] - pos[0], center[1] - pos[1], center[2] - pos[2] };

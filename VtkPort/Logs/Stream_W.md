@@ -342,3 +342,15 @@ widgets and the ActiViz camera, the next run closes it. Click into the view firs
   ActiViz interactor. In the window `vtkControl.WndProc` hands the key messages on to the native window
   (`ForwardKeyToNativeWindow`). `integration_window` posts an arrow key to the focused VTK window, through the message
   filters, and expects the native view to turn and the control to follow; it failed before the fix.
+
+## Changed after the user's ninth review (2026-11-10)
+
+- **The space did not hide and show the selected parts**: the main form takes the keys of the view through a low level
+  keyboard hook and hands them to the model tree, unless its focused control is a tool strip, the tree's search box
+  and the like. A click on the ActiViz view was a click on vtkControl, which took the focus of the form; a click on
+  the OpenGL window passes WinForms by, so the form kept whichever control was focused before. The host gives
+  vtkControl the focus on a button down in the OpenGL window (`WM_PARENTNOTIFY`), which hands it on to that window.
+  The hook also ran the whole hide, its render among it, inside the hook, which Windows removes for good when it
+  takes too long; FrmMain hands the key to the tree after the hook returns (`BeginInvoke`). `integration_window`
+  checks the focus of the form after a click; the key itself goes through a hook only a real keyboard reaches, so
+  the user's check is the test of it.

@@ -510,7 +510,7 @@ namespace vtkn
         std::unique_ptr<PartActor> actor(new PartActor(style, polyData));
         actor->SetParentName(parentName);
         actor->GetGeometry()->GetProperty()->RenderPointsAsSpheresOn();
-        actor->KeepPointDepthFlat();
+        actor->DrawPointsAsFlatRoundDots();
         if (pointCount > 0) actor->SetPointScalars(values, pointCount, extremes);
         AddActor(name, std::move(actor));
     }

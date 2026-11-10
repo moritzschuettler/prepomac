@@ -1240,8 +1240,9 @@ namespace PrePoMax
             if (_modelTree.ActiveControl != null && _modelTree.ActiveControl is SearchTextBox) return;
             // Model tree edit mode active
             if (_modelTree.EditModeActive) return;
-            // Forward to tree
-            _modelTree.cltv_KeyDown(this, new KeyEventArgs(key));
+            // Forward to tree - after the hook returns: Windows waits for a low level hook and removes it for good when it
+            // takes too long, as hiding a large model and rendering it, or a question before a delete, can
+            BeginInvoke((MethodInvoker)(() => _modelTree.cltv_KeyDown(this, new KeyEventArgs(key))));
             // Prevent that the coders lab tree calls _modelTree.cltv_KeyDown again
             _vtk.Focus();
         }

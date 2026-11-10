@@ -122,6 +122,84 @@ def _surface_loads_mirrored(pmx):
     vtkport.on_ui(run)
 
 
+def _reference_points(pmx):
+    # Without the names, which hinge_captions covers
+    pmx.model.reference_points.add("PortPointOnTop", [40.0, 22.0, 0.0], name_visible=False)
+    pmx.model.reference_points.add("PortPointFree", [100.0, 30.0, 0.0], name_visible=False)
+    pmx.view.current = "femodel"
+
+
+def _reference_point_alone(pmx):
+    # With every part hidden the reference point is all there is, a point without extent: the native camera stood on
+    # it and clipped it, so it disappeared and stayed away after a highlight
+    import System
+    pmx.model.reference_points.add("PortPointOnTop", [40.0, 22.0, 0.0], name_visible=False)
+    pmx.view.current = "femodel"
+    _on_ui_controller(lambda c: c.HideModelParts(System.Array[System.String](["Base", "Lever"])))
+
+
+def _reference_point_alone_highlighted(pmx):
+    # Highlighted and cleared, as a click on it in the tree and away; the native view draws its yellow dot after it
+    import System
+    import vtkport
+    vtk = vtkport.VTK
+    path = os.path.join(os.environ["TEMP"], "port_reference_point_alone.png")
+    vtkport.on_ui(lambda: vtk.SetNativeMirrorAllGeometry(True))
+    vtkport.set_native_camera(vtkport.camera_list(pmx.view.get_parameters()))
+    _on_ui_controller(lambda c: c.HighlightReferencePoint("PortPointOnTop"))
+    _on_ui_controller(lambda c: c.ClearAllSelection())
+
+    def run():
+        vtk.NativeMirror.WritePng(path, 1)
+        bitmap = System.Drawing.Bitmap(path)
+        try:
+            yellow = 0
+            for y in range(bitmap.Height):
+                for x in range(bitmap.Width):
+                    c = bitmap.GetPixel(x, y)
+                    if c.R > 200 and c.G > 200 and c.B < 80:
+                        yellow += 1
+        finally:
+            bitmap.Dispose()
+        if yellow < 4:
+            vtkport.get_field(vtk, "_nativeMirrorErrors").Add(
+                "hinge_reference_point_alone: the reference point is not drawn (%d yellow pixels)" % yellow)
+    vtkport.on_ui(run)
+
+
+def _reference_points_smooth(pmx):
+    # The yellow dot of a reference point has a smoothed edge, as the round points of VTK 5.8 had: zoomed on the point
+    # on top, a few pixels around it blend the yellow into the black ring instead of a hard square edge
+    import System
+    import vtkport
+    vtk = vtkport.VTK
+    path = os.path.join(os.environ["TEMP"], "port_reference_point.png")
+
+    def run():
+        vtk.SetNativeMirrorAllGeometry(True)
+        camera = list(vtk.NativeMirror.GetCamera())
+        center = [40.0, 22.0, 0.0]
+        position = [center[i] + camera[i] - camera[i + 3] for i in range(3)]
+        vtk.NativeMirror.SetViewParameters(System.Array[System.Double](position + center + camera[6:9] +
+                                                                         [camera[9] / 5.0]))
+        vtk.NativeMirror.WritePng(path, 1)
+        bitmap = System.Drawing.Bitmap(path)
+        try:
+            cx, cy = bitmap.Width // 2, bitmap.Height // 2
+            blended = 0
+            for y in range(cy - 8, cy + 9):
+                for x in range(cx - 8, cx + 9):
+                    c = bitmap.GetPixel(x, y)
+                    if abs(c.R - c.G) <= 2 and c.B < 40 and 20 < c.R < 235:
+                        blended += 1
+        finally:
+            bitmap.Dispose()
+        if blended < 4:
+            vtkport.get_field(vtk, "_nativeMirrorErrors").Add(
+                "hinge_reference_points: the edge of the yellow dot is not smoothed (%d blended pixels)" % blended)
+    vtkport.on_ui(run)
+
+
 SCENES.update({
     "hinge_symbols": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
     "springs_symbols": (os.path.join(JOINTS, "Joint_Springs_Weld.pmx"), [], _view("femodel")),
@@ -129,6 +207,8 @@ SCENES.update({
     "ball_symbols": (os.path.join(JOINTS, "Joint_Springs_Ball.pmx"), [], _view("femodel")),
     "plates_weld_symbols": (os.path.join(JOINTS, "Joint_Plates_Springs_Weld.pmx"), [], _view("femodel")),
     "hinge_surface_loads": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _surface_loads),
+    "hinge_reference_points": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _reference_points),
+    "hinge_reference_point_alone": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _reference_point_alone),
     "hinge_annotate_materials": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _annotate_materials),
     "hinge_result_undeformed_wireframe": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _result_undeformed_wireframe),
 })
@@ -230,6 +310,8 @@ AFTER_ENABLE = {
     "solid_geometry_highlight": _highlight_geometry_part,
 }
 AFTER_ENABLE["hinge_surface_loads"] = _surface_loads_mirrored
+AFTER_ENABLE["hinge_reference_points"] = _reference_points_smooth
+AFTER_ENABLE["hinge_reference_point_alone"] = _reference_point_alone_highlighted
 
 
 # The result coordinates, the transformed copies and the actor positions of an exploded view are single precision on
@@ -351,6 +433,11 @@ CAMERA_TOLERANCES["hinge_animated_section_element_wise"] = 1e-7
 # elements. ActiViz keeps all their points, so its zoom to fit still frames the whole surface; the native crop keeps
 # the points it draws. The native view is given the ActiViz camera, so the pictures compare what is drawn
 SAME_CAMERA = {"hinge_section_element_wise", "hinge_section_element_wise_side"}
+# A point alone has no extent: the ActiViz camera stands on it, the native one a unit back, so the standard views turn
+# about points a unit apart; given the ActiViz camera, the native view has to draw the point it stands at. ActiViz
+# loses the point in some views itself, clipped where it stands, so the outlines are not compared (the scene asserts
+# the native dot)
+SAME_CAMERA.add("hinge_reference_point_alone")
 # The native view then stands at its own distance along the direction of view, which the parallel projection does
 # not show, so the cameras are not compared
 for _name in SAME_CAMERA:
@@ -459,6 +546,7 @@ def differing_limit(name, view):
 COVERAGE_LIMITS = {"hinge_captions": 0.99, "hinge_item_ids": 0.99, "hinge_measurement": 0.99,
                    "hinge_coordinate_systems": 0.99}
 COVERAGE_LIMITS["hinge_animated_section"] = SECTION_EDGE_ON_COVERAGE
+COVERAGE_LIMITS["hinge_reference_point_alone"] = -1.0
 
 
 def after_enable(name, pmx):

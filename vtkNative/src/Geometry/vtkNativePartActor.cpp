@@ -711,19 +711,31 @@ namespace vtkn
         Geometry->SetMapper(mapper);
         Geometry->SetPickable(Style.pickable != 0);
         Geometry->GetProperty()->RenderPointsAsSpheresOn();
-        KeepPointDepthFlat();
+        DrawPointsAsFlatRoundDots();
         UseInfiniteViewer(Geometry);
     }
 
-    // VTK 5.8 drew a point as a flat round dot at the depth of its center. A sphere imposter writes the depth of its
-    // front, so the larger black dot of a reference point covered the colored dot drawn on it, and a dot on a surface
-    // came out of it or sank into it as the view zoomed. The depth of the center is written after the sphere's
-    void PartActor::KeepPointDepthFlat()
+    // VTK 5.8 drew a point as a flat round dot at the depth of its center, with a smoothed edge. A sphere imposter
+    // writes the depth of its front, so the larger black dot of a reference point covered the colored dot drawn on it,
+    // and a dot on a surface came out of it or sank into it as the view zoomed: the depth of the center is written
+    // after the sphere's. The imposter keeps or discards a whole pixel, which the multisampling cannot smooth, so a
+    // small dot came out square; a pixel on its edge covers the share of its samples that the circle covers instead
+    void PartActor::DrawPointsAsFlatRoundDots()
     {
         vtkOpenGLShaderProperty* shaderProperty = vtkOpenGLShaderProperty::SafeDownCast(Geometry->GetShaderProperty());
         if (shaderProperty == nullptr) return;
         shaderProperty->AddFragmentShaderReplacement("//VTK::Depth::Impl", true,
                                                      "//VTK::Depth::Impl\n  gl_FragDepth = gl_FragCoord.z;\n", false);
+        shaderProperty->AddFragmentShaderReplacement("//VTK::System::Dec", true,
+                                                     "//VTK::System::Dec\n#extension GL_ARB_sample_shading : enable\n",
+                                                     false);
+        shaderProperty->AddFragmentShaderReplacement("if (len2 > 1.0) { discard; }", false,
+            "if (len2 > 1.0) { discard; }\n"
+            "#ifdef GL_ARB_sample_shading\n"
+            "  float dotPixel = 2.0 * fwidth(gl_PointCoord.x);\n"
+            "  float dotCoverage = clamp((1.0 - sqrt(len2)) / max(dotPixel, 1e-6), 0.0, 1.0);\n"
+            "  gl_SampleMask[0] = (1 << int(dotCoverage * float(gl_NumSamples) + 0.5)) - 1;\n"
+            "#endif\n", false);
     }
 
     void PartActor::CreateFromMesh(const vtkn_mesh& geometry, const vtkn_mesh* modelEdges,

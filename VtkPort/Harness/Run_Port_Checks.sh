@@ -28,7 +28,7 @@ SUITES=(
     "selection_slice_c|pilot VtkPilot/Phase4/Run_SliceC.sh"
     # Stream G (geometry)
     "geometry_g1|scenes geometry shell_femodel springs_femodel hinge_highlight hinge_hidden solid_geometry_highlight"
-    "geometry_g2|scenes geometry hinge_symbols springs_symbols slider_symbols ball_symbols plates_weld_symbols hinge_surface_loads hinge_annotate_materials"
+    "geometry_g2|scenes geometry hinge_symbols springs_symbols slider_symbols ball_symbols plates_weld_symbols hinge_surface_loads hinge_annotate_materials hinge_reference_points hinge_reference_point_alone"
     "geometry_g3|scenes geometry hinge_result_disp hinge_result_mises hinge_result_undeformed_wireframe"
     "geometry_g4|scenes geometry hinge_section hinge_result_section solid_geometry_section hinge_exploded hinge_result_symmetry hinge_pattern"
     "geometry_g5|scenes geometry hinge_animation_frame"

@@ -456,3 +456,18 @@ tolerance 1e-7 of the result scenes.
 - **The black ring of a reference point thicker**, on the user's choice: `Controller.DrawReferencePoint` draws the
   colored dot 5 px smaller than the black one instead of 3 px, which leaves a 2.5 px ring on each side (3 px measured
   in the native view at the default symbol sizes, 1.5 px in ActiViz before). Both views draw it so.
+- **Round dots with a smoothed edge**: VTK 9 draws a round point as a sphere imposter that keeps or discards a whole
+  pixel, which the multisampling cannot smooth, so a dot of a few pixels came out square and the ring of a reference
+  point uneven; VTK 5.8 smoothed the edge of a point. A pixel on the edge now covers the share of its samples that the
+  circle covers (`gl_SampleMask` of `GL_ARB_sample_shading`, `PartActor::DrawPointsAsFlatRoundDots`); without the
+  extension the dot keeps the hard edge. Nodes, highlighted nodes and the points of the transformations get it too.
+  Check: `hinge_reference_points` (`geometry_g2`) compares two reference points with ActiViz and asserts blended pixels
+  on the edge of the yellow dot, zoomed on it; it failed without the change (no blended pixel).
+- **A reference point gone with every part hidden**: what is left is a point without extent, and
+  `AdjustCameraDistance` put the camera on it, where VTK 9 clips it; VTK 5.8 still drew it, in most views. The camera
+  stands one unit back from a lone point, which puts the focal point the standard views turn about on it (ActiViz
+  turns them about a point a unit beyond, so its views are a few pixels apart). A highlight added an actor, which
+  adjusted the camera, so the point disappeared then and stayed away. Check: `hinge_reference_point_alone`
+  (`geometry_g2`) hides both parts, highlights the point and clears it, and asserts the yellow dot in the native
+  picture; it failed without the change. ActiViz loses the point in one of its views itself, so the scene compares
+  with the ActiViz camera given to the native view and without the outline coverage.
