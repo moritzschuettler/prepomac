@@ -20,7 +20,7 @@ using System.Threading.Tasks;
 namespace PrePoMax.Forms
 {
     [Serializable]
-    public class ViewPeriodicFaceSplit
+    public class ViewPeriodicFaceSplit : UserControls.IMissingPropertyValues
     {
         // Variables
         private PeriodicFaceSplit _periodicFaceSplit;
@@ -69,6 +69,11 @@ namespace PrePoMax.Forms
         public PeriodicFaceSplit GetBase()
         {
             return _periodicFaceSplit;
+        }
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            return propertyName == nameof(RegionSelection) &&
+                   (_periodicFaceSplit.CreationIds == null || _periodicFaceSplit.CreationIds.Length == 0);
         }
     }
 }

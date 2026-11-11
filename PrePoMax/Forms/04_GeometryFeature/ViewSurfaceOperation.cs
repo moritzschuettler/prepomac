@@ -20,7 +20,7 @@ using System.Threading.Tasks;
 namespace PrePoMax.Forms
 {
     [Serializable]
-    public class ViewSurfaceOperation
+    public class ViewSurfaceOperation : UserControls.IMissingPropertyValues
     {
         // Variables
         private GeometrySelection _geometrySelection;
@@ -59,6 +59,11 @@ namespace PrePoMax.Forms
         public GeometrySelection GetBase()
         {
             return _geometrySelection;
+        }
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            return propertyName == nameof(RegionSelection) &&
+                   (_geometrySelection.GeometryIds == null || _geometrySelection.GeometryIds.Length == 0);
         }
         private static string GetRegionDescription(SurfaceOperationEnum operation)
         {

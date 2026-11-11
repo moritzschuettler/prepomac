@@ -34,6 +34,7 @@ namespace UserControls
         private bool _selectFirstProperty;
         private bool _selectFirstCategory;
         private bool _focusOnSelectedObjectChanged;
+        private PropertyGridMissingValuePainter _missingValuePainter;
 
 
         // Variables                                                                                                                
@@ -60,6 +61,8 @@ namespace UserControls
             _focusOnSelectedObjectChanged = true;
             //
             BuildAutocompleteMenu(new string[0]);
+            //
+            _missingValuePainter = new PropertyGridMissingValuePainter(this);
         }
         private void InitializeComponent()
         {

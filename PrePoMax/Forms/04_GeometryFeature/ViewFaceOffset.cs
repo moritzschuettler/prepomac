@@ -20,7 +20,7 @@ using System.Threading.Tasks;
 namespace PrePoMax.Forms
 {
     [Serializable]
-    public class ViewFaceOffset
+    public class ViewFaceOffset : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
         public const string RegionSelectionName = "RegionSelection";
@@ -73,6 +73,11 @@ namespace PrePoMax.Forms
         public FaceOffset GetBase()
         {
             return _faceOffset;
+        }
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            return propertyName == nameof(RegionSelection) &&
+                   (_faceOffset.CreationIds == null || _faceOffset.CreationIds.Length == 0);
         }
     }
 }

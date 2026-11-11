@@ -263,6 +263,13 @@ namespace PrePoMax
             }
             DynamicCustomTypeDescriptor.GetProperty(nameof(AffectedSelectionHidden)).SetIsBrowsable(false);
         }
+        public override bool IsPropertyValueMissing(string propertyName)
+        {
+            if (propertyName == nameof(AffectedRegionType))
+                return _cyclicSymmetry.NumberOfGraphSectors > 1 &&
+                       IsSelectionEmpty(_cyclicSymmetry.RegionType, _cyclicSymmetry.CreationIds);
+            else return base.IsPropertyValueMissing(propertyName);
+        }
         public override Constraint GetBase()
         {
             return _cyclicSymmetry;

@@ -20,7 +20,7 @@ using System.Diagnostics;
 namespace PrePoMax
 {
     [Serializable]
-    public class ViewMultiRegion
+    public class ViewMultiRegion : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
         private IMultiRegion _multiRegion;
@@ -111,6 +111,12 @@ namespace PrePoMax
                 browsable = _multiRegion.RegionType == entry.Key;
                 _dctd.GetProperty(entry.Value).SetIsBrowsable(browsable);
             }
+        }
+        public virtual bool IsPropertyValueMissing(string propertyName)
+        {
+            return _multiRegion != null && propertyName == nameof(RegionType) &&
+                   _multiRegion.RegionType == RegionTypeEnum.Selection &&
+                   (_multiRegion.CreationIds == null || _multiRegion.CreationIds.Length == 0);
         }
     }
 }

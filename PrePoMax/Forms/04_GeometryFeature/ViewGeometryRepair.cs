@@ -20,7 +20,7 @@ using System.Threading.Tasks;
 namespace PrePoMax.Forms
 {
     [Serializable]
-    public class ViewGeometryRepair
+    public class ViewGeometryRepair : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
         private GeometryRepair _geometryRepair;
@@ -124,6 +124,11 @@ namespace PrePoMax.Forms
         public GeometryRepair GetBase()
         {
             return _geometryRepair;
+        }
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            return propertyName == nameof(RegionSelection) &&
+                   (_geometryRepair.CreationIds == null || _geometryRepair.CreationIds.Length == 0);
         }
     }
 }

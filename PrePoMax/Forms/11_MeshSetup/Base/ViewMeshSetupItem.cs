@@ -18,7 +18,7 @@ using System.Xml.Linq;
 
 namespace PrePoMax.Forms
 {
-    public abstract class ViewMeshSetupItem
+    public abstract class ViewMeshSetupItem : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
         protected DynamicCustomTypeDescriptor _dctd;
@@ -40,6 +40,13 @@ namespace PrePoMax.Forms
         public void HideName()
         {
             _dctd.GetProperty(nameof(Name)).SetIsBrowsable(false);
+        }
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            if (propertyName != nameof(RegionType)) return false;
+            //
+            MeshSetupItem meshSetupItem = GetBase();
+            return meshSetupItem != null && (meshSetupItem.CreationIds == null || meshSetupItem.CreationIds.Length == 0);
         }
     }
 }

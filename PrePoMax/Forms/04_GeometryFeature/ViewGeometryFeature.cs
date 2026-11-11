@@ -20,7 +20,7 @@ using System.Threading.Tasks;
 namespace PrePoMax.Forms
 {
     [Serializable]
-    public abstract class ViewGeometryFeature
+    public abstract class ViewGeometryFeature : UserControls.IMissingPropertyValues
     {
         // Variables
         public const string RegionSelectionName = "RegionSelection";
@@ -44,6 +44,14 @@ namespace PrePoMax.Forms
 
         // Methods
         public abstract GeometryFeature GetBase();
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            if (propertyName != RegionSelectionName) return false;
+            //
+            GeometryFeature geometryFeature = GetBase();
+            return geometryFeature != null &&
+                   (geometryFeature.CreationIds == null || geometryFeature.CreationIds.Length == 0);
+        }
         /// <summary>
         /// The region row asks for parts in one splitting tool and for surfaces in the other, so what it
         /// says is set by the form that built the view rather than by the attribute.
