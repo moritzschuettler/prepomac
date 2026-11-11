@@ -1102,10 +1102,12 @@ namespace vtkn
         property->SetColor(color[0] * k, color[1] * k, color[2] * k);
         property->SetAmbient(lighting);
         property->SetDiffuse(lighting);
-        // The round dots of the nodes are unlit: VTK 9 adds the ambient and the diffuse part of an unlit actor, which
-        // doubled the highlight color to white, where VTK 5.8 drew it as it is
-        if (!property->GetLighting())
+        // Lines and dots in the full highlight color: VTK 9 adds the ambient and the diffuse part of an unlit actor,
+        // and of a lit line with both at one, which doubled the highlight color to white (the secondary violet; the
+        // primary red only saturated), where VTK 5.8 drew it as it is
+        if (!property->GetLighting() || onlyEdges || onlyNodes)
         {
+            property->LightingOff();
             property->SetAmbient(0);
             property->SetDiffuse(1);
         }

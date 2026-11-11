@@ -58,6 +58,36 @@ def _highlight_hinge(pmx):
         [System.Array[System.Double]([0.0, 0.0, 0.0]), System.Array[System.Double]([10.0, 5.0, 2.0])])))
 
 
+def _highlight_constraint(pmx):
+    # The hinge constraint in both highlight colors: the outline of a surface is a line actor, which VTK 9 drew with
+    # the color doubled, white for the secondary violet; the native picture holds the outline in the secondary color
+    import System
+    import vtkport
+    vtk = vtkport.VTK
+    path = os.path.join(os.environ["TEMP"], "port_highlight_constraint.png")
+    _on_ui_controller(lambda c: c.HighlightConstraint("Hinge"))
+
+    def run():
+        secondary = vtkport.CONTROLLER.Settings.Pre.SecondaryHighlightColor
+        vtk.SetNativeMirrorAllGeometry(True)
+        vtk.NativeMirror.WritePng(path, 1)
+        bitmap = System.Drawing.Bitmap(path)
+        try:
+            outline = 0
+            for y in range(0, bitmap.Height):
+                for x in range(0, bitmap.Width):
+                    c = bitmap.GetPixel(x, y)
+                    if abs(c.R - secondary.R) + abs(c.G - secondary.G) + abs(c.B - secondary.B) <= 24:
+                        outline += 1
+        finally:
+            bitmap.Dispose()
+        if outline < 20:
+            vtkport.get_field(vtk, "_nativeMirrorErrors").Add(
+                "hinge_highlight_constraint: no outline in the secondary highlight color (%d pixels)" % outline)
+    vtkport.set_native_camera(vtkport.camera_list(pmx.view.get_parameters()))
+    vtkport.on_ui(run)
+
+
 def _hide_lever(pmx):
     import System
     _on_ui_controller(lambda c: c.HideModelParts(System.Array[System.String](["Lever"])))
@@ -73,6 +103,7 @@ SCENES.update({
     "shell_femodel": (os.path.join(JOINTS, "Joint_Plates_Hinge.pmx"), [], _view("femodel")),
     "springs_femodel": (os.path.join(JOINTS, "Joint_Plates_Springs_Hinge.pmx"), [], _view("femodel")),
     "hinge_highlight": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
+    "hinge_highlight_constraint": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
     "hinge_hidden": (os.path.join(JOINTS, "Joint_Hinge.pmx"), [], _view("femodel")),
     "solid_geometry_highlight": (os.path.join(MODELS, "L_bracket_r.step"), ["-u", "MM_TON_S_C"], _view("geometry")),
 })
@@ -306,6 +337,7 @@ AFTER_ENABLE = {
     "hinge_result_section": _section_view([30.0, 11.0, 5.0], [0.3, 0.2, 1.0], True, False),
     "solid_geometry_section": _section_view([20.0, 20.0, 5.0], [1.0, 1.0, 0.0], False, True),
     "hinge_highlight": _highlight_hinge,
+    "hinge_highlight_constraint": _highlight_constraint,
     "hinge_hidden": _hide_lever,
     "solid_geometry_highlight": _highlight_geometry_part,
 }

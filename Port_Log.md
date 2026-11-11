@@ -341,3 +341,10 @@ On the user's "Yes, make it default" after the ninth review.
 
 **Checks.** At startup the native view is in the window with every area, both parts of the hinge mirrored, no mirror
 error. The full `Run_Port_Checks.sh` with the default on: all passed, S4 with its one known difference. `Run_Tests.py --filter Test_Api Test_Selection Test_Workflow Test_Model_Parts Test_Result_Field Test_Rpc_Live`: 13 of 13 passed (with `Test_Analysis`).
+
+## The user's day of use (2026-11-11)
+
+- **Fixed:** the outlines in the secondary highlight color (a constraint's second surface) were white (Stream G).
+
+**Checks.** The full `Run_Port_Checks.sh`, from a copy of the build while the user's PrePoMax held the build folder:
+all passed, S4 with its one known difference.

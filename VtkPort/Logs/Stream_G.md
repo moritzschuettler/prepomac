@@ -473,3 +473,12 @@ tolerance 1e-7 of the result scenes.
   (`geometry_g2`) hides both parts, highlights the point and clears it, and asserts the yellow dot in the native
   picture; it failed without the change. ActiViz loses the point in one of its views itself, so the scene compares
   with the ActiViz camera given to the native view and without the outline coverage.
+
+## Changed in the user's day of use (2026-11-11)
+
+- **The outlines in the secondary highlight color white**: the selection formatting gives a line or node actor its
+  highlight color with the ambient and the diffuse part at one, and VTK 9 adds both, also for a lit line, which
+  doubled the color: white for the secondary violet, while the primary red only saturated, so the hinge constraint
+  showed white outlines. Lines and dots of a highlight are drawn unlit in the highlight color itself, as VTK 5.8
+  showed them (`PartActor::ApplySelectionFormatting`). Check: `hinge_highlight_constraint` (`geometry_g1`) highlights
+  the hinge constraint and asserts outline pixels in the secondary color; it failed without the change (0 pixels).
