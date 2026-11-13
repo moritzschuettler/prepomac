@@ -106,6 +106,14 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_set_camera_adjustment_suspended(vtkn_view view, int32_t suspended)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetCameraAdjustmentSuspended(suspended != 0);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_update_result_representation_visibility(vtkn_view view, const char* part_names,
                                                                             int32_t visible, int32_t update)
     {

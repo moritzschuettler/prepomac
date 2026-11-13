@@ -12,7 +12,8 @@
 #part reaches the native view, a preview of the exploded view reaches the native view before the paint, and an arrow
 #key posted to the focused VTK window passes the message filters of the window and turns the native view. A click on
 #the VTK window gives the form's focus to the control, as a click on the ActiViz view did, so that the keyboard hook of
-#the main form sees the view focused and hands it the space to hide and show.
+#the main form sees the view focused and hands it the space to hide and show. An actor added while the control has
+#suspended its camera adjustment leaves the native camera until the suspension ends.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Window_Events.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -176,9 +177,30 @@ def check_camera(label):
     after = on_ui(lambda: list(VTK.NativeMirror.GetCamera()))
     check(close(view_direction(before), view_direction(after)) and abs(before[9] - after[9]) < 1e-9,
           label + ": a highlight leaves the native camera", [before, after])
-    style = on_ui(lambda: USER32.GetWindowLongW(int(str(vtkport.get_field(VTK, "_renderWindow").GetGenericWindowId())),
+    check_camera_adjustment_suspended(label)
+    style =on_ui(lambda: USER32.GetWindowLongW(int(str(vtkport.get_field(VTK, "_renderWindow").GetGenericWindowId())),
                                                 GWL_STYLE))
     check(style & WS_CLIPSIBLINGS != 0, label + ": the ActiViz window cannot paint over the native view", hex(style))
+
+
+# Drawing the symbols of many items suspends the camera adjustment of the control, which adjusts the camera once at
+# the end; the native view must wait for it too, or every added actor measures every actor
+def check_camera_adjustment_suspended(label):
+    import System
+    camera = on_ui(lambda: list(VTK.NativeMirror.GetCamera()))
+    direction = view_direction(camera)
+    far = [camera[i] - 100 * camera[9] * direction[i % 3] for i in range(6)] + camera[6:]
+    on_ui(VTK.SuspendCameraAdjustment)
+    on_ui(lambda: VTK.NativeMirror.SetCamera(System.Array[System.Double](far)))
+    on_ui(lambda: CONTROLLER.HighlightElements(System.Array[System.Int32](list(range(2, 200, 5)))))
+    suspended = on_ui(lambda: list(VTK.NativeMirror.GetCamera()))
+    on_ui(VTK.ResumeCameraAdjustment)
+    resumed = on_ui(lambda: list(VTK.NativeMirror.GetCamera()))
+    on_ui(CONTROLLER.ClearAllSelection)
+    check(close(suspended[:3], far[:3]), label + ": an actor added while the camera adjustment is suspended leaves the "
+          "native camera", [far[:3], suspended[:3]])
+    check(not close(resumed[:3], far[:3], 1e-3 * camera[9]), label + ": the native camera is adjusted when the "
+          "suspension ends", [far[:3], resumed[:3]])
 
 
 def check_arrow_key(label):

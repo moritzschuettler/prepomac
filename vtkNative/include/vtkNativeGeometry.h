@@ -229,6 +229,9 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_rename_actor(vtkn_view view, const char
 VTKN_API vtkn_status VTKN_CALL vtkn_view_highlight_actor(vtkn_view view, const char* name);
 /* HideActors and ShowActors; names is a string list: every name followed by a zero byte, and one more zero byte */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_hide_show_actors(vtkn_view view, const char* names, int32_t visible);
+/* SuspendCameraAdjustment and ResumeCameraAdjustment: while suspended, an added actor leaves the camera as it is,
+   and the camera is adjusted once when the suspension ends */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_camera_adjustment_suspended(vtkn_view view, int32_t suspended);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_update_result_representation_visibility(vtkn_view view,
                                                                                   const char* part_names,
                                                                                   int32_t visible, int32_t update);

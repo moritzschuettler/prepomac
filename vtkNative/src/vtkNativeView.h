@@ -73,6 +73,7 @@ namespace vtkn
         void SetZoomFactor(double parallelScale);
         void BoxZoom(int x1, int y1, int x2, int y2);
         void AdjustCameraDistanceAndClipping();
+        void SetCameraAdjustmentSuspended(bool suspended);
 
         void AddMeshActor(const std::string& name, const double* points, int pointCount, const int32_t* cells,
                           int cellsLength, const uint8_t* cellTypes, int cellCount, const double* color,
@@ -211,8 +212,12 @@ namespace vtkn
         void WorldToDisplay(const double world[3], double display[2]);
         void DisplayToWorld(const double display[2], double world[3]);
 
+        void AdjustCameraAfterAdd();
+
         bool OffScreen;
         bool Embedded = false;
+        bool CameraAdjustmentSuspended = false;
+        bool CameraAdjustmentPending = false;
         vtkn_edges_visibility EdgesVisibility = VTKN_EDGES_ELEMENT_EDGES;
         vtkSmartPointer<vtkRenderWindow> RenderWindow;
         vtkSmartPointer<vtkRenderer> Renderer;

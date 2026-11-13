@@ -377,6 +377,23 @@ namespace vtkn
         Widgets.CameraModified(true);
     }
 
+    // Port of SuspendCameraAdjustment and ResumeCameraAdjustment: drawing thousands of symbols adjusts the camera
+    // once at the end, because every adjustment measures every actor
+    void View::SetCameraAdjustmentSuspended(bool suspended)
+    {
+        CameraAdjustmentSuspended = suspended;
+        if (suspended || !CameraAdjustmentPending) return;
+        //
+        CameraAdjustmentPending = false;
+        AdjustCameraDistanceAndClipping();
+    }
+
+    void View::AdjustCameraAfterAdd()
+    {
+        if (CameraAdjustmentSuspended) CameraAdjustmentPending = true;
+        else AdjustCameraDistanceAndClipping();
+    }
+
     // Port of vtkInteractorStyleControl.ResetClippingRange: the near and far planes cover every layer
     void View::ResetClippingRange()
     {

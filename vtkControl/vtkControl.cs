@@ -4162,6 +4162,8 @@ namespace vtkControl
         public void SuspendCameraAdjustment()
         {
             _cameraAdjustmentSuspendCount++;
+            if (_cameraAdjustmentSuspendCount == 1)
+                MirrorGeometry("SuspendCameraAdjustment", () => _nativeMirror.SetCameraAdjustmentSuspended(true));
         }
         public void ResumeCameraAdjustment()
         {
@@ -4169,6 +4171,8 @@ namespace vtkControl
                 throw new InvalidOperationException("The camera adjustment is not suspended.");
             //
             _cameraAdjustmentSuspendCount--;
+            if (_cameraAdjustmentSuspendCount == 0)
+                MirrorGeometry("ResumeCameraAdjustment", () => _nativeMirror.SetCameraAdjustmentSuspended(false));
             if (_cameraAdjustmentSuspendCount > 0 || !_cameraAdjustmentPending) return;
             //
             _cameraAdjustmentPending = false;
@@ -10489,6 +10493,7 @@ namespace vtkControl
                 _nativeMirror = VtkNativeView.CreateOffScreen(Math.Max(1, size[0]), Math.Max(1, size[1]));
             }
             _nativeMirrorNames = new HashSet<string>();
+            _nativeMirror.SetCameraAdjustmentSuspended(_cameraAdjustmentSuspendCount > 0);
             SyncNativeMirror();
             if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorScalarBar();
             if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorWidgets();

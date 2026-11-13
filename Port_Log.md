@@ -348,3 +348,30 @@ error. The full `Run_Port_Checks.sh` with the default on: all passed, S4 with it
 
 **Checks.** The full `Run_Port_Checks.sh`, from a copy of the build while the user's PrePoMax held the build folder:
 all passed, S4 with its one known difference.
+
+## master merged into the port (2026-11-13)
+
+On the user's "Yes, merge into port": master's commits up to `10a711f35` (taken from the master of the
+"PrePoMax v3.0.n dev" clone, three of them not yet pushed) are merged into `port/vtk-native` so that they can be
+tested in the VTK 9 view; master itself is unchanged and stays without the native view. The merge had no conflicts.
+The user's uncommitted contact-pair files in this folder were an earlier draft of master's `f3d57527f`, `fbb50d1ea`
+and `ab029c2bf` and are kept in `git stash` ("Contact pair draft superseded by master"). Master can be merged in again
+whenever it moves on; `port/vtk-native` must not be rebased or squashed, so that the final merge into master stays a
+plain one.
+
+- **Fixed, a gap the merge opened:** master's `24624d451` adjusts the camera of the ActiViz view once at the end of a
+  redraw of the model symbols (`vtkControl.SuspendCameraAdjustment`), because every adjustment measures every actor.
+  The native view still adjusted its camera after every added actor, so a redraw of 1344 ties on 512 cubes took 70 s
+  in the VTK 9 view against 0.45 s in ActiViz. The suspension now reaches the native view
+  (`vtkn_view_set_camera_adjustment_suspended`, `View::AdjustCameraAfterAdd`), and the same redraw takes 6.2 s.
+- **Found, not fixed:** the remaining 6 s are the construction of the actors, about 1.7 ms each for a surface of 20
+  points. The VTK 9.7.1 libraries are built without optimization: the first configure of `vtk-9.7.1-build-x64` found
+  no compiler, CMake kept the empty compiler flags in its cache, and the Release projects have no `/O2` (the 87 MB
+  `vtkCommonCore-9.7.dll`; `vtk-8.2.0-build-x64` has `/MD /O2 /Ob2 /DNDEBUG`). A rebuild of VTK 9.7.1 with the
+  default flags is for the user to decide.
+
+**Checks.** After the merge: the full `Run_Port_Checks.sh`: all passed, S4 with its one known difference;
+`Run_Tests.py` with the groups master's changes reach (contact search, composite sections and results, constraints,
+equations, regions, split cells, selection, workflow, job, results, API, RPC, audits): 37 of 37 passed.
+`Test_Window_Events.py` checks that an actor added while the camera adjustment is suspended leaves the native camera
+until the suspension ends.

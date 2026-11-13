@@ -39,6 +39,8 @@ namespace vtkControl.Native
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_hide_show_actors(IntPtr view, byte[] names, int visible);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_camera_adjustment_suspended(IntPtr view, int suspended);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_update_result_representation_visibility(IntPtr view, byte[] partNames,
                                                                                                 int visible, int update);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]

@@ -113,7 +113,7 @@ namespace vtkn
         }
         if (added->IsAPart()) ApplyEdgesVisibilityAndBackfaceCulling();
         else ApplyEdgesVisibility(*added, layer, PartsDrawElementEdges());
-        AdjustCameraDistanceAndClipping();
+        AdjustCameraAfterAdd();
     }
 
     // A surface drawn on the parts, such as a surface of a load, kept its own mesh lines in VTK 5.8, where they were

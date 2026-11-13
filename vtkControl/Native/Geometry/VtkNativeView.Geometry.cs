@@ -312,6 +312,10 @@ namespace vtkControl.Native
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_hide_show_actors(Handle(), VtkNativeLibrary.ToUtf8List(names),
                                                                                 visible ? 1 : 0));
         }
+        public void SetCameraAdjustmentSuspended(bool suspended)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_camera_adjustment_suspended(Handle(), suspended ? 1 : 0));
+        }
         //
         public void UpdateResultRepresentationVisibility(string[] partNames, bool visible, bool update)
         {
