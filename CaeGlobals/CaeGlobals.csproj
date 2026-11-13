@@ -202,6 +202,7 @@
     <Compile Include="UnitSystem\EquationToString\EquationLengthConverter.cs" />
     <Compile Include="UnitSystem\EquationToString\EquationPowerPerVolumeConverter.cs" />
     <Compile Include="NCalc\EquationParameterResolver.cs" />
+    <Compile Include="NCalc\IntegerToDoubleVisitor.cs" />
     <Compile Include="NCalc\MyNCalc.cs" />
     <Compile Include="UnitSystem\MyUnit.cs" />
     <Compile Include="UnitSystem\StringToDouble\StringAreaDefaultConverter.cs" />

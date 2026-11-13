@@ -121,6 +121,13 @@ namespace APIs.Python
         void RemoveContactPairs(string[] contactPairNames);
         void HideContactPairs(string[] contactPairNames);
         void ShowContactPairs(string[] contactPairNames);
+        // The search records nothing; adding what it found records the ties, contact pairs and surfaces the dialog's
+        // OK records, and returns their names
+        List<MasterSlaveItem> SearchContactPairs(double distance, double angleDeg,
+                                                 CaeMesh.ContactSearchNamespace.GeometryFilterEnum filter,
+                                                 GroupContactPairsByEnum groupBy, bool tryToResolve);
+        string[] AddSearchedContactPairs(List<MasterSlaveItem> masterSlaveItems, bool tie, bool adjust, double distance,
+                                         string surfaceInteractionName, ContactPairMethod method);
         // Regions
         void AddNodeSet(FeNodeSet nodeSet);
         void ReplaceNodeSet(string oldNodeSetName, FeNodeSet nodeSet);

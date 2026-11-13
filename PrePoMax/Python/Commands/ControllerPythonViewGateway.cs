@@ -337,6 +337,7 @@ namespace PrePoMax.Python
                 }
             }
             //
+            _controller.UpdateDeferredScriptView();
             ResolveForm().SaveAutomationScreenshot(path, transparentBackground, magnification);
             return path;
         }

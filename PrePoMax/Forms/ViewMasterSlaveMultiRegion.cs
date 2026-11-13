@@ -19,7 +19,7 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
-    public class ViewMasterSlaveMultiRegion
+    public class ViewMasterSlaveMultiRegion : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
         private IMasterSlaveMultiRegion _region;
@@ -176,6 +176,19 @@ namespace PrePoMax
                     _dctd.GetProperty(entry.Value).SetIsBrowsable(browsable);
                 }
             }
+        }
+        public virtual bool IsPropertyValueMissing(string propertyName)
+        {
+            if (_region == null) return false;
+            else if (propertyName == nameof(MasterRegionType))
+                return IsSelectionEmpty(_region.MasterRegionType, _region.MasterCreationIds);
+            else if (propertyName == nameof(SlaveRegionType))
+                return IsSelectionEmpty(_region.SlaveRegionType, _region.SlaveCreationIds);
+            else return false;
+        }
+        protected static bool IsSelectionEmpty(RegionTypeEnum regionType, int[] creationIds)
+        {
+            return regionType == RegionTypeEnum.Selection && (creationIds == null || creationIds.Length == 0);
         }
     }
 }

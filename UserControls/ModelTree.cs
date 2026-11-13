@@ -131,6 +131,10 @@ namespace UserControls
         }
         // Variables                                                                                                                
         private bool _screenUpdating;
+        private int _updateBatchCount;
+        private HashSet<TreeNode> _batchedParentNodes;
+        private TreeNode _batchedAddedNode;
+        private ViewType _batchedAddedNodeView;
         private bool _doubleClick;
         private const int WM_MOUSEMOVE = 0x0200;
         private bool _disableMouse;
@@ -482,6 +486,7 @@ namespace UserControls
             //
             _doubleClick = false;
             _screenUpdating = true;
+            _batchedParentNodes = new HashSet<TreeNode>();
             _prevStates = new Dictionary<CodersLabTreeView, bool[]>();
             _prevStates.Add(cltvGeometry, null);
             _prevStates.Add(cltvModel, null);
@@ -3824,6 +3829,45 @@ namespace UserControls
                 }
             }
         }
+        // Adding many items at once repaints, recounts and selects once at the end instead of after every item, which
+        // would make adding a few thousand of them take minutes
+        public void BeginUpdateBatch()
+        {
+            if (_updateBatchCount == 0)
+            {
+                foreach (CodersLabTreeView tree in new CodersLabTreeView[] { cltvGeometry, cltvModel, cltvResults })
+                {
+                    tree.SuspendLayout();
+                    tree.BeginUpdate();
+                }
+            }
+            _updateBatchCount++;
+        }
+        public void EndUpdateBatch()
+        {
+            if (_updateBatchCount <= 0) throw new InvalidOperationException("The tree update batching is not active.");
+            //
+            _updateBatchCount--;
+            if (_updateBatchCount > 0) return;
+            //
+            try
+            {
+                foreach (TreeNode parent in _batchedParentNodes) UpdateItemCountText(parent);
+                if (_batchedAddedNode != null && _batchedAddedNode.TreeView != null)
+                    SelectAndExpandAddedNode(_batchedAddedNodeView, _batchedAddedNode);
+            }
+            catch { }
+            finally
+            {
+                _batchedParentNodes.Clear();
+                _batchedAddedNode = null;
+                foreach (CodersLabTreeView tree in new CodersLabTreeView[] { cltvGeometry, cltvModel, cltvResults })
+                {
+                    tree.EndUpdate();
+                    tree.ResumeLayout();
+                }
+            }
+        }
         public void AddTreeNode(ViewType view, NamedClass item, string parentName,
                                 IOrderedDictionaryItemLayout<string> orderedDictionary)
         {
@@ -4060,20 +4104,18 @@ namespace UserControls
                 EnsureOrderedDictionaryContext(parent, view, item.GetType(), parentName, orderedDictionary);
                 MoveTreeNodeToOrderedDictionaryLayoutParent(parent, node);
                 //
-                parent.Text = parent.Name;
-                int parentItemCount = _orderedDictionaryContexts.ContainsKey(parent)
-                    ? CountOrderedDictionaryItemNodes(parent)
-                    : parent.Nodes.Count;
-                if (parentItemCount > 0) parent.Text += " (" + parentItemCount + ")";
-                //
                 SetNodeStatus(node);
                 //
-                GetTree(view).SelectedNode = node;
-                // Expand for propagate
-                while (node != null && node.Parent != null)
+                if (_updateBatchCount > 0)
                 {
-                    node = node.Parent;
-                    if (!node.IsExpanded) node.Expand();
+                    _batchedParentNodes.Add(parent);
+                    _batchedAddedNode = node;
+                    _batchedAddedNodeView = view;
+                }
+                else
+                {
+                    UpdateItemCountText(parent);
+                    SelectAndExpandAddedNode(view, node);
                 }
             }
             catch { }
@@ -4475,6 +4517,24 @@ namespace UserControls
                         else SetNodeStatus(itemNode);
                     }
                 }
+            }
+        }
+        private void UpdateItemCountText(TreeNode parent)
+        {
+            parent.Text = parent.Name;
+            int parentItemCount = _orderedDictionaryContexts.ContainsKey(parent)
+                ? CountOrderedDictionaryItemNodes(parent)
+                : parent.Nodes.Count;
+            if (parentItemCount > 0) parent.Text += " (" + parentItemCount + ")";
+        }
+        private void SelectAndExpandAddedNode(ViewType view, TreeNode node)
+        {
+            GetTree(view).SelectedNode = node;
+            // Expand for propagate
+            while (node != null && node.Parent != null)
+            {
+                node = node.Parent;
+                if (!node.IsExpanded) node.Expand();
             }
         }
         private int CountOrderedDictionaryItemNodes(TreeNode node)

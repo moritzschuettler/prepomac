@@ -988,6 +988,9 @@ namespace PrePoMax
         private async Task RunBatchScriptAsync()
         {
             WriteDataToOutput("Starting script: " + _cmdOptions.ScriptFileName);
+            // Without a file to open the script starts from File - New, as the user would, so the history holds the
+            // script after the new model and the model the script builds counts as initialized
+            if (_cmdOptions.FileName == null) _controller.New();
             //
             string[] arguments = null;
             if (_cmdOptions.ScriptArguments != null)
@@ -1210,6 +1213,8 @@ namespace PrePoMax
         private void itemForm_Move(object sender, EventArgs e)
         {
             Form form = sender as Form;
+            //
+            if (form is FrmSelectItemSet) return;
             //Size screenSize =  Screen.GetWorkingArea(form).Size;
             //if (form.Left < 0) form.Left = 0;
             //else if (form.Left + form.Width > screenSize.Width) form.Left = screenSize.Width - form.Width;
@@ -1760,7 +1765,7 @@ namespace PrePoMax
 
 
         // Menus                                                                                                                    
-        private void SetMenuAndToolStripVisibility()
+        public void SetMenuAndToolStripVisibility()
         {
             if (IsStateRegeneratingOrUndoing()) return;
             //
@@ -10991,9 +10996,9 @@ namespace PrePoMax
                 CloseAllForms();
                 form.Text = text;
                 if (itemToEditName != null) form.Text += ": " + itemToEditName;
+                SetFormLocation((Form)form);
                 if (form.PrepareForm(stepName, itemToEditName))
                 {
-                    SetFormLocation((Form)form);
                     ((Form)form).Show(this);
                 }
                 else
@@ -12240,6 +12245,14 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.AdjustCameraDistanceAndClippingRedraw);
         }
+        public void SuspendCameraAdjustment()
+        {
+            InvokeIfRequired(_vtk.SuspendCameraAdjustment);
+        }
+        public void ResumeCameraAdjustment()
+        {
+            InvokeIfRequired(_vtk.ResumeCameraAdjustment);
+        }
         public void UpdateScalarsAndRedraw()
         {
             InvokeIfRequired(_vtk.UpdateScalarsAndRedraw);
@@ -12975,6 +12988,14 @@ namespace PrePoMax
             InvokeIfRequired(_modelTree.RegenerateTree, _controller.Model, _controller.Jobs, _controller.CurrentResult, remeshing);
             InvokeIfRequired(UpdateSymbolsList);
             InvokeIfRequired(SelectLastSymbolName);
+        }
+        public void BeginTreeUpdateBatch()
+        {
+            InvokeIfRequired(_modelTree.BeginUpdateBatch);
+        }
+        public void EndTreeUpdateBatch()
+        {
+            InvokeIfRequired(_modelTree.EndUpdateBatch);
         }
         public void AddTreeNode(ViewGeometryModelResults view, NamedClass item, string parentName)
         {

@@ -18,6 +18,7 @@ namespace CaeMesh
         private readonly string _coordinateSystem;
         private readonly string _lengthUnit;
         private readonly Dictionary<string, List<GeometryMetadataEntity>> _entities;
+        private Dictionary<string, Dictionary<int, GeometryMetadataEntity>> _kindIdEntity;
 
 
         // Properties
@@ -35,6 +36,7 @@ namespace CaeMesh
             _coordinateSystem = coordinateSystem;
             _lengthUnit = lengthUnit;
             _entities = new Dictionary<string, List<GeometryMetadataEntity>>(StringComparer.OrdinalIgnoreCase);
+            _kindIdEntity = new Dictionary<string, Dictionary<int, GeometryMetadataEntity>>(StringComparer.OrdinalIgnoreCase);
         }
         public GeometryMetadata(GeometryMetadata metadata)
             : this(metadata.FormatVersion, metadata.CoordinateSystem, metadata.LengthUnit)
@@ -59,7 +61,9 @@ namespace CaeMesh
                     case "_lengthUnit":
                         _lengthUnit = (string)entry.Value; break;
                     case "_entityData":
-                        _entities = ReadEntities((byte[])entry.Value); break;
+                        _entities = ReadEntities((byte[])entry.Value);
+                        _kindIdEntity = CreateKindIdEntity(_entities);
+                        break;
                     case "_entities":
                         // Compatibility for version v2.6.0
                         _entities = (Dictionary<string, List<GeometryMetadataEntity>>)entry.Value; break;
@@ -82,6 +86,24 @@ namespace CaeMesh
         {
             // An entity dictionary saved as an object is filled only once the formatter calls it back
             ((IDeserializationCallback)_entities).OnDeserialization(sender);
+            if (_kindIdEntity == null) _kindIdEntity = CreateKindIdEntity(_entities);
+        }
+        private static Dictionary<string, Dictionary<int, GeometryMetadataEntity>>
+            CreateKindIdEntity(Dictionary<string, List<GeometryMetadataEntity>> entities)
+        {
+            Dictionary<string, Dictionary<int, GeometryMetadataEntity>> kindIdEntity =
+                new Dictionary<string, Dictionary<int, GeometryMetadataEntity>>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<int, GeometryMetadataEntity> idEntity;
+            foreach (var entry in entities)
+            {
+                idEntity = new Dictionary<int, GeometryMetadataEntity>();
+                foreach (GeometryMetadataEntity entity in entry.Value)
+                {
+                    if (!idEntity.ContainsKey(entity.Id)) idEntity.Add(entity.Id, entity);
+                }
+                kindIdEntity.Add(entry.Key, idEntity);
+            }
+            return kindIdEntity;
         }
         private byte[] WriteEntities()
         {
@@ -175,14 +197,22 @@ namespace CaeMesh
         public void AddEntity(GeometryMetadataEntity entity)
         {
             List<GeometryMetadataEntity> entities;
+            Dictionary<int, GeometryMetadataEntity> idEntity;
             if (!_entities.TryGetValue(entity.Kind, out entities))
             {
                 entities = new List<GeometryMetadataEntity>();
                 _entities.Add(entity.Kind, entities);
             }
-            int index = entities.FindIndex(item => item.Id == entity.Id);
-            if (index >= 0) entities[index] = entity;
+            if (!_kindIdEntity.TryGetValue(entity.Kind, out idEntity))
+            {
+                idEntity = new Dictionary<int, GeometryMetadataEntity>();
+                _kindIdEntity.Add(entity.Kind, idEntity);
+            }
+            //
+            GeometryMetadataEntity existingEntity;
+            if (idEntity.TryGetValue(entity.Id, out existingEntity)) entities[entities.IndexOf(existingEntity)] = entity;
             else entities.Add(entity);
+            idEntity[entity.Id] = entity;
         }
         public GeometryMetadataEntity[] GetEntities(string kind)
         {
@@ -192,7 +222,10 @@ namespace CaeMesh
         }
         public GeometryMetadataEntity GetEntity(string kind, int id)
         {
-            return GetEntities(kind).FirstOrDefault(item => item.Id == id);
+            Dictionary<int, GeometryMetadataEntity> idEntity;
+            GeometryMetadataEntity entity;
+            if (kind == null || !_kindIdEntity.TryGetValue(kind, out idEntity)) return null;
+            return idEntity.TryGetValue(id, out entity) ? entity : null;
         }
         public void FillMissingFrom(GeometryMetadata source, bool includeFaceEntities, bool includeEdgeEntities,
                                     bool omitCanonicalMeasurements)

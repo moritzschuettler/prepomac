@@ -44,6 +44,8 @@ JOURNAL_EXCEPTIONS = {
 ADD_WITHOUT_REPLACE_FILES = {
     "APIs/Python/Selection/SelectionAPI.cs": "add_by_* and add_all extend a selection under construction",
     "APIs/Python/View/ViewAnnotationsAPI.cs": "an annotation is view state, removed and added again",
+    "APIs/Python/Model/Interactions/ContactSearchResultAPI.cs": "add makes the found ties and contact pairs, which "
+                                                                "replace_tie and contact_pairs.replace edit",
 }
 # The description an EMITTED_NAME_EXCEPTIONS entry carries when it is a parameter name of an API method
 ARGUMENT_NAME = "an argument name"

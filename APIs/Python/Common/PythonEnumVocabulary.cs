@@ -143,6 +143,10 @@ namespace APIs.Python
                 allowedValues.Add("replace_from_selections." + point + "_created_from",
                                   coordinateSystemPointBySelection);
             }
+            // The contact search offers the groupings and the contact methods of its dialog
+            allowedValues.Add("group_by", NamesExcept(GroupContactPairsByEnum.BySurfaceAngle));
+            allowedValues.Add("ContactSearchResultAPI.add.method", Names(ContactPairMethod.NodeToSurface,
+                                                                         ContactPairMethod.SurfaceToSurface));
             //
             _allowedValues = allowedValues;
             return _allowedValues;
@@ -248,6 +252,9 @@ namespace APIs.Python
             types.Add("ContactPairsAPI.add.method", typeof(ContactPairMethod));
             types.Add("ContactPairsAPI.replace.method", typeof(ContactPairMethod));
             types.Add("ContactPairAPI.method.method", typeof(ContactPairMethod));
+            types.Add("ContactSearchResultAPI.add.method", typeof(ContactPairMethod));
+            types.Add("pair_type", typeof(APIs.Python.Model.ContactSearchPairTypeEnum));
+            types.Add("group_by", typeof(GroupContactPairsByEnum));
             types.Add("joint_type", typeof(JointTypeEnum));
             types.Add("center_defined_by", typeof(JointCenterDefinitionEnum));
             types.Add("axis_defined_by", typeof(JointDefinitionEnum));

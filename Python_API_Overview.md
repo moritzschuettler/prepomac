@@ -739,7 +739,7 @@ model item.
 | --- | --- |
 | `pmx.new_model(model_space, unit_system, discard_changes=False)` | Creates a new empty model. `Undefined` is refused for either argument, and so is the call while an analysis is running. In a session with a window a model with unsaved changes is refused unless `discard_changes=True`; a session without a window discards them. **Console only.** |
 | `pmx.open(file_name, discard_changes=False)` | Opens a .pmx or .pmh model file, which replaces the command history; a .pmh history is regenerated whole, as **File - Open** regenerates it. A result file is refused and named to `pmx.results.open`, and so is the call while an analysis is running. In a session with a window a model with unsaved changes is refused unless `discard_changes=True`; a session without a window discards them. **Console only.** |
-| `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. It takes the types the import dialog takes - `.stp`, `.step`, `.igs`, `.iges`, `.brep`, `.stl`, `.unv`, `.vol`, `.inp`, `.mesh`, `.obj` and `.pmp` - and refuses another naming `file_name`; `only_materials=True` imports the materials of an `.inp` file and is refused for another type. As the dialog does, it refuses with "There is no model to import into. First create a new model." while the model space or the unit system is undefined: create the model with `pmx.new_model`, or set `model_space` and `unit_system` first. A `.pmp` file is refused as `parameters.import_from_file` refuses it. |
+| `pmx.import_file(file_name, only_materials=False)` | Imports a geometry or mesh file into the current model. It takes the types the import dialog takes - `.stp`, `.step`, `.igs`, `.iges`, `.brep`, `.stl`, `.unv`, `.vol`, `.inp`, `.mesh`, `.obj` and `.pmp` - and refuses another naming `file_name`; `only_materials=True` imports the materials of an `.inp` file and is refused for another type. As the dialog does, it refuses with "There is no model to import into. First create a new model." while the model space or the unit system is undefined: create the model with `pmx.new_model`, or set `model_space` and `unit_system` first. A `.pmp` file is refused as `parameters.import_from_file` refuses it. An import that adds parts points the camera to the front view fitted to the model, as the dialog does, so a view the script set before it is replaced. |
 | `pmx.save(file_name)` | Saves the model to a .pmx file. |
 | `pmx.work_directory` | The session's work directory (the -w of a script or regeneration run or of a session without a window, otherwise the settings), read only; a replayed journal writes the files its session saved or exported here, and a relative file name given to the API is taken from here. A session without one raises, telling to pass `-w` or set it in Settings - Solver. |
 | `pmx.is_rerun` | True while a recorded script runs again rather than on the run that recorded it - Regenerate, Undo, Redo, OK of Edit History or a batch regeneration (`-r`) - so the script can accept what its first run left behind, as a journal's `_output` accepts the files that run wrote. False on the first run, in the console and in an automation call. Read only. |
@@ -2077,6 +2077,7 @@ slave one; both are a `Selection` or a `Region`, and both name surfaces.
 | --- | --- |
 | `add(name, surface_interaction_name, master_region, slave_region, method=None, small_sliding=None, adjust=None, adjustment_size=None, master_color=None, slave_color=None)` | Adds a contact pair. `method` is `NodeToSurface`, `SurfaceToSurface`, `Mortar` or `Massless`. |
 | `replace(old_name, name=None, ...)` | Replaces a contact pair. A value that is not given keeps what the contact pair carries. A `method` other than `NodeToSurface` on a pair with small sliding is refused unless `small_sliding=False` is given too, because no other method supports it. |
+| `search(distance, angle_deg=35, pair_type='Tie', group_by='ByParts', solid=True, shell=True, shell_edges=True, ignore_hidden=True)` | Searches the mesh for touching faces of different parts, as **Interaction > Search Contact Pairs** does, and returns a `ContactSearchResult` without changing the model. See below. |
 | `swap_master_slave(names)` | Swaps the two sides. |
 | `merge_by_master_slave(names)` | Merges the contact pairs that share a master and a slave surface. |
 | `hide(names)`, `show(names)` | Symbol visibility. |
@@ -2100,6 +2101,95 @@ the `Default` size the dialog offers, is refused together with `adjust=False`, a
 The dialog hides the size while `adjust` is `False`, so it then reads back as `None` too, and the stored size comes
 back when the adjustment is turned on again. A replace that does not change the method keeps the small sliding the
 pair stores, even where the method does not write it; only a change of method clears it.
+
+#### Searching for contact pairs
+
+`search` finds the faces of different parts that lie within `distance` of each other and face each other within
+`angle_deg`, the way the **Search Contact Pairs** dialog does, and takes the dialog's settings as arguments, with
+the dialog's defaults. `distance` is in model units and larger than 0, and `angle_deg` lies between 0 and 180.
+`pair_type` is `Tie` or `Contact`. `group_by` is `None`, one pair for every two touching faces, `ByParts`, one pair
+for every two touching parts, or `ByContactGraph`, which merges the faces that share nodes so that a node is a slave
+node only once. `solid`, `shell` and `shell_edges` choose which faces are searched, and at least one of them must
+stay `True`; `ignore_hidden` leaves hidden parts out. The search needs the mesh, and it records nothing.
+
+**The result follows the mesh and the geometry.** A recorded script that searches runs the search again when it is
+regenerated, on the mesh the model has then, so a changed geometry, or a mesh fine or coarse enough to move a gap
+across `distance`, finds other pairs, and they are named and numbered as they are found. That is intended: the ties
+follow the model. A script that must add the same pairs every time writes their `master_geometry_ids` and
+`slave_geometry_ids` to a file once and adds them from there; the geometry IDs number the faces of the geometry, so
+they hold across a remesh but not across a change of the geometry.
+
+### `ContactSearchResult`
+
+What `contact_pairs.search` found, a list of `FoundContactPair` that `len()`, iteration and a position index
+read. Nothing is in the model until `add` is called.
+
+| Member | Description |
+| --- | --- |
+| `pair_type` | `'Tie'` or `'Contact'`, as searched. |
+| `count` | The number of pairs found. |
+| `add(adjust=False, surface_interaction_name=None, method='SurfaceToSurface')` | Adds every pair found using command history, as **OK** of the dialog adds them, and returns the names of what it added as a `StringList`. |
+
+`add` gives every pair the settings of the dialog's lower half:
+
+- A **tie** takes the search `distance` as its position tolerance. An `unresolved` pair, a tie whose sides the
+  search could not tell apart, is added as a surface holding all its faces, for the sides to be picked by hand, and
+  its name is returned among the others. `surface_interaction_name` and `method` are refused for ties.
+- A **contact pair** needs `surface_interaction_name`, and takes the search `distance` as its adjustment size.
+  `method` is `NodeToSurface` or `SurfaceToSurface`, the two the dialog offers; change it afterwards with
+  `contact_pairs.replace`.
+- Pairs that share a name, or whose name the model already holds, are numbered as they are added, and the tree
+  and the symbols are updated once, after the last one. Calling `add` again adds the pairs again, numbered.
+
+### `FoundContactPair`
+
+One pair of a `ContactSearchResult`. It is not a model item; its regions can be given to `constraints.add_tie` or
+`contact_pairs.add`, which is how a script adds only some of the pairs.
+
+| Member | Description |
+| --- | --- |
+| `name` | The name the pair is added under, before numbering: the master part, `_to_` and the slave part, or `Item` for a name that would be too long. |
+| `geometry_type` | The kind of the master and of the slave faces joined by a dash, such as `Solid-Solid` or `Shell-Edge`, each `Solid`, `Shell`, `Edge` for shell edge faces or `Mixed`. An unresolved pair names its one side. |
+| `unresolved` | `True` for a tie whose sides the search could not tell apart; all its faces are on the master side. |
+| `master_region` | The master faces, as a new `'femodel'` surface `Selection` of geometry IDs. |
+| `slave_region` | The slave faces the same way, or `None` for an unresolved pair. |
+| `master_geometry_ids` | The geometry IDs of the master faces, sorted, as an `IntList`. The `'geometry'` selection source takes them back. |
+| `slave_geometry_ids` | The geometry IDs of the slave faces the same way, or an empty list for an unresolved pair. |
+| `master_part_names` | The names of the parts of the master faces, sorted, as a `StringList`. |
+| `slave_part_names` | The names of the parts of the slave faces the same way, or an empty list for an unresolved pair. |
+
+The regions resolve to element faces, so `master_region.get_ids()` returns element face IDs; the geometry IDs a
+found pair is made of are read from `master_geometry_ids` and `slave_geometry_ids`.
+
+```python
+found = pmx.model.contact_pairs.search(0.01, angle_deg=35, pair_type='Tie', group_by='ByParts')
+print(len(found), 'pairs found')
+names = found.add()
+
+# Only the pairs between solids, one by one under names of the script's own
+for i, pair in enumerate(pmx.model.contact_pairs.search(0.01)):
+    if pair.geometry_type == 'Solid-Solid' and not pair.unresolved:
+        pmx.model.constraints.add_tie('Tie-%d' % (i + 1), pair.master_region, pair.slave_region,
+                                      position_tolerance=0.01)
+
+# Write the pairs to a file once, review it, and add the ties from it on every later run
+import json
+pairs = [{'name': pair.name,
+          'master_parts': list(pair.master_part_names), 'master_ids': list(pair.master_geometry_ids),
+          'slave_parts': list(pair.slave_part_names), 'slave_ids': list(pair.slave_geometry_ids)}
+         for pair in pmx.model.contact_pairs.search(0.01) if not pair.unresolved]
+with open('pairs.json', 'w') as f:
+    json.dump(pairs, f, indent=1)
+
+with open('pairs.json') as f:
+    for i, pair in enumerate(json.load(f)):
+        # A shell edge face needs the option the found regions carry
+        master = pmx.create.selection_by_ids('femodel', 'surfaces', 'geometry', pair['master_ids'])
+        slave = pmx.create.selection_by_ids('femodel', 'surfaces', 'geometry', pair['slave_ids'])
+        master.configure(enable_shell_edge_faces=True)
+        slave.configure(enable_shell_edge_faces=True)
+        pmx.model.constraints.add_tie('Tie-%d' % (i + 1), master, slave)
+```
 
 ## Steps and step content
 

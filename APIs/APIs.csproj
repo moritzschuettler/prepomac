@@ -116,6 +116,9 @@
     <Compile Include="Python\Model\Interactions\ContactPairAPI.cs" />
     <Compile Include="Python\Model\Interactions\ContactPairService.cs" />
     <Compile Include="Python\Model\Interactions\ContactPairsAPI.cs" />
+    <Compile Include="Python\Model\Interactions\ContactSearchPairTypeEnum.cs" />
+    <Compile Include="Python\Model\Interactions\ContactSearchResultAPI.cs" />
+    <Compile Include="Python\Model\Interactions\FoundContactPairAPI.cs" />
     <Compile Include="Python\Model\Interactions\SurfaceInteractionAPI.cs" />
     <Compile Include="Python\Model\Interactions\SurfaceInteractionService.cs" />
     <Compile Include="Python\Model\Interactions\SurfaceInteractionsAPI.cs" />

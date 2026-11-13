@@ -476,6 +476,9 @@ match a hand calculation; and per-layer display works in the GUI.
   - `Test_Model_Composite_Section.py` (layers, checks, S4R/S8 refusal, S6 accepted, `.pmp` batch override of thickness and
     angle, orientation grouping on a flat vs a curved part).
   - `Test_Result_Composite.py` (CLT comparison, rotated-plate invariance, failure indices, in-plane principal stresses).
+  - `Test_Result_Composite_Lamination.py` (free plates of an unsymmetric, unbalanced 5 ply laminate under N_x, N_x with a
+    30 degree orientation, and M_x: mid-plane strains and curvatures, layer heights, ply stresses and the four criteria
+    with their mode against lamination theory evaluated in the script).
 - Regenerate History on a GUI-built composite model, and journal replay (`Audit_API_Coverage.py` requires `ToPython`).
 - `Python_API_Overview.md` updated with each API change (`Audit_API_Documentation.py`); `PythonEnumVocabulary` for
   every new option string.

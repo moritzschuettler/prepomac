@@ -20,7 +20,7 @@ using DynamicTypeDescriptor;
 namespace PrePoMax.Forms
 {
     [Serializable]
-    public class ViewFeSurface
+    public class ViewFeSurface : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
         private FeSurface _surface;
@@ -81,6 +81,11 @@ namespace PrePoMax.Forms
         public FeSurface GetBase()
         {
             return _surface;
+        }
+        public bool IsPropertyValueMissing(string propertyName)
+        {
+            return propertyName == nameof(CreateSurfaceFrom) && _surface.CreatedFrom == FeSurfaceCreatedFrom.Selection &&
+                   (_surface.FaceIds == null || _surface.FaceIds.Length == 0);
         }
         public void PopulateDropDownList(string[] nodeSetNames)
         {

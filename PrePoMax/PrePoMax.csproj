@@ -398,6 +398,7 @@
     <Compile Include="Commands\0071_Constraint\CReplaceConstraint.cs" />
     <Compile Include="Commands\0071_Constraint\CShowConstraints.cs" />
     <Compile Include="Commands\0073_ContactPair\CAddContactPair.cs" />
+    <Compile Include="Commands\0073_ContactPair\CAddSearchedContactPairs.cs" />
     <Compile Include="Commands\0073_ContactPair\CHideContactPairs.cs" />
     <Compile Include="Commands\0073_ContactPair\CMergeByMasterSlaveContactPairs.cs" />
     <Compile Include="Commands\0073_ContactPair\CSwapMasterSlaveContactPairs.cs" />

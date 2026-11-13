@@ -6329,7 +6329,7 @@ namespace CaeModel
                 // the body as a ring, one of its two loops on the source and the other on the target - the end of a
                 // tube swept through its wall - is no such wall: the mesher splits it into walls of four sides, when
                 // straight edges across it can be found to split it along
-                int numOfEdgeLoops = CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds);
+                int numOfEdgeLoops = CountEdgeLoops(vis, vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds);
                 if (numOfEdgeLoops == 2 && IsRingWall(vis.FaceEdgeIds[surfaceId], sourceEdgeIds, targetEdgeIdSet))
                 {
                     string ringWallError = GetRingWallSplitError(part, surfaceId, sourceEdgeIds, targetEdgeIdSet);
@@ -6525,7 +6525,7 @@ namespace CaeModel
             //
             foreach (var surfaceId in wallSurfaceIds)
             {
-                if (CountEdgeLoops(vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds) != 1)
+                if (CountEdgeLoops(vis, vis.FaceEdgeIds[surfaceId], vertexIdEdgeIds) != 1)
                     return GetSweepSideHoleError(part, surfaceId);
                 if (vis.IsSurfaceACylinderLike(surfaceId, out _)) continue;
                 //
@@ -6970,11 +6970,13 @@ namespace CaeModel
         /// <summary>
         /// The number of closed edge loops the given edges form, edges being joined at their vertices.
         /// </summary>
-        private static int CountEdgeLoops(int[] edgeIds, Dictionary<int, HashSet<int>> vertexIdEdgeIds)
+        private static int CountEdgeLoops(VisualizationData vis, int[] edgeIds,
+                                          Dictionary<int, HashSet<int>> vertexIdEdgeIds)
         {
             HashSet<int> edgeIdSet = new HashSet<int>(edgeIds);
             HashSet<int> visited = new HashSet<int>();
             Queue<int> pending = new Queue<int>();
+            HashSet<int> vertexEdgeIds;
             int numLoops = 0;
             foreach (var edgeId in edgeIds)
             {
@@ -6985,10 +6987,10 @@ namespace CaeModel
                 while (pending.Count > 0)
                 {
                     int currentEdgeId = pending.Dequeue();
-                    foreach (var entry in vertexIdEdgeIds)
+                    foreach (var nodeId in vis.GetNodeIdsForEdgeId(currentEdgeId))
                     {
-                        if (!entry.Value.Contains(currentEdgeId)) continue;
-                        foreach (var otherEdgeId in entry.Value)
+                        if (!vertexIdEdgeIds.TryGetValue(nodeId, out vertexEdgeIds)) continue;
+                        foreach (var otherEdgeId in vertexEdgeIds)
                         {
                             if (edgeIdSet.Contains(otherEdgeId) && visited.Add(otherEdgeId)) pending.Enqueue(otherEdgeId);
                         }

@@ -15,15 +15,24 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
+using System.Collections;
+using System.Drawing;
+using System.Drawing.Design;
+using System.Drawing.Drawing2D;
 
 namespace UserControls
 {
     //                                                                                                                              
     // https://stackoverflow.com/questions/23219139/propertygrid-validation                                                         
     //                                                                                                                              
-    public class MySite : ISite, IUIService
+    public class MySite : ISite, IUIService, IPropertyValueUIService
     {
+        private static readonly Image _missingValueImage = CreateMissingValueImage();
+        private const string MissingValueToolTip = "Select at least one item.";
         private string _name;
+        private PropertyValueUIHandler _propertyValueUIHandler;
+        private EventHandler _propertyUIValueItemsChanged;
+
         public MySite(PropertyGrid propertyGrid)
         {
             PropertyGrid = propertyGrid;
@@ -33,10 +42,52 @@ namespace UserControls
 
         public object GetService(Type serviceType)
         {
-            if (serviceType == typeof(IUIService))
+            if (serviceType == typeof(IUIService) || serviceType == typeof(IPropertyValueUIService))
                 return this;
 
             return null;
+        }
+
+        // this is part of IPropertyValueUIService
+        event EventHandler IPropertyValueUIService.PropertyUIValueItemsChanged
+        {
+            add { _propertyUIValueItemsChanged += value; }
+            remove { _propertyUIValueItemsChanged -= value; }
+        }
+        public void AddPropertyValueUIHandler(PropertyValueUIHandler newHandler)
+        {
+            _propertyValueUIHandler += newHandler;
+        }
+        public void RemovePropertyValueUIHandler(PropertyValueUIHandler newHandler)
+        {
+            _propertyValueUIHandler -= newHandler;
+        }
+        public void NotifyPropertyValueUIItemsChanged()
+        {
+            _propertyUIValueItemsChanged?.Invoke(this, EventArgs.Empty);
+        }
+        public PropertyValueUIItem[] GetPropertyUIValueItems(ITypeDescriptorContext context, PropertyDescriptor propDesc)
+        {
+            ArrayList items = new ArrayList();
+            if (propDesc != null && PropertyGrid.SelectedObject is IMissingPropertyValues missingPropertyValues &&
+                missingPropertyValues.IsPropertyValueMissing(propDesc.Name))
+            {
+                items.Add(new PropertyValueUIItem(_missingValueImage, (c, d, i) => { }, MissingValueToolTip));
+            }
+            _propertyValueUIHandler?.Invoke(context, propDesc, items);
+            return (PropertyValueUIItem[])items.ToArray(typeof(PropertyValueUIItem));
+        }
+        private static Image CreateMissingValueImage()
+        {
+            Bitmap image = new Bitmap(8, 8);
+            using (Graphics graphics = Graphics.FromImage(image))
+            using (Brush brush = new SolidBrush(PropertyGridMissingValuePainter.MissingValueColor))
+            {
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                graphics.Clear(Color.Transparent);
+                graphics.FillEllipse(brush, 0, 0, 7, 7);
+            }
+            return image;
         }
 
         // this is part of IUIService

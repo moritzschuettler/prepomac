@@ -35,7 +35,7 @@ namespace PrePoMax
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Material")]
         [DescriptionAttribute("Select the material for the creation of the section.")]
-        public string MaterialName { get { return _section.MaterialName; } set { _section.MaterialName = value; } }
+        public virtual string MaterialName { get { return _section.MaterialName; } set { _section.MaterialName = value; } }
         //
         [CategoryAttribute("Region")]
         [OrderedDisplayName(0, 10, "Region type")]

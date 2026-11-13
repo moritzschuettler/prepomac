@@ -257,6 +257,8 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="ProperyGrid\ColorEditorEx.cs" />
+    <Compile Include="ProperyGrid\IMissingPropertyValues.cs" />
+    <Compile Include="ProperyGrid\PropertyGridMissingValuePainter.cs" />
     <Compile Include="ProperyGrid\TabEnabledPropertyGrid.cs">
       <SubType>Component</SubType>
     </Compile>

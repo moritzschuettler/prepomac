@@ -66,6 +66,10 @@ namespace PrePoMax
         [NonSerialized] protected int _updateBatchCount;
         [NonSerialized] protected UpdateType _batchedModelUpdateType;
         [NonSerialized] protected UpdateType _batchedResultsUpdateType;
+        [NonSerialized] protected int _scriptViewUpdateDeferralCount;
+        [NonSerialized] protected bool _scriptModelSymbolsRedrawPending;
+        [NonSerialized] protected Stopwatch _scriptViewUpdateStopwatch;
+        [NonSerialized] protected long _scriptViewUpdateIntervalMs;
         // View
         [NonSerialized] protected ViewGeometryModelResults _currentView;
         [NonSerialized] protected Dictionary<string, double[]> _viewNameRotationCenter;
@@ -685,12 +689,14 @@ namespace PrePoMax
             PythonEngineResult result = null;
             List<string> messages;
             BeginKeywordStateNotificationBatch();
+            BeginScriptViewUpdateDeferral();
             try
             {
                 result = execute();
             }
             finally
             {
+                EndScriptViewUpdateDeferral();
                 messages = EndKeywordStateNotificationBatch();
                 if (result == null) ShowOrDeferKeywordStateMessages(messages);
             }
@@ -2028,17 +2034,41 @@ namespace PrePoMax
             double thickness = section.GetTotalThickness() * (1 + 2 * Math.Abs(section.Offset.Value));
             return distance <= shellSize + thickness;
         }
+        private HashSet<string> GetCompositeLayerModelPartNames(ShellResultData data)
+        {
+            HashSet<string> modelPartNames = new HashSet<string>();
+            if (data == null) return modelPartNames;
+            //
+            HashSet<int> partIds = new HashSet<int>();
+            FeElement shellElement;
+            foreach (ShellResultElement element in data.Elements.Values)
+            {
+                if (element.LayerNumber > 0 && _model.Mesh.Elements.TryGetValue(element.ShellElementId, out shellElement))
+                    partIds.Add(shellElement.PartId);
+            }
+            BasePart modelPart;
+            foreach (int partId in partIds)
+            {
+                modelPart = _model.Mesh.GetPartFromId(partId);
+                if (modelPart != null) modelPartNames.Add(modelPart.Name);
+            }
+            return modelPartNames;
+        }
         private void WriteResultPartMappingToOutput(string[] mappedPartNames, bool nodeCoordinatesChanged)
         {
             HashSet<string> mappedNames = new HashSet<string>(mappedPartNames);
+            // The layers of a composite shell take the place of its model part in the result mesh
+            HashSet<string> layeredNames = GetCompositeLayerModelPartNames(_allResults.CurrentResult.ShellResultData);
+            layeredNames.ExceptWith(mappedNames);
+            int numOfPartsToMap = _model.Mesh.Parts.Count - layeredNames.Count;
             //
-            if (mappedNames.Count < _model.Mesh.Parts.Count)
+            if (mappedNames.Count < numOfPartsToMap)
             {
                 _form.WriteDataToOutput("Result parts: the model mesh properties were applied to " + mappedNames.Count +
-                                        " of " + _model.Mesh.Parts.Count + " model parts.");
+                                        " of " + numOfPartsToMap + " model parts.");
                 foreach (var entry in _model.Mesh.Parts)
                 {
-                    if (!mappedNames.Contains(entry.Key))
+                    if (!mappedNames.Contains(entry.Key) && !layeredNames.Contains(entry.Key))
                         _form.WriteDataToOutput("Result parts: the model part " + entry.Key +
                                                 " was not found in the result mesh.");
                 }
@@ -17025,8 +17055,9 @@ namespace PrePoMax
                     if (cyclicSymmetry.CreationData == null ||
                         cyclicSymmetry.CreationIds == null ||
                         cyclicSymmetry.CreationIds.Length == 0)
-                        throw new CaeException("The cyclic symmetry result expansion region selection must contain " +
-                                               "at least one item.");
+                        throw new CaeException("Displayed sectors is larger than 1, so the result expansion region " +
+                                               "must be defined. Select the region in the Result expansion region " +
+                                               "category or set Displayed sectors to 1.");
                     //
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets,
                                                            constraint.Name + "_Ngraph");
@@ -17146,13 +17177,16 @@ namespace PrePoMax
         }
 
         // Auto create
-        public void AutoCreateTiedPairs(List<Forms.SearchContactPair> contactPairs)
+        // The names are reserved as the items are made, because none of them is in the model before all are added
+        private void CreateSearchedTieItems(List<Forms.SearchContactPair> contactPairs, List<NamedClass> items)
         {
             if (contactPairs != null)
             {
                 string name;
                 Tie tie;
                 bool adjust;
+                HashSet<string> surfaceNames = new HashSet<string>(_model.Mesh.Surfaces.Keys, _model.Mesh.Surfaces.Comparer);
+                HashSet<string> constraintNames = new HashSet<string>(_model.Constraints.Keys, _model.Constraints.Comparer);
                 Dictionary<string, int> nameCounter = new Dictionary<string, int>();
                 foreach (var contactPair in contactPairs)
                 {
@@ -17164,8 +17198,8 @@ namespace PrePoMax
                     if (contactPair.MasterSlaveItem.Unresolved)
                     {
                         name = contactPair.Name;
-                        if (nameCounter[name] > 1 || _model.Mesh.Surfaces.ContainsKey(name))
-                            name = _model.Mesh.Surfaces.GetNextNumberedKey(name);
+                        if (nameCounter[name] > 1 || surfaceNames.Contains(name)) name = surfaceNames.GetNextNumberedKey(name);
+                        surfaceNames.Add(name);
                         //
                         FeSurface surface = new FeSurface(name);
                         surface.CreationData = new Selection();
@@ -17175,13 +17209,14 @@ namespace PrePoMax
                                                                       true));
                         surface.CreationData = GetMouseSelectionFromSelectionNodeIds(surface.CreationData);
                         //
-                        AddSurfaceCommand(surface, false);
+                        items.Add(surface);
                     }
                     else
                     {
                         name = contactPair.Name;
-                        if (nameCounter[name] > 1 || _model.Constraints.ContainsKey(name))
-                            name = _model.Constraints.GetNextNumberedKey(name);
+                        if (nameCounter[name] > 1 || constraintNames.Contains(name))
+                            name = constraintNames.GetNextNumberedKey(name);
+                        constraintNames.Add(name);
                         //
                         adjust = contactPair.Adjust == Forms.SearchContactPairAdjust.Yes;
                         bool twoD = _model.Properties.ModelSpace.IsTwoD();
@@ -17206,11 +17241,9 @@ namespace PrePoMax
                         tie.SlaveCreationData = GetMouseSelectionFromSelectionNodeIds(tie.SlaveCreationData);
                         tie.SlaveCreationIds = new int[] { 1 };
                         //
-                        AddConstraintCommand(tie, false);
+                        items.Add(tie);
                     }
                 }
-                //
-                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
             }
         }
 
@@ -17348,6 +17381,30 @@ namespace PrePoMax
         {
             Commands.CRemoveContactPairs comm = new Commands.CRemoveContactPairs(contactPairNames);
             _commands.AddAndExecute(comm);
+        }
+        // Everything one OK of the Search Contact Pairs dialog adds is one command, so the history is written once
+        public string[] AddSearchedContactPairsCommand(List<SearchContactPair> contactPairs)
+        {
+            List<SearchContactPair> tiedContactPairs = new List<SearchContactPair>();
+            List<SearchContactPair> contactContactPairs = new List<SearchContactPair>();
+            foreach (SearchContactPair contactPair in contactPairs)
+            {
+                if (contactPair.Type == SearchContactPairType.Tie) tiedContactPairs.Add(contactPair);
+                else if (contactPair.Type == SearchContactPairType.Contact) contactContactPairs.Add(contactPair);
+                else throw new NotSupportedException();
+            }
+            //
+            List<NamedClass> items = new List<NamedClass>();
+            CreateSearchedTieItems(tiedContactPairs, items);
+            CreateSearchedContactPairItems(contactContactPairs, items);
+            if (items.Count == 0) return new string[0];
+            //
+            CAddSearchedContactPairs comm = new CAddSearchedContactPairs(items.ToArray());
+            _commands.AddAndExecute(comm);
+            //
+            string[] names = new string[items.Count];
+            for (int i = 0; i < names.Length; i++) names[i] = items[i].Name;
+            return names;
         }
         //******************************************************************************************
         public string[] GetContactPairNames()
@@ -17662,7 +17719,44 @@ namespace PrePoMax
                 RemoveSurfaces(new string[] { contactPair.SlaveRegionName }, false);
         }
         // Auto create
-        public void AutoCreateContactPairs(List<SearchContactPair> contactPairs)
+        public void AddSearchedContactPairs(NamedClass[] items)
+        {
+            // A pick that no longer finds its face after a geometry change fails one item, not the ones after it
+            List<string> errors = new List<string>();
+            BeginUpdateBatch();
+            try
+            {
+                _form.BeginTreeUpdateBatch();
+                try
+                {
+                    foreach (NamedClass item in items)
+                    {
+                        try
+                        {
+                            if (item is FeSurface surface) AddSurface(surface, false);
+                            else if (item is CaeModel.Constraint constraint) AddConstraint(constraint, false);
+                            else if (item is ContactPair contactPair) AddContactPair(contactPair, false);
+                            else throw new NotSupportedException();
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add(item.Name + ": " + ex.Message);
+                        }
+                    }
+                }
+                finally
+                {
+                    _form.EndTreeUpdateBatch();
+                }
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+            finally
+            {
+                EndUpdateBatch();
+            }
+            foreach (string error in errors) _form.WriteErrorToOutput("Add searched contact pairs: " + error);
+        }
+        private void CreateSearchedContactPairItems(List<SearchContactPair> contactPairs, List<NamedClass> items)
         {
             if (contactPairs != null)
             {
@@ -17670,6 +17764,7 @@ namespace PrePoMax
                 bool adjust;
                 CaeModel.ContactPairMethod method;
                 ContactPair contactPairToAdd;
+                HashSet<string> contactPairNames = new HashSet<string>(_model.ContactPairs.Keys, _model.ContactPairs.Comparer);
                 Dictionary<string, int> nameCounter = new Dictionary<string, int>();
                 foreach (var contactPair in contactPairs)
                 {
@@ -17679,8 +17774,9 @@ namespace PrePoMax
                 foreach (var contactPair in contactPairs)
                 {
                     name = contactPair.Name;
-                    if (nameCounter[name] > 1 || _model.ContactPairs.ContainsKey(name))
-                        name = _model.ContactPairs.GetNextNumberedKey(name);
+                    if (nameCounter[name] > 1 || contactPairNames.Contains(name))
+                        name = contactPairNames.GetNextNumberedKey(name);
+                    contactPairNames.Add(name);
                     //
                     adjust = contactPair.Adjust == SearchContactPairAdjust.Yes;
                     if (contactPair.ContactPairMethod == FrmSearchContactPairs.ContactPairMethodNames[0])
@@ -17709,11 +17805,45 @@ namespace PrePoMax
                     contactPairToAdd.SlaveCreationData = GetMouseSelectionFromSelectionNodeIds(contactPairToAdd.SlaveCreationData);
                     contactPairToAdd.SlaveCreationIds = new int[] { 1 };
                     //
-                    AddContactPairCommand(contactPairToAdd, false);
+                    items.Add(contactPairToAdd);
                 }
-                //
-                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
             }
+        }
+        public List<MasterSlaveItem> SearchContactPairs(double distance, double angleDeg,
+                                                        CaeMesh.ContactSearchNamespace.GeometryFilterEnum filter,
+                                                        GroupContactPairsByEnum groupBy, bool tryToResolve)
+        {
+            SuppressExplodedView();
+            try
+            {
+                ContactSearch contactSearch = new ContactSearch(_model.Mesh, _model.Geometry);
+                contactSearch.GroupContactPairsBy = groupBy;
+                return contactSearch.FindContactPairs(distance, angleDeg, filter, tryToResolve);
+            }
+            finally
+            {
+                ResumeExplodedViews(false);
+            }
+        }
+        // The rows the search dialog shows, all with the same settings, so a script adds what OK of the dialog adds
+        public List<SearchContactPair> CreateSearchContactPairRows(List<MasterSlaveItem> masterSlaveItems, bool tie,
+                                                                   bool adjust, double distance,
+                                                                   string surfaceInteractionName, ContactPairMethod method)
+        {
+            string methodName = method == ContactPairMethod.NodeToSurface ? FrmSearchContactPairs.ContactPairMethodNames[0]
+                                                                          : FrmSearchContactPairs.ContactPairMethodNames[1];
+            SearchContactPair contactPair;
+            List<SearchContactPair> contactPairs = new List<SearchContactPair>();
+            foreach (MasterSlaveItem masterSlaveItem in masterSlaveItems)
+            {
+                contactPair = new SearchContactPair(masterSlaveItem.Name, adjust, distance);
+                contactPair.Type = tie ? SearchContactPairType.Tie : SearchContactPairType.Contact;
+                contactPair.SurfaceInteractionName = surfaceInteractionName;
+                contactPair.ContactPairMethod = methodName;
+                contactPair.MasterSlaveItem = masterSlaveItem;
+                contactPairs.Add(contactPair);
+            }
+            return contactPairs;
         }
 
         #endregion #################################################################################################################
@@ -20745,7 +20875,22 @@ namespace PrePoMax
         #endregion #################################################################################################################
 
         #region Results  ###########################################################################################################
+        // The commands of a script are recorded only as the script, after it ends, so a model the script built in a
+        // session started without one counts as initialized only then, and the viewport hidden for the empty view is
+        // shown then
         public PythonEngineResult RunPythonScriptCommand(string script, string fileName = null, string[] arguments = null)
+        {
+            bool modelInitialized = ModelInitialized;
+            try
+            {
+                return RecordAndRunPythonScript(script, fileName, arguments);
+            }
+            finally
+            {
+                if (!modelInitialized && ModelInitialized) _form.SetMenuAndToolStripVisibility();
+            }
+        }
+        private PythonEngineResult RecordAndRunPythonScript(string script, string fileName, string[] arguments)
         {
             CRunPythonScript comm = new CRunPythonScript(script, fileName, arguments);
             int numOfCommandsBefore = _commands.NumOfCommandsExecutedWithoutRecording;
@@ -24797,14 +24942,85 @@ namespace PrePoMax
             if (modelUpdateType != UpdateType.None) FeModelUpdate(modelUpdateType);
             if (resultsUpdateType != UpdateType.None) FeResultsUpdate(resultsUpdateType);
         }
+        // A script that adds items one call at a time would redraw every symbol and repaint the tree after each of
+        // them, which makes a loop of a few thousand calls take many minutes. While a script runs, the model is still
+        // checked after every call, so validity reads stay correct, but the symbols and the tree are brought up to
+        // date only every so often, at least four times the time an update takes apart, and once at the end
+        public void BeginScriptViewUpdateDeferral()
+        {
+            if (_scriptViewUpdateDeferralCount == 0)
+            {
+                _scriptModelSymbolsRedrawPending = false;
+                _scriptViewUpdateIntervalMs = 1000;
+                _scriptViewUpdateStopwatch = Stopwatch.StartNew();
+                _form.BeginTreeUpdateBatch();
+            }
+            _scriptViewUpdateDeferralCount++;
+        }
+        public void EndScriptViewUpdateDeferral()
+        {
+            if (_scriptViewUpdateDeferralCount <= 0)
+                throw new InvalidOperationException("The script view update deferral is not active.");
+            //
+            _scriptViewUpdateDeferralCount--;
+            if (_scriptViewUpdateDeferralCount > 0) return;
+            //
+            try
+            {
+                RedrawPendingScriptModelSymbols();
+            }
+            finally
+            {
+                _scriptViewUpdateStopwatch = null;
+                _form.EndTreeUpdateBatch();
+            }
+        }
+        // An image of the view shows what the script has done so far
+        public void UpdateDeferredScriptView()
+        {
+            if (_scriptViewUpdateDeferralCount == 0) return;
+            //
+            RedrawPendingScriptModelSymbols();
+            _form.EndTreeUpdateBatch();
+            _form.BeginTreeUpdateBatch();
+        }
+        private void UpdateDeferredScriptViewWhenDue()
+        {
+            if (_scriptViewUpdateStopwatch.ElapsedMilliseconds < _scriptViewUpdateIntervalMs) return;
+            //
+            Stopwatch updateStopwatch = Stopwatch.StartNew();
+            UpdateDeferredScriptView();
+            _scriptViewUpdateIntervalMs = Math.Max(1000, 4 * updateStopwatch.ElapsedMilliseconds);
+            _scriptViewUpdateStopwatch.Restart();
+        }
+        private void RedrawPendingScriptModelSymbols()
+        {
+            if (!_scriptModelSymbolsRedrawPending) return;
+            //
+            _scriptModelSymbolsRedrawPending = false;
+            if (_updateBatchCount > 0) _batchedModelUpdateType |= UpdateType.RedrawSymbols;
+            else RedrawModelSymbols();
+        }
         // Update model
         public void FeModelUpdate(UpdateType updateType)
         {
             if (_updateBatchCount > 0) { _batchedModelUpdateType |= updateType; return; }
             // First check the validity to correctly draw the symbols
             if (updateType.HasFlag(UpdateType.Check)) CheckAndUpdateModelValidity();
-            if (updateType.HasFlag(UpdateType.DrawModel)) DrawModel(updateType.HasFlag(UpdateType.ResetCamera));
-            if (updateType.HasFlag(UpdateType.RedrawSymbols)) RedrawModelSymbols();
+            if (updateType.HasFlag(UpdateType.DrawModel))
+            {
+                DrawModel(updateType.HasFlag(UpdateType.ResetCamera));
+                _scriptModelSymbolsRedrawPending = false;
+            }
+            if (updateType.HasFlag(UpdateType.RedrawSymbols))
+            {
+                if (_scriptViewUpdateDeferralCount > 0)
+                {
+                    _scriptModelSymbolsRedrawPending = true;
+                    UpdateDeferredScriptViewWhenDue();
+                }
+                else RedrawModelSymbols();
+            }
         }
         public void FeResultsUpdate(UpdateType updateType)
         {
@@ -25983,6 +26199,7 @@ namespace PrePoMax
                 //
                 _form.ClearButKeepParts();
                 //
+                _form.SuspendCameraAdjustment();
                 try
                 {
                     // Must be inside to continue screen update
@@ -25992,6 +26209,10 @@ namespace PrePoMax
                     ResetSectionView();
                 }
                 catch { }
+                finally
+                {
+                    _form.ResumeCameraAdjustment();
+                }
                 //
                 if (updateHighlights) UpdateTreeSelection();
                 _form.AdjustCameraDistanceAndClipping();
@@ -32709,7 +32930,9 @@ namespace PrePoMax
         public void UpdatePartsScalarFields()
         {
             if (_allResults.CurrentResult == null || _allResults.CurrentResult.Mesh == null) return;
-            // Settings                                                              
+            // The actors shown in another view are not the result parts; the results view draws the current field
+            if (_currentView != ViewGeometryModelResults.Results) return;
+            // Settings
             SetPostLegendAndStatusBlockSettings();
             //
             Octree.Plane plane = _sectionViews.GetCurrentSectionViewPlane();

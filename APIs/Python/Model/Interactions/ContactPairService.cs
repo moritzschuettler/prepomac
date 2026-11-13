@@ -8,7 +8,11 @@
 // Contributors:
 
 using CaeGlobals;
+using CaeMesh;
+using CaeMesh.ContactSearchNamespace;
 using CaeModel;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace APIs.Python.Model
@@ -186,6 +190,36 @@ namespace APIs.Python.Model
         {
             EnsureCommandsAvailable();
             _modelGateway.ShowContactPairs(names);
+        }
+        public List<MasterSlaveItem> Search(double distance, double angleDeg, GeometryFilterEnum filter,
+                                            GroupContactPairsByEnum groupBy, bool tryToResolve)
+        {
+            EnsureCommandsAvailable();
+            if (_modelResolver.GetMesh().Parts.Count == 0)
+                throw new PythonAPIException("The model mesh has no parts to search. Generate the mesh first.");
+            //
+            return _modelGateway.SearchContactPairs(distance, angleDeg, filter, groupBy, tryToResolve);
+        }
+        public string[] AddSearched(List<MasterSlaveItem> masterSlaveItems, bool tie, bool adjust, double distance,
+                                    string surfaceInteractionName, ContactPairMethod method)
+        {
+            EnsureCommandsAvailable();
+            return _modelGateway.AddSearchedContactPairs(masterSlaveItems, tie, adjust, distance, surfaceInteractionName,
+                                                         method);
+        }
+        // A shell edge face is a surface only where the selection lets a pick take one, as the dialog lets it
+        public SelectionAPI CreateSurfaceSelection(HashSet<int> geometryIds)
+        {
+            SelectionAPI selection = _selectionService.CreateByIds("femodel", "surfaces", "geometry",
+                                                                   geometryIds.ToArray());
+            selection.configure(enable_shell_edge_faces: true);
+            return selection;
+        }
+        public string[] GetPartNames(HashSet<int> geometryIds)
+        {
+            string[] partNames = _modelResolver.GetMesh().GetPartNamesFromGeometryIds(geometryIds.ToArray());
+            Array.Sort(partNames, StringComparer.Ordinal);
+            return partNames;
         }
         public void SetActive(NamedClass[] items, bool active)
         {

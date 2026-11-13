@@ -8,7 +8,10 @@
 // Contributors:
 
 using CaeGlobals;
+using CaeMesh;
+using CaeMesh.ContactSearchNamespace;
 using CaeModel;
+using System.Collections.Generic;
 
 namespace APIs.Python.Model
 {
@@ -93,6 +96,56 @@ namespace APIs.Python.Model
             _service.Replace(oldName, contactPair);
             //
             return this[contactPair.Name];
+        }
+
+        [PythonAPI("Searches the mesh for faces of different parts that lie within distance of each other and " +
+                   "face each other within angle_deg, as Search Contact Pairs of the Interaction menu does, and " +
+                   "returns what it found without changing the model; add() of the result adds it. distance is " +
+                   "in model units and larger than 0, angle_deg lies between 0 and 180. pair_type is Tie or " +
+                   "Contact. group_by is None, one pair per two touching faces, ByParts, one pair per two touching " +
+                   "parts, or ByContactGraph, which merges the faces that share nodes so that a node is a slave " +
+                   "node only once. solid, shell and shell_edges choose the faces searched, at least one of them " +
+                   "True, and ignore_hidden leaves hidden parts out. The defaults are those of the dialog. The " +
+                   "result depends on the mesh, so a recorded script that is regenerated on another mesh can find " +
+                   "other pairs.",
+                   Arguments = "distance: float, angle_deg: float = 35, pair_type: str = 'Tie', " +
+                               "group_by: str = 'ByParts', solid: bool = True, shell: bool = True, " +
+                               "shell_edges: bool = True, ignore_hidden: bool = True",
+                   Returns = "ContactSearchResult",
+                   Example = "pmx.model.contact_pairs.search(0.01, pair_type='Tie').add()")]
+        public ContactSearchResultAPI search(object distance, object angle_deg = null, object pair_type = null,
+                                             object group_by = null, object solid = null, object shell = null,
+                                             object shell_edges = null, object ignore_hidden = null)
+        {
+            double distanceValue = PythonValueConverter.ToDouble(distance, "distance");
+            if (distanceValue <= 0)
+                throw new PythonAPIException("The argument 'distance' must be larger than 0.");
+            double angleDeg = angle_deg == null ? 35 : PythonValueConverter.ToDouble(angle_deg, "angle_deg");
+            if (angleDeg < 0 || angleDeg > 180)
+                throw new PythonAPIException("The argument 'angle_deg' must lie between 0 and 180.");
+            ContactSearchPairTypeEnum pairType = PythonValueConverter.ToEnum<ContactSearchPairTypeEnum>(
+                PythonValueConverter.ToTextOrDefault(pair_type, "Tie", "pair_type"), "pair_type");
+            GroupContactPairsByEnum groupBy = PythonValueConverter.ToEnum<GroupContactPairsByEnum>(
+                PythonValueConverter.ToTextOrDefault(group_by, "ByParts", "group_by"), "group_by");
+            if (groupBy == GroupContactPairsByEnum.BySurfaceAngle)
+                throw new PythonAPIException("The search does not group by surface angle. Possible values of " +
+                                             "'group_by' are None, ByParts and ByContactGraph.");
+            //
+            GeometryFilterEnum filter = GeometryFilterEnum.None;
+            if (PythonValueConverter.ToBoolOrDefault(solid, true, "solid")) filter |= GeometryFilterEnum.Solid;
+            if (PythonValueConverter.ToBoolOrDefault(shell, true, "shell")) filter |= GeometryFilterEnum.Shell;
+            if (PythonValueConverter.ToBoolOrDefault(shell_edges, true, "shell_edges"))
+                filter |= GeometryFilterEnum.ShellEdge;
+            if (filter == GeometryFilterEnum.None)
+                throw new PythonAPIException("At least one of 'solid', 'shell' and 'shell_edges' must be True.");
+            if (PythonValueConverter.ToBoolOrDefault(ignore_hidden, true, "ignore_hidden"))
+                filter |= GeometryFilterEnum.IgnoreHidden;
+            // The dialog resolves the sides of ties only, and adds what it cannot resolve as a surface
+            bool tryToResolve = pairType == ContactSearchPairTypeEnum.Tie;
+            List<MasterSlaveItem> masterSlaveItems = _service.Search(distanceValue, angleDeg, filter, groupBy,
+                                                                     tryToResolve);
+            //
+            return new ContactSearchResultAPI(_service, pairType, distanceValue, masterSlaveItems);
         }
 
         [PythonAPI("Swaps the master and the slave side of the named contact pairs using command history.",
