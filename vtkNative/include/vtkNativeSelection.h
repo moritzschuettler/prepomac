@@ -119,6 +119,10 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_add_part_highlight(vtkn_view view, cons
                                                              const vtkn_highlight_style* style);
 /* Removes the highlights, or only those marked current */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_clear_highlights(vtkn_view view, int32_t current_only);
+/* A trial: the faces of the highlights and of the selection layer are not drawn in the highlight color; a glowing
+   outline of that color is drawn around them (vtkOutlineGlowPass), of the given intensity (3 when not positive).
+   Lines and points are drawn as before. Switching removes the highlights there are */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_highlight_glow(vtkn_view view, int32_t enabled, double intensity);
 
 #ifdef __cplusplus
 }

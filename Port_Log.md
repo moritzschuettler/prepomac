@@ -571,3 +571,31 @@ lines of the change were wrapped, and the window test, `selection_s1`, `selectio
 again on the final build. `Run_Tests.py --filter Test_Api Test_Selection Test_Workflow Test_Model_Parts
 Test_Result_Field Test_Rpc_Live Test_Model_Interactions Test_Model_Constraints Test_Model_Loads Audit_` on the final
 build: 19 of 19 passed.
+
+## A trial of the outline glow (2026-11-14)
+
+On the user's "test the outline glow". `vtkOutlineGlowPass` of VTK 9 draws what its renderer holds into an image of
+its own, blurs it at half the size and blends the blur into the window wherever the image is empty: the faces are
+not drawn and an outline in their color is left around them.
+
+- **The trial** (`vtkn_view_set_highlight_glow`, off, with no setting and no menu): a renderer of the selection
+  layer with that pass (`View::GlowRenderer`) draws the faces of the highlights - of the mouse selection
+  (`AddHighlightActor`), of the selection layer (`GetLayerRenderer`) and of a highlighted part, whose surface takes
+  the place of its model edges - unlit in the highlight color; lines and points are drawn as before. The renderer
+  draws only while it holds something.
+- **Seen** on the hinge, in the model and with the von Mises stress (the pictures were sent to the user): the
+  colors of the results stay readable under a selection, where the highlight of today paints the selected elements
+  over. A frame takes 14 ms with it and without it.
+- **Its limits, all of the pass as VTK has it:**
+  - the outline is two to three pixels wide and its edge steps in blocks of two pixels, the blur being half the
+    size of the window; the width cannot be set;
+  - the intensity is the only setting: 3 gives a thin line with a faint fringe, 8 a solid band, and the secondary
+    highlight color burns out to white there;
+  - the image has no depth of the parts, so the outline of a face behind a part shows through it, where the
+    highlight of today is hidden by the part;
+  - there is one outline around everything highlighted, so two selected faces that touch have none between them.
+- **Not done:** a pass of our own (the faces as a mask at the full size, hidden by the parts, a blur of a width that
+  can be set) would be needed for an outline that can replace the highlight; no setting was added for the trial.
+
+**Checks.** The trial has no check of its own; its pictures were looked at. With it off, on the final build: the
+window test, `selection_s1`, `selection_s2` and `geometry_scenes` passed.

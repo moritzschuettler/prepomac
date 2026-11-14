@@ -465,6 +465,7 @@ namespace vtkn
         if (eventId == vtkCommand::StartEvent)
         {
             view->ClearedBaseActors.clear();
+            view->UpdateGlowRenderer();
             view->Batches.Update();
             view->UpdateBasePass();
             return;

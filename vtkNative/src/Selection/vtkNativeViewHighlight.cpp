@@ -13,10 +13,12 @@
 #include <vtkDataSetMapper.h>
 #include <vtkExtractEdges.h>
 #include <vtkNew.h>
+#include <vtkOutlineGlowPass.h>
 #include <vtkPoints.h>
 #include <vtkPolyData.h>
 #include <vtkPolyDataSilhouette.h>
 #include <vtkProperty.h>
+#include <vtkRenderStepsPass.h>
 #include <vtkUnstructuredGridGeometryFilter.h>
 
 #include <algorithm>
@@ -86,8 +88,62 @@ namespace vtkn
             property->SetSpecular(0);
         }
         vtkRenderer* renderer = style.on_geometry ? Renderer.GetPointer() : GetHighlightRenderer();
+        if (HighlightGlow && !HasOnlyLinesAndPoints(actor->GetMapper()->GetInput()))
+        {
+            FormatForGlow(actor, style.color);
+            renderer = GlowRenderer;
+        }
         renderer->AddActor(actor);
         Highlights.push_back({ actor, renderer, style.current != 0 });
+    }
+
+    // The trial of the outline glow. vtkOutlineGlowPass draws what its renderer holds into an image of its own,
+    // blurs it and blends the blur into the window wherever the image is empty, so the faces themselves are not
+    // drawn and a glowing outline in their color is left around them. The image has no depth of the parts, so the
+    // outline of a face behind a part shows through it
+    void View::SetHighlightGlow(bool enabled, double intensity)
+    {
+        if (GlowRenderer == nullptr)
+        {
+            GlowRenderer = vtkSmartPointer<vtkRenderer>::New();
+            GlowRenderer->SetLayer(SelectionRenderer->GetLayer());
+            GlowRenderer->InteractiveOff();
+            GlowRenderer->SetActiveCamera(Renderer->GetActiveCamera());
+            vtkNew<vtkRenderStepsPass> steps;
+            vtkNew<vtkOutlineGlowPass> glow;
+            glow->SetDelegatePass(steps);
+            GlowRenderer->SetPass(glow);
+            GlowRenderer->DrawOff();
+            RenderWindow->AddRenderer(GlowRenderer);
+        }
+        vtkOutlineGlowPass* glow = vtkOutlineGlowPass::SafeDownCast(GlowRenderer->GetPass());
+        glow->SetOutlineIntensity(static_cast<float>(intensity > 0 ? intensity : 3.0));
+        if (enabled == HighlightGlow) return;
+        // The highlights are drawn by the renderer they were added to; those of the other way of drawing go
+        Clear(VTKN_CLEAR_SELECTION);
+        ClearHighlights(false);
+        HighlightGlow = enabled;
+    }
+
+    // The pass works on an image of the size of the window, so its renderer draws only when it holds something
+    void View::UpdateGlowRenderer()
+    {
+        if (GlowRenderer == nullptr) return;
+        bool draw = HighlightGlow && GlowRenderer->GetViewProps()->GetNumberOfItems() > 0;
+        if (draw != (GlowRenderer->GetDraw() != 0)) GlowRenderer->SetDraw(draw);
+    }
+
+    // The pass takes a pixel for a part of the faces when it is not black, and gives the outline their color
+    void View::FormatForGlow(vtkActor* actor, const double* color)
+    {
+        actor->GetMapper()->ScalarVisibilityOff();
+        vtkProperty* property = actor->GetProperty();
+        property->SetLighting(false);
+        property->SetColor(color[0], color[1], color[2]);
+        property->SetAmbient(1);
+        property->SetDiffuse(0);
+        property->SetSpecular(0);
+        property->SetOpacity(1);
     }
 
     void View::AddHighlight(const vtkn_mesh& mesh, const vtkn_highlight_style& style)
@@ -130,7 +186,7 @@ namespace vtkn
         vtkSmartPointer<vtkActor> actor = CreateActor(surface);
         AddHighlightActor(actor, style);
         // The element edges keep the look of the part's element edges and are drawn on the same layer
-        if (style.element_edges && !style.points)
+        if (style.element_edges && !style.points && !HighlightGlow)
         {
             vtkNew<vtkExtractEdges> edges;
             edges->SetInputData(surface);
@@ -155,7 +211,8 @@ namespace vtkn
         vtkDataSet* modelEdges = part->GetModelEdges() != nullptr ? part->GetModelEdges()->GetMapper()->GetInput()
                                                                   : nullptr;
         vtkSmartPointer<vtkActor> actor;
-        if (modelEdges != nullptr && modelEdges->GetNumberOfPoints() > 0) actor = CreateActor(modelEdges);
+        if (HighlightGlow) actor = CreateActor(part->GetPolyData());
+        else if (modelEdges != nullptr && modelEdges->GetNumberOfPoints() > 0) actor = CreateActor(modelEdges);
         else
         {
             vtkPolyData* surface = vtkPolyData::SafeDownCast(part->GetGeometry()->GetMapper()->GetInput());
