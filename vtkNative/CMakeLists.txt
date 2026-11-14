@@ -49,6 +49,8 @@ add_library(vtkNative SHARED
     src/vtkNativeView.cpp
     src/vtkNativeView.h
     src/vtkNativeViewCamera.cpp
+    src/Geometry/vtkNativeActorBatches.cpp
+    src/Geometry/vtkNativeActorBatches.h
     src/Geometry/vtkNativeAmbientOcclusion.cpp
     src/Geometry/vtkNativeApiGeometry.cpp
     src/Geometry/vtkNativeCaptions.cpp

@@ -10,21 +10,71 @@
 
 #include <vtkCamera.h>
 #include <vtkCellArray.h>
-#include <vtkDistanceToCamera.h>
 #include <vtkDoubleArray.h>
 #include <vtkFloatArray.h>
 #include <vtkGlyph3D.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
 #include <vtkNew.h>
+#include <vtkObjectFactory.h>
 #include <vtkPolyDataSilhouette.h>
 #include <vtkProperty.h>
+#include <vtkWeakPointer.h>
 
 #include <algorithm>
 #include <cmath>
 
 namespace vtkn
 {
+    namespace
+    {
+        // Glyphs that keep their size on the screen. vtkDistanceToCamera gives every point the scale of that size,
+        // but it is modified by every move of the camera, so the glyphs and the silhouette edges made of them were
+        // built again for every frame of a turning view. In the parallel projection of the views that scale is the
+        // same for every point and changes only with the zoom and the height of the view, so it is the scale factor
+        // of the glyphs here, checked whenever the pipeline asks for the modification time
+        class ScreenSizeGlyph : public vtkGlyph3D
+        {
+        public:
+            static ScreenSizeGlyph* New();
+            vtkTypeMacro(ScreenSizeGlyph, vtkGlyph3D);
+
+            void SetScreenSize(vtkRenderer* renderer, double screenSize, double sourceScaleFactor)
+            {
+                Renderer = renderer;
+                ScreenSize = screenSize;
+                SourceScaleFactor = sourceScaleFactor;
+                this->SetScaleModeToDataScalingOff();
+                this->ScalingOn();
+            }
+
+            vtkMTimeType GetMTime() override
+            {
+                if (Renderer != nullptr)
+                {
+                    // The scale of vtkDistanceToCamera in a parallel projection
+                    double size = 1;
+                    int height = Renderer->GetSize()[1];
+                    if (height > 0) size = 2.0 * (Renderer->GetActiveCamera()->GetParallelScale() / height) * ScreenSize;
+                    double scaleFactor = SourceScaleFactor * size;
+                    if (scaleFactor != this->ScaleFactor) this->SetScaleFactor(scaleFactor);
+                }
+                return this->Superclass::GetMTime();
+            }
+
+        protected:
+            ScreenSizeGlyph() = default;
+            ~ScreenSizeGlyph() override = default;
+
+        private:
+            vtkWeakPointer<vtkRenderer> Renderer;
+            double ScreenSize = 1;
+            double SourceScaleFactor = 1;
+        };
+
+        vtkStandardNewMacro(ScreenSizeGlyph);
+    }
+
     // vtkControl draws the selection layer between the overlay and the widgets: four layers, widgets on top
     void View::InitializeGeometry()
     {
@@ -73,6 +123,13 @@ namespace vtkn
                 "The layer of the style is not one of vtkn_layer.");
         std::unique_ptr<PartActor> actor(new PartActor(style, geometry, modelEdges, modelEdgesToDraw));
         actor->SetParentName(parentName);
+        // The surfaces drawn on the parts, such as those of the constraints and the loads, come in thousands. A
+        // highlighted surface that is drawn among them is drawn the way they are, since it lies on one of them
+        if (!actor->IsAPart() && style.layer != VTKN_LAYER_OVERLAY && GetLayerRenderer(*actor) == Renderer)
+        {
+            for (vtkActor* drawn : { actor->GetGeometry(), actor->GetElementEdges(), actor->GetModelEdges() })
+                ActorBatches::Allow(drawn);
+        }
         AddActor(name, std::move(actor));
     }
 
@@ -421,19 +478,12 @@ namespace vtkn
             for (int i = 0; i < normalCount; i++) normalArray->InsertNextTuple(normals + 3 * i);
             polyData->GetPointData()->SetNormals(normalArray);
         }
-        vtkNew<vtkDistanceToCamera> distanceToCamera;
-        distanceToCamera->SetInputData(polyData);
         double relativeSize = parameters.kind == VTKN_SYMBOL_ARROW ? parameters.relative_size : 1;
-        distanceToCamera->SetScreenSize(parameters.symbol_size * relativeSize);
-        distanceToCamera->SetRenderer(Renderer);
-        vtkSmartPointer<vtkGlyph3D> glyph = vtkSmartPointer<vtkGlyph3D>::New();
+        vtkSmartPointer<ScreenSizeGlyph> glyph = vtkSmartPointer<ScreenSizeGlyph>::New();
         glyph->SetSourceData(symbol.Source);
-        glyph->SetInputConnection(distanceToCamera->GetOutputPort());
+        glyph->SetInputData(polyData);
         glyph->SetVectorModeToUseNormal();
-        glyph->ScalingOn();
-        glyph->SetScaleModeToScaleByScalar();
-        glyph->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "DistanceToCamera");
-        glyph->SetScaleFactor(symbol.ScaleFactor);
+        glyph->SetScreenSize(Renderer, parameters.symbol_size * relativeSize, symbol.ScaleFactor);
         glyph->OrientOn();
         // ApplySymbolFormattingToActor
         vtkn_part_style symbolStyle = style;

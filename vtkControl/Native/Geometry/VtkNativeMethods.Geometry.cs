@@ -139,6 +139,11 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_view_set_ambient_occlusion(IntPtr view, int enabled,
                                                                              double relativeRadius, int kernelSize);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_actor_batching(IntPtr view, int enabled);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_get_actor_batches(IntPtr view, out int batchCount,
+                                                                         out int memberCount);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_add_mesh_actor(IntPtr view, byte[] name, double[] points,
                                                                       int pointCount, int[] cells, int cellsLength,
                                                                       byte[] cellTypes, int cellCount,

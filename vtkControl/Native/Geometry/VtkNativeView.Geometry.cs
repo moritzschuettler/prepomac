@@ -456,6 +456,16 @@ namespace vtkControl.Native
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_ambient_occlusion(Handle(), enabled ? 1 : 0,
                                                                                     relativeRadius, kernelSize));
         }
+        public void SetActorBatching(bool enabled)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_actor_batching(Handle(), enabled ? 1 : 0));
+        }
+        public int[] GetActorBatches()
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_get_actor_batches(Handle(), out int batchCount,
+                                                                                out int memberCount));
+            return new int[] { batchCount, memberCount };
+        }
         //
         public void AddMeshActor(string name, double[] points, int[] cells, byte[] cellTypes, double[] colorRgb,
                                  bool edgesVisible)

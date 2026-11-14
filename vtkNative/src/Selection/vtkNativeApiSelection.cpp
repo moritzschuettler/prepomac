@@ -168,7 +168,7 @@ extern "C"
         return GuardVtk([&]() {
             Require(mesh != nullptr, "The argument 'mesh' must not be null.");
             Require(style != nullptr, "The argument 'style' must not be null.");
-            View::FromHandle(view)->AddHighlight(*mesh, *style);
+            View::FromHandleOfGeometry(view)->AddHighlight(*mesh, *style);
             return VTKN_OK;
         });
     }
@@ -178,7 +178,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(style != nullptr, "The argument 'style' must not be null.");
-            View::FromHandle(view)->AddPartHighlight(ToName(name, "name"), *style);
+            View::FromHandleOfGeometry(view)->AddPartHighlight(ToName(name, "name"), *style);
             return VTKN_OK;
         });
     }
@@ -186,7 +186,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_clear_highlights(vtkn_view view, int32_t current_only)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->ClearHighlights(current_only != 0);
+            View::FromHandleOfGeometry(view)->ClearHighlights(current_only != 0);
             return VTKN_OK;
         });
     }

@@ -18,6 +18,8 @@
 #border of a tile through its middle, and switching it off gives the picture from before. Nearly opaque parts look
 #as the opaque ones do, with and without the ambient occlusion: their faces are blended by depth, not in the order of
 #their actors. Behind the native view the ActiViz window does not swap its buffers, so its picture never shows.
+#The surfaces of the loads, which the native view draws through one mapper, give the picture they give drawn one by
+#one: as they are, with a part hidden and shown again, in a section view and with the ambient occlusion.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Window_Events.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -147,6 +149,7 @@ def run_mode(areas, record):
         check_click_focus(label)
         check_ambient_occlusion(label)
         check_translucent_sorting(label)
+        check_actor_batches(label)
     on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))
     on_ui(CONTROLLER.ClearSelectionHistory)
     check_camera(label)
@@ -324,6 +327,80 @@ def check_translucent_sorting(label):
     check(different <= 100, label + ": nearly opaque parts look as the opaque ones", different)
     different = different_blocks(translucent, with_occlusion)
     check(different <= 100, label + ": nearly opaque parts look the same with the ambient occlusion", different)
+
+
+# The actors that look the same are drawn by one mapper and are built into it again when one of them changes; a
+# picture drawn that way must be the picture of the actors drawn one by one
+def check_actor_batches(label):
+    import System
+    step = list(pmx.model.steps.get_names())[0]
+    for face in (1, 2, 3, 4, 5, 6):
+        selection = pmx.create.selection_by_ids("femodel", "surfaces", "surfaces", {1: [face]})
+        pmx.model.steps[step].loads.add_pressure("BatchPressure%d" % face, selection, 1.0)
+    on_ui(lambda: CONTROLLER.UpdateDeferredScriptView())
+    vtkport.frame_both(vtkport.camera_list(pmx.view.get_parameters()), "Isometric")
+    mirror = VTK.NativeMirror
+
+    # Translucent lines blended in another order, and symbols drawn again when a part is shown, differ by a
+    # level or two in a few pixels; a surface that is missing or left over differs in hundreds
+    def different_pixels(a, b):
+        from System.Drawing import Bitmap
+        from System.IO import MemoryStream
+        first, second = Bitmap(MemoryStream(a)), Bitmap(MemoryStream(b))
+        count = 0
+        for y in range(0, first.Height, 2):
+            for x in range(0, first.Width, 2):
+                if first.GetPixel(x, y) != second.GetPixel(x, y):
+                    count += 1
+        first.Dispose()
+        second.Dispose()
+        return count
+
+    def picture(name, batching):
+        path = os.path.join(OUT, label + "_batches_" + name + ("" if batching else "_one_by_one") + ".png")
+
+        def run():
+            mirror.SetActorBatching(batching)
+            mirror.WritePng(path, 1)
+            return list(mirror.GetActorBatches())
+        counts = on_ui(run)
+        return open(path, "rb").read(), counts
+
+    def same(name, batches=1):
+        drawn_together, counts = picture(name, True)
+        one_by_one, none = picture(name, False)
+        on_ui(lambda: mirror.SetActorBatching(True))
+        different = different_pixels(drawn_together, one_by_one)
+        check(counts[0] >= batches and counts[1] >= 2 * batches and none == [0, 0] and different <= 20,
+              label + ": the surfaces drawn through one mapper give the picture of the surfaces drawn one by one, " +
+              name, [different, counts, none])
+        return drawn_together
+
+    shown = same("shown")
+    part = System.Array[System.String](["Base"])
+    on_ui(lambda: CONTROLLER.HideModelParts(part))
+    on_ui(lambda: CONTROLLER.UpdateDeferredScriptView())
+    hidden = same("part hidden", 0)
+    on_ui(lambda: CONTROLLER.ShowModelParts(part))
+    on_ui(lambda: CONTROLLER.UpdateDeferredScriptView())
+    again, counts = picture("shown_again", True)
+    different = [different_pixels(hidden, shown), different_pixels(again, shown)]
+    check(different[0] > 500 and different[1] <= 20, label + ": hiding and showing a part reaches the surfaces drawn "
+          "through one mapper", [different, counts])
+    center = on_ui(lambda: list(CONTROLLER.GetSectionViewBBCenter().Coor))
+    normal = on_ui(lambda: list(CONTROLLER.GetDefaultSectionViewNormal()))
+    on_ui(lambda: CONTROLLER.CreateSectionView(System.Array[System.Double](center), System.Array[System.Double](normal),
+                                               False, System.Drawing.Color.Empty, False, False))
+    section = same("in a section view")
+    on_ui(lambda: CONTROLLER.RemoveSectionView())
+    check(section != shown, label + ": the section view cuts the surfaces drawn through one mapper")
+    on_ui(lambda: VTK.SetAmbientOcclusion(True, 0.05, 64, True))
+    same("with the ambient occlusion")
+    on_ui(lambda: VTK.SetAmbientOcclusion(False, 0.05, 64, True))
+    again, counts = picture("shown_at_the_end", True)
+    different = different_pixels(again, shown)
+    check(different <= 20, label + ": the picture of the surfaces drawn through one mapper is the one from before",
+          [different, counts])
 
 
 def check_arrow_key(label):

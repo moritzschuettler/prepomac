@@ -462,3 +462,50 @@ with the occlusion on as without it. Both fail on the build from before. The ful
 the build with the user's settings (occlusion on): all passed, S4 with its one known difference. `Run_Tests.py
 --filter Test_Api Test_Selection Test_Workflow Test_Model_Parts Test_Result_Field Test_Rpc_Live
 Test_Model_Interactions Audit_`: 17 of 17 passed.
+
+## Symbols: no rebuild per camera move, one mapper for the surfaces (2026-11-14)
+
+On the user's choice of "Instanced symbols" from the list of further VTK 9 effects, and "maybe the symbols can be
+used in One mapper for many parts". The measurements changed what was built:
+
+- **Glyph symbols** (the arrows, cones and springs of loads and boundary conditions). Instancing was not the cost.
+  `vtkDistanceToCamera`, which keeps the symbols at their size on the screen, is modified by every move of the
+  camera, so the glyphs and the silhouette edges made of them were built again for every frame of a turning view:
+  on the hinge with six pressure loads a moved frame took about 83 ms, 15 ms of it the glyphs and 52 ms their
+  silhouette edges. In the parallel projection of the views that scale is the same for every point and changes only
+  with the zoom and the height of the view, so it is now the scale factor of the glyph filter (`ScreenSizeGlyph` in
+  `vtkNativeViewGeometry.cpp`), modified only when it changes. A moved frame takes about 19 ms and the picture is the
+  same to the pixel. The glyphs are still copied on the CPU, once per zoom, because the silhouette edges are made of
+  the copies.
+- **Surface symbols** (ties, contact pairs, surface loads). Each is an actor of its own; the 2688 surfaces of 1344
+  ties on 512 cubes took 91 ms of a frame that takes 18 ms without them. The actors of the base layer that are not
+  parts and look the same - the same property, shader replacements, clipping planes and offsets - are now appended
+  into one mesh and drawn by one mapper (`vtkNativeActorBatches`). The actors themselves stay in the renderer as
+  they are, so showing, coloring, clipping, moving and measuring them goes on working on them; a culler leaves them
+  out of what is drawn and puts the actor of their batch in the place of the first of them, which keeps the order
+  of drawing. The batches are looked through again after a call of the geometry API, not after a move of the camera
+  (the look through 2688 actors takes 7 ms), and a batch whose members did not change is kept. A frame of the tie
+  model takes 16 to 18 ms; the picture is the same to the pixel.
+  - Of two symbol surfaces on the same face the one drawn later is seen, because their depths are the same to the
+    bit. VTK shifts and scales the coordinates of a mesh by its own bounds before storing them as floats, so the
+    same triangle in an appended mesh came out with another depth and the two surfaces flickered through each other.
+    Every allowed actor is therefore drawn by a batch, also one alone in its look, and the batches store the
+    coordinates as they are (`DISABLE_SHIFT_SCALE`); a highlighted surface that is drawn among the symbols is
+    batched the same way. A depth step per look was tried first and dropped: a surface pulled forward hides the mesh
+    lines of the part on it. The coordinates as floats lose precision on a model very far from the origin or zoomed
+    in very deep, where a symbol surface can shift against the part by a pixel.
+  - `vtkn_view_set_actor_batching` draws every actor through a mapper of its own for comparing, and
+    `vtkn_view_get_actor_batches` counts the batches.
+- **Not done:** the redraw of the symbols of the 1344 ties still takes 1.4 to 1.9 s; that time is creating the
+  actors on both views, not drawing them. The edge lines of the parts are not batched.
+- **Seen once:** an access violation in `vtkControl.ReleaseActorGraphicsResources` (the ActiViz view, from
+  `Clear()`) while a script built the 512 cubes; ten other runs of the same script passed, before and after.
+
+**Checks.** `Test_Window_Events.py`: with six pressure loads, the surfaces drawn through one mapper give the picture
+of the surfaces drawn one by one - as they are, with a part hidden, in a section view and with the ambient occlusion
+(at most one sampled pixel differs) - and hiding and showing a part reaches them.
+The pictures of the tie model and of the hinge with six pressure loads against the build from before: the same to
+the pixel, and six pixels differing by two levels. The full `Run_Port_Checks.sh` on a copy of the build with the
+user's settings: all passed, S4 with its one known difference. `Run_Tests.py --filter Test_Api Test_Selection
+Test_Workflow Test_Model_Parts Test_Result_Field Test_Rpc_Live Test_Model_Interactions Test_Model_Constraints
+Test_Model_Loads Audit_`: 19 of 19 passed.

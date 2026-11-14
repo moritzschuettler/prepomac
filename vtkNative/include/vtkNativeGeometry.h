@@ -352,6 +352,12 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_set_lighting(vtkn_view view, double amb
    of multisampled */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_ambient_occlusion(vtkn_view view, int32_t enabled,
                                                                 double relative_radius, int32_t kernel_size);
+/* The actors of vtkn_view_add_actor in the base layer that are not parts and look the same are drawn by one mapper
+   (on by default); off draws every actor by itself, for comparing. The counts are the batches and the actors drawn
+   by them as of the last render */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actor_batching(vtkn_view view, int32_t enabled);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_get_actor_batches(vtkn_view view, int32_t* batch_count,
+                                                            int32_t* member_count);
 
 /* Actors are named; adding a name that exists replaces that actor.
    points: point_count * 3 coordinates. cells: for each cell its node count followed by its point indices

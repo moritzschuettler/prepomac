@@ -44,7 +44,7 @@ extern "C"
         return GuardVtk([&]() {
             Require(style != nullptr, "The argument 'style' must not be null.");
             Require(geometry != nullptr, "The argument 'geometry' must not be null.");
-            View::FromHandle(view)->AddPartActor(ToName(name, "name"), *style, *geometry, model_edges,
+            View::FromHandleOfGeometry(view)->AddPartActor(ToName(name, "name"), *style, *geometry, model_edges,
                                                  model_edges_to_draw);
             return VTKN_OK;
         });
@@ -57,7 +57,7 @@ extern "C"
         return GuardVtk([&]() {
             Require(style != nullptr, "The argument 'style' must not be null.");
             Require(geometry != nullptr, "The argument 'geometry' must not be null.");
-            View::FromHandle(view)->AddActor(ToName(name, "name"), parent_name != nullptr ? parent_name : "", *style,
+            View::FromHandleOfGeometry(view)->AddActor(ToName(name, "name"), parent_name != nullptr ? parent_name : "", *style,
                                              *geometry, model_edges, model_edges_to_draw);
             return VTKN_OK;
         });
@@ -67,7 +67,7 @@ extern "C"
                                                       int32_t visible)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->SetActorVisible(ToName(name, "name"), ToLayer(layer), visible != 0);
+            View::FromHandleOfGeometry(view)->SetActorVisible(ToName(name, "name"), ToLayer(layer), visible != 0);
             return VTKN_OK;
         });
     }
@@ -77,7 +77,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(rgba != nullptr, "The color must not be null.");
-            View::FromHandle(view)->SetActorColor(ToName(name, "name"), ToLayer(layer), rgba);
+            View::FromHandleOfGeometry(view)->SetActorColor(ToName(name, "name"), ToLayer(layer), rgba);
             return VTKN_OK;
         });
     }
@@ -85,7 +85,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_rename_actor(vtkn_view view, const char* old_name, const char* new_name)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->RenameActor(ToName(old_name, "old_name"), ToName(new_name, "new_name"));
+            View::FromHandleOfGeometry(view)->RenameActor(ToName(old_name, "old_name"), ToName(new_name, "new_name"));
             return VTKN_OK;
         });
     }
@@ -93,7 +93,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_highlight_actor(vtkn_view view, const char* name)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->HighlightActor(ToName(name, "name"));
+            View::FromHandleOfGeometry(view)->HighlightActor(ToName(name, "name"));
             return VTKN_OK;
         });
     }
@@ -101,7 +101,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_hide_show_actors(vtkn_view view, const char* names, int32_t visible)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->HideShowActors(ToNameSet(names, "names"), visible != 0);
+            View::FromHandleOfGeometry(view)->HideShowActors(ToNameSet(names, "names"), visible != 0);
             return VTKN_OK;
         });
     }
@@ -109,7 +109,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_set_camera_adjustment_suspended(vtkn_view view, int32_t suspended)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->SetCameraAdjustmentSuspended(suspended != 0);
+            View::FromHandleOfGeometry(view)->SetCameraAdjustmentSuspended(suspended != 0);
             return VTKN_OK;
         });
     }
@@ -118,7 +118,7 @@ extern "C"
                                                                             int32_t visible, int32_t update)
     {
         return GuardVtk([&]() {
-            View* target = View::FromHandle(view);
+            View* target = View::FromHandleOfGeometry(view);
             target->UpdateResultRepresentationVisibility(ToNameSet(part_names, "part_names"), visible != 0);
             if (update != 0) target->AdjustCameraDistanceAndClipping();
             return VTKN_OK;
@@ -132,7 +132,7 @@ extern "C"
         return GuardVtk([&]() {
             Require(style != nullptr, "The argument 'style' must not be null.");
             Require(parameters != nullptr, "The argument 'parameters' must not be null.");
-            View::FromHandle(view)->AddSymbolActor(ToName(name, "name"), *style, points, point_count, normals,
+            View::FromHandleOfGeometry(view)->AddSymbolActor(ToName(name, "name"), *style, points, point_count, normals,
                                                    normal_count, *parameters);
             return VTKN_OK;
         });
@@ -146,7 +146,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(style != nullptr, "The argument 'style' must not be null.");
-            View::FromHandle(view)->AddGlyphActor(ToName(name, "name"), parent_name != nullptr ? parent_name : "",
+            View::FromHandleOfGeometry(view)->AddGlyphActor(ToName(name, "name"), parent_name != nullptr ? parent_name : "",
                                                   *style, coordinates3, point_count, values, lines, line_count,
                                                   vertices, vertex_count, extremes);
             return VTKN_OK;
@@ -160,7 +160,7 @@ extern "C"
         return GuardVtk([&]() {
             Require(caption != nullptr, "The argument 'caption' must not be null.");
             Require(position3 != nullptr, "The argument 'position3' must not be null.");
-            View::FromHandle(view)->AddCaption(ToName(name, "name"), caption, position3, offset3, font_size,
+            View::FromHandleOfGeometry(view)->AddCaption(ToName(name, "name"), caption, position3, offset3, font_size,
                                                ToLayer(layer), use_secondary_highlight_color != 0);
             return VTKN_OK;
         });
@@ -180,7 +180,7 @@ extern "C"
                 labelList.push_back(label);
                 label += std::strlen(label) + 1;
             }
-            View::FromHandle(view)->AddLabels(ToName(name, "name"), positions3, count, labelList, color_rgb, font_size,
+            View::FromHandleOfGeometry(view)->AddLabels(ToName(name, "name"), positions3, count, labelList, color_rgb, font_size,
                                               ToLayer(layer));
             return VTKN_OK;
         });
@@ -204,7 +204,7 @@ extern "C"
                 labelList[i] = label;
                 label += std::strlen(label) + 1;
             }
-            View::FromHandle(view)->AddCoordinateSystemSymbol(origin3, axisDirections, labelList, symbol_size,
+            View::FromHandleOfGeometry(view)->AddCoordinateSystemSymbol(origin3, axisDirections, labelList, symbol_size,
                                                               ToLayer(layer), material_axes != 0);
             return VTKN_OK;
         });
@@ -214,7 +214,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(position3 != nullptr, "The argument 'position3' must not be null.");
-            View::FromHandle(view)->SetCaptionPosition(ToName(name, "name"), position3);
+            View::FromHandleOfGeometry(view)->SetCaptionPosition(ToName(name, "name"), position3);
             return VTKN_OK;
         });
     }
@@ -224,7 +224,7 @@ extern "C"
                                                      const double* normals3)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->SetActorPoints(ToName(name, "name"), ToLayer(layer), coordinates3, count,
+            View::FromHandleOfGeometry(view)->SetActorPoints(ToName(name, "name"), ToLayer(layer), coordinates3, count,
                                                    normals3);
             return VTKN_OK;
         });
@@ -235,7 +235,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             std::string actorName = ToName(name, "name");
-            PartActor* actor = View::FromHandle(view)->FindActor(actorName, VTKN_LAYER_BASE);
+            PartActor* actor = View::FromHandleOfGeometry(view)->FindActor(actorName, VTKN_LAYER_BASE);
             if (actor == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "There is no actor named " + actorName + ".");
             actor->SetPointScalars(values, count, extremes);
             return VTKN_OK;
@@ -249,7 +249,7 @@ extern "C"
         return GuardVtk([&]() {
             Require(rgb_count == 0 || rgb != nullptr, "The argument 'rgb' must not be null.");
             std::string actorName = ToName(name, "name");
-            PartActor* actor = View::FromHandle(view)->FindActor(actorName, ToLayer(layer));
+            PartActor* actor = View::FromHandleOfGeometry(view)->FindActor(actorName, ToLayer(layer));
             if (actor == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "There is no actor named " + actorName + ".");
             actor->SetCellColors(values, count, rgb, rgb_count);
             return VTKN_OK;
@@ -260,7 +260,7 @@ extern "C"
                                                               int32_t color_contours)
     {
         return GuardVtk([&]() {
-            View* target = View::FromHandle(view);
+            View* target = View::FromHandleOfGeometry(view);
             for (const std::string& name : ToNameSet(names, "names"))
             {
                 PartActor* actor = target->FindActor(name, VTKN_LAYER_BASE);
@@ -276,7 +276,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(spectrum != nullptr, "The argument 'spectrum' must not be null.");
-            View::FromHandle(view)->UpdateScalarFormatting(*spectrum, keep_scalar_bar_visible != 0,
+            View::FromHandleOfGeometry(view)->UpdateScalarFormatting(*spectrum, keep_scalar_bar_visible != 0,
                                                            use_all_frames != 0, all_frames_min, all_frames_max);
             return VTKN_OK;
         });
@@ -286,7 +286,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(range2 != nullptr && has_range != nullptr, "The output arguments must not be null.");
-            *has_range = View::FromHandle(view)->GetScalarRange(range2) ? 1 : 0;
+            *has_range = View::FromHandleOfGeometry(view)->GetScalarRange(range2) ? 1 : 0;
             return VTKN_OK;
         });
     }
@@ -299,7 +299,7 @@ extern "C"
         return GuardVtk([&]() {
             Require(section_color_rgba != nullptr, "The argument 'section_color_rgba' must not be null.");
             std::string actorName = ToName(name, "name");
-            PartActor* actor = View::FromHandle(view)->FindActor(actorName, VTKN_LAYER_BASE);
+            PartActor* actor = View::FromHandleOfGeometry(view)->FindActor(actorName, VTKN_LAYER_BASE);
             if (actor == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "There is no actor named " + actorName + ".");
             vtkSmartPointer<vtkUnstructuredGrid> grid;
             if (volume_grid != nullptr)
@@ -324,7 +324,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(section_view != nullptr, "The argument 'section_view' must not be null.");
-            View::FromHandle(view)->CreateSectionView(*section_view);
+            View::FromHandleOfGeometry(view)->CreateSectionView(*section_view);
             return VTKN_OK;
         });
     }
@@ -332,7 +332,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_remove_section_view(vtkn_view view)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->RemoveSectionView();
+            View::FromHandleOfGeometry(view)->RemoveSectionView();
             return VTKN_OK;
         });
     }
@@ -341,7 +341,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(point3 != nullptr, "The argument 'point3' must not be null.");
-            View::FromHandle(view)->AddSymmetry(symmetry_plane, point3);
+            View::FromHandleOfGeometry(view)->AddSymmetry(symmetry_plane, point3);
             return VTKN_OK;
         });
     }
@@ -351,7 +351,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(displacement3 != nullptr, "The argument 'displacement3' must not be null.");
-            View::FromHandle(view)->AddLinearPattern(displacement3, number_of_items);
+            View::FromHandleOfGeometry(view)->AddLinearPattern(displacement3, number_of_items);
             return VTKN_OK;
         });
     }
@@ -362,7 +362,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(axis_point3 != nullptr && axis_normal3 != nullptr, "The axis must not be null.");
-            View::FromHandle(view)->AddCircularPattern(axis_point3, axis_normal3, angle, number_of_items);
+            View::FromHandleOfGeometry(view)->AddCircularPattern(axis_point3, axis_normal3, angle, number_of_items);
             return VTKN_OK;
         });
     }
@@ -370,7 +370,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_apply_transforms(vtkn_view view)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->ApplyTransforms();
+            View::FromHandleOfGeometry(view)->ApplyTransforms();
             return VTKN_OK;
         });
     }
@@ -378,7 +378,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_remove_transformed_actors(vtkn_view view)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->RemoveTransformedActors();
+            View::FromHandleOfGeometry(view)->RemoveTransformedActors();
             return VTKN_OK;
         });
     }
@@ -386,7 +386,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_show_transformed_actors(vtkn_view view, int32_t show)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->ShowTransformedActors(show != 0);
+            View::FromHandleOfGeometry(view)->ShowTransformedActors(show != 0);
             return VTKN_OK;
         });
     }
@@ -400,7 +400,7 @@ extern "C"
             const char* name = names;
             for (int i = 0; i < count && *name != '\0'; i++, name += std::strlen(name) + 1)
                 offsets[name] = { offsets3[3 * i], offsets3[3 * i + 1], offsets3[3 * i + 2] };
-            View::FromHandle(view)->SetExplodedViewOffsets(offsets);
+            View::FromHandleOfGeometry(view)->SetExplodedViewOffsets(offsets);
             return VTKN_OK;
         });
     }
@@ -413,7 +413,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             std::string actorName = ToName(name, "name");
-            PartActor* actor = View::FromHandle(view)->FindActor(actorName, VTKN_LAYER_BASE);
+            PartActor* actor = View::FromHandleOfGeometry(view)->FindActor(actorName, VTKN_LAYER_BASE);
             if (actor == nullptr) throw Error(VTKN_ERROR_INVALID_ARGUMENT, "There is no actor named " + actorName + ".");
             actor->AddAnimationFrame(coordinates3, point_count, values, value_count, extremes,
                                      model_edge_coordinates3, model_edge_point_count);
@@ -424,7 +424,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_set_animation_frame(vtkn_view view, int32_t frame_number)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->SetAnimationFrame(frame_number);
+            View::FromHandleOfGeometry(view)->SetAnimationFrame(frame_number);
             return VTKN_OK;
         });
     }
@@ -433,7 +433,7 @@ extern "C"
     {
         return GuardVtk([&]() {
             Require(bounds6 != nullptr && has_bounds != nullptr, "The output arguments must not be null.");
-            *has_bounds = View::FromHandle(view)->GetVisibleBounds(bounds6) ? 1 : 0;
+            *has_bounds = View::FromHandleOfGeometry(view)->GetVisibleBounds(bounds6) ? 1 : 0;
             return VTKN_OK;
         });
     }
@@ -442,7 +442,7 @@ extern "C"
                                                   int32_t magnification)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->RenderToPng(ToName(file_name, "file_name"), transparent_background != 0,
+            View::FromHandleOfGeometry(view)->RenderToPng(ToName(file_name, "file_name"), transparent_background != 0,
                                                 magnification);
             return VTKN_OK;
         });
@@ -451,7 +451,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_clear(vtkn_view view, int32_t what)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->Clear(static_cast<vtkn_clear>(what));
+            View::FromHandleOfGeometry(view)->Clear(static_cast<vtkn_clear>(what));
             return VTKN_OK;
         });
     }
@@ -459,7 +459,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_remove_overlay_actors(vtkn_view view, const char* names)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->RemoveOverlayActors(ToNameSet(names, "names"));
+            View::FromHandleOfGeometry(view)->RemoveOverlayActors(ToNameSet(names, "names"));
             return VTKN_OK;
         });
     }
@@ -468,7 +468,7 @@ extern "C"
                                                          const double* secondary_rgb)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->SetHighlightColors(primary_rgb, secondary_rgb);
+            View::FromHandleOfGeometry(view)->SetHighlightColors(primary_rgb, secondary_rgb);
             return VTKN_OK;
         });
     }
@@ -476,7 +476,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_clear_actors(vtkn_view view)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->ClearActors();
+            View::FromHandleOfGeometry(view)->ClearActors();
             return VTKN_OK;
         });
     }
@@ -484,7 +484,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_set_edges_visibility(vtkn_view view, int32_t edges_visibility)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->SetEdgesVisibility(static_cast<vtkn_edges_visibility>(edges_visibility));
+            View::FromHandleOfGeometry(view)->SetEdgesVisibility(static_cast<vtkn_edges_visibility>(edges_visibility));
             return VTKN_OK;
         });
     }
@@ -492,7 +492,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_set_lighting(vtkn_view view, double ambient, double diffuse)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->SetLighting(ambient, diffuse);
+            View::FromHandleOfGeometry(view)->SetLighting(ambient, diffuse);
             return VTKN_OK;
         });
     }
@@ -501,7 +501,28 @@ extern "C"
                                                           int32_t kernel_size)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->SetAmbientOcclusion(enabled != 0, relative_radius, kernel_size);
+            View::FromHandleOfGeometry(view)->SetAmbientOcclusion(enabled != 0, relative_radius, kernel_size);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_set_actor_batching(vtkn_view view, int32_t enabled)
+    {
+        return GuardVtk([&]() {
+            View::FromHandleOfGeometry(view)->SetActorBatching(enabled != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_get_actor_batches(vtkn_view view, int32_t* batch_count, int32_t* member_count)
+    {
+        return GuardVtk([&]() {
+            Require(batch_count != nullptr && member_count != nullptr, "The counts must not be null.");
+            int batchCount = 0;
+            int memberCount = 0;
+            View::FromHandle(view)->GetActorBatches(batchCount, memberCount);
+            *batch_count = batchCount;
+            *member_count = memberCount;
             return VTKN_OK;
         });
     }
@@ -512,7 +533,7 @@ extern "C"
                                                    const double* color_rgb, int32_t edges_visible)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->AddMeshActor(ToName(name, "name"), points, point_count, cells, cells_length,
+            View::FromHandleOfGeometry(view)->AddMeshActor(ToName(name, "name"), points, point_count, cells, cells_length,
                                                  cell_types, cell_count, color_rgb, edges_visible != 0);
             return VTKN_OK;
         });
@@ -521,7 +542,7 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_remove_actor(vtkn_view view, const char* name)
     {
         return GuardVtk([&]() {
-            View::FromHandle(view)->RemoveActor(ToName(name, "name"));
+            View::FromHandleOfGeometry(view)->RemoveActor(ToName(name, "name"));
             return VTKN_OK;
         });
     }
@@ -529,6 +550,6 @@ extern "C"
     vtkn_status VTKN_CALL vtkn_view_get_actor_names(vtkn_view view, char* buffer, int32_t capacity,
                                                     int32_t* required)
     {
-        return GuardVtk([&]() { return CopyOut(View::FromHandle(view)->GetActorNames(), buffer, capacity, required); });
+        return GuardVtk([&]() { return CopyOut(View::FromHandleOfGeometry(view)->GetActorNames(), buffer, capacity, required); });
     }
 }

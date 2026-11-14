@@ -220,10 +220,21 @@ namespace vtkn
             for (vtkActor* edges : { actor->GetElementEdges(), actor->GetModelEdges(), actor->GetSectionViewHatch() })
                 if (edges != nullptr) plainProps.insert(edges);
         }
+        // A batch of actors that look the same is drawn in the place of its members
+        std::vector<std::pair<vtkProp*, vtkProp*>> batches;
+        Batches.GetBatches(batches);
+        std::vector<vtkProp*> drawn;
+        for (const auto& batch : batches)
+        {
+            if (plainProps.count(batch.second) > 0) plainProps.insert(batch.first);
+            drawn.push_back(batch.first);
+        }
         vtkPropCollection* props = Renderer->GetViewProps();
         vtkCollectionSimpleIterator iterator;
         props->InitTraversal(iterator);
         for (vtkProp* prop = props->GetNextProp(iterator); prop != nullptr; prop = props->GetNextProp(iterator))
+            drawn.push_back(prop);
+        for (vtkProp* prop : drawn)
         {
             bool plain = plainProps.count(prop) > 0;
             vtkInformationIntegerKey* key = plain ? GetPlainBlendingKey() : GetDepthSortingKey();

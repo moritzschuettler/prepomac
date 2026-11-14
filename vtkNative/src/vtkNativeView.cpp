@@ -82,6 +82,7 @@ namespace vtkn
             Lights.push_back(light);
         }
         InitializeGeometry();
+        Batches.SetRenderer(Renderer);
         //
         Renderer->SetBackground(0.4, 0.4, 0.4);
         Renderer->SetBackground2(0.8, 0.8, 0.8);
@@ -463,6 +464,7 @@ namespace vtkn
         View* view = static_cast<View*>(clientData);
         if (eventId == vtkCommand::StartEvent)
         {
+            view->Batches.Update();
             view->UpdateBasePass();
             return;
         }

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "vtkNative.h"
+#include "vtkNativeActorBatches.h"
 #include "vtkNativeCoorSysSymbols.h"
 #include "vtkNativePartActor.h"
 #include "vtkNativeScalarBar.h"
@@ -54,6 +55,13 @@ namespace vtkn
         View& operator=(const View&) = delete;
 
         static View* FromHandle(vtkn_view handle);
+        // The view of a call that may change its geometry: the actors drawn together are looked through again
+        static View* FromHandleOfGeometry(vtkn_view handle)
+        {
+            View* view = FromHandle(handle);
+            view->Batches.Invalidate();
+            return view;
+        }
 
         void SetParentWindow(void* parentWindow);
         void SetSize(int width, int height);
@@ -144,6 +152,8 @@ namespace vtkn
         void WritePng(const std::string& fileName, int magnification);
         // Ambient occlusion (Geometry/vtkNativeAmbientOcclusion.cpp)
         void SetAmbientOcclusion(bool enabled, double relativeRadius, int kernelSize);
+        void SetActorBatching(bool enabled) { Batches.SetEnabled(enabled); }
+        void GetActorBatches(int& batchCount, int& memberCount) { Batches.GetCounts(batchCount, memberCount); }
 
         // Picking (vtkNativeViewPick.cpp)
         bool PickPoint(int x, int y, int selectionDistance, bool limitDistance,
@@ -261,6 +271,8 @@ namespace vtkn
         vtkSmartPointer<vtkRenderer> Renderer;
         vtkSmartPointer<vtkRenderer> OverlayRenderer;
         vtkSmartPointer<vtkRenderer> WidgetRenderer;
+        // The actors of the base layer that look the same, drawn by one mapper
+        ActorBatches Batches;
         vtkSmartPointer<vtkRenderWindowInteractor> Interactor;
         vtkSmartPointer<vtkCallbackCommand> EventCommand;
         vtkSmartPointer<vtkCallbackCommand> InteractorCommand;
