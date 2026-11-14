@@ -248,6 +248,8 @@ namespace PrePoMax.Forms
                         ShowHideSelectionForm();
                     HighlightConstraint();
                 }
+                // Every value can change the symbols
+                else HighlightConstraint();
             }
             //
             base.OnPropertyGridPropertyValueChanged();
@@ -969,6 +971,8 @@ namespace PrePoMax.Forms
                     if (tie is CyclicSymmetry cyclicSymmetry) _controller.HighlightCyclicSymmetryAxis(cyclicSymmetry);
                 }
                 else throw new NotSupportedException();
+                // Symbols
+                if (_viewConstraint != null) _controller.HighlightEditedConstraint(Constraint);
             }
             catch { }
         }
@@ -1284,6 +1288,8 @@ namespace PrePoMax.Forms
                     propertyGrid.Refresh();
                     //
                     _propertyItemChanged = true;
+                    // Symbols
+                    if (!(Constraint is Tie) && !(Constraint is Joint)) Highlight();
                 }
             }
         }

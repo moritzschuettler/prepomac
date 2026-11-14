@@ -19306,7 +19306,7 @@ namespace PrePoMax
             FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
         }
         //
-        private void ConvertSelectionBasedLoad(Load load)
+        private void ConvertSelectionBasedLoad(Load load, bool update = true)
         {
             // Create a named set and convert a selection to a named set
             if (load.RegionType == RegionTypeEnum.Selection)
@@ -19347,7 +19347,7 @@ namespace PrePoMax
                     FeSurface surface = new FeSurface(name, load.CreationIds, load.CreationData.DeepCopy(true, false));
                     surface.Internal = true;
                     surface.ParentMultiRegion = load;
-                    AddSurface(surface);
+                    AddSurface(surface, update);
                     //
                     load.RegionName = name;
                     load.RegionType = RegionTypeEnum.SurfaceName;
@@ -28439,6 +28439,7 @@ namespace PrePoMax
                 p = dLoad.GetPressureForPoint(_model, allCoor[distributedElementIds[i]]);
                 if (Math.Abs(p) > maxPressure) maxPressure = Math.Abs(p);
             }
+            if (maxPressure == 0) return;
             // Reduce all coordinates to only visible
             if (onlyVisible)
                 distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
@@ -28521,6 +28522,7 @@ namespace PrePoMax
                 p = hpLoad.GetPressureForPoint(_model, allCoor[distributedElementIds[i]]);
                 if (Math.Abs(p) > maxPressure) maxPressure = Math.Abs(p);
             }
+            if (maxPressure == 0) return;
             // Reduce all coordinates to only visible
             if (onlyVisible)
                 distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
@@ -28606,6 +28608,7 @@ namespace PrePoMax
                 p = ipLoad.GetPressureForPoint(_model, allCoor[distributedElementIds[i]]);
                 if (Math.Abs(p) > maxPressure) maxPressure = Math.Abs(p);
             }
+            if (maxPressure == 0) return;
             // Reduce all coordinates to only visible
             if (onlyVisible)
                 distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
@@ -28743,6 +28746,7 @@ namespace PrePoMax
                 forceMagnitude = Math.Sqrt(Math.Pow(force[0], 2) + Math.Pow(force[1], 2) + Math.Pow(force[2], 2));
                 if (Math.Abs(forceMagnitude) > maxForceMagnitude) maxForceMagnitude = forceMagnitude;
             }
+            if (maxForceMagnitude == 0) return;
             // Reduce all coordinates to only visible
             if (onlyVisible)
                 distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
@@ -28827,6 +28831,7 @@ namespace PrePoMax
                 forceMagnitude = Math.Sqrt(Math.Pow(force[0], 2) + Math.Pow(force[1], 2) + Math.Pow(force[2], 2));
                 if (Math.Abs(forceMagnitude) > maxForceMagnitude) maxForceMagnitude = forceMagnitude;
             }
+            if (maxForceMagnitude == 0) return;
             // Reduce all coordinates to only visible
             if (onlyVisible)
                 distributedElementIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(allCoor.ToArray(), 6, elementVisibilities.ToArray());
@@ -30837,6 +30842,47 @@ namespace PrePoMax
                 _form.AddMaterialAxesSymbol(points[id], allAxes[id], fallbacks[id] ? replacedLabels : labels, symbolSize);
             }
         }
+        public void HighlightEditedConstraint(Constraint constraint)
+        {
+            // A constraint edited in a form is not in the model and its selection is not a named region yet
+            // A tie and a joint have two regions and highlight the one being edited themselves
+            IMultiRegion region = constraint as IMultiRegion;
+            if (region == null || constraint is Tie || constraint is Joint) return;
+            //
+            Selection selection = _selection;
+            string masterRegionName = constraint.MasterRegionName;
+            RegionTypeEnum masterRegionType = constraint.MasterRegionType;
+            string slaveRegionName = constraint.SlaveRegionName;
+            RegionTypeEnum slaveRegionType = constraint.SlaveRegionType;
+            bool converted = false;
+            try
+            {
+                if (region.RegionType == RegionTypeEnum.Selection)
+                {
+                    if (region.CreationData == null || region.CreationIds == null || region.CreationIds.Length == 0) return;
+                    ConvertSelectionBasedConstraint(constraint, false);
+                    converted = true;
+                }
+                DrawConstraint(constraint, Color.Red, Color.Red, _settings.Pre.SymbolSize,
+                               _settings.Pre.HighlightNodeSymbolSize, vtkRendererLayer.Selection, false);
+            }
+            catch { }
+            finally
+            {
+                if (converted)
+                {
+                    if (region.RegionType == RegionTypeEnum.NodeSetName)
+                        RemoveNodeSets(new string[] { region.RegionName }, false);
+                    else if (region.RegionType == RegionTypeEnum.SurfaceName)
+                        RemoveSurfaces(new string[] { region.RegionName }, false);
+                }
+                constraint.MasterRegionName = masterRegionName;
+                constraint.MasterRegionType = masterRegionType;
+                constraint.SlaveRegionName = slaveRegionName;
+                constraint.SlaveRegionType = slaveRegionType;
+                _selection = selection;
+            }
+        }
         public void HighlightConstraint(string constraintName)
         {
             Constraint constraint;
@@ -30961,6 +31007,124 @@ namespace PrePoMax
             int symbolSize = _settings.Pre.SymbolSize;
             int nodeSize = _settings.Pre.HighlightNodeSymbolSize;
             DrawLoad("Highlight", load, Color.Red, symbolSize, nodeSize, vtkRendererLayer.Selection, false);
+        }
+        public void HighlightEditedInitialCondition(InitialCondition initialCondition)
+        {
+            // An initial condition edited in a form is not in the model and its selection is not a named region yet
+            Selection selection = _selection;
+            string regionName = initialCondition.RegionName;
+            RegionTypeEnum regionType = initialCondition.RegionType;
+            bool converted = false;
+            try
+            {
+                if (regionType == RegionTypeEnum.Selection)
+                {
+                    if (initialCondition.CreationData == null || initialCondition.CreationIds == null ||
+                        initialCondition.CreationIds.Length == 0) return;
+                    ConvertSelectionBasedInitialCondition(initialCondition);
+                    converted = true;
+                }
+                DrawInitialCondition(initialCondition, Color.Red, _settings.Pre.SymbolSize,
+                                     _settings.Pre.HighlightNodeSymbolSize, vtkRendererLayer.Selection, false);
+            }
+            catch { }
+            finally
+            {
+                if (converted) RemoveNodeSets(new string[] { initialCondition.RegionName }, false);
+                initialCondition.RegionName = regionName;
+                initialCondition.RegionType = regionType;
+                _selection = selection;
+            }
+        }
+        public void HighlightEditedDefinedField(DefinedField definedField)
+        {
+            // A defined field edited in a form is not in the model and its selection is not a named region yet
+            Selection selection = _selection;
+            string regionName = definedField.RegionName;
+            RegionTypeEnum regionType = definedField.RegionType;
+            bool converted = false;
+            try
+            {
+                if (regionType == RegionTypeEnum.Selection)
+                {
+                    if (definedField.CreationData == null || definedField.CreationIds == null ||
+                        definedField.CreationIds.Length == 0) return;
+                    ConvertSelectionBasedDefinedField(definedField);
+                    // A defined field from a file has no region
+                    converted = definedField.RegionType != RegionTypeEnum.Selection;
+                    if (!converted) return;
+                }
+                HighlightDefinedField(definedField, true);
+            }
+            catch { }
+            finally
+            {
+                if (converted) RemoveNodeSets(new string[] { definedField.RegionName }, false);
+                definedField.RegionName = regionName;
+                definedField.RegionType = regionType;
+                _selection = selection;
+            }
+        }
+        public void HighlightEditedBoundaryCondition(BoundaryCondition boundaryCondition)
+        {
+            // A boundary condition edited in a form is not in the model and its selection is not a named region yet
+            Selection selection = _selection;
+            string regionName = boundaryCondition.RegionName;
+            RegionTypeEnum regionType = boundaryCondition.RegionType;
+            bool converted = false;
+            try
+            {
+                if (regionType == RegionTypeEnum.Selection)
+                {
+                    if (boundaryCondition.CreationData == null || boundaryCondition.CreationIds == null ||
+                        boundaryCondition.CreationIds.Length == 0) return;
+                    ConvertSelectionBasedBoundaryCondition(boundaryCondition);
+                    converted = true;
+                }
+                HighlightBoundaryCondition(boundaryCondition, true);
+            }
+            catch { }
+            finally
+            {
+                if (converted) RemoveNodeSets(new string[] { boundaryCondition.RegionName }, false);
+                boundaryCondition.RegionName = regionName;
+                boundaryCondition.RegionType = regionType;
+                _selection = selection;
+            }
+        }
+        public void HighlightEditedLoad(Load load)
+        {
+            // A load edited in a form is not in the model and its selection is not a named region yet
+            Selection selection = _selection;
+            string regionName = load.RegionName;
+            RegionTypeEnum regionType = load.RegionType;
+            bool converted = false;
+            try
+            {
+                if (regionType == RegionTypeEnum.Selection)
+                {
+                    if (load.CreationData == null || load.CreationIds == null || load.CreationIds.Length == 0) return;
+                    ConvertSelectionBasedLoad(load, false);
+                    converted = true;
+                }
+                HighlightLoad(load, true);
+            }
+            catch { }
+            finally
+            {
+                if (converted)
+                {
+                    if (load.RegionType == RegionTypeEnum.NodeSetName)
+                        RemoveNodeSets(new string[] { load.RegionName }, false);
+                    else if (load.RegionType == RegionTypeEnum.ElementSetName)
+                        RemoveElementSets(new string[] { load.RegionName }, false);
+                    else if (load.RegionType == RegionTypeEnum.SurfaceName)
+                        RemoveSurfaces(new string[] { load.RegionName }, false);
+                }
+                load.RegionName = regionName;
+                load.RegionType = regionType;
+                _selection = selection;
+            }
         }
         public void HighlightDefinedField(DefinedField definedField, bool mouseOver = false)
         {

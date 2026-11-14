@@ -145,33 +145,9 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            if (property == nameof(_viewInitialCondition.RegionType))
-            {
-                ShowHideSelectionForm();
-                //
-                HighlightInitialCondition();
-            }
-            else if (_viewInitialCondition is ViewInitialTemperature vit &&
-                     (property == nameof(vit.NodeSetName) ||
-                      property == nameof(vit.SurfaceName)))
-            {
-                HighlightInitialCondition();
-            }
-            else if (_viewInitialCondition is ViewInitialTranslationalVelocity vitv &&
-                     (property == nameof(vitv.NodeSetName) ||
-                      property == nameof(vitv.SurfaceName) ||
-                      property == nameof(vitv.ReferencePointName)))
-            {
-                HighlightInitialCondition();
-            }
-            else if (_viewInitialCondition is ViewInitialAngularVelocity viav &&
-                     (property == nameof(vitv.NodeSetName) ||
-                      property == nameof(vitv.SurfaceName) ||
-                      property == nameof(vitv.ReferencePointName))||
-                      property == nameof(viav.X) || property == nameof(viav.Y) || property == nameof(viav.Z))
-            {
-                HighlightInitialCondition();
-            }
+            if (property == nameof(_viewInitialCondition.RegionType)) ShowHideSelectionForm();
+            // Every value can change the symbols
+            HighlightInitialCondition();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -429,7 +405,8 @@ namespace PrePoMax.Forms
                         double[][] nodeCoor = new double[][] { new double[] { iav.X.Value, iav.Y.Value, iav.Z.Value } };
                         _controller.HighlightNodes(nodeCoor, true);
                     }
-
+                    // Symbols
+                    _controller.HighlightEditedInitialCondition(InitialCondition);
                 }
                 else throw new NotSupportedException();
             }
