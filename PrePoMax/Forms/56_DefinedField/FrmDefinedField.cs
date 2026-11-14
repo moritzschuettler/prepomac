@@ -123,23 +123,13 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            if (property == nameof(_viewDefinedField.RegionType))
+            if (property == nameof(_viewDefinedField.RegionType) ||
+                (_viewDefinedField is ViewDefinedTemperature vdt && property == nameof(vdt.DefinedTemperatureType)))
             {
                 ShowHideSelectionForm();
-                HighlightDefinedField();
             }
-            else if (_viewDefinedField is ViewDefinedTemperature vdt)
-            {
-                if (property == nameof(vdt.DefinedTemperatureType))
-                {
-                    ShowHideSelectionForm();
-                    HighlightDefinedField();
-                }
-                else if (property == nameof(vdt.NodeSetName) || property == nameof(vdt.SurfaceName))
-                {
-                    HighlightDefinedField();
-                }
-            }
+            // Every value can change the symbols
+            HighlightDefinedField();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -332,6 +322,8 @@ namespace PrePoMax.Forms
                             }
                         }
                         else throw new NotImplementedException();
+                        // Symbols
+                        _controller.HighlightEditedDefinedField(dt);
                     }
                 }
                 else throw new NotSupportedException();
@@ -378,6 +370,8 @@ namespace PrePoMax.Forms
                     propertyGrid.Refresh();
                     //
                     _propertyItemChanged = true;
+                    //
+                    Highlight();
                 }
                 else throw new NotSupportedException();
             }

@@ -256,94 +256,9 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            if (property == nameof(_viewLoad.RegionType))
-            {
-                ShowHideSelectionForm();
-                //
-                HighlightLoad();
-            }
-            else if (property == nameof(_viewLoad.CoordinateSystemName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewCLoad vcl &&
-                     (property == nameof(vcl.NodeSetName) || property == nameof(vcl.ReferencePointName)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewMomentLoad vml &&
-                     (property == nameof(vml.NodeSetName) || property == nameof(vml.ReferencePointName)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewDLoad vdl && property == nameof(vdl.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewHydrostaticPressureLoad vhpl && 
-                (property == nameof(vhpl.SurfaceName) ||
-                 property == nameof(vhpl.X1) || property == nameof(vhpl.Y1) || property == nameof(vhpl.Z1) ||
-                 property == nameof(vhpl.X2) || property == nameof(vhpl.Y2) || property == nameof(vhpl.Z2)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewImportedPressureLoad vipl && property == nameof(vipl.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewSTLoad vstl && property == nameof(vstl.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewImportedSTLoad vistl &&
-                     (property == nameof(vistl.SurfaceName) || property == nameof(vistl.FileName) ||
-                      property == nameof(vistl.GeometryScaleFactor)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewShellEdgeLoad vsel && property == nameof(vsel.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewGravityLoad vgl &&
-                     (property == nameof(vgl.PartName) || property == nameof(vgl.ElementSetName) ||
-                      property == nameof(vgl.MassSectionName)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewCentrifLoad vcfl &&
-                     (property == nameof(vcfl.PartName) || property == nameof(vcfl.ElementSetName) ||
-                      property == nameof(vcfl.MassSectionName) ||
-                      property == nameof(vcfl.X) || property == nameof(vcfl.Y) || property == nameof(vcfl.Z)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewPreTensionLoad vptl && property == nameof(vptl.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            // Thermal
-            else if (_viewLoad is ViewCFlux vcf && property == nameof(vcf.NodeSetName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewDFlux vdf && property == nameof(vdf.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewBodyFlux vbf &&
-                     (property == nameof(vbf.PartName) || property == nameof(vbf.ElementSetName)))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewFilmHeatTransfer vfht && property == nameof(vfht.SurfaceName))
-            {
-                HighlightLoad();
-            }
-            else if (_viewLoad is ViewRadiationHeatTransfer vrht && property == nameof(vrht.SurfaceName))
-            {
-                HighlightLoad();
-            }
+            if (property == nameof(_viewLoad.RegionType)) ShowHideSelectionForm();
+            // Every value can change the symbols
+            HighlightLoad();
             //
             base.OnPropertyGridPropertyValueChanged();
         }
@@ -1175,6 +1090,8 @@ namespace PrePoMax.Forms
                         double[][] nodeCoor = new double[][] { new double[] { cf.X.Value, cf.Y.Value, cf.Z.Value } };
                         _controller.HighlightNodes(nodeCoor, true);
                     }
+                    // Symbols
+                    _controller.HighlightEditedLoad(load);
                 }
                 else throw new NotSupportedException();
                 //
