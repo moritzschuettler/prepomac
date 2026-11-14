@@ -315,6 +315,15 @@ namespace vtkn
         double scale = supersampled ? supersamplingScale : 1;
         float minimum = supersampled ? 1.0f : 0.0f;
         std::map<vtkProperty*, SupersampledSizes> sizes;
+        // The sizes are not a change of what an actor draws: one that is as it was added stays so (AddActor)
+        std::vector<PartActor*> asAdded;
+        bool looked = false;
+        auto lookForAsAdded = [&]() {
+            if (looked) return;
+            looked = true;
+            for (const auto& entry : BaseActors)
+                if (entry.second->IsAsAdded()) asAdded.push_back(entry.second.get());
+        };
         vtkActorCollection* actors = Renderer->GetActors();
         vtkCollectionSimpleIterator iterator;
         actors->InitTraversal(iterator);
@@ -333,10 +342,12 @@ namespace vtkn
             if (pointSize != size.AppliedPointSize) size.PointSize = pointSize;
             size.AppliedLineWidth = static_cast<float>(std::max(size.LineWidth, minimum) * scale);
             size.AppliedPointSize = static_cast<float>(std::max(size.PointSize, minimum) * scale);
+            if (lineWidth != size.AppliedLineWidth || pointSize != size.AppliedPointSize) lookForAsAdded();
             if (lineWidth != size.AppliedLineWidth) property->SetLineWidth(size.AppliedLineWidth);
             if (pointSize != size.AppliedPointSize) property->SetPointSize(size.AppliedPointSize);
             sizes[property] = size;
         }
+        for (PartActor* actor : asAdded) actor->MarkAsAdded();
         if (supersampled) SupersampledPixelSizes = sizes;
         else SupersampledPixelSizes.clear();
     }

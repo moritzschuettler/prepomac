@@ -23,6 +23,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 
 namespace vtkn
 {
@@ -116,12 +118,101 @@ namespace vtkn
         return Renderer;
     }
 
+    namespace
+    {
+        // Two sums of the bytes that do not follow from each other, so that two different sources do not get the
+        // same key
+        void AddToSourceKey(PartActor::SourceKey& key, const void* data, size_t size)
+        {
+            const unsigned char* bytes = static_cast<const unsigned char*>(data);
+            for (size_t i = 0; i < size; i += 8)
+            {
+                std::uint64_t word = 0;
+                std::memcpy(&word, bytes + i, std::min<size_t>(8, size - i));
+                key[0] = (key[0] ^ word) * 0x9E3779B97F4A7C15ULL;
+                key[0] ^= key[0] >> 32;
+                key[1] = (key[1] + word) * 0xC2B2AE3D27D4EB4FULL + 0x165667B19E3779F9ULL;
+                key[1] ^= key[1] >> 29;
+            }
+        }
+
+        void AddToSourceKey(PartActor::SourceKey& key, const vtkn_mesh* mesh)
+        {
+            std::int32_t counts[6] = { mesh != nullptr, 0, 0, 0, 0, 0 };
+            if (mesh != nullptr)
+            {
+                counts[1] = mesh->point_count;
+                counts[2] = mesh->cells_length;
+                counts[3] = mesh->cell_count;
+                counts[4] = mesh->point_ids != nullptr;
+                counts[5] = mesh->cell_ids != nullptr;
+            }
+            AddToSourceKey(key, counts, sizeof(counts));
+            if (mesh == nullptr) return;
+            //
+            size_t points = static_cast<size_t>(mesh->point_count);
+            size_t cells = static_cast<size_t>(mesh->cell_count);
+            if (points > 0) AddToSourceKey(key, mesh->coordinates, 3 * points * sizeof(double));
+            if (mesh->cells_length > 0)
+                AddToSourceKey(key, mesh->cells, static_cast<size_t>(mesh->cells_length) * sizeof(std::int32_t));
+            if (cells > 0) AddToSourceKey(key, mesh->cell_types, cells);
+            if (mesh->point_ids != nullptr && points > 0)
+                AddToSourceKey(key, mesh->point_ids, points * sizeof(std::int32_t));
+            if (mesh->cell_ids != nullptr && cells > 0)
+                AddToSourceKey(key, mesh->cell_ids, cells * sizeof(std::int32_t));
+        }
+
+        // The key of everything an actor is built from
+        PartActor::SourceKey GetSourceKey(const vtkn_part_style& style, const vtkn_mesh& geometry,
+                                          const vtkn_mesh* modelEdges, const vtkn_mesh* modelEdgesToDraw)
+        {
+            PartActor::SourceKey key = { { 0x243F6A8885A308D3ULL, 0x13198A2E03707344ULL } };
+            AddToSourceKey(key, &style, sizeof(style));
+            AddToSourceKey(key, &geometry);
+            AddToSourceKey(key, modelEdges);
+            AddToSourceKey(key, modelEdgesToDraw);
+            if (key[0] == 0 && key[1] == 0) key[0] = 1;
+            return key;
+        }
+    }
+
+    // The actor of that name a clear took out, when it is the actor that would be built now: built from the same
+    // source, drawing what it drew when it was added, with the edges it would be given now
+    std::unique_ptr<PartActor> View::TakeClearedActor(const std::string& name, const PartActor::SourceKey& key,
+                                                      bool edgesDrawnByParts)
+    {
+        auto entry = ClearedBaseActors.find(name);
+        if (entry == ClearedBaseActors.end()) return nullptr;
+        //
+        std::unique_ptr<PartActor> actor = std::move(entry->second);
+        ClearedBaseActors.erase(entry);
+        bool edgesApplied = actor->IsEdgesVisibilityApplied(EdgesVisibility, SectionViewActive, edgesDrawnByParts);
+        if (actor->GetSourceKey() != key || !actor->IsAsAdded() || !edgesApplied) return nullptr;
+        ReusedActorCount++;
+        return actor;
+    }
+
     void View::AddActor(const std::string& name, const std::string& parentName, const vtkn_part_style& style,
                         const vtkn_mesh& geometry, const vtkn_mesh* modelEdges, const vtkn_mesh* modelEdgesToDraw)
     {
         Require(style.layer >= VTKN_LAYER_BASE && style.layer <= VTKN_LAYER_OVERLAY,
                 "The layer of the style is not one of vtkn_layer.");
-        std::unique_ptr<PartActor> actor(new PartActor(style, geometry, modelEdges, modelEdgesToDraw));
+        // A redraw of the symbols clears the surfaces of the constraints and the loads, thousands of them, and adds
+        // them again, most of them as they were: such a one is put back instead of being built again
+        std::unique_ptr<PartActor> actor;
+        bool keyed = style.layer == VTKN_LAYER_BASE && !style.is_a_part;
+        bool partsDrawElementEdges = keyed && PartsDrawElementEdges();
+        if (keyed)
+        {
+            PartActor::SourceKey key = GetSourceKey(style, geometry, modelEdges, modelEdgesToDraw);
+            actor = TakeClearedActor(name, key, partsDrawElementEdges && style.draw_on_geometry != 0);
+            if (actor == nullptr)
+            {
+                actor.reset(new PartActor(style, geometry, modelEdges, modelEdgesToDraw));
+                actor->SetSourceKey(key);
+            }
+        }
+        else actor.reset(new PartActor(style, geometry, modelEdges, modelEdgesToDraw));
         actor->SetParentName(parentName);
         // The surfaces drawn on the parts, such as those of the constraints and the loads, come in thousands. A
         // highlighted surface that is drawn among them is drawn the way they are, since it lies on one of them
@@ -130,13 +221,15 @@ namespace vtkn
             for (vtkActor* drawn : { actor->GetGeometry(), actor->GetElementEdges(), actor->GetModelEdges() })
                 ActorBatches::Allow(drawn);
         }
-        AddActor(name, std::move(actor));
+        PartActor* added = actor.get();
+        AddActor(name, std::move(actor), keyed ? &partsDrawElementEdges : nullptr);
+        if (keyed) added->MarkAsAdded();
     }
 
     // Port of AddActor, AddActorGeometry and AddActorEdges: the actor goes to the renderer of its layer, the
     // selection layer formats it with the highlight colors, the edges mode formats it, and the camera distance and
     // clipping range follow the new bounds
-    void View::AddActor(const std::string& name, std::unique_ptr<PartActor> actor)
+    void View::AddActor(const std::string& name, std::unique_ptr<PartActor> actor, const bool* partsDrawElementEdges)
     {
         Require(!name.empty(), "The actor name must not be empty.");
         PartActor* added = actor.get();
@@ -169,7 +262,8 @@ namespace vtkn
             SelectedParts.push_back(std::move(actor));
         }
         if (added->IsAPart()) ApplyEdgesVisibilityAndBackfaceCulling();
-        else ApplyEdgesVisibility(*added, layer, PartsDrawElementEdges());
+        else ApplyEdgesVisibility(*added, layer, partsDrawElementEdges != nullptr ? *partsDrawElementEdges
+                                                                                  : PartsDrawElementEdges());
         AdjustCameraAfterAdd();
     }
 
@@ -404,8 +498,11 @@ namespace vtkn
             }
             for (const std::string& name : removed)
             {
-                BaseActors[name]->RemoveFrom(Renderer);
-                BaseActors.erase(name);
+                auto entry = BaseActors.find(name);
+                entry->second->RemoveFrom(Renderer);
+                if (ClearedActorReuse && entry->second->HasSourceKey())
+                    ClearedBaseActors[name] = std::move(entry->second);
+                BaseActors.erase(entry);
             }
             RemoveCaptions(VTKN_LAYER_BASE, nullptr);
         }

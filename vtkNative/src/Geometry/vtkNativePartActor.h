@@ -22,6 +22,7 @@
 #include <vtkSmartPointer.h>
 
 #include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -125,12 +126,29 @@ namespace vtkn
         void SetGeometryHiddenBySectionView(bool hidden) { GeometryHiddenBySectionView = hidden; }
         // A surface drawn on the parts leaves its mesh lines to the parts, which draw theirs over every face
         void SetElementEdgesDrawnByParts(bool drawnByParts) { ElementEdgesDrawnByParts = drawnByParts; }
+        // An actor that is cleared and added again as it was is not built again (View::AddActor). The key of what
+        // it was built from, with none of zeros
+        typedef std::array<std::uint64_t, 2> SourceKey;
+        const SourceKey& GetSourceKey() const { return Source; }
+        void SetSourceKey(const SourceKey& key) { Source = key; }
+        bool HasSourceKey() const { return Source[0] != 0 || Source[1] != 0; }
+        // Whether nothing changed what the actor draws since it was marked: every such change goes through a setter
+        // of VTK, which modifies its object only when the value changes. Marked once it is added to a view
+        void MarkAsAdded();
+        bool IsAsAdded();
+        bool IsEdgesVisibilityApplied(vtkn_edges_visibility edgesVisibility, bool sectionViewActive,
+                                      bool elementEdgesDrawnByParts) const
+        {
+            return AppliedEdgesVisibility == edgesVisibility && AppliedSectionViewActive == sectionViewActive &&
+                   ElementEdgesDrawnByParts == elementEdgesDrawnByParts;
+        }
 
     private:
         void CreateFromMesh(const vtkn_mesh& geometry, const vtkn_mesh* modelEdges, const vtkn_mesh* modelEdgesToDraw);
         void CreateNodal(const vtkn_mesh& geometry);
         void CreateFromMapper(vtkMapper* mapper);
         void ApplyStyleSizes();
+        vtkMTimeType GetDrawnTime();
 
         vtkn_part_style Style;
         std::string ParentName;
@@ -163,6 +181,11 @@ namespace vtkn
         std::vector<AnimationFrame> AnimationFrames;
         bool GeometryHiddenBySectionView = false;
         bool ElementEdgesDrawnByParts = false;
+        SourceKey Source = { { 0, 0 } };
+        vtkn_part_style AddedStyle = {};
+        vtkMTimeType AddedTime = 0;
+        int AppliedEdgesVisibility = -1;
+        bool AppliedSectionViewActive = false;
         vtkSmartPointer<vtkActor> Geometry;
         vtkSmartPointer<vtkActor> ElementEdges;
         vtkSmartPointer<vtkActor> ModelEdges;

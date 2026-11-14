@@ -8,6 +8,8 @@
 #include <vtkCellTypes.h>
 #include <vtkDataSetMapper.h>
 #include <vtkDoubleArray.h>
+#include <vtkFloatArray.h>
+#include <vtkIdList.h>
 #include <vtkIdTypeArray.h>
 #include <vtkNew.h>
 #include <vtkOpenGLShaderProperty.h>
@@ -23,8 +25,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstring>
-#include <set>
 #include <utility>
 #include <vector>
 
@@ -97,6 +99,65 @@ namespace vtkn
             property->SetOpacity(opacity);
         }
 
+        // The values once each in ascending order
+        template <typename T>
+        void SortUnique(std::vector<T>& values)
+        {
+            std::sort(values.begin(), values.end());
+            values.erase(std::unique(values.begin(), values.end()), values.end());
+        }
+
+        // Whether no two triangles run along an edge in the same direction, which is how the triangles of a surface
+        // that all face the same side meet
+        bool AreTrianglesOrientedConsistently(vtkPolyData* polyData)
+        {
+            vtkCellArray* polys = polyData->GetPolys();
+            std::vector<std::uint64_t> edges;
+            edges.reserve(3 * static_cast<size_t>(polys->GetNumberOfCells()));
+            vtkNew<vtkIdList> cellPointIds;
+            vtkIdType count = 0;
+            const vtkIdType* ids = nullptr;
+            for (vtkIdType i = 0; i < polys->GetNumberOfCells(); i++)
+            {
+                polys->GetCellAtId(i, count, ids, cellPointIds);
+                if (count != 3) return false;
+                for (int j = 0; j < 3; j++)
+                {
+                    std::uint64_t from = static_cast<std::uint64_t>(ids[j]);
+                    std::uint64_t to = static_cast<std::uint64_t>(ids[(j + 1) % 3]);
+                    edges.push_back((from << 32) | to);
+                }
+            }
+            std::sort(edges.begin(), edges.end());
+            return std::adjacent_find(edges.begin(), edges.end()) == edges.end();
+        }
+
+        // The point normals of smooth shading: those of vtkPolyDataNormals without splitting, which would change the
+        // topology. The filter first turns the triangles that run against their neighbors, through a pipeline of
+        // three filters that took most of the time of adding a small surface, and a model has thousands of them.
+        // Triangles that are oriented consistently have none to turn, so the functions the filter computes its
+        // normals with give the same normals without the pipeline
+        vtkSmartPointer<vtkDataArray> ComputePointNormals(vtkPolyData* polyData)
+        {
+            if (polyData->GetNumberOfPolys() > 0 && polyData->GetNumberOfStrips() == 0 &&
+                polyData->GetPointData()->GetNormals() == nullptr && polyData->GetCellData()->GetNormals() == nullptr &&
+                AreTrianglesOrientedConsistently(polyData))
+            {
+                // The cells and the links the functions build stay with a copy
+                vtkNew<vtkPolyData> copy;
+                copy->ShallowCopy(polyData);
+                vtkSmartPointer<vtkFloatArray> cellNormals = vtkPolyDataNormals::GetCellNormals(copy);
+                return vtkPolyDataNormals::GetPointNormals(copy, cellNormals, 1.0);
+            }
+            vtkNew<vtkPolyDataNormals> normalGenerator;
+            normalGenerator->SetInputData(polyData);
+            normalGenerator->SplittingOff();
+            normalGenerator->ComputePointNormalsOn();
+            normalGenerator->ComputeCellNormalsOff();
+            normalGenerator->Update();
+            return normalGenerator->GetOutput()->GetPointData()->GetNormals();
+        }
+
         vtkSmartPointer<vtkIdTypeArray> ToIdArray(const std::vector<int>& values)
         {
             vtkSmartPointer<vtkIdTypeArray> array = vtkSmartPointer<vtkIdTypeArray>::New();
@@ -133,9 +194,9 @@ namespace vtkn
         std::vector<int> vertSources;
         std::vector<int> lineSources;
         std::vector<int> polySources;
-        std::set<int> uniqueVertexIds;
-        std::set<std::pair<int, int>> uniqueEdgeCells;
-        std::set<std::array<int, 3>> uniquePolyEdgeCells;
+        std::vector<int> uniqueVertexIds;
+        std::vector<std::pair<int, int>> uniqueEdgeCells;
+        std::vector<std::array<int, 3>> uniquePolyEdgeCells;
         //
         const int32_t* cell = mesh.cells;
         for (int i = 0; i < mesh.cell_count; i++)
@@ -153,7 +214,7 @@ namespace vtkn
             // Cell edges
             if (extractEdges)
             {
-                if (isEdge) uniqueVertexIds.insert(n, n + count);
+                if (isEdge) uniqueVertexIds.insert(uniqueVertexIds.end(), n, n + count);
                 else if (cellType == VTK_TRIANGLE || cellType == VTK_QUAD)
                 {
                     int corners = cellType == VTK_TRIANGLE ? 3 : 4;
@@ -161,7 +222,7 @@ namespace vtkn
                     {
                         int id1 = n[j];
                         int id2 = n[(j + 1) % corners];
-                        uniqueEdgeCells.insert(std::make_pair(std::min(id1, id2), std::max(id1, id2)));
+                        uniqueEdgeCells.push_back(std::make_pair(std::min(id1, id2), std::max(id1, id2)));
                     }
                 }
                 else if (cellType == VTK_QUADRATIC_TRIANGLE || cellType == VTK_QUADRATIC_QUAD)
@@ -172,8 +233,8 @@ namespace vtkn
                         int id1 = n[j];
                         int id2 = n[j + corners];
                         int id3 = n[(j + 1) % corners];
-                        if (id1 < id3) uniquePolyEdgeCells.insert({ id1, id2, id3 });
-                        else uniquePolyEdgeCells.insert({ id3, id2, id1 });
+                        if (id1 < id3) uniquePolyEdgeCells.push_back({ id1, id2, id3 });
+                        else uniquePolyEdgeCells.push_back({ id3, id2, id1 });
                     }
                 }
             }
@@ -264,6 +325,9 @@ namespace vtkn
         //
         if (extractEdges)
         {
+            SortUnique(uniqueVertexIds);
+            SortUnique(uniqueEdgeCells);
+            SortUnique(uniquePolyEdgeCells);
             vtkNew<vtkCellArray> edgeVerts;
             vtkNew<vtkCellArray> edgeLines;
             for (int vertexId : uniqueVertexIds)
@@ -744,17 +808,12 @@ namespace vtkn
         vtkSmartPointer<vtkPolyData> polyActor;
         vtkSmartPointer<vtkPolyData> polyEdges;
         BuildPolyData(geometry, true, polyActor, polyEdges, &SourceCells);
-        // Smooth shading: point normals without splitting, which would change the topology
-        vtkNew<vtkPolyDataNormals> normalGenerator;
-        normalGenerator->SetInputData(polyActor);
-        normalGenerator->SplittingOff();
-        normalGenerator->ComputePointNormalsOn();
-        normalGenerator->ComputeCellNormalsOff();
-        normalGenerator->Update();
-        polyActor->GetPointData()->SetNormals(normalGenerator->GetOutput()->GetPointData()->GetNormals());
-        //
+        polyActor->GetPointData()->SetNormals(ComputePointNormals(polyActor));
+        // The mappers are given their data as it is, so they do not ask their pipeline for it whenever the bounds of
+        // the actors are measured, which a view of thousands of actors does for every one of them
         vtkNew<vtkDataSetMapper> mapper;
         mapper->SetInputData(polyActor);
+        mapper->StaticOn();
         // A surface that is not a part, such as the faces of a constraint, covers faces of a part exactly. VTK 5.8
         // drew the later of two equal depths, VTK 9 mixes them, so such a surface is pulled a step in front of the
         // parts (the polygon offset of the view is 1, 1) and stays behind the edge lines
@@ -775,6 +834,7 @@ namespace vtkn
         {
             vtkNew<vtkDataSetMapper> edgesMapper;
             edgesMapper->SetInputData(polyEdges);
+            edgesMapper->StaticOn();
             ElementEdges = vtkSmartPointer<vtkActor>::New();
             ElementEdges->SetMapper(edgesMapper);
             ElementEdges->PickableOff();
@@ -793,6 +853,7 @@ namespace vtkn
             }
             vtkNew<vtkDataSetMapper> modelEdgesMapper;
             modelEdgesMapper->SetInputData(polyModelEdges);
+            modelEdgesMapper->StaticOn();
             ModelEdges = vtkSmartPointer<vtkActor>::New();
             ModelEdges->SetMapper(modelEdgesMapper);
             ModelEdges->PickableOff();
@@ -802,11 +863,48 @@ namespace vtkn
             {
                 vtkNew<vtkDataSetMapper> elementEdgesMapper;
                 elementEdgesMapper->SetInputData(polyModelEdges);
+                elementEdgesMapper->StaticOn();
                 ElementEdges = vtkSmartPointer<vtkActor>::New();
                 ElementEdges->SetMapper(elementEdgesMapper);
                 ElementEdges->PickableOff();
             }
         }
+    }
+
+    // The time of the last change of what the actor draws: its actors with their properties, their shader
+    // properties, their mappers with their clipping planes and color tables, and their data
+    vtkMTimeType PartActor::GetDrawnTime()
+    {
+        vtkMTimeType time = 0;
+        for (vtkActor* actor : { Geometry.Get(), ElementEdges.Get(), ModelEdges.Get() })
+        {
+            if (actor == nullptr) continue;
+            time = std::max(time, actor->GetMTime());
+            time = std::max(time, actor->GetShaderProperty()->GetMTime());
+            vtkMapper* mapper = actor->GetMapper();
+            if (mapper == nullptr) continue;
+            time = std::max(time, mapper->GetMTime());
+            if (mapper->GetNumberOfInputConnections(0) == 0) continue;
+            vtkDataObject* data = mapper->GetInputDataObject(0, 0);
+            if (data != nullptr) time = std::max(time, data->GetMTime());
+        }
+        return time;
+    }
+
+    void PartActor::MarkAsAdded()
+    {
+        AddedStyle = Style;
+        AddedTime = GetDrawnTime();
+    }
+
+    bool PartActor::IsAsAdded()
+    {
+        if (AddedTime == 0 || std::memcmp(&Style, &AddedStyle, sizeof(vtkn_part_style)) != 0) return false;
+        if (PointScalars != nullptr || CellScalars != nullptr || !ColorTable.empty() || HasExtremeNodes) return false;
+        if (VolumeGrid != nullptr || SectionViewHatch != nullptr || CopyTransform != nullptr) return false;
+        if (SymbolInput != nullptr || !AnimationFrames.empty() || GeometryHiddenBySectionView) return false;
+        if (UnformattedPointSize >= 0 || UnformattedLineWidth >= 0) return false;
+        return GetDrawnTime() == AddedTime;
     }
 
     void PartActor::ApplyStyleSizes()
@@ -877,6 +975,9 @@ namespace vtkn
     // Port of vtkMaxActor.UpdateColor without the color table
     void PartActor::UpdateColor()
     {
+        // The colors follow from the style, so an actor that is as it was added stays so: its edges get their line
+        // width again, which a supersampled view had scaled
+        bool asAdded = HasSourceKey() && IsAsAdded();
         const double* color = Style.color;
         double opacity = color[3];
         vtkProperty* property = Geometry->GetProperty();
@@ -948,6 +1049,7 @@ namespace vtkn
             else backface->SetAmbientColor(1, 1, 1);
             Geometry->SetBackfaceProperty(backface);
         }
+        if (asAdded) MarkAsAdded();
     }
 
     void PartActor::SetPointScalars(const float* values, int count, const vtkn_extreme_nodes* extremes)
@@ -1033,6 +1135,8 @@ namespace vtkn
     void PartActor::ApplyEdgesVisibility(vtkn_edges_visibility edgesVisibility, vtkn_layer layer,
                                          bool sectionViewActive)
     {
+        AppliedEdgesVisibility = edgesVisibility;
+        AppliedSectionViewActive = sectionViewActive;
         bool visible = Style.visible != 0 && !GeometryHiddenBySectionView;
         if (layer != VTKN_LAYER_OVERLAY)
         {

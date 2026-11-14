@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -59,6 +60,13 @@ namespace vtkn
             std::string Look;
             std::uint64_t Stamp = 0;
         };
+        // The look of an actor as text, or that it is drawn by itself, with the number the actor had when it was read
+        struct Look
+        {
+            std::string Text;
+            bool Batched = false;
+            std::uint64_t Stamp = 0;
+        };
 
         std::uint64_t GetAllowed(std::vector<Allowed>& allowed) const;
         void Build(const std::vector<Allowed>& allowed);
@@ -67,6 +75,7 @@ namespace vtkn
         vtkRenderer* Renderer = nullptr;
         vtkSmartPointer<vtkCuller> Culler;
         std::vector<Batch> Batches;
+        std::unordered_map<vtkProp*, Look> Looks;
         std::uint64_t Stamp = 0;
         bool Invalidated = true;
         bool Enabled = true;

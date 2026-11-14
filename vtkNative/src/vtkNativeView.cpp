@@ -464,6 +464,7 @@ namespace vtkn
         View* view = static_cast<View*>(clientData);
         if (eventId == vtkCommand::StartEvent)
         {
+            view->ClearedBaseActors.clear();
             view->Batches.Update();
             view->UpdateBasePass();
             return;

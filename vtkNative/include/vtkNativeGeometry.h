@@ -358,6 +358,12 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_set_ambient_occlusion(vtkn_view view, i
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actor_batching(vtkn_view view, int32_t enabled);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_get_actor_batches(vtkn_view view, int32_t* batch_count,
                                                             int32_t* member_count);
+/* An actor of vtkn_view_add_actor in the base layer that is not a part, that vtkn_view_clear took out keeping the
+   parts and that is added again as it was before the next render - the same name, style and meshes, and nothing
+   changed on it since it was added - is put back instead of being built again (on by default); off builds every
+   actor again, for comparing. The count is the number of actors put back since the view was created */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_cleared_actor_reuse(vtkn_view view, int32_t enabled);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_get_reused_actor_count(vtkn_view view, int32_t* count);
 
 /* Actors are named; adding a name that exists replaces that actor.
    points: point_count * 3 coordinates. cells: for each cell its node count followed by its point indices

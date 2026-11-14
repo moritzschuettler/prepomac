@@ -20,6 +20,9 @@
 #their actors. Behind the native view the ActiViz window does not swap its buffers, so its picture never shows.
 #The surfaces of the loads, which the native view draws through one mapper, give the picture they give drawn one by
 #one: as they are, with a part hidden and shown again, in a section view and with the ambient occlusion.
+#A redraw of the symbols, in which the native view puts back the surfaces that are added again as they were, gives
+#the picture of the surfaces built again: as they are, with a load hidden and shown again, with a part hidden and
+#shown again, with the model edges, in a section view and with the ambient occlusion.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Window_Events.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -150,6 +153,7 @@ def run_mode(areas, record):
         check_ambient_occlusion(label)
         check_translucent_sorting(label)
         check_actor_batches(label)
+        check_symbol_redraw(label)
     on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))
     on_ui(CONTROLLER.ClearSelectionHistory)
     check_camera(label)
@@ -329,6 +333,22 @@ def check_translucent_sorting(label):
     check(different <= 100, label + ": nearly opaque parts look the same with the ambient occlusion", different)
 
 
+# Translucent lines blended in another order, and symbols drawn again when a part is shown, differ by a level or two
+# in a few pixels; a surface that is missing or left over differs in hundreds
+def different_pixels(a, b):
+    from System.Drawing import Bitmap
+    from System.IO import MemoryStream
+    first, second = Bitmap(MemoryStream(a)), Bitmap(MemoryStream(b))
+    count = 0
+    for y in range(0, first.Height, 2):
+        for x in range(0, first.Width, 2):
+            if first.GetPixel(x, y) != second.GetPixel(x, y):
+                count += 1
+    first.Dispose()
+    second.Dispose()
+    return count
+
+
 # The actors that look the same are drawn by one mapper and are built into it again when one of them changes; a
 # picture drawn that way must be the picture of the actors drawn one by one
 def check_actor_batches(label):
@@ -340,21 +360,6 @@ def check_actor_batches(label):
     on_ui(lambda: CONTROLLER.UpdateDeferredScriptView())
     vtkport.frame_both(vtkport.camera_list(pmx.view.get_parameters()), "Isometric")
     mirror = VTK.NativeMirror
-
-    # Translucent lines blended in another order, and symbols drawn again when a part is shown, differ by a
-    # level or two in a few pixels; a surface that is missing or left over differs in hundreds
-    def different_pixels(a, b):
-        from System.Drawing import Bitmap
-        from System.IO import MemoryStream
-        first, second = Bitmap(MemoryStream(a)), Bitmap(MemoryStream(b))
-        count = 0
-        for y in range(0, first.Height, 2):
-            for x in range(0, first.Width, 2):
-                if first.GetPixel(x, y) != second.GetPixel(x, y):
-                    count += 1
-        first.Dispose()
-        second.Dispose()
-        return count
 
     def picture(name, batching):
         path = os.path.join(OUT, label + "_batches_" + name + ("" if batching else "_one_by_one") + ".png")
@@ -401,6 +406,82 @@ def check_actor_batches(label):
     different = different_pixels(again, shown)
     check(different <= 20, label + ": the picture of the surfaces drawn through one mapper is the one from before",
           [different, counts])
+
+
+# A redraw of the symbols clears their actors and adds them again, and the native view puts back those that are
+# added as they were instead of building them again. Whatever changed since they were added, the picture must be the
+# one of the actors built again; two redraws that both build them differ in a few pixels, as in check_actor_batches.
+# The six pressure loads of that check are drawn
+def check_symbol_redraw(label):
+    import System
+    from vtkControl import vtkEdgesVisibility
+    step = list(pmx.model.steps.get_names())[0]
+    mirror = VTK.NativeMirror
+
+    def redraw(name, reuse):
+        path = os.path.join(OUT, label + "_redraw_" + name + ("" if reuse else "_built_again") + ".png")
+
+        def run():
+            mirror.SetClearedActorReuse(reuse)
+            before = mirror.GetReusedActorCount()
+            CONTROLLER.RedrawModelSymbols(True)
+            mirror.WritePng(path, 1)
+            return mirror.GetReusedActorCount() - before
+        reused = on_ui(run)
+        return open(path, "rb").read(), reused
+
+    def same(name, surfaces):
+        put_back, reused = redraw(name, True)
+        built_again, none = redraw(name, False)
+        on_ui(lambda: mirror.SetClearedActorReuse(True))
+        different = different_pixels(put_back, built_again)
+        check(reused >= surfaces and none == 0 and different <= 20,
+              label + ": a redraw of the symbols that puts their surfaces back gives the picture of the surfaces "
+              "built again, " + name, [different, reused, none])
+        return put_back
+
+    redraw("first", False)
+    shown = same("shown", 6)
+    load = System.Array[System.String](["BatchPressure3"])
+    on_ui(lambda: CONTROLLER.HideLoads(step, load))
+    hidden = same("a load hidden", 5)
+    on_ui(lambda: CONTROLLER.ShowLoads(step, load))
+    again = same("the load shown again", 5)
+    different = [different_pixels(hidden, shown), different_pixels(again, shown)]
+    check(different[0] > 100 and different[1] <= 20, label + ": hiding and showing a load reaches the surfaces a "
+          "redraw puts back", different)
+    part = System.Array[System.String](["Base"])
+    on_ui(lambda: CONTROLLER.HideModelParts(part))
+    same("a part hidden", 0)
+    on_ui(lambda: CONTROLLER.ShowModelParts(part))
+    again = same("the part shown again", 0)
+    check(different_pixels(again, shown) <= 20, label + ": hiding and showing a part reaches the surfaces a redraw "
+          "puts back", different_pixels(again, shown))
+    on_ui(lambda: setattr(VTK, "EdgesVisibility", vtkEdgesVisibility.ModelEdges))
+    edges = same("with the model edges", 0)
+    same("with the model edges again", 6)
+    on_ui(lambda: setattr(VTK, "EdgesVisibility", vtkEdgesVisibility.ElementEdges))
+    again = same("with the element edges again", 0)
+    different = [different_pixels(edges, shown), different_pixels(again, shown)]
+    check(different[0] > 100 and different[1] <= 20, label + ": the edges reach the surfaces a redraw puts back",
+          different)
+    center = on_ui(lambda: list(CONTROLLER.GetSectionViewBBCenter().Coor))
+    normal = on_ui(lambda: list(CONTROLLER.GetDefaultSectionViewNormal()))
+    on_ui(lambda: CONTROLLER.CreateSectionView(System.Array[System.Double](center), System.Array[System.Double](normal),
+                                               False, System.Drawing.Color.Empty, False, False))
+    section = same("in a section view", 0)
+    on_ui(lambda: CONTROLLER.RemoveSectionView())
+    again = same("without the section view", 0)
+    different = [different_pixels(section, shown), different_pixels(again, shown)]
+    check(different[0] > 100 and different[1] <= 20, label + ": the section view cuts the surfaces a redraw puts "
+          "back", different)
+    on_ui(lambda: VTK.SetAmbientOcclusion(True, 0.05, 64, True))
+    same("with the ambient occlusion", 6)
+    same("with the ambient occlusion again", 6)
+    on_ui(lambda: VTK.SetAmbientOcclusion(False, 0.05, 64, True))
+    again = same("at the end", 6)
+    check(different_pixels(again, shown) <= 20, label + ": the picture of the surfaces a redraw puts back is the one "
+          "from before", different_pixels(again, shown))
 
 
 def check_arrow_key(label):

@@ -509,3 +509,65 @@ the pixel, and six pixels differing by two levels. The full `Run_Port_Checks.sh`
 user's settings: all passed, S4 with its one known difference. `Run_Tests.py --filter Test_Api Test_Selection
 Test_Workflow Test_Model_Parts Test_Result_Field Test_Rpc_Live Test_Model_Interactions Test_Model_Constraints
 Test_Model_Loads Audit_`: 19 of 19 passed.
+
+## The redraw of the symbols (2026-11-14)
+
+On the user's "speed up the symbol redraw time". The redraw of the symbols of 1344 ties on 512 cubes took 1.48 s in
+the window, 0.37 s of it the Controller and the ActiViz view underneath. The 1.1 s of the native view were, per
+redraw of 2688 surfaces: 440 ms the smooth normals, 106 ms the meshes, 156 ms the actors and mappers, 147 ms
+destroying the actors of the redraw before, 112 ms four measurements of the bounds of every actor, and the rest the
+calls themselves.
+
+- **The actors that are added again as they were are put back.** A redraw clears every symbol and adds every symbol
+  again, nearly all of them unchanged. `vtkn_view_clear` that keeps the parts now sets the base layer actors of
+  `vtkn_view_add_actor` aside until the next render (`View::ClearedBaseActors`), and an add of the same name puts the
+  actor back instead of building it (`View::TakeClearedActor`) when
+  - it was built from the same style and meshes (a key of 128 bits over their bytes, `PartActor::SourceKey`),
+  - nothing changed what it draws since it was added (`PartActor::IsAsAdded`: the times of its actors, properties,
+    shader properties, mappers with their clipping planes and color tables, and data are those of the add; every
+    change goes through a setter of VTK, which modifies its object only when the value changes; its style is the one
+    of the add; it has no scalars, cell colors, section data, animation frames or transformation), and
+  - the edges mode, the section view and the mesh lines left to the parts are those it was last given.
+  Anything else is built again, as before. Two re-applications of the same state keep an actor as it was added: the
+  colors of `UpdateColor`, which every clear of the highlights applies and which gives the edges the line width a
+  supersampled view had scaled, and that scaling itself (`ApplySupersampledPixelSizes`). A call of the geometry area
+  that may change every actor - the edges mode, the lighting, the section view, the transformations, the exploded
+  view, the ambient occlusion and the rest, by default every call that is not one of those that add, clear or change
+  single actors (`View::FromHandleOfGeometry` against `FromHandleOfActors`) - drops the actors set aside, which
+  would miss it. The actors put back are still members of their batch, which is then not built again either.
+  `vtkn_view_set_cleared_actor_reuse` switches it off for comparing and `vtkn_view_get_reused_actor_count` counts.
+- **Normals without the pipeline of the filter.** `vtkPolyDataNormals` of VTK 9.7 runs three filters (triangles,
+  orientation, splitting) before it computes; on a surface of 20 points that pipeline was 160 us of 165. When no two
+  triangles run along an edge in the same direction the orientation filter has nothing to turn, and the two static
+  functions the filter computes with (`GetCellNormals`, `GetPointNormals`) give its normals directly
+  (`ComputePointNormals` in `vtkNativePartActor.cpp`); otherwise the filter runs as before. Checked on the 24365
+  meshes of a run that built the model and redrew it: the normals are the same to the bit. This also takes a
+  fifth off the time of adding a part.
+- **Static mappers.** The mappers of `PartActor::CreateFromMesh` are given their data as it is, so they are marked
+  static and do not update their pipeline for every measurement of their bounds: a measurement of the 9600 actors of
+  the model took 17 ms and takes 5. A camera adjustment measures them twice.
+- **The edges of a mesh** are collected in vectors that are sorted once instead of sets (`BuildPolyData`).
+- **The looks of the batches** are read again only for the actors that changed (`ActorBatches::Looks`): reading the
+  looks of 2690 actors took 40 ms, on every change of the geometry, a highlight included.
+- **Tried and dropped:** deferring the garbage collection of VTK (`vtkGarbageCollector::DeferredCollectionPush`)
+  around an add or around the whole redraw: the collection at the end costs what the collections it saves cost.
+
+The redraw takes 0.45 to 0.55 s, 0.37 s of it still the Controller and the ActiViz view, and the first frame after
+it 34 ms instead of 190 ms. The picture of the tie model is the same to the pixel.
+
+- **Found, not changed:** two redraws that both build every symbol differ in two to six of 240000 sampled pixels of
+  the hinge with six pressure loads, in a section view too. The camera is adjusted at the end of a redraw, which
+  moves the clipping planes and with them the depths of faces that lie on each other.
+- **Seen in the code, not tried:** a transformed copy takes the property of its source as it is, with the line
+  width and point size a supersampled view had scaled, and would be scaled again.
+
+**Checks.** `Test_Window_Events.py`: with six pressure loads, a redraw that puts the surfaces back gives the picture
+of a redraw that builds them again (at most 20 of 240000 sampled pixels apart, as two redraws that both build them
+are) - as shown, with a load hidden and shown again, with a part hidden and shown again, with the model edges, in a
+section view and with the ambient occlusion - and the count of the surfaces put back is the expected one in each
+case: none after the edges mode changed or in a section view, all of them otherwise. The full `Run_Port_Checks.sh`
+on a copy of the build with the user's settings: all passed, S4 with its one known difference; it ran before the
+lines of the change were wrapped, and the window test, `selection_s1`, `selection_s2` and `geometry_scenes` ran
+again on the final build. `Run_Tests.py --filter Test_Api Test_Selection Test_Workflow Test_Model_Parts
+Test_Result_Field Test_Rpc_Live Test_Model_Interactions Test_Model_Constraints Test_Model_Loads Audit_` on the final
+build: 19 of 19 passed.

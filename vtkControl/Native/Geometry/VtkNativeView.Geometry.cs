@@ -466,6 +466,15 @@ namespace vtkControl.Native
                                                                                 out int memberCount));
             return new int[] { batchCount, memberCount };
         }
+        public void SetClearedActorReuse(bool enabled)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_cleared_actor_reuse(Handle(), enabled ? 1 : 0));
+        }
+        public int GetReusedActorCount()
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_get_reused_actor_count(Handle(), out int count));
+            return count;
+        }
         //
         public void AddMeshActor(string name, double[] points, int[] cells, byte[] cellTypes, double[] colorRgb,
                                  bool edgesVisible)

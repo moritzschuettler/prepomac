@@ -55,11 +55,20 @@ namespace vtkn
         View& operator=(const View&) = delete;
 
         static View* FromHandle(vtkn_view handle);
-        // The view of a call that may change its geometry: the actors drawn together are looked through again
-        static View* FromHandleOfGeometry(vtkn_view handle)
+        // The view of a call that adds, clears or changes single actors: the actors drawn together are looked
+        // through again
+        static View* FromHandleOfActors(vtkn_view handle)
         {
             View* view = FromHandle(handle);
             view->Batches.Invalidate();
+            return view;
+        }
+        // The view of any other call that may change its geometry. Such a call may change every actor, which the
+        // actors a clear took out would miss, so they are not put back after it
+        static View* FromHandleOfGeometry(vtkn_view handle)
+        {
+            View* view = FromHandleOfActors(handle);
+            view->ClearedBaseActors.clear();
             return view;
         }
 
@@ -100,7 +109,8 @@ namespace vtkn
         // Geometry (Geometry/vtkNativeViewGeometry.cpp)
         void AddActor(const std::string& name, const std::string& parentName, const vtkn_part_style& style,
                       const vtkn_mesh& geometry, const vtkn_mesh* modelEdges, const vtkn_mesh* modelEdgesToDraw);
-        void AddActor(const std::string& name, std::unique_ptr<PartActor> actor);
+        void AddActor(const std::string& name, std::unique_ptr<PartActor> actor,
+                      const bool* partsDrawElementEdges = nullptr);
         PartActor* FindActor(const std::string& name, vtkn_layer layer);
         void SetActorVisible(const std::string& name, vtkn_layer layer, bool visible);
         void SetActorColor(const std::string& name, vtkn_layer layer, const double* rgba);
@@ -154,6 +164,12 @@ namespace vtkn
         void SetAmbientOcclusion(bool enabled, double relativeRadius, int kernelSize);
         void SetActorBatching(bool enabled) { Batches.SetEnabled(enabled); }
         void GetActorBatches(int& batchCount, int& memberCount) { Batches.GetCounts(batchCount, memberCount); }
+        void SetClearedActorReuse(bool enabled)
+        {
+            ClearedActorReuse = enabled;
+            if (!enabled) ClearedBaseActors.clear();
+        }
+        int GetReusedActorCount() const { return ReusedActorCount; }
 
         // Picking (vtkNativeViewPick.cpp)
         bool PickPoint(int x, int y, int selectionDistance, bool limitDistance,
@@ -301,6 +317,12 @@ namespace vtkn
         // picking and the parts of the checks consider
         std::map<std::string, std::unique_ptr<PartActor>> BaseActors;
         std::vector<PartActor*> GetBaseActors();
+        // The base layer actors a clear that keeps the parts took out, until the next render (AddActor)
+        std::map<std::string, std::unique_ptr<PartActor>> ClearedBaseActors;
+        bool ClearedActorReuse = true;
+        int ReusedActorCount = 0;
+        std::unique_ptr<PartActor> TakeClearedActor(const std::string& name, const PartActor::SourceKey& key,
+                                                    bool edgesDrawnByParts);
         std::map<std::string, std::unique_ptr<PartActor>> OverlayParts;
         std::vector<std::unique_ptr<PartActor>> SelectedParts;
         HighlightColors Highlight;

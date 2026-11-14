@@ -259,9 +259,21 @@ namespace vtkn
         std::vector<Group> groups;
         std::map<std::string, size_t> groupOfLook;
         std::string look;
+        // The look of an actor is read again only when the actor changed: reading the looks of thousands of actors
+        // takes longer than drawing them
+        std::unordered_map<vtkProp*, Look> looks;
         for (const Allowed& entry : allowed)
         {
-            if (!GetLook(entry.Actor, look)) continue;
+            Look& current = looks[entry.Actor];
+            auto known = Looks.find(entry.Actor);
+            if (known != Looks.end() && known->second.Stamp == entry.Stamp) current = std::move(known->second);
+            else
+            {
+                current.Stamp = entry.Stamp;
+                current.Batched = GetLook(entry.Actor, current.Text);
+            }
+            if (!current.Batched) continue;
+            look = current.Text;
             // Drawn one by one, an actor is the only one of its group
             if (!Enabled) look += " actor " + std::to_string(groups.size());
             auto found = groupOfLook.find(look);
@@ -276,6 +288,7 @@ namespace vtkn
             Mix(group.Stamp, entry.Stamp);
         }
         //
+        Looks = std::move(looks);
         std::multimap<std::uint64_t, Batch> kept;
         for (Batch& batch : Batches) kept.insert({ batch.Stamp, batch });
         Batches.clear();
