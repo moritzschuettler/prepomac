@@ -54,6 +54,13 @@ namespace PrePoMax
         // Older settings files have no renderer, which reads as the VTK 9 view
         [OptionalField]
         private bool _activizView;
+        // Older settings files have no ambient occlusion, which reads as off
+        [OptionalField]
+        private bool _ambientOcclusion;
+        [OptionalField]
+        private double _ambientOcclusionRadius;
+        [OptionalField]
+        private int _ambientOcclusionKernelSize;
 
 
         // Properties                                                                                                               
@@ -120,6 +127,27 @@ namespace PrePoMax
             }
         }
         public bool ActiVizView { get { return _activizView; } set { _activizView = value; } }
+        public bool AmbientOcclusion { get { return _ambientOcclusion; } set { _ambientOcclusion = value; } }
+        public double AmbientOcclusionRadius
+        {
+            get { return _ambientOcclusionRadius; }
+            set
+            {
+                _ambientOcclusionRadius = value;
+                if (_ambientOcclusionRadius < 0.001) _ambientOcclusionRadius = 0.001;
+                else if (_ambientOcclusionRadius > 1) _ambientOcclusionRadius = 1;
+            }
+        }
+        public int AmbientOcclusionKernelSize
+        {
+            get { return _ambientOcclusionKernelSize; }
+            set
+            {
+                _ambientOcclusionKernelSize = value;
+                if (_ambientOcclusionKernelSize < 8) _ambientOcclusionKernelSize = 8;
+                else if (_ambientOcclusionKernelSize > 512) _ambientOcclusionKernelSize = 512;
+            }
+        }
         public double AngularDeflectionRad
         {
             get { return Math.Round(_angularDeflectionDeg * Math.PI / 180, 2); }
@@ -143,6 +171,13 @@ namespace PrePoMax
 
 
         // Methods                                                                                                                  
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext context)
+        {
+            _ambientOcclusion = false;
+            _ambientOcclusionRadius = 0.05;
+            _ambientOcclusionKernelSize = 64;
+        }
         public void CheckValues()
         {
         }
@@ -162,6 +197,9 @@ namespace PrePoMax
             _linearDeflection = 0.01;
             _angularDeflectionDeg = 15;
             _activizView = false;
+            _ambientOcclusion = false;
+            _ambientOcclusionRadius = 0.05;
+            _ambientOcclusionKernelSize = 64;
         }
     }
 }

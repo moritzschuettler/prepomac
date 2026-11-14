@@ -62,6 +62,9 @@ namespace vtkControl
         private bool _renderingOn;
         private int _cameraAdjustmentSuspendCount;
         private bool _cameraAdjustmentPending;
+        private bool _ambientOcclusion;
+        private double _ambientOcclusionRelativeRadius = 0.05;
+        private int _ambientOcclusionKernelSize = 64;
         private bool _userPick;     // used to determine if the selection distance should be limited
         private vtkRenderer _renderer;
         private vtkRenderer _selectionRenderer;
@@ -7745,6 +7748,14 @@ namespace vtkControl
             if (_nativeMirror != null) _nativeMirror.SetLighting(ambient, diffuse);
             if (redraw) RenderScene();
         }
+        public void SetAmbientOcclusion(bool enabled, double relativeRadius, int kernelSize, bool redraw)
+        {
+            _ambientOcclusion = enabled;
+            _ambientOcclusionRelativeRadius = relativeRadius;
+            _ambientOcclusionKernelSize = kernelSize;
+            if (_nativeMirror != null) _nativeMirror.SetAmbientOcclusion(enabled, relativeRadius, kernelSize);
+            if (redraw) RenderScene();
+        }
         public void SetSmoothing(bool pointSmoothing, bool lineSmoothing, bool redraw)
         {
             if (_renderWindow != null)
@@ -10528,6 +10539,8 @@ namespace vtkControl
                                         _renderer.GetBackground());
             _nativeMirror.SetSmoothing(_renderWindow.GetPointSmoothing() == 1, _renderWindow.GetLineSmoothing() == 1);
             _nativeMirror.SetEdgesVisibility(_edgesVisibility);
+            _nativeMirror.SetAmbientOcclusion(_ambientOcclusion, _ambientOcclusionRelativeRadius,
+                                              _ambientOcclusionKernelSize);
             // The colors are set once at start, before a native view exists
             _nativeMirror.SetHighlightColors(_primaryHighlightColor, _secondaryHighlightColor);
         }

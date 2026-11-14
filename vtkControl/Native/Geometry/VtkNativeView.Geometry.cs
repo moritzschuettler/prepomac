@@ -451,6 +451,11 @@ namespace vtkControl.Native
         {
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_lighting(Handle(), ambient, diffuse));
         }
+        public void SetAmbientOcclusion(bool enabled, double relativeRadius, int kernelSize)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_ambient_occlusion(Handle(), enabled ? 1 : 0,
+                                                                                    relativeRadius, kernelSize));
+        }
         //
         public void AddMeshActor(string name, double[] points, int[] cells, byte[] cellTypes, double[] colorRgb,
                                  bool edgesVisible)

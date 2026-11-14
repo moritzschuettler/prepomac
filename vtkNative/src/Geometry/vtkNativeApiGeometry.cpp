@@ -497,6 +497,15 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_set_ambient_occlusion(vtkn_view view, int32_t enabled, double relative_radius,
+                                                          int32_t kernel_size)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetAmbientOcclusion(enabled != 0, relative_radius, kernel_size);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_add_mesh_actor(vtkn_view view, const char* name, const double* points,
                                                    int32_t point_count, const int32_t* cells, int32_t cells_length,
                                                    const uint8_t* cell_types, int32_t cell_count,

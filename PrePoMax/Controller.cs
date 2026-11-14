@@ -19731,6 +19731,8 @@ namespace PrePoMax
             _form.SetSelectionDistance(_selectionDistanceInPixels);
             _form.SetLighting(gs.AmbientComponent, gs.DiffuseComponent, false);
             _form.SetSmoothing(gs.PointSmoothing, gs.LineSmoothing, false);
+            _form.SetAmbientOcclusion(gs.AmbientOcclusion, gs.AmbientOcclusionRadius, gs.AmbientOcclusionKernelSize,
+                                      false);
             _form.SetNativeView(!gs.ActiVizView);
             // Navigation settings
             NavigationSettings ns = _settings.Navigation;

@@ -13,7 +13,9 @@
 #key posted to the focused VTK window passes the message filters of the window and turns the native view. A click on
 #the VTK window gives the form's focus to the control, as a click on the ActiViz view did, so that the keyboard hook of
 #the main form sees the view focused and hands it the space to hide and show. An actor added while the control has
-#suspended its camera adjustment leaves the native camera until the suspension ends.
+#suspended its camera adjustment leaves the native camera until the suspension ends. With the ambient occlusion on,
+#the model is shaded and its background kept, a pick finds what it found without it, a magnified picture has no
+#border of a tile through its middle, and switching it off gives the picture from before.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Window_Events.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -141,6 +143,7 @@ def run_mode(areas, record):
         check_mouse_actions(label, send, x, y)
         check_arrow_key(label)
         check_click_focus(label)
+        check_ambient_occlusion(label)
     on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))
     on_ui(CONTROLLER.ClearSelectionHistory)
     check_camera(label)
@@ -201,6 +204,75 @@ def check_camera_adjustment_suspended(label):
           "native camera", [far[:3], suspended[:3]])
     check(not close(resumed[:3], far[:3], 1e-3 * camera[9]), label + ": the native camera is adjusted when the "
           "suspension ends", [far[:3], resumed[:3]])
+
+
+# The ambient occlusion of the VTK 9 view: Settings - Graphics - Lighting
+def check_ambient_occlusion(label):
+    from System.Drawing import Bitmap
+    vtkport.frame_both(vtkport.camera_list(pmx.view.get_parameters()), "Isometric")
+    width, height = SIZE
+
+    def picture(name, magnification=1):
+        path = os.path.join(OUT, label + "_occlusion_" + name + ".png")
+        on_ui(lambda: VTK.NativeMirror.WritePng(path, magnification))
+        return path
+
+    def picks():
+        found = []
+        for j in range(5):
+            for i in range(5):
+                x = int(round((i + 0.5) * width / 5))
+                y = int(round((j + 0.5) * height / 5))
+                name, values = on_ui(lambda: vtkport.invoke(VTK, "NativeMirrorPickPoint", x, y, count=4))
+                found.append([name, None if values[2] is None else [round(v, 6) for v in values[2]]])
+        return found
+
+    def brightness(bitmap, x, y):
+        color = bitmap.GetPixel(x, y)
+        return color.R + color.G + color.B
+
+    off = picture("off")
+    picks_off = picks()
+    on_ui(lambda: VTK.SetAmbientOcclusion(True, 0.05, 64, True))
+    on = picture("on")
+    picks_on = picks()
+    magnified = picture("on_x2", 2)
+    on_ui(lambda: VTK.SetAmbientOcclusion(False, 0.05, 64, True))
+    off_again = picture("off_again")
+    #
+    bitmap_off, bitmap_on = Bitmap(off), Bitmap(on)
+    darker = 0
+    for y in range(0, height, 3):
+        for x in range(0, width, 3):
+            if brightness(bitmap_off, x, y) - brightness(bitmap_on, x, y) >= 30:
+                darker += 1
+    corner = abs(brightness(bitmap_off, 10, 10) - brightness(bitmap_on, 10, 10))
+    bitmap_off.Dispose()
+    bitmap_on.Dispose()
+    check(darker > 200, label + ": the ambient occlusion shades the model", darker)
+    check(corner <= 12, label + ": the ambient occlusion keeps the background", corner)
+    check(picks_on == picks_off and any(pick[0] for pick in picks_off),
+          label + ": a pick with the ambient occlusion finds what it finds without it", [picks_off, picks_on])
+    # Tiles that do not overlap leave a step of brightness along the rows where they meet, the middle of the picture
+    bitmap = Bitmap(magnified)
+    check(bitmap.Width == 2 * width and bitmap.Height == 2 * height,
+          label + ": the magnified picture with the ambient occlusion has the magnified size",
+          [bitmap.Width, bitmap.Height])
+    steps = []
+    for y in range(height - 40, height + 41):
+        step = 0
+        for x in range(0, bitmap.Width, 4):
+            a, b = bitmap.GetPixel(x, y), bitmap.GetPixel(x, y - 1)
+            step += abs(a.R - b.R) + abs(a.G - b.G) + abs(a.B - b.B)
+        steps.append(step)
+    bitmap.Dispose()
+    middle = max(steps[38:43])
+    typical = sorted(steps)[len(steps) // 2]
+    check(typical > 0 and middle < 2.5 * typical,
+          label + ": a magnified picture with the ambient occlusion has no border of a tile through its middle",
+          [middle, typical])
+    check(open(off, "rb").read() == open(off_again, "rb").read(),
+          label + ": without the ambient occlusion the picture is the one from before")
 
 
 def check_arrow_key(label):

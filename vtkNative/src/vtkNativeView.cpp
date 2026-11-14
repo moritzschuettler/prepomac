@@ -97,6 +97,7 @@ namespace vtkn
         EventCommand = vtkSmartPointer<vtkCallbackCommand>::New();
         EventCommand->SetCallback(&View::OnVtkEvent);
         EventCommand->SetClientData(this);
+        Renderer->AddObserver(vtkCommand::StartEvent, EventCommand);
         Renderer->AddObserver(vtkCommand::EndEvent, EventCommand);
         Renderer->GetActiveCamera()->AddObserver(vtkCommand::ModifiedEvent, EventCommand);
         // The widgets follow the window size the way they followed the ModifiedEvt of the ActiViz window
@@ -402,6 +403,8 @@ namespace vtkn
     std::vector<uint8_t> View::ReadPixels(int magnification, int& width, int& height)
     {
         Require(magnification >= 1 && magnification <= 8, "The magnification must be from 1 to 8.");
+        if (magnification > 1 && AmbientOcclusion && Renderer->GetPass() != nullptr)
+            return ReadPixelsInOverlappingTiles(magnification, width, height);
         vtkNew<vtkWindowToImageFilter> windowToImage;
         windowToImage->SetInput(RenderWindow);
         windowToImage->SetInputBufferTypeToRGB();
@@ -423,13 +426,30 @@ namespace vtkn
     {
         Require(!fileName.empty(), "The file name must not be empty.");
         Require(magnification >= 1 && magnification <= 8, "The magnification must be from 1 to 8.");
-        vtkNew<vtkWindowToImageFilter> windowToImage;
-        windowToImage->SetInput(RenderWindow);
-        windowToImage->SetInputBufferTypeToRGB();
-        windowToImage->SetScale(magnification);
-        windowToImage->ReadFrontBufferOff();
         vtkNew<vtkPNGWriter> writer;
-        writer->SetInputConnection(windowToImage->GetOutputPort());
+        vtkNew<vtkWindowToImageFilter> windowToImage;
+        if (magnification > 1 && AmbientOcclusion && Renderer->GetPass() != nullptr)
+        {
+            int width = 0;
+            int height = 0;
+            std::vector<uint8_t> pixels = ReadPixelsInOverlappingTiles(magnification, width, height);
+            vtkNew<vtkUnsignedCharArray> rgb;
+            rgb->SetNumberOfComponents(3);
+            rgb->SetNumberOfTuples(static_cast<vtkIdType>(width) * height);
+            std::memcpy(rgb->GetPointer(0), pixels.data(), pixels.size());
+            vtkNew<vtkImageData> image;
+            image->SetDimensions(width, height, 1);
+            image->GetPointData()->SetScalars(rgb);
+            writer->SetInputData(image);
+        }
+        else
+        {
+            windowToImage->SetInput(RenderWindow);
+            windowToImage->SetInputBufferTypeToRGB();
+            windowToImage->SetScale(magnification);
+            windowToImage->ReadFrontBufferOff();
+            writer->SetInputConnection(windowToImage->GetOutputPort());
+        }
         writer->SetFileName(fileName.c_str());
         writer->Write();
         if (writer->GetErrorCode() != 0)
@@ -439,6 +459,11 @@ namespace vtkn
     void View::OnVtkEvent(vtkObject* caller, unsigned long eventId, void* clientData, void*)
     {
         View* view = static_cast<View*>(clientData);
+        if (eventId == vtkCommand::StartEvent)
+        {
+            view->PrepareAmbientOcclusion();
+            return;
+        }
         if (view->Callback == nullptr) return;
         //
         if (eventId == vtkCommand::EndEvent)

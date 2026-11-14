@@ -202,10 +202,6 @@ namespace vtkn
         std::string name;
         // First pick. vtkControl rendered its renderer only; the render of the window is not shown, or the parts drawn
         // opaque for the pick would flash in a window with translucent parts
-        int swapBuffers = RenderWindow->GetSwapBuffers();
-        RenderWindow->SwapBuffersOff();
-        RenderWindow->Render();
-        RenderWindow->SetSwapBuffers(swapBuffers);
         vtkNew<vtkPropPicker> propPicker;
         propPicker->PickFromListOn();
         for (const auto& entry : Parts)
@@ -213,7 +209,13 @@ namespace vtkn
             if (entry.second->GetCellLocator() != nullptr) propPicker->AddPickList(entry.second->GetGeometry());
         }
         for (const auto& entry : sectionViewActors) propPicker->AddPickList(entry.second->GetGeometry());
-        propPicker->Pick(x, y, 0, Renderer);
+        PickWithoutAmbientOcclusionPass([&]() {
+            int swapBuffers = RenderWindow->GetSwapBuffers();
+            RenderWindow->SwapBuffersOff();
+            RenderWindow->Render();
+            RenderWindow->SetSwapBuffers(swapBuffers);
+            propPicker->Pick(x, y, 0, Renderer);
+        });
         PartActor* part = FindPart(propPicker->GetActor(), &name);
         bool skin = false;
         PartActor* sectionViewActor = FindSectionViewActor(propPicker->GetActor(), &name, &skin);
@@ -324,7 +326,7 @@ namespace vtkn
         }
         for (vtkActor* actor : extraActors) actor->PickableOn();
         vtkNew<vtkRenderedAreaPicker> areaPicker;
-        areaPicker->AreaPick(x1, y1, x2, y2, Renderer);
+        PickWithoutAmbientOcclusionPass([&]() { areaPicker->AreaPick(x1, y1, x2, y2, Renderer); });
         for (vtkActor* actor : extraActors) actor->PickableOff();
         vtkPlanes* frustum = areaPicker->GetFrustum();
         Require(frustum != nullptr && frustum->GetNumberOfPlanes() == 6, "The area pick returned no frustum.");

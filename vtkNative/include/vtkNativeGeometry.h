@@ -347,6 +347,11 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_clear_actors(vtkn_view view);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_edges_visibility(vtkn_view view, int32_t edges_visibility);
 /* The ambient and diffuse light of the parts that use the global lighting */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_lighting(vtkn_view view, double ambient, double diffuse);
+/* Screen space ambient occlusion of the base layer: the sampling radius relative to the diagonal of the visible
+   model, and the number of samples per pixel (at least 8). While it is on the base layer is supersampled instead
+   of multisampled */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_ambient_occlusion(vtkn_view view, int32_t enabled,
+                                                                double relative_radius, int32_t kernel_size);
 
 /* Actors are named; adding a name that exists replaces that actor.
    points: point_count * 3 coordinates. cells: for each cell its node count followed by its point indices

@@ -12654,6 +12654,10 @@ namespace PrePoMax
         {
             InvokeIfRequired(_vtk.SetLighting, ambient, diffuse, redraw);
         }
+        public void SetAmbientOcclusion(bool enabled, double relativeRadius, int kernelSize, bool redraw)
+        {
+            InvokeIfRequired(() => _vtk.SetAmbientOcclusion(enabled, relativeRadius, kernelSize, redraw));
+        }
         public void SetNavigationSensitivity(double rotateSensitivity, double zoomSensitivity, bool invertZoom, bool smoothZoom)
         {
             InvokeIfRequired(() => _vtk.SetNavigationSensitivity(rotateSensitivity, zoomSensitivity, invertZoom, smoothZoom));

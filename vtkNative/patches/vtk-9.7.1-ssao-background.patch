@@ -1,0 +1,15 @@
+--- a/Rendering/OpenGL2/vtkSSAOPass.cxx
++++ b/Rendering/OpenGL2/vtkSSAOPass.cxx
+@@ -464,8 +464,10 @@
+     {
+       ssImpl << "  float ao = texture(texSSAO, texCoord).r;\n";
+     }
+-    ssImpl << "  gl_FragData[0] = vec4(col.rgb * ao, col.a);\n"
+-              "  gl_FragDepth = texture(texDepth, texCoord).r;\n";
++    ssImpl << "  float depth = texture(texDepth, texCoord).r;\n"
++              "  if (depth >= 1.0) discard;\n" // keep the background (gradient/texture) drawn by Clear()
++              "  gl_FragData[0] = vec4(col.rgb * ao, col.a);\n"
++              "  gl_FragDepth = depth;\n";
+ 
+     vtkShaderProgram::Substitute(FSSource, "//VTK::FSQ::Impl", ssImpl.str());
+ 

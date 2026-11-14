@@ -24,11 +24,22 @@ production code. Nothing from the pilot goes to `master`.
 | What | Where |
 |---|---|
 | PrePoMax sources | a branch `pilot/vtk-native` of `C:\Pc\Programiranje\PrePoMax\PrePoMax v3.0.n dev` |
-| VTK 9.7.1 build (shared, x64, Release, VS 2022) | `C:\Pc\Programiranje\KitwareVTK\vtk-9.7.1-build-x64` |
-| VTK CMake package | `VTK_DIR=C:\Pc\Programiranje\KitwareVTK\vtk-9.7.1-build-x64\lib\cmake\vtk-9.7` |
-| VTK runtime DLLs | `C:\Pc\Programiranje\KitwareVTK\vtk-9.7.1-build-x64\bin\Release` (versioned names, `*-9.7.dll`) |
+| VTK 9.7.1 build (shared, x64, Release, VS 2022) | `C:\Pc\Programiranje\KitwareVTK\vtk-9.7.1-build-x64-opt` |
+| VTK CMake package | `VTK_DIR=C:\Pc\Programiranje\KitwareVTK\vtk-9.7.1-build-x64-opt\lib\cmake\vtk-9.7` |
+| VTK runtime DLLs | `C:\Pc\Programiranje\KitwareVTK\vtk-9.7.1-build-x64-opt\bin\Release` (versioned names, `*-9.7.dll`) |
 | CMake | `C:\Program Files\CMake\bin\cmake.exe` |
 | MSBuild | `C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe` |
+
+The pilot and the port up to 2026-11-13 were built with `vtk-9.7.1-build-x64`, whose Release libraries have no
+optimization: its first configure found no compiler and CMake kept the empty compiler flags in its cache.
+`vtk-9.7.1-build-x64-opt` is the same source and the same options with the default flags (`/O2 /Ob2 /DNDEBUG`); the
+output of its configure is `vtk-9.7.1-opt-configure.log` beside it. A VTK build is checked by the
+`<Optimization>MaxSpeed</Optimization>` of the Release configuration in a generated project such as
+`Common\Core\vtkCommonCore.vcxproj`.
+
+The ambient occlusion of the native view needs the patch `vtkNative/patches/vtk-9.7.1-ssao-background.patch` of
+`Rendering/OpenGL2/vtkSSAOPass.cxx`, which that source already has; without it the occlusion pass paints over the
+background of the view.
 
 The VTK source in `C:\Pc\Programiranje\KitwareVTK\vtk-9.7.1-source` carries local patches (see
 `PrePoMax-v2.6-ActiViz-9.7.1-test\VTK97-INTEGRATION.md` there). Only Release VTK is built; a Debug PrePoMax calling

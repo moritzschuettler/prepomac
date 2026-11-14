@@ -143,6 +143,35 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.DiffuseComponent; }
             set { _graphicsSettings.DiffuseComponent = value; }
         }
+        //
+        [CategoryAttribute("Lighting")]
+        [OrderedDisplayName(2, 10, "Ambient occlusion")]
+        [DescriptionAttribute("Enable/disable screen space ambient occlusion (SSAO) shading of the model in the VTK 9 view.")]
+        public bool AmbientOcclusion
+        {
+            get { return _graphicsSettings.AmbientOcclusion; }
+            set { _graphicsSettings.AmbientOcclusion = value; UpdateVisibilities(); }
+        }
+        //
+        [CategoryAttribute("Lighting")]
+        [OrderedDisplayName(3, 10, "Ambient occlusion radius")]
+        [DescriptionAttribute("Select the ambient occlusion sampling radius relative to the model size (0.001 ... 1).")]
+        [TypeConverter(typeof(StringDoubleConverter))]
+        public double AmbientOcclusionRadius
+        {
+            get { return _graphicsSettings.AmbientOcclusionRadius; }
+            set { _graphicsSettings.AmbientOcclusionRadius = value; }
+        }
+        //
+        [CategoryAttribute("Lighting")]
+        [OrderedDisplayName(4, 10, "Ambient occlusion samples")]
+        [DescriptionAttribute("Select the number of ambient occlusion samples per pixel (8 ... 512). Higher values are smoother "
+                              + "but slower.")]
+        public int AmbientOcclusionKernelSize
+        {
+            get { return _graphicsSettings.AmbientOcclusionKernelSize; }
+            set { _graphicsSettings.AmbientOcclusionKernelSize = value; }
+        }
         // Renderer                                                                                 
         [CategoryAttribute("Renderer")]
         [OrderedDisplayName(0, 10, "Viewport")]
@@ -150,7 +179,7 @@ namespace PrePoMax.Settings
         public bool NativeView
         {
             get { return !_graphicsSettings.ActiVizView; }
-            set { _graphicsSettings.ActiVizView = !value; }
+            set { _graphicsSettings.ActiVizView = !value; UpdateVisibilities(); }
         }
         // Smoothing                                                                                
         [CategoryAttribute("Smoothing")]
@@ -222,6 +251,7 @@ namespace PrePoMax.Settings
             _dctd.RenameBooleanPropertyToOnOff(nameof(CoorSysVisibility));
             _dctd.RenameBooleanPropertyToOnOff(nameof(ScaleWidgetVisibility));
             _dctd.RenameBooleanPropertyToOnOff(nameof(WidgetHighlightEnabled));
+            _dctd.RenameBooleanPropertyToOnOff(nameof(AmbientOcclusion));
             _dctd.RenameBooleanPropertyToOnOff(nameof(PointSmoothing));
             _dctd.RenameBooleanPropertyToOnOff(nameof(LineSmoothing));
             _dctd.RenameBooleanProperty(nameof(LinearDeflectionRelative), "Relative", "Absolute");
@@ -250,6 +280,12 @@ namespace PrePoMax.Settings
             bool visible = _graphicsSettings.LinearDeflectionRelative;
             _dctd.GetProperty(nameof(LinearDeflection)).SetIsBrowsable(visible);
             _dctd.GetProperty(nameof(LinearDeflectionInUnits)).SetIsBrowsable(!visible);
+            //
+            bool nativeView = !_graphicsSettings.ActiVizView;
+            bool ambientOcclusion = nativeView && _graphicsSettings.AmbientOcclusion;
+            _dctd.GetProperty(nameof(AmbientOcclusion)).SetIsBrowsable(nativeView);
+            _dctd.GetProperty(nameof(AmbientOcclusionRadius)).SetIsBrowsable(ambientOcclusion);
+            _dctd.GetProperty(nameof(AmbientOcclusionKernelSize)).SetIsBrowsable(ambientOcclusion);
         }
     }
 

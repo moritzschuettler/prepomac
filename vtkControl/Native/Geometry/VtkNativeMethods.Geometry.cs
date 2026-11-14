@@ -136,6 +136,9 @@ namespace vtkControl.Native
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_lighting(IntPtr view, double ambient, double diffuse);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_ambient_occlusion(IntPtr view, int enabled,
+                                                                             double relativeRadius, int kernelSize);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_add_mesh_actor(IntPtr view, byte[] name, double[] points,
                                                                       int pointCount, int[] cells, int cellsLength,
                                                                       byte[] cellTypes, int cellCount,

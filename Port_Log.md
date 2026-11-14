@@ -375,3 +375,45 @@ plain one.
 equations, regions, split cells, selection, workflow, job, results, API, RPC, audits): 37 of 37 passed.
 `Test_Window_Events.py` checks that an actor added while the camera adjustment is suspended leaves the native camera
 until the suspension ends.
+
+## The optimized VTK build and the ambient occlusion (2026-11-14)
+
+On the user's "Yes, rebuild VTK" and "look into the KitwareVTK folder where ambient occlusion was added using the new
+ActiViz and bring it to this VTK".
+
+- **VTK 9.7.1 with optimization:** `vtk-9.7.1-build-x64-opt` beside the old build, from the same source with the same
+  options (shared, x64, Release, the StandAlone, Rendering and Imaging groups, no FFMPEG) and the default compiler
+  flags; 160 DLLs, `vtkCommonCore-9.7.dll` 22.8 MB instead of 87.8 MB. `vtkNative/build` is configured with its
+  `VTK_DIR` (`Vtk_Native_Pilot_Plan.md`, Inputs). The old build is untouched. The redraw of the symbols of 1344
+  ties on 512 cubes: 1.7 s (6.2 s with the unoptimized libraries, 0.35 s of it the ActiViz view underneath). The
+  picking time of `selection_s4` did not change (10.4 s), so that was not the libraries.
+- **Ambient occlusion in the VTK 9 view** (Settings - Graphics - Lighting: Ambient occlusion, its radius relative to
+  the model size and its samples; `GraphicsSettings` fields are `[OptionalField]` and off by default). Ported from
+  `vtkControl.cs` of `KitwareVTK/PrePoMax-v2.6-ActiViz-9.7.1-test` to `vtkNative/src/Geometry/
+  vtkNativeAmbientOcclusion.cpp`: the occlusion pass on the opaque pass of the base layer, inside a supersampling pass,
+  the radius from the diagonal of the visible model before every render, the line widths and point sizes of the base
+  layer scaled for the supersampling, and the picks through the plain passes. It needs the patch of `vtkSSAOPass.cxx`
+  that the VTK source already had from that work, now also `vtkNative/patches/vtk-9.7.1-ssao-background.patch`.
+  Three things differ from that copy:
+  - the window keeps its multisampling, so the symbols, the highlights and the widgets of the other layers stay
+    smooth (that copy switched it off);
+  - the 2D actors of the base layer (captions, labels of coordinate systems) are drawn after the supersampling, or
+    they would come out sqrt(5) times smaller;
+  - a magnified picture is rendered in tiles that overlap by the sampling radius (`ReadPixelsInOverlappingTiles`).
+    That copy rendered it once in a window enlarged to the picture, which leaves everything sized in pixels (symbols,
+    widgets, the scale bar) at the size of the screen; the tiles of `vtkWindowToImageFilter` magnify as before, but
+    the occlusion leaves a step of up to 222 levels where two tiles meet.
+  The ActiViz (VTK 5.8) view has no ambient occlusion; the settings are hidden when it is chosen.
+- **Cost** on 512 parts with 1344 ties in a 1200 x 800 view: a render 94 ms without and 132 ms with the occlusion, a
+  pick 181 ms and 203 ms.
+- **Not checked:** the look in the user's own window, a results view, a section view and translucent parts with the
+  occlusion on.
+
+**Checks.** `Test_Window_Events.py` with the occlusion: the model is shaded, the background kept, 25 picks find what
+they find without it, a picture magnified twice has no step through its middle (it fails with the overlap of the
+tiles removed: 19829 against a typical 5501), and switching it off gives the picture from before. The full
+`Run_Port_Checks.sh` on the optimized VTK: all passed, S4 with its one known difference.
+After the last change (the render before a pick without the occlusion passes): the selection suites, `geometry_g1`,
+`geometry_g5` and `Test_Window_Events.py` passed again, and `Run_Tests.py --filter Test_Api Test_Selection
+Test_Workflow Test_Model_Parts Test_Result_Field Test_Rpc_Live Test_Model_Interactions Audit_`: 17 of 17 passed. The
+dots and the names of reference points are drawn with the occlusion on as without it.

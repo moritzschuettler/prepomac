@@ -20,15 +20,19 @@
 #include <vtkCoordinate.h>
 #include <vtkLight.h>
 #include <vtkPlane.h>
+#include <vtkProperty.h>
 #include <vtkTransform.h>
+#include <vtkRenderPass.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
+#include <vtkSSAOPass.h>
 #include <vtkSmartPointer.h>
 #include <vtkTextMapper.h>
 #include <vtkUnstructuredGrid.h>
 
 #include <array>
+#include <functional>
 #include <map>
 #include <memory>
 #include <set>
@@ -138,6 +142,8 @@ namespace vtkn
 
         std::vector<uint8_t> ReadPixels(int magnification, int& width, int& height);
         void WritePng(const std::string& fileName, int magnification);
+        // Ambient occlusion (Geometry/vtkNativeAmbientOcclusion.cpp)
+        void SetAmbientOcclusion(bool enabled, double relativeRadius, int kernelSize);
 
         // Picking (vtkNativeViewPick.cpp)
         bool PickPoint(int x, int y, int selectionDistance, bool limitDistance,
@@ -213,6 +219,27 @@ namespace vtkn
         void DisplayToWorld(const double display[2], double world[3]);
 
         void AdjustCameraAfterAdd();
+        // Ambient occlusion (Geometry/vtkNativeAmbientOcclusion.cpp): the passes of the base layer, and the line
+        // widths and point sizes of its properties as they are and as the supersampling draws them
+        struct SupersampledSizes
+        {
+            float LineWidth;
+            float PointSize;
+            float AppliedLineWidth;
+            float AppliedPointSize;
+        };
+        void CreateAmbientOcclusionPass();
+        void PrepareAmbientOcclusion();
+        void UpdateAmbientOcclusionRadius();
+        void ApplySupersampledPixelSizes();
+        void PickWithoutAmbientOcclusionPass(const std::function<void()>& pick);
+        std::vector<uint8_t> ReadPixelsInOverlappingTiles(int magnification, int& width, int& height);
+        bool AmbientOcclusion = false;
+        double AmbientOcclusionRelativeRadius = 0.05;
+        int AmbientOcclusionKernelSize = 64;
+        vtkSmartPointer<vtkRenderPass> AmbientOcclusionPass;
+        vtkSmartPointer<vtkSSAOPass> SsaoPass;
+        std::map<vtkProperty*, SupersampledSizes> SupersampledPixelSizes;
 
         bool OffScreen;
         bool Embedded = false;
