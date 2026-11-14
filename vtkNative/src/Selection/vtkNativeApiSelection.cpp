@@ -190,12 +190,4 @@ extern "C"
             return VTKN_OK;
         });
     }
-
-    vtkn_status VTKN_CALL vtkn_view_set_highlight_glow(vtkn_view view, int32_t enabled, double intensity)
-    {
-        return GuardVtk([&]() {
-            View::FromHandleOfGeometry(view)->SetHighlightGlow(enabled != 0, intensity);
-            return VTKN_OK;
-        });
-    }
 }

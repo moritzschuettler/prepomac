@@ -197,7 +197,6 @@ namespace vtkn
         void AddHighlight(const vtkn_mesh& mesh, const vtkn_highlight_style& style);
         void AddPartHighlight(const std::string& name, const vtkn_highlight_style& style);
         void ClearHighlights(bool currentOnly);
-        void SetHighlightGlow(bool enabled, double intensity);
 
         // Widgets
         bool HandleMouseEvent(int eventId, int x, int y);
@@ -359,12 +358,6 @@ namespace vtkn
         };
         vtkRenderer* GetHighlightRenderer();
         void AddHighlightActor(vtkActor* actor, const vtkn_highlight_style& style);
-        // The trial of the outline glow: the faces of a highlight are drawn by a renderer whose pass leaves only a
-        // glowing outline around them, instead of in the highlight color
-        bool HighlightGlow = false;
-        vtkSmartPointer<vtkRenderer> GlowRenderer;
-        void UpdateGlowRenderer();
-        void FormatForGlow(vtkActor* actor, const double* color);
         std::map<std::string, vtkSmartPointer<vtkUnstructuredGrid>> VolumeGrids;
         std::vector<HighlightEntry> Highlights;
         bool ExactPicking = true;

@@ -599,3 +599,7 @@ not drawn and an outline in their color is left around them.
 
 **Checks.** The trial has no check of its own; its pictures were looked at. With it off, on the final build: the
 window test, `selection_s1`, `selection_s2` and `geometry_scenes` passed.
+
+**Removed (2026-11-14).** The user tried it in the window (a script switched it on): "this kind of glow is not
+working - remove it". The commit of the trial was reverted - `vtkn_view_set_highlight_glow`, `View::GlowRenderer` and
+all that led to them are gone; this section stays as the record of what the pass of VTK does.

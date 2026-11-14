@@ -114,12 +114,6 @@ namespace vtkn
     {
         vtkn_layer layer = static_cast<vtkn_layer>(actor.GetStyle().layer);
         if (layer == VTKN_LAYER_OVERLAY) return OverlayRenderer;
-        // The trial of the outline glow: the selected faces are drawn by the renderer of the glow
-        if (layer == VTKN_LAYER_SELECTION && HighlightGlow && !actor.GetStyle().keep_own_color)
-        {
-            vtkPolyData* polyData = const_cast<PartActor&>(actor).GetPolyData();
-            if (polyData != nullptr && polyData->GetNumberOfPolys() > 0) return GlowRenderer;
-        }
         if (layer == VTKN_LAYER_SELECTION && !actor.GetStyle().draw_on_geometry) return SelectionRenderer;
         return Renderer;
     }
@@ -262,15 +256,9 @@ namespace vtkn
         }
         else
         {
-            vtkRenderer* renderer = GetLayerRenderer(*actor);
-            actor->AddTo(renderer);
+            actor->AddTo(GetLayerRenderer(*actor));
             actor->GetGeometry()->PickableOff();
             actor->ApplySelectionFormatting(Highlight);
-            if (renderer == GlowRenderer)
-            {
-                bool secondary = actor->GetStyle().use_secondary_highlight_color != 0;
-                FormatForGlow(actor->GetGeometry(), secondary ? Highlight.Secondary : Highlight.Primary);
-            }
             SelectedParts.push_back(std::move(actor));
         }
         if (added->IsAPart()) ApplyEdgesVisibilityAndBackfaceCulling();
@@ -397,8 +385,7 @@ namespace vtkn
         style.layer = VTKN_LAYER_SELECTION;
         style.color[3] = 1;
         std::unique_ptr<PartActor> highlight;
-        if (HighlightGlow) highlight.reset(new PartActor(style, part->GetPolyData()));
-        else if (modelEdges->GetNumberOfPoints() > 0) highlight.reset(new PartActor(style, modelEdges));
+        if (modelEdges->GetNumberOfPoints() > 0) highlight.reset(new PartActor(style, modelEdges));
         else
         {
             vtkNew<vtkPolyDataSilhouette> silhouette;

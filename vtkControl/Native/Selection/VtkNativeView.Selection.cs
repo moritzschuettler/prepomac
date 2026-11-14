@@ -194,9 +194,5 @@ namespace vtkControl.Native
         {
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_clear_highlights(Handle(), currentOnly ? 1 : 0));
         }
-        public void SetHighlightGlow(bool enabled, double intensity)
-        {
-            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_highlight_glow(Handle(), enabled ? 1 : 0, intensity));
-        }
     }
 }

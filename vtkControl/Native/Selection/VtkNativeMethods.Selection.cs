@@ -64,7 +64,5 @@ namespace vtkControl.Native
                                                                           ref VtkNativeHighlightStyle style);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_clear_highlights(IntPtr view, int currentOnly);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_set_highlight_glow(IntPtr view, int enabled, double intensity);
     }
 }
