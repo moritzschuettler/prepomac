@@ -417,3 +417,48 @@ After the last change (the render before a pick without the occlusion passes): t
 `geometry_g5` and `Test_Window_Events.py` passed again, and `Run_Tests.py --filter Test_Api Test_Selection
 Test_Workflow Test_Model_Parts Test_Result_Field Test_Rpc_Live Test_Model_Interactions Audit_`: 17 of 17 passed. The
 dots and the names of reference points are drawn with the occlusion on as without it.
+
+## The user's review of the ambient occlusion (2026-11-14)
+
+On the user's "the section view works but moving the slider causes the scene to flicker - when it flickers the scalar
+bar jumps up/down for 1-2 px" and "the transparency works but using 240 it is obvious that the depth sorting is not
+working".
+
+- **Fixed:** the flicker while the slider of the section view moves. It was the picture of the ActiViz window under
+  the native view: of 295 captures of the screen during 60 steps of the slider, 29 showed the ActiViz picture (no
+  occlusion, its own fonts, the scalar bar one pixel lower). `WS_CLIPSIBLINGS` on the ActiViz window does not hold
+  back the buffer swap of an OpenGL window, so behind the native view the ActiViz window no longer swaps
+  (`KeepActiVizWindowBehindNativeView`); its pickers and `RenderToPNG` read the back buffer as before. The native
+  view itself rendered one frame per step with the scalar bar in place. After the fix: 261 captures, none with the
+  other picture. The flicker was there with every render of the control since the native view is shown in the
+  window; the occlusion made the two pictures differ enough to see it, and the section view renders both views at
+  every step.
+- **Fixed:** translucent faces are blended by depth. Both views blended the translucent geometry in the order of its
+  actors, so a part drawn later covered a part in front of it and every hidden edge showed through a face of any
+  opacity; which part won changed from run to run in the ActiViz view too. The base layer of the native view now
+  peels the translucent geometry by depth (`vtkDualDepthPeelingPass`, four peels, so the eight outer layers are
+  sorted) whenever a translucent face is visible, with and without the occlusion
+  (`vtkNative/src/Geometry/vtkNativeAmbientOcclusion.cpp`):
+  - peeling draws into buffers without multisampling, so the base layer is supersampled then, as with the occlusion;
+    the mesh lines are a little softer while a part is translucent;
+  - the edge lines of the opaque parts, which are translucent always, are blended once before the peeling and kept
+    out of it by a key on their props (`MarkPropsForDepthSorting`), or every peel would draw them again;
+  - without a translucent face the base layer is drawn as before: no pass without the occlusion, the plain
+    translucent pass with it;
+  - the occlusion shades the opaque faces only, so a translucent part casts and receives none.
+  The ActiViz (VTK 5.8) view is unchanged.
+- **Changed:** the scripts of the checks switch the ambient occlusion off (`vtkport.py`, the recorders of the pilot
+  slices), since the settings of the build folder they copy may have it on and the ActiViz view they compare with has
+  none.
+- **Cost** of the sorting on 512 parts with 1344 ties in a 1200 x 800 view: a render of the opaque model 95 ms, and
+  133 ms with the occlusion, as before; with one part translucent 149 ms (90 ms unsorted) and 214 ms with the
+  occlusion (127 ms); with all 512 translucent 439 ms (95 ms unsorted) and 508 ms with the occlusion (128 ms), since
+  every peel draws every translucent part again.
+- **Not checked:** the look in the user's own window; a results view and a section view with translucent parts.
+
+**Checks.** `Test_Window_Events.py`: the ActiViz window does not swap behind the native view; parts at alpha 250 look
+as the opaque ones by the mean colors of 8 x 8 blocks (25 blocks differ, 673 with the old library), and the same
+with the occlusion on as without it. Both fail on the build from before. The full `Run_Port_Checks.sh` on a copy of
+the build with the user's settings (occlusion on): all passed, S4 with its one known difference. `Run_Tests.py
+--filter Test_Api Test_Selection Test_Workflow Test_Model_Parts Test_Result_Field Test_Rpc_Live
+Test_Model_Interactions Audit_`: 17 of 17 passed.

@@ -209,7 +209,7 @@ namespace vtkn
             if (entry.second->GetCellLocator() != nullptr) propPicker->AddPickList(entry.second->GetGeometry());
         }
         for (const auto& entry : sectionViewActors) propPicker->AddPickList(entry.second->GetGeometry());
-        PickWithoutAmbientOcclusionPass([&]() {
+        PickWithoutBasePass([&]() {
             int swapBuffers = RenderWindow->GetSwapBuffers();
             RenderWindow->SwapBuffersOff();
             RenderWindow->Render();
@@ -326,7 +326,7 @@ namespace vtkn
         }
         for (vtkActor* actor : extraActors) actor->PickableOn();
         vtkNew<vtkRenderedAreaPicker> areaPicker;
-        PickWithoutAmbientOcclusionPass([&]() { areaPicker->AreaPick(x1, y1, x2, y2, Renderer); });
+        PickWithoutBasePass([&]() { areaPicker->AreaPick(x1, y1, x2, y2, Renderer); });
         for (vtkActor* actor : extraActors) actor->PickableOff();
         vtkPlanes* frustum = areaPicker->GetFrustum();
         Require(frustum != nullptr && frustum->GetNumberOfPlanes() == 6, "The area pick returned no frustum.");

@@ -175,6 +175,8 @@ def record_picks(prefix):
 
 def mirror_scene():
     def run():
+        # The ActiViz view has no ambient occlusion; the settings of the build folder may have it on
+        VTK.SetAmbientOcclusion(False, 0.05, 64, False)
         VTK.EnableNativeMirror(True)
         CONTROLLER.Redraw(False)
         # Both paths show only the mirrored parts, so the symbols take no part in the framing of the view

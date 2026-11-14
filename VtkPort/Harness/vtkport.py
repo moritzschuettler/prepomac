@@ -85,6 +85,11 @@ def on_ui(function):
     return box.get("value")
 
 
+# The checks compare the native view with the ActiViz one, which has no ambient occlusion; the settings of the build
+# folder may have it on
+on_ui(lambda: VTK.SetAmbientOcclusion(False, 0.05, 64, False))
+
+
 def set_viewport_size(width, height):
     def resize():
         for _ in range(4):

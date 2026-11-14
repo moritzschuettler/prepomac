@@ -219,8 +219,9 @@ namespace vtkn
         void DisplayToWorld(const double display[2], double world[3]);
 
         void AdjustCameraAfterAdd();
-        // Ambient occlusion (Geometry/vtkNativeAmbientOcclusion.cpp): the passes of the base layer, and the line
-        // widths and point sizes of its properties as they are and as the supersampling draws them
+        // The render passes of the base layer (Geometry/vtkNativeAmbientOcclusion.cpp): the ambient occlusion and
+        // the depth sorting of the translucent faces, and the line widths and point sizes of its properties as they
+        // are and as the supersampling of those passes draws them
         struct SupersampledSizes
         {
             float LineWidth;
@@ -228,17 +229,27 @@ namespace vtkn
             float AppliedLineWidth;
             float AppliedPointSize;
         };
-        void CreateAmbientOcclusionPass();
-        void PrepareAmbientOcclusion();
+        struct BasePass
+        {
+            vtkSmartPointer<vtkRenderPass> Pass;
+            vtkSmartPointer<vtkSSAOPass> Occlusion;
+        };
+        BasePass CreateBasePass(bool ambientOcclusion, bool depthSorting);
+        bool HasTranslucentFaces();
+        void MarkPropsForDepthSorting();
+        void UpdateBasePass();
+        void UpdateBasePassForPicture();
         void UpdateAmbientOcclusionRadius();
         void ApplySupersampledPixelSizes();
-        void PickWithoutAmbientOcclusionPass(const std::function<void()>& pick);
+        void PickWithoutBasePass(const std::function<void()>& pick);
         std::vector<uint8_t> ReadPixelsInOverlappingTiles(int magnification, int& width, int& height);
         bool AmbientOcclusion = false;
         double AmbientOcclusionRelativeRadius = 0.05;
         int AmbientOcclusionKernelSize = 64;
-        vtkSmartPointer<vtkRenderPass> AmbientOcclusionPass;
+        // By the ambient occlusion and the depth sorting; with neither the base layer has no pass
+        BasePass BasePasses[2][2];
         vtkSmartPointer<vtkSSAOPass> SsaoPass;
+        bool PickingWithoutBasePass = false;
         std::map<vtkProperty*, SupersampledSizes> SupersampledPixelSizes;
 
         bool OffScreen;

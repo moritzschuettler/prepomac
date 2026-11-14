@@ -110,6 +110,8 @@ def record(out_dir, prefix, meta):
 
 def mirror_scene():
     def run():
+        # The ActiViz view has no ambient occlusion; the settings of the build folder may have it on
+        VTK.SetAmbientOcclusion(False, 0.05, 64, False)
         VTK.EnableNativeMirror(True)
         started = time.time()
         CONTROLLER.Redraw(False)

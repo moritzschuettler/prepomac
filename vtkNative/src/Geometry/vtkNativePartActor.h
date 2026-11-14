@@ -60,6 +60,7 @@ namespace vtkn
         vtkActor* GetGeometry() { return Geometry; }
         vtkActor* GetElementEdges() { return ElementEdges; }
         vtkActor* GetModelEdges() { return ModelEdges; }
+        vtkActor* GetSectionViewHatch() { return SectionViewHatch; }
         // The input of the geometry mapper
         vtkPolyData* GetPolyData();
         // The model edges a part is highlighted by: the ones it owns, also when it draws fewer

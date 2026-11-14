@@ -15,7 +15,9 @@
 #the main form sees the view focused and hands it the space to hide and show. An actor added while the control has
 #suspended its camera adjustment leaves the native camera until the suspension ends. With the ambient occlusion on,
 #the model is shaded and its background kept, a pick finds what it found without it, a magnified picture has no
-#border of a tile through its middle, and switching it off gives the picture from before.
+#border of a tile through its middle, and switching it off gives the picture from before. Nearly opaque parts look
+#as the opaque ones do, with and without the ambient occlusion: their faces are blended by depth, not in the order of
+#their actors. Behind the native view the ActiViz window does not swap its buffers, so its picture never shows.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Window_Events.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -144,6 +146,7 @@ def run_mode(areas, record):
         check_arrow_key(label)
         check_click_focus(label)
         check_ambient_occlusion(label)
+        check_translucent_sorting(label)
     on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))
     on_ui(CONTROLLER.ClearSelectionHistory)
     check_camera(label)
@@ -183,7 +186,10 @@ def check_camera(label):
     check_camera_adjustment_suspended(label)
     style =on_ui(lambda: USER32.GetWindowLongW(int(str(vtkport.get_field(VTK, "_renderWindow").GetGenericWindowId())),
                                                 GWL_STYLE))
-    check(style & WS_CLIPSIBLINGS != 0, label + ": the ActiViz window cannot paint over the native view", hex(style))
+    # The swap of an OpenGL window paints over a sibling in front of it whatever the style of the window says
+    swaps = on_ui(lambda: int(vtkport.get_field(VTK, "_renderWindow").GetSwapBuffers()))
+    check(style & WS_CLIPSIBLINGS != 0 and swaps == 0,
+          label + ": the ActiViz window cannot paint over the native view", [hex(style), swaps])
 
 
 # Drawing the symbols of many items suspends the camera adjustment of the control, which adjusts the camera once at
@@ -273,6 +279,51 @@ def check_ambient_occlusion(label):
           [middle, typical])
     check(open(off, "rb").read() == open(off_again, "rb").read(),
           label + ": without the ambient occlusion the picture is the one from before")
+
+
+# Blended in the order of their actors, a part drawn later covers a part in front of it and the edges hidden behind a
+# face show through it, however opaque the face is; blended by depth, nearly opaque parts look as opaque ones do. The
+# pictures are compared by the mean colors of their blocks: the translucent parts are supersampled, which draws their
+# lines softer, and the ambient occlusion shades the opaque parts only
+def check_translucent_sorting(label):
+    import System
+    from System.Drawing import Bitmap
+    vtkport.frame_both(vtkport.camera_list(pmx.view.get_parameters()), "Isometric")
+    width, height = SIZE
+    names = System.Array[System.String](list(on_ui(lambda: list(VTK.GetNativeMirrorNames()))))
+
+    def block_colors(name):
+        path = os.path.join(OUT, label + "_sorting_" + name + ".png")
+        on_ui(lambda: VTK.NativeMirror.WritePng(path, 1))
+        bitmap = Bitmap(path)
+        colors = []
+        for block_y in range(0, height, 8):
+            for block_x in range(0, width, 8):
+                red = green = blue = 0
+                for y in range(block_y, block_y + 8, 2):
+                    for x in range(block_x, block_x + 8, 2):
+                        color = bitmap.GetPixel(x, y)
+                        red += color.R
+                        green += color.G
+                        blue += color.B
+                colors.append([red / 16.0, green / 16.0, blue / 16.0])
+        bitmap.Dispose()
+        return colors
+
+    def different_blocks(a, b):
+        return sum(1 for p, q in zip(a, b) if sum(abs(u - v) for u, v in zip(p, q)) >= 40)
+
+    opaque = block_colors("opaque")
+    on_ui(lambda: CONTROLLER.SetTransparencyForModelParts(names, System.Byte(250)))
+    translucent = block_colors("translucent")
+    on_ui(lambda: VTK.SetAmbientOcclusion(True, 0.05, 64, True))
+    with_occlusion = block_colors("translucent_occlusion")
+    on_ui(lambda: VTK.SetAmbientOcclusion(False, 0.05, 64, True))
+    on_ui(lambda: CONTROLLER.SetTransparencyForModelParts(names, System.Byte(255)))
+    different = different_blocks(opaque, translucent)
+    check(different <= 100, label + ": nearly opaque parts look as the opaque ones", different)
+    different = different_blocks(translucent, with_occlusion)
+    check(different <= 100, label + ": nearly opaque parts look the same with the ambient occlusion", different)
 
 
 def check_arrow_key(label):

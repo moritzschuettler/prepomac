@@ -10350,13 +10350,13 @@ namespace vtkControl
             set
             {
                 _nativeWindowIndependent = value;
-                ClipActiVizWindowBySiblings(_nativeInWindow && !value);
+                KeepActiVizWindowBehindNativeView(_nativeInWindow && !value);
                 MirrorOwnerBoxZoom();
             }
         }
         public void ShowNativeView(bool show)
         {
-            ClipActiVizWindowBySiblings(show && !_nativeWindowIndependent);
+            KeepActiVizWindowBehindNativeView(show && !_nativeWindowIndependent);
             _nativeHost.Visible = show;
             if (show) _nativeHost.BringToFront();
         }
@@ -10367,15 +10367,19 @@ namespace vtkControl
         [DllImport("user32.dll")]
         private static extern int SetWindowLong(IntPtr hWnd, int index, int value);
         // The ActiViz window is created by VTK without WS_CLIPSIBLINGS, so each of its renders painted over the
-        // native view that covers it: a view animation of this control or the old camera for a moment
-        private void ClipActiVizWindowBySiblings(bool clip)
+        // native view that covers it: a view animation of this control or the old camera for a moment. The swap of
+        // an OpenGL window is not held back by that style, so behind the native view the ActiViz window also keeps
+        // its picture in its back buffer, where the pickers of this control and RenderToPNG read it
+        private void KeepActiVizWindowBehindNativeView(bool behind)
         {
             const int GWL_STYLE = -16;
             const int WS_CLIPSIBLINGS = 0x04000000;
-            IntPtr hWnd = _renderWindow == null ? IntPtr.Zero : (IntPtr)_renderWindow.GetGenericWindowId();
+            if (_renderWindow == null) return;
+            _renderWindow.SetSwapBuffers(behind ? 0 : 1);
+            IntPtr hWnd = (IntPtr)_renderWindow.GetGenericWindowId();
             if (hWnd == IntPtr.Zero) return;
             int style = GetWindowLong(hWnd, GWL_STYLE);
-            int clipped = clip ? style | WS_CLIPSIBLINGS : style & ~WS_CLIPSIBLINGS;
+            int clipped = behind ? style | WS_CLIPSIBLINGS : style & ~WS_CLIPSIBLINGS;
             if (clipped != style) SetWindowLong(hWnd, GWL_STYLE, clipped);
         }
         // In the window the user moves the camera of the native view, and this control keeps its own camera on it, so

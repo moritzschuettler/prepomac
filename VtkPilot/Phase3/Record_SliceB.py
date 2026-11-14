@@ -376,6 +376,8 @@ def main():
     set_viewport_size(WIDTH, HEIGHT)
 
     def mirror():
+        # The ActiViz view has no ambient occlusion; the settings of the build folder may have it on
+        VTK.SetAmbientOcclusion(False, 0.05, 64, False)
         VTK.EnableNativeMirror(True)
         FORM.GetType().GetField("_controller", FLAGS).GetValue(FORM).Redraw(False)
         VTK.InitializeResultWidgetPositions()

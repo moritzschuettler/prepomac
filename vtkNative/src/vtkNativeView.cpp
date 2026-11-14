@@ -403,7 +403,8 @@ namespace vtkn
     std::vector<uint8_t> View::ReadPixels(int magnification, int& width, int& height)
     {
         Require(magnification >= 1 && magnification <= 8, "The magnification must be from 1 to 8.");
-        if (magnification > 1 && AmbientOcclusion && Renderer->GetPass() != nullptr)
+        UpdateBasePassForPicture();
+        if (magnification > 1 && Renderer->GetPass() != nullptr)
             return ReadPixelsInOverlappingTiles(magnification, width, height);
         vtkNew<vtkWindowToImageFilter> windowToImage;
         windowToImage->SetInput(RenderWindow);
@@ -428,7 +429,8 @@ namespace vtkn
         Require(magnification >= 1 && magnification <= 8, "The magnification must be from 1 to 8.");
         vtkNew<vtkPNGWriter> writer;
         vtkNew<vtkWindowToImageFilter> windowToImage;
-        if (magnification > 1 && AmbientOcclusion && Renderer->GetPass() != nullptr)
+        UpdateBasePassForPicture();
+        if (magnification > 1 && Renderer->GetPass() != nullptr)
         {
             int width = 0;
             int height = 0;
@@ -461,7 +463,7 @@ namespace vtkn
         View* view = static_cast<View*>(clientData);
         if (eventId == vtkCommand::StartEvent)
         {
-            view->PrepareAmbientOcclusion();
+            view->UpdateBasePass();
             return;
         }
         if (view->Callback == nullptr) return;
