@@ -273,10 +273,32 @@ independently and a key never collides across a hierarchy.
 
 ## 6. Phase 3 - Switch DeepClone
 
-- [ ] MessagePack implementation of `IObjectSerializer.Clone` becomes the default.
-- [ ] Measure against the Phase 0 baseline.
+- [x] MessagePack implementation of `IObjectSerializer.Clone` becomes the default.
+- [x] Measure against the Phase 0 baseline.
 
 Exit: all Python test groups pass; Regenerate History reproduces the same model on the reference files.
+
+**Done.** `ObjectSerializer.Default` is `PmxObjectSerializer`, for `DeepClone` and for the dump helpers, so a material
+library, the Gmsh data handed to `GmshCaller` and a history file are written as storage payloads too. A stream that is
+not a payload goes to `ObjectSerializer.LegacyReader`, here still the binary formatter.
+
+Measuring showed one type the plan had not foreseen: `GeometryMetadata` gives the binary formatter its entities as
+one block of bytes through `GetObjectData`, because stored one object at a time the faces and edges of an assembly
+are hundreds of thousands of objects. The new serializer stored its fields and was slower on such models, so the
+type now keeps the same block in a stored field filled by `[OnSerializing]` and read back by `[OnDeserialized]`; its
+two dictionary fields are retired in the schema snapshot (the first use of the retire mechanism).
+
+`DeepClone`, median of 7 after a warm-up, BinaryFormatter / new:
+
+| File | Model | History | Results |
+|---|---|---|---|
+| Model.pmx | 6 / 1 ms | 10 / 3 ms | 0 / 0 ms |
+| Gripper.pmx | 65 / 24 ms | 18 / 2 ms | 17 / 5 ms |
+| impeller.pmx | 85 / 20 ms | 8 / 2 ms | 6 / 4 ms |
+| sweep_14_2.pmx | 5 / 1 ms | 1 / 0 ms | 0 / 0 ms |
+
+The payloads are 5-35 % smaller than the binary formatter's. The first clone of a session also builds the plans of
+the types it meets (reflection and emitted accessors), about 100 ms in all.
 
 ---
 

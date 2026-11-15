@@ -8,6 +8,7 @@
 // Contributors:
 
 using System;
+using System.IO;
 
 namespace CaeGlobals
 {
@@ -15,7 +16,8 @@ namespace CaeGlobals
     public static class ObjectSerializer
     {
         // Variables                                                                                                                
-        private static IObjectSerializer _default = new BinaryObjectSerializer();
+        private static IObjectSerializer _default = new PmxObjectSerializer();
+        private static Func<Stream, object> _legacyReader = new BinaryObjectSerializer().Deserialize;
 
 
         // Properties                                                                                                               
@@ -27,6 +29,12 @@ namespace CaeGlobals
                 if (value == null) throw new ArgumentNullException(nameof(value));
                 _default = value;
             }
+        }
+        // Reads a stream written before the storage payloads, by the binary formatter of an older version
+        public static Func<Stream, object> LegacyReader
+        {
+            get { return _legacyReader; }
+            set { _legacyReader = value; }
         }
     }
 }

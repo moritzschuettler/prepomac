@@ -70,6 +70,7 @@ namespace CaeGlobals
             WriteTo(buffer, value);
             buffer.WriteTo(stream);
         }
+        // A stream that is not a storage payload was written by an older version and goes to the legacy reader
         public object Deserialize(Stream stream)
         {
             byte[] bytes;
@@ -81,6 +82,13 @@ namespace CaeGlobals
                     stream.CopyTo(copy);
                     bytes = copy.ToArray();
                 }
+            }
+            if (!IsPayload(bytes, 0, bytes.Length))
+            {
+                if (ObjectSerializer.LegacyReader == null)
+                    throw new PmxStorageException("The data was written by an older version of PrePoMax, which this build " +
+                                                  "cannot read.");
+                using (MemoryStream legacy = new MemoryStream(bytes)) return ObjectSerializer.LegacyReader(legacy);
             }
             return DeserializeFromBytes(bytes, 0, bytes.Length);
         }

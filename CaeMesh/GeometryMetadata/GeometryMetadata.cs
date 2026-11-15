@@ -19,8 +19,11 @@ namespace CaeMesh
         [PmxKey(0)] private readonly int _formatVersion;
         [PmxKey(1)] private readonly string _coordinateSystem;
         [PmxKey(2)] private readonly string _lengthUnit;
-        [PmxKey(3)] private readonly Dictionary<string, List<GeometryMetadataEntity>> _entities;
-        [PmxKey(4)] private Dictionary<string, Dictionary<int, GeometryMetadataEntity>> _kindIdEntity;
+        [NonSerialized] private Dictionary<string, List<GeometryMetadataEntity>> _entities;
+        [NonSerialized] private Dictionary<string, Dictionary<int, GeometryMetadataEntity>> _kindIdEntity;
+        // The entities as the block of bytes WriteEntities makes, held only while the metadata is stored, for the
+        // same reason the binary formatter is given one block
+        [PmxKey(5)] private byte[] _entityData;
 
 
         // Properties
@@ -83,6 +86,25 @@ namespace CaeMesh
             info.AddValue("_coordinateSystem", _coordinateSystem, typeof(string));
             info.AddValue("_lengthUnit", _lengthUnit, typeof(string));
             info.AddValue("_entityData", WriteEntities(), typeof(byte[]));
+        }
+        [OnSerializing]
+        private void OnSerializing(StreamingContext context)
+        {
+            _entityData = WriteEntities();
+        }
+        [OnSerialized]
+        private void OnSerialized(StreamingContext context)
+        {
+            _entityData = null;
+        }
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext context)
+        {
+            if (_entityData == null) return;
+            //
+            _entities = ReadEntities(_entityData);
+            _kindIdEntity = CreateKindIdEntity(_entities);
+            _entityData = null;
         }
         public void OnDeserialization(object sender)
         {

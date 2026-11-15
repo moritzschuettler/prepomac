@@ -404,8 +404,7 @@ T 2086 class CaeMesh.GeometryMetadata
 F 2086.0 System.Int32 _formatVersion
 F 2086.1 System.String _coordinateSystem
 F 2086.2 System.String _lengthUnit
-F 2086.3 System.Collections.Generic.Dictionary`2<System.String,System.Collections.Generic.List`1<#2087>> _entities
-F 2086.4 System.Collections.Generic.Dictionary`2<System.String,System.Collections.Generic.Dictionary`2<System.Int32,#2087>> _kindIdEntity
+F 2086.5 System.Byte[] _entityData
 T 2087 class CaeMesh.GeometryMetadataEntity
 F 2087.0 System.String _kind
 F 2087.1 System.Int32 _id
@@ -3719,3 +3718,5 @@ F 10544.2 System.Boolean _drawBorder
 T 10545 class PrePoMax.UnitSystemSettings
 F 10545.0 #1033 _modelUnitSystemType
 F 10545.1 #1033 _resultsUnitSystemType
+R F 2086.3 System.Collections.Generic.Dictionary`2<System.String,System.Collections.Generic.List`1<#2087>> _entities
+R F 2086.4 System.Collections.Generic.Dictionary`2<System.String,System.Collections.Generic.Dictionary`2<System.Int32,#2087>> _kindIdEntity
