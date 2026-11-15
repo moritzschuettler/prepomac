@@ -33,6 +33,10 @@ def check(condition, text, detail=""):
     RESULTS.append(["ok" if condition else "FAIL", text, str(detail)])
 
 
+def ascii_digits(text):
+    return text.replace(u"²", "2").replace(u"³", "3")
+
+
 def probe_state():
     def run():
         probe = vtkport.get_field(VTK, "_probeWidget")
@@ -109,8 +113,11 @@ def main():
             new = hover(True, x, y)
             states.append({"x": x, "y": y, "old": old, "new": new})
             if old is not None:
-                same = (old["text"], old["visible"], old["position"]) == (new["text"], new["visible"],
-                                                                        new["position"])
+                # The reference read its text back through the ANSI text mapper of ActiViz, which turned the
+                # superscripts of the units into digits, and its position is where ActiViz kept its own label inside
+                # the view; the native twin of the reference is what the user saw
+                same = (old["text"], old["visible"], old["twin_position"]) == (ascii_digits(new["text"]),
+                                                                             new["visible"], new["twin_position"])
                 check(same, "%s (%d, %d): the same probe on both paths" % (label, x, y), [old, new])
             check(new["visible"] == 1 and new["text"] != "", "%s (%d, %d): the probe shows a label" % (label, x, y),
                   new["text"])

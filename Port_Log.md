@@ -658,3 +658,51 @@ with ActiViz are kept as the reference the checks compare against once ActiViz i
   `geometry_g5_png` 4/4 passed. `widgets_w1` (triad clicks) and `selection_s2` (four hover pictures) failed: their
   recorders still drive the ActiViz style by hand, and in the window an ActiViz click turns the native camera too,
   so a triad click is applied twice. Each removal stream adapts the recorders of its area.
+
+### Stage 2: three streams take ActiViz out of their areas (2026-11-15)
+
+Three agents, each in its own worktree cut from `3e8c0b9ef`, each with its own log:
+
+| Stream | Area | Branch | Log |
+|---|---|---|---|
+| RG | geometry: `vtkMaxActor` and the other actor classes, the geometry, section, exploded, follower, transformation, scalar field, animation and clear regions, the exports | `worktree-agent-ae61434ac3d0d2bfc` | `VtkPort/Logs/Stream_RG.md` |
+| RS | selection, the interaction style (deleted), the ActiViz window (the Designer keeps only the native host), the views, the native pilot region | `worktree-agent-a26b0d0678c9c6fff` | `VtkPort/Logs/Stream_RS.md` |
+| RW | widgets: the vtkMax widgets keep state and forward it to their native twins; the ActiViz scalar bar widget is gone | `worktree-agent-a6116af4dfb29b7a7` | `VtkPort/Logs/Stream_RW.md` |
+
+- Native API: geometry version 10 (section view hidden actors, crop to STL, the 3MF export actors, a point
+  located in a mesh for the animation anchors; a highlight of a cut part also outlines its section faces),
+  selection version 5 (the exact pick is the only pick; `vtkn_view_set_exact_picking` removed).
+- New behavior worth noting: `UpdateActorsColorTables` and `UpdateActorModelEdgesToDraw` now reach the native view
+  (before, a recolor of the mesh types and the model edges of a compound sub part were not redrawn natively);
+  Geometry - Stl part - Crop works natively; `SwitchLights`, `InterpolateMeshData`, the ActiViz lights and the dead
+  ActiViz test code are gone.
+- Each stream passed its own suites against the reference; RW found `widgets_w3` flaky on every build (its pinch zoom
+  uses the real mouse pointer) and `groundwork` failing on the base build (picture size), both outside its changes.
+
+### Stage 3: merged, references removed
+
+- The three branches were merged in the order RG, RS, RW (RS: 37 conflict hunks in `vtkControl.cs`, where RG had
+  stubbed the ActiViz pick functions RS deleted and RS had removed calls in RG's regions; RW: the style and the
+  coordinate system symbol files it edited were deleted by RS and RG).
+- The transitional ActiViz scene RS kept for the other streams (`CreateActiVizScene`), the last helpers
+  (`CreateNewTextProperty`, `GetActorEdgesFromGrid`, `GetColorTransferFunction`, `_lookupTable`) and
+  `using Kitware.VTK` went; the `Kitware.VTK` and `Kitware.mummy.Runtime` references left `vtkControl.csproj`, the
+  bogus `Analyzer` entries left `PrePoMax.csproj`, and the default `VtkNativeVtkDir` points at the optimized VTK.
+  No file of the solution names Kitware any more.
+- PrePoMax: the "Viewport: VTK 9 / ActiViz (VTK 5.8)" setting, `FrmMain.SetNativeView` and the Controller call are
+  gone. `GraphicsSettings._activizView` stays as an unused optional field, so settings files of the builds with
+  the setting still load.
+- Packaging: the VTK license and the licenses of the 20 libraries bundled in the VTK runtime are in
+  `Licenses/vtk`, copied to `lib\vtk-licenses` by the post-build event; `Licenses/README.md` lists VTK and its patch.
+  The README tells how to build VTK 9.7.1 (with the patch) and vtkNative instead of installing ActiViz.
+- The base folder of earlier releases still carries the ActiViz 5.8 DLLs in `lib`; the build does not use them. The
+  final checks ran from a copy of the build with every `Kitware.*` and VTK 5.8/6.1 DLL removed from `lib`.
+
+**Checks of the build without ActiViz** (2026-11-15, the full `Run_Port_Checks.sh --reference`, from a copy of the
+build with every `Kitware.*` and VTK 5.8/6.1 DLL taken out of `lib`): all 28 suites pass against the ActiViz
+reference, `selection_s4` with its one known difference. Two checks were adapted on the way, each a difference of the
+check and not of the view: `selection_s5_probe` compared the probe text ActiViz read back through its ANSI text
+mapper ("mm3" for the "mm³" the native probe shows) and the position ActiViz kept its own label at, and now compares
+the native twin of the reference; `widgets_w3` compares of the pinch zoom only the zoom and the orientation (the
+pinch zooms about the real mouse pointer, which the recorder does not place) and allows the annotation menu
+rectangle one pixel (it is the native label's since stage 1).

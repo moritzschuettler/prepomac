@@ -135,7 +135,7 @@ namespace vtkControl
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
             _nativeMirror.Navigate(VtkNativeNavigation.SetBoxZoom, 1);
         }
-        // The touchpad and the trackpad move the native style as they move the ActiViz one
+        // The touchpad and the trackpad move the native style
         private void MirrorTrackpadGesture(double dragX, double dragY, double zoom)
         {
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;

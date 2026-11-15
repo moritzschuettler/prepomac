@@ -55,14 +55,6 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Kitware.mummy.Runtime, Version=1.0.2.599, Culture=neutral, PublicKeyToken=995c7fb9db2c1b44, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Program Files\ActiViz.NET 5.8.0 OpenSource Edition\bin\Kitware.mummy.Runtime.dll</HintPath>
-    </Reference>
-    <Reference Include="Kitware.VTK, Version=5.8.0.607, Culture=neutral, PublicKeyToken=995c7fb9db2c1b44, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Program Files\ActiViz.NET 5.8.0 OpenSource Edition\bin\Kitware.VTK.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
@@ -218,7 +210,7 @@
        event of PrePoMax copies vtkNative\build\runtime into the lib folder. Set VtkNativeSkipBuild=true to skip. -->
   <PropertyGroup>
     <VtkNativeCMake Condition="'$(VtkNativeCMake)' == ''">C:\Program Files\CMake\bin\cmake.exe</VtkNativeCMake>
-    <VtkNativeVtkDir Condition="'$(VtkNativeVtkDir)' == ''">C:\Pc\Programiranje\KitwareVTK\vtk-9.7.1-build-x64\lib\cmake\vtk-9.7</VtkNativeVtkDir>
+    <VtkNativeVtkDir Condition="'$(VtkNativeVtkDir)' == ''">C:\Pc\Programiranje\KitwareVTK\vtk-9.7.1-build-x64-opt\lib\cmake\vtk-9.7</VtkNativeVtkDir>
     <VtkNativeSourceDir>$(MSBuildProjectDirectory)\..\vtkNative</VtkNativeSourceDir>
     <VtkNativeBuildDir>$(VtkNativeSourceDir)\build</VtkNativeBuildDir>
     <VtkNativeCanBuild Condition="Exists('$(VtkNativeCMake)') And Exists('$(VtkNativeVtkDir)')">true</VtkNativeCanBuild>

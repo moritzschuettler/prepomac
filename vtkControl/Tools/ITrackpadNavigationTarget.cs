@@ -9,7 +9,7 @@
 
 namespace vtkControl
 {
-    // What the touchpad and the trackpad navigation moves: the ActiViz interaction style or the native one
+    // What the touchpad and the trackpad navigation moves: the native interaction style
     internal interface ITrackpadNavigationTarget
     {
         bool NavigationAllowed { get; }

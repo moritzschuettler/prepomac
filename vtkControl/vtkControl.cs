@@ -9,7 +9,6 @@
 
 using CaeGlobals;
 using CaeMesh;
-using Kitware.VTK;
 using vtkControl.Native;
 using Octree;
 using System;
@@ -48,10 +47,7 @@ namespace vtkControl
         (double[] point, int elementId, int[] edgeNodeIds, int[] cellFaceNodeIds, out string noEdgePartName);
 
     /// <summary>
-    /// UserControl derived implementation of vtkRenderWindow for use
-    /// in Windows Forms applications.
-    /// The client area of this UserControl is completely filled with
-    /// an instance of a vtkRenderWindow.
+    /// The 3D view of PrePoMax: a UserControl whose client area is filled with the native VTK 9 view.
     /// </summary>
     [ComVisible(true), ClassInterface(ClassInterfaceType.AutoDual)]
     public partial class vtkControl : UserControl, IMessageFilter
@@ -66,17 +62,11 @@ namespace vtkControl
         private double _ambientOcclusionRelativeRadius = 0.05;
         private int _ambientOcclusionKernelSize = 64;
         private bool _userPick;     // used to determine if the selection distance should be limited
-        private vtkRenderer _renderer;
-        private vtkRenderer _selectionRenderer;
-        private vtkRenderer _overlayRenderer;
-        private vtkRenderer _widgetRenderer;
-        private vtkRenderWindow _renderWindow;
         private VtkNativeView _nativeMirror;
         private HashSet<string> _nativeMirrorNames;
         private VtkNativeScalarBar _nativeMirrorScalarBar;
         private VtkNativeArea _nativeAreas;
         private List<vtkMaxBorderWidget> _nativeMirrorScalarBarHiddenWidgets;
-        private vtkRenderWindowInteractor _renderWindowInteractor;
         // Symbols resolution
         private int _arrowTipResolution = 21;
         private int _arrowShaftResolution = 15;
@@ -84,7 +74,6 @@ namespace vtkControl
         private const int CoorSysWidgetMargin = 24;
         private vtkMaxCoorSysWidget _coorSysWidget;
         private vtkMaxScaleWidget _scaleWidget;
-        private vtkLookupTable _lookupTable;
         private bool _scalarBarVisible;
         private string _scalarBarLabelFormat;
         private bool _scalarBarBackgroundVisible;
@@ -413,34 +402,13 @@ namespace vtkControl
             _followerViewPointCoor = null;
             //
             _drawCameraPath = false;
-            //
-            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime) CreateActiVizScene();
         }
 
 
         // Event handlers
         private void vtkControl_Resize(object sender, EventArgs e)
         {
-            SyncActiVizSceneSize();
-
             if (_coorSysWidget != null) ResetCoorSysWidgetPosition();
-            if (_renderer != null)
-            {
-                //float scale = vtkTextActor.GetFontScale(_renderer);
-                //Console.WriteLine(scale.ToString());
-
-                //int[] size = _renderer.GetSize();
-                //foreach (var actor in _actors)
-                //{
-                //    if (actor is vtkScalarBarActor)
-                //    {
-                //        vtkScalarBarActor sb = (vtkScalarBarActor)actor;
-                //        int height = 300;
-                //        int border = 20;
-                //        sb.SetDisplayPosition(border, size[1] - border - height);
-                //    }
-                //}
-            }
         }
         private void vtkControl_Load(object sender, EventArgs e)
         {
@@ -968,50 +936,8 @@ namespace vtkControl
             //timer.Interval = 10 * 1000;
             //timer.Enabled = true;
         }
-        // The ActiViz scene that the geometry and the widgets of this control build until they are ported to the native
-        // view: it is neither shown nor rendered and goes with ActiViz. Its render window has no parent and creates no
-        // window as long as it is not rendered; off screen it would, and VTK 5.8 crashes the message loop with it. Its
-        // size follows this control, since the widgets lay themselves out in it
-        private void CreateActiVizScene()
-        {
-            _renderer = vtkRenderer.New();
-            _renderer.SetLayer(0);
-            //
-            _overlayRenderer = vtkRenderer.New();
-            _overlayRenderer.SetLayer(1);
-            _overlayRenderer.InteractiveOff();
-            _overlayRenderer.SetActiveCamera(_renderer.GetActiveCamera());
-            //
-            _selectionRenderer = vtkRenderer.New();
-            _selectionRenderer.SetLayer(2);
-            _selectionRenderer.InteractiveOff();
-            _selectionRenderer.SetActiveCamera(_renderer.GetActiveCamera());
-            //
-            _widgetRenderer = vtkRenderer.New();
-            _widgetRenderer.SetLayer(3);
-            _widgetRenderer.InteractiveOff();
-            _widgetRenderer.SetActiveCamera(_renderer.GetActiveCamera());
-            //
-            _renderWindow = vtkRenderWindow.New();
-            _renderWindow.SetNumberOfLayers(4);
-            _renderWindow.AddRenderer(_renderer);
-            _renderWindow.AddRenderer(_overlayRenderer);
-            _renderWindow.AddRenderer(_selectionRenderer);
-            _renderWindow.AddRenderer(_widgetRenderer);
-            _renderWindowInteractor = vtkRenderWindowInteractor.New();
-            _renderWindow.SetInteractor(_renderWindowInteractor);
-            SyncActiVizSceneSize();
-        }
-        private void SyncActiVizSceneSize()
-        {
-            if (_renderWindow == null) return;
-            _renderWindow.SetSize(Math.Max(1, Width), Math.Max(1, Height));
-            _renderWindow.Modified();
-        }
         private void InitializeScalarBar()
         {
-            // Lookup table
-            _lookupTable = vtkLookupTable.New();
             // Scalar bar: the native view makes it from this state when it shows the widgets
             _scalarBarRange = new double[] { 0, 1, double.NaN, double.NaN };
             _scalarBarLabelFormat = "E3";
@@ -1023,46 +949,6 @@ namespace vtkControl
         {
             ((Timer)sender).Enabled = false;
         }
-        private vtkTextProperty CreateNewTextProperty()
-        {
-            vtkTextProperty textProperty = vtkTextProperty.New();
-            textProperty.SetColor(0, 0, 0);
-            textProperty.SetFontFamilyToArial();
-            //textProperty.SetFontFamilyAsString("Arial Nova");
-            textProperty.SetFontSize(16);
-            textProperty.SetLineOffset(-Math.Round(textProperty.GetFontSize() / 7.0));
-            textProperty.SetLineSpacing(1.5);
-            return textProperty;
-        }
-        private vtkActor GetActorEdgesFromGrid(vtkUnstructuredGrid uGridEdges)
-        {
-            if (uGridEdges.GetNumberOfCells() <= 0) return null;
-
-            // extract visualization surface of the unstructured grid
-            vtkUnstructuredGridGeometryFilter filter = vtkUnstructuredGridGeometryFilter.New();
-            filter.SetInput(uGridEdges);
-            filter.Update();
-
-            // extract edges of the visualization surface
-            vtkExtractEdges extractEdges = vtkExtractEdges.New();
-            extractEdges.SetInput(filter.GetOutput());
-            extractEdges.Update();
-
-            vtkPolyDataMapper mapper = vtkPolyDataMapper.New();
-            mapper.SetInput(extractEdges.GetOutput());
-
-            vtkProperty prop = vtkProperty.New();
-            //prop.SetRepresentationToWireframe();
-            prop.SetColor(0, 0, 0);
-            prop.SetLighting(false);
-
-            vtkActor edges = vtkActor.New();
-            edges.SetMapper(mapper);
-            edges.SetProperty(prop);
-            edges.PickableOff();
-
-            return edges;
-        }
 
         // Formatting
         private void ApplySymbolFormattingToActor(vtkMaxActor actor)
@@ -1070,200 +956,6 @@ namespace vtkControl
             actor.BackfaceCulling = true;
             actor.Ambient = 0.6;
             actor.Diffuse = 0.6;
-        }
-        private vtkColorTransferFunction GetColorTransferFunction()
-        {
-            vtkColorTransferFunction ctf = vtkColorTransferFunction.New();
-            List<double[]> rgbPoints = new List<double[]>();
-            //
-            // https://colorbrewer2.org/
-            //
-            if (_colorSpectrum.Type == vtkColorSpectrumType.CoolWarm)
-            {
-                // Cool-Warm
-                //http://aplotnikov.com/2016/simple-visualization-of-unstructured-grid-quality/
-                //http://www.kennethmoreland.com/color-maps/
-                ctf.SetColorSpaceToDiverging();
-                rgbPoints.Add(new double[] { 0, 0.230, 0.299, 0.754 });
-                rgbPoints.Add(new double[] { 1, 0.706, 0.016, 0.150 });
-                // For brightness = 0.2
-                //rgbPoints.Add(new double[] { 0, 0.038, 0.124, 0.693 });
-                //rgbPoints.Add(new double[] { 1, 0.632, 0.0, 0.0 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Rainbow)
-            {
-                double b = 0.0;
-                ctf.SetColorSpaceToHSV();
-                rgbPoints.Add(new double[] { 0.000, b, b, 1 });
-                rgbPoints.Add(new double[] { 0.250, b, 1, 1 });
-                rgbPoints.Add(new double[] { 0.500, b, 1, b });
-                rgbPoints.Add(new double[] { 0.750, 1, 1, b });
-                rgbPoints.Add(new double[] { 1.000, 1, b, b });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.RainbowDesaturated)
-            {
-                ctf.SetColorSpaceToRGB();
-                rgbPoints.Add(new double[] { 0, 0.278, 0.278, 0.788 });
-                rgbPoints.Add(new double[] { 0.143, 0.02, 0.02, 0.396 });
-                rgbPoints.Add(new double[] { 0.286, 0, 0.871, 0.918 });
-                rgbPoints.Add(new double[] { 0.429, 0, 0.604, 0.2 });
-                rgbPoints.Add(new double[] { 0.571, 1, 0.875, 0 });
-                rgbPoints.Add(new double[] { 0.714, 1, 0.329, 0 });
-                rgbPoints.Add(new double[] { 0.857, 0.451, 0.02, 0.02 });
-                rgbPoints.Add(new double[] { 1, 0.878, 0.302, 0.302 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Jet)
-            {
-                ctf.SetColorSpaceToRGB();
-                rgbPoints.Add(new double[] { 0.000, 0.000, 0.000, 0.500 });
-                rgbPoints.Add(new double[] { 0.125, 0.000, 0.000, 1.000 });
-                rgbPoints.Add(new double[] { 0.375, 0.000, 1.000, 1.000 });
-                rgbPoints.Add(new double[] { 0.500, 0.000, 1.000, 0.000 });
-                rgbPoints.Add(new double[] { 0.625, 1.000, 1.000, 0.000 });
-                rgbPoints.Add(new double[] { 0.875, 1.000, 0.000, 0.000 });
-                rgbPoints.Add(new double[] { 1.000, 0.500, 0.000, 0.000 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Turbo)
-            {
-                ctf.SetColorSpaceToRGB();
-                rgbPoints.Add(new double[] { 0.000, 0.18995, 0.07176, 0.23217 });
-                rgbPoints.Add(new double[] { 0.067, 0.25107, 0.25237, 0.63374 });
-                rgbPoints.Add(new double[] { 0.133, 0.27698, 0.46153, 0.93309 });
-                rgbPoints.Add(new double[] { 0.200, 0.24427, 0.60937, 0.99697 });
-                rgbPoints.Add(new double[] { 0.267, 0.17223, 0.71680, 0.93981 });
-                rgbPoints.Add(new double[] { 0.333, 0.10342, 0.89600, 0.71500 });
-                rgbPoints.Add(new double[] { 0.400, 0.26180, 0.96765, 0.52981 });
-                rgbPoints.Add(new double[] { 0.467, 0.47375, 0.99755, 0.34963 });
-                rgbPoints.Add(new double[] { 0.533, 0.69525, 0.97610, 0.21294 });
-                rgbPoints.Add(new double[] { 0.600, 0.88331, 0.86553, 0.21719 });
-                rgbPoints.Add(new double[] { 0.667, 0.98000, 0.73000, 0.22161 });
-                rgbPoints.Add(new double[] { 0.733, 0.99297, 0.55214, 0.15417 });
-                rgbPoints.Add(new double[] { 0.800, 0.94084, 0.35566, 0.07031 });
-                rgbPoints.Add(new double[] { 0.867, 0.84662, 0.21407, 0.02487 });
-                rgbPoints.Add(new double[] { 0.933, 0.68602, 0.09536, 0.00481 });
-                rgbPoints.Add(new double[] { 1.000, 0.47960, 0.01583, 0.01055 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Warm)
-            {
-                ctf.SetColorSpaceToRGB();
-                rgbPoints.Add(new double[] { 0, 0.549, 0.176, 0.016 });
-                rgbPoints.Add(new double[] { 0.143, 0.8, 0.298, 0.008 });
-                rgbPoints.Add(new double[] { 0.286, 0.925, 0.439, 0.078 });
-                rgbPoints.Add(new double[] { 0.429, 0.996, 0.6, 0.161 });
-                rgbPoints.Add(new double[] { 0.571, 0.996, 0.769, 0.31 });
-                rgbPoints.Add(new double[] { 0.714, 0.996, 0.89, 0.569 });
-                rgbPoints.Add(new double[] { 0.857, 1, 0.969, 0.737 });
-                rgbPoints.Add(new double[] { 1, 1, 1, 0.898 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Cool)
-            {
-                ctf.SetColorSpaceToRGB();
-                rgbPoints.Add(new double[] { 0, 0.031, 0.271, 0.58 });
-                rgbPoints.Add(new double[] { 0.143, 0.129, 0.443, 0.71 });
-                rgbPoints.Add(new double[] { 0.286, 0.259, 0.573, 0.776 });
-                rgbPoints.Add(new double[] { 0.429, 0.42, 0.682, 0.839 });
-                rgbPoints.Add(new double[] { 0.571, 0.62, 0.792, 0.882 });
-                rgbPoints.Add(new double[] { 0.714, 0.776, 0.859, 0.937 });
-                rgbPoints.Add(new double[] { 0.857, 0.871, 0.922, 0.969 });
-                rgbPoints.Add(new double[] { 1, 0.969, 0.984, 1 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Cividis)
-            {
-                ctf.SetColorSpaceToRGB();
-                rgbPoints.Add(new double[] { 0, 0, 0.125, 0.297 });
-                rgbPoints.Add(new double[] { 0.125, 0.023, 0.211, 0.43 });
-                rgbPoints.Add(new double[] { 0.25, 0.254, 0.301, 0.418 });
-                rgbPoints.Add(new double[] { 0.375, 0.375, 0.391, 0.43 });
-                rgbPoints.Add(new double[] { 0.5, 0.484, 0.48, 0.469 });
-                rgbPoints.Add(new double[] { 0.625, 0.609, 0.578, 0.465 });
-                rgbPoints.Add(new double[] { 0.75, 0.738, 0.684, 0.43 });
-                rgbPoints.Add(new double[] { 0.875, 0.875, 0.793, 0.363 });
-                rgbPoints.Add(new double[] { 1, 0.996, 0.91, 0.27 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Viridis)
-            {
-                ctf.SetColorSpaceToRGB();
-                rgbPoints.Add(new double[] { 0, 0.267, 0.005, 0.329 });
-                rgbPoints.Add(new double[] { 0.143, 0.275, 0.197, 0.497 });
-                rgbPoints.Add(new double[] { 0.286, 0.213, 0.359, 0.552 });
-                rgbPoints.Add(new double[] { 0.429, 0.153, 0.498, 0.558 });
-                rgbPoints.Add(new double[] { 0.571, 0.122, 0.632, 0.531 });
-                rgbPoints.Add(new double[] { 0.714, 0.29, 0.759, 0.428 });
-                rgbPoints.Add(new double[] { 0.857, 0.622, 0.854, 0.226 });
-                rgbPoints.Add(new double[] { 1, 0.993, 0.906, 0.144 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Plasma)
-            {
-                ctf.SetColorSpaceToRGB();
-                rgbPoints.Add(new double[] { 0, 0.05, 0.03, 0.528 });
-                rgbPoints.Add(new double[] { 0.143, 0.328, 0.007, 0.64 });
-                rgbPoints.Add(new double[] { 0.286, 0.545, 0.038, 0.647 });
-                rgbPoints.Add(new double[] { 0.429, 0.725, 0.197, 0.538 });
-                rgbPoints.Add(new double[] { 0.571, 0.859, 0.359, 0.408 });
-                rgbPoints.Add(new double[] { 0.714, 0.956, 0.534, 0.285 });
-                rgbPoints.Add(new double[] { 0.857, 0.995, 0.738, 0.167 });
-                rgbPoints.Add(new double[] { 1, 0.94, 0.975, 0.131 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.BlackBody)
-            {
-                ctf.SetColorSpaceToLab();
-                rgbPoints.Add(new double[] { 0, 0, 0, 0 });
-                rgbPoints.Add(new double[] { 0.143, 0.257, 0.089, 0.069 });
-                rgbPoints.Add(new double[] { 0.286, 0.502, 0.123, 0.107 });
-                rgbPoints.Add(new double[] { 0.429, 0.735, 0.198, 0.124 });
-                rgbPoints.Add(new double[] { 0.571, 0.877, 0.395, 0.038 });
-                rgbPoints.Add(new double[] { 0.714, 0.911, 0.632, 0.1 });
-                rgbPoints.Add(new double[] { 0.857, 0.907, 0.855, 0.189 });
-                rgbPoints.Add(new double[] { 1, 1, 1, 1 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Inferno)
-            {
-                ctf.SetColorSpaceToLab();
-                rgbPoints.Add(new double[] { 0, 0.001, 0, 0.014 });
-                rgbPoints.Add(new double[] { 0.143, 0.159, 0.044, 0.329 });
-                rgbPoints.Add(new double[] { 0.286, 0.397, 0.083, 0.433 });
-                rgbPoints.Add(new double[] { 0.429, 0.623, 0.165, 0.388 });
-                rgbPoints.Add(new double[] { 0.571, 0.831, 0.283, 0.259 });
-                rgbPoints.Add(new double[] { 0.714, 0.962, 0.49, 0.084 });
-                rgbPoints.Add(new double[] { 0.857, 0.982, 0.756, 0.153 });
-                rgbPoints.Add(new double[] { 1, 0.988, 0.998, 0.645 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Kindlmann)
-            {
-                ctf.SetColorSpaceToLab();
-                rgbPoints.Add(new double[] { 0, 0, 0, 0 });
-                rgbPoints.Add(new double[] { 0.143, 0.14, 0.022, 0.46 });
-                rgbPoints.Add(new double[] { 0.286, 0.028, 0.243, 0.587 });
-                rgbPoints.Add(new double[] { 0.429, 0.021, 0.449, 0.382 });
-                rgbPoints.Add(new double[] { 0.571, 0.031, 0.625, 0.083 });
-                rgbPoints.Add(new double[] { 0.714, 0.44, 0.767, 0.037 });
-                rgbPoints.Add(new double[] { 0.857, 0.98, 0.815, 0.572 });
-                rgbPoints.Add(new double[] { 1, 1, 1, 1 });
-            }
-            else if (_colorSpectrum.Type == vtkColorSpectrumType.Grayscale)
-            {
-                ctf.SetColorSpaceToLab();
-                //rgbPoints.Add(new double[] { 0, 0, 0, 0 });
-                rgbPoints.Add(new double[] { 0, 0.2, 0.2, 0.2 });
-                rgbPoints.Add(new double[] { 1, 1.0, 1.0, 1.0 });
-            }
-            //
-            double n = 0;
-            double k = 1;
-            double x = _colorSpectrum.ColorBrightness;
-            if (_colorSpectrum.ReverseColors)
-            {
-                n = 1;
-                k = -1;
-            }
-
-            //
-            foreach (var rgbPoint in rgbPoints)
-                ctf.AddRGBPoint(k * rgbPoint[0] + n, rgbPoint[1] + x * (1 - rgbPoint[1]),
-                                                     rgbPoint[2] + x * (1 - rgbPoint[2]),
-                                                     rgbPoint[3] + x * (1 - rgbPoint[3]));
-            //
-            return ctf;
         }
 
         // Public methods                                                                                                          
@@ -4297,12 +3989,6 @@ namespace vtkControl
             if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorScalarBar();
             if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorWidgets();
             MirrorOwnerBoxZoom();
-        }
-        // The native view is the only view of this control and is on from its start; the setting of the application
-        // that chose the ActiViz view has no view left to choose
-        public void SetNativeView(bool on)
-        {
-            if (_nativeMirror == null) SetNativeAreas(VtkNativeArea.All);
         }
         public string[] GetNativeMirrorNames()
         {

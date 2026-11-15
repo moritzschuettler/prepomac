@@ -51,7 +51,8 @@ namespace PrePoMax
         private bool _linearDeflectionRelative;
         private double _linearDeflection;
         private double _angularDeflectionDeg;
-        // Older settings files have no renderer, which reads as the VTK 9 view
+        // The choice of the ActiViz (VTK 5.8) view, which settings files of the builds that had it still carry; it is
+        // read and never used
         [OptionalField]
         private bool _activizView;
         // Older settings files have no ambient occlusion, which reads as off
@@ -126,7 +127,6 @@ namespace PrePoMax
                 if (_linearDeflection < 0) _linearDeflection = 0;
             }
         }
-        public bool ActiVizView { get { return _activizView; } set { _activizView = value; } }
         public bool AmbientOcclusion { get { return _ambientOcclusion; } set { _ambientOcclusion = value; } }
         public double AmbientOcclusionRadius
         {

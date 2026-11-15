@@ -19733,7 +19733,6 @@ namespace PrePoMax
             _form.SetSmoothing(gs.PointSmoothing, gs.LineSmoothing, false);
             _form.SetAmbientOcclusion(gs.AmbientOcclusion, gs.AmbientOcclusionRadius, gs.AmbientOcclusionKernelSize,
                                       false);
-            _form.SetNativeView(!gs.ActiVizView);
             // Navigation settings
             NavigationSettings ns = _settings.Navigation;
             _form.SetNavigationSensitivity(ns.RotateSensitivity, ns.ZoomSensitivity, ns.InvertZoom, ns.SmoothZoom);

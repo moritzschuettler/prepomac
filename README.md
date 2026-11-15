@@ -6,23 +6,28 @@ on GitHub.
 
 # Prerequisites
 *  Visual Studio 2026 Community (development environment) - https://www.visualstudio.com/downloads/
-*  ActiViz OpenSource Edition 5.8.0 (64-bit Windows XP or later) (3D library used for graphics - must be installed only on the development PC; users do not need it) - https://prepomax.fs.um.si/downloads/
+*  CMake 3.21 or later - https://cmake.org/download/
+*  VTK 9.7.1, built from source (3D library used for graphics - needed only on the development PC; users get its
+   DLLs with PrePoMax) - see "Build VTK and vtkNative" below
 
 # PrePoMax Visual Studio setup
 *  Download a Master branch of the PrePoMax package and extract it to a PrePoMax folder
 *  Open the solution: "PrePoMax\PrePoMax.sln"
 
-# Recreate the references to the VTK library
-First delete the two existing references to the VTK library:
-*  Open Solution Explorer: View->Solution Explorer
-*  In Solution Explorer find the vtkControl project and then find the References branch
-*  Delete the references starting with Kitware. (right click and Delete).
- 
-Secondly add the two references again using the following procedure:
-*  Right click on References from vtkControl project in the Solution Explorer Window and selected Add Reference
-*  A Reference manager window opens where you select Browse on the left side and then press the Browse button on the bottom right
-*  Browse for the file Kitware.VTK.dll which should be in the ActiViz installation folder: "C:\Program Files\ActiViz.NET 5.8.0 OpenSource Edition\bin\Kitware.VTK.dll"
-*  Repeat the procedure for the file Kitware.mummy.Runtime.dll: "C:\Program Files\ActiViz.NET 5.8.0 OpenSource Edition\bin\Kitware.mummy.Runtime.dll"
+# Build VTK and vtkNative
+The 3D view is `vtkNative`, a C++ library on VTK 9.7.1 (folder [vtkNative/](vtkNative/)) that `vtkControl` reaches
+through a C API. Building `vtkControl` builds it with CMake when CMake and VTK are found.
+*  Download the VTK 9.7.1 sources from https://vtk.org/download/ and apply
+   [vtkNative/patches/vtk-9.7.1-ssao-background.patch](vtkNative/patches/vtk-9.7.1-ssao-background.patch)
+   (the ambient occlusion keeps the background).
+*  Configure and build VTK shared, x64, Release, with the module groups StandAlone, Rendering and Imaging and without
+   FFMPEG, e.g. `cmake -S <vtk source> -B <vtk build> -G "Visual Studio 17 2022" -A x64 -DBUILD_SHARED_LIBS=ON
+   -DVTK_GROUP_ENABLE_Rendering=YES -DVTK_GROUP_ENABLE_StandAlone=YES -DVTK_GROUP_ENABLE_Imaging=YES` and
+   `cmake --build <vtk build> --config Release`.
+*  Tell the build where VTK is: the MSBuild property `VtkNativeVtkDir` (default in `vtkControl/vtkControl.csproj`)
+   is `<vtk build>\lib\cmake\vtk-9.7`; `VtkNativeCMake` is the path of `cmake.exe`.
+*  The build writes `vtkNative.dll` and the VTK DLLs it loads to `vtkNative\build\runtime`, and the post-build
+   event of PrePoMax copies them, with the VTK license texts, into the `lib` folder of the output.
 
 At last change the active solution platform using the main menu: **Build** -> **Configuration Manager** and select **x64** as the **Active solution platform**.
 
@@ -46,7 +51,8 @@ It also ships third-party mesher binaries that are not built from this repositor
 https://github.com/PrePoMax/NetgenMesher), which in turn links Netgen, OpenCASCADE and pthreads-win32
 (all LGPL-2.1). Their license texts live in
 [Licenses/](Licenses/) and the build copies them into the output folder next to the binaries they
-cover, so a build from this repository carries them automatically.
+cover, so a build from this repository carries them automatically. The 3D view ships VTK 9.7.1 (BSD-3-Clause)
+and the libraries bundled in it, whose license texts the build copies into `lib\vtk-licenses`.
 
 See [Licenses/README.md](Licenses/README.md) for the full inventory, the corresponding-source
 obligation, and the handful of libraries bundled with the OpenCASCADE distribution whose terms are
