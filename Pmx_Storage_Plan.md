@@ -475,18 +475,16 @@ is not compared. The random model hash in the deck heading is ignored.
 4 reopen differently, 64 do not regenerate, each also failed by the baseline except as below; `Plosca_MB_3.pmx` and
 `palica_NDT.pmx`, which the baseline reopened differently, now pass). Of the 14 files from
 v1.3.x the 10 the baseline opens still open, `error.pmx` among them with its units and material values as before, and
-the 4 from v1.3.0 to v1.3.4 are refused as before. Two files are read further than the baseline read them, and
-their histories then stop at commands the current version cannot replay:
+the 4 from v1.3.0 to v1.3.4 are refused as before. Two files are read further than the baseline read them,
+and their histories then stopped at commands the current version could not replay: `tmp_massLoad.pmx` (v2.0.3), which
+holds a `MassUnderGravityLoad`, a type that no longer exists, and `clamp.pmx` (v1.3.x), whose old initial velocity
+commands failed in `ConvertSelectionBasedInitialCondition`. The commit after Phase 5 fixes both (see Phase 5: objects of
+removed types are dropped and reported, and the old initial velocity commands are converted when they are read).
 
-- `tmp_massLoad.pmx` (v2.0.3) is the one reported failure. It holds a `MassUnderGravityLoad`, a type that no longer
-  exists. The baseline refuses the whole file; the new reader reads the load as null (see Phase 5), so the model
-  opens with an error from the validity check, and the history fails at the commands that add, edit and remove that
-  load.
-- `clamp.pmx` (v1.3.x): the baseline cannot read its history; the new build reads it, and the old initial velocity
-  commands then fail in `ConvertSelectionBasedInitialCondition`.
-
-Both are follow-ups outside this migration. A null left in a model collection by a missing type could be dropped
-when the collection is read, and the old initial velocity commands need a conversion that works on replay.
+**Results after the follow-up fixes.** The corpus: all 151 `.pmx` files and all 6 `.pmh` histories pass, and the build
+fails 70 files of its own (6 do not open, 4 reopen differently, 62 do not regenerate, each also failed by the
+baseline). `tmp_massLoad.pmx`, which the baseline refuses, now opens with warnings naming the removed type, the dropped
+load and the history commands removed with it, and its history regenerates; `clamp.pmx` regenerates.
 
 ---
 
