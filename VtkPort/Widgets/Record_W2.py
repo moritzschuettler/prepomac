@@ -1,10 +1,11 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#VTK native port, slice W2: the interaction style. The geometry and widgets areas are on with the mirror as the
-#target and both paths show only the parts. Each sequence starts both cameras from the same framed view and sends
-#the same input to both: to vtkInteractorStyleControl through its handlers, to the native style through
-#vtkn_view_handle_input. Recorded: both cameras after each sequence and the box selection state, for Compare_W2.py.
+#VTK native port, slice W2: the interaction style of the native view, which shows only the parts. Each sequence
+#starts the camera from the same framed view and sends input to the native style through vtkn_view_handle_input.
+#Recorded: the camera after each sequence and the box selection state, for Compare_W2.py. ActiViz is gone: the old
+#side is written as the new one and replaced by the ActiViz run of the reference (graft_reference.py,
+#PORT_REFERENCE).
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Record_W2.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -23,21 +24,10 @@ import vtkport  # noqa: E402
 from vtkControl.Native import VtkNativeInput, VtkNativeNavigation  # noqa: E402
 
 VTK = vtkport.VTK
-STYLE = vtkport.get_field(VTK, "_style")
-RWI = vtkport.get_field(VTK, "_renderWindowInteractor")
 on_ui = vtkport.on_ui
 invoke = vtkport.invoke
 get_field = vtkport.get_field
 WIDTH, HEIGHT = 800, 600
-OLD_HANDLERS = {"MiddleButtonDown": "vtkInteractorStyleControl_MiddleButtonPressEvt",
-                "MiddleButtonUp": "vtkInteractorStyleControl_MiddleButtonReleaseEvt",
-                "LeftButtonDown": "vtkInteractorStyleControl_LeftButtonPressEvt",
-                "LeftButtonUp": "vtkInteractorStyleControl_LeftButtonReleaseEvt",
-                "MouseMove": "vtkInteractorStyleControl_MouseMoveEvt",
-                "WheelForward": "vtkInteractorStyleControl_MouseWheelForwardEvt",
-                "WheelBackward": "vtkInteractorStyleControl_MouseWheelBackwardEvt",
-                "KeyPress": "VtkInteractorStyleControl_KeyPressEvt",
-                "KeyRelease": "VtkInteractorStyleControl_KeyReleaseEvt"}
 # VTK 5.8 reported the virtual key of an arrow key as its key code; VTK 9 reports the key symbol
 KEYS = {"Left": (37, "Left"), "Up": (38, "Up"), "Right": (39, "Right"), "Down": (40, "Down"),
         "Escape": (27, "Escape"), "z": (122, "z")}
@@ -48,20 +38,13 @@ def event(kind, x=0, y=0, ctrl=False, shift=False, key=None):
 
 
 def send(events):
-    """The same input to the old style, then to the native one"""
-    def old():
-        for kind, x, y, ctrl, shift, key in events:
-            code, symbol = KEYS[key] if key else (0, None)
-            RWI.SetEventInformation(x, y, int(ctrl), int(shift), System.SByte(code), 0, symbol)
-            invoke(STYLE, OLD_HANDLERS[kind], None, None)
-
+    """The input to the native style"""
     def new():
         for kind, x, y, ctrl, shift, key in events:
             code, symbol = KEYS[key] if key else (0, None)
             # VTK 9 sends the arrow keys with a zero key code
             VTK.NativeMirror.HandleInput(getattr(VtkNativeInput, kind), x, y, ctrl, shift,
                                          0 if code < 41 and key != "Escape" else code, symbol)
-    on_ui(old)
     on_ui(new)
 
 
@@ -91,10 +74,6 @@ def old_animating():
     return on_ui(lambda: bool(get_field(VTK, "_animating")))
 
 
-def old_smooth_zooming():
-    return on_ui(lambda: bool(get_field(STYLE, "_smoothZoomTimer").IsEnabled))
-
-
 def set_smooth_zoom(on):
     def run():
         VTK.GetType().GetField("_smoothZoom", vtkport.FLAGS).SetValue(VTK, System.Boolean(on))
@@ -106,7 +85,6 @@ def start(start_camera):
     old, new = vtkport.frame_both(start_camera, "Isometric")
 
     def reset():
-        invoke(STYLE, "ResetRotationCenter")
         VTK.NativeMirror.Navigate(VtkNativeNavigation.ResetRotationCenter)
     on_ui(reset)
     return old, new
@@ -163,13 +141,11 @@ def main():
     start(start_camera)
     send([event("MouseMove", 300, 200), event("LeftButtonDown", 300, 200), event("MouseMove", 340, 240),
           event("MouseMove", 450, 350)])
-    old_active = on_ui(lambda: bool(STYLE.IsBoxSelectionActive))
     new_active = on_ui(lambda: VTK.NativeMirror.GetInteractionState()[1] == 1)
     send([event("KeyPress", 450, 350, key="Escape"), event("KeyRelease", 450, 350, key="Escape")])
-    old_cancelled = on_ui(lambda: not bool(STYLE.IsBoxSelectionActive))
     new_cancelled = on_ui(lambda: VTK.NativeMirror.GetInteractionState()[1] == 0)
     send([event("LeftButtonUp", 450, 350)])
-    meta["box_selection"] = {"old": [old_active, old_cancelled], "new": [new_active, new_cancelled]}
+    meta["box_selection"] = {"old": [new_active, new_cancelled], "new": [new_active, new_cancelled]}
     # The smooth zoom: the notches accumulate and the camera approaches the target over a few frames; the native
     # style is stepped to the end at once, as no timer runs off screen
     set_smooth_zoom(True)
@@ -177,7 +153,6 @@ def main():
     send([event("MouseMove", 300, 300), event("WheelForward", 300, 300), event("WheelForward", 300, 300),
           event("WheelBackward", 300, 300), event("WheelForward", 300, 300)])
     pending = on_ui(lambda: VTK.NativeMirror.GetInteractionState()[3] == 1)
-    wait(lambda: not old_smooth_zooming())
     on_ui(lambda: VTK.NativeMirror.Navigate(VtkNativeNavigation.FinishSmoothZoom))
     old, new = cameras()
     meta["sequences"].append({"name": "smooth_zoom", "kind": None, "start": [old_start, new_start], "old": old,

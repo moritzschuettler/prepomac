@@ -1,10 +1,11 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#VTK native pilot, slice B: the scalar bar. vtkControl mirrors every change of its legend into the scalar bar of an
-#off screen VTK 9.7 view. Both paths show only the scalar bar; the script sets legend configurations through the
-#vtkControl methods the Controller calls, then sends the same mouse events to both (hover, double clicks, drags,
-#a window resize) and writes pictures, rectangles, highlights and double click results for Compare_SliceB.py.
+#VTK native pilot, slice B: the scalar bar of the native view, shown alone. The script sets legend configurations
+#through the vtkControl methods the Controller calls, then sends mouse events to it (hover, double clicks, drags, a
+#window resize) and writes pictures, rectangles, highlights and double click results for Compare_SliceB.py. ActiViz
+#is gone: the old side is written as the new one and replaced by the ActiViz run of the reference
+#(graft_reference.py, PORT_REFERENCE).
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Record_SliceB.py --scriptArgs "<out>" -g No -w <work>
 #
@@ -74,9 +75,6 @@ def main_form():
 
 FORM = main_form()
 VTK = get_field(FORM, "_vtk")
-STYLE = get_field(VTK, "_style")
-RWI = get_field(VTK, "_renderWindowInteractor")
-OLD_BAR = get_field(VTK, "_scalarBarWidget")
 
 
 def on_ui(function):
@@ -112,15 +110,6 @@ def rect_list(rectangle):
     return [rectangle.X, rectangle.Y, rectangle.Width, rectangle.Height]
 
 
-def old_highlight():
-    corners = get_field(get_field(OLD_BAR, "_highlight"), "_corners")
-    if corners is None:
-        return None
-    left, top = corners[0][0], corners[0][1]
-    right, bottom = corners[2][0], corners[2][1]
-    return [int(left), int(top), int(right - left), int(bottom - top)]
-
-
 def new_highlight():
     ok, values = invoke(VTK.NativeMirrorScalarBar, "GetHighlightRectangle", count=1)
     return rect_list(values[0]) if ok else None
@@ -131,44 +120,33 @@ def edit_data(bar, minimum):
     return [bool(ok), rect_list(values[1]), values[2], values[3], values[4]]
 
 
-def old_event(kind, x, y):
-    RWI.SetEventPosition(x, y)
-    invoke(STYLE, "FindPokedRenderer", x, y)
-    invoke(STYLE, "vtkInteractorStyleControl_" + kind + "Evt", None, None)
-
-
 NATIVE_EVENTS = {"LeftButtonPress": VtkNativeEvent.LeftButtonDown, "LeftButtonRelease": VtkNativeEvent.LeftButtonUp,
                  "MouseMove": VtkNativeEvent.MouseMove}
 
 
 def send(events):
-    """Sends (kind, x, y) events to the old path, then the same ones to the native path"""
-    def old():
-        for kind, x, y in events:
-            old_event(kind, x, y)
-
+    """Sends (kind, x, y) events to the native view"""
     def new():
         handled = []
         for kind, x, y in events:
             handled.append(bool(VTK.NativeMirror.HandleMouseEvent(NATIVE_EVENTS[kind], x, y)))
         return handled
-    on_ui(old)
     return on_ui(new)
 
 
 def state():
     def run():
         bar = VTK.NativeMirrorScalarBar
-        old_edit = {}
         new_edit = {}
         for minimum in [True, False]:
-            old_edit["min" if minimum else "max"] = edit_data(OLD_BAR, minimum)
             new_edit["min" if minimum else "max"] = edit_data(bar, minimum)
-        old_rectangle = invoke(OLD_BAR, "GetRectangle")[0]
-        return {"old_rectangle": rect_list(old_rectangle), "new_rectangle": rect_list(bar.GetRectangle()),
-                "old_highlight": old_highlight(), "new_highlight": new_highlight(),
-                "old_labels": list(get_field(OLD_BAR, "_labels")), "new_labels": list(bar.Labels),
-                "old_edit": old_edit, "new_edit": new_edit}
+        new = {"rectangle": rect_list(bar.GetRectangle()), "highlight": new_highlight(), "labels": list(bar.Labels),
+               "edit": new_edit}
+        result = {}
+        for key, value in new.items():
+            result["old_" + key] = value
+            result["new_" + key] = value
+        return result
     return on_ui(run)
 
 
@@ -205,9 +183,18 @@ def apply_legend(spectrum, field, component, number_format="E3"):
     rehide()
 
 
-def table_range():
-    values = get_field(OLD_BAR, "_lookupTable").GetTableRange()
-    return float(values[0]), float(values[1])
+def manual_limits():
+    """The limits of the manual legend: at 20 and 80 % of the table range. The reference took the range from the
+    lookup table of the ActiViz bar, which kept its default of 0 to 1, so with a reference its limits are taken"""
+    reference = os.environ.get("PORT_REFERENCE")
+    if reference:
+        with open(os.path.join(reference, "slice_b.json")) as stream:
+            states = json.load(stream)["states"]
+        edit = [s for s in states if s["name"] == "config_manual"][0]["old_edit"]["min"]
+        return edit[3], edit[4]
+    bar = VTK.NativeMirrorScalarBar
+    low, high = float(get_field(bar, "_tableRangeMin")), float(get_field(bar, "_tableRangeMax"))
+    return low + 0.2 * (high - low), low + 0.8 * (high - low)
 
 
 def record_configurations(out_dir, meta):
@@ -220,7 +207,7 @@ def record_configurations(out_dir, meta):
     on_ui(lambda: VTK.SetNativeMirrorScalarBarOnly(True))
     apply_legend(base, "STRESS", "MISES")
     capture(out_dir, "config_mises", meta)
-    low, high = table_range()
+    minimum, maximum = manual_limits()
     #
     spectrum = current_spectrum()
     spectrum.Mode = vtkColorSpectrumMode.Smooth
@@ -239,8 +226,8 @@ def record_configurations(out_dir, meta):
     spectrum.Type = vtkColorSpectrumType.Rainbow
     spectrum.MinMaxType = vtkColorSpectrumMinMaxType.Manual
     spectrum.MaxUserValue = 1e300
-    spectrum.MinUserValue = low + 0.2 * (high - low)
-    spectrum.MaxUserValue = low + 0.8 * (high - low)
+    spectrum.MinUserValue = minimum
+    spectrum.MaxUserValue = maximum
     apply_legend(spectrum, "STRESS", "MISES", "G4")
     capture(out_dir, "config_manual", meta)
     #
@@ -293,13 +280,13 @@ def record_interaction(out_dir, meta):
     on_ui(install)
     try:
         start = state()
-        widget = start["old_rectangle"]
+        widget = start["new_rectangle"]
         height = HEIGHT
         # The widget is anchored top left: its display rectangle has the bottom at height - y - h
         bottom = height - widget[1] - widget[3]
         title = (widget[0] + 20, bottom + widget[3] - 22)
-        maximum = center(start["old_edit"]["max"][1])
-        minimum = center(start["old_edit"]["min"][1])
+        maximum = center(start["new_edit"]["max"][1])
+        minimum = center(start["new_edit"]["min"][1])
         far = (WIDTH - 50, 50)
         #
         handled = send([("MouseMove", far[0], far[1]), ("MouseMove", title[0], title[1])])
@@ -313,20 +300,12 @@ def record_interaction(out_dir, meta):
             time.sleep(PAUSE)
             del double_clicks[:]
 
-            def old_double():
-                for kind in ["LeftButtonPress", "LeftButtonRelease", "LeftButtonPress", "LeftButtonRelease"]:
-                    old_event(kind, point[0], point[1])
-            on_ui(old_double)
-            old_result = list(double_clicks)
-            del double_clicks[:]
-            time.sleep(PAUSE)
-
             def new_double():
                 for kind in ["LeftButtonPress", "LeftButtonRelease", "LeftButtonPress", "LeftButtonRelease"]:
                     VTK.NativeMirror.HandleMouseEvent(NATIVE_EVENTS[kind], point[0], point[1])
             on_ui(new_double)
             new_result = list(double_clicks)
-            meta["double_clicks"].append({"name": name, "point": list(point), "old": old_result, "new": new_result})
+            meta["double_clicks"].append({"name": name, "point": list(point), "old": new_result, "new": new_result})
             time.sleep(PAUSE)
         #
         steps = [(title[0] + 30 * i, title[1] - 20 * i) for i in range(1, 6)]
@@ -342,8 +321,8 @@ def record_interaction(out_dir, meta):
         handled = send(events)
         capture(out_dir, "drag_clamped", meta, {"handled": handled})
         time.sleep(PAUSE)
-        # A press outside the widget is not taken; on the ActiViz path it goes on to pick the model, and the
-        # Controller shows the parts again, so they are hidden once more
+        # A press outside the widget is not taken; the parts are hidden once more, as on the ActiViz path of the
+        # reference, where the press went on to pick the model
         handled = send([("MouseMove", 5, height - 5), ("LeftButtonPress", 5, height - 5),
                         ("LeftButtonRelease", 5, height - 5)])
         rehide()

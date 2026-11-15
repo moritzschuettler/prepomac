@@ -8,389 +8,41 @@
 // Contributors:
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Kitware.VTK;
 using vtkControl.Native;
 
 namespace vtkControl
 {
+    // The native scale bar measures the camera and makes its labels and its geometry itself
     class vtkMaxScaleWidget : vtkMaxBorderWidget
     {
-        // Variables                                                                                                                
-        private double _width;
-        private double _barWidth;
-        private double _barWidthInModelUnits;
-        private double _barHeight;
-        private int _numOffields;
+        // Variables
+        private int _width;
         private int _padding;
         private string _labelFormat;
         private string _unit;
-
-        protected vtkTextMapper[] _scaleTextMappers;
-        protected vtkActor2D[] _scaleTextActors;
-        // The coordinate an actor owns never changes, so it is resolved once. Asking for it again
-        // means another lookup in the ActiViz wrapper table, which is keyed by the native address
-        protected vtkCoordinate[] _scaleTextCoordinates;
-
-        protected vtkPolyDataMapper2D _scaleBorderMapper;
-        protected vtkPolyData _scaleBorderPolyData;
-        protected vtkCellArray _scaleBorderLines;
-        protected vtkActor2D _scaleBorderActor;
-        protected vtkCoordinate _scaleBorderActorCoordinate;
-
-        protected vtkPolyDataMapper2D _scaleBackgroundMapper;
-        protected vtkPolyData _scaleBackgroundPolyData;
-        protected vtkPoints _scaleBackgroundPoints;
-        protected vtkCellArray _scaleBackgroundPolygons;
-        protected vtkActor2D _scaleBackgroundActor;
-        protected vtkCoordinate _scaleBackgroundActorCoordinate;
+        private VtkNativeTextStyle _textStyle;
 
 
-        // Constructors                                                                                                             
+        // Constructors
         public vtkMaxScaleWidget()
         {
             _width = 300;
-            //
-            _barWidth = _width;
-            _barHeight = 10;
-            _numOffields = 5;
             _padding = 5;
             _labelFormat = "G4";
             _unit = "";
-            //
-            InitializeLabels();
-            InitializeBackground();
-            InitializeBorder();
+            _textStyle = VtkNativeTextStyle.CreateWidgetStyle();
         }
 
 
-        // Private methods                                                                                                          
-        private void InitializeLabels()
-        {
-            // Text property
-            vtkTextProperty textProperty = vtkTextProperty.New();
-            //
-            _scaleTextMappers = new vtkTextMapper[_numOffields + 1];
-            _scaleTextActors = new vtkActor2D[_scaleTextMappers.Length];
-            _scaleTextCoordinates = new vtkCoordinate[_scaleTextMappers.Length];
-            //
-            for (int i = 0; i < _scaleTextMappers.Length; i++)
-            {
-                // Mapper
-                _scaleTextMappers[i] = vtkTextMapper.New();
-                _scaleTextMappers[i].SetTextProperty(textProperty);
-                // Actor
-                _scaleTextActors[i] = vtkActor2D.New();
-                _scaleTextActors[i].SetMapper(_scaleTextMappers[i]);
-                // Set relative text position
-                _scaleTextCoordinates[i] = _scaleTextActors[i].GetPositionCoordinate();
-                _scaleTextCoordinates[i].SetCoordinateSystemToDisplay();  // set offsets in pixels
-                _scaleTextCoordinates[i].SetReferenceCoordinate(_positionCoordinate);
-                _scaleTextCoordinates[i].SetValue(0, 0);
-            }
-        }
-        private void InitializeBackground()
-        {
-            // Bar border                                                                          
-            _scaleBackgroundPoints = vtkPoints.New();
-            _scaleBackgroundPolygons = vtkCellArray.New();
-            //
-            _scaleBackgroundPolyData = vtkPolyData.New();
-            _scaleBackgroundPolyData.SetPoints(_scaleBackgroundPoints);
-            _scaleBackgroundPolyData.SetPolys(_scaleBackgroundPolygons);
-            //
-            _scaleBackgroundMapper = vtkPolyDataMapper2D.New();
-            _scaleBackgroundMapper.SetInput(_scaleBackgroundPolyData);
-            //
-            vtkProperty2D backgroundProperty = vtkProperty2D.New();
-            backgroundProperty.SetColor(0, 0, 0);
-            //
-            _scaleBackgroundActor = vtkActor2D.New();
-            _scaleBackgroundActor.SetMapper(_scaleBackgroundMapper);
-            _scaleBackgroundActor.SetProperty(backgroundProperty);
-            //
-            _scaleBackgroundActorCoordinate = _scaleBackgroundActor.GetPositionCoordinate();
-            _scaleBackgroundActorCoordinate.SetCoordinateSystemToDisplay();  // set offsets in pixels
-            _scaleBackgroundActorCoordinate.SetReferenceCoordinate(_positionCoordinate);
-        }
-        private void InitializeBorder()
-        {
-            // Bar border                                                                          
-            _scaleBorderLines = vtkCellArray.New();
-            //
-            _scaleBorderPolyData = vtkPolyData.New();
-            _scaleBorderPolyData.SetPoints(_scaleBackgroundPoints);
-            _scaleBorderPolyData.SetLines(_scaleBorderLines);
-            //
-            _scaleBorderMapper = vtkPolyDataMapper2D.New();
-            _scaleBorderMapper.SetInput(_scaleBorderPolyData);
-            //
-            vtkProperty2D borderProperty = vtkProperty2D.New();
-            borderProperty.SetColor(0, 0, 0);
-            //
-            _scaleBorderActor = vtkActor2D.New();
-            _scaleBorderActor.SetMapper(_scaleBorderMapper);
-            _scaleBorderActor.SetProperty(borderProperty);
-            //
-            _scaleBorderActorCoordinate = _scaleBorderActor.GetPositionCoordinate();
-            _scaleBorderActorCoordinate.SetCoordinateSystemToDisplay();  // set offsets in pixels
-            _scaleBorderActorCoordinate.SetReferenceCoordinate(_positionCoordinate);
-        }
-        
-        private void GenerateGeometry()
-        {
-            UpdateSize();
-            //
-            GenerateLableValues();       // must be before Background
-            GenerateBackground();       // must be before Borders
-            GenerateBorders();
-            PositionLabels();
-            UpdateOuterBorder();
-        }
-        private void UpdateSize()
-        {
-            // Get world projection from display position
-            _renderer.SetDisplayPoint(0, 0, 0);
-            _renderer.DisplayToWorld();
-            double[] first = _renderer.GetWorldPoint();
-            //
-            _renderer.SetDisplayPoint(0, _width, 0);
-            _renderer.DisplayToWorld();
-            double[] second = _renderer.GetWorldPoint();
-            //
-            double len = Math.Sqrt(Math.Pow(first[0] - second[0], 2)
-                                   + Math.Pow(first[1] - second[1], 2)
-                                   + Math.Pow(first[2] - second[2], 2));
-            //
-            if (!double.IsNaN(len) && len != 0)
-            {
-                //System.Diagnostics.Debug.WriteLine(DateTime.Now.TimeOfDay + "   Len: " + len);
-                double prevWidth = _barWidth;
-                double p = Math.Floor(Math.Log10(len));
-                len /= Math.Pow(10, p);
-                int numOfIntervals = 5;
-                double ratio = Math.Round(numOfIntervals * len) / numOfIntervals / len;
-                //
-                _barWidth = _width * ratio;
-                _barWidthInModelUnits = Math.Round(numOfIntervals * len) / numOfIntervals * Math.Pow(10, p);
-                //
-                _position[0] -= (_barWidth - prevWidth) / 2;
-            }
-        }
-        private void GenerateLableValues()
-        {
-            double maxValue = _barWidthInModelUnits;
-            double dx = maxValue / _numOffields;
-            //
-            for (int i = 0; i < _scaleTextMappers.Length; i++)
-            {
-                _scaleTextMappers[i].SetInput((i * dx).ToString(_labelFormat));
-            }
-        }
-        private void GenerateBackground()
-        {
-            // Text size
-            int[] sizeOfFirst = vtkMaxWidgetTools.GetTextSize(_scaleTextMappers[0], _renderer);
-            // Number of vertical lines
-            int n = _numOffields + 1;
-            //
-            _scaleBackgroundPolygons.Reset();
-            _scaleBackgroundPoints.SetNumberOfPoints(2 * n);
-            //
-            double dx = _barWidth / _numOffields;
-            double dy = _barHeight;
-            double x0 = sizeOfFirst[0] / 2 + _padding;
-            double y0 = sizeOfFirst[1] + 2 * _padding;
-            //
-            for (int i = 0; i <= _numOffields; i++)
-            {
-                _scaleBackgroundPoints.SetPoint(2 * i, x0 + i * dx, y0, 0);
-                _scaleBackgroundPoints.SetPoint(2 * i + 1, x0 + i * dx, y0 + dy, 0);
-            }
-            //
-            for (int i = 0; i < _numOffields; i+=2)
-            {
-                _scaleBackgroundPolygons.InsertNextCell(4);
-                _scaleBackgroundPolygons.InsertCellPoint(2 * i);
-                _scaleBackgroundPolygons.InsertCellPoint(2 * (i + 1));
-                _scaleBackgroundPolygons.InsertCellPoint(2 * (i + 1) + 1);
-                _scaleBackgroundPolygons.InsertCellPoint(2 * i + 1);
-            }
-            //
-            _scaleBackgroundPoints.Modified();
-            _scaleBackgroundPolyData.Modified();
-        }
-        private void GenerateBorders()
-        {
-            _scaleBorderLines.Reset();
-            // Vertical lines
-            for (int i = 0; i <= _numOffields; i++)
-            {
-                _scaleBorderLines.InsertNextCell(2);
-                _scaleBorderLines.InsertCellPoint(2 * i);
-                _scaleBorderLines.InsertCellPoint(2 * i + 1);
-            }
-            // Horizontal lines
-            _scaleBorderLines.InsertNextCell(2);
-            _scaleBorderLines.InsertCellPoint(0);
-            _scaleBorderLines.InsertCellPoint(2 * _numOffields);
-            //
-            _scaleBorderLines.InsertNextCell(2);
-            _scaleBorderLines.InsertCellPoint(1);
-            _scaleBorderLines.InsertCellPoint(2 * _numOffields + 1);
-            //
-            _scaleBorderPolyData.Modified();
-        }
-        private void PositionLabels()
-        {
-            vtkPoints points = _scaleBackgroundPoints;
-            int lastIndex = _scaleTextMappers.Length - 1;
-            string lastLabel = _scaleTextMappers[lastIndex].GetInput();
-            if (!string.IsNullOrEmpty(_unit)) _scaleTextMappers[lastIndex].SetInput(lastLabel + " " + _unit);
-            //
-            int[] size;
-            double[] point;
-            for (int i = 0; i < _scaleTextMappers.Length; i++)
-            {
-                point = points.GetPoint(2 * i);
-                size = vtkMaxWidgetTools.GetTextSize(_scaleTextMappers[i], _renderer);
-                //
-                _scaleTextCoordinates[i].SetValue(point[0] - size[0] / 2, _padding);
-            }
-        }
-        private void UpdateOuterBorder()
-        {
-            // Text size
-            int[] sizeOfFirst = vtkMaxWidgetTools.GetTextSize(_scaleTextMappers[0], _renderer);
-            int[] sizeOfLast = vtkMaxWidgetTools.GetTextSize(_scaleTextMappers[_scaleTextMappers.Length - 1], _renderer);
-            //
-            double outerWidth = _padding + sizeOfFirst[0] / 2 + _barWidth + sizeOfLast[0] / 2 + _padding;
-            double outerHeight = _padding + sizeOfLast[1] + _padding + _barHeight + _padding + sizeOfFirst[1] + _padding;
-            //
-            _size[0] = outerWidth;
-            _size[1] = outerHeight;
-        }
-       
-
-        // Public methods                                                                                                           
+        // Public setters
         public void SetUnit(string unit)
         {
             _unit = unit;
-            GenerateGeometry();
             _nativeMirror?.SetScaleBarUnit(unit);
-        }
-        public override void OnRenderWindowModified()
-        {
-            if (_visibility)
-            {
-                base.OnRenderWindowModified();
-                OnSizeChanged();
-            }
-        }
-        public override void CameraModified()
-        {
-            if (_visibility)
-            {
-                base.CameraModified();
-                OnSizeChanged();
-                //System.Diagnostics.Debug.WriteLine(DateTime.Now.TimeOfDay + "   CameraModified");
-            }
-        }
-        public override void OnSizeChanged()
-        {
-            GenerateGeometry();
-            OnMovedOrSizeChanged();
-        }
-        public override void VisibilityOn()
-        {
-            if (_visibility == false)
-            {
-                base.VisibilityOn();
-                //
-                if (_scaleBackgroundActor != null) _renderer.AddActor(_scaleBackgroundActor);
-                if (_scaleBorderActor != null) _renderer.AddActor(_scaleBorderActor);
-                //
-                for (int i = 0; i < _scaleTextActors.Length; i++)
-                {
-                    if (_scaleTextActors[i] != null) _renderer.AddActor(_scaleTextActors[i]);
-                }
-            }
-        }
-        public override void VisibilityOff()
-        {
-            if (_visibility == true)
-            {
-                base.VisibilityOff();
-                //
-                if (_scaleBackgroundActor != null) _renderer.RemoveActor(_scaleBackgroundActor);
-                if (_scaleBorderActor != null) _renderer.RemoveActor(_scaleBorderActor);
-                //
-                for (int i = 0; i < _scaleTextActors.Length; i++)
-                {
-                    if (_scaleTextActors[i] != null) _renderer.RemoveActor(_scaleTextActors[i]);
-                }
-            }
-        }
-        public override void BringToFront()
-        {
-            if (!_visibility || _renderer == null) return;
-            //
-            base.BringToFront();
-            if (_scaleBackgroundActor != null)
-            {
-                _renderer.RemoveActor(_scaleBackgroundActor);
-                _renderer.AddActor(_scaleBackgroundActor);
-            }
-            if (_scaleBorderActor != null)
-            {
-                _renderer.RemoveActor(_scaleBorderActor);
-                _renderer.AddActor(_scaleBorderActor);
-            }
-            for (int i = 0; i < _scaleTextActors.Length; i++)
-            {
-                if (_scaleTextActors[i] != null)
-                {
-                    _renderer.RemoveActor(_scaleTextActors[i]);
-                    _renderer.AddActor(_scaleTextActors[i]);
-                }
-            }
-        }
-
-        
-        // Public setters                                                                                                           
-        public override void SetInteractor(vtkRenderer renderer, vtkRenderWindowInteractor renderWindowInteractor)
-        {
-            base.SetInteractor(renderer, renderWindowInteractor);
-            if (_visibility)
-            {
-                _renderer.AddActor(_scaleBackgroundActor);
-                _renderer.AddActor(_scaleBorderActor);
-                for (int i = 0; i < _scaleTextActors.Length; i++)
-                {
-                    _renderer.AddActor(_scaleTextActors[i]);
-                }
-            }
-            //
-            OnSizeChanged();
-        }
-        public override void RemoveInteractor()
-        {
-            _renderer.RemoveActor(_scaleBackgroundActor);
-            _renderer.RemoveActor(_scaleBorderActor);
-            for (int i = 0; i < _scaleTextActors.Length; i++)
-            {
-                _renderer.RemoveActor(_scaleTextActors[i]);
-            }
-            //
-            base.RemoveInteractor();
         }
         public void SetWidth(int width)
         {
             _width = width;
-            OnSizeChanged();
             _nativeMirror?.SetScaleBarWidth(width);
         }
         public void SetLabelFormat(string labelFormat)
@@ -398,39 +50,34 @@ namespace vtkControl
             if (_labelFormat != labelFormat)
             {
                 _labelFormat = labelFormat;
-                OnSizeChanged();
                 _nativeMirror?.SetScaleBarNumberFormat(labelFormat);
             }
         }
-        public void SetTextProperty(vtkTextProperty textProperty)
+        public void SetTextStyle(VtkNativeTextStyle textStyle)
         {
-            for (int i = 0; i < _scaleTextMappers.Length; i++)
-            {
-                _scaleTextMappers[i].SetTextProperty(textProperty);
-            }
-            _nativeMirror?.SetTextStyle(vtkMaxWidgetTools.GetNativeTextStyle(textProperty));
+            _textStyle = textStyle;
+            _nativeMirror?.SetTextStyle(textStyle);
         }
         public void SetPadding(int padding)
         {
             if (padding != _padding)
             {
                 _padding = padding;
-                OnSizeChanged();
                 _nativeMirror?.SetPadding(padding);
             }
         }
         protected override void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
         {
-            nativeMirror.SetTextStyle(vtkMaxWidgetTools.GetNativeTextStyle(_scaleTextMappers[0].GetTextProperty()));
+            nativeMirror.SetTextStyle(_textStyle);
             nativeMirror.SetPadding(_padding);
             nativeMirror.SetScaleBarNumberFormat(_labelFormat);
-            nativeMirror.SetScaleBarWidth((int)_width);
+            nativeMirror.SetScaleBarWidth(_width);
             nativeMirror.SetScaleBarUnit(_unit);
             base.CopyStateToNativeMirror(nativeMirror);
         }
 
 
-        // Public getters                                                                                                           
+        // Public getters
         public string GetLabelFormat()
         {
             return _labelFormat;
