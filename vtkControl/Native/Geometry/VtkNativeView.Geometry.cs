@@ -504,5 +504,103 @@ namespace vtkControl.Native
             return VtkNativeLibrary.GetStringList((byte[] buffer, int capacity, out int required) =>
                 VtkNativeMethods.vtkn_view_get_actor_names(handle, buffer, capacity, out required));
         }
+        //
+        public string[] GetSectionViewHiddenActors()
+        {
+            IntPtr handle = Handle();
+            return VtkNativeLibrary.GetStringList((byte[] buffer, int capacity, out int required) =>
+                VtkNativeMethods.vtkn_view_get_section_view_hidden_actors(handle, buffer, capacity, out required));
+        }
+        //
+        public void CropPartToStl(string name, int shape, double[] parameters, string fileName)
+        {
+            if (name == null) throw new ArgumentNullException("name");
+            if (fileName == null) throw new ArgumentNullException("fileName");
+            if (parameters == null) throw new ArgumentNullException("parameters");
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_crop_part_to_stl(Handle(), VtkNativeLibrary.ToUtf8(name), shape,
+                                                                                parameters,
+                                                                                VtkNativeLibrary.ToUtf8(fileName)));
+        }
+        // The drawn actors of the base and overlay layers as the 3MF export takes them: a wire as model edges in its
+        // own color, the other actors with black edges
+        public vtkMaxActorData[] GetExportActors()
+        {
+            IntPtr handle = Handle();
+            int count;
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_prepare_export(handle, out count));
+            vtkMaxActorData[] actors = new vtkMaxActorData[count];
+            for (int i = 0; i < count; i++)
+            {
+                VtkNativeExportActor exported;
+                VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_get_export_actor(handle, i, out exported));
+                Color color = Color.FromArgb(ToByte(exported.ColorA), ToByte(exported.ColorR), ToByte(exported.ColorG),
+                                             ToByte(exported.ColorB));
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = Marshal.PtrToStringAnsi(exported.Name);
+                if (exported.Wire != 0) data.ColorTable = new Color[] { color, color, color };
+                else data.ColorTable = new Color[] { color, Color.Black, Color.Black };
+                data.ColorContours = exported.ColorContours != 0;
+                data.Geometry = ToExchangeData(exported.Coordinates, exported.PointCount, exported.Triangles,
+                                               exported.TriangleCount, 3);
+                if (data.Geometry != null && exported.Values != IntPtr.Zero)
+                {
+                    data.Geometry.Nodes.Values = new float[exported.PointCount];
+                    Marshal.Copy(exported.Values, data.Geometry.Nodes.Values, 0, exported.PointCount);
+                }
+                data.ElementEdges = ToExchangeData(exported.ElementEdgeCoordinates, exported.ElementEdgePointCount,
+                                                   exported.ElementEdges, exported.ElementEdgeCount, 2);
+                data.ModelEdges = ToExchangeData(exported.ModelEdgeCoordinates, exported.ModelEdgePointCount,
+                                                 exported.ModelEdges, exported.ModelEdgeCount, 2);
+                actors[i] = data;
+            }
+            return actors;
+        }
+        private static int ToByte(double value)
+        {
+            return Math.Max(0, Math.Min(255, (int)Math.Round(value * 255)));
+        }
+        private static CaeGlobals.PartExchangeData ToExchangeData(IntPtr coordinates, int pointCount, IntPtr cells,
+                                                                  int cellCount, int cellSize)
+        {
+            if (coordinates == IntPtr.Zero || pointCount <= 0) return null;
+            double[] values = new double[3 * pointCount];
+            Marshal.Copy(coordinates, values, 0, values.Length);
+            int[] cellValues = new int[cellSize * cellCount];
+            if (cellValues.Length > 0) Marshal.Copy(cells, cellValues, 0, cellValues.Length);
+            CaeGlobals.PartExchangeData data = new CaeGlobals.PartExchangeData();
+            data.Nodes.Coor = new double[pointCount][];
+            for (int i = 0; i < pointCount; i++)
+                data.Nodes.Coor[i] = new double[] { values[3 * i], values[3 * i + 1], values[3 * i + 2] };
+            data.Cells.CellNodeIds = new int[cellCount][];
+            for (int i = 0; i < cellCount; i++)
+            {
+                data.Cells.CellNodeIds[i] = new int[cellSize];
+                Array.Copy(cellValues, cellSize * i, data.Cells.CellNodeIds[i], 0, cellSize);
+            }
+            return data;
+        }
+        // The cell of the mesh that holds the point, else the closest cell, with the weights of its points
+        public static bool LocatePointInMesh(VtkNativeMeshData mesh, double[] point, out int[] pointIndices,
+                                             out double[] weights, out double[] closest)
+        {
+            CheckLength(point, 3, "point");
+            const int capacity = 64;
+            int[] indices = new int[capacity];
+            double[] cellWeights = new double[capacity];
+            closest = new double[3];
+            int count;
+            int found;
+            using (VtkNativePinnedMesh pinned = mesh.Pin())
+            {
+                VtkNativeMesh nativeMesh = pinned.Mesh;
+                VtkNativeLibrary.Check(VtkNativeMethods.vtkn_locate_point_in_mesh(ref nativeMesh, point, indices, cellWeights,
+                                                                                   capacity, out count, closest, out found));
+            }
+            pointIndices = new int[count];
+            weights = new double[count];
+            Array.Copy(indices, pointIndices, count);
+            Array.Copy(cellWeights, weights, count);
+            return found != 0;
+        }
     }
 }

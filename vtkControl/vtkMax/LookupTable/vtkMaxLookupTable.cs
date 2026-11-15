@@ -7,7 +7,6 @@
 // Author: Matej Borovinšek
 // Contributors:
 
-using Kitware.VTK;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -49,31 +48,9 @@ namespace vtkControl
             _colors = colors;
             _smoothColors = smoothColors;
         }
-        public vtkMaxLookupTable(vtkLookupTable lookupTable)
-            : this(lookupTable, false)
-        {
-        }
-        public vtkMaxLookupTable(vtkLookupTable lookupTable, bool smoothColors)
-        {
-            _minValue = lookupTable.GetTableRange()[0];
-            _maxValue = lookupTable.GetTableRange()[1];
-            _smoothColors = smoothColors;
-            
-            int numberOfColors = (int)lookupTable.GetNumberOfColors();
-            _colors = new Color[numberOfColors];
-            for (int i = 0; i < numberOfColors; i++)
-            {
-                double[] rgba = lookupTable.GetTableValue(i);
-                _colors[i] = Color.FromArgb(
-                    (int)(rgba[3] * 255),
-                    (int)(rgba[0] * 255),
-                    (int)(rgba[1] * 255),
-                    (int)(rgba[2] * 255)
-                );
-            }
-        }
 
-        
+
+
         // Methods                                                                                                                  
         public double GetNormalizedValue(double value)
         {

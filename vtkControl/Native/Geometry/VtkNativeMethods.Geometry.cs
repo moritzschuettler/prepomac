@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int GeometryApiVersion = 9;
+        public const int GeometryApiVersion = 10;
 
 
         // Methods
@@ -161,5 +161,21 @@ namespace vtkControl.Native
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_get_actor_names(IntPtr view, byte[] buffer, int capacity,
                                                                        out int required);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_get_section_view_hidden_actors(IntPtr view, byte[] buffer,
+                                                                                      int capacity, out int required);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_crop_part_to_stl(IntPtr view, byte[] name, int shape,
+                                                                        double[] parameters, byte[] fileName);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_prepare_export(IntPtr view, out int actorCount);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_get_export_actor(IntPtr view, int index,
+                                                                        out VtkNativeExportActor actor);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_locate_point_in_mesh(ref VtkNativeMesh mesh, double[] point,
+                                                                       int[] pointIndices, double[] weights,
+                                                                       int capacity, out int count, double[] closest,
+                                                                       out int found);
     }
 }

@@ -7,13 +7,9 @@
 // Author: Matej Borovinšek
 // Contributors:
 
-using Kitware.VTK;
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace vtkControl
 {
@@ -21,14 +17,13 @@ namespace vtkControl
     {
         // Properties                                                                                                               
         public bool Active;
-        public vtkPlane Plane;
+        public double[] Point;
+        public double[] Normal;
         public bool LightenColors;
         public Color SectionColor;
         public bool ElementWise;
         public bool Hatch;
         public double HatchSpacing;
-        public Dictionary<string, int> HatchIndices;
-        public HashSet<int> KeptElementIds;
 
 
         // Constructors                                                                                                             
@@ -39,18 +34,13 @@ namespace vtkControl
         public SectionViewData(SectionViewData sectionViewData)
         {
             Active = sectionViewData.Active;
-            Plane = vtkPlane.New();
-            double[] origin = sectionViewData.Plane.GetOrigin();
-            double[] normal = sectionViewData.Plane.GetNormal();
-            Plane.SetOrigin(origin[0], origin[1], origin[2]);
-            Plane.SetNormal(normal[0], normal[1], normal[2]);
+            Point = sectionViewData.Point?.ToArray();
+            Normal = sectionViewData.Normal?.ToArray();
             LightenColors = sectionViewData.LightenColors;
             SectionColor = sectionViewData.SectionColor;
             ElementWise = sectionViewData.ElementWise;
             Hatch = sectionViewData.Hatch;
             HatchSpacing = sectionViewData.HatchSpacing;
-            HatchIndices = null;
-            KeptElementIds = null;
         }
 
 
@@ -58,14 +48,13 @@ namespace vtkControl
         public void Reset()
         {
             Active = false;
-            Plane = null;
+            Point = null;
+            Normal = null;
             LightenColors = true;
             SectionColor = Color.Empty;
             ElementWise = false;
             Hatch = false;
             HatchSpacing = 0;
-            HatchIndices = null;
-            KeptElementIds = null;
         }
         public SectionViewData DeepCopy()
         {

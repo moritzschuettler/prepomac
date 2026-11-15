@@ -7,45 +7,28 @@
 // Author: Matej Borovinšek
 // Contributors:
 
-using Kitware.VTK;
-using System;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace vtkControl
 {
+    // A caption or the labels of a layer: the world position of its text and the screen offset it is moved by
     public class vtkMaxCaptionActor : vtkMaxActor
     {
-        // Actors
-        private vtkActor2D _captionActor;
+        // Variables
         private double[] _position;
         private double[] _offsetVector;
 
 
-        // Properties                                                                                                               
-        public vtkActor2D CaptionActor { get { return _captionActor; } set { _captionActor = value; } }
+        // Properties
         public double[] Position { get { return _position; } set { _position = value; } }
         public double[] OffsetVector { get { return _offsetVector; } set { _offsetVector = value; } }
-        public override bool VtkMaxActorVisible
-        {
-            get { return _visible; }
-            set
-            {
-                _visible = value;
-                if (_captionActor != null) _captionActor.SetVisibility(_visible ? 1 : 0);
-            }
-        }
 
 
-        // Constructors                                                                                                             
-        public vtkMaxCaptionActor(string name, Color color, vtkActor2D captionActor)
+        // Constructors
+        public vtkMaxCaptionActor(string name, Color color)
             : base()
         {
             _name = name;
-            _captionActor = captionActor;
             //
             _actorRepresentation = vtkMaxActorRepresentation.Unknown;
             _backfaceCulling = true;
