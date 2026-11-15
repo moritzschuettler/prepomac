@@ -80,7 +80,6 @@
     <Compile Include="Enums\vtkResultWidgetContextMenuTypeEnum.cs" />
     <Compile Include="Enums\Selection\vtkSelectionContent.cs" />
     <Compile Include="Enums\Selection\vtkSelectionField.cs" />
-    <Compile Include="Extensions.cs" />
     <Compile Include="FaceNodeKey.cs" />
     <Compile Include="Globals.cs" />
     <Compile Include="SectionViewProperites.cs" />
@@ -117,6 +116,7 @@
     <Compile Include="Native\Geometry\VtkNativeSectionView.cs" />
     <Compile Include="Native\Geometry\VtkNativeColorSpectrum.cs" />
     <Compile Include="Native\Geometry\VtkNativeExtremeNodes.cs" />
+    <Compile Include="Native\Geometry\VtkNativeExportActor.cs" />
     <Compile Include="Native\Geometry\VtkNativeSymbol.cs" />
     <Compile Include="Native\Geometry\VtkNativeSymbolParameters.cs" />
     <Compile Include="Native\Selection\VtkNativeMethods.Selection.cs" />
@@ -141,8 +141,6 @@
     <Compile Include="Tools\Extensions.cs" />
     <Compile Include="Tools\AviWriter.cs" />
     <Compile Include="Tools\QuaternionHelper.cs" />
-    <Compile Include="Tools\SectionViewCap.cs" />
-    <Compile Include="Tools\SectionViewHatch.cs" />
     <Compile Include="Tools\PrecisionTouchpad.cs" />
     <Compile Include="Tools\TrackpadGestureRecognizer.cs" />
     <Compile Include="Tools\TrackpadNavigation.cs" />
@@ -163,9 +161,8 @@
     <Compile Include="vtkMax\Animation\vtkMaxAnimationFrameData.cs" />
     <Compile Include="vtkMax\Actor\vtkMaxExtreemeNode.cs" />
     <Compile Include="vtkMax\Animation\vtkMaxActorAnimationData.cs" />
+    <Compile Include="vtkMax\Animation\vtkMaxAnimationArrowAnchor.cs" />
     <Compile Include="vtkMax\CoorSys\00_vtkMaxCoorSysGeometry.cs" />
-    <Compile Include="vtkMax\CoorSys\01_vtkMaxCoorSysSymbol.cs" />
-    <Compile Include="vtkMax\CoorSys\vtkMaxCoorSysSymbols.cs" />
     <Compile Include="vtkMax\ColorSpectrum\vtkMaxColorSpectrum.cs" />
     <Compile Include="vtkMax\LookupTable\vtkMaxLookupTable.cs" />
     <Compile Include="vtkMax\Widget\00_vtkMaxWidgetHighlight.cs" />

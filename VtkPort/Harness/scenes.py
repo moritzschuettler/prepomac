@@ -142,7 +142,7 @@ def _surface_loads_mirrored(pmx):
 
     def run():
         actors = vtkport.get_field(vtkport.VTK, "_actors")
-        mirrored = vtkport.get_field(vtkport.VTK, "_nativeMirroredActors")
+        mirrored = vtkport.get_field(vtkport.VTK, "_nativeActors")
         errors = vtkport.get_field(vtkport.VTK, "_nativeMirrorErrors")
         names = [name for name in actors.Keys if "PortPressure" in name]
         if not names:

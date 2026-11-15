@@ -161,6 +161,12 @@ namespace vtkn
                            const float* coordinates, int pointCount, const float* values, const int32_t* lines,
                            int lineCount, const int32_t* vertices, int vertexCount,
                            const vtkn_extreme_nodes* extremes);
+        // The read-backs of vtkControl (Geometry/vtkNativeViewExport.cpp): the 3MF export, the actors the
+        // element-wise section view hides and the crop of a part
+        int PrepareExport();
+        void GetExportActor(int index, vtkn_export_actor& actor);
+        std::string GetSectionViewHiddenActors();
+        void CropPartToStl(const std::string& name, int shape, const double* parameters, const std::string& fileName);
 
         std::vector<uint8_t> ReadPixels(int magnification, int& width, int& height);
         void WritePng(const std::string& fileName, int magnification);
@@ -346,6 +352,21 @@ namespace vtkn
         // the cut keeps
         std::map<std::string, std::string> SectionViewSkinActorNames;
         std::set<int> SectionViewKeptElementIds;
+        struct ExportActor
+        {
+            std::string Name;
+            double Color[4];
+            bool Wire;
+            bool ColorContours;
+            std::vector<double> Coordinates;
+            std::vector<int32_t> Triangles;
+            std::vector<float> Values;
+            std::vector<double> ElementEdgeCoordinates;
+            std::vector<int32_t> ElementEdges;
+            std::vector<double> ModelEdgeCoordinates;
+            std::vector<int32_t> ModelEdges;
+        };
+        std::vector<ExportActor> ExportActors;
         std::vector<std::pair<vtkSmartPointer<vtkTransform>, int>> Transforms;
         std::map<std::string, std::vector<std::string>> TransformedCopies;
         // The part a transformed copy was made from, by the copy name

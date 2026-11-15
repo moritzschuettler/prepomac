@@ -1,10 +1,10 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#VTK native port, stream G: the follower view moves the camera of the native view as it moves the ActiViz camera.
-#A scale factor animation of the solved hinge is framed the same on both paths, the follower view is applied to one
-#node and then to three nodes of the lever, and after every frame the two cameras must agree. Writes
-#follower_view.json.
+#VTK native port, stream G: the follower view moves the camera of the native view as it moved the ActiViz camera.
+#A scale factor animation of the solved hinge is framed, the follower view is applied to one node and then to three
+#nodes of the lever, and after every frame the camera of the control and the native camera must agree. With a
+#reference run (PORT_REFERENCE) the camera must move as far as the ActiViz camera moved. Writes follower_view.json.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Follower_View.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -42,10 +42,9 @@ def check(condition, text, detail=""):
 def node_ids(part_name, count):
     def run():
         actors = vtkport.get_field(VTK, "_actors")
-        data = actors[part_name].GeometryMapper.GetInputAsDataSet()
-        ids = data.GetPointData().GetGlobalIds()
-        number = data.GetNumberOfPoints()
-        return [int(ids.GetValue(int(i * number / count))) for i in range(count)]
+        ids = actors[part_name].Data.Geometry.Nodes.Ids
+        number = ids.Length
+        return [int(ids[int(i * number / count)]) for i in range(count)]
     return on_ui(run)
 
 
@@ -68,6 +67,10 @@ def run_follower(label, part_names, ids, record):
     on_ui(VTK.RemoveFollowerView)
     check(moved > 1e-4, label + ": the follower view moved the camera", moved)
     check(max(differences) <= TOLERANCE, label + ": the cameras agree at every frame", max(differences))
+    reference_moved = vtkport.reference_value("follower_view.json", label, "moved")
+    if reference_moved is not None:
+        check(abs(moved - reference_moved) <= 1e-6 * max(1.0, reference_moved),
+              label + ": the camera moved as far as the ActiViz camera", [moved, reference_moved])
     record[label] = {"part_names": part_names, "node_ids": ids, "differences": differences, "moved": moved}
 
 

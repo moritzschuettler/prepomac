@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_GEOMETRY_API_VERSION 9
+#define VTKN_GEOMETRY_API_VERSION 10
 
 /* Mirrors vtkRendererLayer of vtkControl: the base layer, the selection layer drawn over it, the overlay layer */
 typedef enum vtkn_layer
@@ -225,7 +225,8 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actor_color(vtkn_view view, const c
 /* UpdateActor with a new name: the actor is known by it from now on, with its children, transformed copies and
    section view; an unknown name is left as it is */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_rename_actor(vtkn_view view, const char* old_name, const char* new_name);
-/* HighlightActor: a copy of the model edges of a base actor, or its silhouette, in the selection layer */
+/* HighlightActor: a copy of the model edges of a base actor, or its silhouette, in the selection layer; of a part the
+   section view cuts also the outline of its section faces */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_highlight_actor(vtkn_view view, const char* name);
 /* HideActors and ShowActors; names is a string list: every name followed by a zero byte, and one more zero byte */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_hide_show_actors(vtkn_view view, const char* names, int32_t visible);
@@ -368,6 +369,51 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_get_actor_batches(vtkn_view view, int32
    actor again, for comparing. The count is the number of actors put back since the view was created */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_cleared_actor_reuse(vtkn_view view, int32_t enabled);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_get_reused_actor_count(vtkn_view view, int32_t* count);
+/* The base actors whose faces the element-wise section view replaced by their skins (GeometryHiddenBySectionView
+   of vtkMaxActor), as a string list */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_get_section_view_hidden_actors(vtkn_view view, char* buffer,
+                                                                         int32_t capacity, int32_t* required);
+/* CropPartWithCylinder (shape 0; parameters: the radius of a cylinder along the y axis) and CropPartWithCube (shape
+   1; parameters: the center and the edge length of the cube): the surface of the part clipped by the shape,
+   decimated and written to an STL file */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_crop_part_to_stl(vtkn_view view, const char* name, int32_t shape,
+                                                           const double* parameters, const char* file_name);
+
+/* An actor as the 3MF export takes it (GetVtkMaxActorData of vtkControl): its color (RGBA in [0, 1]), whether it is a
+   wire (its lines are its model edges), whether it is colored by its values; the triangles of its faces with their
+   point values (null without color contours), and the line segments of its element edges and model edges. A part
+   left out is a null pointer with a count of 0. The arrays belong to the view until the next export */
+typedef struct vtkn_export_actor
+{
+    const char* name;
+    double color[4];
+    int32_t wire;
+    int32_t color_contours;
+    const double* coordinates3;
+    int32_t point_count;
+    const int32_t* triangles3;
+    int32_t triangle_count;
+    const float* values;
+    const double* element_edge_coordinates3;
+    int32_t element_edge_point_count;
+    const int32_t* element_edges2;
+    int32_t element_edge_count;
+    const double* model_edge_coordinates3;
+    int32_t model_edge_point_count;
+    const int32_t* model_edges2;
+    int32_t model_edge_count;
+} vtkn_export_actor;
+/* Collects the visible actors of the base and overlay layers as they are drawn; actor_count is their number */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_prepare_export(vtkn_view view, int32_t* actor_count);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_get_export_actor(vtkn_view view, int32_t index, vtkn_export_actor* actor);
+
+/* The cell of a mesh that holds a point, or the cell closest to it, and the interpolation weights of its points at
+   the point (or at the closest point of the cell): point_indices and weights of capacity values, count of them set,
+   closest3 the point they interpolate. The anchor of an annotation that follows an animation. found is 0 when the
+   mesh has no cell */
+VTKN_API vtkn_status VTKN_CALL vtkn_locate_point_in_mesh(const vtkn_mesh* mesh, const double* point3,
+                                                          int32_t* point_indices, double* weights, int32_t capacity,
+                                                          int32_t* count, double* closest3, int32_t* found);
 
 /* Actors are named; adding a name that exists replaces that actor.
    points: point_count * 3 coordinates. cells: for each cell its node count followed by its point indices

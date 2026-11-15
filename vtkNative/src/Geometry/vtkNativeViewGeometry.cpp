@@ -399,6 +399,11 @@ namespace vtkn
         }
         highlight->GetGeometry()->PickableOff();
         AddActor("highlight", std::move(highlight));
+        // The section faces of a cut part are highlighted by their outline, as HighlightActor highlighted the
+        // section view actor of the part by its name
+        if (!SectionViewActive) return;
+        auto sectionName = SectionViewActorNames.find(name);
+        if (sectionName != SectionViewActorNames.end() && sectionName->second != name) HighlightActor(sectionName->second);
     }
 
     // Port of HideShowActors: the animation frames and the undeformed shape of a part follow it by their name, the

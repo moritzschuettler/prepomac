@@ -8,184 +8,67 @@
 // Contributors:
 
 using System;
-using System.Runtime.InteropServices;
-using Kitware.VTK;
 using CaeGlobals;
 
 namespace vtkControl
 {
+    // One animation frame of an actor: the coordinates of its points (null when they do not move), its values and
+    // their extreme nodes
     public class vtkMaxActorAnimationData
     {
-        // Variables                                                                                                                
-        private vtkPoints _points;
-        private vtkDataArray _pointNormals;
-        private vtkPoints _modelEdgesPoints;
-        private vtkFloatArray _values;
+        // Variables
+        private float[] _coordinates;
+        private float[] _values;
         private vtkMaxExtreemeNode _minNode;
         private vtkMaxExtreemeNode _maxNode;
-        private vtkPoints _locatorPoints;
-        private vtkFloatArray _locatorValues;
         private ResultFieldExchangeData _resultField;
-        private ResultFieldExchangeData _locatorResultField;
 
 
-        // Properties                                                                                                               
-        public vtkPoints Points { get { return _points; } set { _points = value; } }
-        public vtkDataArray PointNormals { get { return _pointNormals; } set { _pointNormals = value; } }
-        public vtkPoints ModelEdgesPoints { get { return _modelEdgesPoints; } set { _modelEdgesPoints = value; } }
-        public vtkFloatArray Values { get { return _values; } set { _values = value; } }
-        public vtkMaxExtreemeNode MinNode { get { return _minNode; } set { _minNode = value; } }
-        public vtkMaxExtreemeNode MaxNode { get { return _maxNode; } set { _maxNode = value; } }
-        public vtkPoints LocatorPoints { get { return _locatorPoints; } set { _locatorPoints = value; } }
-        public vtkFloatArray LocatorValues { get { return _locatorValues; } set { _locatorValues = value; } }
+        // Properties
+        public float[] Coordinates { get { return _coordinates; } }
+        public float[] Values { get { return _values; } }
+        public vtkMaxExtreemeNode MinNode { get { return _minNode; } }
+        public vtkMaxExtreemeNode MaxNode { get { return _maxNode; } }
         public ResultFieldExchangeData ResultField { get { return _resultField; } }
-        public ResultFieldExchangeData LocatorResultField { get { return _locatorResultField; } }
 
-        // Constructors                                                                                                             
-        public vtkMaxActorAnimationData(NodesExchangeData nodes, NodesExchangeData modelEdgesNodes,
-                                        NodesExchangeData extremeNodes, NodesExchangeData locatorNodes)
+
+        // Constructors
+        public vtkMaxActorAnimationData(NodesExchangeData nodes, NodesExchangeData extremeNodes)
         {
-            // Nodes
-            _points = CreatePoints(nodes);
-            // Normals
-            _pointNormals = null;
-            // Model edges nodes
-            _modelEdgesPoints = CreatePoints(modelEdgesNodes);
-            // Values
-            _values = CreateValues(nodes?.Values);
-            // Extreme nodes
-            if (extremeNodes == null)
-            {
-                _minNode = null;
-                _maxNode = null;
-            }
-            else
+            _coordinates = GetCoordinates(nodes);
+            _values = nodes?.Values;
+            if (extremeNodes != null)
             {
                 _minNode = new vtkMaxExtreemeNode(extremeNodes.Ids[0], extremeNodes.Coor[0], extremeNodes.Values[0]);
                 _maxNode = new vtkMaxExtreemeNode(extremeNodes.Ids[1], extremeNodes.Coor[1], extremeNodes.Values[1]);
             }
-            // Locator nodes
-            _locatorPoints = CreatePoints(locatorNodes);
-            // Locator values
-            _locatorValues = CreateValues(locatorNodes?.Values);
             // Complete result components used by transformed actor copies
             _resultField = nodes?.ResultField;
-            _locatorResultField = locatorNodes?.ResultField;
         }
 
-        public void SetLocatorData(NodesExchangeData locatorNodes)
-        {
-            if (locatorNodes == null) return;
-            _locatorPoints = CreatePoints(locatorNodes);
-            _locatorValues = CreateValues(locatorNodes.Values);
-            _locatorResultField = locatorNodes.ResultField;
-        }
 
-        public void ClearLocatorData()
-        {
-            _locatorPoints = null;
-            _locatorValues = null;
-            _locatorResultField = null;
-        }
-
-        private static vtkPoints CreatePoints(NodesExchangeData nodes)
+        // Methods
+        private static float[] GetCoordinates(NodesExchangeData nodes)
         {
             if (nodes == null) return null;
-            if (nodes.FlatCoor != null) return CreatePoints(nodes.FlatCoor);
-            return CreatePoints(nodes.Coor);
-        }
-
-        private static vtkPoints CreatePoints(double[][] nodes)
-        {
-            if (nodes == null) return null;
-
-            float[] coordinates = new float[3 * nodes.Length];
-            int count = 0;
-            for (int i = 0; i < nodes.Length; i++)
-            {
-                coordinates[count++] = (float)nodes[i][0];
-                coordinates[count++] = (float)nodes[i][1];
-                coordinates[count++] = (float)nodes[i][2];
-            }
-            return CreatePoints(coordinates);
-        }
-
-        private static vtkPoints CreatePoints(float[] coordinates)
-        {
-            if (coordinates == null) return null;
-
-            vtkFloatArray vtkCoordinates = vtkFloatArray.New();
-            vtkCoordinates.SetNumberOfComponents(3);
-            IntPtr pointer = vtkCoordinates.WriteVoidPointer(0, coordinates.Length);
-            Marshal.Copy(coordinates, 0, pointer, coordinates.Length);
-            vtkCoordinates.DataChanged();
-
-            vtkPoints points = vtkPoints.New();
-            points.SetData(vtkCoordinates);
-            return points;
-        }
-
-        private static vtkFloatArray CreateValues(float[] values)
-        {
-            if (values == null) return null;
-
-            vtkFloatArray vtkValues = vtkFloatArray.New();
-            vtkValues.SetName(Globals.ScalarArrayName);
-            vtkValues.SetNumberOfComponents(1);
-            IntPtr pointer = vtkValues.WriteVoidPointer(0, values.Length);
-            Marshal.Copy(values, 0, pointer, values.Length);
-            vtkValues.DataChanged();
-            return vtkValues;
-        }
-
-        public double GetActualMemorySizeKb()
-        {
-            double memorySize = 0;
-            if (_points != null && _points.GetData() != null)
-                memorySize += _points.GetData().GetActualMemorySize();
-            if (_pointNormals != null) memorySize += _pointNormals.GetActualMemorySize();
-            if (_modelEdgesPoints != null && _modelEdgesPoints.GetData() != null)
-                memorySize += _modelEdgesPoints.GetData().GetActualMemorySize();
-            if (_values != null) memorySize += _values.GetActualMemorySize();
-            if (_locatorPoints != null && _locatorPoints.GetData() != null)
-                memorySize += _locatorPoints.GetData().GetActualMemorySize();
-            if (_locatorValues != null) memorySize += _locatorValues.GetActualMemorySize();
-            return memorySize;
-        }
-    }
-
-    class vtkMaxAnimationArrowAnchor
-    {
-        private vtkPointSet _pointSet;
-        private long[] _pointIds;
-        private double[] _weights;
-        private double[] _offset;
-        private vtkMaxActor _volumeGridActor;
-
-        public vtkMaxAnimationArrowAnchor(vtkPointSet pointSet, long[] pointIds, double[] weights, double[] offset,
-                                          vtkMaxActor volumeGridActor)
-        {
-            _pointSet = pointSet;
-            _pointIds = pointIds;
-            _weights = weights;
-            _offset = offset;
-            _volumeGridActor = volumeGridActor;
-        }
-
-        public double[] GetAnchorPoint()
-        {
-            // An anchor inside a part only needs its own points at the displayed frame
-            if (_volumeGridActor != null) _volumeGridActor.EnsureVolumeGridPoints(_pointIds);
+            if (nodes.FlatCoor != null) return nodes.FlatCoor;
+            if (nodes.Coor == null) return null;
             //
-            double[] anchorPoint = new double[] { _offset[0], _offset[1], _offset[2] };
-            for (int i = 0; i < _pointIds.Length; i++)
+            float[] coordinates = new float[3 * nodes.Coor.Length];
+            for (int i = 0; i < nodes.Coor.Length; i++)
             {
-                double[] point = _pointSet.GetPoint(_pointIds[i]);
-                anchorPoint[0] += _weights[i] * point[0];
-                anchorPoint[1] += _weights[i] * point[1];
-                anchorPoint[2] += _weights[i] * point[2];
+                coordinates[3 * i] = (float)nodes.Coor[i][0];
+                coordinates[3 * i + 1] = (float)nodes.Coor[i][1];
+                coordinates[3 * i + 2] = (float)nodes.Coor[i][2];
             }
-            return anchorPoint;
+            return coordinates;
+        }
+        public double GetMemorySizeKb()
+        {
+            double bytes = 0;
+            if (_coordinates != null) bytes += _coordinates.Length * sizeof(float);
+            if (_values != null) bytes += _values.Length * sizeof(float);
+            return bytes / 1024;
         }
     }
 }

@@ -13,7 +13,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Drawing;
-using Kitware.VTK;
 using CaeGlobals;
 
 namespace vtkControl
@@ -112,10 +111,45 @@ namespace vtkControl
         }
 
         // Methods                                                                                                                  
+        // The triangles the surface cells are drawn with (AddCellDataToPoly of vtkMaxActor); a cell that is not a
+        // surface has no triangles to export
         public double[][][] GetStlTriangles()
         {
-            vtkMaxActor actor = new vtkMaxActor(this);
-            return actor.GetStlTriangles();
+            List<double[][]> triangles = new List<double[][]>();
+            double[][] coor = Geometry.Nodes.Coor;
+            int[][] cells = Geometry.Cells.CellNodeIds ?? new int[0][];
+            for (int i = 0; i < cells.Length; i++)
+            {
+                foreach (int[] triangle in GetTriangles(cells[i], Geometry.Cells.Types[i], coor))
+                    triangles.Add(new double[][] { coor[triangle[0]], coor[triangle[1]], coor[triangle[2]] });
+            }
+            return triangles.ToArray();
+        }
+        public static int[][] GetTriangles(int[] n, int cellType, double[][] coor)
+        {
+            switch (cellType)
+            {
+                case 5:     // VTK_TRIANGLE
+                    return new int[][] { new int[] { n[0], n[1], n[2] } };
+                case 9:     // VTK_QUAD
+                    return new int[][] { new int[] { n[0], n[1], n[2] }, new int[] { n[0], n[2], n[3] } };
+                case 22:    // VTK_QUADRATIC_TRIANGLE
+                    return new int[][] { new int[] { n[0], n[3], n[5] }, new int[] { n[3], n[4], n[5] },
+                                         new int[] { n[3], n[1], n[4] }, new int[] { n[5], n[4], n[2] } };
+                case 23:    // VTK_QUADRATIC_QUAD
+                    double d1 = Vec3D.GetDirVec(coor[n[4]], coor[n[6]]).Len2;
+                    double d2 = Vec3D.GetDirVec(coor[n[5]], coor[n[7]]).Len2;
+                    if (d1 < d2)
+                        return new int[][] { new int[] { n[7], n[0], n[4] }, new int[] { n[7], n[4], n[6] },
+                                             new int[] { n[7], n[6], n[3] }, new int[] { n[5], n[4], n[1] },
+                                             new int[] { n[5], n[6], n[4] }, new int[] { n[5], n[2], n[6] } };
+                    else
+                        return new int[][] { new int[] { n[4], n[7], n[0] }, new int[] { n[4], n[5], n[7] },
+                                             new int[] { n[4], n[1], n[5] }, new int[] { n[6], n[5], n[2] },
+                                             new int[] { n[6], n[7], n[5] }, new int[] { n[6], n[3], n[7] } };
+                default:
+                    throw new NotSupportedException();
+            }
         }
     }
 }

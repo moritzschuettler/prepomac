@@ -11,40 +11,35 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using CaeGlobals;
-using Kitware.VTK;
 using vtkControl.Native;
 
 namespace vtkControl
 {
-    // The geometry area of the native port: the hooks of the geometry regions send every change to the native view
-    // while the area is on. A mirrored call that fails is recorded rather than thrown, so the old path keeps working
-    // and the checks report the failure
+    // The geometry area: the regions of the geometry keep the actors as vtkMaxActor and the native view draws them. A
+    // native call that fails is recorded rather than thrown, so that the control keeps working and the checks report
+    // the failure
     public partial class vtkControl
     {
         // Variables
-        private readonly ConditionalWeakTable<vtkMaxActor, Tuple<vtkMaxActorData, bool>> _nativeActorData =
-            new ConditionalWeakTable<vtkMaxActor, Tuple<vtkMaxActorData, bool>>();
-        private readonly HashSet<vtkMaxActor> _nativeMirroredActors = new HashSet<vtkMaxActor>();
+        private readonly HashSet<vtkMaxActor> _nativeActors = new HashSet<vtkMaxActor>();
         private readonly List<string> _nativeMirrorErrors = new List<string>();
         private bool _nativeMirrorAllGeometry;
-        private readonly ConditionalWeakTable<vtkMaxActor, string> _nativeCopyNames =
-            new ConditionalWeakTable<vtkMaxActor, string>();
+        private bool _nativePartsOnly;
         private int _nativeTransformIndex;
 
 
         // Methods
-        // The parts only mode of the checks keeps every mirrored actor of the geometry area drawn, in every layer,
-        // instead of the parts alone
+        // The parts only mode of the checks keeps every actor of the geometry area drawn, in every layer, instead of
+        // the base layer alone
         public void SetNativeMirrorAllGeometry(bool allGeometry)
         {
             _nativeMirrorAllGeometry = allGeometry;
         }
-        // The parts only mode of the pilot checks: the native view keeps the base layer only, as ActiViz then draws
-        private void MirrorPartsOnly()
+        // The parts only mode of the checks: the native view keeps the base layer only
+        private void ClearToBaseLayer()
         {
-            MirrorGeometry("PartsOnly", () =>
+            RunNative("PartsOnly", () =>
             {
                 _nativeMirror.Clear(VtkNativeClear.Overlay);
                 _nativeMirror.Clear(VtkNativeClear.Selection);
@@ -58,7 +53,11 @@ namespace vtkControl
         {
             return _nativeMirror != null && (_nativeAreas & VtkNativeArea.Geometry) != 0;
         }
-        private void MirrorGeometry(string operation, Action action)
+        private bool IsNativeLayerDrawn(vtkRendererLayer layer)
+        {
+            return !_nativePartsOnly || _nativeMirrorAllGeometry || layer == vtkRendererLayer.Base;
+        }
+        private void RunNative(string operation, Action action)
         {
             if (!IsNativeGeometryOn()) return;
             try
@@ -70,53 +69,40 @@ namespace vtkControl
                 _nativeMirrorErrors.Add(operation + ": " + ex.Message);
             }
         }
-        // AddCells and AddPoints: the actor is built natively from the data the ActiViz actor was built from, with
-        // the name and the visibility the ActiViz actor ended up with
-        private void MirrorActor(vtkMaxActorData data, vtkMaxActor actor, bool nodal)
+        // AddCells, AddPoints and the actors added again: the actor is built natively from the data it was built
+        // from, with what changed on it since
+        private void AddNativeActor(vtkMaxActor actor)
         {
-            if (data == null || data.Geometry == null) return;
-            // The Controller keeps the surfaces and node sets it draws in its selection buffer and adds them again
-            // without their data, also after the native view is switched on; the parts it builds again every time
-            if (!data.IsAPart || IsNativeGeometryOn())
+            vtkMaxActorData data = actor.Data;
+            if (data == null || data.Geometry == null || !IsNativeGeometryOn() || !IsNativeLayerDrawn(actor.Layer)) return;
+            RunNative("AddActor " + actor.Name, () =>
             {
-                _nativeActorData.Remove(actor);
-                _nativeActorData.Add(actor, Tuple.Create(data, nodal));
-            }
-            if (!IsNativeGeometryOn()) return;
-            // The parts only mode of the pilot checks keeps the native view to the base layer, as it was before
-            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry && data.Layer != vtkRendererLayer.Base) return;
-            MirrorGeometry("AddActor " + actor.Name, () =>
-            {
-                VtkNativePartStyle style = VtkNativePartStyle.FromActorData(data);
-                style.Ambient = actor.Ambient;
-                style.Diffuse = actor.Diffuse;
-                style.Visible = actor.VtkMaxActorVisible ? 1 : 0;
-                style.Nodal = nodal ? 1 : 0;
-                _nativeMirror.AddActor(actor.Name, actor.ParentName, style,
+                _nativeMirror.AddActor(actor.Name, actor.ParentName, actor.GetNativeStyle(),
                                        VtkNativeMeshData.FromPartExchangeData(data.Geometry),
                                        VtkNativeMeshData.FromPartExchangeData(data.ModelEdges),
-                                       VtkNativeMeshData.FromPartExchangeData(data.ModelEdgesToDraw));
-                _nativeMirroredActors.Add(actor);
-                if (data.Layer == vtkRendererLayer.Base && data.IsAPart) _nativeMirrorNames.Add(actor.Name);
-                MirrorActorColors(data, actor.Name);
+                                       VtkNativeMeshData.FromPartExchangeData(actor.ModelEdgesToDraw));
+                _nativeActors.Add(actor);
+                if (actor.Layer == vtkRendererLayer.Base && actor.IsAPart) _nativeMirrorNames.Add(actor.Name);
+                SetNativeActorColors(actor);
+                double[] offset = actor.ExplodedOffset;
+                if (offset[0] != 0 || offset[1] != 0 || offset[2] != 0)
+                    _nativeMirror.SetExplodedViewOffsets(new string[] { actor.Name }, new double[][] { offset });
             });
         }
         // The symbol methods: the native view builds the symbol from the points and normals of the data, and draws
         // its silhouette edges when this control draws them
-        private void MirrorSymbol(vtkMaxActor actor, vtkMaxActorData data, VtkNativeSymbol kind, double symbolSize,
-                                  int joint = 0, bool invert = false, bool center = false, double relativeSize = 1)
+        private void AddNativeSymbol(vtkMaxActor actor, vtkMaxActorData data, VtkNativeSymbol kind, double symbolSize,
+                                     int joint = 0, bool invert = false, bool center = false, double relativeSize = 1)
         {
-            if (!IsNativeGeometryOn()) return;
-            MirrorSymbol(actor, data, kind, symbolSize, data.Geometry.Nodes.Coor, data.Geometry.Nodes.Normals, joint,
-                         invert, center, relativeSize);
+            AddNativeSymbol(actor, data, kind, symbolSize, data.Geometry.Nodes.Coor, data.Geometry.Nodes.Normals, joint,
+                            invert, center, relativeSize);
         }
-        private void MirrorSymbol(vtkMaxActor actor, vtkMaxActorData data, VtkNativeSymbol kind, double symbolSize,
-                                  double[][] points, double[][] normals, int joint = 0, bool invert = false,
-                                  bool center = false, double relativeSize = 1)
+        private void AddNativeSymbol(vtkMaxActor actor, vtkMaxActorData data, VtkNativeSymbol kind, double symbolSize,
+                                     double[][] points, double[][] normals, int joint = 0, bool invert = false,
+                                     bool center = false, double relativeSize = 1)
         {
-            if (!IsNativeGeometryOn()) return;
-            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry && data.Layer != vtkRendererLayer.Base) return;
-            MirrorGeometry("AddSymbol " + actor.Name, () =>
+            if (!IsNativeLayerDrawn(data.Layer)) return;
+            RunNative("AddSymbol " + actor.Name, () =>
             {
                 List<double> pointValues = new List<double>();
                 foreach (double[] point in points ?? new double[0][])
@@ -140,19 +126,16 @@ namespace vtkControl
                 parameters.Center = center ? 1 : 0;
                 parameters.DrawEdges = _drawSymbolEdges ? 1 : 0;
                 _nativeMirror.AddSymbolActor(actor.Name, style, pointValues.ToArray(), normalValues, parameters);
-                _nativeMirroredActors.Add(actor);
-                vtkMaxActor edges = FindLayerActor(actor.Name + Globals.NameSeparator + "silhouette", data.Layer);
-                if (edges != null) _nativeMirroredActors.Add(edges);
+                _nativeActors.Add(actor);
             });
         }
         // AddVectorFieldActor, AddTensorFieldActor and the animated plots: the line arrows of pointsPerArrow points
         // each, followed by the points of the nodes, which the native view draws unlit in the colors of their values
-        private void MirrorGlyphActor(vtkMaxActor actor, vtkMaxActorData data, float[] coordinates, float[] values,
-                                      int arrowCount, int pointsPerArrow, int vertexCount)
+        private void AddNativeGlyphActor(vtkMaxActor actor, vtkMaxActorData data, float[] coordinates, float[] values,
+                                         int arrowCount, int pointsPerArrow, int vertexCount)
         {
-            if (!IsNativeGeometryOn()) return;
-            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry && data.Layer != vtkRendererLayer.Base) return;
-            MirrorGeometry("AddGlyphActor " + actor.Name, () =>
+            if (!IsNativeLayerDrawn(data.Layer)) return;
+            RunNative("AddGlyphActor " + actor.Name, () =>
             {
                 int[] lines = new int[8 * arrowCount];
                 for (int i = 0; i < arrowCount; i++)
@@ -171,63 +154,59 @@ namespace vtkControl
                 style.Visible = actor.VtkMaxActorVisible ? 1 : 0;
                 _nativeMirror.AddGlyphActor(actor.Name, actor.ParentName, style, coordinates ?? new float[0],
                                             values ?? new float[0], lines, vertices, extremes);
-                _nativeMirroredActors.Add(actor);
+                _nativeActors.Add(actor);
             });
         }
-        // AddCaptionActor and AddLabelActor: the text of CreateNewTextProperty at its scaled size
-        private void MirrorCaption(vtkMaxCaptionActor actor, string caption, double[] position, double[] offset,
-                                   double fontScaleFactor, vtkRendererLayer layer)
+        // AddCaptionActor and AddLabelActor: the text at its scaled size
+        private void AddNativeCaption(vtkMaxCaptionActor actor, string caption, double[] position, double[] offset,
+                                      double fontScaleFactor, vtkRendererLayer layer)
         {
-            if (!IsNativeGeometryOn()) return;
-            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry && layer != vtkRendererLayer.Base) return;
-            MirrorGeometry("AddCaption " + actor.Name, () =>
+            if (!IsNativeLayerDrawn(layer)) return;
+            RunNative("AddCaption " + actor.Name, () =>
             {
                 _nativeMirror.AddCaption(actor.Name, caption, position, offset, (int)(16 * fontScaleFactor),
                                          VtkNativePartStyle.ToNativeLayer(layer), actor.UseSecondaryHighlightColor);
-                _nativeMirroredActors.Add(actor);
+                _nativeActors.Add(actor);
             });
         }
-        private void MirrorLabels(vtkMaxCaptionActor actor, double[][] positions, string[] labels, Color color,
-                                  double fontScaleFactor, vtkRendererLayer layer)
+        private void AddNativeLabels(vtkMaxCaptionActor actor, double[][] positions, string[] labels, Color color,
+                                     double fontScaleFactor, vtkRendererLayer layer)
         {
-            if (!IsNativeGeometryOn()) return;
-            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry && layer != vtkRendererLayer.Base) return;
-            MirrorGeometry("AddLabels " + actor.Name, () =>
+            if (!IsNativeLayerDrawn(layer)) return;
+            RunNative("AddLabels " + actor.Name, () =>
             {
                 _nativeMirror.AddLabels(actor.Name, positions, labels, color, (int)(16 * fontScaleFactor),
                                         VtkNativePartStyle.ToNativeLayer(layer));
-                _nativeMirroredActors.Add(actor);
+                _nativeActors.Add(actor);
             });
         }
         // UpdateMeasurementAnnotation, UpdateOverlayPointsActor and UpdateOverlayCaptionActorPosition: the overlay
         // actors keep their cells and move their points
-        private void MirrorActorPoints(vtkMaxActor actor, double[][] coordinates, double[][] normals)
+        private void SetNativeActorPoints(vtkMaxActor actor, double[][] coordinates, double[][] normals)
         {
-            if (actor == null || !_nativeMirroredActors.Contains(actor)) return;
-            MirrorGeometry("SetActorPoints " + actor.Name, () =>
+            if (actor == null || !_nativeActors.Contains(actor)) return;
+            RunNative("SetActorPoints " + actor.Name, () =>
                 _nativeMirror.SetActorPoints(actor.Name, VtkNativePartStyle.ToNativeLayer(actor.Layer), coordinates, normals));
         }
-        private void MirrorCaptionPosition(vtkMaxActor actor, double[] position)
+        private void SetNativeCaptionPosition(vtkMaxActor actor, double[] position)
         {
-            if (actor == null || !_nativeMirroredActors.Contains(actor)) return;
-            MirrorGeometry("SetCaptionPosition " + actor.Name, () => _nativeMirror.SetCaptionPosition(actor.Name, position));
+            if (actor == null || !_nativeActors.Contains(actor)) return;
+            RunNative("SetCaptionPosition " + actor.Name, () => _nativeMirror.SetCaptionPosition(actor.Name, position));
         }
         // AddCoordinateSystemSymbol and AddMaterialAxesSymbol
-        private void MirrorCoordinateSystemSymbol(double[] origin, double[][] axisDirections, string[] labels,
-                                                  double symbolSize, vtkRendererLayer layer, bool materialAxes)
+        private void AddNativeCoordinateSystemSymbol(double[] origin, double[][] axisDirections, string[] labels,
+                                                     double symbolSize, vtkRendererLayer layer, bool materialAxes)
         {
-            if (!IsNativeGeometryOn()) return;
-            if (_nativeMirrorHiddenProps != null && !_nativeMirrorAllGeometry) return;
-            MirrorGeometry("AddCoordinateSystemSymbol", () =>
+            if (_nativePartsOnly && !_nativeMirrorAllGeometry) return;
+            RunNative("AddCoordinateSystemSymbol", () =>
                 _nativeMirror.AddCoordinateSystemSymbol(origin, axisDirections, labels, symbolSize,
                                                         VtkNativePartStyle.ToNativeLayer(layer), materialAxes));
         }
-        // UpdateFollowerViewPint and UpdateFollowerViewPlane: the camera of the native view moves as the camera of this
-        // control did, its points by the rotation and the translation and its view up by the rotation, and is then
-        // fitted as AdjustCameraDistanceAndClipping fits it
-        private void MirrorFollowerView(double[][] rotation, double[] translation)
+        // UpdateFollowerViewPint and UpdateFollowerViewPlane: the camera moves, its points by the rotation and the
+        // translation and its view up by the rotation
+        private void MoveNativeCamera(double[][] rotation, double[] translation)
         {
-            MirrorGeometry("FollowerView", () =>
+            RunNative("FollowerView", () =>
             {
                 double[] camera = _nativeMirror.GetCamera();
                 double[] moved = new double[10];
@@ -244,56 +223,59 @@ namespace vtkControl
                 _nativeMirror.SetViewParameters(moved);
             });
         }
-        // A step of the animation of PreviewExplodedView: the positions the parts have reached
-        private void MirrorExplodedViewStep(IEnumerable<string> partNames)
+        // PreviewExplodedView and RemovePreviewedExplodedView: the positions the parts have reached
+        private void SetNativeExplodedViewOffsets(IEnumerable<string> partNames)
         {
-            MirrorGeometry("PreviewExplodedView step", () =>
+            RunNative("PreviewExplodedView", () =>
             {
                 List<string> names = new List<string>();
                 List<double[]> positions = new List<double[]>();
                 foreach (string partName in partNames)
                 {
                     vtkMaxActor actor;
-                    if (!_actors.TryGetValue(partName, out actor) || actor.Geometry == null) continue;
+                    if (!_actors.TryGetValue(partName, out actor)) continue;
                     names.Add(partName);
-                    positions.Add(actor.Geometry.GetPosition());
+                    positions.Add(actor.ExplodedOffset);
                 }
                 _nativeMirror.SetExplodedViewOffsets(names.ToArray(), positions.ToArray());
             });
         }
-        private vtkMaxActor FindLayerActor(string name, vtkRendererLayer layer)
+        private static VtkNativeExtremeNodes? GetNativeExtremes(vtkMaxExtreemeNode minNode, vtkMaxExtreemeNode maxNode)
         {
-            vtkMaxActor actor;
-            if (layer == vtkRendererLayer.Base && _actors.TryGetValue(name, out actor)) return actor;
-            if (layer == vtkRendererLayer.Overlay && _overlayActors.TryGetValue(name, out actor)) return actor;
-            if (layer == vtkRendererLayer.Selection)
-            {
-                foreach (vtkMaxActor selected in _selectedActors) if (selected.Name == name) return selected;
-            }
-            return null;
+            if (minNode == null || maxNode == null || minNode.Coor == null || maxNode.Coor == null) return null;
+            NodesExchangeData extremeNodes = new NodesExchangeData();
+            extremeNodes.Ids = new int[] { minNode.Id, maxNode.Id };
+            extremeNodes.Coor = new double[][] { minNode.Coor, maxNode.Coor };
+            extremeNodes.Values = new float[] { minNode.Value, maxNode.Value };
+            return VtkNativeExtremeNodes.FromNodesExchangeData(extremeNodes);
         }
-        // The result values, extreme nodes, cell values and color table vtkMaxActor takes from its data
-        private void MirrorActorColors(vtkMaxActorData data, string name)
+        // The result values, extreme nodes, cell values and color table of an actor
+        private void SetNativeActorColors(vtkMaxActor actor)
         {
-            PartExchangeData geometry = data.Geometry;
-            if (geometry.Nodes.Values != null && data.Layer == vtkRendererLayer.Base)
+            PartExchangeData geometry = actor.Data.Geometry;
+            if (actor.Layer == vtkRendererLayer.Base)
             {
-                VtkNativeExtremeNodes? extremes = null;
-                if (geometry.ExtremeNodes != null && geometry.ExtremeNodes.Ids != null)
-                    extremes = VtkNativeExtremeNodes.FromNodesExchangeData(geometry.ExtremeNodes);
-                _nativeMirror.SetActorScalars(name, geometry.Nodes.Values, extremes);
+                if (actor.Nodal && geometry.Nodes.Values != null)
+                {
+                    VtkNativeExtremeNodes? extremes = null;
+                    if (geometry.ExtremeNodes != null && geometry.ExtremeNodes.Ids != null)
+                        extremes = VtkNativeExtremeNodes.FromNodesExchangeData(geometry.ExtremeNodes);
+                    _nativeMirror.SetActorScalars(actor.Name, geometry.Nodes.Values, extremes);
+                }
+                else if (actor.Values != null)
+                    _nativeMirror.SetActorScalars(actor.Name, actor.Values, GetNativeExtremes(actor.MinNode, actor.MaxNode));
             }
-            if ((geometry.Cells.Values != null && geometry.Cells.Ids != null) || data.ColorTable != null)
+            if ((geometry.Cells.Values != null && geometry.Cells.Ids != null) || actor.ColorTable != null)
             {
                 float[] cellValues = geometry.Cells.Ids != null ? geometry.Cells.Values : null;
-                _nativeMirror.SetActorCellColors(name, VtkNativePartStyle.ToNativeLayer(data.Layer), cellValues,
-                                                 data.ColorTable);
+                _nativeMirror.SetActorCellColors(actor.NativeName, VtkNativePartStyle.ToNativeLayer(actor.Layer), cellValues,
+                                                 actor.ColorTable);
             }
         }
         // UpdateScalarFormatting: the native view colors its result actors from its own extreme nodes
-        private void MirrorScalarFormatting()
+        private void UpdateNativeScalarFormatting()
         {
-            MirrorGeometry("UpdateScalarFormatting", () =>
+            RunNative("UpdateScalarFormatting", () =>
             {
                 bool useAllFrames = _animationFrameData != null && _animationFrameData.UseAllFrameData;
                 double[] range = useAllFrames ? _animationFrameData.AllFramesScalarRange : new double[] { 0, 0 };
@@ -301,46 +283,50 @@ namespace vtkControl
                                                      _keepScalarBarVisible, useAllFrames, range[0], range[1]);
             });
         }
-        private void MirrorActorScalarField(string actorName, float[] values, NodesExchangeData extremeNodes)
+        private void SetNativeActorScalarField(vtkMaxActor actor, float[] values, NodesExchangeData extremeNodes)
         {
-            MirrorGeometry("UpdateActorScalarField " + actorName, () =>
+            RunNative("UpdateActorScalarField " + actor.Name, () =>
             {
                 VtkNativeExtremeNodes? extremes = null;
                 if (values != null && extremeNodes != null && extremeNodes.Ids != null)
                     extremes = VtkNativeExtremeNodes.FromNodesExchangeData(extremeNodes);
-                _nativeMirror.SetActorScalars(actorName, values, extremes);
-                // UpdateActorScalarField gave the transformed copies the values, transformed for a directional field
-                vtkMaxActor actor;
-                if (_actors.TryGetValue(actorName, out actor)) MirrorCopyScalarFields(actor, values == null);
+                _nativeMirror.SetActorScalars(actor.Name, values, extremes);
+                // The transformed copies have the values too, transformed for a directional field
+                SetNativeCopyScalarFields(actor, values == null);
             });
         }
-        private void MirrorCopyScalarFields(vtkMaxActor actor, bool removed)
+        private void SetNativeCopyScalarFields(vtkMaxActor actor, bool removed)
         {
             foreach (vtkMaxActor copy in actor.Copies)
             {
-                if (!_nativeMirroredActors.Contains(copy)) continue;
-                if (removed) _nativeMirror.SetActorScalars(GetNativeName(copy), null, null);
-                else MirrorCopyResultValues(copy);
-                MirrorCopyScalarFields(copy, removed);
+                if (!_nativeActors.Contains(copy)) continue;
+                if (removed) _nativeMirror.SetActorScalars(copy.NativeName, null, null);
+                else SetNativeCopyResultValues(copy);
+                SetNativeCopyScalarFields(copy, removed);
             }
         }
-        // CreateSectionView and UpdateSectionView: every mirrored part that may be cut gets its volume grid, the
-        // color of its section faces (formatted here, as Lighten is a .NET extension) and its hatch index
-        private void MirrorSectionView(double[] point, double[] normal)
+        private void SetNativeCopyResultValues(vtkMaxActor copy)
         {
-            MirrorGeometry("SectionView", () =>
+            if (copy.Values == null) return;
+            _nativeMirror.SetActorScalars(copy.NativeName, copy.Values, GetNativeExtremes(copy.MinNode, copy.MaxNode));
+        }
+        // CreateSectionView and UpdateSectionView: every part that may be cut gets its volume grid, the color of its
+        // section faces and its hatch index; the parts and surfaces the element-wise section replaces by skins are
+        // read back
+        private void CreateNativeSectionView(double[] point, double[] normal)
+        {
+            RunNative("SectionView", () =>
             {
                 Dictionary<string, int> hatchIndices = new Dictionary<string, int>();
                 foreach (vtkMaxActor actor in _actors.Values.ToArray())
                 {
-                    if (!actor.SectionViewPossible || !actor.VolumeGridAvailable ||
-                        !_nativeMirroredActors.Contains(actor)) continue;
+                    if (!actor.SectionViewPossible || !actor.VolumeGridAvailable || !_nativeActors.Contains(actor)) continue;
                     PartExchangeData data = GetVolumeGridData(actor.VolumeGridSourceName ?? actor.Name);
                     if (data == null || data.Cells == null || data.Cells.CellNodeIds == null) continue;
                     //
-                    System.Drawing.Color color = actor.Color;
+                    Color color = actor.Color;
                     if (_sectionViewData.LightenColors) color = color.Lighten();
-                    else if (_sectionViewData.SectionColor != System.Drawing.Color.Empty) color = _sectionViewData.SectionColor;
+                    else if (_sectionViewData.SectionColor != Color.Empty) color = _sectionViewData.SectionColor;
                     string hatchGroup = Controller_GetSectionViewHatchGroup?.Invoke(actor.Name) ?? actor.Name;
                     int hatchIndex;
                     if (!hatchIndices.TryGetValue(hatchGroup, out hatchIndex))
@@ -348,10 +334,8 @@ namespace vtkControl
                         hatchIndex = hatchIndices.Count;
                         hatchIndices.Add(hatchGroup, hatchIndex);
                     }
-                    // A transformed copy is known natively by its own name
-                    _nativeMirror.SetSectionViewData(GetNativeName(actor), VtkNativeMeshData.FromPartExchangeData(data),
+                    _nativeMirror.SetSectionViewData(actor.NativeName, VtkNativeMeshData.FromPartExchangeData(data),
                                                      data.Nodes.Values, color, hatchIndex, actor.HasVolumeCells);
-                    if (actor.SectionViewActor != null) _nativeMirroredActors.Add(actor.SectionViewActor);
                 }
                 VtkNativeSectionView sectionView = new VtkNativeSectionView();
                 sectionView.PointX = point[0];
@@ -364,79 +348,48 @@ namespace vtkControl
                 sectionView.Hatch = _sectionViewData.Hatch ? 1 : 0;
                 sectionView.HatchSpacing = _sectionViewData.HatchSpacing;
                 _nativeMirror.CreateSectionView(sectionView);
-                // The element-wise section replaces the cut parts and the surfaces on them by skins
-                foreach (vtkMaxActor actor in _actors.Values.ToArray())
-                {
-                    if (actor.SectionViewSkinActor != null && _nativeMirroredActors.Contains(actor))
-                        _nativeMirroredActors.Add(actor.SectionViewSkinActor);
-                }
+                //
+                HashSet<string> hidden = new HashSet<string>(_nativeMirror.GetSectionViewHiddenActors());
+                foreach (vtkMaxActor actor in _actors.Values) actor.GeometryHiddenBySectionView = hidden.Contains(actor.NativeName);
             });
         }
         // TransformAllMaxActors: a copy is named natively after the actor it starts from, the transformation and its
         // place in the row
         private void NameNativeCopy(vtkMaxActor copy, vtkMaxActor source, int item)
         {
-            _nativeCopyNames.Remove(copy);
-            _nativeCopyNames.Add(copy, GetNativeName(source) + ":t" + _nativeTransformIndex + "-" + item);
+            copy.NativeName = source.NativeName + ":t" + _nativeTransformIndex + "-" + item;
         }
-        private string GetNativeName(vtkMaxActor actor)
+        // ApplyTransforms: the copies of native actors are native, and a copy of a directional result gets the values
+        // ApplyResultFieldTransformation computed for it
+        private void ApplyNativeTransforms()
         {
-            string name;
-            return _nativeCopyNames.TryGetValue(actor, out name) ? name : actor.Name;
-        }
-        // ApplyTransforms: the copies ActiViz made of mirrored actors count as mirrored, and a copy of a directional
-        // result gets the values ApplyResultFieldTransformation computed for it
-        private void MirrorTransforms()
-        {
-            MirrorGeometry("ApplyTransforms", () =>
+            RunNative("ApplyTransforms", () =>
             {
                 _nativeMirror.ApplyTransforms();
                 bool added = true;
                 while (added)
                 {
                     added = false;
-                    foreach (vtkMaxActor actor in _nativeMirroredActors.ToArray())
+                    foreach (vtkMaxActor actor in _nativeActors.ToArray())
                     {
                         foreach (vtkMaxActor copy in actor.Copies)
                         {
-                            if (!_nativeMirroredActors.Add(copy)) continue;
+                            if (!_nativeActors.Add(copy)) continue;
                             added = true;
-                            MirrorTransformedResultValues(copy);
+                            if (copy.HasTransformedResultField) SetNativeCopyResultValues(copy);
                         }
                     }
                 }
             });
         }
-        private void MirrorTransformedResultValues(vtkMaxActor copy)
-        {
-            if (copy.HasTransformedResultField) MirrorCopyResultValues(copy);
-        }
-        private void MirrorCopyResultValues(vtkMaxActor copy)
-        {
-            if (copy.GeometryMapper == null) return;
-            vtkDataArray scalars = copy.GeometryMapper.GetInput()?.GetPointData().GetArray(Globals.ScalarArrayName);
-            if (scalars == null) return;
-            float[] values = new float[scalars.GetNumberOfTuples()];
-            for (int i = 0; i < values.Length; i++) values[i] = (float)scalars.GetTuple1(i);
-            VtkNativeExtremeNodes? extremes = null;
-            if (copy.MinNode != null && copy.MaxNode != null && copy.MinNode.Coor != null && copy.MaxNode.Coor != null)
-            {
-                NodesExchangeData extremeNodes = new NodesExchangeData();
-                extremeNodes.Ids = new int[] { copy.MinNode.Id, copy.MaxNode.Id };
-                extremeNodes.Coor = new double[][] { copy.MinNode.Coor, copy.MaxNode.Coor };
-                extremeNodes.Values = new float[] { copy.MinNode.Value, copy.MaxNode.Value };
-                extremes = VtkNativeExtremeNodes.FromNodesExchangeData(extremeNodes);
-            }
-            _nativeMirror.SetActorScalars(GetNativeName(copy), values, extremes);
-        }
         // InitializeAndAddAnimatedActor: the actor and its frames, before vtkMaxActor.InitializeAnimation releases
-        // the frames it converted
-        private void MirrorAnimatedActor(vtkMaxActorData data, vtkMaxActor actor)
+        // the frames it took
+        private void AddNativeAnimatedActor(vtkMaxActorData data, vtkMaxActor actor)
         {
             if (!IsNativeGeometryOn() || data.Geometry.NodesAnimation == null) return;
-            if (!_nativeMirroredActors.Contains(actor)) MirrorActor(data, actor, false);
-            if (!_nativeMirroredActors.Contains(actor)) return;
-            MirrorGeometry("AddAnimationFrames " + actor.Name, () =>
+            if (!_nativeActors.Contains(actor)) AddNativeActor(actor);
+            if (!_nativeActors.Contains(actor)) return;
+            RunNative("AddAnimationFrames " + actor.Name, () =>
             {
                 for (int i = 0; i < data.Geometry.NodesAnimation.Length; i++)
                 {
@@ -467,75 +420,37 @@ namespace vtkControl
             }
             return coordinates;
         }
-        // AddActor of an actor the Controller kept in its selection buffer: it is built again from its data
-        private void MirrorBufferedActor(vtkMaxActor actor)
+        // UpdateActor: a new name of an actor
+        private void RenameNativeActor(vtkMaxActor actor, string oldName, string newName)
         {
-            Tuple<vtkMaxActorData, bool> source;
-            if (!IsNativeGeometryOn() || !_nativeActorData.TryGetValue(actor, out source)) return;
-            MirrorActor(source.Item1, actor, source.Item2);
-        }
-        // HighlightActor: the ActiViz actors the highlight added are the last selected ones
-        private void MirrorHighlightActor(string actorName, int selectedCount)
-        {
-            if (!IsNativeGeometryOn()) return;
-            MirrorGeometry("HighlightActor", () => _nativeMirror.HighlightActor(actorName));
-            for (int i = selectedCount; i < _selectedActors.Count; i++) _nativeMirroredActors.Add(_selectedActors[i]);
-        }
-        // UpdateActor: a new name of a part or of another mirrored actor
-        private void MirrorActorRename(vtkMaxActor actor, string oldName, string newName)
-        {
-            if (actor == null || !IsNativeGeometryOn() || oldName == newName) return;
+            if (actor == null || oldName == newName) return;
             bool part = _nativeMirrorNames != null && _nativeMirrorNames.Remove(oldName);
             if (part) _nativeMirrorNames.Add(newName);
-            if (!part && !_nativeMirroredActors.Contains(actor)) return;
-            MirrorGeometry("RenameActor " + oldName, () => _nativeMirror.RenameActor(oldName, newName));
+            if (!part && !_nativeActors.Contains(actor)) return;
+            RunNative("RenameActor " + oldName, () => _nativeMirror.RenameActor(oldName, newName));
         }
-        // UpdateActor: the color and the opacity of a part or of another mirrored actor
-        private void MirrorActorColor(vtkMaxActor actor, string nativeName, Color color)
+        // UpdateActor: the color and the opacity of an actor
+        private void SetNativeActorColor(vtkMaxActor actor, string nativeName, Color color)
         {
-            if (actor == null || !IsNativeGeometryOn()) return;
-            bool part = _nativeMirrorNames != null && _nativeMirrorNames.Contains(nativeName);
-            if (!part && !_nativeMirroredActors.Contains(actor)) return;
-            MirrorGeometry("SetActorColor " + nativeName, () =>
+            if (actor == null || !_nativeActors.Contains(actor)) return;
+            RunNative("SetActorColor " + nativeName, () =>
                 _nativeMirror.SetActorColor(nativeName, VtkNativePartStyle.ToNativeLayer(actor.Layer), color));
         }
-        private void MirrorActorVisible(vtkMaxActor actor, bool visible)
+        private void SetNativeActorVisible(vtkMaxActor actor, bool visible)
         {
-            if (actor == null || !_nativeMirroredActors.Contains(actor)) return;
-            MirrorGeometry("SetActorVisible " + actor.Name, () =>
+            if (actor == null || !_nativeActors.Contains(actor)) return;
+            RunNative("SetActorVisible " + actor.Name, () =>
                 _nativeMirror.SetActorVisible(actor.Name, VtkNativePartStyle.ToNativeLayer(actor.Layer), visible));
         }
-        private void MirrorClear(VtkNativeClear what)
+        private void ClearNative(VtkNativeClear what)
         {
-            MirrorGeometry("Clear " + what, () => _nativeMirror.Clear(what));
-            if (!IsNativeGeometryOn()) return;
+            RunNative("Clear " + what, () => _nativeMirror.Clear(what));
             HashSet<vtkMaxActor> drawn = new HashSet<vtkMaxActor>(_actors.Values);
             drawn.UnionWith(_overlayActors.Values);
             drawn.UnionWith(_selectedActors);
-            _nativeMirroredActors.IntersectWith(drawn);
-            _nativeMirrorNames.RemoveWhere(name => !_actors.ContainsKey(name));
-        }
-        // The props of the mirrored actors, which the parts only mode of the checks keeps drawn on the ActiViz side
-        private HashSet<vtkProp> GetNativeMirroredProps()
-        {
-            HashSet<vtkProp> props = new HashSet<vtkProp>();
-            // ActiViz draws the captions of a layer only with this placeholder actor drawn last in it
-            if (_captionTmpActor != null) props.Add(_captionTmpActor);
-            foreach (vtkMaxCoorSysSymbols symbols in new[] { _coorSysSymbols, _coorSysSelectionSymbols,
-                                                            _materialAxesSelectionSymbols })
-            {
-                if (symbols != null) props.UnionWith(symbols.GetProps());
-            }
-            foreach (vtkMaxActor actor in _nativeMirroredActors)
-            {
-                if (actor.Geometry != null) props.Add(actor.Geometry);
-                if (actor.ElementEdges != null) props.Add(actor.ElementEdges);
-                if (actor.ModelEdges != null) props.Add(actor.ModelEdges);
-                if (actor.SectionViewHatch != null) props.Add(actor.SectionViewHatch);
-                vtkMaxCaptionActor captionActor = actor as vtkMaxCaptionActor;
-                if (captionActor != null && captionActor.CaptionActor != null) props.Add(captionActor.CaptionActor);
-            }
-            return props;
+            foreach (vtkMaxActor actor in _actors.Values) drawn.UnionWith(actor.Copies);
+            _nativeActors.IntersectWith(drawn);
+            if (_nativeMirrorNames != null) _nativeMirrorNames.RemoveWhere(name => !_actors.ContainsKey(name));
         }
     }
 }
