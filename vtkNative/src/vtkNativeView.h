@@ -95,6 +95,10 @@ namespace vtkn
         void BoxZoom(int x1, int y1, int x2, int y2);
         void AdjustCameraDistanceAndClipping();
         void SetCameraAdjustmentSuspended(bool suspended);
+        // While deferred, a view change sets the camera and is not rendered, so that the owner can animate to it
+        void SetViewChangeDeferred(bool deferred);
+        void WorldToDisplay(const double world[3], double display[2]);
+        void DisplayToWorld(const double display[2], double world[3]);
 
         void AddMeshActor(const std::string& name, const double* points, int pointCount, const int32_t* cells,
                           int cellsLength, const uint8_t* cellTypes, int cellCount, const double* color,
@@ -190,6 +194,7 @@ namespace vtkn
                                     double* normals);
         double GetSelectionPrecisionInModel(int selectionDistance);
         void GetPartBounds(const std::string& name, double bounds[6]);
+        void SmoothPartToStl(const std::string& name, const std::string& fileName);
         void SetVolumeGrid(const std::string& name, const vtkn_mesh* grid);
         void GetIdsInsideFrustum(const std::string& name, const double* planes, int planeCount,
                                  std::vector<int>& pointIds, std::vector<int>& cellIds);
@@ -241,8 +246,7 @@ namespace vtkn
         void GetViewRotationPivot(double pivot[3]);
         void KeepZoomAndRotationPivot(const double pivot[3], const double pivotDisplay[2], double distance);
         void GetClosestUpView(double up[3]);
-        void WorldToDisplay(const double world[3], double display[2]);
-        void DisplayToWorld(const double display[2], double world[3]);
+        bool ViewChangeDeferred = false;
 
         void AdjustCameraAfterAdd();
         // The render passes of the base layer (Geometry/vtkNativeAmbientOcclusion.cpp): the ambient occlusion and

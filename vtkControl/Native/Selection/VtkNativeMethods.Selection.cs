@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int SelectionApiVersion = 3;
+        public const int SelectionApiVersion = 4;
 
 
         // Methods
@@ -48,6 +48,8 @@ namespace vtkControl.Native
                                                                                out double precision);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_get_part_bounds(IntPtr view, byte[] name, [Out] double[] bounds6);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_smooth_part_to_stl(IntPtr view, byte[] name, byte[] fileName);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_volume_grid(IntPtr view, byte[] name, IntPtr grid);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]

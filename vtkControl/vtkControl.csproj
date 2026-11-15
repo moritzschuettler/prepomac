@@ -106,6 +106,9 @@
     <Compile Include="Native\Widgets\VtkNativeTextStyle.cs" />
     <Compile Include="Native\Widgets\VtkNativeValueLabel.cs" />
     <Compile Include="Native\VtkNativeView.cs" />
+    <Compile Include="Native\vtkControl.NativeView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Native\Geometry\VtkNativeMethods.Geometry.cs" />
     <Compile Include="Native\Geometry\VtkNativeView.Geometry.cs" />
     <Compile Include="Native\Geometry\vtkControl.NativeGeometry.cs" />
@@ -136,6 +139,7 @@
     <Compile Include="Native\Widgets\VtkNativeView.Widgets.cs" />
     <Compile Include="Native\Widgets\VtkNativeWidgetAnchor.cs" />
     <Compile Include="Tools\Extensions.cs" />
+    <Compile Include="Tools\AviWriter.cs" />
     <Compile Include="Tools\QuaternionHelper.cs" />
     <Compile Include="Tools\SectionViewCap.cs" />
     <Compile Include="Tools\SectionViewHatch.cs" />

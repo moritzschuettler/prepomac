@@ -11,4 +11,5 @@ mkdir -p "$(cygpath -u "$WORK")"
     --scriptArgs "$OUT" -g No -w "$WORK" | grep -E "SLICE|States|Error|Exception|line"
 "$EXE" -f "$ROOT\Tests\Joints\Joint_Hinge.pmx" --script "$ROOT\VtkPilot\Phase3\Test_Embedded_ScalarBar.py" \
     -g No -w "$WORK" | grep -E "^ok|^FAIL|TEST|Error|Exception"
+[ -z "$PORT_REFERENCE" ] || py -3 "$(cygpath -u "$ROOT")"/VtkPort/Harness/graft_reference.py "$PORT_REFERENCE" "$OUT"
 py -3 "$(cygpath -u "$ROOT")/VtkPilot/Phase3/Compare_SliceB.py" "$OUT"

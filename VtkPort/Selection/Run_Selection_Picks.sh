@@ -21,6 +21,7 @@ for scene in "$@"; do
         --scriptArgs "$ROOT\VtkPort\Harness|$scene|$MODES|$OUT" -g No -w "$WORK" |
         grep -E "SELECTION|Picks|Error|Exception|line "
 done
+[ -z "$PORT_REFERENCE" ] || py -3 "$ROOT_U"/VtkPort/Harness/graft_reference.py "$PORT_REFERENCE" "$OUT"
 py -3 "$ROOT_U/VtkPilot/Phase4/Compare_SliceC.py" "$OUT"
 py -3 -c "
 import glob, json, os, sys

@@ -603,3 +603,44 @@ window test, `selection_s1`, `selection_s2` and `geometry_scenes` passed.
 **Removed (2026-11-14).** The user tried it in the window (a script switched it on): "this kind of glow is not
 working - remove it". The commit of the trial was reverted - `vtkn_view_set_highlight_glow`, `View::GlowRenderer` and
 all that led to them are gone; this section stays as the record of what the pass of VTK does.
+
+## NativeExactPicking stays on (2026-11-15)
+
+The user's decision, asked since the integration: "keep NativeExactPicking on". The native view picks the exact point
+under the pixel with a 7 px catch distance; the two places where it differs from ActiViz, which rebuilt the point from
+the depth buffer (a pixel on the rim of a hole, a part behind a transformed copy), are accepted, and the one known
+difference of `selection_s4` is the expected result. The off setting goes with ActiViz.
+
+## Removing ActiViz (plan step I.2, second half; started 2026-11-15)
+
+On the user's "keep NativeExactPicking on, then remove ActiViz". Three read-only inventories of `vtkControl` sorted
+every use of ActiViz into: a hidden duplicate the native view already draws (most of it, about 16,000 lines to
+delete), a read-back where ActiViz computes something the native view or PrePoMax uses (the work items below), and
+the fallback and mirror modes of the checks. The ActiViz outputs of the full `Run_Port_Checks.sh` on the last build
+with ActiViz are kept as the reference the checks compare against once ActiViz is gone (`--reference`,
+`graft_reference.py`).
+
+### Stage 1: the native view in the window answers for itself
+
+- **The camera.** The ActiViz camera was the master: every view, zoom to fit, box zoom and view animation was
+  computed on it and pushed into the native view. In the window the native camera is now the camera of the control:
+  the views are the native ports (`vtkNativeViewCamera.cpp`), run deferred (`vtkn_view_set_view_change_deferred`)
+  so that the control reads the camera they reach and animates to it; `AnimateCamera` is ported onto the native
+  camera with the world and display conversions of the native view (`vtkn_view_world_to_display`,
+  `vtkn_view_display_to_world`). `GetViewParameters`, `GetViewPlaneNormal`, `GetClosestUpView`, `SetZoomFactor`
+  and `Rotate` read and move the native camera; `Rotate` used to move only the ActiViz camera, so a scripted
+  rotation showed in the window only at the next push. The ActiViz camera follows the native one.
+- **Pictures, videos, bounds.** `RenderToPNG`, `SaveAnimationAsImages` and `SaveAnimationAsAVI` took the hidden
+  ActiViz window, so a saved picture was the VTK 5.8 one, without ambient occlusion; they take the native view now.
+  The VTK 9 build has no AVI writer (`VTK_USE_VIDEO_FOR_WINDOWS` off), so `Tools/AviWriter.cs` ports
+  `vtkAVIWriter` onto Video for Windows, with the same compressor (Microsoft Video 1), quality and dialog.
+  `GetBoundingBox` is the native bounds.
+- **Widget clicks and state.** The right click and the double click on the scalar bar and on the arrow widgets
+  hit-tested the ActiViz layout; they take the native twins' rectangles and value boxes now, as do
+  `TryGetScalarBarValueEditData` and `ScalarBarAddMin/MaxColor`. `IsBoxSelectionActive` read the ActiViz style,
+  which takes no input in the window, so Escape during a box selection closed the form; it reads the native style.
+  `Pick` (a right click on a part in a dialog) picked through the ActiViz back buffer; it picks natively. The area
+  pick takes the native part bounds, and the frustum selection states which parts are drawn instead of reading the
+  ActiViz visibility.
+- **Settings.** The background and the smoothing are kept by the control instead of being read back from the
+  ActiViz renderer; a smoothing change reached the native view one settings change late.

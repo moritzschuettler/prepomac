@@ -341,6 +341,7 @@ namespace vtkControl
         {
             get
             {
+                if (NativeShowsView) return _nativeMirror.GetInteractionState()[1] != 0;
                 vtkInteractorStyleControl style = (vtkInteractorStyleControl)(_renderWindowInteractor.GetInteractorStyle());
                 return style.IsBoxSelectionActive;
             }
@@ -550,8 +551,8 @@ namespace vtkControl
         {
             if (!_widgetInteractionEnabled) return;
             //
-            if (_scalarBarWidget.TryGetValueEditData(e.X, e.Y, out bool editMinimum, out Rectangle rectangle,
-                                                     out string valueText, out double minimum, out double maximum))
+            if (TryGetScalarBarValueEditData(e.X, e.Y, out bool editMinimum, out Rectangle rectangle,
+                                             out string valueText, out double minimum, out double maximum))
             {
                 Form_EditLegendValue?.Invoke(editMinimum, rectangle, valueText, minimum, maximum);
             }
@@ -779,6 +780,11 @@ namespace vtkControl
         // that a dialog has not picked yet picks it this way
         public void Pick(int x1, int y1, bool boxSelection, int x2, int y2)
         {
+            if (NativeShowsView && (_nativeAreas & VtkNativeArea.Selection) != 0)
+            {
+                PickWithNativeMirror(x1, y1, boxSelection, x2, y2);
+                return;
+            }
             MouseEventArgs e = new MouseEventArgs(MouseButtons.Left, 1, x1, y1, 0);
             style_PointPickedOnLeftUpEvt(e, boxSelection, x2, y2);
         }
@@ -947,15 +953,15 @@ namespace vtkControl
             //
             if (sender != null && sender is vtkMaxTextWithArrowWidget widget)
             {
-                Form_WidgetPicked(e, Keys.None, widget.GetName(), widget.GetRectangle());
+                Form_WidgetPicked(e, Keys.None, widget.GetName(), GetWidgetRectangle(widget));
             }
-            else if (sender is vtkMaxScalarBarWidget scalarBarWidget)
+            else if (sender is vtkMaxScalarBarWidget)
             {
                 vtkResultWidgetContextMenuTypeEnum contextMenuType;
                 bool minimum = false;
                 //
-                if (scalarBarWidget.TryGetValueEditData(e.X, e.Y, out minimum, out Rectangle valueRectangle,
-                                                        out string valueText, out double min, out double max))
+                if (TryGetScalarBarValueEditData(e.X, e.Y, out minimum, out Rectangle valueRectangle,
+                                                 out string valueText, out double min, out double max))
                 {
                     contextMenuType = vtkResultWidgetContextMenuTypeEnum.LegendValue;
                 }
@@ -3114,6 +3120,15 @@ namespace vtkControl
         #region Views  #############################################################################################################
         public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp, out double parallelScale)
         {
+            if (NativeOwnsCamera)
+            {
+                double[] values = _nativeMirror.GetCamera();
+                position = new double[] { values[0], values[1], values[2] };
+                focalPoint = new double[] { values[3], values[4], values[5] };
+                viewUp = new double[] { values[6], values[7], values[8] };
+                parallelScale = values[9];
+                return;
+            }
             vtkCamera camera = _renderer.GetActiveCamera();
             position = camera.GetPosition();
             focalPoint = camera.GetFocalPoint();
@@ -3124,6 +3139,10 @@ namespace vtkControl
         {
             if (_animating) return;
             _animating = animate;
+            //
+            double[] values = new double[] { position[0], position[1], position[2], focalPoint[0], focalPoint[1],
+                                             focalPoint[2], viewUp[0], viewUp[1], viewUp[2], parallelScale };
+            if (RunNativeViewChange(animate, () => _nativeMirror.SetViewParameters(values))) return;
             //
             if (_drawCameraPath) ClearOverlay();
             //
@@ -3145,6 +3164,9 @@ namespace vtkControl
         {
             if (_animating) return;
             _animating = animate;
+
+            VtkNativeOrientation orientation = front ? VtkNativeOrientation.Front : VtkNativeOrientation.Back;
+            if (RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, true))) return;
 
             int delta = 1;
             if (!front) delta = -1;
@@ -3168,6 +3190,9 @@ namespace vtkControl
             if (_animating) return;
             _animating = animate;
 
+            VtkNativeOrientation orientation = top ? VtkNativeOrientation.Top : VtkNativeOrientation.Bottom;
+            if (RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, true))) return;
+
             int delta = 1;
             if (!top) delta = -1;
 
@@ -3190,6 +3215,9 @@ namespace vtkControl
             if (_animating) return;
             _animating = animate;
             //
+            VtkNativeOrientation orientation = left ? VtkNativeOrientation.Left : VtkNativeOrientation.Right;
+            if (RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, true))) return;
+            //
             int delta = -1;
             if (!left) delta = 1;
             //
@@ -3211,6 +3239,8 @@ namespace vtkControl
         {
             if (_animating) return;
             _animating = animate;
+            //
+            if (RunNativeViewChange(animate, () => _nativeMirror.SetAxisView(axis, zoomToFit))) return;
             //
             if (_drawCameraPath) ClearOverlay();
             //
@@ -3323,6 +3353,9 @@ namespace vtkControl
             if (_animating) return;
             _animating = animate;
             //
+            if (RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(VtkNativeOrientation.Normal, true)))
+                return;
+            //
             if (_drawCameraPath) ClearOverlay();
             //
             vtkCamera camera = _renderer.GetActiveCamera();
@@ -3352,6 +3385,8 @@ namespace vtkControl
         {
             if (_animating) return;
             _animating = animate;
+            //
+            if (RunNativeViewChange(animate, () => _nativeMirror.SetVerticalAxisView(axis, zoomToFit))) return;
             //
             if (_drawCameraPath) ClearOverlay();
             //
@@ -3387,6 +3422,9 @@ namespace vtkControl
                 _animating = animate;
             }
             //
+            if (RunNativeViewChange(animate && updateView,
+                                    () => _nativeMirror.SetStandardView(VtkNativeOrientation.Vertical, true))) return;
+            //
             if (_drawCameraPath) ClearOverlay();
             //
             vtkCamera camera = _renderer.GetActiveCamera();
@@ -3405,11 +3443,13 @@ namespace vtkControl
         }
         public double[] GetClosestUpView()
         {
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            double[] up = camera.GetViewUp();
+            double[] up;
+            if (NativeOwnsCamera)
+            {
+                double[] values = _nativeMirror.GetCamera();
+                up = new double[] { values[6], values[7], values[8] };
+            }
+            else up = _renderer.GetActiveCamera().GetViewUp();
             double[] upAbs = new double[3];
             double[] closestUp = null;
             upAbs[0] = Math.Abs(up[0]);
@@ -3429,6 +3469,10 @@ namespace vtkControl
         {
             if (_animating) return;
             _animating = animate;
+
+            VtkNativeOrientation orientation = positive ? VtkNativeOrientation.Isometric :
+                                                          VtkNativeOrientation.IsometricNegative;
+            if (RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, zoomToFit))) return;
 
             int delta = 1;
             if (!positive) delta = -1;
@@ -3485,11 +3529,14 @@ namespace vtkControl
         {
             vtkCamera camera = _renderer.GetActiveCamera();
             camera.SetParallelScale(factor);
+            if (NativeOwnsCamera) _nativeMirror.SetZoomFactor(factor);
         }
         public void AnimateZoomToFactor(double factor, int timeMs)
         {
             if (_animating) return;
             _animating = true;
+            //
+            if (RunNativeViewChange(true, () => SetZoomFactor(factor), timeMs)) return;
             //
             if (_drawCameraPath) ClearOverlay();
             //
@@ -3506,6 +3553,8 @@ namespace vtkControl
             if (_animating) return;
             _animating = animate;
             //
+            if (RunNativeViewChange(animate, () => _nativeMirror.ZoomToFit())) return;
+            //
             if (_drawCameraPath) ClearOverlay();
             //
             vtkCamera camera = _renderer.GetActiveCamera();
@@ -3518,6 +3567,8 @@ namespace vtkControl
         }
         public void SetBoxZoom(int[] point1, int[] point2, bool animate)
         {
+            if (RunNativeViewChange(animate, () => _nativeMirror.BoxZoom(point1[0], point1[1], point2[0], point2[1])))
+                return;
             vtkCamera camera = _renderer.GetActiveCamera();
             vtkCamera cameraStart = vtkCamera.New();
             cameraStart.DeepCopy(camera);
@@ -3690,6 +3741,7 @@ namespace vtkControl
         }
         public double[] GetViewPlaneNormal()
         {
+            if (NativeOwnsCamera) return GetNativeViewPlaneNormal();
             vtkCamera camera = _renderer.GetActiveCamera();
             //double[] fPos = camera.GetFocalPoint();
             double[] vpn = camera.GetViewPlaneNormal();
@@ -4129,6 +4181,12 @@ namespace vtkControl
         //
         public void Rotate(double azimuthAngle, double elevationAngle, double rollAngle)
         {
+            if (NativeOwnsCamera)
+            {
+                _nativeMirror.Navigate(VtkNativeNavigation.Rotate, azimuthAngle, elevationAngle, rollAngle);
+                OnNativeCameraChanged();
+                return;
+            }
             _style.UpdateRotationCenterDisplay();
             _style.Rotate(azimuthAngle, elevationAngle, rollAngle);
         }
@@ -7596,8 +7654,16 @@ namespace vtkControl
             MirrorScalarBarColorSpectrum(colorSpectrum);
         }
         // Below-min / above-max limit color bands only exist when the manual limit clips the data
-        public bool ScalarBarAddMinColor { get { return _scalarBarWidget.AddMinColor; } }
-        public bool ScalarBarAddMaxColor { get { return _scalarBarWidget.AddMaxColor; } }
+        public bool ScalarBarAddMinColor
+        {
+            get { return NativeShowsView && _nativeMirrorScalarBar != null ? _nativeMirrorScalarBar.AddMinColor :
+                                                                               _scalarBarWidget.AddMinColor; }
+        }
+        public bool ScalarBarAddMaxColor
+        {
+            get { return NativeShowsView && _nativeMirrorScalarBar != null ? _nativeMirrorScalarBar.AddMaxColor :
+                                                                               _scalarBarWidget.AddMaxColor; }
+        }
         public void SetScalarBarVisibility(bool visibility)
         {
             _keepScalarBarVisible = visibility;
@@ -7606,7 +7672,19 @@ namespace vtkControl
         public bool TryGetScalarBarValueEditData(bool editMinimum, out Rectangle rectangle, out string valueText,
                                                  out double minimum, out double maximum)
         {
+            if (NativeShowsView && _nativeMirrorScalarBar != null)
+                return _nativeMirrorScalarBar.TryGetValueEditData(editMinimum, out rectangle, out valueText,
+                                                                  out minimum, out maximum);
             return _scalarBarWidget.TryGetValueEditData(editMinimum, out rectangle, out valueText,
+                                                        out minimum, out maximum);
+        }
+        private bool TryGetScalarBarValueEditData(int x, int y, out bool editMinimum, out Rectangle rectangle,
+                                                  out string valueText, out double minimum, out double maximum)
+        {
+            if (NativeShowsView && _nativeMirrorScalarBar != null)
+                return _nativeMirrorScalarBar.TryGetValueEditData(x, y, out editMinimum, out rectangle, out valueText,
+                                                                  out minimum, out maximum);
+            return _scalarBarWidget.TryGetValueEditData(x, y, out editMinimum, out rectangle, out valueText,
                                                         out minimum, out maximum);
         }
         public void SetScalarBarNumberFormat(string numberFormat)
@@ -7731,6 +7809,9 @@ namespace vtkControl
                 _renderer.SetGradientBackground(gradient);
                 _renderer.SetBackground2(topColor.R / 255.0, topColor.G / 255.0, topColor.B / 255.0);
                 _renderer.SetBackground(bottomColor.R / 255.0, bottomColor.G / 255.0, bottomColor.B / 255.0);
+                _gradientBackground = gradient;
+                _backgroundTop = new double[] { topColor.R / 255.0, topColor.G / 255.0, topColor.B / 255.0 };
+                _backgroundBottom = new double[] { bottomColor.R / 255.0, bottomColor.G / 255.0, bottomColor.B / 255.0 };
                 MirrorGeometry("SetBackground", SyncNativeMirror);
                 if (redraw) RenderScene();
             }
@@ -7806,6 +7887,9 @@ namespace vtkControl
                     if (lineSmoothing) _renderWindow.LineSmoothingOn();
                     else _renderWindow.LineSmoothingOff();
                 }
+                _pointSmoothing = pointSmoothing;
+                _lineSmoothing = lineSmoothing;
+                if (_nativeMirror != null) _nativeMirror.SetSmoothing(pointSmoothing, lineSmoothing);
             }
             
             if (redraw) RenderScene();
@@ -8638,11 +8722,13 @@ namespace vtkControl
                     double[] animationRange = _animationFrameData.AllFramesScalarRange;
                     CreateScalarBarLookupTable(animationRange[0], animationRange[1], double.NaN, double.NaN);
                     _lookupTable = PrepareActorLookupTable(animationRange[0], animationRange[1]);
+                    _scalarRange = new double[] { animationRange[0], animationRange[1] };
                 }
                 else // min max from current frame
                 {
                     CreateScalarBarLookupTable(minNode.Value, maxNode.Value, double.NaN, double.NaN);
                     _lookupTable = PrepareActorLookupTable(minNode.Value, maxNode.Value);
+                    _scalarRange = new double[] { minNode.Value, maxNode.Value };
                 }
             }
             else  // Manual and min max from current frame
@@ -8650,6 +8736,7 @@ namespace vtkControl
                 CreateScalarBarLookupTable(minNode.Value, maxNode.Value, _colorSpectrum.MinUserValue,
                                            _colorSpectrum.MaxUserValue);
                 _lookupTable = PrepareActorLookupTable(minNode.Value, maxNode.Value);
+                _scalarRange = new double[] { minNode.Value, maxNode.Value };
             }
             // Edit actors mapper
             double[] actorRange = _lookupTable.GetTableRange();
@@ -9114,6 +9201,13 @@ namespace vtkControl
                 }
             }
             //
+            if (NativeShowsView)
+            {
+                SaveNativeAnimationAsAVI(fileName, firstLastFrame, step, fps, scalarRangeFromAllFrames, swing,
+                                         encoderOptions);
+                return;
+            }
+            //
             vtkWindowToImageFilter windowToImage = vtkWindowToImageFilter.New();
             windowToImage.SetInput(_renderWindow);
             windowToImage.SetInputBufferTypeToRGB();
@@ -9176,6 +9270,25 @@ namespace vtkControl
                 }
             }
 
+            if (NativeShowsView)
+            {
+                count = 0;
+                for (int i = firstLastFrame[0]; i <= firstLastFrame[1]; i += step)
+                {
+                    SetAnimationFrame(i, scalarRangeFromAllFrames);
+                    _nativeMirror.WritePng(fileNames[count++], 1);
+                }
+                if (swing)
+                {
+                    for (int i = firstLastFrame[1]; i >= firstLastFrame[0]; i -= step)
+                    {
+                        SetAnimationFrame(i, scalarRangeFromAllFrames);
+                        _nativeMirror.WritePng(fileNames[count++], 1);
+                    }
+                }
+                return;
+            }
+
             vtkWindowToImageFilter windowToImage = vtkWindowToImageFilter.New();
             windowToImage.SetInput(_renderWindow);
             windowToImage.SetInputBufferTypeToRGB();
@@ -9216,6 +9329,11 @@ namespace vtkControl
             if (magnification < 1) magnification = 1;
             else if (magnification > MaxImageMagnification) magnification = MaxImageMagnification;
             //
+            if (NativeShowsView)
+            {
+                _nativeMirror.RenderToPng(fileName, transparentBackground, magnification);
+                return;
+            }
             int swapBuffers = _renderWindow.GetSwapBuffers();
             try
             {
@@ -10389,11 +10507,30 @@ namespace vtkControl
         {
             if (e.Event != VtkNativeEvent.CameraModified || e.Values.Length < 10 || _pushingCameraToNativeWindow ||
                 _nativeWindowIndependent) return;
+            CopyCameraToActiViz(e.Values);
+        }
+        private void CopyCameraToActiViz(double[] values)
+        {
             vtkCamera camera = _renderer.GetActiveCamera();
-            camera.SetPosition(e.Values[0], e.Values[1], e.Values[2]);
-            camera.SetFocalPoint(e.Values[3], e.Values[4], e.Values[5]);
-            camera.SetViewUp(e.Values[6], e.Values[7], e.Values[8]);
-            camera.SetParallelScale(e.Values[9]);
+            camera.SetPosition(values[0], values[1], values[2]);
+            camera.SetFocalPoint(values[3], values[4], values[5]);
+            camera.SetViewUp(values[6], values[7], values[8]);
+            camera.SetParallelScale(values[9]);
+        }
+        // A view change of the native camera: the ActiViz view behind it and the vtkMax widgets follow it
+        private void OnNativeCameraChanged()
+        {
+            CopyCameraToActiViz(_nativeMirror.GetCamera());
+            _style.AdjustCameraDistanceAndClipping(false);
+            _style.RefreshWidgetHighlights();
+            SetAllCaptionPositions();
+            _renderWindowInteractor.Modified();
+            RenderScene();
+        }
+        private void SetStyleAnimating(bool animating)
+        {
+            ((vtkInteractorStyleControl)_renderWindowInteractor.GetInteractorStyle()).Animating = animating;
+            MirrorStyleAnimating(animating);
         }
         // Two parallel cameras show the same view when they look the same way with the same up and scale and their
         // focal points differ only along the direction of view, as the native view sets its own distance
@@ -10539,9 +10676,8 @@ namespace vtkControl
             if (_nativeMirror == null) return;
             int[] size = _renderWindow.GetSize();
             _nativeMirror.SetSize(Math.Max(1, size[0]), Math.Max(1, size[1]));
-            _nativeMirror.SetBackground(_renderer.GetGradientBackground(), _renderer.GetBackground2(),
-                                        _renderer.GetBackground());
-            _nativeMirror.SetSmoothing(_renderWindow.GetPointSmoothing() == 1, _renderWindow.GetLineSmoothing() == 1);
+            _nativeMirror.SetBackground(_gradientBackground, _backgroundTop, _backgroundBottom);
+            _nativeMirror.SetSmoothing(_pointSmoothing, _lineSmoothing);
             _nativeMirror.SetEdgesVisibility(_edgesVisibility);
             _nativeMirror.SetAmbientOcclusion(_ambientOcclusion, _ambientOcclusionRelativeRadius,
                                               _ambientOcclusionKernelSize);
@@ -10624,7 +10760,7 @@ namespace vtkControl
             _nativeMirrorScalarBar = new VtkNativeScalarBar(_nativeMirror);
             _nativeMirrorScalarBar.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
             MirrorScalarBarColorSpectrum(_colorSpectrum);
-            _nativeMirrorScalarBar.CreateLookupTable(GetColorTransferFunction().GetColor, 0, 1);
+            _nativeMirrorScalarBar.CreateLookupTable(VtkNativeColorSpectrum.FromColorSpectrum(_colorSpectrum).GetColor, 0, 1);
             _nativeMirrorScalarBar.SetLabelFormat(_scalarBarWidget.GetLabelFormat());
             _nativeMirrorScalarBar.SetPadding(15);
             _nativeMirrorScalarBar.SetVisibility(_scalarBarWidget.GetVisibility() == 1);
@@ -10643,8 +10779,8 @@ namespace vtkControl
             vtkColorTransferFunction ctf = GetColorTransferFunction();
             _scalarBarWidget.CreateLookupTable(ctf, scalarRangeMin, scalarRangeMax, minUserValue, maxUserValue);
             if (_nativeMirrorScalarBar != null)
-                _nativeMirrorScalarBar.CreateLookupTable(ctf.GetColor, scalarRangeMin, scalarRangeMax, minUserValue,
-                                                         maxUserValue);
+                _nativeMirrorScalarBar.CreateLookupTable(VtkNativeColorSpectrum.FromColorSpectrum(_colorSpectrum).GetColor,
+                                                         scalarRangeMin, scalarRangeMax, minUserValue, maxUserValue);
         }
         // SetScalarBarColorSpectrum takes the visibility and the colors of the added bands from its argument
         private void MirrorScalarBarColorSpectrum(vtkMaxColorSpectrum colorSpectrum)
@@ -10739,13 +10875,13 @@ namespace vtkControl
                 vtkMaxActor maxActor;
                 if (!_actors.TryGetValue(pickedName, out maxActor) || !maxActor.VolumeGridAvailable ||
                     selectedActorNames.Contains(pickedName)) continue;
-                if (new CaeMesh.BoundingBox(maxActor.Geometry.GetBounds())
+                if (new CaeMesh.BoundingBox(_nativeMirror.GetPartBounds(pickedName))
                     .TestBoundsAgainstFrustum(planeParameters) == FrustumBoxResultEnum.Inside &&
                     TryAddWholePart(maxActor, selectedPointGlobalIds, selectedCellGlobalIds))
                 {
                     selectedActorNames.Add(pickedName);
                 }
-                else if (maxActor.TryGetVolumeGrid(out _)) selectedActorNames.Add(pickedName);
+                else if (SendNativeVolumeGrid(pickedName, maxActor) != null) selectedActorNames.Add(pickedName);
             }
             return selectedActorNames.ToArray();
         }
@@ -10980,12 +11116,13 @@ namespace vtkControl
         public double[] GetBoundingBox()
         {
             // xMin, xMax, yMin, yMax, zMin, zMax
+            if (NativeShowsView) return GetNativeBounds();
             return ComputeVisiblePropBounds();
         }
         public double[] GetBoundingBoxSize()
         {
             // xMin, xMax, yMin, yMax, zMin, zMax
-            double[] b = ComputeVisiblePropBounds();
+            double[] b = GetBoundingBox();
             return new double[] { b[1] - b[0], b[3] - b[2], b[5] - b[4] };
         }
         public double GetBoundingBoxDiagonal()
@@ -11028,6 +11165,11 @@ namespace vtkControl
         }
         public void SmoothPart(string partName, double a, string fileName)
         {
+            if (NativeShowsView)
+            {
+                _nativeMirror.SmoothPartToStl(partName, fileName);
+                return;
+            }
             vtkMaxActor actor = _actors[partName];
             actor.Smooth(a, fileName);
         }
@@ -11193,6 +11335,14 @@ namespace vtkControl
         public vtkMaxLookupTable GetLookupTable()
         {
             vtkMaxLookupTable maxLookupTable = new vtkMaxLookupTable();
+            if (NativeShowsView)
+            {
+                if (_scalarRange == null) return maxLookupTable;
+                double[] tableRange = GetLookupTableColors(_scalarRange[0], _scalarRange[1], out _);
+                double[] range = GetLookupTableColors(tableRange[0], tableRange[1], out Color[] colors);
+                return new vtkMaxLookupTable(range[0], range[1], colors,
+                                             _colorSpectrum.Mode == vtkColorSpectrumMode.Smooth);
+            }
             if (_lookupTable != null)
             {
                 double min = _lookupTable.GetTableRange()[0];

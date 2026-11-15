@@ -109,8 +109,7 @@ namespace vtkControl
             foreach (var entry in _actors)
             {
                 vtkMaxActor actor = entry.Value;
-                bool visible = actor.Geometry.GetVisibility() != 0 ||
-                               (actor.GeometryHiddenBySectionView && actor.VtkMaxActorVisible);
+                bool visible = IsGeometryDrawnOrCut(actor);
                 if (_selectableActorsFilter != null) visible = _selectableActorsFilter.Contains(actor.Name);
                 if (!visible || !actor.VolumeGridAvailable || !_nativeMirrorNames.Contains(entry.Key)) continue;
                 //
@@ -138,6 +137,14 @@ namespace vtkControl
             globalPointIds.CopyTo(pointIds);
             cellIds = new int[globalCellIds.Count];
             globalCellIds.CopyTo(cellIds);
+        }
+        // The faces of a part are drawn when it is shown, unless the wireframe of the edges takes their place; a part
+        // the section view cuts is selected through its cut
+        private bool IsGeometryDrawnOrCut(vtkMaxActor actor)
+        {
+            if (!actor.VtkMaxActorVisible) return false;
+            if (actor.GeometryHiddenBySectionView) return true;
+            return !(actor.UseEdgeVisibility && _edgesVisibility == vtkEdgesVisibility.Wireframe);
         }
         // TryGetVolumeGrid for the native view: the grid the actor's provider returns is sent once per native view,
         // actor and animation frame, as vtkMaxActor keeps its grid until the actor is replaced (new scalars change

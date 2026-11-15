@@ -25,6 +25,7 @@ find_package(VTK 9.7 REQUIRED COMPONENTS
     FiltersHybrid
     FiltersModeling
     FiltersSources
+    IOGeometry
     IOImage
     RenderingCore
     RenderingFreeType

@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_SELECTION_API_VERSION 3
+#define VTKN_SELECTION_API_VERSION 4
 
 /* A point pick. hit is 0 when nothing was picked; the point is then not set. cell_id is the element id of the
    surface cell the point lies on */
@@ -99,6 +99,8 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_get_selection_precision(vtkn_view view,
                                                                   double* precision);
 /* The bounds of a part's surface: x min, x max, y min, y max, z min, z max */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_get_part_bounds(vtkn_view view, const char* name, double* bounds6);
+/* SmoothPart: the surface of the part smoothed (vtkWindowedSincPolyDataFilter) and written to an STL file */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_smooth_part_to_stl(vtkn_view view, const char* name, const char* file_name);
 /* The volume grid of a part with its node and element ids, which the frustum selection searches; null removes it */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_volume_grid(vtkn_view view, const char* name, const vtkn_mesh* grid);
 /* The node ids of the part's volume grid inside the frustum and the element ids of its cells inside or crossing

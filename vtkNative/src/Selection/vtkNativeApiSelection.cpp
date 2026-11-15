@@ -132,6 +132,14 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_smooth_part_to_stl(vtkn_view view, const char* name, const char* file_name)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SmoothPartToStl(ToName(name, "name"), ToName(file_name, "file_name"));
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_set_volume_grid(vtkn_view view, const char* name, const vtkn_mesh* grid)
     {
         return GuardVtk([&]() {

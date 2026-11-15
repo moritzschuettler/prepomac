@@ -367,7 +367,12 @@ namespace vtkn
     void View::FinishViewChange()
     {
         AdjustCameraDistanceAndClipping();
-        Render();
+        if (!ViewChangeDeferred) Render();
+    }
+
+    void View::SetViewChangeDeferred(bool deferred)
+    {
+        ViewChangeDeferred = deferred;
     }
 
     void View::AdjustCameraDistanceAndClipping()

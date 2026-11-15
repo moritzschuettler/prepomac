@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using Kitware.VTK;
@@ -149,6 +150,18 @@ namespace vtkControl
         {
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
             new VtkNativeNavigationTarget(_nativeMirror).EndMultiTouchGesture();
+        }
+        // The rectangle the widget the user sees covers: the native twin's in the window
+        private Rectangle GetWidgetRectangle(vtkMaxBorderWidget widget)
+        {
+            if (NativeShowsView && _nativeMirrorWidgets != null)
+            {
+                foreach (var entry in _nativeMirroredWidgets)
+                {
+                    if (entry.Value == widget) return _nativeMirrorWidgets[entry.Key].GetRectangle();
+                }
+            }
+            return widget.GetRectangle();
         }
         // The widget a native widget id belongs to: the scalar bar or one of the twins
         private object GetMirroredWidget(int widgetId)

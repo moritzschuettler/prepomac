@@ -17,4 +17,5 @@ for entry in solid_femodel:femodel hinge_femodel:femodel solid_geometry:geometry
         --scriptArgs "$ROOT\VtkPort\Harness|$scene|$modes|$OUT" -g No -w "$WORK" |
         grep -E "SELECTION|Highlights|Error|Exception|line "
 done
+[ -z "$PORT_REFERENCE" ] || py -3 "$ROOT_U"/VtkPort/Harness/graft_reference.py "$PORT_REFERENCE" "$OUT"
 py -3 "$ROOT_U/VtkPort/Selection/Compare_Highlights.py" "$OUT"

@@ -185,6 +185,32 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_set_view_change_deferred(vtkn_view view, int32_t deferred)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetViewChangeDeferred(deferred != 0);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_world_to_display(vtkn_view view, const double* world3, double* display2)
+    {
+        return GuardVtk([&]() {
+            Require(world3 != nullptr && display2 != nullptr, "The points must not be null.");
+            View::FromHandle(view)->WorldToDisplay(world3, display2);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_view_display_to_world(vtkn_view view, const double* display2, double* world3)
+    {
+        return GuardVtk([&]() {
+            Require(world3 != nullptr && display2 != nullptr, "The points must not be null.");
+            View::FromHandle(view)->DisplayToWorld(display2, world3);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_render(vtkn_view view)
     {
         return GuardVtk([&]() {

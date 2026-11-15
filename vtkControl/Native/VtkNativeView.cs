@@ -166,6 +166,24 @@ namespace vtkControl.Native
         {
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_box_zoom(Handle(), x1, y1, x2, y2));
         }
+        public void SetViewChangeDeferred(bool deferred)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_view_change_deferred(Handle(), deferred ? 1 : 0));
+        }
+        public double[] WorldToDisplay(double[] world)
+        {
+            CheckLength(world, 3, "world");
+            double[] display = new double[2];
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_world_to_display(Handle(), world, display));
+            return display;
+        }
+        public double[] DisplayToWorld(double[] display)
+        {
+            CheckLength(display, 2, "display");
+            double[] world = new double[3];
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_display_to_world(Handle(), display, world));
+            return world;
+        }
         //
         // RGB rows, bottom row first
         public byte[] ReadPixels(int magnification, out int width, out int height)

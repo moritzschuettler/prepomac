@@ -9,4 +9,5 @@ WORK="$(cygpath -w "${TEMP:-/tmp}")\VtkPilotWork"
 mkdir -p "$(cygpath -u "$WORK")"
 "$EXE" -f "$ROOT\Tests\Joints\Joint_Hinge.pmx" --script "$ROOT\VtkPort\Widgets\Record_W1.py" \
     --scriptArgs "$ROOT\VtkPort\Harness|$OUT" -g No -w "$WORK" | grep -E "W1|States|Error|Exception|line"
+[ -z "$PORT_REFERENCE" ] || py -3 "$(cygpath -u "$ROOT")"/VtkPort/Harness/graft_reference.py "$PORT_REFERENCE" "$OUT"
 py -3 "$(cygpath -u "$ROOT")/VtkPort/Widgets/Compare_W1.py" "$OUT"

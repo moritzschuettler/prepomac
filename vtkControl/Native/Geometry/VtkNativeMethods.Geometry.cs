@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int GeometryApiVersion = 8;
+        public const int GeometryApiVersion = 9;
 
 
         // Methods
@@ -79,6 +79,10 @@ namespace vtkControl.Native
                                                                              int count, double[] rgb, int rgbCount);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_actors_color_contours(IntPtr view, byte[] names, int colorContours);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_color_spectrum_get_colors(ref VtkNativeColorSpectrum spectrum,
+                                                                            double[] positions, int count,
+                                                                            [Out] double[] rgb);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_update_scalar_formatting(IntPtr view, ref VtkNativeColorSpectrum spectrum,
                                                                                 int keepScalarBarVisible, int useAllFrames,

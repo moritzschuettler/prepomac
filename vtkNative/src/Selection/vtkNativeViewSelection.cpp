@@ -19,7 +19,9 @@
 #include <vtkPlanes.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
+#include <vtkSTLWriter.h>
 #include <vtkSignedCharArray.h>
+#include <vtkWindowedSincPolyDataFilter.h>
 
 #include <algorithm>
 #include <cfloat>
@@ -162,6 +164,28 @@ namespace vtkn
         auto found = Parts.find(name);
         if (found == Parts.end()) throw Error(VTKN_ERROR_NOT_FOUND, "No part is named '" + name + "'.");
         found->second->GetGeometry()->GetBounds(bounds);
+    }
+
+    // Port of vtkMaxActor.Smooth: the surface of the part smoothed by a windowed sinc filter, written as STL, which
+    // SmoothGeometryPart of the Controller imports again
+    void View::SmoothPartToStl(const std::string& name, const std::string& fileName)
+    {
+        auto found = Parts.find(name);
+        if (found == Parts.end()) throw Error(VTKN_ERROR_NOT_FOUND, "No part is named '" + name + "'.");
+        vtkNew<vtkWindowedSincPolyDataFilter> smoother;
+        smoother->SetInputData(found->second->GetPolyData());
+        smoother->NormalizeCoordinatesOn();
+        smoother->SetNumberOfIterations(20);
+        smoother->BoundarySmoothingOn();
+        smoother->FeatureEdgeSmoothingOn();
+        smoother->SetFeatureAngle(360.0);
+        smoother->SetPassBand(0.1);
+        smoother->NonManifoldSmoothingOn();
+        vtkNew<vtkSTLWriter> writer;
+        writer->SetFileName(fileName.c_str());
+        writer->SetInputConnection(smoother->GetOutputPort());
+        if (writer->Write() != 1)
+            throw Error(VTKN_ERROR_VTK, "The smoothed part could not be written to '" + fileName + "'.");
     }
 
     // Port of AddNodeAndCellDataToGrid for the volume grid: the cells as they are, with the node and element ids

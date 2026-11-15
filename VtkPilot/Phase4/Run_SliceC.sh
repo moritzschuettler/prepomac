@@ -12,4 +12,5 @@ SCRIPT="$ROOT\VtkPilot\Phase4\Record_SliceC.py"
     --scriptArgs "solid|$OUT" -g No -w "$WORK" | grep -E "SLICE|Picks|Error|Exception|line "
 "$EXE" -f "$ROOT\Tests\Joints\Joint_Hinge.pmx" --script "$SCRIPT" --scriptArgs "hinge|$OUT" -g No -w "$WORK" |
     grep -E "SLICE|Picks|Error|Exception|line "
+[ -z "$PORT_REFERENCE" ] || py -3 "$(cygpath -u "$ROOT")"/VtkPort/Harness/graft_reference.py "$PORT_REFERENCE" "$OUT"
 py -3 "$(cygpath -u "$ROOT")/VtkPilot/Phase4/Compare_SliceC.py" "$OUT"

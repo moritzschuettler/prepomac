@@ -4,6 +4,9 @@
 // inside the guard of vtkNativeGuard.h.
 #include "vtkNativeGuard.h"
 #include "vtkNativeView.h"
+#include "vtkNativeColorSpectrum.h"
+
+#include <vtkColorTransferFunction.h>
 
 #include <vtkFloatArray.h>
 #include <vtkNew.h>
@@ -266,6 +269,19 @@ extern "C"
                 PartActor* actor = target->FindActor(name, VTKN_LAYER_BASE);
                 if (actor != nullptr) actor->SetColorContours(color_contours != 0);
             }
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_color_spectrum_get_colors(const vtkn_color_spectrum* spectrum, const double* positions,
+                                                         int32_t count, double* rgb)
+    {
+        return GuardVtk([&]() {
+            Require(spectrum != nullptr, "The argument 'spectrum' must not be null.");
+            Require(count >= 0 && (count == 0 || (positions != nullptr && rgb != nullptr)),
+                    "The positions and the colors must hold count values.");
+            vtkSmartPointer<vtkColorTransferFunction> ctf = CreateColorTransferFunction(*spectrum);
+            for (int32_t i = 0; i < count; i++) ctf->GetColor(positions[i], rgb + 3 * i);
             return VTKN_OK;
         });
     }

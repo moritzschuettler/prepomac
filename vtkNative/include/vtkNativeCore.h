@@ -41,7 +41,7 @@ extern "C" {
 #endif
 
 /* Raised whenever the C API changes incompatibly; the managed side refuses a library with another value */
-#define VTKN_API_VERSION 5
+#define VTKN_API_VERSION 6
 
 typedef enum vtkn_status
 {
@@ -145,6 +145,13 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_set_vertical_axis_view(vtkn_view view, 
 VTKN_API vtkn_status VTKN_CALL vtkn_view_zoom_to_fit(vtkn_view view);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_zoom_factor(vtkn_view view, double parallel_scale);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_box_zoom(vtkn_view view, int32_t x1, int32_t y1, int32_t x2, int32_t y2);
+/* While deferred, the view changes above set the camera, its distance and its clipping range, and do not render:
+   the owner reads the camera they reach and animates to it */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_view_change_deferred(vtkn_view view, int32_t deferred);
+/* The display position of a world point, and the world point at a display position on the near plane, with the
+   current camera (vtkInteractorObserver::ComputeWorldToDisplay and ComputeDisplayToWorld) */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_world_to_display(vtkn_view view, const double* world3, double* display2);
+VTKN_API vtkn_status VTKN_CALL vtkn_view_display_to_world(vtkn_view view, const double* display2, double* world3);
 
 /* Pictures. The pixels are RGB, bottom row first as OpenGL reads them, width * height * 3 bytes */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_read_pixels(vtkn_view view, int32_t magnification, uint8_t* buffer,

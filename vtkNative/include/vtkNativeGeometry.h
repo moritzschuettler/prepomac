@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_GEOMETRY_API_VERSION 8
+#define VTKN_GEOMETRY_API_VERSION 9
 
 /* Mirrors vtkRendererLayer of vtkControl: the base layer, the selection layer drawn over it, the overlay layer */
 typedef enum vtkn_layer
@@ -290,6 +290,10 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_set_actors_color_contours(vtkn_view vie
                                                                     int32_t color_contours);
 /* UpdateScalarFormatting: the result range over the visible actors with color contours colors them through the
    lookup table of the spectrum; with use_all_frames the given range of all animation frames is used instead */
+/* The colors of the spectrum at the given positions from 0 to 1 (GetColorTransferFunction of vtkControl): count
+   positions in, 3 * count RGB values out. The legend and the lookup table of an export take them */
+VTKN_API vtkn_status VTKN_CALL vtkn_color_spectrum_get_colors(const vtkn_color_spectrum* spectrum,
+                                                               const double* positions, int32_t count, double* rgb);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_update_scalar_formatting(vtkn_view view, const vtkn_color_spectrum* spectrum,
                                                                    int32_t keep_scalar_bar_visible,
                                                                    int32_t use_all_frames, double all_frames_min,

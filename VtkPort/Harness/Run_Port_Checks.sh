@@ -1,7 +1,10 @@
 #!/bin/bash
 # Runs the checks of the VTK native port: every suite, or those whose name contains one of the --filter parts.
 #
-#   bash VtkPort/Harness/Run_Port_Checks.sh [--filter <part> ...] [--out <folder>]
+#   bash VtkPort/Harness/Run_Port_Checks.sh [--filter <part> ...] [--out <folder>] [--reference <folder>]
+#
+# --reference names the output folder of a run on a build that still had ActiViz: the ActiViz side of every suite is
+# taken from it (graft_reference.py) before the comparison, so a build without ActiViz is compared with ActiViz.
 #
 # The build folder is copied first and the copy is run, so a build meanwhile does not fail on locked files. A suite
 # is a recorder run in PrePoMax for each of its scenes and a comparison; a stream adds its suites to SUITES.
@@ -15,6 +18,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --filter) shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do FILTERS+=("$1"); shift; done ;;
         --out) OUT="$2"; shift 2 ;;
+        --reference) REFERENCE="$2"; shift 2 ;;
         *) echo "Unknown argument: $1"; exit 2 ;;
     esac
 done
@@ -78,7 +82,8 @@ for suite in "${SUITES[@]}"; do
     kind="${how%% *}"
     rest="${how#* }"
     if [ "$kind" = "pilot" ]; then
-        PREPOMAX_EXE="$EXE_W" bash "$ROOT_U/$rest" "$OUT\\$name" 2>&1 | grep -E "PASS|FAIL|pass|TEST|COMPARE|Error|Exception" |
+        PORT_REFERENCE="${REFERENCE:+$REFERENCE\\$name}" PREPOMAX_EXE="$EXE_W" bash "$ROOT_U/$rest" "$OUT\\$name" 2>&1 |
+            grep -E "PASS|FAIL|pass|TEST|COMPARE|GRAFT|Error|Exception" |
             grep -vE "^PASS " | tail -15
         status=${PIPESTATUS[0]}
     else
@@ -89,8 +94,14 @@ for suite in "${SUITES[@]}"; do
             "$(cygpath -u "$EXE_W")" "${args[@]}" --script "$HARNESS\Record_Scene.py" \
                 --scriptArgs "$HARNESS|$scene|$areas|$OUT\\$name" -g No -w "$WORK" | grep -E "SCENE|Scene|Error|Exception"
         done
+        graft_status=0
+        if [ -n "$REFERENCE" ]; then
+            py -3 "$ROOT_U/VtkPort/Harness/graft_reference.py" "$REFERENCE\\$name" "$OUT\\$name"
+            graft_status=$?
+        fi
         py -3 "$ROOT_U/VtkPort/Harness/checks.py" scenes "$OUT\\$name" | grep -vE "^PASS "
         status=$?
+        [ "$graft_status" -eq 0 ] || status=1
     fi
     [ "$status" -eq 0 ] || FAILED+=("$name")
 done

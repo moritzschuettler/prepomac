@@ -133,6 +133,11 @@ namespace vtkControl.Native
                                                                              bounds));
             return bounds;
         }
+        public void SmoothPartToStl(string name, string fileName)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_smooth_part_to_stl(Handle(), VtkNativeLibrary.ToUtf8(name),
+                                                                                  VtkNativeLibrary.ToUtf8(fileName)));
+        }
         // The volume grid of a part, which the frustum selection searches; null removes it
         public void SetVolumeGrid(string name, VtkNativeMeshData grid)
         {

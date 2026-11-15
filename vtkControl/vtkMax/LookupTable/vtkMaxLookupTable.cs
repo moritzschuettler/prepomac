@@ -42,6 +42,13 @@ namespace vtkControl
             _colors = new Color[0];
             _smoothColors = false;
         }
+        public vtkMaxLookupTable(double minValue, double maxValue, Color[] colors, bool smoothColors)
+        {
+            _minValue = minValue;
+            _maxValue = maxValue;
+            _colors = colors;
+            _smoothColors = smoothColors;
+        }
         public vtkMaxLookupTable(vtkLookupTable lookupTable)
             : this(lookupTable, false)
         {

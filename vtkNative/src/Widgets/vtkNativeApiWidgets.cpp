@@ -532,7 +532,10 @@ extern "C"
                 case VTKN_NAVIGATE_ZOOM_AT_POINT_SMOOTH:
                     style->ZoomAtDisplayPointSmooth(a, static_cast<int>(b), static_cast<int>(c));
                     break;
-                case VTKN_NAVIGATE_ROTATE: style->Rotate(a, b, c, true); break;
+                case VTKN_NAVIGATE_ROTATE:
+                    style->UpdateRotationCenterDisplay();
+                    style->Rotate(a, b, c, true);
+                    break;
                 case VTKN_NAVIGATE_START_GESTURE:
                     style->StartMultiTouchGesture(static_cast<int>(a), static_cast<int>(b), c != 0);
                     break;

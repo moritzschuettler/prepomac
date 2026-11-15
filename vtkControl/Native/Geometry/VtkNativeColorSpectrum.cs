@@ -54,5 +54,16 @@ namespace vtkControl.Native
             spectrum.MaxColorB = colorSpectrum.MaxColor.B / 255.0;
             return spectrum;
         }
+
+
+        // Methods
+        // The RGB color of the spectrum at a position from 0 to 1
+        public double[] GetColor(double position)
+        {
+            double[] rgb = new double[3];
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_color_spectrum_get_colors(ref this, new double[] { position }, 1,
+                                                                                   rgb));
+            return rgb;
+        }
     }
 }
