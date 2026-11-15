@@ -23,6 +23,7 @@ only when that mesher's binary is actually present in the base folder.
 | pthreads-win32 2.9.1 | `Meshers\Netgen\pthreadVC2.dll` | LGPL-2.1 | `COPYING.LIB` in the prebuilt package used for the build |
 | zlib 1.2.11 | `Meshers\Netgen\zlib.dll` | zlib License | license notice in the vendored `zlib.h` |
 | lp_solve 5.5.2.11 | `lib\lpsolve55.dll`, vendored in `ThirdParty/lpsolve/` | LGPL-2.1 | `README.txt` of the lp_solve 5.5 sources, sourceforge.net/projects/lpsolve |
+| VTK 9.7.1, patched | `lib\vtk*-9.7.dll`, built from vtk.org sources; `lib\vtkNative.dll` is built from `vtkNative/` in this repository | BSD-3-Clause; the libraries bundled in VTK under their own permissive licenses | `Copyright.txt` and `ThirdParty/*/vtk*/` licenses of the VTK 9.7.1 sources; see [vtk/NOTICE.md](vtk/NOTICE.md) |
 
 Gmsh, Mmg and QuadWild are all GPL/LGPL v3-compatible with PrePoMax's own GPL-3.0, so bundling them
 raises no license-compatibility question. Mmg's own LICENSE requires that both `COPYING.LESSER`
@@ -44,6 +45,15 @@ framework, neither of which PrePoMax calls, and links OpenCASCADE statically, so
 `TK*.dll` beside it exactly as the upstream one did. It is built with Microsoft's compiler, which
 cannot compile Gmsh's OpenMP directives, so the parallel tetrahedral mesher runs on one thread
 where the upstream binary used several.
+
+## VTK build
+
+The 3D view is `lib\vtkNative.dll`, built by CMake from `vtkNative/` against VTK 9.7.1. The VTK libraries are a
+shared x64 Release build of the VTK 9.7.1 release with one patch, `vtkNative/patches/vtk-9.7.1-ssao-background.patch`
+(the ambient occlusion keeps the background), and the build copies only the VTK DLLs `vtkNative.dll` loads.
+[vtk/NOTICE.md](vtk/NOTICE.md) lists them with the libraries VTK bundles; the post-build event copies the folder to
+`lib\vtk-licenses`. VTK and all of these are under permissive licenses (BSD, MIT, zlib, Apache-2.0 and the like),
+compatible with PrePoMax's GPL-3.0. The patched source file is the corresponding source of the one change.
 
 ## Netgen runtime set
 
