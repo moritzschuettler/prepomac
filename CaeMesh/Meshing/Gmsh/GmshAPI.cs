@@ -4545,6 +4545,10 @@ namespace CaeMesh
                                                  separation.FirstSideEdgeId + " and Edge " + separation.SecondSideEdgeId,
                                                  IntervalRowTierEnum.Structured, separation.TowardsEdgeIds,
                                                  separation.BackEdgeIds, separation.Bound, face.FaceId);
+                // An edge that turns in its middle is split there into two halves of as many elements
+                foreach (var edgeId in face.TurnEdgeIds)
+                    problem.AddEvenSum(_submapRowPrefix + face.FaceId + " Edge " + edgeId + " turning in its middle",
+                                       IntervalRowTierEnum.Structured, new int[] { edgeId });
             }
             // The parity of the sources: a full-quad recombination halves every edge of a source - an edge between two
             // sources as well, which no wall fixes and which gmsh left at 1 element on sweep_43_1 - and QuadWild needs an
@@ -5494,13 +5498,17 @@ namespace CaeMesh
                     lines.Add(description + ". Its edges: " + edges + ".");
                 else FreeStructuredSource(face.FaceId, description + ", so it is meshed free. Its edges: " + edges + ".");
             }
-            // A submapped source whose counts close no valid outline, or leave sides that face each other without the
-            // cells between them, is meshed free, whoever set its counts
+            // A submapped source whose counts close no valid outline, leave sides that face each other without the
+            // cells between them, or cannot split an edge that turns in its middle, is meshed free, whoever set its counts
             string reason;
             foreach (var face in _submapSourceFaces.Values.OrderBy(face => face.FaceId).ToArray())
             {
-                int[] counts = face.EdgeIds.Select(edgeId => sideCount(new int[] { edgeId })).ToArray();
-                if (!SubmapMapping.AreCountsValid(face.EdgeDirections, counts, out reason))
+                Dictionary<int, int> edgeIdCount = new Dictionary<int, int>();
+                foreach (var edgeId in face.EdgeIds) edgeIdCount[edgeId] = sideCount(new int[] { edgeId });
+                int turnEdgeId = face.GetOddTurnEdgeId(edgeIdCount);
+                if (turnEdgeId >= 0) reason = GetOddTurnEdgeReason(turnEdgeId);
+                else if (!SubmapMapping.AreCountsValid(face.LogicalEdgeDirections, face.GetLogicalEdgeCounts(edgeIdCount),
+                                                       out reason))
                     reason = GmshSubmapMesher.NameLoopEdges(face, reason);
                 else
                 {
@@ -5535,7 +5543,9 @@ namespace CaeMesh
         /// never makes the meshing fail: one whose pairs the balance leaves unequal, or whose counts do not close a
         /// valid logical outline, is meshed free and the balance is made again without it. A full-quad recombination
         /// meshes the surface gmsh meshes first on every second node of its edges, so its edges are then given even
-        /// numbers of elements.
+        /// numbers of elements. An edge that turns in its middle, as a fillet does, is split at its middle node into two
+        /// halves, so it is always given an even number; one whose number the user set odd leaves its face free. The
+        /// full-quad recombination subdivides its mesh before SubmapMapping replaces it, so the halves need no more.
         /// </summary>
         private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces, SubmapFace[] submapFaces, bool fullQuad)
         {
@@ -5655,7 +5665,10 @@ namespace CaeMesh
                     unbalancedTriples = new List<TransfiniteSideTriple>();
                     break;
                 }
-                HashSet<int> evenEdgeIds = fullQuad ? new HashSet<int>(submapped.SelectMany(face => face.EdgeIds)) : null;
+                // Even counts on every edge under a full-quad recombination, and otherwise on the edges that turn in
+                // their middle, which are split there into two halves of as many elements
+                HashSet<int> evenEdgeIds = new HashSet<int>(submapped.SelectMany(face => fullQuad ? face.EdgeIds :
+                                                                                         face.TurnEdgeIds));
                 Dictionary<SubmapSeparation, SubmapFace> separationFaces = new Dictionary<SubmapSeparation, SubmapFace>();
                 List<SubmapSeparation> separations = new List<SubmapSeparation>();
                 foreach (var face in submapped)
@@ -5674,6 +5687,13 @@ namespace CaeMesh
                 //
                 Dictionary<SubmapFace, string> dropped = new Dictionary<SubmapFace, string>();
                 SubmapFace unbalancedFace;
+                // An odd count on an edge that turns in its middle, which only the user sets, also leaves the doubled
+                // sums of its face unequal, and is the reason to name
+                foreach (var face in submapped)
+                {
+                    int turnEdgeId = face.GetOddTurnEdgeId(edgeIdCount);
+                    if (turnEdgeId >= 0) dropped.Add(face, GetOddTurnEdgeReason(turnEdgeId));
+                }
                 foreach (var pair in unbalanced)
                 {
                     if (submapPairFaces.TryGetValue(pair, out unbalancedFace) && !dropped.ContainsKey(unbalancedFace))
@@ -5692,12 +5712,20 @@ namespace CaeMesh
                 foreach (var face in submapped)
                 {
                     if (dropped.ContainsKey(face)) continue;
-                    if (!SubmapMapping.AreCountsValid(face.EdgeDirections, face.GetEdgeCounts(edgeIdCount), out reason))
+                    if (!SubmapMapping.AreCountsValid(face.LogicalEdgeDirections,
+                                                           face.GetLogicalEdgeCounts(edgeIdCount), out reason))
                         dropped.Add(face, GmshSubmapMesher.NameLoopEdges(face, reason));
                     else if (fullQuad && face.EdgeIds.Any(edgeId => edgeIdCount[edgeId] % 2 != 0))
+                    {
+                        // The halves of a turn edge set to twice an odd number leave an odd sum to balance
+                        int[] oddHalvesEdgeIds = face.TurnEdgeIds.Where(edgeId => edgeIdCount[edgeId] % 4 != 0).ToArray();
                         dropped.Add(face, "the full-quad recombination meshes it on every second node of its edges, " +
                                           "and Edge " + face.EdgeIds.First(edgeId => edgeIdCount[edgeId] % 2 != 0) +
-                                          " carries an odd number of elements");
+                                          " carries an odd number of elements" +
+                                          (oddHalvesEdgeIds.Length == 0 ? "" :
+                                           ", balancing the odd halves of Edge " + oddHalvesEdgeIds[0] +
+                                           ", which turns a corner in its middle"));
+                    }
                 }
                 bool transfiniteUnbalanced = unbalancedTriples.Count > 0 ||
                                              unbalanced.Any(pair => !submapPairFaces.ContainsKey(pair));
@@ -5756,6 +5784,10 @@ namespace CaeMesh
         private void WriteSubmapFreeMessage(int surfaceId, string reason)
         {
             _writeOutput?.Invoke(NameGmshEntities("Submapping: Surface " + surfaceId + " is meshed free - " + reason + "."));
+        }
+        private static string GetOddTurnEdgeReason(int edgeId)
+        {
+            return "Edge " + edgeId + " turns a corner in its middle and carries an odd number of elements";
         }
         private bool IsPolar(TransfiniteFace face)
         {
@@ -6543,7 +6575,8 @@ namespace CaeMesh
                     mapped = netgenEdgeIdGmshEdgeId.TryGetValue(face.EdgeIds[i], out edgeIds[i]);
                 if (!mapped) continue;
                 //
-                renumbered.Add(new SubmapFace(surfaceId, vertexIds, edgeIds, face.EdgeDirections, face.VertexAnglesDeg));
+                renumbered.Add(new SubmapFace(surfaceId, vertexIds, edgeIds, face.EdgeDirections, face.VertexAnglesDeg,
+                                              face.EdgeTurns));
             }
             return renumbered.ToArray();
         }

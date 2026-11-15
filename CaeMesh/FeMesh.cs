@@ -4627,7 +4627,8 @@ namespace CaeMesh
                     int[] edgeIds = new int[face.EdgeIds.Length];
                     for (int k = 0; k < edgeIds.Length; k++) edgeIds[k] = GmshTopologyId(face.EdgeIds[k], part.PartId);
                     submapFaces.Add(new SubmapFace(faceId, face.VertexNodeIds.ToArray(), edgeIds,
-                                                   face.EdgeDirections.ToArray(), face.VertexAnglesDeg.ToArray()));
+                                                   face.EdgeDirections.ToArray(), face.VertexAnglesDeg.ToArray(),
+                                                   face.EdgeTurns == null ? null : face.EdgeTurns.ToArray()));
                 }
             }
             return submapFaces.ToArray();

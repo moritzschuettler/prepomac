@@ -20,7 +20,8 @@ namespace CaeMesh
     /// GmshThreeBlockMesher meshes a three-sided face: gmsh supplies the nodes its edges carry, their parameters on
     /// the surface and the evaluation of the surface, and the elements gmsh meshed on the face are replaced. A grid
     /// that cannot be made, folds or has a quad corner below SubmapFaceDetector.MinScaledJacobian leaves the face as
-    /// gmsh meshed it.
+    /// gmsh meshed it. An edge that turns in its middle is split at its middle node into the two logical edges of the
+    /// face, so it needs an even number of elements.
     /// </summary>
     public static class GmshSubmapMesher
     {
@@ -60,10 +61,38 @@ namespace CaeMesh
                 reason = ToReason(ex.Message);
                 return false;
             }
+            // A turn edge is split at its middle node into its two halves
+            List<List<IntPtr>> logicalTags = new List<List<IntPtr>>();
+            List<double[][]> logicalXyz = new List<double[][]>();
+            List<double[][]> logicalUv = new List<double[][]>();
+            for (int k = 0; k < numOfEdges; k++)
+            {
+                if (face.GetEdgeTurn(k) == 0)
+                {
+                    logicalTags.Add(edgeTags[k]);
+                    logicalXyz.Add(edgeXyz[k]);
+                    logicalUv.Add(edgeUv[k]);
+                    continue;
+                }
+                int count = edgeXyz[k].Length - 1;
+                if (count % 2 != 0)
+                {
+                    reason = "Edge " + face.EdgeIds[k] + " turns a corner in its middle and carries an odd number of " +
+                             "elements";
+                    return false;
+                }
+                int middle = count / 2;
+                logicalTags.Add(edgeTags[k].GetRange(0, middle + 1));
+                logicalTags.Add(edgeTags[k].GetRange(middle, count - middle + 1));
+                logicalXyz.Add(GetRange(edgeXyz[k], 0, middle + 1));
+                logicalXyz.Add(GetRange(edgeXyz[k], middle, count - middle + 1));
+                logicalUv.Add(GetRange(edgeUv[k], 0, middle + 1));
+                logicalUv.Add(GetRange(edgeUv[k], middle, count - middle + 1));
+            }
             SubmapGrid grid;
             try
             {
-                grid = SubmapMapping.Map(face.EdgeDirections, edgeUv, edgeXyz, uv =>
+                grid = SubmapMapping.Map(face.LogicalEdgeDirections, logicalUv.ToArray(), logicalXyz.ToArray(), uv =>
                 {
                     double[] coor;
                     Gmsh.Model.GetValue(2, surfaceId, uv, out coor);
@@ -89,13 +118,13 @@ namespace CaeMesh
             // The tags and parameters of the boundary nodes in loop order
             IntPtr[] boundaryNodeTags = new IntPtr[grid.NumberOfBoundaryNodes];
             double[][] loopUv = new double[grid.NumberOfBoundaryNodes][];
-            for (int k = 0; k < numOfEdges; k++)
+            for (int k = 0; k < logicalTags.Count; k++)
             {
                 for (int i = 0; i < grid.EdgeCounts[k]; i++)
                 {
                     int nodeId = grid.GetBoundaryNodeId(k, i);
-                    boundaryNodeTags[nodeId] = edgeTags[k][i];
-                    loopUv[nodeId] = edgeUv[k][i];
+                    boundaryNodeTags[nodeId] = logicalTags[k][i];
+                    loopUv[nodeId] = logicalUv[k][i];
                 }
             }
             GmshThreeBlockMesher.ReplaceSurfaceMesh(surfaceId, boundaryNodeTags, loopUv, grid.Quads, grid.InnerUv,
@@ -120,7 +149,14 @@ namespace CaeMesh
         private static string GetEdgeId(SubmapFace face, string loopIndex)
         {
             int index = int.Parse(loopIndex);
-            return index >= 0 && index < face.EdgeIds.Length ? face.EdgeIds[index].ToString() : loopIndex;
+            int[] logicalEdgeIds = face.LogicalEdgeIds;
+            return index >= 0 && index < logicalEdgeIds.Length ? logicalEdgeIds[index].ToString() : loopIndex;
+        }
+        private static double[][] GetRange(double[][] array, int start, int length)
+        {
+            double[][] range = new double[length][];
+            Array.Copy(array, start, range, 0, length);
+            return range;
         }
         private static string ToReason(string message)
         {
