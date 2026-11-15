@@ -1,14 +1,17 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#VTK native port, stream S: pictures of the mouse selection highlights, as phase 0 recorded them per mode. Both paths
-#show the mirrored parts and their selection layer; for each select mode the mouse moves to three points on the model
-#and, where the mode highlights an area, drags a box: through Style_PointPickedOnMouseMoveEvt (ActiViz) and through
-#HoverWithNativeMirror (native pick, native ids, native selection layer). A picture without a highlight is taken on
-#each path after the mode is set and a first move (a mode may draw selection layer items of its own, ActiViz on the
-#first move); Compare_Highlights.py compares what the highlight changed. A point where a click selects other ids on
-#the two paths, in the mode or in the element mode (the hover of several modes shows the element face under the
-#point), is marked: a border pick of slice C, where the native point is the exact one on the ray.
+#VTK native port, stream S: pictures of the mouse selection highlights, as phase 0 recorded them per mode. The view
+#shows the parts and their selection layer; for each select mode the mouse moves to three points on the model and,
+#where the mode highlights an area, drags a box through HoverWithNativeMirror (native pick, native ids, native
+#selection layer). A picture without a highlight is taken after the mode is set and a first move;
+#Compare_Highlights.py compares what the highlight changed. A point where a click selected other ids on the ActiViz
+#path and the native one, in the mode or in the element mode (the hover of several modes shows the element face under
+#the point), is marked: a border pick of slice C, where the native point is the exact one on the ray.
+#
+#The ActiViz side (the old pictures and the border marks) is the one of the reference run the checks compare with
+#(PORT_REFERENCE): the old pictures written here are the native view and are replaced by the graft, and the border
+#marks are taken from the reference document. Without a reference no point is marked.
 #
 #  PrePoMax.com <scene arguments> --script Record_Selection_Highlights.py --scriptArgs "<harness>|<scene>|<modes>|<out>" -g No
 #
@@ -53,12 +56,9 @@ def set_select_mode(select_item, select_by):
 
 
 def hover(native, x1, y1, box, x2, y2):
-    def run():
-        if native:
-            VTK.HoverWithNativeMirror(x1, y1, box, x2, y2)
-        else:
-            vtkport.invoke(VTK, "Style_PointPickedOnMouseMoveEvt", x1, y1, box, x2, y2)
-    vtkport.on_ui(run)
+    """The old side is the reference; it is not driven"""
+    if native:
+        vtkport.on_ui(lambda: VTK.HoverWithNativeMirror(x1, y1, box, x2, y2))
 
 
 def save(out_dir, native, name):
@@ -72,20 +72,12 @@ def save(out_dir, native, name):
         pmx.view.save_image(path)
 
 
-def clicked_ids(native, x, y):
-    def run():
-        CONTROLLER.ClearSelectionHistory()
-        VTK.NativeIdResolution = native
-        try:
-            if native:
-                VTK.PickWithNativeMirror(x, y, False, x, y)
-            else:
-                VTK.Pick(x, y, False, x, y)
-            return sorted(int(i) for i in CONTROLLER.GetSelectionIds())
-        finally:
-            VTK.NativeIdResolution = True
-            CONTROLLER.ClearSelectionHistory()
-    return vtkport.on_ui(run)
+def reference_borders():
+    """The pictures the reference run marked as border picks, by file name; empty without a reference"""
+    reference = vtkport.reference_value(SCENE + "_highlights.json")
+    if reference is None:
+        return set()
+    return set(h["file"] for h in reference["highlights"] if h["border"])
 
 
 def hit_points():
@@ -110,11 +102,6 @@ def main():
     scenes.setup(SCENE, pmx)
     names = vtkport.enable_native(["geometry", "selection"])
     vtkport.parts_only(True)
-
-    def draw_selection_layers():
-        vtkport.get_field(VTK, "_selectionRenderer").SetDraw(1)
-        vtkport.get_field(VTK, "_overlayRenderer").SetDraw(1)
-    vtkport.on_ui(draw_selection_layers)
     width, height = SIZE
     vtkport.set_viewport_size(width, height)
     start = vtkport.camera_list(pmx.view.get_parameters())
@@ -126,9 +113,12 @@ def main():
         save(out_dir, native, name)
         record["base"]["new" if native else "old"] = name
     points = hit_points()
+    # The points of the reference, where its old pictures were taken
+    reference = vtkport.reference_value(SCENE + "_highlights.json")
+    if reference is not None:
+        points = [tuple(p) for p in reference["points"]]
     record["points"] = points
-    set_select_mode("Element", "Element")
-    element_border = [p for p in points if clicked_ids(False, p[0], p[1]) != clicked_ids(True, p[0], p[1])]
+    borders = reference_borders()
     box = (width // 8, height // 8, width * 7 // 8, height * 7 // 8)
     for mode, select_item, select_by, area in MODE_SETS[MODES]:
         set_select_mode(select_item, select_by)
@@ -146,8 +136,7 @@ def main():
                 hover(native, x1, y1, is_box, x2, y2)
                 save(out_dir, native, name)
                 vtkport.on_ui(lambda: VTK.ClearCurrentMouseSelection())
-            border = not is_box and ((x1, y1) in element_border or
-                                     clicked_ids(False, x1, y1) != clicked_ids(True, x1, y1))
+            border = not is_box and name in borders
             record["highlights"].append({"file": name, "base": base, "mode": mode, "move": label, "x1": x1, "y1": y1,
                                          "x2": x2, "y2": y2, "box": is_box, "border": border})
         vtkport.on_ui(lambda: setattr(CONTROLLER, "SelectBy", vtkSelectBy.Off))

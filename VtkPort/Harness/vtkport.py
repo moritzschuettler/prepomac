@@ -114,29 +114,25 @@ def area_flags(areas):
 
 
 def enable_native(areas, in_window=True, redraw=True):
-    """Switches the given native areas on ("geometry", "widgets", "selection") with the native view in the window
-    as the target (the off screen mirror goes with ActiViz); the Controller redraws, so the native view receives the
-    current scene"""
+    """Narrows the native view in the window, the only view of the control, to the given areas ("geometry",
+    "widgets", "selection"); the Controller redraws, so the native view receives the current scene. in_window is
+    left from the time of the off screen mirror and is always the window"""
     flags = area_flags(areas)
 
     def run():
-        VTK.SetNativeAreas(flags, in_window)
+        VTK.SetNativeAreas(flags)
         if redraw:
             CONTROLLER.Redraw(False)
-        if in_window:
-            # The native view in the window starts from the camera the ActiViz view shows
-            position, focal_point, view_up, parallel_scale = invoke(VTK, "GetViewParameters", count=4)[1]
-            camera = list(position) + list(focal_point) + list(view_up) + [parallel_scale]
-            VTK.NativeMirror.SetViewParameters(System.Array[System.Double]([float(v) for v in camera]))
         return list(VTK.GetNativeMirrorNames())
     return on_ui(run)
 
 
 def disable_native():
+    """Puts every area back, as the application has them"""
     def run():
         VTK.SetNativeMirrorPartsOnly(False)
         VTK.SetNativeMirrorScalarBarOnly(False)
-        VTK.SetNativeAreas(area_flags(["geometry", "widgets", "selection"]), True)
+        VTK.SetNativeAreas(area_flags(["geometry", "widgets", "selection"]))
     on_ui(run)
 
 

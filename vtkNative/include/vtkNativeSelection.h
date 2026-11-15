@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_SELECTION_API_VERSION 4
+#define VTKN_SELECTION_API_VERSION 5
 
 /* A point pick. hit is 0 when nothing was picked; the point is then not set. cell_id is the element id of the
    surface cell the point lies on */
@@ -37,11 +37,6 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_pick_point(vtkn_view view, int32_t x, i
                                                      int32_t limit_distance, const char* selectable_parts,
                                                      vtkn_point_pick* pick, char* part_name, int32_t capacity,
                                                      int32_t* required);
-/* How a point pick finds its point. Exact (the default, slice C of the pilot): the ray of the pixel is intersected
-   with the picked part, and where the pixel misses, a cell pick catches geometry within the selection distance.
-   Not exact, as vtkControl picked with ActiViz: the point is rebuilt from the depth of the hardware pick and there is
-   no pick within the distance, which VTK 5.8 made but never caught anything with */
-VTKN_API vtkn_status VTKN_CALL vtkn_view_set_exact_picking(vtkn_view view, int32_t exact);
 /* What a point pick on a section view resolves to (ResolveSectionViewPick): with part_selection a cut face resolves
    to its part; the faces with element ids (the element-wise section) also resolve to nodes and elements with
    node_or_element_selection */

@@ -65,14 +65,6 @@ extern "C"
         });
     }
 
-    vtkn_status VTKN_CALL vtkn_view_set_exact_picking(vtkn_view view, int32_t exact)
-    {
-        return Guard([&]() {
-            View::FromHandle(view)->SetExactPicking(exact != 0);
-            return VTKN_OK;
-        });
-    }
-
     vtkn_status VTKN_CALL vtkn_view_set_section_view_pick_mode(vtkn_view view, int32_t part_selection,
                                                                int32_t node_or_element_selection)
     {

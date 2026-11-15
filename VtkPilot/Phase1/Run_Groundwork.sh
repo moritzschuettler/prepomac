@@ -1,6 +1,6 @@
 #!/bin/bash
-# Runs the phase 1 groundwork checks inside PrePoMax and compares the ActiViz picture taken after VTK 9.7 rendered
-# with the phase 0 reference. The output folder is $1 (default: a temporary folder).
+# Runs the phase 1 groundwork checks inside PrePoMax and sets the picture the view takes after the test scene beside
+# the ActiViz picture of phase 0 (reported, not judged). The output folder is $1 (default: a temporary folder).
 set -e
 ROOT="$(cygpath -w "$(cd "$(dirname "$0")/../.." && pwd)")"
 OUT="${1:-$(cygpath -w "${TEMP:-/tmp}")\\VtkPilotPhase1}"

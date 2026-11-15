@@ -115,7 +115,7 @@ namespace vtkControl
             settings.ZoomSensitivity = _zoomSensitivity;
             settings.InvertZoom = _invertZoom ? 1 : 0;
             settings.SmoothZoom = _smoothZoom ? 1 : 0;
-            settings.SelectionBoxEnabled = _style.SelectionBoxEnabled ? 1 : 0;
+            settings.SelectionBoxEnabled = _selectionBoxEnabled ? 1 : 0;
             settings.SelectionDistance = _selectionDistance;
             _nativeMirror.SetInteractionSettings(settings);
         }
@@ -130,8 +130,7 @@ namespace vtkControl
         private void MirrorOwnerBoxZoom()
         {
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
-            bool ownerBoxZoom = _nativeInWindow && !_nativeWindowIndependent;
-            _nativeMirror.Navigate(VtkNativeNavigation.SetOwnerBoxZoom, ownerBoxZoom ? 1 : 0);
+            _nativeMirror.Navigate(VtkNativeNavigation.SetOwnerBoxZoom, 1);
         }
         // StartBoxZoom: the next left drag of the native style zooms to its box
         private void MirrorStartBoxZoom()
@@ -207,7 +206,7 @@ namespace vtkControl
                     BoxZoomEnded();
                     break;
                 case 30:
-                    if (_nativeMirror.GetInteractionState()[0] == vtkInteractorStyleControl.VTKIS_ROTATE &&
+                    if (_nativeMirror.GetInteractionState()[0] == VtkNativeView.InteractionStateRotate &&
                         _probeWidget != null && _probeWidget.GetVisibility() == 1) _probeWidget.VisibilityOff();
                     break;
                 case 32:
@@ -233,20 +232,8 @@ namespace vtkControl
         private void NativeMirrorTriad_TargetClicked(VtkNativeTriadTarget target)
         {
             if (_nativeMirror == null) return;
-            // In the window the views of this control animate the camera and hand each frame to the native view
-            if (_nativeInWindow && !_nativeWindowIndependent)
-            {
-                coorSysWidget_TargetClicked((vtkMaxCoorSysTarget)(int)target);
-                return;
-            }
-            double[][] axes = new double[][] { new double[] { 1, 0, 0 }, new double[] { -1, 0, 0 },
-                                               new double[] { 0, 1, 0 }, new double[] { 0, -1, 0 },
-                                               new double[] { 0, 0, 1 }, new double[] { 0, 0, -1 } };
-            if (target == VtkNativeTriadTarget.Origin) _nativeMirror.SetStandardView(VtkNativeOrientation.Isometric, false);
-            else if (target >= VtkNativeTriadTarget.XPositiveVertical)
-                _nativeMirror.SetVerticalAxisView(axes[target - VtkNativeTriadTarget.XPositiveVertical], false);
-            else if (target >= VtkNativeTriadTarget.XPositive)
-                _nativeMirror.SetAxisView(axes[target - VtkNativeTriadTarget.XPositive], false);
+            // The views of this control animate the camera and hand each frame to the native view
+            coorSysWidget_TargetClicked((vtkMaxCoorSysTarget)(int)target);
         }
         // Shows only the widgets on both paths: the props of the 3D layers of this control are hidden and the native
         // view drops its parts; the camera is kept, since the scale bar, the triad and the arrows follow it

@@ -75,15 +75,9 @@ namespace vtkControl
         private HashSet<string> _nativeMirrorNames;
         private VtkNativeScalarBar _nativeMirrorScalarBar;
         private VtkNativeArea _nativeAreas;
-        private bool _nativeInWindow;
-        private bool _pushingCameraToNativeWindow;
-        private bool _nativeWindowIndependent;
         private List<vtkProp> _nativeMirrorScalarBarHiddenProps;
         private List<vtkMaxBorderWidget> _nativeMirrorScalarBarHiddenWidgets;
         private vtkRenderWindowInteractor _renderWindowInteractor;
-        private vtkLight _light1;
-        private vtkLight _light2;
-        private vtkLight _light3;
         // Symbols resolution
         private int _arrowTipResolution = 21;
         private int _arrowShaftResolution = 15;
@@ -97,7 +91,6 @@ namespace vtkControl
         private vtkMaxScalarBarWidget _scalarBarWidget;
         private vtkMaxColorBarWidget _colorBarWidget;
         private vtkMaxStatusBlockWidget _statusBlockWidget;
-        private vtkInteractorStyleControl _style;
         private bool _widgetInteractionEnabled;
         private bool _widgetHighlightEnabled;
         private bool _widgetHighlightLocked;
@@ -129,7 +122,6 @@ namespace vtkControl
         //
         private bool _animating;
         private bool _viewAnimationEnabled;
-        private bool _mouseIn;
         //
         private List<Tuple<double[], int>> _transforms;
         // Section view
@@ -139,17 +131,8 @@ namespace vtkControl
         private bool _querySelectionInProgress;
         private vtkSelectBy _selectBy;
         private vtkSelectItem _selectItem;
-        private vtkPropPicker _propPicker;
-        private vtkPointPicker _pointPicker;
-        private vtkCellPicker _cellPicker;
-        private vtkRenderedAreaPicker _areaPicker;
         private int _selectionDistance;
-        //
-        private vtkMaxActor _mouseSelectionActorCurrent;
-        private vtkMaxActor _mouseSelectionPointActorCurrent;
-        private const string _mouseSelectionPointActorName = "mouseSelectionPoint";
-        private HashSet<int> _mouseSelectionAllIds;
-        private int[] _mouseSelectionCurrentIds;
+        private bool _selectionBoxEnabled;
         //
         private HashSet<string> _selectableActorsFilter;
         // Follower view
@@ -188,11 +171,7 @@ namespace vtkControl
                 if (value != _renderingOn)
                 {
                     _renderingOn = value;
-                    if (_renderingOn)
-                    {
-                        RenderScene();
-                        AdjustCameraDistanceAndClipping();  // Update the scale widget after render
-                    }
+                    if (_renderingOn) RenderScene();
                 }
             }
         }
@@ -217,7 +196,7 @@ namespace vtkControl
             set
             {
                 _querySelectionInProgress = value;
-                _style.SelectionBoxEnabled = !value;
+                _selectionBoxEnabled = !value;
                 MirrorInteractionSettings();
             }
         }
@@ -234,7 +213,7 @@ namespace vtkControl
                     {
                         // General
                         case vtkSelectBy.Off:
-                            _style.SelectionBoxEnabled = false;
+                            _selectionBoxEnabled = false;
                             break;
                         case vtkSelectBy.Default:
                         // Mesh based
@@ -244,8 +223,8 @@ namespace vtkControl
                         // Geometry
                         case vtkSelectBy.Geometry:
                         case vtkSelectBy.GeometryPart:
-                            _style.SelectionBoxEnabled = true;
-                            if (_querySelectionInProgress) _style.SelectionBoxEnabled = false;
+                            _selectionBoxEnabled = true;
+                            if (_querySelectionInProgress) _selectionBoxEnabled = false;
                             break;
                         // Mesh based
                         case vtkSelectBy.Id:
@@ -259,11 +238,11 @@ namespace vtkControl
                         case vtkSelectBy.GeometrySurface:
                         case vtkSelectBy.GeometryEdgeAngle:
                         case vtkSelectBy.GeometrySurfaceAngle:
-                            _style.SelectionBoxEnabled = false;
+                            _selectionBoxEnabled = false;
                             break;
                         // Widget
                         case vtkSelectBy.Widget:
-                            _style.SelectionBoxEnabled = false;
+                            _selectionBoxEnabled = false;
                             break;
                         default:
                             throw new NotSupportedException();
@@ -311,17 +290,10 @@ namespace vtkControl
         }
         private void ApplyNavigationSensitivity()
         {
-            if (_style == null) return;
-            //
-            _style.RotateSensitivity = _rotateSensitivity;
-            _style.ZoomSensitivity = _zoomSensitivity;
-            _style.InvertZoom = _invertZoom;
-            _style.SmoothZoom = _smoothZoom;
             MirrorInteractionSettings();
         }
         public void StartBoxZoom()
         {
-            _style.BoxZoomEnabled = true;
             MirrorStartBoxZoom();
         }
 
@@ -330,12 +302,7 @@ namespace vtkControl
         public TrackpadNavigation TrackpadNavigation { get { return _trackpadNavigation; } }
         public bool IsBoxSelectionActive
         {
-            get
-            {
-                if (NativeShowsView) return _nativeMirror.GetInteractionState()[1] != 0;
-                vtkInteractorStyleControl style = (vtkInteractorStyleControl)(_renderWindowInteractor.GetInteractorStyle());
-                return style.IsBoxSelectionActive;
-            }
+            get { return _nativeMirror != null && _nativeMirror.GetInteractionState()[1] != 0; }
         }
 
 
@@ -435,21 +402,7 @@ namespace vtkControl
             //
             //SelectBy = vtkSelectBy.Default;
             _selectItem = vtkSelectItem.None;
-            //
-            _propPicker = vtkPropPicker.New();
-            _propPicker.PickFromListOn();
-            _propPicker.InitializePickList();
-            //
-            _pointPicker = vtkPointPicker.New();
-            _pointPicker.SetTolerance(0.01);
-            //
-            _cellPicker = vtkCellPicker.New();
-            //
-            _areaPicker = vtkRenderedAreaPicker.New();
-            _mouseSelectionActorCurrent = null;
-            _mouseSelectionPointActorCurrent = null;
-            _mouseSelectionCurrentIds = null;
-            _mouseSelectionAllIds = new HashSet<int>();
+            _selectionBoxEnabled = true;
             //
             _selectableActorsFilter = null;
             //
@@ -458,15 +411,15 @@ namespace vtkControl
             _followerViewPointCoor = null;
             //
             _drawCameraPath = false;
+            //
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime) CreateActiVizScene();
         }
 
 
-        // Event handlers                                                                                                           
+        // Event handlers
         private void vtkControl_Resize(object sender, EventArgs e)
         {
-            if (_renderWindow != null) _renderWindow.Modified();     // this has to be here in order for the vtkMAx widgets to work on maximize/minimize
-            if (_nativeMirror != null && !_nativeInWindow) SyncNativeMirror();
-            //if (_renderWindowInteractor != null) _renderWindowInteractor.Render();
+            SyncActiVizSceneSize();
 
             if (_coorSysWidget != null) ResetCoorSysWidgetPosition();
             if (_renderer != null)
@@ -493,34 +446,6 @@ namespace vtkControl
         }
         private void vtkControl_EnabledChanged(object sender, EventArgs e)
         {
-        }
-        //
-        void _renderWindowInteractor_ModifiedEvt(vtkObject sender, vtkObjectEventArgs e)
-        {
-            if (_style.GetState() == vtkInteractorStyleControl.VTKIS_ROTATE && _probeWidget != null &&
-                _probeWidget.GetVisibility() == 1)
-            {
-                _probeWidget.VisibilityOff();
-            }
-        }
-        //
-        void style_EnterEvt(vtkObject sender, vtkObjectEventArgs e)
-        {
-            if (!_mouseIn) _mouseIn = true;
-        }
-        void style_LeaveEvt(vtkObject sender, vtkObjectEventArgs e)
-        {
-            if (_mouseIn) _mouseIn = false;
-            if (!_widgetHighlightLocked)
-            {
-                _style.ClearWidgetHighlights();
-                _style.ClearWidgetProximity();
-            }
-            _renderWindow.SetCurrentCursor(0);  // Default
-        }
-        private void style_MouseInteractionEvent()
-        {
-            Form_CommitViewportEdit?.Invoke();
         }
         //
         private void colorBarWidget_DoubleClicked(object sender, MouseEventArgs e)
@@ -613,10 +538,10 @@ namespace vtkControl
             base.WndProc(ref m);
         }
         // The main form hands the arrow keys to this control while it holds the focus, so that they do not move the
-        // focus; in the window they turn the native view, not the ActiViz one behind it
+        // focus; they turn the native view
         private bool ForwardKeyToNativeWindow(ref Message m)
         {
-            if (!_nativeInWindow || _nativeHost == null) return false;
+            if (_nativeHost == null) return false;
             IntPtr viewWindow = _nativeHost.ViewWindow;
             if (viewWindow == IntPtr.Zero) return false;
             m.Result = SendMessage(viewWindow, m.Msg, m.WParam, m.LParam);
@@ -629,7 +554,7 @@ namespace vtkControl
         private void HandleRawInput(IntPtr rawInputHandle)
         {
             if (_trackpadNavigation == null || !_trackpadNavigation.Enabled) return;
-            if (!_precisionTouchpad.Found || _style == null || _renderer == null) return;
+            if (!_precisionTouchpad.Found || _nativeMirror == null) return;
             // Raw input arrives even while another application is in front - no form of this
             // application is active in that case, whichever of them the user was last working in
             if (Form.ActiveForm == null)
@@ -689,7 +614,6 @@ namespace vtkControl
             if (!_trackpadGestureActive) return;
             //
             _trackpadGestureActive = false;
-            if (_style != null) _style.EndMultiTouchGesture();
             MirrorEndTrackpadGesture();
         }
         private void FlushTrackpadGesture()
@@ -705,13 +629,12 @@ namespace vtkControl
             _trackpadPending = false;
             _trackpadGestureActive = true;
             //
-            _trackpadNavigation.Apply(_style, dragX, dragY, zoom, _trackpadCenterX, _trackpadCenterY, _trackpadShift);
             MirrorTrackpadGesture(dragX, dragY, zoom);
         }
         private bool HandleTrackpadWheel(ref Message m)
         {
             if (_trackpadNavigation == null || !_trackpadNavigation.Enabled) return false;
-            if (_style == null || _renderer == null) return false;
+            if (_nativeMirror == null) return false;
             //
             int wParam = unchecked((int)m.WParam.ToInt64());
             double wheelDelta = (short)((wParam >> 16) & 0xFFFF);
@@ -757,174 +680,12 @@ namespace vtkControl
         }
 
 
-        // Mouse Events - Style                                                                                                     
+        // Mouse Events - Style
         // Picks as a left click at the given point does, with the keys that are held. A right click on a part
         // that a dialog has not picked yet picks it this way
         public void Pick(int x1, int y1, bool boxSelection, int x2, int y2)
         {
-            if (NativeShowsView && (_nativeAreas & VtkNativeArea.Selection) != 0)
-            {
-                PickWithNativeMirror(x1, y1, boxSelection, x2, y2);
-                return;
-            }
-            MouseEventArgs e = new MouseEventArgs(MouseButtons.Left, 1, x1, y1, 0);
-            style_PointPickedOnLeftUpEvt(e, boxSelection, x2, y2);
-        }
-        private void Style_PointPickedOnMouseMoveEvt(int x1, int y1, bool boxSelection, int x2, int y2)
-        {
-            bool userPick = _userPick;
-            try
-            {
-                _userPick = true;
-                // Off
-                if (_probeWidget == null || _selectBy == vtkSelectBy.Off) return;
-                else if (_selectBy == vtkSelectBy.Widget) return;
-                // Default selection of parts
-                else if (_selectBy == vtkSelectBy.Default)
-                {
-                    // Area selection
-                    if (boxSelection)
-                    {
-                        string[] pickedActorNames = null;
-                        PickByArea(x1, y1, x2, y2, false, out pickedActorNames);
-                        //
-                        MouseEventArgs e = new MouseEventArgs(MouseButtons.Left, 1, x1, y1, 0);
-                        //
-                        Controller_ActorsPicked?.Invoke(e, ModifierKeys, pickedActorNames.ToArray());
-                    }
-                }
-                //
-                else if (boxSelection)
-                {
-                    ClearCurrentMouseSelection();
-                    PickByArea(x1, y1, x2, y2, true, out string[] pickedActorNAmes);
-                }
-                else
-                {
-                    vtkActor pickedActor = null;
-                    //
-                    ClearCurrentMouseSelection();
-                    //
-                    switch (_selectBy)
-                    {
-                        //case vtkSelectBy.Default:
-                        case vtkSelectBy.Id:
-                            break;
-                        case vtkSelectBy.Node:
-                            PickByNode(out pickedActor, x1, y1, _querySelectionInProgress);
-                            break;
-                        case vtkSelectBy.Element:
-                            PickByCell(out pickedActor, x1, y1, _querySelectionInProgress);
-                            break;
-                        case vtkSelectBy.Edge:
-                            PickByEdge(out pickedActor, x1, y1, false);
-                            break;
-                        case vtkSelectBy.Surface:
-                            PickBySurface(out pickedActor, x1, y1, false);
-                            break;
-                        case vtkSelectBy.EdgeAngle:
-                            PickByEdgeAngle(out pickedActor, x1, y1);
-                            break;
-                        case vtkSelectBy.SurfaceAngle:
-                            PickBySurfaceAngle(out pickedActor, x1, y1);
-                            break;
-                        case vtkSelectBy.Part:
-                            PickByActor(out pickedActor, x1, y1, _querySelectionInProgress);
-                            break;
-                        case vtkSelectBy.Geometry:
-                            PickByGeometry(out pickedActor, x1, y1);
-                            break;
-                        case vtkSelectBy.GeometryVertex:
-                            PickByGeometryVertex(out pickedActor, x1, y1);
-                            break;
-                        case vtkSelectBy.GeometryEdge:
-                            PickByEdge(out pickedActor, x1, y1, _querySelectionInProgress);
-                            break;
-                        case vtkSelectBy.GeometrySurface:
-                            PickBySurface(out pickedActor, x1, y1, _querySelectionInProgress);
-                            break;
-                        case vtkSelectBy.GeometryEdgeAngle:
-                            PickByGeometryEdgeAngle(out pickedActor, x1, y1);
-                            break;
-                        case vtkSelectBy.GeometrySurfaceAngle:
-                            PickBySurface(out pickedActor, x1, y1, false);
-                            break;
-                        case vtkSelectBy.GeometryPart:
-                            PickByActor(out pickedActor, x1, y1, false);
-                            break;
-                        default:
-                            throw new NotSupportedException();
-                    }
-                    //
-                    if (pickedActor == null) ClearCurrentMouseSelection();
-                }
-            }
-            catch { }
-            finally
-            {
-                _userPick = UserPick;
-            }
-        }
-        private void style_PointPickedOnLeftUpEvt(MouseEventArgs mea, bool boxSelection, int x2, int y2)
-        {
-            string[] pickedActorNames = null;
-            // Off
-            if (_selectBy == vtkSelectBy.Off) return;
-            else if (_selectBy == vtkSelectBy.Widget)
-            {
-                if (mea.Clicks == 1) Form_CommitViewportEdit?.Invoke();
-            }
-            // Default selection of parts during normal use
-            else if (_selectBy == vtkSelectBy.Default)
-            {
-                // Point selection
-                if (!boxSelection)
-                {
-                    vtkActor pickedActor;
-                    GetPickPoint(out pickedActor, mea.Location.X, mea.Location.Y);
-                    pickedActorNames = new string[] { null };
-                }
-                // Area selection
-                else
-                {
-                    PickByArea(mea.Location.X, mea.Location.Y, x2, y2, false, out pickedActorNames);
-                }
-                //
-                Controller_ActorsPicked?.Invoke(mea, ModifierKeys, pickedActorNames.ToArray());
-            }
-            else
-            {
-                vtkSelectOperation selectOperation;
-                if (Control.ModifierKeys == (Keys.Shift | Keys.Control)) selectOperation = vtkSelectOperation.Intersect;
-                else if (Control.ModifierKeys == Keys.Shift) selectOperation = vtkSelectOperation.Add;
-                else if (Control.ModifierKeys == Keys.Control) selectOperation = vtkSelectOperation.Subtract;
-                else selectOperation = vtkSelectOperation.None;
-                //
-                vtkActor pickedActor = null;
-                bool completelyInside = mea.Location.X > x2;
-                // Point selection
-                if (!boxSelection)
-                {
-                    double[] pickedPoint = GetPickPoint(out pickedActor, mea.Location.X, mea.Location.Y);
-                    double[] direction = _renderer.GetActiveCamera().GetDirectionOfProjection();
-                    if (pickedActor == null) pickedActorNames = new string[0];
-                    else  pickedActorNames = new string[] { null };
-                    OnMouseLeftButtonUpSelection?.Invoke(pickedPoint, direction, null, completelyInside,
-                                                         selectOperation, pickedActorNames);
-                }
-                // Area selection
-                else
-                {
-                    double[][] planeParameters = null;
-                    PickByArea(mea.Location.X, mea.Location.Y, x2, y2, false, out pickedActorNames);
-                    //
-                    if (!(pickedActorNames == null || pickedActorNames.Length == 0))
-                        planeParameters = GetPlaneParameters(_areaPicker.GetFrustum());
-                    //
-                    OnMouseLeftButtonUpSelection?.Invoke(null, null, planeParameters, completelyInside,
-                                                         selectOperation, pickedActorNames);
-                }
-            }
+            PickWithNativeMirror(x1, y1, boxSelection, x2, y2);
         }
         private void style_RightButtonPressEvent(object sender, MouseEventArgs e)
         {
@@ -958,17 +719,7 @@ namespace vtkControl
             }
             else
             {
-                string pickedActorName;
-                // The native view picks for itself: the ActiViz pick renders into the ActiViz window it covers
-                if (_nativeInWindow && (_nativeAreas & VtkNativeArea.Selection) != 0)
-                    pickedActorName = NativeMirrorPickPoint(e.Location.X, e.Location.Y, out _, out _);
-                else
-                {
-                    vtkActor pickedActor;
-                    GetPickPoint(out pickedActor, e.Location.X, e.Location.Y);
-                    pickedActorName = null;
-                }
-                //
+                string pickedActorName = NativeMirrorPickPoint(e.Location.X, e.Location.Y, out _, out _);
                 if (pickedActorName != null)
                 {
                     Controller_ActorsPicked?.Invoke(e, ModifierKeys, new string[] { pickedActorName });
@@ -976,29 +727,8 @@ namespace vtkControl
                 else Form_ShowViewportContextMenu?.Invoke(e.Location);
             }
         }
-        private void style_ZoomChangedEvent()
-        {
-        }
 
         #region Selection  #########################################################################################################
-
-        // On mouse move selection                                                                                                  
-        private void PickByNode(out vtkActor pickedActor, int x, int y, bool showLabel)
-        {
-            pickedActor = null;
-        }
-        private void PickByCell(out vtkActor pickedActor, int x, int y, bool showLabel)
-        {
-            pickedActor = null;
-        }
-        private void PickByEdge(out vtkActor pickedActor, int x, int y, bool showLabel)
-        {
-            pickedActor = null;
-        }
-        private void PickByEdgeAngle(out vtkActor pickedActor, int x, int y)
-        {
-            pickedActor = null;
-        }
         private void GetClosestEdgeCell(double[] pickedPoint, vtkMaxActorData cellFaceData, out int[] nodeIds,
                                         out double[][] nodeCoor, out int[] edgeCell, out int edgeCellType)
         {
@@ -1148,47 +878,6 @@ namespace vtkControl
                 return d;
             }
         }
-        private void PickBySurface(out vtkActor pickedActor, int x, int y, bool showLabel)
-        {
-            pickedActor = null;
-        }
-        private void PickBySurfaceAngle(out vtkActor pickedActor, int x, int y)
-        {
-            pickedActor = null;
-        }
-        private void PickByActor(out vtkActor pickedActor, int x, int y, bool showLabel)
-        {
-            pickedActor = null;
-        }
-        private void PickByGeometry(out vtkActor pickedActor, int x, int y)
-        {
-            pickedActor = null;
-        }
-        private void PickByGeometryVertex(out vtkActor pickedActor, int x, int y)
-        {
-            pickedActor = null;
-        }
-        private void PickByGeometryEdgeAngle(out vtkActor pickedActor, int x, int y)
-        {
-            pickedActor = null;
-        }
-        //
-        private static double[][] GetPlaneParameters(vtkPlanes planes)
-        {
-            // Ox, Oy, Oz, Nx, Ny, Nz
-            vtkPlane plane;
-            double[] origin;
-            double[] normal;
-            double[][] planeParameters = new double[planes.GetNumberOfPlanes()][];
-            for (int i = 0; i < planes.GetNumberOfPlanes(); i++)
-            {
-                plane = planes.GetPlane(i);
-                origin = plane.GetOrigin();
-                normal = plane.GetNormal();
-                planeParameters[i] = new double[] { origin[0], origin[1], origin[2], normal[0], normal[1], normal[2] };
-            }
-            return planeParameters;
-        }
         private static bool TryAddWholePart(vtkMaxActor actor, HashSet<int> globalPointIds, HashSet<int> globalCellIds)
         {
             // A part completely inside the frustum contributes all its nodes and elements without a grid
@@ -1197,200 +886,6 @@ namespace vtkControl
             globalCellIds.UnionWith(actor.PartElementIds);
             return true;
         }
-        private void PickByArea(int x1, int y1, int x2, int y2, bool highlight, out string[] pickedActorNames)
-        {
-            pickedActorNames = new string[0];
-        }
-        private void PickAreaHardware(int x1, int y1, int x2, int y2)
-        {
-
-            vtkHardwareSelector selector = vtkHardwareSelector.New();
-            selector.SetFieldAssociation((int)vtkFieldAssociations.FIELD_ASSOCIATION_CELLS);
-            selector.SetRenderer(_renderer);
-            selector.SetArea((uint)x1, (uint)y1, (uint)x2, (uint)y2);
-
-            //static_cast<unsigned int>(this.Renderer.GetPickX1()),
-            //static_cast<unsigned int>(this.Renderer.GetPickY1()),
-            //static_cast<unsigned int>(this.Renderer.GetPickX2()),
-            //static_cast<unsigned int>(this.Renderer.GetPickY2()));
-
-            // Make the actual pick and pass the result to the convenience function
-            // defined earlier
-            _renderer.Render();
-
-            vtkSelection result = selector.Select();
-            uint numNodes = result.GetNumberOfNodes();
-            vtkSelectionNode node;
-
-            vtkDataSetAttributes fd1;
-            vtkIdTypeArray fd1_array;
-
-            for (uint i = 0; i < numNodes; i++)
-            {
-                node = result.GetNode(i);
-
-                //vtkIdTypeArray selIds = (vtkIdTypeArray)node.GetSelectionList();
-
-                fd1 = node.GetSelectionData();
-
-                if (fd1.GetNumberOfArrays() != 1) return;
-                if (fd1.GetArray(0).GetDataType() != 12) return; // 12 ... VTK_ID_TYPE
-
-                fd1_array = (vtkIdTypeArray)fd1.GetArray(0);
-
-                long fd1_N = fd1_array.GetNumberOfTuples();
-
-                List<long> fd1_list = new List<long>();
-                for (int j = 0; j < fd1_N; j++) fd1_list.Add(fd1_array.GetValue(j));
-            }
-        }
-        private double[] GetPickPoint(out vtkActor pickedActor, int x, int y)
-        {
-            return GetPickPoint(out pickedActor, x, y, false);
-        }
-        private double[] GetRotationPointPickPoint(out vtkActor pickedActor, int x, int y)
-        {
-            return GetPickPoint(out pickedActor, x, y, true);
-        }
-        private double[] GetPickPoint(out vtkActor pickedActor, int x, int y, bool rotationPoint)
-        {
-            pickedActor = null;
-            return null;
-        }
-        private bool IsSectionViewActor(vtkActor actor)
-        {
-            return GetSectionViewParentActor(actor) != null;
-        }
-        private vtkMaxActor GetSectionViewParentActor(vtkActor sectionViewGeometry)
-        {
-            return GetSectionViewParentActor(sectionViewGeometry, out _);
-        }
-        private vtkMaxActor GetSectionViewParentActor(vtkActor sectionViewGeometry, out bool skin)
-        {
-            skin = false;
-            return null;
-        }
-        private string GetSelectableActorName(vtkMaxActor actor)
-        {
-            return actor.Name;
-        }
-        private string GetSelectableActorName(vtkActor actor)
-        {
-            return null;
-        }
-        private bool ResolveSectionViewPick(ref vtkActor pickedActor, ref double[] point, bool rotationPoint)
-        {
-            pickedActor = null;
-            point = null;
-            return false;
-        }
-        private double[] GetClosestPointOnActorSurface(vtkMaxActor actor, double[] point)
-        {
-            return null;
-        }
-        private double[] GetPropPickerPickPosition(int x, int y)
-        {
-            // vtkPropPicker.GetPickPosition() reconstructs the point from the normal scene
-            // depth buffer, where non-pickable symbols can hide the selected model actor.
-            // Use the depth produced by the restricted hardware pick pass instead.
-            _renderer.SetDisplayPoint(x, y, _renderer.GetPickedZ());
-            _renderer.DisplayToWorld();
-            double[] worldPoint = _renderer.GetWorldPoint();
-            double w = worldPoint[3];
-            return new double[] { worldPoint[0] / w, worldPoint[1] / w, worldPoint[2] / w };
-        }
-
-        // Item selection - Point                                                                                                   
-        private int GetGlobalCellIdClosestTo3DPoint(ref double[] point, vtkMaxActor pickedActor, out vtkCell cell,
-                                                    out vtkCellLocator cellLocator)
-        {
-            return GetGlobalCellIdClosestTo3DPoint(ref point, out cell, out cellLocator);
-        }
-        private int GetGlobalCellIdClosestTo3DPoint(ref double[] point, out vtkCell cell, out vtkCellLocator cellLocator,
-                                                    vtkMaxActor onlyActor = null)
-        {
-            cell = null;
-            cellLocator = null;
-            return -1;
-        }
-        private int[] GetEdgeNodeIds(double[] point, int globalCellId, vtkCell cell, vtkCellLocator cellLocator)
-        {
-            // Cell face
-            int[] globalCellFaceNodeIds = GetCellFaceNodeIds(cell, cellLocator);
-            vtkMaxActorData cellFaceData = Controller_GetCellFaceActorData(globalCellId, globalCellFaceNodeIds); // works on undeformed mesh
-            // Closest edge cell
-            int[] nodeIds;
-            GetClosestEdgeCell(point, cellFaceData, out nodeIds, out _, out _, out _);
-            //
-            return nodeIds;
-        }
-        private int[] GetCellFaceNodeIds(vtkCell cell, vtkCellLocator cellLocator)
-        {
-            vtkDataArray globalIds = cellLocator.GetDataSet().GetPointData().GetGlobalIds();
-            //
-            int[] faceGlobalNodeIds = new int[cell.GetPointIds().GetNumberOfIds()];
-            for (int i = 0; i < faceGlobalNodeIds.Length; i++)
-            {
-                faceGlobalNodeIds[i] = (int)globalIds.GetTuple1(cell.GetPointId(i));
-            }
-            //
-            return faceGlobalNodeIds;
-        }
-        private int GetNodeIdOnCellFaceClosestToPoint(double[] point)
-        {
-            vtkCell cell;
-            vtkCellLocator cellLocator;
-            GetGlobalCellIdClosestTo3DPoint(ref point, out cell, out cellLocator);
-            int[] globalCellFaceNodeIds = GetCellFaceNodeIds(cell, cellLocator);
-
-            double[][] coor = GetCellFaceNodeCoor(cell);
-
-            double distance;
-            double minDistance = double.MaxValue;
-            int minId = -1;
-
-            for (int i = 0; i < coor.Length; i++)
-            {
-                distance = Math.Pow(coor[i][0] - point[0], 2) + Math.Pow(coor[i][1] - point[1], 2) +
-                           Math.Pow(coor[i][2] - point[2], 2);
-                if (distance < minDistance)
-                {
-                    minDistance = distance;
-                    minId = i;
-                }
-            }
-
-            int globalPointId = globalCellFaceNodeIds[minId];
-
-            return globalPointId;
-        }
-        private double[][] GetCellFaceNodeCoor(vtkCell cell)
-        {
-            vtkPoints points = cell.GetPoints();
-            double[][] coor = new double[points.GetNumberOfPoints()][];
-
-            for (int i = 0; i < coor.Length; i++)
-            {
-                coor[i] = points.GetPoint(i);
-            }
-            return coor;
-        }
-        private double[] GetCellNormal(vtkCell cell)
-        {
-            vtkPoints points = cell.GetPoints();
-            if (points == null || points.GetNumberOfPoints() < 3) return null;
-            //
-            double[] p0 = points.GetPoint(0);
-            double[] p1 = points.GetPoint(1);
-            double[] p2 = points.GetPoint(2);
-            double[] a = new double[] { p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2] };
-            double[] b = new double[] { p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2] };
-            double[] normal = new double[] { a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0] };
-            double length = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-            if (length == 0) return null;
-            //
-            return new double[] { normal[0] / length, normal[1] / length, normal[2] / length };
-        }
         /// <summary>
         /// The distance from the point to the closest cell of each named actor and the normal of that cell, whether
         /// the actor is visible or not. The distance is -1 for a name no actor carries.
@@ -1398,40 +893,15 @@ namespace vtkControl
         public void GetClosestCellsOnActors(double[] point, string[] actorNames, out double[] distances,
                                             out double[][] normals)
         {
-            if (UseNativeIdResolution)
-            {
-                _nativeMirror.GetClosestCellsOnParts(point, actorNames, out distances, out normals);
-                return;
-            }
-            distances = Enumerable.Repeat(-1.0, actorNames.Length).ToArray();
-            normals = new double[actorNames.Length][];
+            _nativeMirror.GetClosestCellsOnParts(point, actorNames, out distances, out normals);
         }
         public void GetGeometryPickProperties(double[] point, out int elementId, out int[] edgeNodeIds, out int[] cellFaceNodeIds)
         {
-            if (UseNativeIdResolution)
-            {
-                NativeGetGeometryPickProperties(point, out elementId, out edgeNodeIds, out cellFaceNodeIds);
-                return;
-            }
-            // Turn rendering off in order to 
-            vtkCellLocator cellLocator;
-            vtkCell cell;
-            elementId = GetGlobalCellIdClosestTo3DPoint(ref point, out cell, out cellLocator);
-            // No visible actor carries the point
-            if (cell == null || cellLocator == null)
-            {
-                edgeNodeIds = null;
-                cellFaceNodeIds = null;
-                return;
-            }
-            //
-            edgeNodeIds = GetEdgeNodeIds(point, elementId, cell, cellLocator);
-            cellFaceNodeIds = GetCellFaceNodeIds(cell, cellLocator);
+            NativeGetGeometryPickProperties(point, out elementId, out edgeNodeIds, out cellFaceNodeIds);
         }
         public double GetSelectionPrecision()
         {
-            if (UseNativeIdResolution) return _nativeMirror.GetSelectionPrecision(_selectionDistance);
-            return vtkInteractorStyleControl.DisplayToWorldScale(_renderer, _selectionDistance);
+            return _nativeMirror.GetSelectionPrecision(_selectionDistance);
         }
         public void SetSelectionDistance(int distanceInPixels)
         {
@@ -1441,106 +911,13 @@ namespace vtkControl
         // Item selection - Frustum                                                                                                 
         public void GetPointAndCellIdsInsideFrustum(double[][] planeParameters, out int[] pointIds, out int[] cellIds)
         {
-            if (UseNativeIdResolution)
-            {
-                NativeGetPointAndCellIdsInsideFrustum(planeParameters, out pointIds, out cellIds);
-                return;
-            }
-            pointIds = new int[0];
-            cellIds = new int[0];
-        }
-        static void AddAllGlobalPointIds(vtkDataSet dataSet, HashSet<int> ids)
-        {
-            var arr = (vtkUnsignedLongArray)dataSet.GetPointData().GetGlobalIds();
-            if (arr == null) return;
-
-            for (int i = 0; i < arr.GetNumberOfTuples(); i++)
-                ids.Add((int)arr.GetValue(i));
-        }
-        static void AddAllGlobalCellIds(vtkDataSet dataSet, HashSet<int> ids)
-        {
-            var arr = (vtkUnsignedLongArray)dataSet.GetCellData().GetGlobalIds();
-            if (arr == null) return;
-
-            for (int i = 0; i < arr.GetNumberOfTuples(); i++)
-                ids.Add((int)arr.GetValue(i));
+            NativeGetPointAndCellIdsInsideFrustum(planeParameters, out pointIds, out cellIds);
         }
         #endregion #################################################################################################################
 
         // Private methods                                                                                                          
         private void InitializeControl()
         {
-            // Render window
-            _renderWindow.PointSmoothingOn();
-            _renderWindow.LineSmoothingOn();
-            //_renderWindow.PolygonSmoothingOn();
-            _renderWindow.SetMultiSamples(2);
-            // Camera lights are defined in camera coordinate system where:
-            // camera is located at (0, 0, 1), the camera is looking at (0, 0, 0), and up is (0, 1, 0).
-            _light1 = vtkLight.New();
-            _light1.SetPosition(-1, 1, 1);
-            _light1.SetFocalPoint(0, 0, 0);
-            _light1.SetColor(1, 1, 1);
-            _light1.SetIntensity(0.4);
-            _light1.SetLightTypeToCameraLight();
-            _renderer.AddLight(_light1);
-            _overlayRenderer.AddLight(_light1);
-            _selectionRenderer.AddLight(_light1);
-            //
-            _light2 = vtkLight.New();
-            _light2.SetPosition(1, 1, 1);
-            _light2.SetFocalPoint(0, 0, 0);
-            _light2.SetColor(1, 1, 1);
-            _light2.SetIntensity(0.4);
-            _light2.SetLightTypeToCameraLight();
-            _renderer.AddLight(_light2);
-            _overlayRenderer.AddLight(_light2);
-            _selectionRenderer.AddLight(_light2);
-            //
-            _light3 = vtkLight.New();
-            _light3.SetPosition(0, -1, 0);
-            _light3.SetFocalPoint(0, 0, 0);
-            _light3.SetColor(1, 1, 1);
-            _light3.SetIntensity(0.4);
-            _light3.SetLightTypeToCameraLight();
-            _renderer.AddLight(_light3);
-            _overlayRenderer.AddLight(_light3);
-            _selectionRenderer.AddLight(_light3);
-            // Interactor style
-            _style = vtkInteractorStyleControl.New();
-            ApplyNavigationSensitivity();
-            _style.SetWidgetHighlightEnabled(_widgetHighlightEnabled);
-            _style.AutoAdjustCameraClippingRangeOn();
-            _style.SetDefaultRenderer(_renderer);
-            _style.SetCurrentRenderer(_renderer);
-            _style.SetOverlayRenderer(_overlayRenderer);
-            _style.SetSelectionRenderer(_selectionRenderer);
-            _style.GetPickPoint = this.GetRotationPointPickPoint;
-            _style.SetBoxZoom = SetBoxZoom;
-            _style.BoxZoomEnded = BoxZoomEnded;
-            //
-            _style.PointPickedOnMouseMoveEvt += Style_PointPickedOnMouseMoveEvt;
-            _style.PointPickedOnLeftUpEvt += style_PointPickedOnLeftUpEvt;
-            _style.ClearCurrentMouseSelection += ClearCurrentMouseSelection;
-            _style.RightButtonPressEvent += style_RightButtonPressEvent;
-            _style.MouseInteractionEvent += style_MouseInteractionEvent;
-            _style.RotationPointChanged += _style_RotationPointChanged;
-            _style.ZoomChangedEvent += style_ZoomChangedEvent;
-            _style.KeyPressEvt += style_KeyPressEvt;
-            _style.LeaveEvt += style_LeaveEvt;
-            _style.EnterEvt += style_EnterEvt;
-            _renderWindowInteractor.SetInteractorStyle(_style);
-            _style.ResetRotationCenter();
-            _renderWindowInteractor.ModifiedEvt += _renderWindowInteractor_ModifiedEvt;
-            // Background
-            _renderer.SetBackground(0.4, 0.4, 0.4);     // bottom
-            _renderer.SetBackground2(0.8, 0.8, 0.8);    // top
-            _renderer.SetGradientBackground(true);
-            // Camera
-            vtkCamera camera = _renderer.GetActiveCamera();
-            camera.SetParallelProjection(1);
-            // Offset lines from polygons
-            vtkPolyDataMapper.SetResolveCoincidentTopologyToPolygonOffset();
             // Scale bar
             _scaleWidget = new vtkMaxScaleWidget();
             _scaleWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
@@ -1593,6 +970,8 @@ namespace vtkControl
             _coorSysWidget.TargetClicked += coorSysWidget_TargetClicked;
             _coorSysWidget.HoverChanged += coorSysWidget_HoverChanged;
             SetCoorSysVisibility(_drawCoorSys);
+            // The native view
+            SetNativeAreas(VtkNativeArea.All);
 
             // Add the actors to the scene
             //Hexahedron();
@@ -1601,6 +980,46 @@ namespace vtkControl
             //timer.Tick += Timer_Tick;
             //timer.Interval = 10 * 1000;
             //timer.Enabled = true;
+        }
+        // The ActiViz scene that the geometry and the widgets of this control build until they are ported to the native
+        // view: it is neither shown nor rendered and goes with ActiViz. Its render window has no parent and creates no
+        // window as long as it is not rendered; off screen it would, and VTK 5.8 crashes the message loop with it. Its
+        // size follows this control, since the widgets lay themselves out in it
+        private void CreateActiVizScene()
+        {
+            _renderer = vtkRenderer.New();
+            _renderer.SetLayer(0);
+            //
+            _overlayRenderer = vtkRenderer.New();
+            _overlayRenderer.SetLayer(1);
+            _overlayRenderer.InteractiveOff();
+            _overlayRenderer.SetActiveCamera(_renderer.GetActiveCamera());
+            //
+            _selectionRenderer = vtkRenderer.New();
+            _selectionRenderer.SetLayer(2);
+            _selectionRenderer.InteractiveOff();
+            _selectionRenderer.SetActiveCamera(_renderer.GetActiveCamera());
+            //
+            _widgetRenderer = vtkRenderer.New();
+            _widgetRenderer.SetLayer(3);
+            _widgetRenderer.InteractiveOff();
+            _widgetRenderer.SetActiveCamera(_renderer.GetActiveCamera());
+            //
+            _renderWindow = vtkRenderWindow.New();
+            _renderWindow.SetNumberOfLayers(4);
+            _renderWindow.AddRenderer(_renderer);
+            _renderWindow.AddRenderer(_overlayRenderer);
+            _renderWindow.AddRenderer(_selectionRenderer);
+            _renderWindow.AddRenderer(_widgetRenderer);
+            _renderWindowInteractor = vtkRenderWindowInteractor.New();
+            _renderWindow.SetInteractor(_renderWindowInteractor);
+            SyncActiVizSceneSize();
+        }
+        private void SyncActiVizSceneSize()
+        {
+            if (_renderWindow == null) return;
+            _renderWindow.SetSize(Math.Max(1, Width), Math.Max(1, Height));
+            _renderWindow.Modified();
         }
         private void InitializeScalarBar()
         {
@@ -1623,10 +1042,6 @@ namespace vtkControl
         private void Timer_Tick(object sender, EventArgs e)
         {
             ((Timer)sender).Enabled = false;
-        }
-        private void style_KeyPressEvt(vtkObject sender, vtkObjectEventArgs e)
-        {
-            if (_scalarBarWidget.GetVisibility() == 1) _scalarBarWidget.OnRenderWindowModified();
         }
         private vtkTextProperty CreateNewTextProperty()
         {
@@ -1875,20 +1290,11 @@ namespace vtkControl
         #region Views  #############################################################################################################
         public void GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp, out double parallelScale)
         {
-            if (NativeOwnsCamera)
-            {
-                double[] values = _nativeMirror.GetCamera();
-                position = new double[] { values[0], values[1], values[2] };
-                focalPoint = new double[] { values[3], values[4], values[5] };
-                viewUp = new double[] { values[6], values[7], values[8] };
-                parallelScale = values[9];
-                return;
-            }
-            vtkCamera camera = _renderer.GetActiveCamera();
-            position = camera.GetPosition();
-            focalPoint = camera.GetFocalPoint();
-            viewUp = camera.GetViewUp();
-            parallelScale = camera.GetParallelScale();
+            double[] values = _nativeMirror.GetCamera();
+            position = new double[] { values[0], values[1], values[2] };
+            focalPoint = new double[] { values[3], values[4], values[5] };
+            viewUp = new double[] { values[6], values[7], values[8] };
+            parallelScale = values[9];
         }
         public void SetViewParameters(bool animate, double[] position, double[] focalPoint, double[] viewUp, double parallelScale)
         {
@@ -1897,72 +1303,23 @@ namespace vtkControl
             //
             double[] values = new double[] { position[0], position[1], position[2], focalPoint[0], focalPoint[1],
                                              focalPoint[2], viewUp[0], viewUp[1], viewUp[2], parallelScale };
-            if (RunNativeViewChange(animate, () => _nativeMirror.SetViewParameters(values))) return;
-            //
-            if (_drawCameraPath) ClearOverlay();
-            //
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            camera.SetPosition(position[0], position[1], position[2]);
-            camera.SetFocalPoint(focalPoint[0], focalPoint[1], focalPoint[2]);
-            camera.SetViewUp(viewUp[0], viewUp[1], viewUp[2]);
-            camera.SetParallelScale(parallelScale);
-            //
-            _style.ResetClippingRange();
-            //
-            FinishViewChange(animate, cameraStart, camera);
+            RunNativeViewChange(animate, () => _nativeMirror.SetViewParameters(values));
         }
         public void SetFrontBackView(bool animate, bool front)
         {
             if (_animating) return;
             _animating = animate;
-
+            //
             VtkNativeOrientation orientation = front ? VtkNativeOrientation.Front : VtkNativeOrientation.Back;
-            if (RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, true))) return;
-
-            int delta = 1;
-            if (!front) delta = -1;
-
-            if (_drawCameraPath) ClearOverlay();
-
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-
-            double[] fPos = camera.GetFocalPoint();
-            camera.SetPosition(fPos[0], fPos[1], fPos[2] + delta);
-            camera.SetViewUp(0, 1, 0);
-
-            ResetCamera();
-
-            FinishViewChange(animate, cameraStart, camera);
+            RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, true));
         }
         public void SetTopBottomView(bool animate, bool top)
         {
             if (_animating) return;
             _animating = animate;
-
+            //
             VtkNativeOrientation orientation = top ? VtkNativeOrientation.Top : VtkNativeOrientation.Bottom;
-            if (RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, true))) return;
-
-            int delta = 1;
-            if (!top) delta = -1;
-
-            if (_drawCameraPath) ClearOverlay();
-
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-
-            double[] fPos = camera.GetFocalPoint();
-            camera.SetPosition(fPos[0], fPos[1] + delta, fPos[2]);
-            camera.SetViewUp(0, 0, -delta);
-
-            ResetCamera();
-
-            FinishViewChange(animate, cameraStart, camera);
+            RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, true));
         }
         public void SetLeftRightView(bool animate, bool left)
         {
@@ -1970,203 +1327,28 @@ namespace vtkControl
             _animating = animate;
             //
             VtkNativeOrientation orientation = left ? VtkNativeOrientation.Left : VtkNativeOrientation.Right;
-            if (RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, true))) return;
-            //
-            int delta = -1;
-            if (!left) delta = 1;
-            //
-            if (_drawCameraPath) ClearOverlay();
-            //
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            double[] fPos = camera.GetFocalPoint();
-            camera.SetPosition(fPos[0] + delta, fPos[1], fPos[2]);
-            camera.SetViewUp(0, 1, 0);
-            //
-            ResetCamera();
-            //
-            FinishViewChange(animate, cameraStart, camera);
+            RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, true));
         }
         public void SetAxisView(bool animate, double[] axis, bool zoomToFit = true)
         {
             if (_animating) return;
             _animating = animate;
             //
-            if (RunNativeViewChange(animate, () => _nativeMirror.SetAxisView(axis, zoomToFit))) return;
-            //
-            if (_drawCameraPath) ClearOverlay();
-            //
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            double[] viewUp = GetClosestAxisViewUp(camera, axis);
-            double[] rotationPivot = GetViewRotationPivot();
-            double[] rotationPivotDisplay = vtkInteractorStyleControl.WorldToDisplay(_renderer, rotationPivot);
-            double distance = camera.GetDistance();
-            //
-            double[] fPos = camera.GetFocalPoint();
-            camera.SetPosition(fPos[0] + axis[0], fPos[1] + axis[1], fPos[2] + axis[2]);
-            camera.SetViewUp(viewUp[0], viewUp[1], viewUp[2]);
-            //
-            if (zoomToFit) ResetCamera();
-            else KeepZoomAndRotationPivot(camera, rotationPivot, rotationPivotDisplay, distance);
-            //
-            FinishViewChange(animate, cameraStart, camera);
+            RunNativeViewChange(animate, () => _nativeMirror.SetAxisView(axis, zoomToFit));
         }
-        private double[] GetViewRotationPivot()
-        {
-            // The view turns around the point under the center of the screen, taken at the depth of the
-            // visible geometry, so that what the user looks at stays where it is. The center of the
-            // geometry would be off the screen in a zoomed in view and would throw it out of the view
-            vtkCamera camera = _renderer.GetActiveCamera();
-            double[] normal = camera.GetViewPlaneNormal();
-            double[] fPos = camera.GetFocalPoint();
-            double[] bounds = _renderer.ComputeVisiblePropBounds();
-            double[] center = new double[] { (bounds[0] + bounds[1]) / 2,
-                                             (bounds[2] + bounds[3]) / 2,
-                                             (bounds[4] + bounds[5]) / 2 };
-            double depth = normal[0] * (fPos[0] - center[0]) +
-                           normal[1] * (fPos[1] - center[1]) +
-                           normal[2] * (fPos[2] - center[2]);
-            return new double[] { fPos[0] - depth * normal[0],
-                                  fPos[1] - depth * normal[1],
-                                  fPos[2] - depth * normal[2] };
-        }
-        private void KeepZoomAndRotationPivot(vtkCamera camera, double[] pivot, double[] pivotDisplay, double distance)
-        {
-            // The parallel scale is left untouched so that the view only turns. The turn goes around the
-            // pivot, the same point the mouse rotation turns the view around, which stays under the
-            // position of the screen it was under
-            camera.OrthogonalizeViewUp();
-            _style.ResetClippingRange();
-            //
-            double[] normal = camera.GetViewPlaneNormal();
-            double[] fPos = camera.GetFocalPoint();
-            // The point the new orientation brought under the screen position of the pivot
-            double[] target = vtkInteractorStyleControl.DisplayToWorld(_renderer, pivotDisplay);
-            double targetOffset = normal[0] * (target[0] - pivot[0]) +
-                                  normal[1] * (target[1] - pivot[1]) +
-                                  normal[2] * (target[2] - pivot[2]);
-            double focalOffset = normal[0] * (fPos[0] - pivot[0]) +
-                                 normal[1] * (fPos[1] - pivot[1]) +
-                                 normal[2] * (fPos[2] - pivot[2]);
-            // The camera moves by the distance of the two points inside the plane of the pivot, which brings
-            // the pivot back under its screen position, and the focal point is taken into that plane. The
-            // animation turns the camera around the focal point, so a focal point out of the plane of the
-            // pivot swings the model aside and back while the view turns
-            double offset = targetOffset - focalOffset;
-            double[] newFPos = new double[] { fPos[0] + pivot[0] - target[0] + offset * normal[0],
-                                              fPos[1] + pivot[1] - target[1] + offset * normal[1],
-                                              fPos[2] + pivot[2] - target[2] + offset * normal[2] };
-            camera.SetFocalPoint(newFPos[0], newFPos[1], newFPos[2]);
-            camera.SetPosition(newFPos[0] + distance * normal[0],
-                               newFPos[1] + distance * normal[1],
-                               newFPos[2] + distance * normal[2]);
-            //
-            _style.ResetClippingRange();
-        }
-        private double[] GetClosestAxisViewUp(vtkCamera camera, double[] axis)
-        {
-            Vec3D normal = new Vec3D(camera.GetViewPlaneNormal());
-            normal.Normalize();
-            Vec3D right = Vec3D.CrossProduct(new Vec3D(camera.GetViewUp()), normal);
-            right.Normalize();
-            Vec3D up = Vec3D.CrossProduct(normal, right);
-            // Of the four global axes perpendicular to the new view direction take the one
-            // that rotates the current view the least
-            Vec3D axisVector = new Vec3D(axis);
-            double[] closestViewUp = null;
-            double maxScore = -double.MaxValue;
-            //
-            for (int axisId = 0; axisId < 3; axisId++)
-            {
-                for (int signId = 0; signId < 2; signId++)
-                {
-                    double[] viewUp = new double[3];
-                    viewUp[axisId] = signId == 0 ? 1 : -1;
-                    Vec3D viewUpVector = new Vec3D(viewUp);
-                    if (Math.Abs(Vec3D.DotProduct(viewUpVector, axisVector)) > 0.5) continue;
-                    //
-                    Vec3D viewRightVector = Vec3D.CrossProduct(viewUpVector, axisVector);
-                    double score = Vec3D.DotProduct(viewRightVector, right) + Vec3D.DotProduct(viewUpVector, up);
-                    if (closestViewUp == null || score > maxScore)
-                    {
-                        maxScore = score;
-                        closestViewUp = viewUp;
-                    }
-                }
-            }
-            return closestViewUp;
-        }
-        //
         public void SetNormalView(bool animate)
         {
             if (_animating) return;
             _animating = animate;
             //
-            if (RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(VtkNativeOrientation.Normal, true)))
-                return;
-            //
-            if (_drawCameraPath) ClearOverlay();
-            //
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            double[] direction = camera.GetViewPlaneNormal();
-            double[] abs = new double[] { Math.Abs(direction[0]), Math.Abs(direction[1]), Math.Abs(direction[2]) };
-            int[] ids = new int[] { 0, 1, 2 };
-            Array.Sort(abs, ids);
-            int maxId = ids[2];
-            //
-            double[] delta = new double[3];
-            // Reverse direction
-            delta[maxId] = Math.Abs(direction[maxId]) == 1 ? -Math.Sign(direction[maxId]) : Math.Sign(direction[maxId]);
-            //
-            double[] fPoint = camera.GetFocalPoint();
-            camera.SetPosition(fPoint[0] + delta[0], fPoint[1] + delta[1], fPoint[2] + delta[2]);
-            //
-            //SetVerticalView(false, false);
-            //
-            ResetCamera();
-            //
-            FinishViewChange(animate, cameraStart, camera);
+            RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(VtkNativeOrientation.Normal, true));
         }
         public void SetVerticalAxisView(bool animate, double[] axis, bool zoomToFit = true)
         {
             if (_animating) return;
             _animating = animate;
             //
-            if (RunNativeViewChange(animate, () => _nativeMirror.SetVerticalAxisView(axis, zoomToFit))) return;
-            //
-            if (_drawCameraPath) ClearOverlay();
-            //
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            double[] rotationPivot = GetViewRotationPivot();
-            double[] rotationPivotDisplay = vtkInteractorStyleControl.WorldToDisplay(_renderer, rotationPivot);
-            double distance = camera.GetDistance();
-            // The axis cannot be vertical while the view looks along it - turn the view
-            // towards the current vertical direction first
-            double[] normal = camera.GetViewPlaneNormal();
-            if (Math.Abs(normal[0] * axis[0] + normal[1] * axis[1] + normal[2] * axis[2]) > 0.999)
-            {
-                double[] direction = GetClosestUpView();
-                double[] fPos = camera.GetFocalPoint();
-                camera.SetPosition(fPos[0] + direction[0], fPos[1] + direction[1], fPos[2] + direction[2]);
-            }
-            camera.SetViewUp(axis[0], axis[1], axis[2]);
-            camera.OrthogonalizeViewUp();
-            //
-            if (zoomToFit) ResetCamera();
-            else KeepZoomAndRotationPivot(camera, rotationPivot, rotationPivotDisplay, distance);
-            //
-            FinishViewChange(animate, cameraStart, camera);
+            RunNativeViewChange(animate, () => _nativeMirror.SetVerticalAxisView(axis, zoomToFit));
         }
         public void SetVerticalView(bool animate, bool updateView)
         {
@@ -2176,34 +1358,13 @@ namespace vtkControl
                 _animating = animate;
             }
             //
-            if (RunNativeViewChange(animate && updateView,
-                                    () => _nativeMirror.SetStandardView(VtkNativeOrientation.Vertical, true))) return;
-            //
-            if (_drawCameraPath) ClearOverlay();
-            //
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            double[] closestUp = GetClosestUpView();
-            camera.SetViewUp(closestUp[0], closestUp[1], closestUp[2]);
-            //
-            ResetCamera();
-            //
-            if (updateView)
-            {
-                FinishViewChange(animate, cameraStart, camera);
-            }
+            RunNativeViewChange(animate && updateView,
+                                () => _nativeMirror.SetStandardView(VtkNativeOrientation.Vertical, true));
         }
         public double[] GetClosestUpView()
         {
-            double[] up;
-            if (NativeOwnsCamera)
-            {
-                double[] values = _nativeMirror.GetCamera();
-                up = new double[] { values[6], values[7], values[8] };
-            }
-            else up = _renderer.GetActiveCamera().GetViewUp();
+            double[] values = _nativeMirror.GetCamera();
+            double[] up = new double[] { values[6], values[7], values[8] };
             double[] upAbs = new double[3];
             double[] closestUp = null;
             upAbs[0] = Math.Abs(up[0]);
@@ -2223,281 +1384,48 @@ namespace vtkControl
         {
             if (_animating) return;
             _animating = animate;
-
+            //
             VtkNativeOrientation orientation = positive ? VtkNativeOrientation.Isometric :
                                                           VtkNativeOrientation.IsometricNegative;
-            if (RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, zoomToFit))) return;
-
-            int delta = 1;
-            if (!positive) delta = -1;
-
-            if (_drawCameraPath) ClearOverlay();
-
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-
-            double[] rotationPivot = GetViewRotationPivot();
-            double[] rotationPivotDisplay = vtkInteractorStyleControl.WorldToDisplay(_renderer, rotationPivot);
-            double distance = camera.GetDistance();
-
-            double[] closestUp = GetClosestUpView();
-            camera.SetViewUp(closestUp[0], closestUp[1], closestUp[2]);
-
-            double[] fPos = camera.GetFocalPoint();
-            int q = GetClosestIsoDirectionQuadrant(camera.GetViewPlaneNormal());
-
-            if (q == 1) camera.SetPosition(fPos[0] + delta, fPos[1] + delta, fPos[2] + delta);
-            else if (q == 2) camera.SetPosition(fPos[0] - delta, fPos[1] + delta, fPos[2] + delta);
-            else if (q == 3) camera.SetPosition(fPos[0] - delta, fPos[1] - delta, fPos[2] + delta);
-            else if (q == 4) camera.SetPosition(fPos[0] + delta, fPos[1] - delta, fPos[2] + delta);
-            else if (q == 5) camera.SetPosition(fPos[0] + delta, fPos[1] + delta, fPos[2] - delta);
-            else if (q == 6) camera.SetPosition(fPos[0] - delta, fPos[1] + delta, fPos[2] - delta);
-            else if (q == 7) camera.SetPosition(fPos[0] - delta, fPos[1] - delta, fPos[2] - delta);
-            else if (q == 8) camera.SetPosition(fPos[0] + delta, fPos[1] - delta, fPos[2] - delta);
-
-            camera.OrthogonalizeViewUp(); // not needed ?
-            double[] up = camera.GetViewUp();
-
-            int maxID = -1;
-            double max = -double.MaxValue;
-            for (int i = 0; i < up.Length; i++)
-            {
-                if (Math.Abs(up[i]) > max)
-                {
-                    max = Math.Abs(up[i]);
-                    maxID = i;
-                }
-            }
-
-            if (maxID == 0) camera.SetViewUp(Math.Sign(up[0]), 0, 0);
-            else if (maxID == 1) camera.SetViewUp(0, Math.Sign(up[1]), 0);
-            else camera.SetViewUp(0, 0, Math.Sign(up[2]));
-
-            if (zoomToFit) ResetCamera();
-            else KeepZoomAndRotationPivot(camera, rotationPivot, rotationPivotDisplay, distance);
-
-            FinishViewChange(animate, cameraStart, camera);
+            RunNativeViewChange(animate, () => _nativeMirror.SetStandardView(orientation, zoomToFit));
         }
         public void SetZoomFactor(double factor)
         {
-            vtkCamera camera = _renderer.GetActiveCamera();
-            camera.SetParallelScale(factor);
-            if (NativeOwnsCamera) _nativeMirror.SetZoomFactor(factor);
+            if (_nativeMirror == null) return;
+            _nativeMirror.SetZoomFactor(factor);
         }
         public void AnimateZoomToFactor(double factor, int timeMs)
         {
             if (_animating) return;
             _animating = true;
             //
-            if (RunNativeViewChange(true, () => SetZoomFactor(factor), timeMs)) return;
-            //
-            if (_drawCameraPath) ClearOverlay();
-            //
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            SetZoomFactor(factor);
-            //
-            FinishViewChange(true, cameraStart, camera, timeMs);
+            RunNativeViewChange(true, () => SetZoomFactor(factor), timeMs);
         }
         public void SetZoomToFit(bool animate)
         {
             if (_animating) return;
             _animating = animate;
             //
-            if (RunNativeViewChange(animate, () => _nativeMirror.ZoomToFit())) return;
-            //
-            if (_drawCameraPath) ClearOverlay();
-            //
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            ResetCamera();
-            //_renderWindowInteractor.Modified(); // this updates the vtkMax annotation objects
-            FinishViewChange(animate, cameraStart, camera);
+            RunNativeViewChange(animate, () => _nativeMirror.ZoomToFit());
         }
         public void SetBoxZoom(int[] point1, int[] point2, bool animate)
         {
-            if (RunNativeViewChange(animate, () => _nativeMirror.BoxZoom(point1[0], point1[1], point2[0], point2[1])))
-                return;
-            vtkCamera camera = _renderer.GetActiveCamera();
-            vtkCamera cameraStart = vtkCamera.New();
-            cameraStart.DeepCopy(camera);
-            //
-            int[] windowSize = _renderWindowInteractor.GetRenderWindow().GetSize();
-            // Center
-            int[] selectionCenter = new int[] { (point2[0] + point1[0]) / 2, (point2[1] + point1[1]) / 2 };
-            int[] windowCenter = new int[] { windowSize[0] / 2, windowSize[1] / 2 };
-            double[] selectionCenter3D = 
-                vtkInteractorStyleControl.DisplayToWorld(_renderer, new double[] { selectionCenter[0], selectionCenter[1] });
-            double[] windowCenter3D =
-                vtkInteractorStyleControl.DisplayToWorld(_renderer, new double[] { windowCenter[0], windowCenter[1] });
-            // Zoom
-            int[] selectionSize = new int[] { Math.Abs(point2[0] - point1[0]), Math.Abs(point2[1] - point1[1]) };
-            if (selectionSize[0] == 0 || selectionSize[1] == 1) return;
-            //
-            double widthZoomFactor = (double)windowSize[0] / (double)selectionSize[0];
-            double heightZoomFactor = (double)windowSize[1] / (double)selectionSize[1];
-            double zoomFactor = Math.Min(widthZoomFactor, heightZoomFactor);
-            // Camera
-            camera.SetParallelScale(camera.GetParallelScale() / zoomFactor);
-            double[] motionVector = new double[3];
-            motionVector[0] = selectionCenter3D[0] - windowCenter3D[0];
-            motionVector[1] = selectionCenter3D[1] - windowCenter3D[1];
-            motionVector[2] = selectionCenter3D[2] - windowCenter3D[2];
-            //
-            double[] cPos = camera.GetPosition();
-            double[] fPos = camera.GetFocalPoint();
-            //
-            camera.SetPosition(cPos[0] + motionVector[0], cPos[1] + motionVector[1], cPos[2] + motionVector[2]);
-            camera.SetFocalPoint(fPos[0] + motionVector[0], fPos[1] + motionVector[1], fPos[2] + motionVector[2]);
-            //
-            FinishViewChange(animate, cameraStart, camera);
+            RunNativeViewChange(animate, () => _nativeMirror.BoxZoom(point1[0], point1[1], point2[0], point2[1]));
         }
         public void BoxZoomEnded()
         {
             Form_BoxZoomEnded?.Invoke();
         }
         //
-        private void _style_RotationPointChanged(double[] rotationPoint)
-        {
-            RotationPointChanged?.Invoke(rotationPoint);
-        }
         public void SetRotationPoint(double[] rotationPoint)
         {
-            _style.SetRotationPoint(rotationPoint);
-            if (_nativeMirror != null && (_nativeAreas & VtkNativeArea.Widgets) != 0) _nativeMirror.SetRotationPoint(rotationPoint);
+            if (_nativeMirror == null) return;
+            _nativeMirror.SetRotationPoint(rotationPoint);
         }
         //
-        private void ResetCamera()
-        {
-            vtkCamera cam = _renderer.GetActiveCamera();
-            //
-            _renderer.ResetCamera();
-            double[] position1 = cam.GetPosition();
-            double[] focalPoint1 = cam.GetFocalPoint();
-            double scale1 = cam.GetParallelScale();
-            //
-            _overlayRenderer.ResetCamera();
-            //int n = _overlayRenderer.GetNumberOfPropsRendered();
-            //double[] position2 = cam.GetPosition();
-            double[] focalPoint2 = cam.GetFocalPoint();
-            double scale2 = cam.GetParallelScale();
-            // Aspect
-            double aspect = _renderWindow.GetSize()[0] / (double)_renderWindow.GetSize()[1];
-            // Y bounds
-            double yMax = Math.Max(focalPoint1[1] + scale1, focalPoint2[1] + scale2);
-            double yMin = Math.Min(focalPoint1[1] - scale1, focalPoint2[1] - scale2);
-            // X bounds
-            double xMax = Math.Max(focalPoint1[0] + scale1 * aspect, focalPoint2[0] + scale2 * aspect);
-            double xMin = Math.Min(focalPoint1[0] - scale1 * aspect, focalPoint2[0] - scale2 * aspect);
-            // New center from bounds
-            double centerX = (xMin + xMax) / 2.0;
-            double centerY = (yMin + yMax) / 2.0;
-            // Compute new parallel scale
-            double scaleY = (yMax - yMin) / 2.0;
-            double scaleX = (xMax - xMin) / (2.0 * aspect);
-            double newScale = Math.Max(scaleY, scaleX);
-            // Preserve view direction
-            double[] direction = new double[3];
-            direction[0] = position1[0] - focalPoint1[0];
-            direction[1] = position1[1] - focalPoint1[1];
-            direction[2] = position1[2] - focalPoint1[2];
-            // Set new focal point
-            cam.SetFocalPoint(centerX, centerY, focalPoint1[2]);
-            // Set new position (keep same view direction)
-            cam.SetPosition(centerX + direction[0], centerY + direction[1], focalPoint1[2] + direction[2]);
-            cam.SetParallelScale(newScale);
-            //
-            _style.ResetClippingRange();
-        }
-        private double[] ComputeVisiblePropBounds()
-        {
-            // A renderer without any visible prop returns the inverted bounds vtkMath::UninitializeBounds sets
-            double[] b1 = _renderer.ComputeVisiblePropBounds();
-            double[] b2 = _overlayRenderer.ComputeVisiblePropBounds();
-            bool b1Initialized = b1[0] <= b1[1] && b1[2] <= b1[3] && b1[4] <= b1[5];
-            bool b2Initialized = b2[0] <= b2[1] && b2[2] <= b2[3] && b2[4] <= b2[5];
-            //
-            if (!b2Initialized) return b1;
-            if (!b1Initialized) return b2;
-            //
-            return new double[] { Math.Min(b1[0], b2[0]), Math.Max(b1[1], b2[1]),
-                                  Math.Min(b1[2], b2[2]), Math.Max(b1[3], b2[3]),
-                                  Math.Min(b1[4], b2[4]), Math.Max(b1[5], b2[5])};
-        }
-        //
-        private int GetClosestIsoDirectionQuadrant(double[] camera)
-        {
-            double[] quadrant = new double[3];
-            double[] angles = new double[4];
-            // I
-            quadrant[0] = 1;
-            quadrant[1] = 1;
-            quadrant[2] = 1;
-            angles[0] = GetAngle(camera, quadrant);
-
-            // II
-            quadrant[0] = -1;
-            quadrant[1] = 1;
-            quadrant[2] = 1;
-            angles[1] = GetAngle(camera, quadrant);
-
-            // III
-            quadrant[0] = -1;
-            quadrant[1] = -1;
-            quadrant[2] = 1;
-            angles[2] = GetAngle(camera, quadrant);
-
-            // IV
-            quadrant[0] = 1;
-            quadrant[1] = -1;
-            quadrant[2] = 1;
-            angles[3] = GetAngle(camera, quadrant);
-
-            // find min angle
-            int minId = -1;
-            double min = double.MaxValue;
-            for (int i = 0; i < angles.Length; i++)
-            {
-                if (angles[i] < min)
-                {
-                    min = angles[i];
-                    minId = i + 1;
-                }
-            }
-
-            if (minId == 1)
-            {
-                if (camera[0] >= 0 && camera[1] >= 0 && camera[2] >= 0) return 1;
-                else return 7;
-            }
-            else if (minId == 2)
-            {
-                if (camera[0] <= 0 && camera[1] >= 0 && camera[2] >= 0) return 2;
-                else return 8;
-            }
-            else if (minId == 3)
-            {
-                if (camera[0] <= 0 && camera[1] <= 0 && camera[2] >= 0) return 3;
-                else return 5;
-            }
-            else //if (minId == 4)
-            {
-                if (camera[0] >= 0 && camera[1] <= 0 && camera[2] >= 0) return 4;
-                else return 6;
-            }
-        }
         public double[] GetViewPlaneNormal()
         {
-            if (NativeOwnsCamera) return GetNativeViewPlaneNormal();
-            vtkCamera camera = _renderer.GetActiveCamera();
-            //double[] fPos = camera.GetFocalPoint();
-            double[] vpn = camera.GetViewPlaneNormal();
-            return vpn;
+            return GetNativeViewPlaneNormal();
         }
         public double GetAngle(double[] v1, double[] v2)
         {
@@ -2516,374 +1444,6 @@ namespace vtkControl
             return v;
         }
         //
-        public void AnimateCamera_(vtkCamera cameraStart, vtkCamera cameraEnd, vtkCamera camera)
-        {
-            vtkCameraInterpolator interpolator = vtkCameraInterpolator.New();
-            interpolator.SetInterpolationTypeToSpline();
-
-            interpolator.AddCamera(0, cameraStart);
-            interpolator.AddCamera(1, cameraEnd);
-
-            //double zEnd = camera.GetParallelScale();
-
-            //interpolator.InterpolateCamera(0.5, camera);
-
-            //double zStart = cameraStart.GetParallelScale();
-            //double zMid = camera.GetParallelScale();
-
-
-            double[] v1 = cameraStart.GetDirectionOfProjection();
-            double[] v2 = cameraEnd.GetDirectionOfProjection();
-
-            double angle = v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
-
-            if (angle < -0.99)
-            {
-                cameraStart.OrthogonalizeViewUp();
-                cameraEnd.OrthogonalizeViewUp();
-                double[] up1 = cameraStart.GetViewUp();
-                double[] up2 = cameraEnd.GetViewUp();
-
-                double[] up3 = new double[3];
-                up3[0] = (up1[0] + up2[0]) / 2;
-                up3[1] = (up1[1] + up2[1]) / 2;
-                up3[2] = (up1[2] + up2[2]) / 2;
-
-                if (up3[0] == 0 && up3[1] == 0 && up3[2] == 0)
-                {
-                    up3[0] = v1[0];
-                    up3[1] = v1[1];
-                    up3[2] = v1[2];
-                }
-
-                double[] v3 = new double[3];
-                v3[0] = v1[1] * up1[2] - v1[2] * up1[1];
-                v3[1] = -(v1[0] * up1[2] - v1[2] * up1[0]);
-                v3[2] = v1[0] * up1[1] - v1[1] * up1[0];
-
-                double[] focal = cameraStart.GetFocalPoint();
-                double distance = Math.Max(cameraStart.GetDistance(), cameraEnd.GetDistance());
-                cameraStart.SetPosition(focal[0] + v3[0] * distance, focal[1] + v3[1] * distance, focal[2] + v3[2] * distance);
-                cameraStart.SetViewUp(up3[0], up3[1], up3[2]);
-                cameraStart.OrthogonalizeViewUp();
-
-                interpolator.AddCamera(0.5, cameraStart);
-            }
-
-            DateTime start = DateTime.Now;
-            int delta = 200; //ms
-            double currentDelta = 0;
-            while (currentDelta < delta)
-            {
-                currentDelta = (DateTime.Now - start).TotalMilliseconds;
-                interpolator.InterpolateCamera(currentDelta / delta, camera);
-                camera.OrthogonalizeViewUp();
-                _style.AdjustCameraDistanceAndClipping();
-                System.Threading.Thread.Sleep(1);
-                RenderScene();
-                Application.DoEvents();
-            }
-
-            interpolator.InterpolateCamera(1, camera);
-            RenderScene();
-        }
-        public void AnimateCameraQuat(vtkCamera cameraStart, vtkCamera cameraEnd, vtkCamera camera)
-        {
-            vtkMatrix4x4 mCamStart = cameraStart.GetViewTransformMatrix();
-            double[][] rStart = new double[3][];
-            for (int i = 0; i < 3; i++)
-            {
-                rStart[i] = new double[3];
-                for (int j = 0; j < 3; j++)
-                {
-                    rStart[i][j] = mCamStart.GetElement(i, j);
-                }
-            }
-            double[] tStart = new double[3];
-            for (int i = 0; i < 3; i++)
-            {
-                tStart[i] = mCamStart.GetElement(i, 3);
-            }
-            double[] fpStart = cameraStart.GetFocalPoint();
-            double zStart = cameraStart.GetParallelScale();
-            double[] q1 = QuaternionHelper.QuaternionFromMatrix3x3(rStart);
-
-            vtkMatrix4x4 mCamEnd = cameraEnd.GetViewTransformMatrix();
-            double[][] rEnd = new double[3][];
-            for (int i = 0; i < 3; i++)
-            {
-                rEnd[i] = new double[3];
-                for (int j = 0; j < 3; j++)
-                {
-                    rEnd[i][j] = mCamEnd.GetElement(i, j);
-                }
-            }
-            double[] tEnd = new double[3];
-            for (int i = 0; i < 3; i++)
-            {
-                tEnd[i] = mCamEnd.GetElement(i, 3);
-            }
-            double[] fpEnd = cameraEnd.GetFocalPoint();
-            double zEnd = cameraEnd.GetParallelScale();
-            double[] q2 = QuaternionHelper.QuaternionFromMatrix3x3(rEnd);
-
-            double[] q;
-            double[][] rOut;
-            double[][] rOutT;
-            double[] transform;
-            double[] fp;
-            double[] pos = new double[3];
-            double[] up = new double[3];
-            double z;
-            double t;
-
-            DateTime start = DateTime.Now;
-            int delta = 500; //ms
-            double currentDelta;
-
-            do
-            {
-                //http://math.stackexchange.com/questions/82602/how-to-find-camera-position-and-rotation-from-a-4x4-matrix
-                //
-                //     |         |     
-                // M = |   R   T |     
-                //     |         |     
-                //     | 0 0 0 1 |     
-                //                     
-                // camera position C:  
-                // C = -R(transpose)*T 
-                //                     
-
-                currentDelta = (DateTime.Now - start).TotalMilliseconds;
-                t = currentDelta / delta;
-                if (t > 1) t = 1;
-
-                q = QuaternionHelper.QuaternionSlerp(q1, q2, t);
-                transform = QuaternionHelper.VectorLerp(tStart, tEnd, t);
-                fp = QuaternionHelper.VectorLerp(fpStart, fpEnd, t);
-                z = zStart + (t) * (zEnd - zStart);
-                rOut = QuaternionHelper.Matrix3x3FromQuaternion(q);
-                rOutT = QuaternionHelper.TransponseMatrix3x3(rOut);
-
-                pos[0] = -(rOutT[0][0] * transform[0] + rOutT[0][1] * transform[1] + rOutT[0][2] * transform[2]);
-                pos[1] = -(rOutT[1][0] * transform[0] + rOutT[1][1] * transform[1] + rOutT[1][2] * transform[2]);
-                pos[2] = -(rOutT[2][0] * transform[0] + rOutT[2][1] * transform[1] + rOutT[2][2] * transform[2]);
-
-                up[0] = rOutT[0][1];
-                up[1] = rOutT[1][1];
-                up[2] = rOutT[2][1];
-
-                camera.SetPosition(pos[0], pos[1], pos[2]);
-                camera.SetFocalPoint(fp[0], fp[1], fp[2]);
-                camera.SetViewUp(up[0], up[1], up[2]);
-                camera.SetParallelScale(z);
-                camera.OrthogonalizeViewUp();
-                _style.AdjustCameraDistanceAndClipping();
-                System.Threading.Thread.Sleep(5);
-                RenderScene();
-                Application.DoEvents();
-            } while (currentDelta < delta);
-
-            _animating = false;
-        }
-        private void FinishViewChange(bool animate, vtkCamera cameraStart, vtkCamera camera, int timeMs = 500)
-        {
-            // The interpolation exists for the user to follow the camera, and it drives VTK from the UI thread
-            // for its whole duration, so it is skipped when no user interface is shown. The vtkMax widgets learn
-            // about the new camera inside the animation, which is why the skipped path has to notify them here.
-            if (animate && _viewAnimationEnabled) AnimateCamera(cameraStart, camera, camera, timeMs);
-            else
-            {
-                _animating = false;
-                _style.AdjustCameraDistanceAndClipping();
-                _renderWindowInteractor.Modified(); // this updates the vtkMax annotation objects
-                RenderScene();
-            }
-        }
-        public void AnimateCamera(vtkCamera cameraStart, vtkCamera cameraEnd, vtkCamera camera, int timeMs = 500)
-        {
-            // The idea is to use quaternions to interpolate the camera orientation while maintaining the
-            // focal point (end camera position) in the center of the screen. Then use projections to pan
-            // the cmara in 2D display coordinates from the start to end positions
-            ((vtkInteractorStyleControl)_renderWindowInteractor.GetInteractorStyle()).Animating = true;
-            MirrorStyleAnimating(true);
-            IntPtr pq1 = new IntPtr();
-            IntPtr pq2 = new IntPtr();
-            IntPtr pq = new IntPtr();
-            try
-            {
-                // Get camera end data                                                              
-                vtkMatrix4x4 mCamEnd = cameraEnd.GetViewTransformMatrix();
-                double[][] rEnd = new double[3][];
-                for (int i = 0; i < 3; i++)
-                {
-                    rEnd[i] = new double[3];
-                    for (int j = 0; j < 3; j++)
-                    {
-                        rEnd[i][j] = mCamEnd.GetElement(i, j);
-                        if (double.IsNaN(rEnd[i][j])) throw new NotSupportedException();
-                    }
-                }
-                double[] fpEnd = cameraEnd.GetFocalPoint();
-                double zEnd = cameraEnd.GetParallelScale();
-                double distanceEnd = cameraEnd.GetDistance();
-                double[] q2 = QuaternionHelper.QuaternionFromMatrix3x3(rEnd);
-                // Get display (XY) projection of the final focal point (model center) for both cameras
-                double[] fpEndXY = vtkInteractorStyleControl.WorldToDisplay(_renderer, fpEnd);
-                _renderer.SetActiveCamera(cameraStart);
-                double[] fpStartXY = vtkInteractorStyleControl.WorldToDisplay(_renderer, fpEnd);
-                // Project both XY points into 3D
-                double[] fpEndworld;
-                double[] fpStartWorld;
-                fpEndworld = vtkInteractorStyleControl.DisplayToWorld(_renderer, fpEndXY);
-                fpStartWorld = vtkInteractorStyleControl.DisplayToWorld(_renderer, fpStartXY);
-                // Assign the end camera back to the renderer
-                _renderer.SetActiveCamera(camera);
-                // Compute the delta of the 3D projected points
-                double[] fpDelta = new double[] { fpStartWorld[0] - fpEndworld[0],
-                                                  fpStartWorld[1] - fpEndworld[1],
-                                                  fpStartWorld[2] - fpEndworld[2]};
-                // Pan the start camera to look at the model center 
-                double[] cPos = cameraStart.GetPosition();
-                double[] fPos = cameraStart.GetFocalPoint();
-                cameraStart.SetPosition(cPos[0] + fpDelta[0], cPos[1] + fpDelta[1], cPos[2] + fpDelta[2]);
-                cameraStart.SetFocalPoint(fPos[0] + fpDelta[0], fPos[1] + fpDelta[1], fPos[2] + fpDelta[2]);
-                // Get camera start data                                                            
-                vtkMatrix4x4 mCamStart = cameraStart.GetViewTransformMatrix();
-                double[][] rStart = new double[3][];
-                for (int i = 0; i < 3; i++)
-                {
-                    rStart[i] = new double[3];
-                    for (int j = 0; j < 3; j++)
-                    {
-                        rStart[i][j] = mCamStart.GetElement(i, j);
-                        if (double.IsNaN(rStart[i][j])) throw new NotSupportedException();
-                    }
-                }
-                double[] fpStart = cameraStart.GetFocalPoint();
-                double zStart = cameraStart.GetParallelScale();
-                double distanceStart = cameraStart.GetDistance();
-                double[] q1 = QuaternionHelper.QuaternionFromMatrix3x3(rStart);
-                // A quaternion and its negation are the same rotation but only the one in the
-                // same hemisphere as the start is interpolated along the shortest path
-                if (q1[0] * q2[0] + q1[1] * q2[1] + q1[2] * q2[2] + q1[3] * q2[3] < 0)
-                {
-                    for (int i = 0; i < q2.Length; i++) q2[i] = -q2[i];
-                }
-                pq1 = QuaternionHelper.IntPtrFromQuaternion(q1);
-                pq2 = QuaternionHelper.IntPtrFromQuaternion(q2);
-                //
-                double[] q;
-                double[][] rOut;
-                double[][] rOutT;
-                double[] fp;
-                double[] pos = new double[3];
-                double[] up = new double[3];
-                double[] viewPlaneNormal = new double[3];
-                double[] fpXY;
-                double z;
-                double distance;
-                double t;
-                //
-                vtkQuaternionInterpolator qi = vtkQuaternionInterpolator.New();
-                qi.SetInterpolationTypeToLinear();
-                qi.AddQuaternion(0, pq1);
-                qi.AddQuaternion(1, pq2);
-                pq = Marshal.AllocHGlobal(Marshal.SizeOf(q1[0]) * q1.Length);
-                //
-                DateTime start = DateTime.Now;
-                int delta = timeMs;
-                double currentDelta = 0;
-                //
-                _positions = new List<double[]>();
-                _focalPoints = new List<double[]>();
-                // Do interpolation
-                do
-                {
-                    currentDelta = (DateTime.Now - start).TotalMilliseconds;
-                    t = currentDelta / delta;
-                    if (t > 1) t = 1;
-                    //
-                    if (Math.Abs(q1[0] - q2[0]) + Math.Abs(q1[1] - q2[1]) + Math.Abs(q1[2] - q2[2]) + Math.Abs(q1[3] - q2[3]) < 0.00001)
-                        q = q1;
-                    else
-                    {
-                        qi.InterpolateQuaternion(t, pq);
-                        q = QuaternionHelper.QuaternionFromIntPtr(pq);
-                    }
-                    //
-                    //fp = QuaternionHelper.VectorLerp(fpStart, fpEnd, t);
-                    fp = fpEnd;
-                    z = zStart + (t) * (zEnd - zStart);
-                    distance = distanceStart + (t) * (distanceEnd - distanceStart);
-                    rOut = QuaternionHelper.Matrix3x3FromQuaternion(q);
-                    rOutT = QuaternionHelper.TransponseMatrix3x3(rOut);
-                    //
-                    viewPlaneNormal[0] = rOutT[0][2];
-                    viewPlaneNormal[1] = rOutT[1][2];
-                    viewPlaneNormal[2] = rOutT[2][2];
-                    // The camera orbits the focal point along the interpolated view plane normal, so that the
-                    // view direction is the interpolated one. A position recovered from the interpolated view
-                    // transform translation is measured from the world origin and tilts the view out of the
-                    // plane of the rotation by an amount that grows with the distance of the model from it
-                    pos[0] = fp[0] + distance * viewPlaneNormal[0];
-                    pos[1] = fp[1] + distance * viewPlaneNormal[1];
-                    pos[2] = fp[2] + distance * viewPlaneNormal[2];
-                    //
-                    up[0] = rOutT[0][1];
-                    up[1] = rOutT[1][1];
-                    up[2] = rOutT[2][1];
-                    // Update camera to get correct projections. The view up belongs to this frame as well:
-                    // the display coordinates of the pan below are taken along it, and the one of the
-                    // previous frame is the one of the last frame during the first pass, which can even be
-                    // parallel to the view direction of this frame
-                    camera.SetPosition(pos[0], pos[1], pos[2]);
-                    camera.SetFocalPoint(fp[0], fp[1], fp[2]);
-                    camera.SetParallelScale(z);
-                    camera.SetViewUp(up[0], up[1], up[2]);
-                    camera.OrthogonalizeViewUp();
-                    // Pan the camera in the 2D display coordinates                                 
-                    fpXY = QuaternionHelper.VectorLerp(fpStartXY, fpEndXY, t);
-                    fpEndworld = vtkInteractorStyleControl.DisplayToWorld(_renderer, fpEndXY);
-                    fpStartWorld = vtkInteractorStyleControl.DisplayToWorld(_renderer, fpXY);
-                    // Compute the delta of the 3D projected points
-                    fpDelta = new double[] { fpEndworld[0] - fpStartWorld[0],
-                                             fpEndworld[1] - fpStartWorld[1],
-                                             fpEndworld[2] - fpStartWorld[2]};
-                    // Pan the camera to look at the model center 
-                    camera.SetPosition(pos[0] + fpDelta[0], pos[1] + fpDelta[1], pos[2] + fpDelta[2]);
-                    camera.SetFocalPoint(fp[0] + fpDelta[0], fp[1] + fpDelta[1], fp[2] + fpDelta[2]);
-                    // The widget highlights stay visible and follow the widgets during the animation
-                    _style.AdjustCameraDistanceAndClipping(false);
-                    _style.RefreshWidgetHighlights();
-                    //System.Threading.Thread.Sleep(5);
-                    _renderWindowInteractor.Modified(); // this updates the vtkMax annotation objects
-                    RenderScene();
-                    //
-                    if (_drawCameraPath)
-                    {
-                        _positions.Add(pos.ToArray());
-                        _focalPoints.Add(fp.ToArray());
-                    }
-                    //
-                    Application.DoEvents();
-                }
-                while (currentDelta < delta);
-            }
-            finally
-            {
-                // Free the unmanaged memory.
-                Marshal.FreeHGlobal(pq1);
-                Marshal.FreeHGlobal(pq2);
-                Marshal.FreeHGlobal(pq);
-                _animating = false;
-                //
-                ((vtkInteractorStyleControl)_renderWindowInteractor.GetInteractorStyle()).Animating = false;
-                MirrorStyleAnimating(false);
-                //
-                if (_drawCameraPath) DrawCameraPath();
-            }
-        }
         private void DrawCameraPath()
         {
             ClearOverlay();
@@ -2905,13 +1465,9 @@ namespace vtkControl
             AddPoints(data);
         }
         //
-        public void AdjustCameraDistanceAndClipping()
-        {
-            _style.AdjustCameraDistanceAndClipping();
-        }
+        // The native view keeps its camera distance and clipping range on the visible geometry by itself
         public void AdjustCameraDistanceAndClippingRedraw()
         {
-            _style.AdjustCameraDistanceAndClipping();
             RenderScene();
         }
         public void UpdateScalarsAndRedraw()
@@ -2926,21 +1482,13 @@ namespace vtkControl
             // Update scalar field
             UpdateScalarFormatting();
             //
-            _style.AdjustCameraDistanceAndClipping();
-            //
             RenderScene();
         }
         //
         public void Rotate(double azimuthAngle, double elevationAngle, double rollAngle)
         {
-            if (NativeOwnsCamera)
-            {
-                _nativeMirror.Navigate(VtkNativeNavigation.Rotate, azimuthAngle, elevationAngle, rollAngle);
-                OnNativeCameraChanged();
-                return;
-            }
-            _style.UpdateRotationCenterDisplay();
-            _style.Rotate(azimuthAngle, elevationAngle, rollAngle);
+            _nativeMirror.Navigate(VtkNativeNavigation.Rotate, azimuthAngle, elevationAngle, rollAngle);
+            OnNativeCameraChanged();
         }
 
         #endregion  ################################################################################################################
@@ -3000,7 +1548,6 @@ namespace vtkControl
             }
             //
             if (!AreAnyActorsVisible()) AdjustCameraDistanceAndClippingRedraw();
-            else AdjustCameraDistanceAndClipping();
         }
         public vtkMaxActor AddPoints(vtkMaxActorData data)
         {
@@ -3255,7 +1802,6 @@ namespace vtkControl
             if (updateColorContours) UpdateScalarFormatting();
             //
             RenderScene();
-            AdjustCameraDistanceAndClipping();
         }
         private void HideShowActor(vtkMaxActor actor, bool visible)
         {
@@ -3282,7 +1828,6 @@ namespace vtkControl
             if (update)
             {
                 UpdateScalarFormatting();
-                AdjustCameraDistanceAndClipping();
                 RenderScene();
             }
         }
@@ -3313,7 +1858,6 @@ namespace vtkControl
                     CreateNativeSectionView(point, normal);
                     //
                     UpdateScalarFormatting();
-                    AdjustCameraDistanceAndClipping();
                     //
                     RenderScene();
                 }
@@ -3335,7 +1879,6 @@ namespace vtkControl
                     CreateNativeSectionView(point, normal);
                     //
                     UpdateScalarFormatting();
-                    AdjustCameraDistanceAndClipping();
                     //
                     RenderScene();
                 }
@@ -3353,7 +1896,6 @@ namespace vtkControl
                     RunNative("RemoveSectionView", () => _nativeMirror.RemoveSectionView());
                     //
                     UpdateScalarFormatting();
-                    AdjustCameraDistanceAndClipping();
                     //
                     RenderScene();
                 }
@@ -3417,7 +1959,6 @@ namespace vtkControl
                 }
                 tPrev = t;
                 //
-                AdjustCameraDistanceAndClipping();
                 // The native view has the positions before the window is painted: a preview without animation,
                 // which puts the parts back where an exploded view had them, showed them unexploded for a frame
                 if (t < 1) SetNativeExplodedViewOffsets(partOffsetsAnimation.Keys);
@@ -3582,8 +2123,7 @@ namespace vtkControl
         private void MoveFollowerViewCamera(double[][] rotation, double[] translation)
         {
             MoveNativeCamera(rotation, translation);
-            if (NativeOwnsCamera) OnNativeCameraChanged();
-            else AdjustCameraDistanceAndClipping();
+            OnNativeCameraChanged();
         }
         // --- Helper: multiply 3x3 matrix with Vec3D
         private Vec3D MultiplyMatrixVector(double[][] M, Vec3D v)
@@ -3971,59 +2511,10 @@ namespace vtkControl
         }
         public void SetSmoothing(bool pointSmoothing, bool lineSmoothing, bool redraw)
         {
-            if (_renderWindow != null)
-            {
-                if (pointSmoothing != (_renderWindow.GetPointSmoothing() == 1) ||
-                    lineSmoothing != (_renderWindow.GetLineSmoothing() == 1))
-                {
-                    List<vtkMaxBorderWidget> widgets = new List<vtkMaxBorderWidget>();
-                    if (_coorSysWidget != null) widgets.Add(_coorSysWidget);
-                    if (_scaleWidget != null) widgets.Add(_scaleWidget);
-                    if (_scalarBarWidget != null) widgets.Add(_scalarBarWidget);
-                    if (_colorBarWidget != null) widgets.Add(_colorBarWidget);
-                    if (_statusBlockWidget != null) widgets.Add(_statusBlockWidget);
-                    if (_probeWidget != null) widgets.Add(_probeWidget);
-                    if (_arrowWidgets != null) widgets.AddRange(_arrowWidgets.Values);
-
-                    // Widgets keep a reference to the interactor. Detach them before disposing it so
-                    // they never call through an invalid native VTK pointer after the window is rebuilt.
-                    foreach (vtkMaxBorderWidget widget in widgets) widget.RemoveInteractor();
-                    _renderWindowInteractor.ModifiedEvt -= _renderWindowInteractor_ModifiedEvt;
-                    _renderWindowInteractor.Dispose();
-                    _renderWindow.Dispose();
-
-                    _renderWindow = vtkRenderWindow.New();
-                    _renderWindow.SetParentId(this.Handle);
-                    _renderWindow.SetNumberOfLayers(4);
-
-                    _renderWindow.AddRenderer(_renderer);
-                    _renderWindow.AddRenderer(_overlayRenderer);
-                    _renderWindow.AddRenderer(_selectionRenderer);
-                    _renderWindow.AddRenderer(_widgetRenderer);
-
-                    SyncRenderWindowSize();
-
-                    _renderWindowInteractor = vtkRenderWindowInteractor.New();
-                    _renderWindowInteractor.SetInteractorStyle(_style);
-                    _style.ResetRotationCenter();
-
-                    _renderWindow.SetInteractor(_renderWindowInteractor);
-                    _renderWindowInteractor.ModifiedEvt += _renderWindowInteractor_ModifiedEvt;
-
-                    foreach (vtkMaxBorderWidget widget in widgets)
-                        widget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
-
-                    if (pointSmoothing) _renderWindow.PointSmoothingOn();
-                    else _renderWindow.PointSmoothingOff();
-
-                    if (lineSmoothing) _renderWindow.LineSmoothingOn();
-                    else _renderWindow.LineSmoothingOff();
-                }
-                _pointSmoothing = pointSmoothing;
-                _lineSmoothing = lineSmoothing;
-                if (_nativeMirror != null) _nativeMirror.SetSmoothing(pointSmoothing, lineSmoothing);
-            }
-            
+            _pointSmoothing = pointSmoothing;
+            _lineSmoothing = lineSmoothing;
+            if (_nativeMirror != null) _nativeMirror.SetSmoothing(pointSmoothing, lineSmoothing);
+            //
             if (redraw) RenderScene();
         }
         // Highlight
@@ -4922,8 +3413,6 @@ namespace vtkControl
             UpdateAnimatedArrowWidgetAnchors();
             //
             UpdateFollowerView();
-            _style.AdjustCameraDistanceAndClipping(false);
-            _style.RefreshWidgetHighlights();
             RenderScene();
         }
         public bool TryGetAnimationNodeData(int nodeId, out double[] coordinates, out float value)
@@ -5034,7 +3523,6 @@ namespace vtkControl
             if (_scalarBarWidget != null) SetScalarBarWidgetVisibility(false);
             if (_colorBarWidget != null) HideColorBar();
             if (_statusBlockWidget != null) _statusBlockWidget.VisibilityOff();
-            if (_style != null) _style.ResetRotationCenter();
             // Widgets
             HideAllArrowWidgets();
             //
@@ -5070,12 +3558,6 @@ namespace vtkControl
         }
         public void ClearSelection(bool clearAllMouseSelection = true)
         {
-            if (clearAllMouseSelection)
-            {
-                if (_mouseSelectionAllIds.Count > 0) _mouseSelectionAllIds.Clear();
-                _mouseSelectionCurrentIds = null;
-            }
-            //
             ClearCurrentMouseSelection(false);
             //
             _selectedActors.Clear();
@@ -5089,18 +3571,6 @@ namespace vtkControl
         }
         public void ClearCurrentMouseSelection(bool render)
         {
-            if (_mouseSelectionActorCurrent != null)
-            {
-                _selectedActors.Remove(_mouseSelectionActorCurrent);
-                _mouseSelectionActorCurrent = null;
-            }
-            if (_mouseSelectionPointActorCurrent != null)
-            {
-                _overlayActors.Remove(_mouseSelectionPointActorName);
-                _mouseSelectionPointActorCurrent = null;
-            }
-            //
-            _mouseSelectionCurrentIds = null;
             ClearNativeMouseSelection();
             //
             if (_probeWidget != null && _probeWidget.GetVisibility() == 1) _probeWidget.VisibilityOff();
@@ -5293,19 +3763,16 @@ namespace vtkControl
         {
             _widgetInteractionEnabled = enabled;
             //
-            if (_style != null) _style.SetWidgetLocalHighlightEnabled(enabled);
             MirrorWidgetHighlight();
             RenderScene();
         }
         public void SetWidgetHighlightLocked(bool locked)
         {
             _widgetHighlightLocked = locked;
-            if (!locked && _style != null) _style.ClearWidgetHighlights();
         }
         public void SetWidgetHighlightEnabled(bool enabled)
         {
             _widgetHighlightEnabled = enabled;
-            if (_style != null) _style.SetWidgetHighlightEnabled(enabled);
             MirrorWidgetHighlight();
         }
         public void ResetScaleBarPosition()
@@ -5815,193 +4282,45 @@ namespace vtkControl
         #endregion #################################################################################################################
 
         #region Native pilot  ######################################################################################################
-        // The VTK 9.7 view of the native pilot. It covers the ActiViz view while it is shown and the ActiViz view
-        // keeps working behind it, so the old and the new path render the same scene in one process
+        // The VTK 9.7 view of this control: the native view in the window draws the scene, takes the mouse, the keys
+        // and the trackpad, and picks
         public VtkNativeHost NativeHost { get { return _nativeHost; } }
-        // The checks that drive the ActiViz and the native navigation apart from one start and compare where they end
-        // run the two views independent: the cameras are not kept together and the ActiViz window is not clipped,
-        // since its navigation picks the depth of its own pixels
-        public bool NativeWindowIndependent
-        {
-            get { return _nativeWindowIndependent; }
-            set
-            {
-                _nativeWindowIndependent = value;
-                KeepActiVizWindowBehindNativeView(_nativeInWindow && !value);
-                MirrorOwnerBoxZoom();
-            }
-        }
-        public void ShowNativeView(bool show)
-        {
-            KeepActiVizWindowBehindNativeView(show && !_nativeWindowIndependent);
-            _nativeHost.Visible = show;
-            if (show) _nativeHost.BringToFront();
-        }
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hWnd, int message, IntPtr wParam, IntPtr lParam);
-        [DllImport("user32.dll")]
-        private static extern int GetWindowLong(IntPtr hWnd, int index);
-        [DllImport("user32.dll")]
-        private static extern int SetWindowLong(IntPtr hWnd, int index, int value);
-        // The ActiViz window is created by VTK without WS_CLIPSIBLINGS, so each of its renders painted over the
-        // native view that covers it: a view animation of this control or the old camera for a moment. The swap of
-        // an OpenGL window is not held back by that style, so behind the native view the ActiViz window also keeps
-        // its picture in its back buffer, where the pickers of this control and RenderToPNG read it
-        private void KeepActiVizWindowBehindNativeView(bool behind)
-        {
-            const int GWL_STYLE = -16;
-            const int WS_CLIPSIBLINGS = 0x04000000;
-            if (_renderWindow == null) return;
-            _renderWindow.SetSwapBuffers(behind ? 0 : 1);
-            IntPtr hWnd = (IntPtr)_renderWindow.GetGenericWindowId();
-            if (hWnd == IntPtr.Zero) return;
-            int style = GetWindowLong(hWnd, GWL_STYLE);
-            int clipped = behind ? style | WS_CLIPSIBLINGS : style & ~WS_CLIPSIBLINGS;
-            if (clipped != style) SetWindowLong(hWnd, GWL_STYLE, clipped);
-        }
-        // In the window the user moves the camera of the native view, and this control keeps its own camera on it, so
-        // that its view changes (the standard views, a zoom to fit and their animations) start where the user is and
-        // reach the native view through RenderScene
-        private void NativeWindow_CameraEvent(object sender, VtkNativeEventArgs e)
-        {
-            if (e.Event != VtkNativeEvent.CameraModified || e.Values.Length < 10 || _pushingCameraToNativeWindow ||
-                _nativeWindowIndependent) return;
-            CopyCameraToActiViz(e.Values);
-        }
-        private void CopyCameraToActiViz(double[] values)
-        {
-            vtkCamera camera = _renderer.GetActiveCamera();
-            camera.SetPosition(values[0], values[1], values[2]);
-            camera.SetFocalPoint(values[3], values[4], values[5]);
-            camera.SetViewUp(values[6], values[7], values[8]);
-            camera.SetParallelScale(values[9]);
-        }
-        // A view change of the native camera: the ActiViz view behind it and the vtkMax widgets follow it
+        // A view change of the native camera: the view is drawn again
         private void OnNativeCameraChanged()
         {
-            CopyCameraToActiViz(_nativeMirror.GetCamera());
-            _style.AdjustCameraDistanceAndClipping(false);
-            _style.RefreshWidgetHighlights();
-            _renderWindowInteractor.Modified();
             RenderScene();
         }
-        private void SetStyleAnimating(bool animating)
-        {
-            ((vtkInteractorStyleControl)_renderWindowInteractor.GetInteractorStyle()).Animating = animating;
-            MirrorStyleAnimating(animating);
-        }
-        // Two parallel cameras show the same view when they look the same way with the same up and scale and their
-        // focal points differ only along the direction of view, as the native view sets its own distance
-        private static bool ShowSameParallelView(double[] a, double[] b)
-        {
-            double tolerance = 1E-9 * Math.Max(1, Math.Abs(a[9]));
-            double[] direction = new double[3];
-            double length = 0;
-            for (int i = 0; i < 3; i++)
-            {
-                direction[i] = a[3 + i] - a[i];
-                length += direction[i] * direction[i];
-            }
-            length = Math.Sqrt(length);
-            if (length == 0) return false;
-            double along = 0;
-            double[] focalDelta = new double[3];
-            for (int i = 0; i < 3; i++)
-            {
-                direction[i] /= length;
-                focalDelta[i] = b[3 + i] - a[3 + i];
-                along += focalDelta[i] * direction[i];
-            }
-            double lengthB = 0;
-            for (int i = 0; i < 3; i++) lengthB += (b[3 + i] - b[i]) * (b[3 + i] - b[i]);
-            lengthB = Math.Sqrt(lengthB);
-            if (lengthB == 0 || Math.Abs(a[9] - b[9]) > tolerance) return false;
-            for (int i = 0; i < 3; i++)
-            {
-                if (Math.Abs((b[3 + i] - b[i]) / lengthB - direction[i]) > 1E-9) return false;
-                if (Math.Abs(a[6 + i] - b[6 + i]) > 1E-9) return false;
-                if (Math.Abs(focalDelta[i] - along * direction[i]) > tolerance) return false;
-            }
-            return true;
-        }
-        private void PushCameraToNativeWindow()
-        {
-            if (!_nativeInWindow || _nativeMirror == null || _nativeWindowIndependent) return;
-            vtkCamera camera = _renderer.GetActiveCamera();
-            double[] position = camera.GetPosition();
-            double[] focalPoint = camera.GetFocalPoint();
-            double[] viewUp = camera.GetViewUp();
-            double[] values = new double[] { position[0], position[1], position[2], focalPoint[0], focalPoint[1],
-                                             focalPoint[2], viewUp[0], viewUp[1], viewUp[2],
-                                             camera.GetParallelScale() };
-            // The native view renders when it takes a camera, so a camera that shows its view already is not sent:
-            // RenderScene runs also in the middle of a change, a highlight cleared and not yet drawn again
-            if (ShowSameParallelView(values, _nativeMirror.GetCamera())) return;
-            _pushingCameraToNativeWindow = true;
-            try
-            {
-                _nativeMirror.SetViewParameters(values);
-            }
-            finally
-            {
-                _pushingCameraToNativeWindow = false;
-            }
-        }
         //
-        // The mirror: an off screen VTK 9.7 view that receives every part this control adds, so the slices of the
-        // pilot can be compared with the ActiViz path in the same scene
         public VtkNativeView NativeMirror { get { return _nativeMirror; } }
+        // The native view with every area, which the application shows; the checks switch it on again with it
         public void EnableNativeMirror(bool enable)
         {
-            SetNativeAreas(VtkNativeArea.All, true);
+            SetNativeAreas(VtkNativeArea.All);
         }
         public VtkNativeArea NativeAreas { get { return _nativeAreas; } }
-        public bool NativeInWindow { get { return _nativeInWindow; } }
-        // The areas this control sends to a native view, and the view: the off screen mirror the checks compare, or
-        // the native view in the window that covers the ActiViz one for a review. ActiViz keeps running underneath;
-        // the caller redraws, so the native view receives the current scene
-        public void SetNativeAreas(VtkNativeArea areas, bool inWindow)
+        // The areas this control sends to the native view: all of them in the application, fewer in the checks of an
+        // area. The native view keeps its camera; the caller redraws, so the native view receives the current scene
+        public void SetNativeAreas(VtkNativeArea areas)
         {
             if (_nativeMirror != null)
             {
                 if (_nativeMirrorScalarBar != null) _nativeMirrorScalarBar.Dispose();
                 _nativeMirrorScalarBar = null;
                 DisposeNativeMirrorWidgets();
-                if (_nativeInWindow)
-                {
-                    // The view the user left the native window with stays
-                    double[] camera = _nativeMirror.GetCamera();
-                    SetViewParameters(false, new double[] { camera[0], camera[1], camera[2] },
-                                      new double[] { camera[3], camera[4], camera[5] },
-                                      new double[] { camera[6], camera[7], camera[8] }, camera[9]);
-                    WireNativeWindowSelection(_nativeMirror, false);
-                    _nativeMirror.NativeEvent -= NativeWindow_CameraEvent;
-                    _nativeMirror.ClearActors();
-                    _nativeMirror.Render();
-                    ShowNativeView(false);
-                }
-                else _nativeMirror.Dispose();
+                WireNativeWindowSelection(_nativeMirror, false);
+                _nativeMirror.ClearActors();
+                _nativeMirror.Render();
                 _nativeMirror = null;
                 _nativeMirrorNames = null;
             }
             _nativeAreas = areas;
-            _nativeInWindow = inWindow && areas != VtkNativeArea.None;
-            if (areas == VtkNativeArea.None) return;
+            if (_nativeHost.View == null) return;
             //
-            if (_nativeInWindow)
-            {
-                ShowNativeView(true);
-                if (ContainsFocus && _nativeHost.ViewWindow != IntPtr.Zero) SetFocus(_nativeHost.ViewWindow);
-                _nativeMirror = _nativeHost.View;
-                WireNativeWindowSelection(_nativeMirror, (areas & VtkNativeArea.Widgets) == 0);
-                _nativeMirror.NativeEvent -= NativeWindow_CameraEvent;
-                _nativeMirror.NativeEvent += NativeWindow_CameraEvent;
-            }
-            else
-            {
-                int[] size = _renderWindow.GetSize();
-                _nativeMirror = VtkNativeView.CreateOffScreen(Math.Max(1, size[0]), Math.Max(1, size[1]));
-            }
+            if (ContainsFocus && _nativeHost.ViewWindow != IntPtr.Zero) SetFocus(_nativeHost.ViewWindow);
+            _nativeMirror = _nativeHost.View;
+            WireNativeWindowSelection(_nativeMirror, (areas & VtkNativeArea.Widgets) == 0);
             _nativeMirrorNames = new HashSet<string>();
             _nativeMirror.SetCameraAdjustmentSuspended(_cameraAdjustmentSuspendCount > 0);
             SyncNativeMirror();
@@ -6009,20 +4328,11 @@ namespace vtkControl
             if ((areas & VtkNativeArea.Widgets) != 0) CreateNativeMirrorWidgets();
             MirrorOwnerBoxZoom();
         }
-        // The native view in the window with every area, which the application shows by default; the ActiViz view
-        // stays underneath, the fallback of the settings. The native view starts from the camera the ActiViz one
-        // shows, and the caller redraws, so it receives the current scene
+        // The native view is the only view of this control and is on from its start; the setting of the application
+        // that chose the ActiViz view has no view left to choose
         public void SetNativeView(bool on)
         {
-            if (on == (_nativeInWindow && _nativeAreas == VtkNativeArea.All)) return;
-            SetNativeAreas(on ? VtkNativeArea.All : VtkNativeArea.None, on);
-            if (!on) return;
-            //
-            GetViewParameters(out double[] position, out double[] focalPoint, out double[] viewUp,
-                              out double parallelScale);
-            _nativeMirror.SetViewParameters(new double[] { position[0], position[1], position[2], focalPoint[0],
-                                                           focalPoint[1], focalPoint[2], viewUp[0], viewUp[1],
-                                                           viewUp[2], parallelScale });
+            if (_nativeMirror == null) SetNativeAreas(VtkNativeArea.All);
         }
         public string[] GetNativeMirrorNames()
         {
@@ -6032,8 +4342,7 @@ namespace vtkControl
         public void SyncNativeMirror()
         {
             if (_nativeMirror == null) return;
-            int[] size = _renderWindow.GetSize();
-            _nativeMirror.SetSize(Math.Max(1, size[0]), Math.Max(1, size[1]));
+            _nativeMirror.SetSize(Math.Max(1, _nativeHost.ClientSize.Width), Math.Max(1, _nativeHost.ClientSize.Height));
             _nativeMirror.SetBackground(_gradientBackground, _backgroundTop, _backgroundBottom);
             _nativeMirror.SetSmoothing(_pointSmoothing, _lineSmoothing);
             _nativeMirror.SetEdgesVisibility(_edgesVisibility);
@@ -6113,9 +4422,8 @@ namespace vtkControl
                                             _scalarBarWidget.GetBorderProperty().GetColor());
         }
         //
-        // Picking through the mirror: style_PointPickedOnLeftUpEvt with the screen to model step made by the native
-        // view. The events it raises are the ones the Controller resolves into ids, so a pick through either path
-        // must end in the same selection
+        // A pick of the native view: a left click or a box selection at the given points. The events it raises are
+        // the ones the Controller resolves into ids
         public void PickWithNativeMirror(int x1, int y1, bool boxSelection, int x2, int y2, int clicks = 1)
         {
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Selection) == 0) return;
@@ -6159,13 +4467,12 @@ namespace vtkControl
                 }
             }
         }
-        // GetPickPoint with the native view; the selection distance applies to a pick by the user
+        // The part under the point and the point on it; the selection distance applies to a pick by the user. On a
+        // section view a part selection resolves the cut to its part, a node or element selection to the cut cells
         private string NativeMirrorPickPoint(int x, int y, out double[] point, out double[] direction)
         {
             string[] selectable = _selectableActorsFilter == null ? null : _selectableActorsFilter.ToArray();
             string partName;
-            _nativeMirror.SetExactPicking(_nativeExactPicking);
-            // ResolveSectionViewPick
             bool partSelection = _selectBy == vtkSelectBy.Default || _selectBy == vtkSelectBy.Part ||
                                  _selectBy == vtkSelectBy.GeometryPart || _selectItem == vtkSelectItem.Part;
             _nativeMirror.SetSectionViewPickMode(partSelection, _selectBy == vtkSelectBy.Node ||
@@ -6174,7 +4481,7 @@ namespace vtkControl
                                     out direction, out partName, out _);
             return partName;
         }
-        // The names PickByArea reports without a highlight: the picked parts that have a volume grid, each once
+        // The parts an area pick reports: the picked parts that have a volume grid, each once
         private string[] NativeMirrorPickArea(int x1, int y1, int x2, int y2, out double[][] planeParameters)
         {
             string[] pickedNames = _nativeMirror.PickArea(x1, y1, x2, y2, out planeParameters);
@@ -6369,12 +4676,7 @@ namespace vtkControl
             {
                 if (_coorSysWidget != null) _coorSysWidget.UpdateGeometry();
                 //
-                this.Invalidate();
-                if (_nativeInWindow && _nativeHost != null)
-                {
-                    PushCameraToNativeWindow();
-                    _nativeHost.Invalidate();
-                }
+                _nativeHost.Invalidate();
                 //
                 foreach (var entry in _actors)
                 {

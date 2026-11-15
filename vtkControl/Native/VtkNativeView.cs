@@ -19,6 +19,9 @@ namespace vtkControl.Native
     public sealed partial class VtkNativeView : IDisposable
     {
         // Variables
+        // The VTKIS state of the native style that GetInteractionState reports while the user rotates the view
+        public const int InteractionStateRotate = 1;
+        //
         private IntPtr _handle;
         private readonly int _threadId;
         private readonly bool _offScreen;

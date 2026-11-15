@@ -2,10 +2,11 @@
 #The PrePoMax object is available as 'pmx'
 #
 #VTK native port, stream S: the pick plan of slice C with the id resolution of each path. Every pick of the plan (a
-#16 x 12 grid of point picks and four boxes per select mode) is made twice: through vtkControl.Pick with the ActiViz
-#helpers resolving the ids, and through PickWithNativeMirror with the native helpers (NativeIdResolution), so the
-#Controller resolves the native picks with no ActiViz call. The output is the one of Record_SliceC.py, which
-#Compare_SliceC.py compares; the closest cells on the parts are compared at every hit point as well.
+#16 x 12 grid of point picks and four boxes per select mode) is made through PickWithNativeMirror with the native
+#helpers resolving the ids. The ActiViz side (old: the picks resolved by the ActiViz helpers, and the closest cells on
+#the parts compared at every hit point) is the one of the reference run the checks compare with (PORT_REFERENCE) and
+#is taken from there; without a reference the old side is picked through vtkControl.Pick, the native view as well.
+#The output is the one of Record_SliceC.py, which Compare_SliceC.py compares.
 #
 #  PrePoMax.com <scene arguments> --script Record_Selection_Picks.py --scriptArgs "<harness>|<scene>|<modes>|<out>" -g No
 #
@@ -57,7 +58,6 @@ def pick(native, x1, y1, box=False, x2=0, y2=0):
 
     def run():
         CONTROLLER.ClearSelectionHistory()
-        VTK.NativeIdResolution = native
         VTK.OnMouseLeftButtonUpSelection += handler
         started = time.time()
         try:
@@ -68,7 +68,6 @@ def pick(native, x1, y1, box=False, x2=0, y2=0):
             ids = sorted(int(i) for i in CONTROLLER.GetSelectionIds())
         finally:
             VTK.OnMouseLeftButtonUpSelection -= handler
-            VTK.NativeIdResolution = True
         return ids, time.time() - started
     ids, seconds = vtkport.on_ui(run)
     raw["ids"] = ids
@@ -78,14 +77,10 @@ def pick(native, x1, y1, box=False, x2=0, y2=0):
 
 def closest_cells(point, names, scale):
     """GetClosestCellsOnActors through both paths: the largest difference of the distances, as a part of the view
-    size, and of the normals"""
+    size, and of the normals. Without ActiViz both are the native helpers"""
     def run(native):
-        VTK.NativeIdResolution = native
-        try:
-            _, values = vtkport.invoke(VTK, "GetClosestCellsOnActors", System.Array[System.Double](point),
-                                       System.Array[System.String](names), count=4)
-        finally:
-            VTK.NativeIdResolution = True
+        _, values = vtkport.invoke(VTK, "GetClosestCellsOnActors", System.Array[System.Double](point),
+                                   System.Array[System.String](names), count=4)
         distances = [float(d) for d in values[2]]
         normals = [None if n is None else [float(c) for c in n] for n in values[3]]
         return distances, normals
@@ -121,7 +116,9 @@ def record_picks(names):
     start = vtkport.camera_list(pmx.view.get_parameters())
     old_camera, new_camera = vtkport.frame_both(start, "Isometric")
     if SCENE in scenes.SAME_CAMERA:
-        new_camera = vtkport.set_native_camera(old_camera)
+        # The ActiViz camera of the reference, which framed the scene its own way
+        reference_camera = vtkport.reference_value(SCENE + "_slice_c.json", "old_camera")
+        new_camera = vtkport.set_native_camera(reference_camera or old_camera)
     scale = max(1.0, max(abs(v) for v in old_camera[:6]))
     columns, rows = PICK_GRID
     points = [(int(round((i + 0.5) * width / columns)), int(round((j + 0.5) * height / rows)))
@@ -133,10 +130,20 @@ def record_picks(names):
     result = {"case": SCENE, "viewport": [width, height], "old_camera": old_camera, "new_camera": new_camera,
               "selection_distance": int(vtkport.on_ui(lambda: vtkport.get_field(VTK, "_selectionDistance"))),
               "modes": {}, "closest_cells_worst": 0.0}
+    reference = vtkport.reference_value(SCENE + "_slice_c.json")
+    if reference is not None:
+        result["closest_cells_worst"] = reference["closest_cells_worst"]
     for mode, select_item, select_by in MODE_SETS[MODES]:
         set_select_mode(select_item, select_by)
+        old_records = reference["modes"][mode] if reference is not None else None
         records = []
         for x, y in points:
+            if old_records is not None:
+                old_record = old_records[len(records)]
+                record = {"x1": x, "y1": y, "box": False, "old": old_record["old"], "new": pick(True, x, y)}
+                if "old_neighbor_hits" in old_record: record["old_neighbor_hits"] = old_record["old_neighbor_hits"]
+                records.append(record)
+                continue
             record = {"x1": x, "y1": y, "box": False, "old": pick(False, x, y), "new": pick(True, x, y)}
             if (record["old"]["point"] is None) != (record["new"]["point"] is None):
                 record["old_neighbor_hits"] = [pick(False, x + dx, y + dy)["point"] is not None
@@ -146,8 +153,9 @@ def record_picks(names):
                                                     closest_cells(record["old"]["point"], names, scale))
             records.append(record)
         for name, x1, y1, x2, y2 in boxes:
+            old = old_records[len(records)]["old"] if old_records is not None else pick(False, x1, y1, True, x2, y2)
             records.append({"name": name, "x1": x1, "y1": y1, "x2": x2, "y2": y2, "box": True,
-                            "old": pick(False, x1, y1, True, x2, y2), "new": pick(True, x1, y1, True, x2, y2)})
+                            "old": old, "new": pick(True, x1, y1, True, x2, y2)})
         result["modes"][mode] = records
         clear_select_mode()
     return result

@@ -170,9 +170,10 @@ namespace vtkn
         return -1;
     }
 
-    // Port of GetPickPoint: the hardware pick of the pickable parts, all drawn opaque, names the part and its
-    // depth gives the point, which is moved onto the closest surface cell; where the exact pixel misses, a cell
-    // pick within the selection distance in pixels takes over
+    // Port of GetPickPoint: the hardware pick of the pickable parts, all drawn opaque, names the part; the point is
+    // where the ray of the pixel meets it (or, where the ray misses the cells, the depth of the pick gives it), moved
+    // onto the closest surface cell; where the pixel misses, a cell pick within the selection distance in pixels
+    // takes over
     bool View::PickPoint(int x, int y, int selectionDistance, bool limitDistance,
                          const std::set<std::string>* selectableParts, double point[3], double direction[3],
                          std::string& partName, int& cellId)
@@ -226,7 +227,7 @@ namespace vtkn
             Renderer->DisplayToWorld();
             double* world = Renderer->GetWorldPoint();
             for (int i = 0; i < 3; i++) p[i] = world[i] / world[3];
-            if (ExactPicking && sectionViewActor->GetCellLocator() != nullptr)
+            if (sectionViewActor->GetCellLocator() != nullptr)
             {
                 vtkNew<vtkCellPicker> surfacePicker;
                 surfacePicker->SetTolerance(0);
@@ -246,7 +247,7 @@ namespace vtkn
             surfacePicker->PickFromListOn();
             surfacePicker->AddPickList(part->GetGeometry());
             surfacePicker->AddLocator(part->GetCellLocator());
-            if (ExactPicking && surfacePicker->Pick(x, y, 0, Renderer) != 0) surfacePicker->GetPickPosition(p);
+            if (surfacePicker->Pick(x, y, 0, Renderer) != 0) surfacePicker->GetPickPosition(p);
             else
             {
                 Renderer->SetDisplayPoint(x, y, Renderer->GetPickedZ());
@@ -260,7 +261,7 @@ namespace vtkn
             hit = cellId != -1;
         }
         // Within the selection distance of the pixel
-        if (!hit && !sectionViewPick && ExactPicking)
+        if (!hit && !sectionViewPick)
         {
             int* windowSize = RenderWindow->GetSize();
             double windowDiagonal = std::sqrt(static_cast<double>(windowSize[0]) * windowSize[0] +

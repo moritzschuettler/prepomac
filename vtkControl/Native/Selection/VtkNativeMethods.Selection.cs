@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int SelectionApiVersion = 4;
+        public const int SelectionApiVersion = 5;
 
 
         // Methods
@@ -29,8 +29,6 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_view_pick_area(IntPtr view, int x1, int y1, int x2, int y2,
                                                                  [Out] double[] planes36, byte[] partNames, int capacity,
                                                                  out int required);
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern VtkNativeStatus vtkn_view_set_exact_picking(IntPtr view, int exact);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_section_view_pick_mode(IntPtr view, int partSelection,
                                                                                   int nodeOrElementSelection);

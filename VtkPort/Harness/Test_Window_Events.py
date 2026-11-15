@@ -2,11 +2,11 @@
 #The PrePoMax object is available as 'pmx'
 #
 #VTK native port, integration: the native view in the window receives one handler for its mouse selection. With the
-#widgets area on, the native style raises the pick, hover and clear events that vtkInteractorStyleControl raises and
-#the widgets handler routes them; without it, the selection area handles the raw button and move events. In both
-#cases a real click (Win32 messages to the VTK window) adds exactly one selection node and a move over the model
-#draws a hover highlight. The camera of the control follows the native one, its view changes reach the native view,
-#a highlight leaves the native camera where it is, and the ActiViz window cannot paint over the native view. Writes
+#widgets area on, the native style raises the pick, hover and clear events and the widgets handler routes them;
+#without it, the selection area handles the raw button and move events. In both cases a real click (Win32 messages
+#to the VTK window) adds exactly one selection node and a move over the model draws a hover highlight. The camera of
+#the control is the native one, its view changes reach the native view, a highlight leaves the native camera where
+#it is, and the native view is the only window of the control. Writes
 #window_events.json. With the widgets area: a double click on a part reaches the Controller as two clicks, a right
 #click picks through the native view, a click on the triad animates the camera of both views, the transparency of a
 #part reaches the native view, a preview of the exploded view reaches the native view before the paint, and an arrow
@@ -17,7 +17,6 @@
 #the model is shaded and its background kept, a pick finds what it found without it, a magnified picture has no
 #border of a tile through its middle, and switching it off gives the picture from before. Nearly opaque parts look
 #as the opaque ones do, with and without the ambient occlusion: their faces are blended by depth, not in the order of
-#their actors. Behind the native view the ActiViz window does not swap its buffers, so its picture never shows.
 #The surfaces of the loads, which the native view draws through one mapper, give the picture they give drawn one by
 #one: as they are, with a part hidden and shown again, in a section view and with the ambient occlusion.
 #A redraw of the symbols, in which the native view puts back the surfaces that are added again as they were, gives
@@ -47,7 +46,7 @@ WM_MOUSEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP = 0x0200, 0x0201, 0x0202
 WM_RBUTTONDOWN, WM_RBUTTONUP, MK_RBUTTON = 0x0204, 0x0205, 0x0002
 MK_LBUTTON = 0x0001
 SIZE = (800, 600)
-HOVER_WAIT = 0.5  # the native style picks on a selection timer, as vtkInteractorStyleControl does
+HOVER_WAIT = 0.5  # the native style picks on a selection timer
 RESULTS = []
 send_now_function = None
 USER32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -97,7 +96,7 @@ def hit_point():
 
 def run_mode(areas, record):
     label = "+".join(areas)
-    vtkport.enable_native(areas, in_window=True)
+    vtkport.enable_native(areas)
     vtkport.set_viewport_size(*SIZE)
     vtkport.frame_both(vtkport.camera_list(pmx.view.get_parameters()), "Isometric")
     names = handler_names()
@@ -191,12 +190,11 @@ def check_camera(label):
     check(close(view_direction(before), view_direction(after)) and abs(before[9] - after[9]) < 1e-9,
           label + ": a highlight leaves the native camera", [before, after])
     check_camera_adjustment_suspended(label)
-    style =on_ui(lambda: USER32.GetWindowLongW(int(str(vtkport.get_field(VTK, "_renderWindow").GetGenericWindowId())),
-                                                GWL_STYLE))
-    # The swap of an OpenGL window paints over a sibling in front of it whatever the style of the window says
-    swaps = on_ui(lambda: int(vtkport.get_field(VTK, "_renderWindow").GetSwapBuffers()))
-    check(style & WS_CLIPSIBLINGS != 0 and swaps == 0,
-          label + ": the ActiViz window cannot paint over the native view", [hex(style), swaps])
+    children = on_ui(lambda: [VTK.Controls.Count, VTK.Controls[0] == VTK.NativeHost,
+                              USER32.GetWindow(VTK.Handle.ToInt64(), 5) == VTK.NativeHost.Handle.ToInt64(),
+                              USER32.GetWindow(VTK.NativeHost.Handle.ToInt64(), 2) is None])
+    check(children == [1, True, True, True], label + ": the native view is the only window of the control",
+          children)
 
 
 # Drawing the symbols of many items suspends the camera adjustment of the control, which adjusts the camera once at
@@ -652,16 +650,16 @@ def check_mouse_actions(label, send, x, y):
 
 def check_widgets_style(label, send, x, y):
     """The native style of the widgets area: a box selection by a drag in the window selects what the same box picks
-    on the ActiViz path; the triad shows the hand cursor; a click while the camera animates selects nothing"""
+    through vtkControl.Pick; the triad shows the hand cursor; a click while the camera animates selects nothing"""
     record = {}
     # Box selection by a drag
     x1, y1, x2, y2 = x - 80, y - 60, x + 80, y + 60
 
-    def activiz_box():
+    def picked_box():
         CONTROLLER.ClearSelectionHistory()
         VTK.Pick(x1, y1, True, x2, y2)
         return sorted(int(i) for i in CONTROLLER.GetSelectionIds())
-    expected = on_ui(activiz_box)
+    expected = on_ui(picked_box)
     on_ui(CONTROLLER.ClearSelectionHistory)
     drag_events = []
 
@@ -683,7 +681,7 @@ def check_widgets_style(label, send, x, y):
     dragged = on_ui(lambda: sorted(int(i) for i in CONTROLLER.GetSelectionIds()))
     check(len(expected) > 1 and dragged == expected, label + ": a drag selects the elements of the box",
           [len(expected), len(dragged)])
-    record["box"] = {"activiz": len(expected), "drag": len(dragged)}
+    record["box"] = {"pick": len(expected), "drag": len(dragged)}
     on_ui(CONTROLLER.ClearSelectionHistory)
     # The box zoom of the toolbar: the next drag zooms and selects nothing
     scale = on_ui(lambda: VTK.NativeMirror.GetCamera()[9])

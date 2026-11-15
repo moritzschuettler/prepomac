@@ -17,31 +17,11 @@ namespace vtkControl
 {
     // The id resolution of the Selection region through the native view: the helpers the Controller resolves the
     // picks with (GetGeometryPickProperties, GetPointAndCellIdsInsideFrustum, GetClosestCellsOnActors,
-    // GetSelectionPrecision) take their cells, distances and frustum ids from it when the selection area is on
+    // GetSelectionPrecision) take their cells, distances and frustum ids from it
     public partial class vtkControl
     {
         // Variables
-        private bool _nativeIdResolution = true;
-        private bool _nativeExactPicking = true;
         private Dictionary<string, Tuple<VtkNativeView, vtkMaxActor, int, PartExchangeData>> _nativeVolumeGrids;
-
-
-        // Properties
-        // On by default; the checks switch it off to resolve the picks of the ActiViz path the old way
-        public bool NativeIdResolution { get { return _nativeIdResolution; } set { _nativeIdResolution = value; } }
-        // The picking behavior the native view brings (slice C of the pilot), a decision still open: on, a point pick
-        // takes the exact point on the ray of the pixel and catches geometry within the selection distance where the
-        // pixel misses; off, it rebuilds the point from the depth of the pick and catches nothing beyond the pixel,
-        // as the ActiViz path does in effect. Selections recorded with ActiViz on an element border can resolve to
-        // the neighboring element either way
-        public bool NativeExactPicking { get { return _nativeExactPicking; } set { _nativeExactPicking = value; } }
-        private bool UseNativeIdResolution
-        {
-            get
-            {
-                return _nativeIdResolution && _nativeMirror != null && (_nativeAreas & VtkNativeArea.Selection) != 0;
-            }
-        }
 
 
         // Methods
@@ -52,8 +32,8 @@ namespace vtkControl
             _selectableActorsFilter.CopyTo(selectableParts);
             return selectableParts;
         }
-        // GetGlobalCellIdClosestTo3DPoint over the visible parts: a pick by the user is limited to the selection
-        // precision, a regeneration takes the closest cell
+        // The closest cell of the visible parts to a point: a pick by the user is limited to the selection precision,
+        // a regeneration takes the closest cell
         private int NativeGetClosestCell(ref double[] point, out int[] cellFaceNodeIds, out double[][] cellFaceNodeCoor)
         {
             double maxDistance = _renderingOn && _userPick ? _nativeMirror.GetSelectionPrecision(_selectionDistance) : -1;
@@ -78,7 +58,7 @@ namespace vtkControl
             GetClosestEdgeCell(point, cellFaceData, out nodeIds, out _, out _, out _);
             return nodeIds;
         }
-        // GetNodeIdOnCellFaceClosestToPoint: the node of the closest surface cell nearest to the point
+        // The node of the closest surface cell nearest to the point
         private int NativeGetNodeIdOnCellFaceClosestToPoint(double[] point)
         {
             int[] nodeIds;
@@ -100,7 +80,7 @@ namespace vtkControl
             }
             return nodeIds[minId];
         }
-        // GetPointAndCellIdsInsideFrustum with the bounds and the frustum extraction of the native view
+        // The ids inside a frustum from the bounds and the frustum extraction of the native view
         private void NativeGetPointAndCellIdsInsideFrustum(double[][] planeParameters, out int[] pointIds,
                                                            out int[] cellIds)
         {
@@ -146,7 +126,7 @@ namespace vtkControl
             if (actor.GeometryHiddenBySectionView) return true;
             return !(actor.UseEdgeVisibility && _edgesVisibility == vtkEdgesVisibility.Wireframe);
         }
-        // TryGetVolumeGrid for the native view: the grid the actor's provider returns is sent once per native view,
+        // The volume grid of a part for the native view: the grid the actor's provider returns is sent once per view,
         // actor and animation frame, as vtkMaxActor keeps its grid until the actor is replaced (new scalars change
         // no id). A transformed copy is not ported: its grid is the source part's, untransformed
         private PartExchangeData SendNativeVolumeGrid(string name, vtkMaxActor actor)

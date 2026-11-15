@@ -186,7 +186,6 @@ namespace vtkn
                        const std::set<std::string>* selectableParts, double point[3], double direction[3],
                        std::string& partName, int& cellId);
         std::vector<std::string> PickArea(int x1, int y1, int x2, int y2, double planes36[36]);
-        void SetExactPicking(bool exact) { ExactPicking = exact; }
         // What the select mode lets a pick on a section view resolve to (ResolveSectionViewPick)
         void SetSectionViewPickMode(bool partSelection, bool nodeOrElementSelection)
         {
@@ -385,7 +384,6 @@ namespace vtkn
         void AddHighlightActor(vtkActor* actor, const vtkn_highlight_style& style);
         std::map<std::string, vtkSmartPointer<vtkUnstructuredGrid>> VolumeGrids;
         std::vector<HighlightEntry> Highlights;
-        bool ExactPicking = true;
         bool SectionViewPartSelection = true;
         bool SectionViewIdSelection = true;
         // Captions and labels (Geometry/vtkNativeCaptions.cpp): the 2D text of every layer, at world positions that
