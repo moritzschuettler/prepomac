@@ -84,6 +84,22 @@ namespace CaeModel
         }
 
         // Methods                                                                                                                  
+        public InitialTranslationalVelocity ToInitialTranslationalVelocity()
+        {
+            InitialTranslationalVelocity initialTranslationalVelocity = new InitialTranslationalVelocity(this);
+            if (CreationData != null)
+            {
+                initialTranslationalVelocity.RegionType = RegionTypeEnum.Selection;
+                initialTranslationalVelocity.CreationData = CreationData;
+                foreach (var node in CreationData.Nodes)
+                {
+                    if (node is SelectionNodeMouse snm) snm.SelectBy = vtkSelectBy.GeometryPart;
+                }
+                CreationData.SelectItem = vtkSelectItem.Geometry;
+                initialTranslationalVelocity.CreationIds = CreationIds;
+            }
+            return initialTranslationalVelocity;
+        }
         public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
         {
             PartExchangeData allData = new PartExchangeData();

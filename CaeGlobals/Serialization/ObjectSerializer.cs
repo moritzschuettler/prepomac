@@ -18,6 +18,7 @@ namespace CaeGlobals
         // Variables                                                                                                                
         private static IObjectSerializer _default = new PmxObjectSerializer();
         private static Func<Stream, object> _legacyReader = null;
+        [ThreadStatic] private static LegacyReadReport _legacyReadReport;
 
 
         // Properties                                                                                                               
@@ -36,6 +37,24 @@ namespace CaeGlobals
         {
             get { return _legacyReader; }
             set { _legacyReader = value; }
+        }
+        // The legacy reader adds to it what it left out of the streams it read on this thread since the last take
+        public static LegacyReadReport LegacyReadReport
+        {
+            get
+            {
+                if (_legacyReadReport == null) _legacyReadReport = new LegacyReadReport();
+                return _legacyReadReport;
+            }
+        }
+
+
+        // Methods                                                                                                                  
+        public static LegacyReadReport TakeLegacyReadReport()
+        {
+            LegacyReadReport report = LegacyReadReport;
+            _legacyReadReport = null;
+            return report;
         }
     }
 }

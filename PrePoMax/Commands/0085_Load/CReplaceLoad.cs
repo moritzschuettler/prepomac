@@ -20,7 +20,7 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [PmxType(10203)]
-    class CReplaceLoad : PreprocessCommand, IFileDependentCommand
+    class CReplaceLoad : PreprocessCommand, IFileDependentCommand, ILoadNamesCommand
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _stepName;
@@ -29,6 +29,9 @@ namespace PrePoMax.Commands
 
 
         // Properties                                                                                                               
+        public string StepName { get { return _stepName; } }
+        public string[] LoadNames { get { return new string[] { _oldLoadName }; } set { _oldLoadName = value[0]; } }
+        public string NewLoadName { get { return _newLoad != null ? _newLoad.Name : null; } }
         public string FileName
         {
             get

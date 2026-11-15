@@ -28,6 +28,8 @@ namespace PrePoMax.Commands
 
 
         // Properties                                                                                                               
+        public string StepName { get { return _stepName; } }
+        public string LoadName { get { return _load != null ? _load.Name : null; } }
         public string FileName
         {
             get

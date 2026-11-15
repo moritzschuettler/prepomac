@@ -21,11 +21,16 @@ using CaeGlobals;
 namespace PrePoMax.Commands
 {
     [PmxType(10202)]
-    class CRemoveLoads : PreprocessCommand
+    class CRemoveLoads : PreprocessCommand, ILoadNamesCommand
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _stepName;
         [PmxKey(1)] private string[] _loadNames;
+
+        // Properties                                                                                                               
+        public string StepName { get { return _stepName; } }
+        public string[] LoadNames { get { return _loadNames; } set { _loadNames = value; } }
+
 
         // Constructor                                                                                                              
         public CRemoveLoads(string stepName, string[] loadNames)

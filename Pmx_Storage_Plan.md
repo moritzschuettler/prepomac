@@ -197,6 +197,7 @@ recommendation and the decision taken:
 | Journal | Design right; consider a durable flush, a Debug check of commands changed after recording, surfacing a cut-off journal | Kept without `Flush(true)` (the history was never flushed to disk before either, and one fsync per command would slow scripted sessions); a cut-off journal reads up to the last intact frame |
 | Legacy import | NRBF reader in `PrePoMax.LegacyImport`, the only option that survives modern .NET; the Immutable 9 redirect is process wide | As recommended; the redirect is in `PrePoMax.exe.config`, `PmxTool.exe.config` and `GmshCaller.exe.config` |
 | Phase 5 scope | Keep the `SerializationInfo` constructors and `_Compatibility` shims (old files name those types); delete `GetObjectData` and `ISerializable`, the legacy reader then detects the constructor; drop `[Serializable]` last, after checking clipboard and `.resx` | As recommended (the clipboard carries only text and images, the `.resx` objects are only `System.Drawing.Color`) |
+| Objects of removed types (after the Phase 5 commit) | Drop the null entries in `OrderedDictionary.OnDeserialization` only when the legacy reader passes its report as the sender and dropped something, not in the reader (it would edit BCL payloads) and not always (legitimate nulls); remove at import the commands that held a dropped object and the load commands naming only dropped loads, by an explicit command table, not reflection over string fields (false positives) and not by tolerating missing names in the Controller during replay (permanent, and hides real bugs in undo too); warn in the output, not as replay errors | As recommended, with the load commands marked by `ILoadNamesCommand`; added the numbered sibling rule for a removed name no kept command made, which `tmp_massLoad.pmx` needs |
 | Equation callbacks after a read (found by the Phase 3/4 test runs) | The owner wires them in an `[OnDeserialized]` method calling its own setters; not the legacy constructors on every read, not a back reference from the container; plus a check that a new owner cannot forget it; audit the other `[NonSerialized]` state the legacy constructors set | As recommended: `RestoreEquationCallbacks` in 51 classes, `PmxTool schema --check` fails a type with an equation setter and no `[OnDeserialized]` method; the audit found `SelectionNode._hash`, reset to -1 in `[OnDeserializing]` |
 | Settings JSON | Yes; per-section fallback; invariant numbers; atomic write; import `settings.bin` only when there is no `settings.json` | Per-section fallback, invariant numbers and the temporary-file write are in. `settings.bin` is also imported when it is newer than `settings.json`, because the documented upgrade is to copy it into a new folder after its first start; the folders are portable, so two versions never share one |
 
@@ -415,8 +416,19 @@ did:
 - `[OnDeserializing]` runs before the fields are set; `[OnDeserialized]` and `IDeserializationCallback` run once the
   graph is complete (the collections of the base library rebuild themselves there);
 - a `System.Type` (`UnitySerializationHolder`) is resolved through the binder, a delegate is read as null, and a type
-  that no longer exists is read as null where the binary formatter threw - an old history with such a command now
-  opens and that command fails on regeneration instead of the whole history being refused.
+  that no longer exists is read as null where the binary formatter threw, so the file opens instead of being refused.
+  The reader reports each such object, with the name it carried and the object that held it, in a
+  `LegacyReadReport` it adds to `ObjectSerializer.LegacyReadReport` (per thread, taken by whoever opens the file) and
+  hands to the deserialization callbacks as their sender. An `OrderedDictionary` given the report drops the entries
+  left null, keeping its order and item layout. On opening a `.pmx`, and on reading an old `.pmh`, the history
+  commands that held such an object are removed, and with them the load commands (`ILoadNamesCommand`: remove, hide,
+  show, duplicate, propagate, edit) that name only the loads those commands made, or a numbered sibling of one that
+  no kept command made (`tmp_massLoad.pmx` removes `Mass_Under_Gravity-1` and holds only `Mass_Under_Gravity-2`);
+  a list naming some of them loses those names. Every dropped item and removed command is written to the output as a
+  warning, and the Controller stays strict: replay does not tolerate a missing name anywhere else.
+- the old `InitialVelocity` (v2.2.2 and earlier) held by `CAddInitialCondition` and `CReplaceInitialCondition`
+  becomes an `InitialTranslationalVelocity` in their `[OnDeserialized]` method, by the conversion the model already
+  used when opened (`InitialVelocity.ToInitialTranslationalVelocity`), so its history replays.
 
 Departure from the plan: the `SerializationInfo` constructors are **not** deleted. Old files name the domain types and
 their old member names, and the constructors with the `case "Command+_name":` fallbacks and the `_Compatibility`

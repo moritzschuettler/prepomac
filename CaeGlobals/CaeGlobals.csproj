@@ -171,6 +171,7 @@
     <Compile Include="PromptRefusedException.cs" />
     <Compile Include="Serialization\IObjectSerializer.cs" />
     <Compile Include="Serialization\IPmxFormatter.cs" />
+    <Compile Include="Serialization\LegacyReadReport.cs" />
     <Compile Include="Serialization\ObjectSerializer.cs" />
     <Compile Include="Serialization\PmxArrayFormatter.cs" />
     <Compile Include="Serialization\PmxBufferWriter.cs" />

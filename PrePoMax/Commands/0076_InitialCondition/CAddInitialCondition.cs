@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using PrePoMax;
@@ -37,6 +38,11 @@ namespace PrePoMax.Commands
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void ConvertInitialVelocity(StreamingContext context)
+        {
+            if (_initialCondition is InitialVelocity initialVelocity) _initialCondition = initialVelocity.ToInitialTranslationalVelocity();
+        }
         public override bool Execute(Controller receiver)
         {
             receiver.AddInitialCondition(_initialCondition.DeepClone());

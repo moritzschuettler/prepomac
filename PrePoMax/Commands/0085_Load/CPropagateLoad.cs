@@ -20,11 +20,16 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [PmxType(10201)]
-    class CPropagateLoad : PreprocessCommand
+    class CPropagateLoad : PreprocessCommand, ILoadNamesCommand
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _stepName;
         [PmxKey(1)] private string _loadName;
+
+
+        // Properties                                                                                                               
+        public string StepName { get { return _stepName; } }
+        public string[] LoadNames { get { return new string[] { _loadName }; } set { _loadName = value[0]; } }
 
 
         // Constructor                                                                                                              

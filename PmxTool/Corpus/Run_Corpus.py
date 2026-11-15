@@ -183,6 +183,9 @@ def judge(record, folder, baseline_folder):
         for kind in list(problems):
             if kind in base_problems:
                 notes.append("as the baseline: " + problems.pop(kind)[0:200])
+        # A file the baseline does not open leaves it nothing to compare with: its regeneration ran on an empty model
+        if "open" in base_problems:
+            base_a = base_c = None
         # A file whose reopen differs on the baseline writes some items in no fixed order, so its decks are not compared
         if a is not None and base_a is not None and a != base_a and "reopen" not in base_problems:
             problems["baseline_open"] = "opens differently from the baseline: " + "; ".join(differences(base_a, a))

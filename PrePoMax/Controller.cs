@@ -1104,17 +1104,7 @@ namespace PrePoMax
             {
                 _model.InitialConditions.Remove(initialVelocity.Name);
                 //
-                InitialTranslationalVelocity itv = new InitialTranslationalVelocity(initialVelocity);
-                itv.RegionType = RegionTypeEnum.Selection;
-                itv.CreationData = initialVelocity.CreationData;
-                foreach (var node in itv.CreationData.Nodes)
-                {
-                    if (node is SelectionNodeMouse snm) snm.SelectBy = vtkSelectBy.GeometryPart;
-                }
-                itv.CreationData.SelectItem = vtkSelectItem.Geometry;
-                itv.CreationIds = initialVelocity.CreationIds;
-                //
-                AddInitialCondition(itv);
+                AddInitialCondition(initialVelocity.ToInitialTranslationalVelocity());
             }
             // Compatibility v2.3.4
             UpdateGeometryPartMassProperties(false);
@@ -2373,6 +2363,7 @@ namespace PrePoMax
             try
             {
                 PmxDocument document = null;
+                ObjectSerializer.TakeLegacyReadReport();
                 byte[] versionBuffer = new byte[32];
                 using (FileStream fs = new FileStream(fileName, FileMode.Open))
                 {
@@ -2403,6 +2394,8 @@ namespace PrePoMax
                     if (document == null || model == null)
                         throw new CaeException("IncompatibleVersion");
                     //
+                    WriteLegacyReadReport(ObjectSerializer.TakeLegacyReadReport(), document.Commands);
+                    //
                     model.UpdateMeshPartsElementTypes(true);
                     //
                     if (version < 2_003_002 && model != null && model.Mesh != null) model.Mesh.ComputeVolumeArea();
@@ -2413,6 +2406,19 @@ namespace PrePoMax
             {
                 if (ex.Message == "IncompatibleVersion") incompatibleVersion = string.Format("{0}.{1}.{2}", major, minor, build);
                 return null;
+            }
+        }
+        private void WriteLegacyReadReport(LegacyReadReport report, CommandsCollection commands)
+        {
+            if (!report.HasDroppedObjects) return;
+            //
+            foreach (var typeName in report.RemovedTypeNames)
+                _form.WriteDataToOutput("Warning: The type " + typeName + " no longer exists and its items were not read.");
+            foreach (var warning in report.Warnings) _form.WriteDataToOutput("Warning: " + warning);
+            if (commands != null)
+            {
+                foreach (var warning in commands.RemoveCommandsOfRemovedTypes(report))
+                    _form.WriteDataToOutput("Warning: " + warning);
             }
         }
         // The layout before PmxDocument: object[] { Controller, jobs, tree states, side panels state }
@@ -2618,7 +2624,9 @@ namespace PrePoMax
             ViewGeometryModelResults prevView = _currentView;
             //
             List<Command> commands;
-            CommandsCollection.ReadFromFile(fileName, out commands);
+            string[] warnings;
+            CommandsCollection.ReadFromFile(fileName, out commands, out warnings);
+            foreach (var warning in warnings) _form.WriteDataToOutput("Warning: " + warning);
             //
             _commands.AddAndExecute(commands);
             //

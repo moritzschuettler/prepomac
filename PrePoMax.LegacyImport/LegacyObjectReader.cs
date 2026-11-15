@@ -14,6 +14,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace PrePoMax.LegacyImport
 {
@@ -57,6 +58,8 @@ namespace PrePoMax.LegacyImport
         private readonly Dictionary<object, PendingConstructor> _pendingConstructors;
         private readonly Dictionary<object, int> _reachedCompletion;
         private Dictionary<SerializationRecordId, int> _streamOrder;
+        private readonly Dictionary<SerializationRecordId, string> _droppedItemNames;
+        private readonly LegacyReadReport _report;
         private readonly StreamingContext _context;
         private readonly FormatterConverter _converter;
 
@@ -71,6 +74,8 @@ namespace PrePoMax.LegacyImport
             _callbacks = new List<IDeserializationCallback>();
             _pendingConstructors = new Dictionary<object, PendingConstructor>(new ReferenceComparer());
             _reachedCompletion = new Dictionary<object, int>(new ReferenceComparer());
+            _droppedItemNames = new Dictionary<SerializationRecordId, string>();
+            _report = new LegacyReadReport();
             _context = new StreamingContext(StreamingContextStates.All);
             _converter = new FormatterConverter();
         }
@@ -89,7 +94,10 @@ namespace PrePoMax.LegacyImport
             object value = Materialize(root);
             InvokePendingConstructors();
             foreach (var item in _onDeserialized) InvokeCallbacks(item, typeof(OnDeserializedAttribute));
-            foreach (var callback in _callbacks) callback.OnDeserialization(null);
+            // A collection given the report drops the entries an object of a type that no longer exists left
+            object sender = _report.HasDroppedObjects ? _report : null;
+            foreach (var callback in _callbacks) callback.OnDeserialization(sender);
+            ObjectSerializer.LegacyReadReport.Append(_report);
             return value;
         }
         private object Materialize(object raw)
@@ -130,9 +138,15 @@ namespace PrePoMax.LegacyImport
             if (fullName == "System.DelegateSerializationHolder") return Remember(record, null);
             if (fullName == "System.UnitySerializationHolder") return Remember(record, MaterializeUnity(record));
             //
-            // As the binary formatter, a type that no longer exists is dropped as long as nothing needs it
+            // Where the binary formatter refused the whole stream, an object of a type that no longer exists is read as null
+            // and reported, with the object that held it
             Type type = ResolveType(record.TypeName);
-            if (type == null) return Remember(record, null);
+            if (type == null)
+            {
+                _report.AddRemovedType(fullName);
+                _droppedItemNames[record.Id] = GetItemName(record);
+                return Remember(record, null);
+            }
             if (type.IsEnum) return Remember(record, Enum.ToObject(type, Materialize(record.GetRawValue("value__"))));
             //
             ConstructorInfo constructor = type.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
@@ -150,6 +164,7 @@ namespace PrePoMax.LegacyImport
                     object raw = record.GetRawValue(name);
                     if (raw is SerializationRecord member) completion = Math.Max(completion, GetStreamOrder(member));
                     object value = Materialize(raw);
+                    ReportDroppedMember(item, raw);
                     info.AddValue(name, value, value != null ? value.GetType() : typeof(object));
                 }
                 // Some of these constructors read the objects they are given and some depend on static state set by others -
@@ -171,13 +186,32 @@ namespace PrePoMax.LegacyImport
                 foreach (var name in record.MemberNames)
                 {
                     if (!fields.TryGetValue(name, out field)) continue;
-                    field.SetValue(item, Convert(Materialize(record.GetRawValue(name)), field.FieldType));
+                    object raw = record.GetRawValue(name);
+                    field.SetValue(item, Convert(Materialize(raw), field.FieldType));
+                    ReportDroppedMember(item, raw);
                 }
             }
             if (type.IsValueType) Remember(record, item);
             if (item is IDeserializationCallback callback) _callbacks.Add(callback);
             if (HasCallbacks(type, typeof(OnDeserializedAttribute))) _onDeserialized.Add(item);
             return item;
+        }
+        private void ReportDroppedMember(object owner, object raw)
+        {
+            string droppedItemName;
+            if (raw is SerializationRecord member && _droppedItemNames.TryGetValue(member.Id, out droppedItemName))
+                _report.AddDroppedObject(owner, droppedItemName);
+        }
+        private static string GetItemName(ClassRecord record)
+        {
+            foreach (var name in record.MemberNames)
+            {
+                if (name != "_name" && !name.EndsWith("+_name")) continue;
+                object raw = record.GetRawValue(name);
+                if (raw is PrimitiveTypeRecord primitive) raw = primitive.Value;
+                if (raw is string itemName) return itemName;
+            }
+            return null;
         }
         private void InvokePendingConstructors()
         {

@@ -1100,6 +1100,7 @@ namespace CaeGlobals
         public void OnDeserialization(object sender)
         {
             _dictionary.OnDeserialization(sender);
+            if (sender is LegacyReadReport report) RemoveItemsOfRemovedTypes(report);
             //
             if (!IsOrderedKeyListValid())
             {
@@ -1119,6 +1120,26 @@ namespace CaeGlobals
                     // A damaged or unsupported layout must not prevent the underlying dictionary from loading.
                     _itemLayout = null;
                 }
+            }
+        }
+        private void RemoveItemsOfRemovedTypes(LegacyReadReport report)
+        {
+            List<TKey> keys = new List<TKey>();
+            foreach (var entry in _dictionary)
+            {
+                if (entry.Value == null) keys.Add(entry.Key);
+            }
+            //
+            int index;
+            OrderedDictionaryItemNode<TKey> node;
+            List<OrderedDictionaryItemNode<TKey>> parent;
+            foreach (var key in keys)
+            {
+                _dictionary.Remove(key);
+                if (_list != null && (index = FindKeyIndex(key)) >= 0) _list.RemoveAt(index);
+                if (_itemLayout != null && TryFindItemNode(_itemLayout.MutableNodes, key, out node, out parent))
+                    parent.Remove(node);
+                report.AddWarning("The item " + key + " of " + _name + " was not read since its type no longer exists.");
             }
         }
         private bool IsOrderedKeyListValid()
