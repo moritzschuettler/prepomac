@@ -66,6 +66,7 @@ namespace PrePoMax.Commands
         [NonSerialized] private int _historyReplayCount;
         [NonSerialized] private string _commandBlockReason;
         [NonSerialized] private bool _isAddingExistingCommands;
+        [NonSerialized] private PmxJournal _journal;
         // Per session, so that a caller can tell what happened during its call by comparing two readings. A history
         // that is replaced is a new collection, which is why neither counter belongs to one
         private static long _lastSequenceNumber = 0;
@@ -1084,18 +1085,14 @@ namespace PrePoMax.Commands
         {
             if (!_controller.BatchRegenerationMode && _commands.Count > 1)
             {
-                // Use other file
-                WriteToFile(_commands, _historyFileNameBin);
+                // The journal appends the commands recorded since its last write
+                if (_journal == null || _journal.FileName != _historyFileNameBin) _journal = new PmxJournal(_historyFileNameBin);
+                _journal.Write(_commands);
             }
         }
         public static void WriteToFile(List<Command> commands, string fileName)
         {
-            // Use other file
-            string fileNameCopy = Tools.GetNonExistentRandomFileName(Path.GetDirectoryName(fileName), "pmh");
-            commands.DumpToFile(fileNameCopy);
-            //
-            File.Copy(fileNameCopy, fileName, true);
-            File.Delete(fileNameCopy);
+            PmxJournal.WriteAll(fileName, commands);
         }
         // Read
         public void ReadFromFile(string fileName)
@@ -1104,9 +1101,16 @@ namespace PrePoMax.Commands
             _currPositionIndex = _commands.Count - 1;
             OnHistoryReplaced();
         }
+        // A history journal, or the history file of a version before the journal
         public static void ReadFromFile(string fileName, out List<Command> commands)
         {
-            commands = Tools.LoadDumpFromFile<List<Command>>(fileName);
+            if (PmxJournal.IsJournal(fileName))
+            {
+                bool isComplete;
+                commands = new List<Command>();
+                foreach (var item in PmxJournal.Read(fileName, out isComplete)) commands.Add((Command)item);
+            }
+            else commands = Tools.LoadDumpFromFile<List<Command>>(fileName);
         }
         // History files
         public string GetHistoryFileNameBin()

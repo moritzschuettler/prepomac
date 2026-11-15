@@ -95,6 +95,9 @@
     <Reference Include="UnitsNet, Version=4.0.0.0, Culture=neutral, PublicKeyToken=f8601875a1f041da, processorArchitecture=MSIL">
       <HintPath>..\packages\UnitsNet.4.89.1\lib\net40\UnitsNet.dll</HintPath>
     </Reference>
+    <Reference Include="ZstdSharp, Version=0.8.5.0, Culture=neutral, PublicKeyToken=8d151af33a4ad5cf, processorArchitecture=MSIL">
+      <HintPath>..\packages\ZstdSharp.Port.0.8.5\lib\net462\ZstdSharp.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CenterWinDialog.cs" />
@@ -113,49 +116,6 @@
     <Compile Include="CommonClasses\OrderedDictionary.cs" />
     <Compile Include="CommonClasses\OrderedDictionaryItemLayout.cs" />
     <Compile Include="CommonClasses\SortedIntKey.cs" />
-    <Compile Include="Serialization\BinaryObjectSerializer.cs" />
-    <Compile Include="Serialization\DualObjectSerializer.cs" />
-    <Compile Include="Serialization\IObjectSerializer.cs" />
-    <Compile Include="Serialization\IPmxFormatter.cs" />
-    <Compile Include="Serialization\ObjectSerializer.cs" />
-    <Compile Include="Serialization\PmxArrayFormatter.cs" />
-    <Compile Include="Serialization\PmxBufferWriter.cs" />
-    <Compile Include="Serialization\PmxClassPlan.cs" />
-    <Compile Include="Serialization\PmxComparerCodec.cs" />
-    <Compile Include="Serialization\PmxDelegateFormatter.cs" />
-    <Compile Include="Serialization\PmxDictionaryFormatter.cs" />
-    <Compile Include="Serialization\PmxDrawingFormatter.cs" />
-    <Compile Include="Serialization\PmxEnumFormatter.cs" />
-    <Compile Include="Serialization\PmxFileInfoFormatter.cs" />
-    <Compile Include="Serialization\PmxFormatter.cs" />
-    <Compile Include="Serialization\PmxFormatterCache.cs" />
-    <Compile Include="Serialization\PmxFormatterResolver.cs" />
-    <Compile Include="Serialization\PmxGraphComparer.cs" />
-    <Compile Include="Serialization\PmxHashSetFormatter.cs" />
-    <Compile Include="Serialization\PmxKeyAttribute.cs" />
-    <Compile Include="Serialization\PmxKeyValuePairFormatter.cs" />
-    <Compile Include="Serialization\PmxLinkedListFormatter.cs" />
-    <Compile Include="Serialization\PmxListFormatter.cs" />
-    <Compile Include="Serialization\PmxMember.cs" />
-    <Compile Include="Serialization\PmxMultiArrayFormatter.cs" />
-    <Compile Include="Serialization\PmxNullableFormatter.cs" />
-    <Compile Include="Serialization\PmxObjectFormatter.cs" />
-    <Compile Include="Serialization\PmxObjectSerializer.cs" />
-    <Compile Include="Serialization\PmxPrimitiveFormatter.cs" />
-    <Compile Include="Serialization\PmxQueueFormatter.cs" />
-    <Compile Include="Serialization\PmxReadContext.cs" />
-    <Compile Include="Serialization\PmxReferenceComparer.cs" />
-    <Compile Include="Serialization\PmxSortedDictionaryFormatter.cs" />
-    <Compile Include="Serialization\PmxStackFormatter.cs" />
-    <Compile Include="Serialization\PmxStorageException.cs" />
-    <Compile Include="Serialization\PmxStructFormatter.cs" />
-    <Compile Include="Serialization\PmxTypeAttribute.cs" />
-    <Compile Include="Serialization\PmxTypeCodec.cs" />
-    <Compile Include="Serialization\PmxTypeFormatter.cs" />
-    <Compile Include="Serialization\PmxTypeRegistry.cs" />
-    <Compile Include="Serialization\PmxTypedMember.cs" />
-    <Compile Include="Serialization\PmxUnsupportedFormatter.cs" />
-    <Compile Include="Serialization\PmxWriteContext.cs" />
     <Compile Include="Comparers\CompareDoubleArray.cs" />
     <Compile Include="Comparers\CompareIntArray.cs" />
     <Compile Include="DynamicTypeDescriptor\MultiChoiceContainer.cs" />
@@ -209,6 +169,54 @@
     <Compile Include="JsonWriter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PromptRefusedException.cs" />
+    <Compile Include="Serialization\BinaryObjectSerializer.cs" />
+    <Compile Include="Serialization\DualObjectSerializer.cs" />
+    <Compile Include="Serialization\IObjectSerializer.cs" />
+    <Compile Include="Serialization\IPmxFormatter.cs" />
+    <Compile Include="Serialization\ObjectSerializer.cs" />
+    <Compile Include="Serialization\PmxArrayFormatter.cs" />
+    <Compile Include="Serialization\PmxBufferWriter.cs" />
+    <Compile Include="Serialization\PmxClassPlan.cs" />
+    <Compile Include="Serialization\PmxComparerCodec.cs" />
+    <Compile Include="Serialization\PmxDelegateFormatter.cs" />
+    <Compile Include="Serialization\PmxDictionaryFormatter.cs" />
+    <Compile Include="Serialization\PmxDrawingFormatter.cs" />
+    <Compile Include="Serialization\PmxEnumFormatter.cs" />
+    <Compile Include="Serialization\PmxFileInfoFormatter.cs" />
+    <Compile Include="Serialization\PmxFormatter.cs" />
+    <Compile Include="Serialization\PmxFormatterCache.cs" />
+    <Compile Include="Serialization\PmxFormatterResolver.cs" />
+    <Compile Include="Serialization\PmxGraphComparer.cs" />
+    <Compile Include="Serialization\PmxHashSetFormatter.cs" />
+    <Compile Include="Serialization\PmxKeyAttribute.cs" />
+    <Compile Include="Serialization\PmxKeyValuePairFormatter.cs" />
+    <Compile Include="Serialization\PmxLinkedListFormatter.cs" />
+    <Compile Include="Serialization\PmxListFormatter.cs" />
+    <Compile Include="Serialization\PmxMember.cs" />
+    <Compile Include="Serialization\PmxMultiArrayFormatter.cs" />
+    <Compile Include="Serialization\PmxNullableFormatter.cs" />
+    <Compile Include="Serialization\PmxObjectFormatter.cs" />
+    <Compile Include="Serialization\PmxObjectSerializer.cs" />
+    <Compile Include="Serialization\PmxPrimitiveFormatter.cs" />
+    <Compile Include="Serialization\PmxQueueFormatter.cs" />
+    <Compile Include="Serialization\PmxReadContext.cs" />
+    <Compile Include="Serialization\PmxReferenceComparer.cs" />
+    <Compile Include="Serialization\PmxSortedDictionaryFormatter.cs" />
+    <Compile Include="Serialization\PmxStackFormatter.cs" />
+    <Compile Include="Serialization\PmxStorageException.cs" />
+    <Compile Include="Serialization\PmxStructFormatter.cs" />
+    <Compile Include="Serialization\PmxTypeAttribute.cs" />
+    <Compile Include="Serialization\PmxTypeCodec.cs" />
+    <Compile Include="Serialization\PmxTypeFormatter.cs" />
+    <Compile Include="Serialization\PmxTypeRegistry.cs" />
+    <Compile Include="Serialization\PmxTypedMember.cs" />
+    <Compile Include="Serialization\PmxUnsupportedFormatter.cs" />
+    <Compile Include="Serialization\PmxWriteContext.cs" />
+    <Compile Include="Storage\PmxChunk.cs" />
+    <Compile Include="Storage\PmxContainer.cs" />
+    <Compile Include="Storage\PmxCrc32.cs" />
+    <Compile Include="Storage\PmxJournal.cs" />
+    <Compile Include="Storage\PmxJsonSerializer.cs" />
     <Compile Include="StringCompressor.cs" />
     <Compile Include="StringSplitter.cs" />
     <Compile Include="MessageBoxes.cs" />

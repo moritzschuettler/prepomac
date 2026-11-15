@@ -18,6 +18,7 @@ namespace PmxTool
     //   PmxTool schema --check <snapshot>    fails when a stored type or field changed its meaning
     //   PmxTool schema --update <snapshot>   rewrites the snapshot, keeping removed entries as retired
     //   PmxTool schema --print               prints the current schema
+    //   PmxTool dump <file> [chunk] [--all]  prints a .pmx container, a .pmh journal or a storage payload as text
     public static class Program
     {
         // Methods                                                                                                                  
@@ -37,7 +38,15 @@ namespace PmxTool
                     LoadApplicationAssemblies();
                     return SchemaSnapshot.Run(args[2], args[1] == "--update");
                 }
-                Console.Error.WriteLine("Usage: PmxTool schema --check|--update <snapshot file> | schema --print");
+                if (args.Length >= 2 && args[0] == "dump")
+                {
+                    LoadApplicationAssemblies();
+                    bool all = Array.IndexOf(args, "--all") >= 0;
+                    string chunk = args.Length >= 3 && args[2] != "--all" ? args[2] : null;
+                    return PayloadDumper.Run(args[1], chunk, all ? int.MaxValue : 20, Console.Out);
+                }
+                Console.Error.WriteLine("Usage: PmxTool schema --check|--update <snapshot file> | schema --print | " +
+                                        "dump <file> [chunk] [--all]");
                 return 1;
             }
             catch (Exception ex)
@@ -50,7 +59,8 @@ namespace PmxTool
         {
             string name = new AssemblyName(args.Name).Name;
             string folder = Path.GetDirectoryName(typeof(Program).Assembly.Location);
-            foreach (var candidate in new string[] { Path.Combine(folder, name + ".dll"), Path.Combine(folder, "..", name + ".exe") })
+            string[] candidates = new string[] { Path.Combine(folder, name + ".dll"), Path.Combine(folder, "..", name + ".exe") };
+            foreach (var candidate in candidates)
             {
                 if (File.Exists(candidate)) return Assembly.LoadFrom(candidate);
             }

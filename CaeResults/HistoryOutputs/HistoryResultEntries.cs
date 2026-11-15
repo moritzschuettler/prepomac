@@ -119,8 +119,9 @@ namespace CaeResults
                 else bw.Write(historyResultEntries.Unit);
             }
         }
-        public static void WriteToFileStream(HistoryResultEntries historyResultEntries, FileStream fileStream,
-                                             CompressionLevel compressionLevel)
+        public static void WriteToFileStream(HistoryResultEntries historyResultEntries, Stream fileStream,
+                                             CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (historyResultEntries == null)
             {
@@ -138,7 +139,8 @@ namespace CaeResults
                     bw.Flush();
                     bw.BaseStream.Position = 0;
                     // Compress the writer
-                    byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                    byte[] compressedData = compressBlocks ? Tools.Compress(bw.BaseStream, compressionLevel) :
+                                                            ((MemoryStream)bw.BaseStream).ToArray();
                     // Write the length of the compressed data
                     Tools.WriteIntToFileStream(fileStream, compressedData.Length);
                     // Write the compressed data
@@ -189,7 +191,7 @@ namespace CaeResults
             }
             return null;
         }
-        public static HistoryResultEntries ReadFromFileStream(FileStream fileStream, int version)
+        public static HistoryResultEntries ReadFromFileStream(Stream fileStream, int version, bool blocksCompressed = true)
         {
             int exists = Tools.ReadIntFromFileStream(fileStream);
             //
@@ -201,7 +203,7 @@ namespace CaeResults
                 //
                 HistoryResultEntries historyResultEntries;
                 using (MemoryStream memoryStream = new MemoryStream(compressedData))
-                using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                using (BinaryReader br = new BinaryReader(blocksCompressed ? Tools.Decompress(memoryStream) : memoryStream))
                 {
                     historyResultEntries = ReadFromBinaryReader(br, version);
                 }

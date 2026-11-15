@@ -89,7 +89,8 @@ namespace CaeResults
                 }
             }
         }
-        public static void WriteToFileStream(HistoryResults historyResults, FileStream fileStream, CompressionLevel compressionLevel)
+        public static void WriteToFileStream(HistoryResults historyResults, Stream fileStream, CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (historyResults == null)
             {
@@ -108,7 +109,7 @@ namespace CaeResults
                     Tools.WriteIntToFileStream(fileStream, historyResults.Sets.Count);
                     //
                     foreach (var entry in historyResults.Sets)
-                        HistoryResultSet.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                        HistoryResultSet.WriteToFileStream(entry.Value, fileStream, compressionLevel, compressBlocks);
                 }
             }
         }
@@ -141,7 +142,7 @@ namespace CaeResults
             }
             return null;
         }
-        public static HistoryResults ReadFromFileStream(FileStream fileStream, int version)
+        public static HistoryResults ReadFromFileStream(Stream fileStream, int version, bool blocksCompressed = true)
         {
             int numItems;
             HistoryResultSet historyResultSet;
@@ -161,7 +162,7 @@ namespace CaeResults
                     //
                     for (int i = 0; i < numItems; i++)
                     {
-                        historyResultSet = HistoryResultSet.ReadFromFileStream(fileStream, version);
+                        historyResultSet = HistoryResultSet.ReadFromFileStream(fileStream, version, blocksCompressed);
                         historyResults.Sets.Add(historyResultSet.Name, historyResultSet);
                     }
                 }

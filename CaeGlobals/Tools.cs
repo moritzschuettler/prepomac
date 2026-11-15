@@ -56,19 +56,19 @@ namespace CaeGlobals
             return a;
         }
         // Write
-        public static void WriteBoolToFileStream(FileStream fileStream, bool value)
+        public static void WriteBoolToFileStream(Stream fileStream, bool value)
         {
             byte[] buffer = BitConverter.GetBytes(value);
             if (buffer.Length != 1) throw new NotSupportedException();
             fileStream.Write(buffer, 0, 1);
         }
-        public static void WriteIntToFileStream(FileStream fileStream, int value)
+        public static void WriteIntToFileStream(Stream fileStream, int value)
         {
             byte[] buffer = BitConverter.GetBytes(value);
             if (buffer.Length != 4) throw new NotSupportedException();
             fileStream.Write(buffer, 0, 4);
         }
-        public static void WriteStringToFileStream(FileStream fileStream, string value)
+        public static void WriteStringToFileStream(Stream fileStream, string value)
         {
             if (value == null) value = "@null#";
             byte[] byteData = Encoding.UTF8.GetBytes(value);
@@ -76,7 +76,7 @@ namespace CaeGlobals
             WriteIntToFileStream(fileStream, numOfBytes);
             fileStream.Write(byteData, 0, numOfBytes);
         }
-        public static void WriteStringToFileStream(FileStream fileStream, string value, int numOfBytes)
+        public static void WriteStringToFileStream(Stream fileStream, string value, int numOfBytes)
         {
             if (value == null) value = "@null#";
             byte[] byteData = Encoding.UTF8.GetBytes(value);
@@ -86,26 +86,26 @@ namespace CaeGlobals
             fileStream.Write(buffer, 0, numOfBytes);
         }
         // Read
-        public static bool ReadBoolFromFileStream(FileStream fileStream)
+        public static bool ReadBoolFromFileStream(Stream fileStream)
         {
             byte[] buffer = new byte[1];
             fileStream.Read(buffer, 0, buffer.Length);
             return BitConverter.ToBoolean(buffer, 0);
         }
-        public static int ReadIntFromFileStream(FileStream fileStream)
+        public static int ReadIntFromFileStream(Stream fileStream)
         {
             byte[] buffer = new byte[4];
             fileStream.Read(buffer, 0, buffer.Length);
             return BitConverter.ToInt32(buffer, 0);
         }
-        public static string ReadStringFromFileStream(FileStream fileStream)
+        public static string ReadStringFromFileStream(Stream fileStream)
         {
             int numOfBytes = ReadIntFromFileStream(fileStream);
             string value = ReadStringFromFileStream(fileStream, numOfBytes);
             if (value == "@null#") value = null;
             return value;
         }
-        public static string ReadStringFromFileStream(FileStream fileStream, int numOfBytes)
+        public static string ReadStringFromFileStream(Stream fileStream, int numOfBytes)
         {
             byte[] buffer = new byte[numOfBytes];
             fileStream.Read(buffer, 0, buffer.Length);

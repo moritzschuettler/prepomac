@@ -95,8 +95,9 @@ namespace CaeResults
                 }
             }
         }
-        public static void WriteToFileStream(HistoryResultComponent historyResultComponent, FileStream fileStream,
-                                             CompressionLevel compressionLevel)
+        public static void WriteToFileStream(HistoryResultComponent historyResultComponent, Stream fileStream,
+                                             CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (historyResultComponent == null)
             {
@@ -150,7 +151,7 @@ namespace CaeResults
                     try
                     {
                         foreach (var entry in historyResultComponent.Entries)
-                            HistoryResultEntries.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                            HistoryResultEntries.WriteToFileStream(entry.Value, fileStream, compressionLevel, compressBlocks);
                     }
                     finally
                     {
@@ -191,7 +192,7 @@ namespace CaeResults
             }
             return null;
         }
-        public static HistoryResultComponent ReadFromFileStream(FileStream fileStream, int version)
+        public static HistoryResultComponent ReadFromFileStream(Stream fileStream, int version, bool blocksCompressed = true)
         {
             int numItems;
             HistoryResultEntries historyResultEntry;
@@ -213,7 +214,7 @@ namespace CaeResults
                     //
                     for (int i = 0; i < numItems; i++)
                     {
-                        historyResultEntry = HistoryResultEntries.ReadFromFileStream(fileStream, version);
+                        historyResultEntry = HistoryResultEntries.ReadFromFileStream(fileStream, version, blocksCompressed);
                         historyResultComponent.Entries.Add(historyResultEntry.Name, historyResultEntry);
                     }
                 }

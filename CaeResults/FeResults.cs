@@ -316,7 +316,8 @@ namespace CaeResults
 
 
         // Static methods                                                                                                           
-        public static void WriteToFileStream(FeResults results, FileStream fileStream, CompressionLevel compressionLevel)
+        public static void WriteToFileStream(FeResults results, Stream fileStream, CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (results == null)
             {
@@ -351,7 +352,8 @@ namespace CaeResults
                     bw.Flush();
                     bw.BaseStream.Position = 0;
                     // Compress the writer
-                    byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                    byte[] compressedData = compressBlocks ? Tools.Compress(bw.BaseStream, compressionLevel) :
+                                                            ((MemoryStream)bw.BaseStream).ToArray();
                     // Write the length of the compressed data
                     Tools.WriteIntToFileStream(fileStream, compressedData.Length);
                     // Write the compressed data
@@ -388,7 +390,8 @@ namespace CaeResults
                             bw.Flush();
                             bw.BaseStream.Position = 0;
                             // Compress the writer
-                            byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                            byte[] compressedData = compressBlocks ? Tools.Compress(bw.BaseStream, compressionLevel) :
+                                                                    ((MemoryStream)bw.BaseStream).ToArray();
                             // Write the length of the compressed data
                             Tools.WriteIntToFileStream(fileStream, compressedData.Length);
                             // Write the compressed data
@@ -413,11 +416,11 @@ namespace CaeResults
                     // Write the history state
                     Tools.WriteIntToFileStream(fileStream, 1);
                     //
-                    HistoryResults.WriteToFileStream(results._history, fileStream, compressionLevel);
+                    HistoryResults.WriteToFileStream(results._history, fileStream, compressionLevel, compressBlocks);
                 }
             }
         }
-        public static void ReadFromFileStream(FeResults results, FileStream fileStream, int version)
+        public static void ReadFromFileStream(FeResults results, Stream fileStream, int version, bool blocksCompressed = true)
         {
             int numItems;
             int numOfBytes;
@@ -435,7 +438,7 @@ namespace CaeResults
                 fileStream.Read(compressedData, 0, compressedData.Length);
                 //
                 using (MemoryStream memoryStream = new MemoryStream(compressedData))
-                using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                using (BinaryReader br = new BinaryReader(blocksCompressed ? Tools.Decompress(memoryStream) : memoryStream))
                 {
                     FeMesh.ReadFromBinaryReader(results.Mesh, br, version);
                     //
@@ -463,7 +466,7 @@ namespace CaeResults
                         fileStream.Read(compressedData, 0, compressedData.Length);
                         //
                         using (MemoryStream memoryStream = new MemoryStream(compressedData))
-                        using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                        using (BinaryReader br = new BinaryReader(blocksCompressed ? Tools.Decompress(memoryStream) : memoryStream))
                         {
                             try
                             {
@@ -498,7 +501,7 @@ namespace CaeResults
                     exists = Tools.ReadIntFromFileStream(fileStream);
                     if (exists == 1)
                     {
-                        results._history = HistoryResults.ReadFromFileStream(fileStream, version);
+                        results._history = HistoryResults.ReadFromFileStream(fileStream, version, blocksCompressed);
                     }
                 }
             }

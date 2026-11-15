@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using CaeGlobals;
 using System.IO;
+using System.Text;
 using CaeMesh;
 
 namespace PrePoMax
@@ -237,7 +238,7 @@ namespace PrePoMax
             {
                 // Use a temporary file to save the data and copy it at the end
                 string tmpFileName = Tools.GetNonExistentRandomFileName(Path.GetDirectoryName(fileName), ".tmp");
-                ToDictionary().DumpToFile(tmpFileName);
+                File.WriteAllText(tmpFileName, PmxJsonSerializer.Serialize(ToDictionary()), new UTF8Encoding(false));
                 File.Copy(tmpFileName, fileName, true);
                 File.Delete(tmpFileName);
             }
@@ -249,7 +250,19 @@ namespace PrePoMax
                 Initialize();
                 //
                 string fileName = GetDefaultFileName();
-                if (File.Exists(fileName))
+                string legacyFileName = Path.Combine(System.Windows.Forms.Application.StartupPath,
+                                                     Globals.LegacySettingsFileName);
+                // A settings file of an older version copied in after the first start is newer than the settings file
+                bool useLegacyFile = _overrideFileName == null && File.Exists(legacyFileName) &&
+                                     (!File.Exists(fileName) ||
+                                      File.GetLastWriteTimeUtc(legacyFileName) > File.GetLastWriteTimeUtc(fileName));
+                if (useLegacyFile)
+                {
+                    var t = Task.Run(() => LoadFromFile(legacyFileName));
+                    t.Wait();
+                    SaveToFile();
+                }
+                else if (File.Exists(fileName))
                 {
                     var t = Task.Run(() => LoadFromFile(fileName));
                     t.Wait();
@@ -262,10 +275,37 @@ namespace PrePoMax
                 Initialize();
             }
         }
+        // A settings file is JSON; the binary settings file of an older version is read once and then rewritten
         private void LoadFromFile(string fileName)
         {
-            Dictionary<string, ISettings> items = Tools.LoadDumpFromFile<Dictionary<string, ISettings>>(fileName);
-            FromDictionary(items);
+            string text = File.ReadAllText(fileName);
+            if (text.TrimStart().StartsWith("{"))
+            {
+                Dictionary<string, object> node = JsonReader.Parse(text) as Dictionary<string, object>;
+                if (node == null) return;
+                object settingsNode;
+                Dictionary<string, ISettings> items = ToDictionary();
+                foreach (var entry in new List<KeyValuePair<string, ISettings>>(items))
+                {
+                    if (!node.TryGetValue(entry.Key, out settingsNode) || !(settingsNode is Dictionary<string, object> fields))
+                        continue;
+                    // A section that cannot be read keeps its defaults, so an edit gone wrong costs only that section
+                    try
+                    {
+                        PmxJsonSerializer.Populate(entry.Value, fields);
+                    }
+                    catch
+                    {
+                        items[entry.Key] = (ISettings)Activator.CreateInstance(entry.Value.GetType());
+                    }
+                }
+                FromDictionary(items);
+            }
+            else
+            {
+                Dictionary<string, ISettings> items = Tools.LoadDumpFromFile<Dictionary<string, ISettings>>(fileName);
+                FromDictionary(items);
+            }
         }
         //
         public void SetRegenerationWorkDirectory(string workDirectory)

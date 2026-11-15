@@ -115,7 +115,7 @@ namespace PrePoMax.Settings
                               "and this token into your assistant once; the server will not run without one. " +
                               "Treat it like any password - anyone who can use your Windows account can read it. " +
                               "Right click here to generate one, to replace it, or to clear it before you prepare " +
-                              "a redistributable. It is kept in settings.bin next to PrePoMax.exe, so a newly " +
+                              "a redistributable. It is kept in settings.json next to PrePoMax.exe, so a newly " +
                               "unpacked PrePoMax starts without one, and Reset all keeps it.")]
         [ReadOnly(true)]
         [Id(3, 2)]

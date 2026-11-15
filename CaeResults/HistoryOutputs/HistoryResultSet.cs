@@ -100,8 +100,9 @@ namespace CaeResults
                 else bw.Write(historyResultSet.BaseSetName);
             }
         }
-        public static void WriteToFileStream(HistoryResultSet historyResultSet, FileStream fileStream,
-                                             CompressionLevel compressionLevel)
+        public static void WriteToFileStream(HistoryResultSet historyResultSet, Stream fileStream,
+                                             CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (historyResultSet == null)
             {
@@ -122,7 +123,7 @@ namespace CaeResults
                     Tools.WriteIntToFileStream(fileStream, historyResultSet.Fields.Count);
                     //
                     foreach (var entry in historyResultSet.Fields)
-                        HistoryResultField.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                        HistoryResultField.WriteToFileStream(entry.Value, fileStream, compressionLevel, compressBlocks);
                 }
                 // BaseSetName
                 Tools.WriteStringToFileStream(fileStream, historyResultSet.BaseSetName);
@@ -162,7 +163,7 @@ namespace CaeResults
             }
             return null;
         }
-        public static HistoryResultSet ReadFromFileStream(FileStream fileStream, int version)
+        public static HistoryResultSet ReadFromFileStream(Stream fileStream, int version, bool blocksCompressed = true)
         {
             int numItems;
             HistoryResultField historyResultField;
@@ -184,7 +185,7 @@ namespace CaeResults
                     //
                     for (int i = 0; i < numItems; i++)
                     {
-                        historyResultField = HistoryResultField.ReadFromFileStream(fileStream, version);
+                        historyResultField = HistoryResultField.ReadFromFileStream(fileStream, version, blocksCompressed);
                         historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
                     }
                 }

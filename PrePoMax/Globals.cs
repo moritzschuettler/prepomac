@@ -71,7 +71,9 @@ namespace PrePoMax
         // Color by names
         public static string ColorByNone = "None";
         // File names
-        public static string SettingsFileName = "settings.bin";
+        public static string SettingsFileName = "settings.json";
+        // The settings file of the versions before the JSON settings, read once and rewritten as the settings file
+        public static string LegacySettingsFileName = "settings.bin";
         public static string MaterialLibraryFileName = "materials.lib";
         public static string HistoryFileName = "history.pmh";
         // The captured viewport is named after the model; this stands in before one is saved

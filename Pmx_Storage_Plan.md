@@ -304,16 +304,56 @@ the types it meets (reflection and emitted accessors), about 100 ms in all.
 
 ## 7. Phase 4 - New container and journal
 
-- [ ] Chunked container writer and reader (`CaeGlobals/FileInOut` or a new `CaeStorage` project), with CRC32 and
+- [x] Chunked container writer and reader (`CaeGlobals/FileInOut` or a new `CaeStorage` project), with CRC32 and
       Zstd.
-- [ ] `SaveToPmx` writes the new format; `OpenPmx` detects the magic and reads new or old.
-- [ ] Results chunks loaded lazily.
-- [ ] History journal replaces `.pmh`; the old `.pmh` still reads.
-- [ ] Settings to JSON (old binary settings still read once, then rewritten).
-- [ ] `pmx-dump` tool.
+- [x] `SaveToPmx` writes the new format; `OpenPmx` detects the magic and reads new or old.
+- [x] Results chunks loaded lazily.
+- [x] History journal replaces `.pmh`; the old `.pmh` still reads.
+- [x] Settings to JSON (old binary settings still read once, then rewritten).
+- [x] `pmx-dump` tool.
 
 Exit: round trip of every reference file (old → open → save new → open → Regenerate History) gives identical models
 and results; save and open faster than baseline.
+
+**Done.** In `CaeGlobals/Storage`:
+- `PmxContainer` - the layout of decision 6: magic `PMX2`, container version, the program name and version at
+  offset 8 (so `GetPmxFileVersion` and the backup of an older file keep working), and a table of contents with name,
+  codec, offset, lengths and CRC-32 of each chunk, itself guarded by a CRC-32. `PmxChunk` compresses a chunk with Zstd
+  level 3 (Optimal), 1 (Fastest) or not at all, following the compression setting, as independent 1 MB frames that
+  are compressed and decompressed in parallel. `PmxCrc32` is the zlib CRC-32, eight bytes at a time.
+- A `.pmx` holds the chunks `document` (the `PmxDocument` payload), `mesh` (`FeModel.WriteToBinaryWriter`) and
+  `results/<name>` (one per result, `FeResults.WriteToFileStream` with its blocks left uncompressed, since the chunk
+  is compressed as a whole). `OpenPmx` reads a container by its magic and every older file as before. A damaged
+  result chunk drops that result with a warning and the model still opens; a damaged document or mesh names the
+  part that is damaged. Saving over a file in the older layout keeps a backup of it even when it was written by the
+  same version, which could not read the new one.
+- Results are read lazily: `ResultsCollection.SetPendingLoad` keeps the chunk of each result, which is read the
+  first time the result is used (`CurrentResult`, `GetResult`); a save writes every result.
+- `PmxJournal` is the history: `PMH2`, then one frame per command (length, CRC-32, payload). `CommandsCollection`
+  appends the commands recorded since its last write and writes again from the first command that changed; the last
+  command written is serialized once more on the next write, since a save command stores the hash of its file after it
+  was recorded. A reader stops at the first damaged frame. A `.pmh` of an older version is still read.
+- Settings are `settings.json` (`PmxJsonSerializer`: the stored fields by name, enumerations by member name, colors
+  by name or #AARRGGBB, a field the file does not name keeps its default). A `settings.bin` is read when there is no
+  `settings.json` or it is newer - an older version's settings copied in after the first start - and rewritten as
+  `settings.json`. README, `Python_API_Overview.md` and the automation settings page name the new file.
+- `PmxTool dump <file> [chunk] [--all]` prints the table of contents of a container with the state of every CRC and
+  the document as JSON, with type and field names resolved from their numbers; it also reads a journal frame by frame
+  and a single payload.
+
+Storage part of a save and an open (same files as Phase 0, median of 7, the old layout written with Deflate
+Optimal):
+
+| File | Old save | New save | Old open | New open, current result | New open, all results | Old / new size |
+|---|---|---|---|---|---|---|
+| Gripper.pmx | 1855 ms | 452 ms | 686 ms | 583 ms | 592 ms | 41.8 / 41.8 MB |
+| impeller.pmx | 3600 ms | 483 ms | 1104 ms | 923 ms | 959 ms | 49.8 / 51.4 MB |
+| Model.pmx | 224 ms | 21 ms | 60 ms | 42 ms | 45 ms | 1.9 / 1.6 MB |
+| Tree_res.pmx | 1366 ms | 388 ms | 544 ms | 472 ms | 479 ms | 27.9 / 28.0 MB |
+| bug_sdv.pmx | 1915 ms | 592 ms | 743 ms | 107 ms | 655 ms | 50.5 / 50.1 MB |
+
+Saving is 3-10 times faster, opening 10-30 % faster, and a file with several results opens with only the current one
+read (bug_sdv.pmx: 7 times faster). A history append writes one frame instead of the whole history.
 
 ---
 

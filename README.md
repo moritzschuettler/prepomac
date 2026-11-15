@@ -87,19 +87,21 @@ A client that speaks only stdio needs a bridge to HTTP, such as `mcp-remote`. So
 runs in a browser: the endpoint refuses every request that carries an `Origin` header, which is what
 keeps web pages out.
 
-The token is kept in that folder's `settings.bin` and can only be generated, never typed. The server
+The token is kept in that folder's `settings.json` and can only be generated, never typed. The server
 will not start without one, and there is no command line switch for it, so a folder has to be opened
 once with its window before an unattended run can serve. Unpack PrePoMax into a folder inside your
 user profile, such as `C:\Users\<you>\PrePoMax`: other local accounts can read a folder created
-directly under `C:\`, and with it the token in `settings.bin`.
+directly under `C:\`, and with it the token in `settings.json`.
 
-A newly unpacked PrePoMax starts without a token on purpose: `settings.bin` is part of the
+A newly unpacked PrePoMax starts without a token on purpose: `settings.json` is part of the
 redistributable, and a token left in it would be shipped to everyone. The first run in a folder
 clears whatever token its settings carry - PrePoMax knows it is the first run because its own
 `trace.info` marker is absent - and the settings page has a *Clear the access token* action to use
 before preparing a release. After an update, generate a token in the new folder, or keep the old
-one: start the new version once and close it, then copy `settings.bin` over from the old folder. A
-`settings.bin` copied in before that first start loses its token, because the first start clears it.
+one: start the new version once and close it, then copy `settings.json` over from the old folder - or
+the `settings.bin` of a version before the JSON settings, which is read once and rewritten as
+`settings.json`. A settings file copied in before that first start loses its token, because the first
+start clears it.
 
 **A client that cannot connect means PrePoMax is closed, or its automation server is off.** Nothing
 answers on the address unless the session is open - that is what serving it from the application
