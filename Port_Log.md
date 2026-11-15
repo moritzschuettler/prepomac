@@ -706,3 +706,11 @@ mapper ("mm3" for the "mm³" the native probe shows) and the position ActiViz ke
 the native twin of the reference; `widgets_w3` compares of the pinch zoom only the zoom and the orientation (the
 pinch zooms about the real mouse pointer, which the recorder does not place) and allows the annotation menu
 rectangle one pixel (it is the native label's since stage 1).
+`Run_Tests.py` in full (every group, the meshing ones included; plan step I.4) on the same copy without ActiViz: 81 of
+81 passed.
+
+**Not tried in the user's window yet.** The streams list what to look at: the crop menu items, an annotation inside a
+part during an animation, sub parts of a compound part shown and hidden, recoloring mesh types in a section view
+(RG); no stray window at start, clicks, hover, box selection, the probe, the middle click rotation center, box zoom,
+arrow keys and the trackpad (RS); the scale bar centered at start, the status block at the top right, annotations
+arranged without overlap, legend value editing and the right click menus, triad clicks, changing the smoothing (RW).
