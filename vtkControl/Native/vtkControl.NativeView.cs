@@ -31,11 +31,7 @@ namespace vtkControl
 
 
         // Properties
-        private bool NativeOwnsCamera
-        {
-            get { return NativeShowsView && !_nativeWindowIndependent; }
-        }
-        private bool NativeShowsView { get { return _nativeInWindow && _nativeMirror != null; } }
+        private bool NativeShowsView { get { return _nativeMirror != null; } }
 
 
         // Methods
@@ -83,6 +79,7 @@ namespace vtkControl
         // The bounds VTK gives when nothing is visible are inverted
         private double[] GetNativeBounds()
         {
+            if (_nativeMirror == null) return new double[] { 1, -1, 1, -1, 1, -1 };
             return _nativeMirror.GetBounds() ?? new double[] { 1, -1, 1, -1, 1, -1 };
         }
         private void SaveNativeAnimationAsAVI(string fileName, int[] firstLastFrame, int step, int fps,
@@ -113,9 +110,13 @@ namespace vtkControl
                 }
             }
         }
-        private bool RunNativeViewChange(bool animate, Action change, int timeMs = 500)
+        private void RunNativeViewChange(bool animate, Action change, int timeMs = 500)
         {
-            if (!NativeOwnsCamera) return false;
+            if (_nativeMirror == null)
+            {
+                _animating = false;
+                return;
+            }
             //
             if (_drawCameraPath) ClearOverlay();
             double[] start = _nativeMirror.GetCamera();
@@ -136,7 +137,6 @@ namespace vtkControl
                 _nativeMirror.Render();
             }
             OnNativeCameraChanged();
-            return true;
         }
         private double[] GetNativeViewPlaneNormal()
         {
@@ -205,7 +205,7 @@ namespace vtkControl
         // the start to where it is seen at the end
         private void AnimateNativeCamera(double[] cameraStart, double[] cameraEnd, int timeMs)
         {
-            SetStyleAnimating(true);
+            MirrorStyleAnimating(true);
             try
             {
                 double[][] rEnd = GetViewRotation(cameraEnd);
@@ -285,7 +285,7 @@ namespace vtkControl
             finally
             {
                 _animating = false;
-                SetStyleAnimating(false);
+                MirrorStyleAnimating(false);
                 if (_drawCameraPath) DrawCameraPath();
             }
         }

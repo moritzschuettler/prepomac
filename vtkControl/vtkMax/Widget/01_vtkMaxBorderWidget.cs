@@ -165,9 +165,6 @@ namespace vtkControl
                 if (_backgroundVisibility == true && _backgroundActor != null) _renderer.AddActor(_backgroundActor);
                 if (_borderVisibility == true &&_borderActor != null) _renderer.AddActor(_borderActor);
                 if (_highlightRenderer != null) _highlight.AddToRenderer(_highlightRenderer);
-                if (_renderWindowInteractor != null &&
-                    _renderWindowInteractor.GetInteractorStyle() is vtkInteractorStyleControl visc)
-                    visc.VtkMaxWidgetVisibilityOn(this);
             }
             _nativeMirror?.SetVisibility(true);
         }
@@ -609,8 +606,6 @@ namespace vtkControl
             _highlightRenderer = renderer;
             // Reference
             _renderWindowInteractor.GetRenderWindow().ModifiedEvt += renderWindow_ModifiedEvt;
-            // Add widget
-            if (_renderWindowInteractor.GetInteractorStyle() is vtkInteractorStyleControl visc) visc.AddVtkMaxWidget(this);
             // Restore only actors that were visible before an interactor replacement.
             if (_visibility)
             {
@@ -635,9 +630,6 @@ namespace vtkControl
             {
                 if (_renderWindowInteractor.GetRenderWindow() != null)
                     _renderWindowInteractor.GetRenderWindow().ModifiedEvt -= renderWindow_ModifiedEvt;
-                // Remove widget
-                if (_renderWindowInteractor.GetInteractorStyle() is vtkInteractorStyleControl visc)
-                    visc.RemoveVtkMaxWidget(this);
             }
             //
             if (_renderer != null)

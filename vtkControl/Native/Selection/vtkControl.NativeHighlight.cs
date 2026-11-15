@@ -16,9 +16,9 @@ using vtkControl.Native;
 
 namespace vtkControl
 {
-    // The mouse selection through the native view: Style_PointPickedOnMouseMoveEvt with the native pick, the native
-    // id resolution and the highlights of the native selection layer (the PickBy* hover paths and the highlight
-    // branch of PickByArea), and the selection by clicking in the native view in the window
+    // The mouse selection through the native view: the hover with the native pick, the native id resolution and the
+    // highlights of the native selection layer, and the selection by clicking in the native view when the widgets
+    // area, whose style raises the pick events, is off
     public partial class vtkControl
     {
         // Variables
@@ -26,11 +26,11 @@ namespace vtkControl
 
 
         // Event handlers
-        // In the window a click selects as a click in the ActiViz view does and the mouse moving over the parts
-        // highlights what a click would select; a drag rotates the view and selects nothing
+        // A click selects and the mouse moving over the parts highlights what a click would select; a drag rotates
+        // the view and selects nothing
         private void NativeWindow_SelectionEvent(object sender, VtkNativeEventArgs e)
         {
-            if (!_nativeInWindow || _nativeMirror == null || (_nativeAreas & VtkNativeArea.Selection) == 0) return;
+            if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Selection) == 0) return;
             int x = (int)e.Values[0];
             int y = (int)e.Values[1];
             if (e.Event == VtkNativeEvent.LeftButtonDown) _nativeLeftButtonDown = new int[] { x, y };
@@ -64,8 +64,8 @@ namespace vtkControl
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Selection) == 0) return;
             _nativeMirror.ClearHighlights(true);
         }
-        // Style_PointPickedOnMouseMoveEvt through the native view. The probe label of a query is the probe widget of
-        // this control, whose native twin draws it
+        // The mouse moving over the parts, or the box of a box selection being dragged: what a click would select is
+        // highlighted. The probe label of a query is the probe widget of this control, whose native twin draws it
         public void HoverWithNativeMirror(int x1, int y1, bool boxSelection, int x2, int y2)
         {
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Selection) == 0) return;
@@ -98,12 +98,10 @@ namespace vtkControl
             finally
             {
                 _userPick = UserPick;
-                if (_nativeInWindow) _nativeMirror.Render();
+                _nativeMirror.Render();
             }
         }
-        // The point paths of Style_PointPickedOnMouseMoveEvt: PickByNode, PickByCell, PickByEdge, PickBySurface,
-        // PickByEdgeAngle, PickBySurfaceAngle, PickByActor, PickByGeometry, PickByGeometryVertex and
-        // PickByGeometryEdgeAngle
+        // The hover of a point: the node, element, edge, surface, part or geometry entity under it
         private void NativeHoverPoint(int x, int y)
         {
             double[] pickedPoint;
@@ -113,7 +111,7 @@ namespace vtkControl
                 if (_probeWidget != null && _probeWidget.GetVisibility() == 1) _probeWidget.VisibilityOff();
                 return;
             }
-            // The cell of the picked part under the point, as GetGlobalCellIdClosestTo3DPoint with the picked actor
+            // The cell of the picked part under the point
             int[] cellFaceNodeIds;
             double[][] cellFaceNodeCoor;
             int cellId = _nativeMirror.GetClosestCell(ref pickedPoint, -1, new string[] { partName }, out cellFaceNodeIds,
@@ -179,7 +177,7 @@ namespace vtkControl
                     throw new NotSupportedException();
             }
         }
-        // The probe label of PickByNode, PickByCell, PickByEdge, PickBySurface and PickByActor during a query
+        // The probe label of the hovered node, element, edge, surface or part during a query
         private void ShowNativeProbe(int x, int y, string itemName)
         {
             if (_probeWidget == null) return;
@@ -187,7 +185,7 @@ namespace vtkControl
             _probeWidget.SetText(Controller_GetAnnotationText(itemName));
             if (_probeWidget.GetVisibility() == 0) _probeWidget.VisibilityOn();
         }
-        // PickByEdgeAngle: the closest edge of the cell face as a line of its own
+        // The edge angle selection: the closest edge of the cell face as a line of its own
         private void NativeHoverEdgeAngle(double[] pickedPoint, int cellId, int[] cellFaceNodeIds)
         {
             vtkMaxActorData cellFaceData = Controller_GetCellFaceActorData(cellId, cellFaceNodeIds);
@@ -206,8 +204,8 @@ namespace vtkControl
             _nativeMirror.AddHighlight(new VtkNativeMeshData(coordinates, cells, new byte[] { (byte)edgeCellType }, null, null),
                                        style);
         }
-        // PickByGeometry: the vertex, edge or surface under the point, or the part without edges, and the point the
-        // entity is marked with
+        // The geometry selection: the vertex, edge or surface under the point, or the part without edges, and the
+        // point the entity is marked with
         private void NativeHoverGeometry(double[] pickedPoint, int cellId, int[] cellFaceNodeIds)
         {
             int[] edgeNodeIds = GetEdgeNodeIds(pickedPoint, cellId, cellFaceNodeIds);
@@ -228,7 +226,7 @@ namespace vtkControl
                 _nativeMirror.AddHighlight(new VtkNativeMeshData(coordinates, new int[0], new byte[0], null, null), style);
             }
         }
-        // The highlight branch of PickByArea: the nodes and elements of the picked parts inside the frustum
+        // The highlight of a box selection: the nodes and elements of the picked parts inside the frustum
         private void NativePickByAreaHighlight(int x1, int y1, int x2, int y2)
         {
             double[][] planes;
@@ -281,8 +279,8 @@ namespace vtkControl
             }
             else throw new NotSupportedException();
         }
-        // A highlight of the mouse selection drawn with Globals.CurrentMouseSelectionProperty: the nodes of the data
-        // as points, or its cells with the element edges when the actor of vtkControl has them
+        // A highlight of the mouse selection in the color of Globals.CurrentMouseHighlightColor: the nodes of the data
+        // as points, or its cells with the element edges when they can have them
         private void AddNativeMouseHighlight(vtkMaxActorData data, bool points, bool elementEdges)
         {
             if (data == null || data.Geometry == null) return;
