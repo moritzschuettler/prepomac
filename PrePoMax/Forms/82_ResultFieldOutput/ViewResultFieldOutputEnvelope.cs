@@ -21,10 +21,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10501)]
     public class ViewResultFieldOutputEnvelope : ViewResultFieldOutput
     {
         // Variables                                                                                                                
-        private Dictionary<string, string[]> _filedNameComponentNames;
+        [PmxKey(0)] private Dictionary<string, string[]> _filedNameComponentNames;
 
 
         // Properties                                                                                                               

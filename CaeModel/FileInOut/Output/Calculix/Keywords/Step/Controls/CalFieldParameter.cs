@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3132)]
     internal class CalFieldParameter : CalculixKeyword
     {
         // Variables                                                                                                                
-        private FieldStepControlParameter _parameter;
+        [PmxKey(0)] private FieldStepControlParameter _parameter;
 
 
         // Properties                                                                                                               

@@ -14,15 +14,17 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3138)]
     internal class CalContactFile : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected ContactFieldOutput _contactFieldOutput;
-        protected bool _binary;
+        [PmxKey(0)] protected ContactFieldOutput _contactFieldOutput;
+        [PmxKey(1)] protected bool _binary;
 
 
         // Properties

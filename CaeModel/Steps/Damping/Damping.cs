@@ -20,6 +20,7 @@ using CaeJob;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3223)]
     public enum DampingTypeEnum
     {
         Off,
@@ -27,12 +28,13 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3224)]
     public class Damping : NamedClass
     {
         // Variables                                                                                                                
-        private DampingTypeEnum _dampingType;
-        private double _alpha;
-        private double _beta;
+        [PmxKey(0)] private DampingTypeEnum _dampingType;
+        [PmxKey(1)] private double _alpha;
+        [PmxKey(2)] private double _beta;
 
 
         // Properties                                                                                                               

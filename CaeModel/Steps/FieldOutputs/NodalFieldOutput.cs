@@ -15,10 +15,12 @@ using System.Threading.Tasks;
 using CaeMesh;
 using System.ComponentModel;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3239)]
     [Flags]
     public enum NodalFieldVariable
     {
@@ -34,10 +36,11 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3240)]
     public class NodalFieldOutput : FieldOutput, ISerializable
     {
         // Variables                                                                                                                
-        private NodalFieldVariable _variables;          //ISerializable
+        [PmxKey(0)] private NodalFieldVariable _variables;          //ISerializable
 
 
         // Properties                                                                                                               

@@ -18,6 +18,7 @@ using CaeGlobals;
 namespace UserControls
 {
     [Serializable]
+    [PmxType(6222)]
     public abstract class ViewStep
     {
         // Variables                                                                                                                

@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10238)]
     class CResetColorForResultParts : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
+        [PmxKey(0)] private string[] _partNames;
 
 
         // Constructor                                                                                                              

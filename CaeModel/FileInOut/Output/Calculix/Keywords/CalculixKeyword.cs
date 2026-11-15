@@ -15,17 +15,19 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3058)]
     public abstract class CalculixKeyword //: ISerializable - this would mean that all derived classes must be Serializable !!!
     {
         // Variables                                                                                                                
         // CalculiX reads this many characters of a line
         protected const int CalculixLineLength = 132;
-        protected List<CalculixKeyword> _keywords;          //ISerializable
-        private bool _active;                               //ISerializable
+        [PmxKey(0)] protected List<CalculixKeyword> _keywords;          //ISerializable
+        [PmxKey(1)] private bool _active;                               //ISerializable
 
 
         // Properties                                                                                                               

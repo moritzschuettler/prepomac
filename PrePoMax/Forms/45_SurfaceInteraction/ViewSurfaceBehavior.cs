@@ -19,11 +19,12 @@ using CaeGlobals;
 namespace PrePoMax
 {   
     [Serializable]
+    [PmxType(10402)]
     public class ViewSurfaceBehavior : ViewSurfaceInteractionProperty
     {
         // Variables                                                                                                                
-        private CaeModel.SurfaceBehavior _surfaceBehavior;
-        private List<PressureOverclosureDataPoint> _points;
+        [PmxKey(0)] private CaeModel.SurfaceBehavior _surfaceBehavior;
+        [PmxKey(1)] private List<PressureOverclosureDataPoint> _points;
 
 
         // Properties                                                                                                               

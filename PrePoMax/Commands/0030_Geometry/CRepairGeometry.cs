@@ -22,11 +22,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10066)]
     class CRepairGeometry : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private GeometryRepair _geometryRepair;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private GeometryRepair _geometryRepair;
 
 
         // Constructor                                                                                                              

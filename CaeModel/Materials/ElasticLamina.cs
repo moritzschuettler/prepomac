@@ -14,6 +14,7 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3178)]
     public class ElasticLamina : MaterialProperty, ISerializable
     {
         // Variables                                                                                                                
@@ -25,7 +26,7 @@ namespace CaeModel
         public const int ShearModulus23Id = 5;
         public const int TemperatureId = 6;
         public const int NumberOfValues = 7;
-        private EquationContainer[][] _laminaConstantsTemp;         //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _laminaConstantsTemp;         //ISerializable
 
 
         // Properties                                                                                                               

@@ -9,10 +9,12 @@
 
 using DynamicTypeDescriptor;
 using System;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2127)]
     public enum QuadWildFlowProfileEnum
     {
         [StandardValue("Aligned", DisplayName = "Aligned")]

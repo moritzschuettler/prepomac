@@ -9,12 +9,14 @@
 
 using System;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeResults
 {
     // The shell in-plane state: the in-plane components and the in-plane principal values, in the material axes of the
     // shell elements, of their stresses or of their strains, neglecting the components through the thickness
     [Serializable]
+    [PmxType(5029)]
     public class ResultFieldOutputShellPlaneStress : ResultFieldOutput
     {
         // Variables                                                                                                                
@@ -28,8 +30,8 @@ namespace CaeResults
         public const string ComponentPrincipalMin = "PRINCIPAL_MIN";
         public const string ComponentShearMax = "SHEAR_MAX";
         public const string ComponentAngle = "ANGLE";
-        private string _fieldName;
-        [OptionalField]
+        [PmxKey(0)] private string _fieldName;
+        [PmxKey(1)] [OptionalField]
         private ShellInPlaneQuantityEnum _quantity;
 
 

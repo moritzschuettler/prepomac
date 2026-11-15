@@ -14,10 +14,12 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3049)]
     internal class AbqFieldElementOutput : CalElFile
     {
         // Variables                                                                                                                

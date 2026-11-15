@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -19,14 +20,15 @@ namespace CaeMesh
     /// the split is applied, while the picks still name the geometry they were made on.
     /// </summary>
     [Serializable]
+    [PmxType(2074)]
     public class SplitToolSymbol : ISerializable
     {
         // Variables
-        private List<double[][]> _surfaceNodeCoor;          //ISerializable
-        private List<int[][]> _surfaceCells;                //ISerializable
-        private List<double[][]> _borderNodeCoor;           //ISerializable
-        private List<int[][]> _borderCells;                 //ISerializable
-        private List<double[]> _points;                     //ISerializable
+        [PmxKey(0)] private List<double[][]> _surfaceNodeCoor;          //ISerializable
+        [PmxKey(1)] private List<int[][]> _surfaceCells;                //ISerializable
+        [PmxKey(2)] private List<double[][]> _borderNodeCoor;           //ISerializable
+        [PmxKey(3)] private List<int[][]> _borderCells;                 //ISerializable
+        [PmxKey(4)] private List<double[]> _points;                     //ISerializable
 
 
         // Properties

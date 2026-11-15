@@ -20,12 +20,13 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10190)]
     class CReplaceFieldOutput : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string _oldFieldOutputName;
-        private FieldOutput _newFieldOutput;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string _oldFieldOutputName;
+        [PmxKey(2)] private FieldOutput _newFieldOutput;
 
 
         // Constructor                                                                                                              

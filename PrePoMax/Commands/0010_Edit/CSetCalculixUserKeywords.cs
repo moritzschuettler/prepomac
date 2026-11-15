@@ -24,10 +24,11 @@ using System.Runtime.Serialization;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10039)]
     class CSetCalculixUserKeywords : PreprocessCommand, ISerializable
     {
         // Variables                                                                                                                
-        private OrderedDictionary<int[], Calculix.CalculixUserKeyword> _userKeywords;   //ISerializable
+        [PmxKey(0)] private OrderedDictionary<int[], Calculix.CalculixUserKeyword> _userKeywords;   //ISerializable
 
 
         // Constructor                                                                                                              

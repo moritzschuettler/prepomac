@@ -14,15 +14,17 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3076)]
     public class CalTitle : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected string _title;
-        protected string _data;
+        [PmxKey(0)] protected string _title;
+        [PmxKey(1)] protected string _data;
 
 
         // Properties                                                                                                               

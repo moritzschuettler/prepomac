@@ -13,16 +13,18 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3214)]
     public class BuckleStep : Step, ISerializable
     {
         // Variables                                                                                                                
-        private int _numOfBucklingFactors;      //ISerializable
-        private double _accuracy;               //ISerializable
+        [PmxKey(0)] private int _numOfBucklingFactors;      //ISerializable
+        [PmxKey(1)] private double _accuracy;               //ISerializable
 
 
         // Properties                                                                                                               

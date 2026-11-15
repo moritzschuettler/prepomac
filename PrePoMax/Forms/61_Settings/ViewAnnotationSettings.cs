@@ -20,11 +20,12 @@ using System.Drawing.Design;
 namespace PrePoMax.Settings
 {
     [Serializable]
+    [PmxType(10477)]
     public class ViewAnnotationSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private AnnotationSettings _annotationSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private AnnotationSettings _annotationSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Color spectrum values                                                                     

@@ -14,16 +14,18 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3140)]
     internal class CalNodeFile : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected NodalFieldOutput _nodalFieldOutput;
-        protected int _outputFrequency;
-        protected bool _binary;
+        [PmxKey(0)] protected NodalFieldOutput _nodalFieldOutput;
+        [PmxKey(1)] protected int _outputFrequency;
+        [PmxKey(2)] protected bool _binary;
 
 
         // Properties

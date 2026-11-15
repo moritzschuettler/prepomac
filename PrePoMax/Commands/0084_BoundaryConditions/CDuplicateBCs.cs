@@ -22,11 +22,12 @@ using System.Runtime.Serialization;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10192)]
     class CDuplicateBCs : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string[] _boundaryConditionNames;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string[] _boundaryConditionNames;
 
 
         // Constructor                                                                                                              

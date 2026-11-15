@@ -21,11 +21,12 @@ using System.Drawing.Design;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10415)]
     public class ViewInitialAngularVelocity : ViewInitialCondition
     {
         // Variables                                                                                                                
-        private InitialAngularVelocity _initialVelocity;
-        private ItemSetData _centerPointItemSetData;
+        [PmxKey(0)] private InitialAngularVelocity _initialVelocity;
+        [PmxKey(1)] private ItemSetData _centerPointItemSetData;
 
 
         // Properties                                                                                                               

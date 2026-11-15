@@ -17,11 +17,12 @@ namespace CaeModel
     // A shell section made of layers, written as a CalculiX composite shell. Layer 1 lies on the side opposite to the
     // shell normal and the layers stack along the normal. A symmetric layup is completed by its mirror image.
     [Serializable]
+    [PmxType(3195)]
     public class CompositeShellSection : ShellSection, ISerializable
     {
         // Variables                                                                                                                
-        private List<CompositeLayer> _layers;       //ISerializable
-        private bool _symmetric;                    //ISerializable
+        [PmxKey(0)] private List<CompositeLayer> _layers;       //ISerializable
+        [PmxKey(1)] private bool _symmetric;                    //ISerializable
 
 
         // Properties                                                                                                               

@@ -18,10 +18,11 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3199)]
     public class MassSection : Section, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer _mass;            //ISerializable
+        [PmxKey(0)] private EquationContainer _mass;            //ISerializable
         [NonSerialized]
         public string ElementSetName;               // used only for temporary storage while exporting to Calculix .inp
 

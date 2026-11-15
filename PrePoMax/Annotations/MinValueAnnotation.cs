@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10007)]
     public class MinValueAnnotation : AnnotationBase
     {
         // Variables                                                                                                                

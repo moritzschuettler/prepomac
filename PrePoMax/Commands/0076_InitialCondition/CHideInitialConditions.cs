@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10171)]
     class CHideInitialConditions : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _initialConditionNames;
+        [PmxKey(0)] private string[] _initialConditionNames;
 
 
         // Constructor                                                                                                              

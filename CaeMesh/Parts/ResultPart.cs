@@ -12,18 +12,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2145)]
     public class ResultPart : BasePart
     {
         public static bool ResultRepresentationAvailable = false;
 
 
         // Variables                                                                                                                
-        private bool _colorContours;
-        private bool _createdFromBasePart;
+        [PmxKey(0)] private bool _colorContours;
+        [PmxKey(1)] private bool _createdFromBasePart;
 
 
         // Properties                                                                                                               

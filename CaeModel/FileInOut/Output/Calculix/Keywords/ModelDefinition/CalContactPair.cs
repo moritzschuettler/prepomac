@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3064)]
     internal class CalContactPair : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ContactPair _contactPair;
+        [PmxKey(0)] private ContactPair _contactPair;
 
 
         // Properties                                                                                                               

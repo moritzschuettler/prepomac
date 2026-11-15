@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3182)]
     public enum PlasticHardening
     {
         Isotropic,
@@ -26,11 +27,12 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3183)]
     public class Plastic : MaterialProperty, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer[][] _stressStrainTemp;        //ISerializable
-        private PlasticHardening _hardening;                    //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _stressStrainTemp;        //ISerializable
+        [PmxKey(1)] private PlasticHardening _hardening;                    //ISerializable
 
 
         // Properties                                                                                                               

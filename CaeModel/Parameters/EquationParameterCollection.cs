@@ -19,11 +19,12 @@ using CaeMesh;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3193)]
     public class EquationParameterCollection
     {
         // Variables                                                                                                                
-        private OrderedDictionary<string, EquationParameter> _parameters;
-        private OrderedDictionary<string, EquationParameter> _overriddenParameters;
+        [PmxKey(0)] private OrderedDictionary<string, EquationParameter> _parameters;
+        [PmxKey(1)] private OrderedDictionary<string, EquationParameter> _overriddenParameters;
 
 
         // Properties                                                                                                               

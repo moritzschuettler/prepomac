@@ -22,11 +22,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10151)]
     class CReplaceSurfaceInteraction : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldSurfaceInteractionName;
-        private SurfaceInteraction _newSurfaceInteraction;
+        [PmxKey(0)] private string _oldSurfaceInteractionName;
+        [PmxKey(1)] private SurfaceInteraction _newSurfaceInteraction;
 
         // Constructor                                                                                                              
         public CReplaceSurfaceInteraction(string oldSurfaceInteractionName, SurfaceInteraction newSurfaceInteraction)

@@ -19,11 +19,12 @@ using CaeModel;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3077)]
     internal class CalTransform : CalculixKeyword
     {
         // Variables                                                                                                                
-        private CoordinateSystem _coordinateSystem;
-        private string _nodeSetName;
+        [PmxKey(0)] private CoordinateSystem _coordinateSystem;
+        [PmxKey(1)] private string _nodeSetName;
 
 
         // Properties                                                                                                               

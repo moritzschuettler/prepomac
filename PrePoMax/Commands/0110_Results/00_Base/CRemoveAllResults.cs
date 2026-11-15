@@ -22,6 +22,7 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10231)]
     class CRemoveAllResults : PostprocessCommand
     {
         // Variables                                                                                                                

@@ -18,21 +18,22 @@ using CaeGlobals;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2135)]
     public class BasePart : FeGroup, IComparable<BasePart>, IStoreAsNameInCommands
     {
         // Variables                                                                                                                
-        protected int _partId;
-        protected PartType _partType;
-        protected System.Drawing.Color _color;
-        protected Type[] _elementTypes;
-        protected int[] _nodeLabels;
-        protected bool _smoothShaded;
-        protected BoundingBox _boundingBox;
-        protected double[] _offset;
-        protected PartMassProperties _massProperties;
-        [OptionalField]
+        [PmxKey(0)] protected int _partId;
+        [PmxKey(1)] protected PartType _partType;
+        [PmxKey(2)] protected System.Drawing.Color _color;
+        [PmxKey(3)] protected Type[] _elementTypes;
+        [PmxKey(4)] protected int[] _nodeLabels;
+        [PmxKey(5)] protected bool _smoothShaded;
+        [PmxKey(6)] protected BoundingBox _boundingBox;
+        [PmxKey(7)] protected double[] _offset;
+        [PmxKey(8)] protected PartMassProperties _massProperties;
+        [PmxKey(9)] [OptionalField]
         protected GeometryMetadata _geometryMetadata;
-        [OptionalField]
+        [PmxKey(10)] [OptionalField]
         protected AffineTransform _geometryToMeshTransform;
         //
         [NonSerialized]

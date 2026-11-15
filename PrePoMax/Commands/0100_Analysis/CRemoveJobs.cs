@@ -22,10 +22,11 @@ using CaeJob;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10228)]
     class CRemoveJobs : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _jobNames;
+        [PmxKey(0)] private string[] _jobNames;
 
 
         // Constructor                                                                                                              

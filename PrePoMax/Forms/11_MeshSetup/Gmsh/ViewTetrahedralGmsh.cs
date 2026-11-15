@@ -20,10 +20,11 @@ using DynamicTypeDescriptor;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10337)]
     public class ViewTetrahedralGmsh : ViewGmshSetupItem
     {
         // Variables                                                                                                                
-        private TetrahedralGmsh _tetrahedronGmsh;
+        [PmxKey(0)] private TetrahedralGmsh _tetrahedronGmsh;
 
 
         // Properties                                                                                                               

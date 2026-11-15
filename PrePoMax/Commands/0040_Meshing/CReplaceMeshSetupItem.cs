@@ -22,11 +22,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10076)]
     class CReplaceMeshSetupItem : PreprocessCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private string _oldMeshSetupItemName;
-        private MeshSetupItem _meshSetupItem;
+        [PmxKey(0)] private string _oldMeshSetupItemName;
+        [PmxKey(1)] private MeshSetupItem _meshSetupItem;
 
 
         // Properties                                                                                                               

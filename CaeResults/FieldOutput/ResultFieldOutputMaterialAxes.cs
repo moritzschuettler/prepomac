@@ -8,17 +8,19 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace CaeResults
 {
     // A tensor field turned into the material axes of the shell elements: axes 1 and 2 of the material orientation, or
     // of the ply of a composite shell, and axis 3 along the shell normal
     [Serializable]
+    [PmxType(5028)]
     public class ResultFieldOutputMaterialAxes : ResultFieldOutput
     {
         // Variables
-        private string _fieldName;
-        private string[] _componentNames;
+        [PmxKey(0)] private string _fieldName;
+        [PmxKey(1)] private string[] _componentNames;
 
 
         // Properties

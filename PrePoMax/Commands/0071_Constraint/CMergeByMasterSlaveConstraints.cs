@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10143)]
     class CMergeByMasterSlaveConstraints : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _constraintNames;
+        [PmxKey(0)] private string[] _constraintNames;
 
 
         // Constructor                                                                                                              

@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3153)]
     internal class CalLoad : CalculixKeyword
     {
         // Variables                                                                                                                
-        private OpTypeEnum _opType;
+        [PmxKey(0)] private OpTypeEnum _opType;
 
 
         // Properties                                                                                                               

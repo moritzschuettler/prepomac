@@ -20,10 +20,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10450)]
     public abstract class ViewFieldOutput
     {
         // Variables                                                                                                                
-        protected DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] protected DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties                                                                                                               

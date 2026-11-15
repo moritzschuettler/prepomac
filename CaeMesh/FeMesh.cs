@@ -37,6 +37,7 @@ using static GmshCommon.Gmsh;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2077)]
     public class FeMesh : ISerializable
     {
         // Variables                                                                                                                
@@ -51,17 +52,17 @@ namespace CaeMesh
         [NonSerialized] private DisassemblyExplodedViewCache _disassemblyExplodedViewCache;
         [NonSerialized] private MeshVisibilityCache _visibilityCache;
         //
-        private MeshRepresentation _meshRepresentation;                             //ISerializable
-        private OrderedDictionary<string, MeshSetupItem> _meshSetupItems;           //ISerializable
-        private OrderedDictionary<string, BasePart> _parts;                         //ISerializable
-        private OrderedDictionary<string, FeNodeSet> _nodeSets;                     //ISerializable
-        private OrderedDictionary<string, FeElementSet> _elementSets;               //ISerializable
-        private OrderedDictionary<string, FeSurface> _surfaces;                     //ISerializable
-        private OrderedDictionary<string, FeReferencePoint> _referencePoints;       //ISerializable
-        private OrderedDictionary<string, CoordinateSystem> _coordinateSystems;     //ISerializable
-        private int _maxNodeId;                                                     //ISerializable
-        private int _maxElementId;                                                  //ISerializable
-        private BoundingBox _boundingBox;                                           //ISerializable
+        [PmxKey(0)] private MeshRepresentation _meshRepresentation;                             //ISerializable
+        [PmxKey(1)] private OrderedDictionary<string, MeshSetupItem> _meshSetupItems;           //ISerializable
+        [PmxKey(2)] private OrderedDictionary<string, BasePart> _parts;                         //ISerializable
+        [PmxKey(3)] private OrderedDictionary<string, FeNodeSet> _nodeSets;                     //ISerializable
+        [PmxKey(4)] private OrderedDictionary<string, FeElementSet> _elementSets;               //ISerializable
+        [PmxKey(5)] private OrderedDictionary<string, FeSurface> _surfaces;                     //ISerializable
+        [PmxKey(6)] private OrderedDictionary<string, FeReferencePoint> _referencePoints;       //ISerializable
+        [PmxKey(7)] private OrderedDictionary<string, CoordinateSystem> _coordinateSystems;     //ISerializable
+        [PmxKey(8)] private int _maxNodeId;                                                     //ISerializable
+        [PmxKey(9)] private int _maxElementId;                                                  //ISerializable
+        [PmxKey(10)] private BoundingBox _boundingBox;                                           //ISerializable
 
 
         // Properties                                                                                                               

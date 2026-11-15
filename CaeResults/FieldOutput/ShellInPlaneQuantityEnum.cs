@@ -9,12 +9,14 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeResults
 {
     // The in-plane state of a ply: its stresses as the solver computes them in 3D, its plane stresses the elastic
     // constants of the ply give its in-plane strains, as classical lamination theory computes them, or its in-plane strains
     [Serializable]
+    [PmxType(5030)]
     public enum ShellInPlaneQuantityEnum
     {
         [StandardValue("Stress", DisplayName = "Stress (3D as solved)")]

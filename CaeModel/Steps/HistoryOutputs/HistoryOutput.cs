@@ -21,6 +21,7 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3247)]
     public enum TotalsTypeEnum
     {
         [StandardValue("Yes", Description = "Sum of external forces is printed in addition to the individual node values.")]
@@ -32,15 +33,16 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3248)]
     public abstract class HistoryOutput : NamedClass, IMultiRegion, ISerializable
     {
         // Variables                                                                                                                
-        private RegionTypeEnum _regionType;         //ISerializable
-        private string _regionName;                 //ISerializable
-        private TotalsTypeEnum _totals;             //ISerializable
-        private int[] _creationIds;                 //ISerializable
-        private Selection _creationData;            //ISerializable
-        private bool _global;                       //ISerializable
+        [PmxKey(0)] private RegionTypeEnum _regionType;         //ISerializable
+        [PmxKey(1)] private string _regionName;                 //ISerializable
+        [PmxKey(2)] private TotalsTypeEnum _totals;             //ISerializable
+        [PmxKey(3)] private int[] _creationIds;                 //ISerializable
+        [PmxKey(4)] private Selection _creationData;            //ISerializable
+        [PmxKey(5)] private bool _global;                       //ISerializable
 
 
         // Properties                                                                                                               

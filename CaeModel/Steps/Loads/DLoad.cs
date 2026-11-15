@@ -21,13 +21,14 @@ using System.Drawing;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3259)]
     public class DLoad : VariablePressure, IDistribution, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private int _elementId;                     //ISerializable
-        private FeFaceName _elementFaceName;        //ISerializable
-        private EquationContainer _magnitude;       //ISerializable
-        private string _distributionName;           //ISerializable
+        [PmxKey(0)] private int _elementId;                     //ISerializable
+        [PmxKey(1)] private FeFaceName _elementFaceName;        //ISerializable
+        [PmxKey(2)] private EquationContainer _magnitude;       //ISerializable
+        [PmxKey(3)] private string _distributionName;           //ISerializable
 
 
         // Properties                                                                                                               

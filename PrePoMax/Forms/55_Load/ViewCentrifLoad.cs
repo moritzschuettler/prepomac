@@ -21,11 +21,12 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10461)]
     public class ViewCentrifLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private CentrifLoad _cenLoad;
-        private ItemSetData _centerPointItemSetData;
+        [PmxKey(0)] private CentrifLoad _cenLoad;
+        [PmxKey(1)] private ItemSetData _centerPointItemSetData;
 
 
         // Properties                                                                                                               

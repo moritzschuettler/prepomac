@@ -20,19 +20,20 @@ using System.Threading.Tasks;
 namespace CaeGlobals
 {
     [Serializable]
+    [PmxType(1025)]
     public class Selection : ISerializable
     {
         // Variables                                                                                                                
-        private List<SelectionNode> _nodes;                 //ISerializable
-        private vtkSelectItem _selectItem;                  //ISerializable
-        private int _currentView;                           //ISerializable
-        private int _maxNumberOfGeometryIds;                //ISerializable
-        private int _maxNumberOfItemIds;                    //ISerializable
-        private bool _limitSelectionToFirstPart;            //ISerializable
-        private bool _limitSelectionToFirstGeometryType;    //ISerializable
-        private bool _limitSelectionToFirstMesherType;      //ISerializable     // netgen or mmg
-        private bool _limitSelectionToShellEdges;           //ISerializable
-        private bool _enableShellEdgeFaceSelection;         //ISerializable
+        [PmxKey(0)] private List<SelectionNode> _nodes;                 //ISerializable
+        [PmxKey(1)] private vtkSelectItem _selectItem;                  //ISerializable
+        [PmxKey(2)] private int _currentView;                           //ISerializable
+        [PmxKey(3)] private int _maxNumberOfGeometryIds;                //ISerializable
+        [PmxKey(4)] private int _maxNumberOfItemIds;                    //ISerializable
+        [PmxKey(5)] private bool _limitSelectionToFirstPart;            //ISerializable
+        [PmxKey(6)] private bool _limitSelectionToFirstGeometryType;    //ISerializable
+        [PmxKey(7)] private bool _limitSelectionToFirstMesherType;      //ISerializable     // netgen or mmg
+        [PmxKey(8)] private bool _limitSelectionToShellEdges;           //ISerializable
+        [PmxKey(9)] private bool _enableShellEdgeFaceSelection;         //ISerializable
         
 
         // Temporary storage for speed optimization: keep current ids;

@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10110)]
     class CDuplicateSurfaces : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _surfaceNames;
+        [PmxKey(0)] private string[] _surfaceNames;
 
 
         // Constructor                                                                                                              

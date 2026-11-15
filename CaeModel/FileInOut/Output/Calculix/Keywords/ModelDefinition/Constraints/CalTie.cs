@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3084)]
     internal class CalTie : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Tie _tie;
+        [PmxKey(0)] private Tie _tie;
 
 
         // Properties                                                                                                               

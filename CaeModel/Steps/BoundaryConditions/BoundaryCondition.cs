@@ -20,19 +20,20 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3207)]
     public class BoundaryCondition : NamedClass, IMultiRegion, IContainsEquations, ISerializable
     {
         // Variables                                                                                                                
-        private string _regionName;                             //ISerializable
-        private RegionTypeEnum _regionType;                     //ISerializable
-        private int[] _creationIds;                             //ISerializable
-        private Selection _creationData;                        //ISerializable
-        protected bool _twoD;                                   //ISerializable
-        protected string _amplitudeName;                        //ISerializable
-        protected string _coordinateSystemName;                 //ISerializable
-        protected bool _complex;                                //ISerializable
-        protected EquationContainer _phaseDeg;                  //ISerializable
-        protected Color _color;                                 //ISerializable
+        [PmxKey(0)] private string _regionName;                             //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;                     //ISerializable
+        [PmxKey(2)] private int[] _creationIds;                             //ISerializable
+        [PmxKey(3)] private Selection _creationData;                        //ISerializable
+        [PmxKey(4)] protected bool _twoD;                                   //ISerializable
+        [PmxKey(5)] protected string _amplitudeName;                        //ISerializable
+        [PmxKey(6)] protected string _coordinateSystemName;                 //ISerializable
+        [PmxKey(7)] protected bool _complex;                                //ISerializable
+        [PmxKey(8)] protected EquationContainer _phaseDeg;                  //ISerializable
+        [PmxKey(9)] protected Color _color;                                 //ISerializable
 
 
         // Properties                                                                                                               

@@ -19,13 +19,14 @@ using System.Threading.Tasks;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2096)]
     public class ThickenShellMesh : MeshSetupItem, ISerializable
     {
         // Variables                                                                                                                
-        private double _thickness;          //ISerializable
-        private int _numberOfLayers;        //ISerializable
-        private double _offset;             //ISerializable
-        private bool _keepModelEdges;       //ISerializable
+        [PmxKey(0)] private double _thickness;          //ISerializable
+        [PmxKey(1)] private int _numberOfLayers;        //ISerializable
+        [PmxKey(2)] private double _offset;             //ISerializable
+        [PmxKey(3)] private bool _keepModelEdges;       //ISerializable
 
 
         // Properties                                                                                                               

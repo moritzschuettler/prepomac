@@ -17,12 +17,13 @@ using CaeGlobals;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2075)]
     public class FeElementSet : FeGroup
     {
         // Variables                                                                                                                
-        private Selection _creationData;
-        private int[] _creationIds;
-        private bool _createdFromParts;
+        [PmxKey(0)] private Selection _creationData;
+        [PmxKey(1)] private int[] _creationIds;
+        [PmxKey(2)] private bool _createdFromParts;
 
 
         // Properties                                                                                                               

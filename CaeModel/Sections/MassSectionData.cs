@@ -18,10 +18,11 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3200)]
     public class MassSectionData : SectionData, ISerializable
     {
         // Variables                                                                                                                
-        private double _mass;               //ISerializable
+        [PmxKey(0)] private double _mass;               //ISerializable
 
 
         // Properties                                                                                                               

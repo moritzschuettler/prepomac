@@ -19,16 +19,17 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3211)]
     public class SubmodelBC : BoundaryCondition, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer _stepNumber;      //ISerializable
-        private bool _u1;                           //ISerializable
-        private bool _u2;                           //ISerializable
-        private bool _u3;                           //ISerializable
-        private bool _ur1;                          //ISerializable
-        private bool _ur2;                          //ISerializable
-        private bool _ur3;                          //ISerializable
+        [PmxKey(0)] private EquationContainer _stepNumber;      //ISerializable
+        [PmxKey(1)] private bool _u1;                           //ISerializable
+        [PmxKey(2)] private bool _u2;                           //ISerializable
+        [PmxKey(3)] private bool _u3;                           //ISerializable
+        [PmxKey(4)] private bool _ur1;                          //ISerializable
+        [PmxKey(5)] private bool _ur2;                          //ISerializable
+        [PmxKey(6)] private bool _ur3;                          //ISerializable
 
 
         // Properties                                                                                                               

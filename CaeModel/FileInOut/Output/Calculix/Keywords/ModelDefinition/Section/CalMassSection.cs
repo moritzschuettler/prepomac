@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3101)]
     internal class CalMassSection : CalculixKeyword
     {
         // Variables                                                                                                                
-        private MassSectionData _massSectionData;
+        [PmxKey(0)] private MassSectionData _massSectionData;
 
 
         // Properties                                                                                                               

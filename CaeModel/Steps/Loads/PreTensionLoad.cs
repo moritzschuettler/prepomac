@@ -20,6 +20,7 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3266)]
     public enum PreTensionLoadType
     {
         [StandardValue("Force", Description = "Pre-tension by force.")]
@@ -29,18 +30,19 @@ namespace CaeModel
     }
     //
     [Serializable]
+    [PmxType(3267)]
     public class PreTensionLoad : Load, ISerializable
     {
         // Variables                                                                                                                
-        private string _surfaceName;                    //ISerializable
-        private RegionTypeEnum _regionType;             //ISerializable
-        private bool _autoComputeDirection;             //ISerializable
-        private EquationContainer _x;                   //ISerializable
-        private EquationContainer _y;                   //ISerializable
-        private EquationContainer _z;                   //ISerializable
-        private PreTensionLoadType _type;               //ISerializable
-        private EquationContainer _forceMagnitude;      //ISerializable
-        private EquationContainer _dispMagnitude;       //ISerializable
+        [PmxKey(0)] private string _surfaceName;                    //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;             //ISerializable
+        [PmxKey(2)] private bool _autoComputeDirection;             //ISerializable
+        [PmxKey(3)] private EquationContainer _x;                   //ISerializable
+        [PmxKey(4)] private EquationContainer _y;                   //ISerializable
+        [PmxKey(5)] private EquationContainer _z;                   //ISerializable
+        [PmxKey(6)] private PreTensionLoadType _type;               //ISerializable
+        [PmxKey(7)] private EquationContainer _forceMagnitude;      //ISerializable
+        [PmxKey(8)] private EquationContainer _dispMagnitude;       //ISerializable
 
 
         // Properties                                                                                                               

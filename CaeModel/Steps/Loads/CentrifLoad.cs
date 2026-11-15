@@ -19,19 +19,20 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3255)]
     public class CentrifLoad : Load, ISerializable
     {
         // Variables                                                                                                                
-        private string _regionName;                         //ISerializable
-        private RegionTypeEnum _regionType;                 //ISerializable
-        private EquationContainer _x;                       //ISerializable
-        private EquationContainer _y;                       //ISerializable
-        private EquationContainer _z;                       //ISerializable
-        private EquationContainer _n1;                      //ISerializable
-        private EquationContainer _n2;                      //ISerializable
-        private EquationContainer _n3;                      //ISerializable
-        private EquationContainer _rotationalSpeed;         //ISerializable
-        private bool _axisymmetric;                         //ISerializable
+        [PmxKey(0)] private string _regionName;                         //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;                 //ISerializable
+        [PmxKey(2)] private EquationContainer _x;                       //ISerializable
+        [PmxKey(3)] private EquationContainer _y;                       //ISerializable
+        [PmxKey(4)] private EquationContainer _z;                       //ISerializable
+        [PmxKey(5)] private EquationContainer _n1;                      //ISerializable
+        [PmxKey(6)] private EquationContainer _n2;                      //ISerializable
+        [PmxKey(7)] private EquationContainer _n3;                      //ISerializable
+        [PmxKey(8)] private EquationContainer _rotationalSpeed;         //ISerializable
+        [PmxKey(9)] private bool _axisymmetric;                         //ISerializable
 
 
         // Properties                                                                                                               

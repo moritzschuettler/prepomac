@@ -18,10 +18,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3119)]
     internal class CalFrequencyStep : CalStep
     {
         // Variables                                                                                                                
-        private FrequencyStep _step;
+        [PmxKey(0)] private FrequencyStep _step;
 
 
         // Properties                                                                                                               

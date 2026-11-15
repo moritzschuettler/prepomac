@@ -9,10 +9,12 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2114)]
     public enum SweepSourceTypeEnum
     {
         [StandardValue("SelectedSurfaces", DisplayName = "Selected surfaces")]

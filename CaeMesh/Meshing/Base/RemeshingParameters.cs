@@ -18,13 +18,14 @@ using CaeGlobals;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2094)]
     public class RemeshingParameters : MeshingParameters, IMultiRegion, ISerializable
     {
         // Variables                                                                                                                
-        private RegionTypeEnum _regionType;         //ISerializable
-        private string _regionName;                 //ISerializable
-        private double _hausdorff;                  //ISerializable
-        private bool _keepModelEdges;               //ISerializable
+        [PmxKey(0)] private RegionTypeEnum _regionType;         //ISerializable
+        [PmxKey(1)] private string _regionName;                 //ISerializable
+        [PmxKey(2)] private double _hausdorff;                  //ISerializable
+        [PmxKey(3)] private bool _keepModelEdges;               //ISerializable
 
 
         // Properties                                                                                                               

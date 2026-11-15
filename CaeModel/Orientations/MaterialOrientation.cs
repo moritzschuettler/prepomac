@@ -15,18 +15,19 @@ using CaeMesh;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3191)]
     public class MaterialOrientation : NamedClass, IMultiRegion, IContainsEquations, ISerializable
     {
         // Variables                                                                                                                
         public const int DefaultSymbolDensity = 50;
-        private string _regionName;                                 //ISerializable
-        private RegionTypeEnum _regionType;                         //ISerializable
-        private int[] _creationIds;                                 //ISerializable
-        private Selection _creationData;                            //ISerializable
-        private string _coordinateSystemName;                       //ISerializable
-        private MaterialOrientationAxisEnum _referenceAxis;         //ISerializable
-        private EquationContainer _rotationAngle;                   //ISerializable
-        private int _symbolDensity;                                 //ISerializable
+        [PmxKey(0)] private string _regionName;                                 //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;                         //ISerializable
+        [PmxKey(2)] private int[] _creationIds;                                 //ISerializable
+        [PmxKey(3)] private Selection _creationData;                            //ISerializable
+        [PmxKey(4)] private string _coordinateSystemName;                       //ISerializable
+        [PmxKey(5)] private MaterialOrientationAxisEnum _referenceAxis;         //ISerializable
+        [PmxKey(6)] private EquationContainer _rotationAngle;                   //ISerializable
+        [PmxKey(7)] private int _symbolDensity;                                 //ISerializable
 
 
         // Properties                                                                                                               

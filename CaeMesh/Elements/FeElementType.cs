@@ -13,11 +13,13 @@ using DynamicTypeDescriptor;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     // 0D                                                                                                                           
     [Serializable]
+    [PmxType(2029)]
     public enum FeElementType0D
     {
         [StandardValue("None", Visible = false)]
@@ -27,6 +29,7 @@ namespace CaeMesh
 
     // 1D                                                                                                                           
     [Serializable]
+    [PmxType(2030)]
     public enum FeElementTypeGap
     {
         [StandardValue("None", Visible = false)]
@@ -35,6 +38,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2031)]
     public enum FeElementTypeSpring
     {
         [StandardValue("None", Visible = false)]
@@ -45,6 +49,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2032)]
     public enum FeElementTypeLinearBeam
     {
         [StandardValue("None", Visible = false)]
@@ -57,6 +62,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2033)]
     public enum FeElementTypeParabolicBeam
     {
         [StandardValue("None", Visible = false)]
@@ -67,6 +73,7 @@ namespace CaeMesh
     }
     // 2D                                                                                                                           
     [Serializable]
+    [PmxType(2034)]
     public enum FeElementTypeLinearTria
     {
         [StandardValue("None", Visible = false)]
@@ -79,6 +86,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2035)]
     public enum FeElementTypeParabolicTria
     {
         [StandardValue("None", Visible = false)]
@@ -91,6 +99,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2036)]
     public enum FeElementTypeLinearQuad
     {
         [StandardValue("None", Visible = false)]
@@ -108,6 +117,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2037)]
     public enum FeElementTypeParabolicQuad
     {
         [StandardValue("None", Visible = false)]
@@ -125,6 +135,7 @@ namespace CaeMesh
     }
     // 3D                                                                                                                           
     [Serializable]
+    [PmxType(2038)]
     public enum FeElementTypeLinearTetra
     {
         [StandardValue("None", Visible = false)]
@@ -133,6 +144,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2039)]
     public enum FeElementTypeParabolicTetra
     {
         [StandardValue("None", Visible = false)]
@@ -142,6 +154,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2040)]
     public enum FeElementTypeLinearPyramid
     {
         [StandardValue("None", Visible = false)]
@@ -150,6 +163,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2041)]
     public enum FeElementTypeParabolicPyramid
     {
         [StandardValue("None", Visible = false)]
@@ -158,6 +172,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2042)]
     public enum FeElementTypeLinearWedge
     {
         [StandardValue("None", Visible = false)]
@@ -166,6 +181,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2043)]
     public enum FeElementTypeParabolicWedge
     {
         [StandardValue("None", Visible = false)]
@@ -174,6 +190,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2044)]
     public enum FeElementTypeLinearHexa
     {
         [StandardValue("None", Visible = false)]
@@ -184,6 +201,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2045)]
     public enum FeElementTypeParabolicHexa
     {
         [StandardValue("None", Visible = false)]

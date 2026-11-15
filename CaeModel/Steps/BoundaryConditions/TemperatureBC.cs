@@ -20,12 +20,13 @@ using CaeResults;
 namespace CaeModel
 {    
     [Serializable]
+    [PmxType(3212)]
     public class TemperatureBC : BoundaryCondition, IDistribution, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private int _nodeId;                            //ISerializable
-        private EquationContainer _temperature;         //ISerializable
-        private string _distributionName;               //ISerializable
+        [PmxKey(0)] private int _nodeId;                            //ISerializable
+        [PmxKey(1)] private EquationContainer _temperature;         //ISerializable
+        [PmxKey(2)] private string _distributionName;               //ISerializable
 
 
         // Properties                                                                                                               

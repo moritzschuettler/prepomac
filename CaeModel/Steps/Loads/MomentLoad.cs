@@ -19,16 +19,17 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3265)]
     public class MomentLoad : Load, ISerializable
     {
         // Variables                                                                                                                
-        private string _regionName;                 //ISerializable
-        private RegionTypeEnum _regionType;         //ISerializable
-        private int _nodeId;                        //ISerializable
-        private EquationContainer _m1;              //ISerializable
-        private EquationContainer _m2;              //ISerializable
-        private EquationContainer _m3;              //ISerializable
-        private EquationContainer _magnitude;       //ISerializable
+        [PmxKey(0)] private string _regionName;                 //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;         //ISerializable
+        [PmxKey(2)] private int _nodeId;                        //ISerializable
+        [PmxKey(3)] private EquationContainer _m1;              //ISerializable
+        [PmxKey(4)] private EquationContainer _m2;              //ISerializable
+        [PmxKey(5)] private EquationContainer _m3;              //ISerializable
+        [PmxKey(6)] private EquationContainer _magnitude;       //ISerializable
 
 
         // Properties                                                                                                               

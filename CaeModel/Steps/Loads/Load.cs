@@ -20,22 +20,23 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3264)]
     public abstract class Load : NamedClass, IMultiRegion, IContainsEquations, ISerializable
     {
         // Variables                                                                                                                
-        private int[] _creationIds;                                 //ISerializable
-        private Selection _creationData;                            //ISerializable
-        protected bool _twoD;                                       //ISerializable
-        protected string _amplitudeName;                            //ISerializable
-        protected string _coordinateSystemName;                     //ISerializable
-        protected bool _complex;                                    //ISerializable
-        protected EquationContainer _phaseDeg;                      //ISerializable
-        protected Color _color;                                     //ISerializable
+        [PmxKey(0)] private int[] _creationIds;                                 //ISerializable
+        [PmxKey(1)] private Selection _creationData;                            //ISerializable
+        [PmxKey(2)] protected bool _twoD;                                       //ISerializable
+        [PmxKey(3)] protected string _amplitudeName;                            //ISerializable
+        [PmxKey(4)] protected string _coordinateSystemName;                     //ISerializable
+        [PmxKey(5)] protected bool _complex;                                    //ISerializable
+        [PmxKey(6)] protected EquationContainer _phaseDeg;                      //ISerializable
+        [PmxKey(7)] protected Color _color;                                     //ISerializable
 
 
         // Properties                                                                                                               
-        public virtual string RegionName { get; set; }
-        public virtual RegionTypeEnum RegionType { get; set; }
+        [field: PmxKey(8)] public virtual string RegionName { get; set; }
+        [field: PmxKey(9)] public virtual RegionTypeEnum RegionType { get; set; }
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
         public bool TwoD { get { return _twoD; } }

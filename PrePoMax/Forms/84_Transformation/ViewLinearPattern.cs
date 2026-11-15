@@ -22,12 +22,13 @@ using CaeResults;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10516)]
     public class ViewLinearPattern : ViewTransformation
     {
         // Variables                                                                                                                      
-        private LinearPattern _linearPattern;
-        private PointSelectionMethodEnum _startPointSelectionMethod;
-        private PointSelectionMethodEnum _endPointSelectionMethod;
+        [PmxKey(0)] private LinearPattern _linearPattern;
+        [PmxKey(1)] private PointSelectionMethodEnum _startPointSelectionMethod;
+        [PmxKey(2)] private PointSelectionMethodEnum _endPointSelectionMethod;
 
 
         // Properties                                                                                                               

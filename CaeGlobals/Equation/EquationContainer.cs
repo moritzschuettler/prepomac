@@ -22,15 +22,16 @@ using UnitsNet;
 namespace CaeGlobals
 {
     [Serializable]
+    [PmxType(1019)]
     public class EquationContainer
     {
         // Variables                                                                                                                
         private static readonly ConcurrentDictionary<Type, TypeConverter> _stringDoubleConverters =
             new ConcurrentDictionary<Type, TypeConverter>();
-        private Type _stringDoubleConverterType;
-        private string _equation;
-        private bool _constant;
-        private double _constantValue;
+        [PmxKey(0)] private Type _stringDoubleConverterType;
+        [PmxKey(1)] private string _equation;
+        [PmxKey(2)] private bool _constant;
+        [PmxKey(3)] private double _constantValue;
         [NonSerialized] private Func<double, double> _checkValue;
         [NonSerialized] private Action _equationChanged;
 

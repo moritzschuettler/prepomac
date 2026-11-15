@@ -19,6 +19,7 @@ using CaeMesh;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3181)]
     public abstract class MaterialProperty : ISerializable, IContainsEquations
     {
         // Variables                                                                                                                

@@ -39,8 +39,17 @@
     <Reference Include="ExtendedNumerics.BigDecimal, Version=2025.1001.2.129, Culture=neutral, PublicKeyToken=65f1315a45ad8949, processorArchitecture=MSIL">
       <HintPath>..\packages\ExtendedNumerics.BigDecimal.2025.1001.2.129\lib\net48\ExtendedNumerics.BigDecimal.dll</HintPath>
     </Reference>
+    <Reference Include="MessagePack, Version=3.1.12.0, Culture=neutral, PublicKeyToken=b4a0369545f0a1be, processorArchitecture=MSIL">
+      <HintPath>..\packages\MessagePack.3.1.12\lib\net472\MessagePack.dll</HintPath>
+    </Reference>
+    <Reference Include="MessagePack.Annotations, Version=3.1.12.0, Culture=neutral, PublicKeyToken=b4a0369545f0a1be, processorArchitecture=MSIL">
+      <HintPath>..\packages\MessagePack.Annotations.3.1.12\lib\netstandard2.0\MessagePack.Annotations.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.8.0.0\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.NET.StringTools, Version=1.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.NET.StringTools.17.11.4\lib\net472\Microsoft.NET.StringTools.dll</HintPath>
     </Reference>
     <Reference Include="NCalc, Version=1.3.8.0, Culture=neutral, PublicKeyToken=973cde3f1cafed03, processorArchitecture=MSIL">
       <HintPath>..\packages\ncalc.1.3.8\lib\NCalc.dll</HintPath>
@@ -105,8 +114,48 @@
     <Compile Include="CommonClasses\OrderedDictionaryItemLayout.cs" />
     <Compile Include="CommonClasses\SortedIntKey.cs" />
     <Compile Include="Serialization\BinaryObjectSerializer.cs" />
+    <Compile Include="Serialization\DualObjectSerializer.cs" />
     <Compile Include="Serialization\IObjectSerializer.cs" />
+    <Compile Include="Serialization\IPmxFormatter.cs" />
     <Compile Include="Serialization\ObjectSerializer.cs" />
+    <Compile Include="Serialization\PmxArrayFormatter.cs" />
+    <Compile Include="Serialization\PmxBufferWriter.cs" />
+    <Compile Include="Serialization\PmxClassPlan.cs" />
+    <Compile Include="Serialization\PmxComparerCodec.cs" />
+    <Compile Include="Serialization\PmxDelegateFormatter.cs" />
+    <Compile Include="Serialization\PmxDictionaryFormatter.cs" />
+    <Compile Include="Serialization\PmxDrawingFormatter.cs" />
+    <Compile Include="Serialization\PmxEnumFormatter.cs" />
+    <Compile Include="Serialization\PmxFileInfoFormatter.cs" />
+    <Compile Include="Serialization\PmxFormatter.cs" />
+    <Compile Include="Serialization\PmxFormatterCache.cs" />
+    <Compile Include="Serialization\PmxFormatterResolver.cs" />
+    <Compile Include="Serialization\PmxGraphComparer.cs" />
+    <Compile Include="Serialization\PmxHashSetFormatter.cs" />
+    <Compile Include="Serialization\PmxKeyAttribute.cs" />
+    <Compile Include="Serialization\PmxKeyValuePairFormatter.cs" />
+    <Compile Include="Serialization\PmxLinkedListFormatter.cs" />
+    <Compile Include="Serialization\PmxListFormatter.cs" />
+    <Compile Include="Serialization\PmxMember.cs" />
+    <Compile Include="Serialization\PmxMultiArrayFormatter.cs" />
+    <Compile Include="Serialization\PmxNullableFormatter.cs" />
+    <Compile Include="Serialization\PmxObjectFormatter.cs" />
+    <Compile Include="Serialization\PmxObjectSerializer.cs" />
+    <Compile Include="Serialization\PmxPrimitiveFormatter.cs" />
+    <Compile Include="Serialization\PmxQueueFormatter.cs" />
+    <Compile Include="Serialization\PmxReadContext.cs" />
+    <Compile Include="Serialization\PmxReferenceComparer.cs" />
+    <Compile Include="Serialization\PmxSortedDictionaryFormatter.cs" />
+    <Compile Include="Serialization\PmxStackFormatter.cs" />
+    <Compile Include="Serialization\PmxStorageException.cs" />
+    <Compile Include="Serialization\PmxStructFormatter.cs" />
+    <Compile Include="Serialization\PmxTypeAttribute.cs" />
+    <Compile Include="Serialization\PmxTypeCodec.cs" />
+    <Compile Include="Serialization\PmxTypeFormatter.cs" />
+    <Compile Include="Serialization\PmxTypeRegistry.cs" />
+    <Compile Include="Serialization\PmxTypedMember.cs" />
+    <Compile Include="Serialization\PmxUnsupportedFormatter.cs" />
+    <Compile Include="Serialization\PmxWriteContext.cs" />
     <Compile Include="Comparers\CompareDoubleArray.cs" />
     <Compile Include="Comparers\CompareIntArray.cs" />
     <Compile Include="DynamicTypeDescriptor\MultiChoiceContainer.cs" />

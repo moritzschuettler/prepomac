@@ -21,17 +21,18 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3272)]
     public class ImportedPressure : VariablePressure, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private string _fileName;                       //ISerializable
-        private string _pressureTime;                   //ISerializable
-        private string _pressureVariableName;           //ISerializable
-        private InterpolatorEnum _interpolatorType;     //ISerializable
-        private EquationContainer _magnitudeFactor;     //ISerializable
-        private EquationContainer _geomScaleFactor;     //ISerializable
+        [PmxKey(0)] private string _fileName;                       //ISerializable
+        [PmxKey(1)] private string _pressureTime;                   //ISerializable
+        [PmxKey(2)] private string _pressureVariableName;           //ISerializable
+        [PmxKey(3)] private InterpolatorEnum _interpolatorType;     //ISerializable
+        [PmxKey(4)] private EquationContainer _magnitudeFactor;     //ISerializable
+        [PmxKey(5)] private EquationContainer _geomScaleFactor;     //ISerializable
         //
-        private FileInfo _oldFileInfo;                  //ISerializable
+        [PmxKey(6)] private FileInfo _oldFileInfo;                  //ISerializable
         //
         [NonSerialized]
         private ResultsInterpolator _interpolator;

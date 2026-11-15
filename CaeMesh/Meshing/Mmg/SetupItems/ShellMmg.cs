@@ -9,19 +9,21 @@
 
 using System;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2123)]
     public class ShellMmg : MeshSetupItem, ISerializable
     {
         // Variables
         public static readonly double DefaultRelativeHausdorff = 0.01;
         //
-        private bool _relativeSize;                 //ISerializable
-        private double _relativeHausdorff;          //ISerializable
-        private double _hausdorff;                  //ISerializable
-        private bool _keepModelEdges;               //ISerializable
+        [PmxKey(0)] private bool _relativeSize;                 //ISerializable
+        [PmxKey(1)] private double _relativeHausdorff;          //ISerializable
+        [PmxKey(2)] private double _hausdorff;                  //ISerializable
+        [PmxKey(3)] private bool _keepModelEdges;               //ISerializable
 
 
         // Properties

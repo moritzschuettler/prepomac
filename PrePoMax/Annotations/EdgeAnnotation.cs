@@ -18,10 +18,11 @@ using System.Threading.Tasks;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10002)]
     public class EdgeAnnotation : AnnotationBase
     {
         // Variables                                                                                                                
-        private int _geometryId;
+        [PmxKey(0)] private int _geometryId;
 
 
         // Properties                                                                                                               

@@ -20,12 +20,13 @@ using System.Threading.Tasks;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5058)]
     public class ResultsCollection
     {
         // Variables                                                                                                                
-        private FeResults _currentResult;
-        private OrderedDictionary<string, FeResults> _results;
-        
+        [PmxKey(0)] private FeResults _currentResult;
+        [PmxKey(1)] private OrderedDictionary<string, FeResults> _results;
+
 
         // Properties                                                                                                               
         public int Count { get { return _results.Count; } }

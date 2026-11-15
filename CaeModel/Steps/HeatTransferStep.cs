@@ -13,16 +13,18 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3242)]
     public class HeatTransferStep : StaticStep, ISerializable
     {
         // Variables                                                                                                                
-        private bool _steadyState;                  //ISerializable
-        private double _deltmx;                     //ISerializable
+        [PmxKey(0)] private bool _steadyState;                  //ISerializable
+        [PmxKey(1)] private double _deltmx;                     //ISerializable
 
 
         // Properties                                                                                                               

@@ -20,6 +20,7 @@ using DynamicTypeDescriptor;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3030)]
     public enum DistributionTypeEnum
     {
         [StandardValue("Scalar", DisplayName = "Scalar")]
@@ -28,11 +29,12 @@ namespace CaeModel
         Vector
     }
     [Serializable]
+    [PmxType(3031)]
     public abstract class Distribution : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        protected DistributionTypeEnum _distributionType;           //ISerializable
-        protected string _coordinateSystemName;                     //ISerializable
+        [PmxKey(0)] protected DistributionTypeEnum _distributionType;           //ISerializable
+        [PmxKey(1)] protected string _coordinateSystemName;                     //ISerializable
         public const string DefaultDistributionName = "Constant";
 
 

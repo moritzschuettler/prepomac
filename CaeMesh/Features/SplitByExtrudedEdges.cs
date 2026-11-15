@@ -18,16 +18,17 @@ using System.Threading.Tasks;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2070)]
     public class SplitByExtrudedEdges : GeometryFeature
     {
         // Variables
-        private SplitExtrusionDirectionTypeEnum _directionType;     //ISerializable
-        private double[] _direction;                                //ISerializable
-        private SplitExtrusionLengthTypeEnum _lengthType;           //ISerializable
-        private double _length;                                     //ISerializable
-        private bool _bothDirections;                               //ISerializable
-        private int[] _directionIds;                                //ISerializable
-        private Selection _directionData;                           //ISerializable
+        [PmxKey(0)] private SplitExtrusionDirectionTypeEnum _directionType;     //ISerializable
+        [PmxKey(1)] private double[] _direction;                                //ISerializable
+        [PmxKey(2)] private SplitExtrusionLengthTypeEnum _lengthType;           //ISerializable
+        [PmxKey(3)] private double _length;                                     //ISerializable
+        [PmxKey(4)] private bool _bothDirections;                               //ISerializable
+        [PmxKey(5)] private int[] _directionIds;                                //ISerializable
+        [PmxKey(6)] private Selection _directionData;                           //ISerializable
 
 
         // Properties

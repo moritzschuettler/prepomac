@@ -20,10 +20,11 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3019)]
     public class SurfaceSpring : SpringConstraint, ISerializable
     {
         // Variables                                                                                                                
-        private bool _stiffnessPerArea;         //ISerializable
+        [PmxKey(0)] private bool _stiffnessPerArea;         //ISerializable
 
 
         // Properties                                                                                                               

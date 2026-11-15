@@ -20,15 +20,16 @@ using System.Drawing;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3204)]
     public abstract class SectionData : NamedClass, IMultiRegion, ISerializable
     {
         // Variables                                                                                                                
-        private string _materialName;               //ISerializable
-        private string _regionName;                 //ISerializable
-        private RegionTypeEnum _regionType;         //ISerializable
-        private int[] _creationIds;                 //ISerializable
-        private Selection _creationData;            //ISerializable
-        private double _thickness;                  //ISerializable
+        [PmxKey(0)] private string _materialName;               //ISerializable
+        [PmxKey(1)] private string _regionName;                 //ISerializable
+        [PmxKey(2)] private RegionTypeEnum _regionType;         //ISerializable
+        [PmxKey(3)] private int[] _creationIds;                 //ISerializable
+        [PmxKey(4)] private Selection _creationData;            //ISerializable
+        [PmxKey(5)] private double _thickness;                  //ISerializable
 
 
         // Properties                                                                                                               

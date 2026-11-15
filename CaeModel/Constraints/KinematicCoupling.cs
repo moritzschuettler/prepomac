@@ -16,12 +16,13 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3014)]
     public class KinematicCoupling : Coupling, ISerializable // ISerializable must be here
     {
         // Variables                                                                                                                
-        private bool _u1;                           //ISerializable
-        private bool _u2;                           //ISerializable
-        private bool _u3;                           //ISerializable
+        [PmxKey(0)] private bool _u1;                           //ISerializable
+        [PmxKey(1)] private bool _u2;                           //ISerializable
+        [PmxKey(2)] private bool _u3;                           //ISerializable
 
 
         // Properties                                                                                                               

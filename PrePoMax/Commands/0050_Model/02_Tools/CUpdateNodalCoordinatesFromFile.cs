@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10083)]
     class CUpdateNodalCoordinatesFromFile : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _fileName;
+        [PmxKey(0)] private string _fileName;
 
 
         // Constructor                                                                                                              

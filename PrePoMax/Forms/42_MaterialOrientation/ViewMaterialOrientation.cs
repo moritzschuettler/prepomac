@@ -18,11 +18,12 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10380)]
     public class ViewMaterialOrientation : ViewMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
-        private MaterialOrientation _materialOrientation;
+        [PmxKey(0)] private string _selectionHidden;
+        [PmxKey(1)] private MaterialOrientation _materialOrientation;
 
 
         // Properties                                                                                                               

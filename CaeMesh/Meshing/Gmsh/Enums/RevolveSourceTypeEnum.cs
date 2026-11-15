@@ -9,10 +9,12 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2111)]
     public enum RevolveSourceTypeEnum
     {
         [StandardValue("SelectedSurfaces", DisplayName = "Selected surfaces")]

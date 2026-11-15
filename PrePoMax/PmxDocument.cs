@@ -21,16 +21,17 @@ namespace PrePoMax
     // the annotations, the analyses and the state of the user interface. The mesh and the field data follow it in the
     // file in their own binary form.
     [Serializable]
+    [PmxType(10522)]
     public class PmxDocument
     {
         // Variables                                                                                                                
-        private FeModel _model;
-        private ResultsCollection _allResults;
-        private CommandsCollection _commands;
-        private AnnotationContainer _annotations;
-        private OrderedDictionary<string, AnalysisJob> _jobs;
-        private bool[][] _treeStates;
-        private SidePanelsState _sidePanelsState;
+        [PmxKey(0)] private FeModel _model;
+        [PmxKey(1)] private ResultsCollection _allResults;
+        [PmxKey(2)] private CommandsCollection _commands;
+        [PmxKey(3)] private AnnotationContainer _annotations;
+        [PmxKey(4)] private OrderedDictionary<string, AnalysisJob> _jobs;
+        [PmxKey(5)] private bool[][] _treeStates;
+        [PmxKey(6)] private SidePanelsState _sidePanelsState;
 
 
         // Properties                                                                                                               

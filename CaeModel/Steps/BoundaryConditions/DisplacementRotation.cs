@@ -21,6 +21,7 @@ using CaeResults;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3208)]
     public enum DOFType
     {
         Free,
@@ -30,16 +31,17 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3209)]
     public class DisplacementRotation : BoundaryCondition, IDistribution, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer _u1;         //ISerializable
-        private EquationContainer _u2;         //ISerializable
-        private EquationContainer _u3;         //ISerializable
-        private EquationContainer _ur1;        //ISerializable
-        private EquationContainer _ur2;        //ISerializable
-        private EquationContainer _ur3;        //ISerializable
-        private string _distributionName;      //ISerializable
+        [PmxKey(0)] private EquationContainer _u1;         //ISerializable
+        [PmxKey(1)] private EquationContainer _u2;         //ISerializable
+        [PmxKey(2)] private EquationContainer _u3;         //ISerializable
+        [PmxKey(3)] private EquationContainer _ur1;        //ISerializable
+        [PmxKey(4)] private EquationContainer _ur2;        //ISerializable
+        [PmxKey(5)] private EquationContainer _ur3;        //ISerializable
+        [PmxKey(6)] private string _distributionName;      //ISerializable
 
 
         // Properties                                                                                                               

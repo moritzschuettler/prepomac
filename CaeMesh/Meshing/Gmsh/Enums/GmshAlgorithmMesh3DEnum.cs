@@ -13,10 +13,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2104)]
     public enum GmshAlgorithmMesh3DEnum
     {
         [StandardValue("Delaunay", DisplayName = "Delaunay")]

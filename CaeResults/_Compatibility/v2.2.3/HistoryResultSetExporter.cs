@@ -21,15 +21,16 @@ using System.IO;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5064)]
     public class HistoryResultSetExporter
     {
         // Variables                                                                                                                
         public static readonly string DefaultFileName = "HistoryOutput.csv";
         public static readonly string[] DefaultDelimiters = new string[] {",", ";", ":"};
-        private string _fileName;
-        private string _workingDirectory;
-        private string[] _historyOutputNames;
-        private string _delimiter;
+        [PmxKey(0)] private string _fileName;
+        [PmxKey(1)] private string _workingDirectory;
+        [PmxKey(2)] private string[] _historyOutputNames;
+        [PmxKey(3)] private string _delimiter;
 
 
         // Properties                                                                                                               

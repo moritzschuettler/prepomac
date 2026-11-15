@@ -17,10 +17,11 @@ using System.ComponentModel;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10339)]
     public class ViewShellQuadWild : ViewMeshSetupItem
     {
         // Variables
-        private ShellQuadWild _shellQuadWild;
+        [PmxKey(0)] private ShellQuadWild _shellQuadWild;
 
 
         // Properties

@@ -19,11 +19,12 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3096)]
     internal class CalThermalConductivity : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ThermalConductivity _thermalConductivity;
-        private bool _temperatureDependent;
+        [PmxKey(0)] private ThermalConductivity _thermalConductivity;
+        [PmxKey(1)] private bool _temperatureDependent;
 
 
         // Properties                                                                                                               

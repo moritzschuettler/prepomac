@@ -9,29 +9,31 @@
 
 using System;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2128)]
     public class ShellQuadWild : MeshSetupItem, ISerializable
     {
         // Variables
-        private MesherTypeEnum _triangulationMesher;                      // ISerializable
-        private bool _preview;                                           // ISerializable
-        private bool _smooth;                                            // ISerializable
-        private double _alpha;                                           // ISerializable
-        private QuadWildFlowProfileEnum _flowProfile;                     // ISerializable
-        private QuadWildBoundaryLayerEnum _boundaryLayer;                 // ISerializable
-        private bool _keepFilesOnFailure;                                // ISerializable
-        private bool _debugVisualization;                                // ISerializable
-        private bool _oldAlgorithm;                                      // ISerializable
-        private bool _pinEdgeNodes;                                      // ISerializable
-        private bool _edgeRotations;                                     // ISerializable
-        private double _singularityPosition;                             // ISerializable
-        private int _countSearch;                                        // ISerializable
-        private TransfiniteThreeSidedEnum _transfiniteThreeSided;        // ISerializable
-        private bool _transfiniteFourSided;                              // ISerializable
-        private double _transfiniteAngleDeg;                             // ISerializable
+        [PmxKey(0)] private MesherTypeEnum _triangulationMesher;                      // ISerializable
+        [PmxKey(1)] private bool _preview;                                           // ISerializable
+        [PmxKey(2)] private bool _smooth;                                            // ISerializable
+        [PmxKey(3)] private double _alpha;                                           // ISerializable
+        [PmxKey(4)] private QuadWildFlowProfileEnum _flowProfile;                     // ISerializable
+        [PmxKey(5)] private QuadWildBoundaryLayerEnum _boundaryLayer;                 // ISerializable
+        [PmxKey(6)] private bool _keepFilesOnFailure;                                // ISerializable
+        [PmxKey(7)] private bool _debugVisualization;                                // ISerializable
+        [PmxKey(8)] private bool _oldAlgorithm;                                      // ISerializable
+        [PmxKey(9)] private bool _pinEdgeNodes;                                      // ISerializable
+        [PmxKey(10)] private bool _edgeRotations;                                     // ISerializable
+        [PmxKey(11)] private double _singularityPosition;                             // ISerializable
+        [PmxKey(12)] private int _countSearch;                                        // ISerializable
+        [PmxKey(13)] private TransfiniteThreeSidedEnum _transfiniteThreeSided;        // ISerializable
+        [PmxKey(14)] private bool _transfiniteFourSided;                              // ISerializable
+        [PmxKey(15)] private double _transfiniteAngleDeg;                             // ISerializable
 
 
         // Properties

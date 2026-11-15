@@ -23,12 +23,13 @@ using System.Drawing.Design;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10343)]
     public class ViewModelProperties
     {
         // Variables                                                                                                                
-        private string _name;
-        private ModelProperties _modelProperties;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private string _name;
+        [PmxKey(1)] private ModelProperties _modelProperties;
+        [PmxKey(2)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

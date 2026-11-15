@@ -9,10 +9,12 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2113)]
     public enum SweepSourceMesherEnum
     {
         [StandardValue("Gmsh", DisplayName = "Gmsh")]

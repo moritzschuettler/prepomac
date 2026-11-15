@@ -10,10 +10,12 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2048)]
     public enum vtkCellType
     {
         // Linear cells

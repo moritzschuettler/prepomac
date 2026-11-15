@@ -27,10 +27,11 @@ namespace PrePoMax.Commands
     /// leave the model holding an equation whose parameter is not there yet.
     /// </summary>
     [Serializable]
+    [PmxType(10217)]
     class CSetParameters : PreprocessCommand
     {
         // Variables                                                                                                                
-        private EquationParameter[] _parameters;
+        [PmxKey(0)] private EquationParameter[] _parameters;
 
 
         // Constructor                                                                                                              

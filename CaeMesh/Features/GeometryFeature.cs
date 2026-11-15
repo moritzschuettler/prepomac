@@ -18,18 +18,19 @@ using System.Threading.Tasks;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2066)]
     public abstract class GeometryFeature : ISerializable
     {
         // Variables
-        protected RegionTypeEnum _regionType;               //ISerializable
-        protected SplitTypeEnum _splitType;     //ISerializable
-        protected string[] _partNames;                      //ISerializable
-        protected int[] _creationIds;                       //ISerializable
-        protected Selection _creationData;                  //ISerializable
-        protected int[] _splitterIds;                       //ISerializable
-        protected Selection _splitterData;                  //ISerializable
-        protected double _fuzzyValue;                       //ISerializable
-        protected SplitToolSymbol _toolSymbol;              //ISerializable
+        [PmxKey(0)] protected RegionTypeEnum _regionType;               //ISerializable
+        [PmxKey(1)] protected SplitTypeEnum _splitType;     //ISerializable
+        [PmxKey(2)] protected string[] _partNames;                      //ISerializable
+        [PmxKey(3)] protected int[] _creationIds;                       //ISerializable
+        [PmxKey(4)] protected Selection _creationData;                  //ISerializable
+        [PmxKey(5)] protected int[] _splitterIds;                       //ISerializable
+        [PmxKey(6)] protected Selection _splitterData;                  //ISerializable
+        [PmxKey(7)] protected double _fuzzyValue;                       //ISerializable
+        [PmxKey(8)] protected SplitToolSymbol _toolSymbol;              //ISerializable
 
 
         // Properties

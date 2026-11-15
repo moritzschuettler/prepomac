@@ -19,13 +19,14 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3158)]
     internal class CalSTLoad : CalLoad
     {
         // Variables                                                                                                                
-        private STLoad _load;
-        private CLoad[] _cLoads;
-        private ComplexLoadTypeEnum _complexLoadType;
-        private FeMesh _mesh;
+        [PmxKey(0)] private STLoad _load;
+        [PmxKey(1)] private CLoad[] _cLoads;
+        [PmxKey(2)] private ComplexLoadTypeEnum _complexLoadType;
+        [PmxKey(3)] private FeMesh _mesh;
 
 
         // Properties                                                                                                               

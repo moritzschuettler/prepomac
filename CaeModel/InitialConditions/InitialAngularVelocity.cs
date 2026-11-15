@@ -24,17 +24,18 @@ using System.Xml.Linq;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3170)]
     public class InitialAngularVelocity : InitialCondition, IPreviewable, ISerializable
     {
 
         // Variables                                                                                                                
-        private EquationContainer _x;                   //ISerializable
-        private EquationContainer _y;                   //ISerializable
-        private EquationContainer _z;                   //ISerializable
-        private EquationContainer _n1;                  //ISerializable
-        private EquationContainer _n2;                  //ISerializable
-        private EquationContainer _n3;                  //ISerializable
-        private EquationContainer _rotationalSpeed;     //ISerializable
+        [PmxKey(0)] private EquationContainer _x;                   //ISerializable
+        [PmxKey(1)] private EquationContainer _y;                   //ISerializable
+        [PmxKey(2)] private EquationContainer _z;                   //ISerializable
+        [PmxKey(3)] private EquationContainer _n1;                  //ISerializable
+        [PmxKey(4)] private EquationContainer _n2;                  //ISerializable
+        [PmxKey(5)] private EquationContainer _n3;                  //ISerializable
+        [PmxKey(6)] private EquationContainer _rotationalSpeed;     //ISerializable
 
 
         // Properties                                                                                                               

@@ -20,10 +20,11 @@ using DynamicTypeDescriptor;
 namespace PrePoMax.Settings
 {
     [Serializable]
+    [PmxType(10485)]
     public class ViewMeshingSettings : Forms.ViewMeshingParameters, IViewSettings, IReset
     {
         // Variables                                                                                                                
-        MeshingSettings _meshingSettings;
+        [PmxKey(0)] MeshingSettings _meshingSettings;
 
 
         // Properties                                                                                                               

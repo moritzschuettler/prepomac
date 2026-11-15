@@ -20,6 +20,7 @@ using GmshCommon;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2119)]
     public class ShellGmsh : GmshSetupItem, ISerializable
     {
         // Variables                                                                                                                

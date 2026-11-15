@@ -11,14 +11,16 @@ using System;
 
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10261)]
     class CDuplicateResultHistoryOutputs : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _resultHistoryOutputNames;
+        [PmxKey(0)] private string[] _resultHistoryOutputNames;
 
 
         // Constructor                                                                                                              

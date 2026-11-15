@@ -23,11 +23,12 @@ namespace PrePoMax.Forms
 {
     
     [Serializable]
+    [PmxType(10358)]
     public class ViewCoordinateSystem
     {
         // Variables                                                                                                                      
-        private DynamicCustomTypeDescriptor _dctd = null;
-        private CoordinateSystem _coordinateSystem;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(1)] private CoordinateSystem _coordinateSystem;
 
 
         // Properties                                                                                                               

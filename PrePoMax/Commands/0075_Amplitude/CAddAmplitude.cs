@@ -20,10 +20,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10165)]
     class CAddAmplitude : PreprocessCommand
     {
         // Variables                                                                                                                
-        private Amplitude _amplitude;
+        [PmxKey(0)] private Amplitude _amplitude;
 
 
         // Constructor                                                                                                              

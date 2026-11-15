@@ -9,6 +9,8 @@
 
 
 
+using CaeGlobals;
+
 namespace Octree
 {
     using System;
@@ -18,11 +20,12 @@ namespace Octree
     // a*x + b*y + c*z + d = 0  
     //                          
     [Serializable]
+    [PmxType(1022)]
     public class Plane
     {
-        private Point _point;
-        private Point _normal;
-        private double _d;
+        [PmxKey(0)] private Point _point;
+        [PmxKey(1)] private Point _normal;
+        [PmxKey(2)] private double _d;
         /// <summary>
         /// Gets or sets the D parameter of the plane.
         /// </summary>

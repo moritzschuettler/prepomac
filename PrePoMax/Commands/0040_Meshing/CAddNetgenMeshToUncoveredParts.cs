@@ -11,6 +11,7 @@ using System;
 using System.Runtime.Serialization;
 using CaeMesh;
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
@@ -28,10 +29,11 @@ namespace PrePoMax.Commands
     /// all, since the whole script is recorded as one command.
     /// </summary>
     [Serializable]
+    [PmxType(10071)]
     class CAddNetgenMeshToUncoveredParts : PreprocessCommand
     {
         // Variables
-        [OptionalField]
+        [PmxKey(0)] [OptionalField]
         private NetgenMesh[] _meshSetupItems;
 
 

@@ -18,10 +18,11 @@ using CaeGlobals;
 namespace UserControls
 {
     [Serializable]
+    [PmxType(6221)]
     public class ViewStaticStep : ViewStep
     {
         // Variables                                                                                                                
-        private CaeModel.StaticStep _step;
+        [PmxKey(0)] private CaeModel.StaticStep _step;
 
 
         // Properties                                                                                                               

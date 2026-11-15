@@ -23,11 +23,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10289)]
     class CExportCADGeometryPartsAsBrep : PreprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private string _fileName;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private string _fileName;
 
 
         // Properties                                                                                                               

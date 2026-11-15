@@ -14,14 +14,16 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3070)]
     internal class CalNodeSet : CalculixKeyword
     {
         // Variables                                                                                                                
-        private FeNodeSet _nodeSet;
+        [PmxKey(0)] private FeNodeSet _nodeSet;
 
 
         // Properties                                                                                                               

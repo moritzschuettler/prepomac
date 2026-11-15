@@ -20,6 +20,7 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3005)]
     public class Coupling : Constraint, IMultiRegion, ISerializable // ISerializable must be here
     {
         // Variables                                                                                                                

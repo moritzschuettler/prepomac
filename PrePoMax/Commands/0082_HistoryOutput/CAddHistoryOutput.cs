@@ -20,11 +20,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10181)]
     class CAddHistoryOutput : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private HistoryOutput _historyOutput;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private HistoryOutput _historyOutput;
 
 
         // Constructor                                                                                                              

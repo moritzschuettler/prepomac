@@ -19,14 +19,15 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3260)]
     public class FilmHeatTransfer : Load, ISerializable
     {
         // Variables                                                                                                                
-        private string _surfaceName;                    //ISerializable
-        private RegionTypeEnum _regionType;             //ISerializable
-        private EquationContainer _sinkTemperature;     //ISerializable
-        private EquationContainer _filmCoefficient;     //ISerializable
-        protected string _coefficientAmplitudeName;     //ISerializable
+        [PmxKey(0)] private string _surfaceName;                    //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;             //ISerializable
+        [PmxKey(2)] private EquationContainer _sinkTemperature;     //ISerializable
+        [PmxKey(3)] private EquationContainer _filmCoefficient;     //ISerializable
+        [PmxKey(4)] protected string _coefficientAmplitudeName;     //ISerializable
 
 
         // Properties                                                                                                               

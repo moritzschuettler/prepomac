@@ -13,15 +13,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3215)]
     public class ComplexFrequencyStep : Step, ISerializable
     {
         // Variables                                                                                                                
-        private int _numOfFrequencies;          //ISerializable
+        [PmxKey(0)] private int _numOfFrequencies;          //ISerializable
 
 
         // Properties                                                                                                               

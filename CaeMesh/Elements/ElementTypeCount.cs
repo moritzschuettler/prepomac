@@ -12,10 +12,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2026)]
     public class ElementTypeCount
     {
         // Variables
@@ -43,9 +45,9 @@ namespace CaeMesh
         };
         private static readonly int _numOfElementTypesWithKeyword = 14;
         //
-        private Type _elementType;
-        private string _keyword;
-        private int _count;
+        [PmxKey(0)] private Type _elementType;
+        [PmxKey(1)] private string _keyword;
+        [PmxKey(2)] private int _count;
 
 
         // Properties

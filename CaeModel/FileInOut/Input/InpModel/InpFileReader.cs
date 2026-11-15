@@ -21,6 +21,7 @@ using FileInOut.Output.Calculix;
 namespace FileInOut.Input
 {
     [Serializable]
+    [PmxType(3038)]
     static public class InpFileReader
     {
         // Variables                                                                                                                

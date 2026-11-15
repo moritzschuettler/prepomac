@@ -12,14 +12,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10003)]
     public class ElementAnnotation : AnnotationBase
     {
         // Variables                                                                                                                
-        private int _elementId;
+        [PmxKey(0)] private int _elementId;
 
 
         // Properties                                                                                                               

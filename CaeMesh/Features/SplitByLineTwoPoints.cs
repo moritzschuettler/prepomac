@@ -18,11 +18,12 @@ using System.Threading.Tasks;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2071)]
     public class SplitByLineTwoPoints : GeometryFeature
     {
         // Variables
-        private double[][] _points;                         //ISerializable
-        private int _numberOfPoints;                        //ISerializable
+        [PmxKey(0)] private double[][] _points;                         //ISerializable
+        [PmxKey(1)] private int _numberOfPoints;                        //ISerializable
 
 
         // Properties

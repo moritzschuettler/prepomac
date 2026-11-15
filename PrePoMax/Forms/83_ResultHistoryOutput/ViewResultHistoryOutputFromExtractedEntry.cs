@@ -13,12 +13,13 @@ using System.Linq;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10509)]
     public class ViewResultHistoryOutputFromExtractedEntry : ViewResultHistoryOutput
     {
         // Variables                                                                                                                
-        private ResultHistoryOutputFromExtractedEntry _historyOutput;
-        private Dictionary<string, HistoryResultData> _sourceItems;
-        private Dictionary<string, string[]> _entryNamesBySource;
+        [PmxKey(0)] private ResultHistoryOutputFromExtractedEntry _historyOutput;
+        [PmxKey(1)] private Dictionary<string, HistoryResultData> _sourceItems;
+        [PmxKey(2)] private Dictionary<string, string[]> _entryNamesBySource;
 
 
         // Properties                                                                                                               

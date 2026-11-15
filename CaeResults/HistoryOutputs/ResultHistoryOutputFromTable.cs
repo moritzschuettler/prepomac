@@ -9,6 +9,7 @@ using System.Collections.Generic;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5056)]
     public class ResultHistoryOutputFromTable : ResultHistoryOutput
     {
         // Properties                                                                                                               
@@ -17,11 +18,11 @@ namespace CaeResults
         public const string XAxisName = "X";
         public const string YAxisName = "Y";
 
-        private string _xAxisUnit;
-        private string _yAxisUnit;
-        private int _numberOfYColumns;
-        private double[][] _dataPoints;
-        private string[] _yColumnNames;
+        [PmxKey(0)] private string _xAxisUnit;
+        [PmxKey(1)] private string _yAxisUnit;
+        [PmxKey(2)] private int _numberOfYColumns;
+        [PmxKey(3)] private double[][] _dataPoints;
+        [PmxKey(4)] private string[] _yColumnNames;
 
         public string XAxisUnit { get { return _xAxisUnit; } set { _xAxisUnit = value; } }
         public string YAxisUnit { get { return _yAxisUnit; } set { _yAxisUnit = value; } }

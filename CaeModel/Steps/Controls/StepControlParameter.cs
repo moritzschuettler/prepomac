@@ -13,10 +13,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CaeMesh;
+using CaeGlobals;
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3219)]
     public abstract class StepControlParameter
     {
         // Variables                                                                                                                

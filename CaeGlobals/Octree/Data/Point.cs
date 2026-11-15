@@ -5,6 +5,8 @@
 //     Copyright (c) 2017, Máté Cserép, http://codenet.hu
 //     All rights reserved.
 // </copyright>
+using CaeGlobals;
+
 namespace Octree
 {
     using System;
@@ -19,22 +21,23 @@ namespace Octree
     /// </remarks>
 
     [Serializable]
+    [PmxType(1023)]
     public struct Point
     {
         /// <summary>
         /// Gets or sets the X coordinate.
         /// </summary>
-        public double X { get; set; }
+        [field: PmxKey(0)] public double X { get; set; }
 
         /// <summary>
         /// Gets or sets the Y coordinate.
         /// </summary>
-        public double Y { get; set; }
+        [field: PmxKey(1)] public double Y { get; set; }
 
         /// <summary>
         /// Gets or sets the Z coordinate.
         /// </summary>
-        public double Z { get; set; }
+        [field: PmxKey(2)] public double Z { get; set; }
 
         /// <summary>
         /// Gets or set point coordinates.

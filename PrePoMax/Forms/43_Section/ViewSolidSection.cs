@@ -19,10 +19,11 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10388)]
     public class ViewSolidSection : ViewSection
     {
         // Variables                                                                                                                
-        private CaeModel.SolidSection _solidSection;
+        [PmxKey(0)] private CaeModel.SolidSection _solidSection;
         
 
         // Properties                                                                                                               

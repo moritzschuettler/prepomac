@@ -21,10 +21,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10463)]
     public class ViewCLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private CLoad _cLoad;
+        [PmxKey(0)] private CLoad _cLoad;
 
 
         // Properties                                                                                                               

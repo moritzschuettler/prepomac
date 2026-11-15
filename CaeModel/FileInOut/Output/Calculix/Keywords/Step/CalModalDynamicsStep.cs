@@ -19,11 +19,12 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3121)]
     internal class CalModalDynamicsStep : CalStep
     {
         // Variables                                                                                                                
-        private ModalDynamicsStep _step;
-        private bool _cyclicSymmetry;
+        [PmxKey(0)] private ModalDynamicsStep _step;
+        [PmxKey(1)] private bool _cyclicSymmetry;
 
 
         // Properties                                                                                                               

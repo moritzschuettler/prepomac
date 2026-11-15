@@ -14,10 +14,12 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3231)]
     public enum SolutionProcedureEnum
     {
         [StandardValue("ImplicitImplicit", DisplayName = "Implicit/Implicit")]
@@ -34,14 +36,15 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3232)]
     public class DynamicStep : StaticStep, ISerializable
     {
         // Variables                                                                                                                
         public static readonly double AlphaDefault = -0.05;
-        private double _alpha;                              //ISerializable
-        private SolutionProcedureEnum _solutionProcedure;   //ISerializable
-        private bool _relativeToAbsolute;                   //ISerializable
-        private Damping _damping;                           //ISerializable
+        [PmxKey(0)] private double _alpha;                              //ISerializable
+        [PmxKey(1)] private SolutionProcedureEnum _solutionProcedure;   //ISerializable
+        [PmxKey(2)] private bool _relativeToAbsolute;                   //ISerializable
+        [PmxKey(3)] private Damping _damping;                           //ISerializable
 
 
         // Properties                                                                                                               

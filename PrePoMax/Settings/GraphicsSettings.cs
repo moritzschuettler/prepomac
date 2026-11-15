@@ -21,6 +21,7 @@ using System.Drawing;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10530)]
     public enum BackgroundType
     {
         [StandardValue("White", Description = "White color background.")]
@@ -34,22 +35,23 @@ namespace PrePoMax
     }
 
     [Serializable]
+    [PmxType(10531)]
     public class GraphicsSettings : ISettings
     {
         // Variables                                                                                                                
-        private BackgroundType _backgroundType;
-        private Color _topColor;
-        private Color _bottomColor;
-        private bool _coorSysVisibility;
-        private bool _scaleWidgetVisibility;
-        private bool _widgetHighlightEnabled;
-        private double _ambientComponent;
-        private double _diffuseComponent;
-        private bool _pointSmoothing;
-        private bool _lineSmoothing;
-        private bool _linearDeflectionRelative;
-        private double _linearDeflection;
-        private double _angularDeflectionDeg;
+        [PmxKey(0)] private BackgroundType _backgroundType;
+        [PmxKey(1)] private Color _topColor;
+        [PmxKey(2)] private Color _bottomColor;
+        [PmxKey(3)] private bool _coorSysVisibility;
+        [PmxKey(4)] private bool _scaleWidgetVisibility;
+        [PmxKey(5)] private bool _widgetHighlightEnabled;
+        [PmxKey(6)] private double _ambientComponent;
+        [PmxKey(7)] private double _diffuseComponent;
+        [PmxKey(8)] private bool _pointSmoothing;
+        [PmxKey(9)] private bool _lineSmoothing;
+        [PmxKey(10)] private bool _linearDeflectionRelative;
+        [PmxKey(11)] private double _linearDeflection;
+        [PmxKey(12)] private double _angularDeflectionDeg;
 
 
         // Properties                                                                                                               

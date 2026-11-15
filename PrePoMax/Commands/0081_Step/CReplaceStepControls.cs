@@ -22,11 +22,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10180)]
     class CReplaceStepControls : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private StepControls _stepControls;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private StepControls _stepControls;
 
         // Constructor                                                                                                              
         public CReplaceStepControls(string stepName, StepControls stepControls)

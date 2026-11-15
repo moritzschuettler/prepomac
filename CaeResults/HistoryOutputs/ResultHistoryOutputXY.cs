@@ -13,14 +13,15 @@ using System;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5057)]
     public class ResultHistoryOutputXY : ResultHistoryOutput
     {
         // Variables                                                                                                                
         public const string FieldName = "XY";
         public const string ComponentName = "VALUE";
 
-        private HistoryResultData _xSource;
-        private HistoryResultData _ySource;
+        [PmxKey(0)] private HistoryResultData _xSource;
+        [PmxKey(1)] private HistoryResultData _ySource;
 
 
         // Properties                                                                                                               

@@ -22,12 +22,13 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10287)]
     class CActivateDeactivate : PreprocessCommand
     {
         // Variables                                                                                                                
-        private NamedClass _item;
-        private bool _activate;
-        private string _stepName;
+        [PmxKey(0)] private NamedClass _item;
+        [PmxKey(1)] private bool _activate;
+        [PmxKey(2)] private string _stepName;
 
 
         // Constructor                                                                                                              

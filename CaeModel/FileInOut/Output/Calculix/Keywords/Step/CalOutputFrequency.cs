@@ -14,14 +14,16 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3125)]
     internal class CalOutputFrequency : CalculixKeyword
     {
         // Variables                                                                                                                
-        private int _outputFrequency;
+        [PmxKey(0)] private int _outputFrequency;
 
 
         // Properties                                                                                                               

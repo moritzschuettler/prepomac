@@ -21,11 +21,12 @@ using System.Drawing.Design;
 namespace PrePoMax.Settings
 {
     [Serializable]
+    [PmxType(10488)]
     public class ViewPostSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private PostSettings _postSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private PostSettings _postSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Undeformed model                                                     

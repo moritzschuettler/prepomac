@@ -18,6 +18,7 @@ using CaeGlobals;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5005)]
     public enum DeformationScaleFactorTypeEnum
     {
         [StandardValue("Undeformed", DisplayName = "Undeformed", Description = "Undeformed")]

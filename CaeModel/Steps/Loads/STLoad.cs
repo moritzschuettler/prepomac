@@ -22,20 +22,21 @@ using System.Runtime.InteropServices;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3270)]
     public class STLoad : Load, IDistribution, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private string _surfaceName;            //ISerializable
-        private RegionTypeEnum _regionType;     //ISerializable
-        private EquationContainer _f1;          //ISerializable
-        private EquationContainer _f2;          //ISerializable
-        private EquationContainer _f3;          //ISerializable
-        private EquationContainer _fMagnitude;  //ISerializable
-        private EquationContainer _p1;          //ISerializable
-        private EquationContainer _p2;          //ISerializable
-        private EquationContainer _p3;          //ISerializable
-        private EquationContainer _pMagnitude;  //ISerializable
-        private string _distributionName;       //ISerializable
+        [PmxKey(0)] private string _surfaceName;            //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;     //ISerializable
+        [PmxKey(2)] private EquationContainer _f1;          //ISerializable
+        [PmxKey(3)] private EquationContainer _f2;          //ISerializable
+        [PmxKey(4)] private EquationContainer _f3;          //ISerializable
+        [PmxKey(5)] private EquationContainer _fMagnitude;  //ISerializable
+        [PmxKey(6)] private EquationContainer _p1;          //ISerializable
+        [PmxKey(7)] private EquationContainer _p2;          //ISerializable
+        [PmxKey(8)] private EquationContainer _p3;          //ISerializable
+        [PmxKey(9)] private EquationContainer _pMagnitude;  //ISerializable
+        [PmxKey(10)] private string _distributionName;       //ISerializable
 
 
         // Properties                                                                                                               

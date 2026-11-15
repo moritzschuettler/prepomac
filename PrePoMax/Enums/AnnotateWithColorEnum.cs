@@ -8,10 +8,12 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10298)]
     [Flags]
     public enum AnnotateWithColorEnum
     {

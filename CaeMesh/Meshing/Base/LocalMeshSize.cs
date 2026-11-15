@@ -19,6 +19,7 @@ using DynamicTypeDescriptor;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2090)]
     public enum LocalMeshSizeTypeEnum
     {
         [StandardValue("ElementSize", DisplayName = "Element size")]
@@ -29,12 +30,13 @@ namespace CaeMesh
     }
 
     [Serializable]
+    [PmxType(2091)]
     public class LocalMeshSize : MeshSetupItem, ISerializable
     {
         // Variables
-        private LocalMeshSizeTypeEnum _type;    //ISerializable
-        private double _meshSize;               //ISerializable
-        private int _numOfElements;             //ISerializable
+        [PmxKey(0)] private LocalMeshSizeTypeEnum _type;    //ISerializable
+        [PmxKey(1)] private double _meshSize;               //ISerializable
+        [PmxKey(2)] private int _numOfElements;             //ISerializable
 
 
         // Properties

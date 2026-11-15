@@ -20,11 +20,12 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10414)]
     public class ViewAmplitudeTabular : ViewAmplitude
     {
         // Variables                                                                                                                
-        private AmplitudeTabular _amplitudeTabular;
-        private List<AmplitudeDataPoint> _points;
+        [PmxKey(0)] private AmplitudeTabular _amplitudeTabular;
+        [PmxKey(1)] private List<AmplitudeDataPoint> _points;
 
 
         // Properties                                                                                                               

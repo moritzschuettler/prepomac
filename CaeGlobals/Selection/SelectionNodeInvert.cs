@@ -17,6 +17,7 @@ using System.Runtime.Serialization;
 namespace CaeGlobals
 {
     [Serializable]
+    [PmxType(1028)]
     public class SelectionNodeInvert : SelectionNode, ISerializable
     {
         // Variables                                                                                                                

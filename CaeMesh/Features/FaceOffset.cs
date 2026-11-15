@@ -18,12 +18,13 @@ using System.Threading.Tasks;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2065)]
     public class FaceOffset : ISerializable
     {
         // Variables                                                                                                                
-        private int[] _creationIds;                         //ISerializable
-        private Selection _creationData;                    //ISerializable
-        private double _offset;                             //ISerializable
+        [PmxKey(0)] private int[] _creationIds;                         //ISerializable
+        [PmxKey(1)] private Selection _creationData;                    //ISerializable
+        [PmxKey(2)] private double _offset;                             //ISerializable
 
 
         // Properties                                                                                                               

@@ -19,11 +19,12 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3088)]
     internal class CalDensity : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Density _density;
-        private bool _temperatureDependent;
+        [PmxKey(0)] private Density _density;
+        [PmxKey(1)] private bool _temperatureDependent;
 
 
         // Properties                                                                                                               

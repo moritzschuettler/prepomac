@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10114)]
     class CDuplicateModelReferencePoints : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _referencePointNames;
+        [PmxKey(0)] private string[] _referencePointNames;
 
 
         // Constructor                                                                                                              

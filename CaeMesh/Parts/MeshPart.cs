@@ -12,31 +12,33 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2138)]
     public class MeshPart : BasePart
     {
         // Variables                                                                                                                
-        protected FeElementTypeLinearBeam _linearBeamType;
-        protected FeElementTypeParabolicBeam _parabolicBeamType;
+        [PmxKey(0)] protected FeElementTypeLinearBeam _linearBeamType;
+        [PmxKey(1)] protected FeElementTypeParabolicBeam _parabolicBeamType;
         //
-        protected FeElementTypeLinearTria _linearTriaType;
-        protected FeElementTypeParabolicTria _parabolicTriaType;
-        protected FeElementTypeLinearQuad _linearQuadType;
-        protected FeElementTypeParabolicQuad _parabolicQuadType;
+        [PmxKey(2)] protected FeElementTypeLinearTria _linearTriaType;
+        [PmxKey(3)] protected FeElementTypeParabolicTria _parabolicTriaType;
+        [PmxKey(4)] protected FeElementTypeLinearQuad _linearQuadType;
+        [PmxKey(5)] protected FeElementTypeParabolicQuad _parabolicQuadType;
         //
-        protected FeElementTypeLinearTetra _linearTetraType;
-        protected FeElementTypeParabolicTetra _parabolicTetraType;
-        protected FeElementTypeLinearPyramid _linearPyramidType;
-        protected FeElementTypeParabolicPyramid _parabolicPyramidType;
-        protected FeElementTypeLinearWedge _linearWedgeType;
-        protected FeElementTypeParabolicWedge _parabolicWedgeType;
-        protected FeElementTypeLinearHexa _linearHexaType;
-        protected FeElementTypeParabolicHexa _parabolicHexaType;
+        [PmxKey(6)] protected FeElementTypeLinearTetra _linearTetraType;
+        [PmxKey(7)] protected FeElementTypeParabolicTetra _parabolicTetraType;
+        [PmxKey(8)] protected FeElementTypeLinearPyramid _linearPyramidType;
+        [PmxKey(9)] protected FeElementTypeParabolicPyramid _parabolicPyramidType;
+        [PmxKey(10)] protected FeElementTypeLinearWedge _linearWedgeType;
+        [PmxKey(11)] protected FeElementTypeParabolicWedge _parabolicWedgeType;
+        [PmxKey(12)] protected FeElementTypeLinearHexa _linearHexaType;
+        [PmxKey(13)] protected FeElementTypeParabolicHexa _parabolicHexaType;
         //
-        protected bool _createdFromBasePart;
+        [PmxKey(14)] protected bool _createdFromBasePart;
 
 
         // Properties                                                                                                               

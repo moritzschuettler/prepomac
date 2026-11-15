@@ -24,6 +24,7 @@ using System.ComponentModel;
 namespace CaeGlobals
 {
     [Serializable]
+    [PmxType(1033)]
     public enum UnitSystemType
     {
         [Description("Undefined")]
@@ -47,45 +48,46 @@ namespace CaeGlobals
 
 
     [Serializable]
+    [PmxType(1034)]
     public class UnitSystem : ISerializable
     {
         // Variables                                                                                                                
-        private UnitSystemType _unitSystemType;                             //ISerializable
+        [PmxKey(0)] private UnitSystemType _unitSystemType;                             //ISerializable
         // Base units
-        private LengthUnit _lengthUnit;
-        private AngleUnit _angleUnit;
-        private MassUnit _massUnit;
-        private DurationUnit _timeUnit;
-        private TemperatureUnit _temperatureUnit;
-        private TemperatureDeltaUnit _temperatureDeltaUnit;
+        [PmxKey(1)] private LengthUnit _lengthUnit;
+        [PmxKey(2)] private AngleUnit _angleUnit;
+        [PmxKey(3)] private MassUnit _massUnit;
+        [PmxKey(4)] private DurationUnit _timeUnit;
+        [PmxKey(5)] private TemperatureUnit _temperatureUnit;
+        [PmxKey(6)] private TemperatureDeltaUnit _temperatureDeltaUnit;
         // Derived units
-        private AreaUnit _areaUnit;
-        private VolumeUnit _volumeUnit;
-        private SpeedUnit _velocityUnit;
-        private RotationalSpeedUnit _rotationalSpeedUnit;
-        private AccelerationUnit _accelerationUnit;
-        private ForceUnit _forceUnit;
-        private ForcePerLengthUnit _forcePerLengthUnit;
-        private TorqueUnit _momentUnit;
-        private PressureUnit _pressureUnit;
-        private DensityUnit _densityUnit;
-        private EnergyUnit _energyUnit;
-        private PowerUnit _powerUnit;
-        private PowerPerAreaUnit _powerPerAreaUnit;
-        private PowerPerVolumeUnit _powerPerVolumeUnit;
-        private FrequencyUnit _frequencyUnit;
+        [PmxKey(7)] private AreaUnit _areaUnit;
+        [PmxKey(8)] private VolumeUnit _volumeUnit;
+        [PmxKey(9)] private SpeedUnit _velocityUnit;
+        [PmxKey(10)] private RotationalSpeedUnit _rotationalSpeedUnit;
+        [PmxKey(11)] private AccelerationUnit _accelerationUnit;
+        [PmxKey(12)] private ForceUnit _forceUnit;
+        [PmxKey(13)] private ForcePerLengthUnit _forcePerLengthUnit;
+        [PmxKey(14)] private TorqueUnit _momentUnit;
+        [PmxKey(15)] private PressureUnit _pressureUnit;
+        [PmxKey(16)] private DensityUnit _densityUnit;
+        [PmxKey(17)] private EnergyUnit _energyUnit;
+        [PmxKey(18)] private PowerUnit _powerUnit;
+        [PmxKey(19)] private PowerPerAreaUnit _powerPerAreaUnit;
+        [PmxKey(20)] private PowerPerVolumeUnit _powerPerVolumeUnit;
+        [PmxKey(21)] private FrequencyUnit _frequencyUnit;
         // Thermal units
-        private SpecificHeatUnit _specificHeatUnit;
-        private CoefficientOfThermalExpansionUnit _thermalExpansionUnit;
-        private ThermalConductivityUnit _thermalConductivityUnit;
-        private HeatTransferCoefficientUnit _heatTransferCoefficientUnit;
+        [PmxKey(22)] private SpecificHeatUnit _specificHeatUnit;
+        [PmxKey(23)] private CoefficientOfThermalExpansionUnit _thermalExpansionUnit;
+        [PmxKey(24)] private ThermalConductivityUnit _thermalConductivityUnit;
+        [PmxKey(25)] private HeatTransferCoefficientUnit _heatTransferCoefficientUnit;
         // Universal constants
-        private StefanBoltzmannUnit _stefanBoltzmannUnit;
-        private NewtonGravityUnit _newtonGravityUnit;
+        [PmxKey(26)] private StefanBoltzmannUnit _stefanBoltzmannUnit;
+        [PmxKey(27)] private NewtonGravityUnit _newtonGravityUnit;
         // Constants
-        private string _absoluteZero = "0 K";
-        private string _stefanBoltzmann = "5.67038E-8 kg/(s^3*°C^4)";
-        private string _newtonGravity = "6.67430E-11 N*m^2/kg^2";
+        [PmxKey(28)] private string _absoluteZero = "0 K";
+        [PmxKey(29)] private string _stefanBoltzmann = "5.67038E-8 kg/(s^3*°C^4)";
+        [PmxKey(30)] private string _newtonGravity = "6.67430E-11 N*m^2/kg^2";
 
 
         // Properties                                                                                                               

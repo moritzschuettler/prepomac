@@ -21,6 +21,7 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10505)]
     public class ViewResultFieldOutputShellInPlaneState : ViewResultFieldOutput
     {
         // Variables                                                                                                                

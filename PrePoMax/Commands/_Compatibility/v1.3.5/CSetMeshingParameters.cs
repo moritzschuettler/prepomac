@@ -23,6 +23,7 @@ using System.Runtime.Serialization;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10268)]
     class CSetMeshingParameters : PreprocessCommand, ICommandWithDialog, ISerializable
     {
         // Variables                                                                                                                

@@ -7,18 +7,20 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2086)]
     public class GeometryMetadata : ISerializable, IDeserializationCallback
     {
         // Variables
-        private readonly int _formatVersion;
-        private readonly string _coordinateSystem;
-        private readonly string _lengthUnit;
-        private readonly Dictionary<string, List<GeometryMetadataEntity>> _entities;
-        private Dictionary<string, Dictionary<int, GeometryMetadataEntity>> _kindIdEntity;
+        [PmxKey(0)] private readonly int _formatVersion;
+        [PmxKey(1)] private readonly string _coordinateSystem;
+        [PmxKey(2)] private readonly string _lengthUnit;
+        [PmxKey(3)] private readonly Dictionary<string, List<GeometryMetadataEntity>> _entities;
+        [PmxKey(4)] private Dictionary<string, Dictionary<int, GeometryMetadataEntity>> _kindIdEntity;
 
 
         // Properties

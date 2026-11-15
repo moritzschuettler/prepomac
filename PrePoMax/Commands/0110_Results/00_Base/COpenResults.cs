@@ -23,10 +23,11 @@ using PrePoMax.Forms;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10230)]
     class COpenResults : PostprocessCommand, IFileCommand, ICommandAsynchronous
     {
         // Variables                                                                                                                
-        private string _jobName;
+        [PmxKey(0)] private string _jobName;
 
 
         // Properties                                                                                                               

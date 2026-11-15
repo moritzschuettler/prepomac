@@ -10,15 +10,17 @@
 using System;
 using System.Text;
 using CaeModel;
+using CaeGlobals;
 
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3082)]
     internal class CalKinematic : CalculixKeyword
     {
         // Variables                                                                                                                
-        private KinematicCoupling _kinematicCoupling;
+        [PmxKey(0)] private KinematicCoupling _kinematicCoupling;
 
 
         // Properties                                                                                                               

@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10119)]
     class CAddModelCoordinateSystem : PreprocessCommand
     {
         // Variables                                                                                                                
-        private CoordinateSystem _coordinateSystem;
+        [PmxKey(0)] private CoordinateSystem _coordinateSystem;
 
 
         // Constructor                                                                                                              

@@ -22,11 +22,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10046)]
     class CReplaceGeometryPartProperties : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldPartName;
-        private PartProperties _newPartProperties;
+        [PmxKey(0)] private string _oldPartName;
+        [PmxKey(1)] private PartProperties _newPartProperties;
 
 
         // Constructor                                                                                                              

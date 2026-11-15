@@ -15,11 +15,12 @@ using DynamicTypeDescriptor;
 namespace PrePoMax.Settings
 {
     [Serializable]
+    [PmxType(10487)]
     public class ViewNumberFormatSettings : IViewSettings, IReset
     {
         // Variables
-        private NumberFormatSettings _numberFormatSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private NumberFormatSettings _numberFormatSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Number formatting

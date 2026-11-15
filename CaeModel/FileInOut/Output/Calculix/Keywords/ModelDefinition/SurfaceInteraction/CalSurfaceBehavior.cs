@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3107)]
     internal class CalSurfaceBehavior : CalculixKeyword
     {
         // Variables                                                                                                                
-        private SurfaceBehavior _surfaceBehavior;
+        [PmxKey(0)] private SurfaceBehavior _surfaceBehavior;
 
 
         // Properties                                                                                                               

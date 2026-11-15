@@ -19,6 +19,7 @@ using Octree;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5061)]
     public enum SymmetryPlaneEnum
     {
         X,
@@ -27,11 +28,12 @@ namespace CaeResults
     }
 
     [Serializable]
+    [PmxType(5062)]
     public class Symmetry : Transformation
     {
         // Variables                                                                                                                
-        protected double[] _pointCoor;
-        protected SymmetryPlaneEnum _symmetryPlane;
+        [PmxKey(0)] protected double[] _pointCoor;
+        [PmxKey(1)] protected SymmetryPlaneEnum _symmetryPlane;
 
 
         // Properties                                                                                                               

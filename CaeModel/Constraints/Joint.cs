@@ -19,23 +19,24 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3008)]
     public class Joint : Constraint, ISerializable
     {
         // Variables
-        private JointTypeEnum _jointType;                   //ISerializable
-        private JointCenterDefinitionEnum _centerDefinition;//ISerializable
-        private int[] _centerCreationIds;                   //ISerializable
-        private Selection _centerCreationData;              //ISerializable
-        private EquationContainer _x;                       //ISerializable
-        private EquationContainer _y;                       //ISerializable
-        private EquationContainer _z;                       //ISerializable
-        private JointDefinitionEnum _axisDefinition;        //ISerializable
-        private EquationContainer _n1;                      //ISerializable
-        private EquationContainer _n2;                      //ISerializable
-        private EquationContainer _n3;                      //ISerializable
-        private JointFormulationEnum _formulation;          //ISerializable
-        private JointStiffnessDefinitionEnum _stiffnessDefinition;  //ISerializable
-        private EquationContainer _stiffness;               //ISerializable
+        [PmxKey(0)] private JointTypeEnum _jointType;                   //ISerializable
+        [PmxKey(1)] private JointCenterDefinitionEnum _centerDefinition;//ISerializable
+        [PmxKey(2)] private int[] _centerCreationIds;                   //ISerializable
+        [PmxKey(3)] private Selection _centerCreationData;              //ISerializable
+        [PmxKey(4)] private EquationContainer _x;                       //ISerializable
+        [PmxKey(5)] private EquationContainer _y;                       //ISerializable
+        [PmxKey(6)] private EquationContainer _z;                       //ISerializable
+        [PmxKey(7)] private JointDefinitionEnum _axisDefinition;        //ISerializable
+        [PmxKey(8)] private EquationContainer _n1;                      //ISerializable
+        [PmxKey(9)] private EquationContainer _n2;                      //ISerializable
+        [PmxKey(10)] private EquationContainer _n3;                      //ISerializable
+        [PmxKey(11)] private JointFormulationEnum _formulation;          //ISerializable
+        [PmxKey(12)] private JointStiffnessDefinitionEnum _stiffnessDefinition;  //ISerializable
+        [PmxKey(13)] private EquationContainer _stiffness;               //ISerializable
 
 
         // Properties

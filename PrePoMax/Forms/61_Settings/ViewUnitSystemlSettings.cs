@@ -20,11 +20,12 @@ using System.Drawing.Design;
 namespace PrePoMax.Settings
 {
     [Serializable]
+    [PmxType(10492)]
     public class ViewUnitSystemlSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private UnitSystemSettings _unitSystemSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private UnitSystemSettings _unitSystemSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

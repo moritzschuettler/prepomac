@@ -20,10 +20,11 @@ using DynamicTypeDescriptor;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10335)]
     public class ViewShellGmsh : ViewGmshSetupItem
     {
         // Variables                                                                                                                
-        private ShellGmsh _shellGmsh;
+        [PmxKey(0)] private ShellGmsh _shellGmsh;
 
 
         // Properties                                                                                                               

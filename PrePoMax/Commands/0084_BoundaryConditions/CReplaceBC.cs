@@ -20,12 +20,13 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10196)]
     class CReplaceBC : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string _oldBoundaryConditionName;
-        private BoundaryCondition _newBoundaryCondition;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string _oldBoundaryConditionName;
+        [PmxKey(2)] private BoundaryCondition _newBoundaryCondition;
 
 
         // Constructor                                                                                                              

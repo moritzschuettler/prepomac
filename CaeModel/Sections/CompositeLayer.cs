@@ -14,12 +14,13 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3194)]
     public class CompositeLayer : ISerializable
     {
         // Variables                                                                                                                
-        private string _materialName;               //ISerializable
-        private EquationContainer _thickness;       //ISerializable
-        private EquationContainer _angle;           //ISerializable
+        [PmxKey(0)] private string _materialName;               //ISerializable
+        [PmxKey(1)] private EquationContainer _thickness;       //ISerializable
+        [PmxKey(2)] private EquationContainer _angle;           //ISerializable
 
 
         // Properties                                                                                                               

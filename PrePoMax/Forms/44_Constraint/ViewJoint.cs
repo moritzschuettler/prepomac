@@ -22,10 +22,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10392)]
     public class ViewJoint : ViewConstraint
     {
         // Variables
-        private Joint _joint;
+        [PmxKey(0)] private Joint _joint;
 
 
         // Properties

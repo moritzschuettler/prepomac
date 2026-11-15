@@ -19,10 +19,11 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10387)]
     public class ViewShellSection : ViewSection
     {
         // Variables                                                                                                                
-        protected CaeModel.ShellSection _shellSection;
+        [PmxKey(0)] protected CaeModel.ShellSection _shellSection;
         
 
         // Properties                                                                                                               

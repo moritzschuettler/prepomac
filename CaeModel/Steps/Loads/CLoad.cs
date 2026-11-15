@@ -22,16 +22,17 @@ using System.Runtime.InteropServices;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3257)]
     public class CLoad : Load, ISerializable
     {
         // Variables                                                                                                                
-        private string _regionName;             //ISerializable
-        private RegionTypeEnum _regionType;     //ISerializable
-        private int _nodeId;                    //ISerializable
-        private EquationContainer _f1;          //ISerializable
-        private EquationContainer _f2;          //ISerializable
-        private EquationContainer _f3;          //ISerializable
-        private EquationContainer _magnitude;   //ISerializable
+        [PmxKey(0)] private string _regionName;             //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;     //ISerializable
+        [PmxKey(2)] private int _nodeId;                    //ISerializable
+        [PmxKey(3)] private EquationContainer _f1;          //ISerializable
+        [PmxKey(4)] private EquationContainer _f2;          //ISerializable
+        [PmxKey(5)] private EquationContainer _f3;          //ISerializable
+        [PmxKey(6)] private EquationContainer _magnitude;   //ISerializable
 
 
         // Properties                                                                                                               

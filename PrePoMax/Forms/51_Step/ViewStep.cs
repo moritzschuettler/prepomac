@@ -19,11 +19,12 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10435)]
     public class ViewStep
     {
         // Variables                                                                                                                
-        protected CaeModel.Step _step;
-        protected DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] protected CaeModel.Step _step;
+        [PmxKey(1)] protected DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

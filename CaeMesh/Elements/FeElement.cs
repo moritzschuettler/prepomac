@@ -12,10 +12,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2027)]
     public enum FeFaceName
     {
         Empty,
@@ -29,12 +31,13 @@ namespace CaeMesh
 
 
     [Serializable]
+    [PmxType(2028)]
     public abstract class FeElement
     {
         // Properties                                                                                                               
-        public int Id;
-        public int PartId;
-        public int[] NodeIds;
+        [PmxKey(0)] public int Id;
+        [PmxKey(1)] public int PartId;
+        [PmxKey(2)] public int[] NodeIds;
         public abstract int Dimension { get; }
 
 

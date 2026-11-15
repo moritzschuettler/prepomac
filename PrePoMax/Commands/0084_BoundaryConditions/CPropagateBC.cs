@@ -20,11 +20,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10194)]
     class CPropagateBC : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string _boundaryConditionName;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string _boundaryConditionName;
 
 
         // Constructor                                                                                                              

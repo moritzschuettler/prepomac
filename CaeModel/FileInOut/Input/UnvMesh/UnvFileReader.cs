@@ -14,10 +14,12 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Input
 {
     [Serializable]
+    [PmxType(3042)]
     public static class UnvFileReader
     {
         //

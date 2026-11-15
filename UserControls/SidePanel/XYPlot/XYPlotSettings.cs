@@ -15,6 +15,7 @@ using ZedGraph;
 namespace UserControls
 {
     [System.Serializable]
+    [PmxType(6216)]
     public class XYPlotSettings : IXYPlotSettings
     {
         // Variables
@@ -22,19 +23,19 @@ namespace UserControls
         public const string DefaultYAxisTitle = "Y axis";
         private static readonly float[] _fontSizes = new float[] { 8, 9, 10, 11, 12, 14, 16, 18, 20, 24 };
         [System.NonSerialized] protected DynamicCustomTypeDescriptor _dctd = null;
-        private string _xAxisTitle;
-        private bool _xAxisAutoScale;
-        private double _xAxisMin;
-        private double _xAxisMax;
-        private string _yAxisTitle;
-        private bool _yAxisAutoScale;
-        private double _yAxisMin;
-        private double _yAxisMax;
-        private bool _showLegend;
-        private XYPlotLegendPositionEnum _legendPosition;
-        private bool _showPointSymbols;
-        private XYPlotFontFamilyEnum _fontFamily;
-        private float _fontSize;
+        [PmxKey(0)] private string _xAxisTitle;
+        [PmxKey(1)] private bool _xAxisAutoScale;
+        [PmxKey(2)] private double _xAxisMin;
+        [PmxKey(3)] private double _xAxisMax;
+        [PmxKey(4)] private string _yAxisTitle;
+        [PmxKey(5)] private bool _yAxisAutoScale;
+        [PmxKey(6)] private double _yAxisMin;
+        [PmxKey(7)] private double _yAxisMax;
+        [PmxKey(8)] private bool _showLegend;
+        [PmxKey(9)] private XYPlotLegendPositionEnum _legendPosition;
+        [PmxKey(10)] private bool _showPointSymbols;
+        [PmxKey(11)] private XYPlotFontFamilyEnum _fontFamily;
+        [PmxKey(12)] private float _fontSize;
 
 
         // Properties

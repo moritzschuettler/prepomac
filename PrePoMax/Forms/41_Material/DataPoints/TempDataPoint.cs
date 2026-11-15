@@ -19,10 +19,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10365)]
     public class TempDataPoint
     {
         // Variables                                                                                                                
-        private EquationContainer _temperature;
+        [PmxKey(0)] private EquationContainer _temperature;
 
 
         // Properties                                                                                                               

@@ -19,6 +19,7 @@ using CaeGlobals;
 namespace FileInOut.Input
 {
     [Serializable]
+    [PmxType(3039)]
     public static class NetgenVolFileReader
     {
         // Methods                                                                                                                  

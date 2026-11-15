@@ -13,15 +13,17 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2069)]
     public class SplitByExtendedFace : GeometryFeature
     {
         // Variables
-        private GeomFaceType[] _faceTypes;                  //ISerializable
-        private double _offset;                             //ISerializable
+        [PmxKey(0)] private GeomFaceType[] _faceTypes;                  //ISerializable
+        [PmxKey(1)] private double _offset;                             //ISerializable
 
 
         // Properties

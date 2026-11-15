@@ -21,18 +21,19 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3273)]
     public class ImportedSTLoad : Load, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private string _surfaceName;                        //ISerializable
-        private RegionTypeEnum _regionType;                 //ISerializable
-        private string _fileName;                           //ISerializable
-        private CloudInterpolatorEnum _interpolatorType;    //ISerializable
-        private EquationContainer _interpolatorRadius;      //ISerializable
-        private EquationContainer _magnitudeFactor;         //ISerializable
-        private EquationContainer _geomScaleFactor;         //ISerializable
+        [PmxKey(0)] private string _surfaceName;                        //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;                 //ISerializable
+        [PmxKey(2)] private string _fileName;                           //ISerializable
+        [PmxKey(3)] private CloudInterpolatorEnum _interpolatorType;    //ISerializable
+        [PmxKey(4)] private EquationContainer _interpolatorRadius;      //ISerializable
+        [PmxKey(5)] private EquationContainer _magnitudeFactor;         //ISerializable
+        [PmxKey(6)] private EquationContainer _geomScaleFactor;         //ISerializable
         //
-        private FileInfo _oldFileInfo;                      //ISerializable
+        [PmxKey(7)] private FileInfo _oldFileInfo;                      //ISerializable
         //
         [NonSerialized] private double _prevScaleFactor;
         [NonSerialized] private CloudInterpolator _interpolator;

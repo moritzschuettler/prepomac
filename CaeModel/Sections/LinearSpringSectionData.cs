@@ -18,12 +18,13 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3198)]
     public class LinearSpringSectionData : SectionData, ISerializable
     {
         // Variables                                                                                                                
-        private int _direction;                 //ISerializable
-        private int _secondDirection;           //ISerializable
-        private double _stiffness;              //ISerializable
+        [PmxKey(0)] private int _direction;                 //ISerializable
+        [PmxKey(1)] private int _secondDirection;           //ISerializable
+        [PmxKey(2)] private double _stiffness;              //ISerializable
 
 
         // Properties                                                                                                               

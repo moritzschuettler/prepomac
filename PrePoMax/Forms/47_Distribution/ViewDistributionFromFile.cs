@@ -21,10 +21,11 @@ using System.Drawing.Design;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10410)]
     public class ViewDistributionFromFile : ViewMappedDistribution
     {
         // Variables                                                                                                                
-        private DistributionFromFile _distributionFromFile;
+        [PmxKey(0)] private DistributionFromFile _distributionFromFile;
 
 
         // Properties                                                                                                               

@@ -20,10 +20,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10467)]
     public class ViewGravityLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private CaeModel.GravityLoad _gLoad;
+        [PmxKey(0)] private CaeModel.GravityLoad _gLoad;
 
 
         // Properties                                                                                                               

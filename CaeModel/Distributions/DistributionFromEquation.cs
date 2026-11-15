@@ -23,13 +23,14 @@ using static CaeGlobals.Geometry2;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3032)]
     public class DistributionFromEquation : Distribution, ISerializable
     {
         // Variables                                                                                                                
-        private string _equationMagnitude;          //ISerializable
-        private string _equationD1;                 //ISerializable
-        private string _equationD2;                 //ISerializable
-        private string _equationD3;                 //ISerializable
+        [PmxKey(0)] private string _equationMagnitude;          //ISerializable
+        [PmxKey(1)] private string _equationD1;                 //ISerializable
+        [PmxKey(2)] private string _equationD2;                 //ISerializable
+        [PmxKey(3)] private string _equationD3;                 //ISerializable
 
 
         // Properties                                                                                                               

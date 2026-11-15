@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10098)]
     class CShowModelParts : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
+        [PmxKey(0)] private string[] _partNames;
 
 
         // Constructor                                                                                                              

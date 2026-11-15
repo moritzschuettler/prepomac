@@ -18,10 +18,11 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3175)]
     public class Density : MaterialProperty, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer[][] _densityTemp;         //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _densityTemp;         //ISerializable
 
 
         // Properties                                                                                                               

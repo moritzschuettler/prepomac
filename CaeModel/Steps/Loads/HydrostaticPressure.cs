@@ -21,6 +21,7 @@ using DynamicTypeDescriptor;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3262)]
     public enum HydrostaticPressureCutoffEnum
     {
         [StandardValue("None", Description = "None", DisplayName = "None")]
@@ -32,21 +33,22 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3263)]
     public class HydrostaticPressure : VariablePressure, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer _x1;                                      //ISerializable
-        private EquationContainer _y1;                                      //ISerializable
-        private EquationContainer _z1;                                      //ISerializable
-        private EquationContainer _x2;                                      //ISerializable
-        private EquationContainer _y2;                                      //ISerializable
-        private EquationContainer _z2;                                      //ISerializable
-        private EquationContainer _n1;                                      //ISerializable
-        private EquationContainer _n2;                                      //ISerializable
-        private EquationContainer _n3;                                      //ISerializable
-        private EquationContainer _firstPointPressure;                      //ISerializable
-        private EquationContainer _secondPointPressure;                     //ISerializable
-        private HydrostaticPressureCutoffEnum _hydrostaticPressureCutoff;   //ISerializable
+        [PmxKey(0)] private EquationContainer _x1;                                      //ISerializable
+        [PmxKey(1)] private EquationContainer _y1;                                      //ISerializable
+        [PmxKey(2)] private EquationContainer _z1;                                      //ISerializable
+        [PmxKey(3)] private EquationContainer _x2;                                      //ISerializable
+        [PmxKey(4)] private EquationContainer _y2;                                      //ISerializable
+        [PmxKey(5)] private EquationContainer _z2;                                      //ISerializable
+        [PmxKey(6)] private EquationContainer _n1;                                      //ISerializable
+        [PmxKey(7)] private EquationContainer _n2;                                      //ISerializable
+        [PmxKey(8)] private EquationContainer _n3;                                      //ISerializable
+        [PmxKey(9)] private EquationContainer _firstPointPressure;                      //ISerializable
+        [PmxKey(10)] private EquationContainer _secondPointPressure;                     //ISerializable
+        [PmxKey(11)] private HydrostaticPressureCutoffEnum _hydrostaticPressureCutoff;   //ISerializable
         [NonSerialized] private Vec3D _n;
         [NonSerialized] private double _d1;
         [NonSerialized] private double _d2;

@@ -79,6 +79,8 @@ namespace PrePoMax
             Console.WriteLine("");
             //
             SetCultureAndLanguage();
+            //
+            SetObjectSerializer();
             // Parse
             if (args != null && args.Length == 1 && File.Exists(args[0])) args = new string[] { "-f", args[0] };
             //
@@ -92,6 +94,19 @@ namespace PrePoMax
             else Finish(GetParserExitCode(parserResult), null);
             //
             return;
+        }
+        // A Debug build started with the environment variable PREPOMAX_DUAL_SERIALIZER=1 clones every object with both
+        // serializers and logs where they differ
+        private static void SetObjectSerializer()
+        {
+#if DEBUG
+            if (Environment.GetEnvironmentVariable(DualObjectSerializer.EnvironmentVariable) == "1")
+            {
+                string logFileName = Path.Combine(Path.GetTempPath(), "PrePoMax", "pmx_dual_serializer.log");
+                ObjectSerializer.Default = new DualObjectSerializer(new BinaryObjectSerializer(), new PmxObjectSerializer(),
+                                                                    logFileName);
+            }
+#endif
         }
         private static void AttachToParentConsole()
         {

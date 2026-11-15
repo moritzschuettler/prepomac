@@ -13,16 +13,18 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2072)]
     public class SplitByPlaneThreePoints : GeometryFeature
     {
         // Variables
-        private double[][] _points;                         //ISerializable
-        private int _numberOfPoints;                        //ISerializable
-        private double _offset;                             //ISerializable
+        [PmxKey(0)] private double[][] _points;                         //ISerializable
+        [PmxKey(1)] private int _numberOfPoints;                        //ISerializable
+        [PmxKey(2)] private double _offset;                             //ISerializable
 
 
         // Properties

@@ -20,33 +20,34 @@ using GmshCommon;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2120)]
     public class SweepMesh : GmshSetupItem, ISerializable
     {
         // Variables                                                                                                                
-        private SweepSourceTypeEnum _sourceType;                        // ISerializable
-        private int _numberOfGlobalSmoothSteps;                         // ISerializable
-        private bool _keepImprintEdges;                                 // ISerializable
-        private int[][] _blockSourceSurfaceIds;                         // ISerializable
-        private int[][] _blockSideSurfaceIds;                           // ISerializable
-        private int[][] _blockTargetSurfaceIds;                         // ISerializable
-        private int[][][] _layerGroupEdgeIds;                           // ISerializable
-        private double[][] _blockArrowStarts;                           // ISerializable
-        private double[][] _blockArrowDirections;                       // ISerializable
-        private double[][] _blockRevolveAxes;                           // ISerializable
-        private SweepSourceMesherEnum _sourceMesher;                    // ISerializable
-        private double _quadWildAlpha;                                  // ISerializable
-        private QuadWildFlowProfileEnum _quadWildFlowProfile;           // ISerializable
-        private bool _quadWildSmooth;                                   // ISerializable
-        private bool _quadWildFallbackToGmsh;                           // ISerializable
-        private SweepSymmetryEnum _symmetry;                            // ISerializable
-        private double[][] _symmetryPlanes;                             // ISerializable
-        private int[][] _symmetryPartIds;                               // ISerializable
-        private string[] _symmetryLocalMeshSizeNames;                   // ISerializable
-        private int[][] _symmetryLocalMeshSizeIds;                      // ISerializable
-        private string[] _symmetryNotUsedReasons;                       // ISerializable
-        private int[] _symmetryNotUsedPartIds;                          // ISerializable
-        private string[] _unsweptCellReasons;                           // ISerializable
-        private int[] _unsweptCellPartIds;                              // ISerializable
+        [PmxKey(0)] private SweepSourceTypeEnum _sourceType;                        // ISerializable
+        [PmxKey(1)] private int _numberOfGlobalSmoothSteps;                         // ISerializable
+        [PmxKey(2)] private bool _keepImprintEdges;                                 // ISerializable
+        [PmxKey(3)] private int[][] _blockSourceSurfaceIds;                         // ISerializable
+        [PmxKey(4)] private int[][] _blockSideSurfaceIds;                           // ISerializable
+        [PmxKey(5)] private int[][] _blockTargetSurfaceIds;                         // ISerializable
+        [PmxKey(6)] private int[][][] _layerGroupEdgeIds;                           // ISerializable
+        [PmxKey(7)] private double[][] _blockArrowStarts;                           // ISerializable
+        [PmxKey(8)] private double[][] _blockArrowDirections;                       // ISerializable
+        [PmxKey(9)] private double[][] _blockRevolveAxes;                           // ISerializable
+        [PmxKey(10)] private SweepSourceMesherEnum _sourceMesher;                    // ISerializable
+        [PmxKey(11)] private double _quadWildAlpha;                                  // ISerializable
+        [PmxKey(12)] private QuadWildFlowProfileEnum _quadWildFlowProfile;           // ISerializable
+        [PmxKey(13)] private bool _quadWildSmooth;                                   // ISerializable
+        [PmxKey(14)] private bool _quadWildFallbackToGmsh;                           // ISerializable
+        [PmxKey(15)] private SweepSymmetryEnum _symmetry;                            // ISerializable
+        [PmxKey(16)] private double[][] _symmetryPlanes;                             // ISerializable
+        [PmxKey(17)] private int[][] _symmetryPartIds;                               // ISerializable
+        [PmxKey(18)] private string[] _symmetryLocalMeshSizeNames;                   // ISerializable
+        [PmxKey(19)] private int[][] _symmetryLocalMeshSizeIds;                      // ISerializable
+        [PmxKey(20)] private string[] _symmetryNotUsedReasons;                       // ISerializable
+        [PmxKey(21)] private int[] _symmetryNotUsedPartIds;                          // ISerializable
+        [PmxKey(22)] private string[] _unsweptCellReasons;                           // ISerializable
+        [PmxKey(23)] private int[] _unsweptCellPartIds;                              // ISerializable
 
 
         // Properties                                                                                                               

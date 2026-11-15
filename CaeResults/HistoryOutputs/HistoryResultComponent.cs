@@ -21,11 +21,12 @@ using System.IO;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5035)]
     public class HistoryResultComponent : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        protected string _unit;                                                     //ISerializable
-        protected OrderedDictionary<string, HistoryResultEntries> _entries;         //ISerializable
+        [PmxKey(0)] protected string _unit;                                                     //ISerializable
+        [PmxKey(1)] protected OrderedDictionary<string, HistoryResultEntries> _entries;         //ISerializable
 
 
         // Properties                                                                                                               

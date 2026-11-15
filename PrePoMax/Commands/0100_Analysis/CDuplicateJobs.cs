@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10226)]
     class CDuplicateJobs : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _jobNames;
+        [PmxKey(0)] private string[] _jobNames;
 
 
         // Constructor                                                                                                              

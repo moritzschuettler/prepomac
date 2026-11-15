@@ -9,10 +9,12 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace UserControls
 {
     [Serializable]
+    [PmxType(6212)]
     public enum XYPlotFontFamilyEnum
     {
         [StandardValue("Segoe UI", "The user interface font of PrePoMax.")]

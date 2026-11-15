@@ -18,15 +18,16 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3241)]
     public class FrequencyStep : Step, ISerializable
     {
         // Variables                                                                                                                
-        private int _numOfFrequencies;          //ISerializable
-        private double _lowerFrequency;         //ISerializable
-        private double _upperFrequency;         //ISerializable
-        private bool _storage;                  //ISerializable
-        private int _cyclicSymmetryModeMin;     //ISerializable
-        private int _cyclicSymmetryModeMax;     //ISerializable
+        [PmxKey(0)] private int _numOfFrequencies;          //ISerializable
+        [PmxKey(1)] private double _lowerFrequency;         //ISerializable
+        [PmxKey(2)] private double _upperFrequency;         //ISerializable
+        [PmxKey(3)] private bool _storage;                  //ISerializable
+        [PmxKey(4)] private int _cyclicSymmetryModeMin;     //ISerializable
+        [PmxKey(5)] private int _cyclicSymmetryModeMax;     //ISerializable
 
 
         // Properties                                                                                                               

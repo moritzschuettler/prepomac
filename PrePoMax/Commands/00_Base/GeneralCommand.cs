@@ -8,10 +8,12 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10220)]
     public abstract class GeneralCommand : Command
     {
         // Constructor                                                                                                              

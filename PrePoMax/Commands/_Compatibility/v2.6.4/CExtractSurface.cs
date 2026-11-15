@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10296)]
     class CExtractSurface : PreprocessCommand
     {
         // Variables
-        private FaceOffset _surfaceExtraction;
+        [PmxKey(0)] private FaceOffset _surfaceExtraction;
 
 
         // Constructor

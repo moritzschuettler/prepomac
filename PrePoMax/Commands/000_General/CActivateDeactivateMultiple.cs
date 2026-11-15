@@ -22,14 +22,15 @@ using System.Threading.Tasks;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10029)]
     class CActivateDeactivateMultiple : PreprocessCommand
     {
         // Variables                                                                                                                
-        private NamedClass[] _items;
-        private string[] _itemNames;
-        private Type[] _itemTypes;
-        private bool _activate;
-        private string[] _stepNames;
+        [PmxKey(0)] private NamedClass[] _items;
+        [PmxKey(1)] private string[] _itemNames;
+        [PmxKey(2)] private Type[] _itemTypes;
+        [PmxKey(3)] private bool _activate;
+        [PmxKey(4)] private string[] _stepNames;
 
 
         // Constructor                                                                                                              

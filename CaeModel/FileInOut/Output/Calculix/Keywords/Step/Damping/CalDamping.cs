@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3135)]
     internal class CalDamping : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Damping _damping;
+        [PmxKey(0)] private Damping _damping;
 
 
         // Properties                                                                                                               

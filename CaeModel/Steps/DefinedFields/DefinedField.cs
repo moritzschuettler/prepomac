@@ -21,15 +21,16 @@ using System.Drawing;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3228)]
     public class DefinedField : NamedClass, IMultiRegion, IContainsEquations, ISerializable
     {
         // Variables                                                                                                                
-        private string _regionName;                 //ISerializable
-        private RegionTypeEnum _regionType;         //ISerializable
-        private int[] _creationIds;                 //ISerializable
-        private Selection _creationData;            //ISerializable
-        protected string _amplitudeName;            //ISerializable
-        private Color _color;                       //ISerializable
+        [PmxKey(0)] private string _regionName;                 //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;         //ISerializable
+        [PmxKey(2)] private int[] _creationIds;                 //ISerializable
+        [PmxKey(3)] private Selection _creationData;            //ISerializable
+        [PmxKey(4)] protected string _amplitudeName;            //ISerializable
+        [PmxKey(5)] private Color _color;                       //ISerializable
 
 
         // Properties                                                                                                               

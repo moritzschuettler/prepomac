@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 namespace CaeGlobals
 {
     [Serializable]
+    [PmxType(1007)]
     public class EmptyNamedClass : NamedClass
     {
         // Empty named class is used to trasfer the name only

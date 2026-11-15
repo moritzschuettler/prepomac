@@ -17,6 +17,7 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3023)]
     public class Friction : SurfaceInteractionProperty
     {
         // Static variables                                                                                                                
@@ -26,8 +27,8 @@ namespace CaeModel
         // Variables                                                                                                                
         private static string _positive = "The value must be larger than 0.";
         //
-        private double _coefficient;
-        private double _stickSlope;
+        [PmxKey(0)] private double _coefficient;
+        [PmxKey(1)] private double _stickSlope;
 
         // Properties                                                                                                               
         public double Coefficient 

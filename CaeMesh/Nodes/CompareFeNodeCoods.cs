@@ -12,10 +12,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2131)]
     public class CompareFeNodeCoods : IEqualityComparer<FeNode>
     {
         public bool Equals(FeNode n1, FeNode n2)

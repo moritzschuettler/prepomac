@@ -20,10 +20,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10418)]
     public class ViewInitialTranslationalVelocity : ViewInitialCondition
     {
         // Variables                                                                                                                
-        private InitialTranslationalVelocity _initialVelocity;
+        [PmxKey(0)] private InitialTranslationalVelocity _initialVelocity;
 
 
         // Properties                                                                                                               

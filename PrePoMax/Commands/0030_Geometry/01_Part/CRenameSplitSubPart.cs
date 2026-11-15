@@ -22,12 +22,13 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10045)]
     class CRenameSplitSubPart : PreprocessCommand
     {
         // Variables
-        private string _compoundPartName;
-        private string _oldSubPartName;
-        private string _newSubPartName;
+        [PmxKey(0)] private string _compoundPartName;
+        [PmxKey(1)] private string _oldSubPartName;
+        [PmxKey(2)] private string _newSubPartName;
 
 
         // Constructor

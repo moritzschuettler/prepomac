@@ -19,11 +19,12 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3151)]
     internal class CalFilmHeatTransfer : CalLoad
     {
         // Variables                                                                                                                
-        private FilmHeatTransfer _filmHeatTransfer;
-        private FeSurface _surface;
+        [PmxKey(0)] private FilmHeatTransfer _filmHeatTransfer;
+        [PmxKey(1)] private FeSurface _surface;
 
 
         // Constructor                                                                                                              

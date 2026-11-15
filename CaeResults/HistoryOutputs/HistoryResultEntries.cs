@@ -23,14 +23,15 @@ using static CaeGlobals.Geometry2;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5037)]
     public class HistoryResultEntries : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        private List<double> _time;             //ISerializable
-        private List<double> _values;           //ISerializable
-        private List<int> _count;               //ISerializable
-        private bool _local;                    //ISerializable
-        private string _unit;                   //ISerializable
+        [PmxKey(0)] private List<double> _time;             //ISerializable
+        [PmxKey(1)] private List<double> _values;           //ISerializable
+        [PmxKey(2)] private List<int> _count;               //ISerializable
+        [PmxKey(3)] private bool _local;                    //ISerializable
+        [PmxKey(4)] private string _unit;                   //ISerializable
 
 
         // Properties                                                                                                               

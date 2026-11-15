@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10057)]
     class CDefeature : PreprocessCommand
     {
         // Variables                                                                                                                
-        private GeometrySelection _geometrySelection;
+        [PmxKey(0)] private GeometrySelection _geometrySelection;
 
 
         // Constructor                                                                                                              

@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10214)]
     class CImportParameters : PreprocessCommand, IImportFileCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private string _fileName;
+        [PmxKey(0)] private string _fileName;
 
 
         // Properties                                                                                                               

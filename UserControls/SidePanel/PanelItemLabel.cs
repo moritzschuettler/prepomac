@@ -13,10 +13,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UserControls;
+using CaeGlobals;
 
 namespace UserControls
 {
     [Serializable]
+    [PmxType(6203)]
     public class PanelItemLabel : PanelItem
     {
         // Variables                                                                                                                

@@ -20,11 +20,12 @@ using System.Drawing;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3087)]
     internal class CalInitialTranslationalVelocity : CalculixKeyword
     {
         // Variables                                                                                                                
-        private string _regionName;
-        private InitialTranslationalVelocity _initialVelocity;
+        [PmxKey(0)] private string _regionName;
+        [PmxKey(1)] private InitialTranslationalVelocity _initialVelocity;
 
 
         // Properties                                                                                                               

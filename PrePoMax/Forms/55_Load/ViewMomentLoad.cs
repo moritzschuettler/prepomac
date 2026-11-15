@@ -19,10 +19,11 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10470)]
     public class ViewMomentLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private CaeModel.MomentLoad _momentLoad;
+        [PmxKey(0)] private CaeModel.MomentLoad _momentLoad;
 
 
         // Properties                                                                                                               

@@ -9,6 +9,7 @@
 
 using System;
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
@@ -26,6 +27,7 @@ namespace PrePoMax.Commands
     /// version meshes it.
     /// </summary>
     [Serializable]
+    [PmxType(10073)]
     class CDisableDefaultMeshTypes : PreprocessCommand
     {
         // Constructor

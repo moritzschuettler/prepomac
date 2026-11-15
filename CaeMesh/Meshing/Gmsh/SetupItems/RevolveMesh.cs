@@ -24,6 +24,7 @@ namespace CaeMesh
     /// its source touches, so an item read from a file is turned into a sweep item when the file is opened.
     /// </summary>
     [Serializable]
+    [PmxType(2118)]
     public class RevolveMesh : SweepMesh, ISerializable
     {
         // Constructors

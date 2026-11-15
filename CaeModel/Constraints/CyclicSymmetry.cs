@@ -14,22 +14,23 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3006)]
     public class CyclicSymmetry : Tie, IMultiRegion, ISerializable // ISerializable must be here
     {
         // Variables                                                                                                                
-        private string _regionName;                         //ISerializable
-        private RegionTypeEnum _regionType;                 //ISerializable
-        private int[] _creationIds;                         //ISerializable
-        private Selection _creationData;                    //ISerializable
-        private int _numberOfSectors;                      //ISerializable
-        private int _numberOfGraphSectors;                 //ISerializable
-        private bool _checkSectorAngle;                    //ISerializable
-        private EquationContainer _x;                      //ISerializable
-        private EquationContainer _y;                      //ISerializable
-        private EquationContainer _z;                      //ISerializable
-        private EquationContainer _n1;                     //ISerializable
-        private EquationContainer _n2;                     //ISerializable
-        private EquationContainer _n3;                     //ISerializable
+        [PmxKey(0)] private string _regionName;                         //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;                 //ISerializable
+        [PmxKey(2)] private int[] _creationIds;                         //ISerializable
+        [PmxKey(3)] private Selection _creationData;                    //ISerializable
+        [PmxKey(4)] private int _numberOfSectors;                      //ISerializable
+        [PmxKey(5)] private int _numberOfGraphSectors;                 //ISerializable
+        [PmxKey(6)] private bool _checkSectorAngle;                    //ISerializable
+        [PmxKey(7)] private EquationContainer _x;                      //ISerializable
+        [PmxKey(8)] private EquationContainer _y;                      //ISerializable
+        [PmxKey(9)] private EquationContainer _z;                      //ISerializable
+        [PmxKey(10)] private EquationContainer _n1;                     //ISerializable
+        [PmxKey(11)] private EquationContainer _n2;                     //ISerializable
+        [PmxKey(12)] private EquationContainer _n3;                     //ISerializable
 
 
         // Properties                                                                                                               

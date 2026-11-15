@@ -20,6 +20,7 @@ using DynamicTypeDescriptor;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3000)]
     public enum AmplitudeTimeSpanEnum
     {
         [StandardValue("StepTime", DisplayName = "Step time")]
@@ -28,13 +29,14 @@ namespace CaeModel
         TotalTime
     }
     [Serializable]
+    [PmxType(3001)]
     public abstract class Amplitude : NamedClass
     {
         // Variables                                                                                                                
-        private AmplitudeTimeSpanEnum _timeSpan;
-        private double _shiftX;
-        private double _shiftY;
-        protected double[][] _timeAmplitude;
+        [PmxKey(0)] private AmplitudeTimeSpanEnum _timeSpan;
+        [PmxKey(1)] private double _shiftX;
+        [PmxKey(2)] private double _shiftY;
+        [PmxKey(3)] protected double[][] _timeAmplitude;
         public const string DefaultAmplitudeName = "Default";
 
 

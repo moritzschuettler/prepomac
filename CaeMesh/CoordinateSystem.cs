@@ -21,6 +21,7 @@ using System.Net.Configuration;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2002)]
     public enum CsPointCreatedFromEnum
     {
         [StandardValue("Coordinates", Description = "Coordinates", DisplayName = "Coordinates")]
@@ -34,6 +35,7 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2003)]
     public enum CoordinateSystemTypeEnum
     {
         //[StandardValue("Selection", Description = "Selection/Coordinates", DisplayName = "Selection/Coordinates")]
@@ -43,31 +45,32 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2004)]
     public class CoordinateSystem : NamedClass, ISerializable, IContainsEquations
     {
         // Variables                                                                                                                
-        private CoordinateSystemTypeEnum _type;                 //ISerializable
-        private EquationContainer _x1;                          //ISerializable
-        private EquationContainer _y1;                          //ISerializable
-        private EquationContainer _z1;                          //ISerializable
-        private EquationContainer _x2;                          //ISerializable
-        private EquationContainer _y2;                          //ISerializable
-        private EquationContainer _z2;                          //ISerializable
-        private EquationContainer _x3;                          //ISerializable
-        private EquationContainer _y3;                          //ISerializable
-        private EquationContainer _z3;                          //ISerializable
-        private CsPointCreatedFromEnum _centerCreatedFrom;      //ISerializable
-        private CsPointCreatedFromEnum _pointXCreatedFrom;      //ISerializable
-        private CsPointCreatedFromEnum _pointXYCreatedFrom;     //ISerializable
-        private int[] _centerCreationIds;                       //ISerializable
-        private Selection _centerCreationData;                  //ISerializable
-        private int[] _pointXCreationIds;                       //ISerializable
-        private Selection _pointXCreationData;                  //ISerializable
-        private int[] _pointXYCreationIds;                      //ISerializable
-        private Selection _pointXYCreationData;                 //ISerializable
-        private bool _nameVisible;                              //ISerializable
-        private bool _twoD;                                     //ISerializable
-        private Color _color;                                   //ISerializable
+        [PmxKey(0)] private CoordinateSystemTypeEnum _type;                 //ISerializable
+        [PmxKey(1)] private EquationContainer _x1;                          //ISerializable
+        [PmxKey(2)] private EquationContainer _y1;                          //ISerializable
+        [PmxKey(3)] private EquationContainer _z1;                          //ISerializable
+        [PmxKey(4)] private EquationContainer _x2;                          //ISerializable
+        [PmxKey(5)] private EquationContainer _y2;                          //ISerializable
+        [PmxKey(6)] private EquationContainer _z2;                          //ISerializable
+        [PmxKey(7)] private EquationContainer _x3;                          //ISerializable
+        [PmxKey(8)] private EquationContainer _y3;                          //ISerializable
+        [PmxKey(9)] private EquationContainer _z3;                          //ISerializable
+        [PmxKey(10)] private CsPointCreatedFromEnum _centerCreatedFrom;      //ISerializable
+        [PmxKey(11)] private CsPointCreatedFromEnum _pointXCreatedFrom;      //ISerializable
+        [PmxKey(12)] private CsPointCreatedFromEnum _pointXYCreatedFrom;     //ISerializable
+        [PmxKey(13)] private int[] _centerCreationIds;                       //ISerializable
+        [PmxKey(14)] private Selection _centerCreationData;                  //ISerializable
+        [PmxKey(15)] private int[] _pointXCreationIds;                       //ISerializable
+        [PmxKey(16)] private Selection _pointXCreationData;                  //ISerializable
+        [PmxKey(17)] private int[] _pointXYCreationIds;                      //ISerializable
+        [PmxKey(18)] private Selection _pointXYCreationData;                 //ISerializable
+        [PmxKey(19)] private bool _nameVisible;                              //ISerializable
+        [PmxKey(20)] private bool _twoD;                                     //ISerializable
+        [PmxKey(21)] private Color _color;                                   //ISerializable
         [NonSerialized] private Vec3D _center;
         [NonSerialized] private Vec3D _dx;
         [NonSerialized] private Vec3D _dy;

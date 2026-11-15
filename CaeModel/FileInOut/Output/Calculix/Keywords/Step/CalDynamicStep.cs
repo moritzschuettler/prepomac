@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3117)]
     internal class CalDynamicStep : CalStep
     {
         // Variables                                                                                                                
-        private DynamicStep _step;
+        [PmxKey(0)] private DynamicStep _step;
 
 
         // Properties                                                                                                               

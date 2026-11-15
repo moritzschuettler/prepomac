@@ -22,11 +22,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10247)]
     class CReplaceResultReferencePoint : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldReferencePointName;
-        private FeReferencePoint _newReferencePoint;
+        [PmxKey(0)] private string _oldReferencePointName;
+        [PmxKey(1)] private FeReferencePoint _newReferencePoint;
 
         // Constructor                                                                                                              
         public CReplaceResultReferencePoint(string oldReferencePointName, FeReferencePoint newReferencePoint)

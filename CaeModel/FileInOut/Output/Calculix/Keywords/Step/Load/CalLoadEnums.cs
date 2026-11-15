@@ -19,6 +19,7 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3154)]
     public enum ComplexLoadTypeEnum
     {
         None,

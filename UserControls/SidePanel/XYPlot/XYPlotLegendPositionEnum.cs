@@ -9,10 +9,12 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace UserControls
 {
     [Serializable]
+    [PmxType(6213)]
     public enum XYPlotLegendPositionEnum
     {
         [StandardValue("Top center", "Above the plot and centered.")]

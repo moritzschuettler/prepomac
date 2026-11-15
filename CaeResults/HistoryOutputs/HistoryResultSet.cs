@@ -22,12 +22,13 @@ using System.IO;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5042)]
     public class HistoryResultSet : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        protected bool _harmonic;                                           //ISerializable
-        protected OrderedDictionary<string, HistoryResultField> _fields;    //ISerializable
-        protected string _baseSetName;                                      //ISerializable
+        [PmxKey(0)] protected bool _harmonic;                                           //ISerializable
+        [PmxKey(1)] protected OrderedDictionary<string, HistoryResultField> _fields;    //ISerializable
+        [PmxKey(2)] protected string _baseSetName;                                      //ISerializable
 
 
         // Properties                                                                                                               

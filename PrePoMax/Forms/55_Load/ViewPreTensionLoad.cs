@@ -20,11 +20,12 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10471)]
     public class ViewPreTensionLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private CustomPropertyDescriptor cpd = null;
-        private CaeModel.PreTensionLoad _preTenLoad;
+        [PmxKey(0)] private CustomPropertyDescriptor cpd = null;
+        [PmxKey(1)] private CaeModel.PreTensionLoad _preTenLoad;
 
 
         // Properties                                                                                                               

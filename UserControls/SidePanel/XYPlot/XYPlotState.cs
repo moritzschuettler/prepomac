@@ -9,16 +9,18 @@
 
 using System;
 using System.Collections.Generic;
+using CaeGlobals;
 
 namespace UserControls
 {
     [Serializable]
+    [PmxType(6217)]
     public class XYPlotState
     {
         // Variables                                                                                                                
-        private XYPlotSettings _settings;
-        private List<XYPlotCurveState> _curves;
-        private int _selectedCurveIndex;
+        [PmxKey(0)] private XYPlotSettings _settings;
+        [PmxKey(1)] private List<XYPlotCurveState> _curves;
+        [PmxKey(2)] private int _selectedCurveIndex;
 
 
         // Properties                                                                                                               

@@ -14,19 +14,21 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3069)]
     internal class CalNode : CalculixKeyword
     {
         // Variables                                                                                                                
-        private IDictionary<string, FeReferencePoint> _referencePoints;
-        private IDictionary<int, FeNode> _nodes;
-        private Dictionary<int, FeNode> _additionalNodes;
-        private ModelSpaceEnum _modelSpace;
-        private IDictionary<string, CalReferencePoint> _calReferencePoints;
-        private Dictionary<int, double[]> _deformations;
+        [PmxKey(0)] private IDictionary<string, FeReferencePoint> _referencePoints;
+        [PmxKey(1)] private IDictionary<int, FeNode> _nodes;
+        [PmxKey(2)] private Dictionary<int, FeNode> _additionalNodes;
+        [PmxKey(3)] private ModelSpaceEnum _modelSpace;
+        [PmxKey(4)] private IDictionary<string, CalReferencePoint> _calReferencePoints;
+        [PmxKey(5)] private Dictionary<int, double[]> _deformations;
 
 
         // Constructor                                                                                                              

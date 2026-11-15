@@ -20,10 +20,11 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3015)]
     public class PointSpring : SpringConstraint, ISerializable
     {
         // Variables                                                                                                                
-        private int _nodeId;                  //ISerializable
+        [PmxKey(0)] private int _nodeId;                  //ISerializable
 
 
         // Properties                                                                                                               

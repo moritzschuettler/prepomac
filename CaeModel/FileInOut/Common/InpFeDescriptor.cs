@@ -12,10 +12,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace FileInOut
 {
     [Serializable]
+    [PmxType(3037)]
     enum InpFeDescriptor
     {
         C3D4,

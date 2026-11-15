@@ -23,11 +23,12 @@ using static System.Windows.Forms.Design.AxImporter;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10506)]
     public abstract class ViewResultHistoryOutput : ViewMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
-        private ResultHistoryOutput _resultHistoryOutput;
+        [PmxKey(0)] private string _selectionHidden;
+        [PmxKey(1)] private ResultHistoryOutput _resultHistoryOutput;
 
 
         // Properties                                                                                                               

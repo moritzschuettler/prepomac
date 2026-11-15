@@ -22,11 +22,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10112)]
     class CReplaceSurface : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldSurfaceName;
-        private FeSurface _newSurface;
+        [PmxKey(0)] private string _oldSurfaceName;
+        [PmxKey(1)] private FeSurface _newSurface;
 
         // Constructor                                                                                                              
         public CReplaceSurface(string oldSurfaceName, FeSurface newSurface)

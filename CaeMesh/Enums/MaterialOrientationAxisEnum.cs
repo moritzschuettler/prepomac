@@ -9,10 +9,12 @@
 
 using DynamicTypeDescriptor;
 using System;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2056)]
     public enum MaterialOrientationAxisEnum
     {
         [StandardValue("X", DisplayName = "X axis")]

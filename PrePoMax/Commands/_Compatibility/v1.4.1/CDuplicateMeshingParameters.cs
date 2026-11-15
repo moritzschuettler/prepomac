@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10271)]
     class CDuplicateMeshingParameters : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _meshingParameterNames;
+        [PmxKey(0)] private string[] _meshingParameterNames;
 
 
         // Constructor                                                                                                              

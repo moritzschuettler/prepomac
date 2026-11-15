@@ -18,12 +18,13 @@ using System.Threading.Tasks;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5036)]
     public class HistoryResultData : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        public string SetName;                  //ISerializable
-        public string FieldName;                //ISerializable
-        public string ComponentName;            //ISerializable
+        [PmxKey(0)] public string SetName;                  //ISerializable
+        [PmxKey(1)] public string FieldName;                //ISerializable
+        [PmxKey(2)] public string ComponentName;            //ISerializable
 
 
 

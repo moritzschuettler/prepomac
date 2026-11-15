@@ -12,11 +12,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 
 namespace vtkControl
 {
     [Serializable]
+    [PmxType(6100)]
     public enum vtkColorSpectrumMode
     {
         Discrete,
@@ -24,6 +26,7 @@ namespace vtkControl
     }
 
     [Serializable]
+    [PmxType(6101)]
     public enum vtkColorSpectrumType
     {
         CoolWarm,

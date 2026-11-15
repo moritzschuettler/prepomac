@@ -32,29 +32,30 @@ using System.Collections.Concurrent;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3035)]
     public class FeModel : ISerializable
     {
         // Variables                                                                                                                
-        private string _name;                                                                   //ISerializable
-        private string _hashName;                                                               //ISerializable
-        private FeMesh _geometry;                                                               //ISerializable
-        private FeMesh _mesh;                                                                   //ISerializable
-        protected OrderedDictionary<string, UserViewParameters> _userViews;                     //ISerializable
-        private EquationParameterCollection _parameters;                                        //ISerializable
-        private OrderedDictionary<string, Material> _materials;                                 //ISerializable
-        private OrderedDictionary<string, Section> _sections;                                   //ISerializable
-        private OrderedDictionary<string, MaterialOrientation> _materialOrientations;           //ISerializable
-        private OrderedDictionary<string, Constraint> _constraints;                             //ISerializable
-        private OrderedDictionary<string, SurfaceInteraction> _surfaceInteractions;             //ISerializable
-        private OrderedDictionary<string, ContactPair> _contactPairs;                           //ISerializable
-        private OrderedDictionary<string, Distribution> _distributions;                         //ISerializable
-        private OrderedDictionary<string, Amplitude> _amplitudes;                               //ISerializable
-        private OrderedDictionary<string, InitialCondition> _initialConditions;                 //ISerializable
-        private StepCollection _stepCollection;                                                 //ISerializable
-        private OrderedDictionary<int[], Calculix.CalculixUserKeyword> _calculixUserKeywords;   //ISerializable
-        private List<Calculix.CalculixKeywordOverride> _calculixKeywordOverrides;                //ISerializable
-        private ModelProperties _properties;                                                    //ISerializable
-        private UnitSystem _unitSystem;                                                         //ISerializable
+        [PmxKey(0)] private string _name;                                                                   //ISerializable
+        [PmxKey(1)] private string _hashName;                                                               //ISerializable
+        [PmxKey(2)] private FeMesh _geometry;                                                               //ISerializable
+        [PmxKey(3)] private FeMesh _mesh;                                                                   //ISerializable
+        [PmxKey(4)] protected OrderedDictionary<string, UserViewParameters> _userViews;                     //ISerializable
+        [PmxKey(5)] private EquationParameterCollection _parameters;                                        //ISerializable
+        [PmxKey(6)] private OrderedDictionary<string, Material> _materials;                                 //ISerializable
+        [PmxKey(7)] private OrderedDictionary<string, Section> _sections;                                   //ISerializable
+        [PmxKey(8)] private OrderedDictionary<string, MaterialOrientation> _materialOrientations;           //ISerializable
+        [PmxKey(9)] private OrderedDictionary<string, Constraint> _constraints;                             //ISerializable
+        [PmxKey(10)] private OrderedDictionary<string, SurfaceInteraction> _surfaceInteractions;             //ISerializable
+        [PmxKey(11)] private OrderedDictionary<string, ContactPair> _contactPairs;                           //ISerializable
+        [PmxKey(12)] private OrderedDictionary<string, Distribution> _distributions;                         //ISerializable
+        [PmxKey(13)] private OrderedDictionary<string, Amplitude> _amplitudes;                               //ISerializable
+        [PmxKey(14)] private OrderedDictionary<string, InitialCondition> _initialConditions;                 //ISerializable
+        [PmxKey(15)] private StepCollection _stepCollection;                                                 //ISerializable
+        [PmxKey(16)] private OrderedDictionary<int[], Calculix.CalculixUserKeyword> _calculixUserKeywords;   //ISerializable
+        [PmxKey(17)] private List<Calculix.CalculixKeywordOverride> _calculixKeywordOverrides;                //ISerializable
+        [PmxKey(18)] private ModelProperties _properties;                                                    //ISerializable
+        [PmxKey(19)] private UnitSystem _unitSystem;                                                         //ISerializable
         [NonSerialized] private Dictionary<int, int> _elementIdSectionId;
         [NonSerialized] private List<Section> _assignedSections;
         [NonSerialized] private int[] _unAssignedElementIds;

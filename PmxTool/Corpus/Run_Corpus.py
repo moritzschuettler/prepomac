@@ -1,7 +1,8 @@
 """Round trip of a corpus of .pmx files through a PrePoMax build.
 
 This script runs OUTSIDE PrePoMax, with the system Python. For every .pmx file listed in the corpus file (one path
-per line, # starts a comment) it works on a copy, never on the listed file, and runs four batch sessions:
+per line, # starts a comment; a .pmh history is opened by regenerating it) it works on a copy, never on the listed
+file, and runs four batch sessions:
 
     A  open the copy, write the fingerprint A.json, save the model as saved.pmx
     B  open saved.pmx, write B.json                          (a saved file reopens to the same model)
@@ -43,11 +44,14 @@ def run(exe, arguments, folder, log_name):
         _last_start[0] = time.time()
     start = time.time()
     with open(os.path.join(folder, log_name + ".log"), "w", encoding="utf-8", errors="replace") as log:
+        process = subprocess.Popen([exe] + arguments, cwd=folder, stdout=log, stderr=subprocess.STDOUT,
+                                   creationflags=NO_WINDOW)
         try:
-            process = subprocess.run([exe] + arguments, cwd=folder, stdout=log, stderr=subprocess.STDOUT,
-                                     timeout=TIMEOUT, creationflags=NO_WINDOW)
-            code = process.returncode
+            code = process.wait(timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
+            # The launcher waits for PrePoMax.exe, which killing the launcher alone would leave running
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)], capture_output=True)
+            process.wait()
             code = "timeout"
     return code, round(time.time() - start, 1)
 
@@ -64,6 +68,9 @@ def comparable(fingerprint):
         return None
     copy = dict(fingerprint)
     copy.pop("unreadable", None)
+    # A regenerated model gets a new random hash name, which the deck heading shows with the date
+    if copy.get("input_deck"):
+        copy["input_deck"] = [line for line in copy["input_deck"] if not line.startswith("Hash: ")]
     return copy
 
 
@@ -106,10 +113,12 @@ def round_trip(exe, source, folder, resume=False):
     if os.path.exists(folder):
         shutil.rmtree(folder)
     os.makedirs(folder)
-    shutil.copyfile(source, os.path.join(folder, "orig.pmx"))
+    # A .pmh history is opened by regenerating it
+    original = "orig" + os.path.splitext(source)[1].lower()
+    shutil.copyfile(source, os.path.join(folder, original))
     common = ["-g", "No", "-x", "Yes", "-w", folder]
     record = {"source": source}
-    record["A"] = run(exe, ["-f", "orig.pmx", "--script", FINGERPRINT, "--scriptArgs",
+    record["A"] = run(exe, ["-f", original, "--script", FINGERPRINT, "--scriptArgs",
                             "A.json saved.pmx", "--report", "A.report.json"] + common, folder, "A")
     if os.path.exists(os.path.join(folder, "saved.pmx")):
         record["saved_size"] = os.path.getsize(os.path.join(folder, "saved.pmx"))
@@ -123,8 +132,34 @@ def round_trip(exe, source, folder, resume=False):
     return record
 
 
+def refused(folder, log_name):
+    file_name = os.path.join(folder, log_name + ".log")
+    if not os.path.exists(file_name):
+        return False
+    with open(file_name, "r", encoding="utf-8", errors="replace") as file:
+        return "The file cannot be read" in file.read()
+
+
+def regenerated(folder):
+    file_name = os.path.join(folder, "R.log")
+    if not os.path.exists(file_name):
+        return False
+    with open(file_name, "r", encoding="utf-8", errors="replace") as file:
+        return "Process finished successfully" in file.read()
+
+
 def own_problems(folder):
     a, b, c = (comparable(load(os.path.join(folder, name + ".json"))) for name in ("A", "B", "C"))
+    # A file the application refuses still runs the script, on an empty model
+    if refused(folder, "A"):
+        a = None
+    if refused(folder, "B"):
+        b = None
+    if refused(folder, "C"):
+        c = None
+    # A regeneration that reports failed commands leaves the saved model in regen.pmx
+    if not regenerated(folder):
+        c = None
     problems = {}
     if a is None:
         problems["open"] = "does not open"
@@ -146,9 +181,10 @@ def judge(record, folder, baseline_folder):
         for kind in list(problems):
             if kind in base_problems:
                 notes.append("as the baseline: " + problems.pop(kind)[0:200])
-        if a is not None and base_a is not None and a != base_a:
+        # A file whose reopen differs on the baseline writes some items in no fixed order, so its decks are not compared
+        if a is not None and base_a is not None and a != base_a and "reopen" not in base_problems:
             problems["baseline_open"] = "opens differently from the baseline: " + "; ".join(differences(base_a, a))
-        if c is not None and base_c is not None and c != base_c:
+        if c is not None and base_c is not None and c != base_c and "reopen" not in base_problems:
             problems["baseline_regenerate"] = "regenerates differently from the baseline: " +                 "; ".join(differences(base_c, c))
     record["problems"] = list(problems.values())
     record["notes"] = notes
@@ -167,11 +203,15 @@ def main():
     arguments = parser.parse_args()
     #
     sources = []
+    nondeterministic = set()
     with open(arguments.corpus, "r", encoding="utf-8") as file:
         for line in file:
-            line = line.split("#")[0].strip()
-            if line:
-                sources.append(line)
+            path = line.split("#")[0].strip()
+            if path:
+                sources.append(path)
+                # A file the baseline itself regenerates to more than one mesh
+                if "nondeterministic" in line.partition("#")[2]:
+                    nondeterministic.add(len(sources) - 1)
     os.makedirs(arguments.out, exist_ok=True)
     folders = [os.path.join(arguments.out, "%03d" % index) for index in range(len(sources))]
     #
@@ -186,10 +226,14 @@ def main():
                 records.append(future.result())
                 print("%3d/%d %s" % (index + 1, len(sources), sources[index]), flush=True)
     failed = 0
-    for record, folder in zip(records, folders):
+    for index, (record, folder) in enumerate(zip(records, folders)):
         baseline = None if arguments.baseline is None else \
             os.path.join(arguments.baseline, os.path.basename(folder))
         judge(record, folder, baseline)
+        if index in nondeterministic:
+            differing = [problem for problem in record["problems"] if problem.startswith("regenerates differently")]
+            record["notes"] += ["regenerates nondeterministically: " + problem[:150] for problem in differing]
+            record["problems"] = [problem for problem in record["problems"] if problem not in differing]
         if record["problems"]:
             failed += 1
     with open(os.path.join(arguments.out, "report.json"), "w", encoding="utf-8") as file:

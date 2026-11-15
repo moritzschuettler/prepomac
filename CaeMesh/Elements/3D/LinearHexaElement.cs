@@ -17,6 +17,7 @@ using CaeGlobals;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2018)]
     public class LinearHexaElement : FeElement3D
     {
         // Variables                                                                                                                

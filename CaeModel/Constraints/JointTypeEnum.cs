@@ -9,10 +9,12 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3013)]
     public enum JointTypeEnum
     {
         [StandardValue("Hinge", "Hinge", Description =

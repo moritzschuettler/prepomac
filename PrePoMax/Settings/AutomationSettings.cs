@@ -17,6 +17,7 @@ namespace PrePoMax
     // it unless the user asked for it. Whether it currently runs is session state and lives on the
     // server; these are the choices worth remembering between sessions.
     [Serializable]
+    [PmxType(10525)]
     public class AutomationSettings : ISettings
     {
         // Variables                                                                                                                
@@ -30,12 +31,12 @@ namespace PrePoMax
         // before it is answered that the call is still running
         public const int MinRequestTimeout = 5;
         public const int MaxRequestTimeout = 600;
-        private bool _startWithApplication;
-        private bool _isReadOnly;
-        private bool _echoToPythonPanel;
-        private int _requestTimeout;
-        private int _port;
-        private string _accessToken;
+        [PmxKey(0)] private bool _startWithApplication;
+        [PmxKey(1)] private bool _isReadOnly;
+        [PmxKey(2)] private bool _echoToPythonPanel;
+        [PmxKey(3)] private int _requestTimeout;
+        [PmxKey(4)] private int _port;
+        [PmxKey(5)] private string _accessToken;
 
 
         // Properties                                                                                                               

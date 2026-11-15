@@ -22,10 +22,11 @@ using System.Drawing.Design;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10459)]
     public class ViewImportedSTLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private ImportedSTLoad _importedSTLoad;
+        [PmxKey(0)] private ImportedSTLoad _importedSTLoad;
 
 
         // Properties                                                                                                               

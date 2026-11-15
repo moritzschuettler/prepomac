@@ -45,14 +45,15 @@ namespace CaeGlobals
     /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
     /// 
     [Serializable]
+    [PmxType(1011)]
     public class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, ISerializable, IDeserializationCallback,
                                                    IOrderedDictionaryItemLayout<TKey>
     {
         // Variables                                                                                                                
-        private string _name;                               //ISerializable
-        private List<TKey> _list;                           //ISerializable
-        private Dictionary<TKey, TValue> _dictionary;       //ISerializable
-        private OrderedDictionaryItemLayout<TKey> _itemLayout;
+        [PmxKey(0)] private string _name;                               //ISerializable
+        [PmxKey(1)] private List<TKey> _list;                           //ISerializable
+        [PmxKey(2)] private Dictionary<TKey, TValue> _dictionary;       //ISerializable
+        [PmxKey(3)] private OrderedDictionaryItemLayout<TKey> _itemLayout;
 
         private const int _itemLayoutMagic = 0x314C444F;     // "ODL1"
         private const int _itemLayoutVersion = 1;

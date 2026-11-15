@@ -9,10 +9,12 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3012)]
     public enum JointStiffnessDefinitionEnum
     {
         [StandardValue("From model", "From model", Description =

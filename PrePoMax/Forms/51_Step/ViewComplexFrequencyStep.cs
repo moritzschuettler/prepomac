@@ -19,10 +19,11 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10426)]
     public class ViewComplexFrequencyStep : ViewStep
     {
         // Variables                                                                                                                
-        private CaeModel.ComplexFrequencyStep _complexFrequencyStep;
+        [PmxKey(0)] private CaeModel.ComplexFrequencyStep _complexFrequencyStep;
 
 
         // Properties                                                                                                               

@@ -21,10 +21,11 @@ using System.Drawing;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10476)]
     public class ViewDefinedTemperature : ViewDefinedField
     {
         // Variables                                                                                                                
-        private DefinedTemperature _definedTemperature;
+        [PmxKey(0)] private DefinedTemperature _definedTemperature;
 
 
         // Properties                                                                                                               

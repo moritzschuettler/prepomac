@@ -18,12 +18,13 @@ using System.Threading.Tasks;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2068)]
     public class PeriodicFaceSplit : ISerializable
     {
         // Variables
-        private int[] _creationIds;                         //ISerializable
-        private Selection _creationData;                    //ISerializable
-        private int _numOfFaces;                            //ISerializable
+        [PmxKey(0)] private int[] _creationIds;                         //ISerializable
+        [PmxKey(1)] private Selection _creationData;                    //ISerializable
+        [PmxKey(2)] private int _numOfFaces;                            //ISerializable
 
 
         // Properties

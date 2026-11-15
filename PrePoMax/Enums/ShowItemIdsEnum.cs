@@ -8,10 +8,12 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace PrePoMax
 {
     [Serializable, Flags]
+    [PmxType(10299)]
     public enum ShowItemIdsEnum
     {
         None = 0,

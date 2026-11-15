@@ -17,6 +17,7 @@ using CaeMesh;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10542)]
     public class SettingsContainer
     {
         // Static variables                                                                                                         
@@ -26,19 +27,19 @@ namespace PrePoMax
         [NonSerialized] private Dictionary<string, vtkControl.vtkMaxColorSpectrum> _colorSpectrums;
         [NonSerialized] private string _regenerationWorkDirectory;
         //
-        private GeneralSettings _general;
-        private NumberFormatSettings _numberFormat;
-        private GraphicsSettings _graphics;
-        private NavigationSettings _navigation;
-        private ColorSettings _color;
-        private AnnotationSettings _annotations;
-        private MeshingSettings _meshing;
-        private PreSettings _pre;
-        private SolverSettings _solver;
-        private PostSettings _post;
-        private LegendSettings _legend;
-        private StatusBlockSettings _statusBlock;
-        private AutomationSettings _automation;
+        [PmxKey(0)] private GeneralSettings _general;
+        [PmxKey(1)] private NumberFormatSettings _numberFormat;
+        [PmxKey(2)] private GraphicsSettings _graphics;
+        [PmxKey(3)] private NavigationSettings _navigation;
+        [PmxKey(4)] private ColorSettings _color;
+        [PmxKey(5)] private AnnotationSettings _annotations;
+        [PmxKey(6)] private MeshingSettings _meshing;
+        [PmxKey(7)] private PreSettings _pre;
+        [PmxKey(8)] private SolverSettings _solver;
+        [PmxKey(9)] private PostSettings _post;
+        [PmxKey(10)] private LegendSettings _legend;
+        [PmxKey(11)] private StatusBlockSettings _statusBlock;
+        [PmxKey(12)] private AutomationSettings _automation;
 
 
         // Static properties                                                                                                        

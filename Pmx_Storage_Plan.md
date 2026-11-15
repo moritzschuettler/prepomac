@@ -222,16 +222,52 @@ Verification section plus `Test_Model_Document`, `Test_Record_And_Run` and `Test
 
 ## 5. Phase 2 - Schema
 
-- [ ] One-off Roslyn script: for every `[Serializable]` type, add `[MessagePackObject]` and `[Key(n)]` to the members
+- [x] One-off Roslyn script: for every `[Serializable]` type, add `[MessagePackObject]` and `[Key(n)]` to the members
       BinaryFormatter writes today (fields not `[NonSerialized]`), keys in declaration order; `[IgnoreMember]` on
       the rest; `[Union]` on every abstract base with ids per numbered command folder / model area (id ranges
       documented in this file).
-- [ ] Fix the graph audit findings (shared references → names; cycles → back references rebuilt after load).
-- [ ] Constructors/setters MessagePack needs (`[SerializationConstructor]` or `internal` setters).
-- [ ] Generate `Schema_Snapshot.txt` and the check that compares against it.
-- [ ] Debug-only dual mode for `DeepClone`: clone with both serializers and compare the results.
+- [x] Fix the graph audit findings (shared references → names; cycles → back references rebuilt after load).
+- [x] Constructors/setters MessagePack needs (`[SerializationConstructor]` or `internal` setters).
+- [x] Generate `Schema_Snapshot.txt` and the check that compares against it.
+- [x] Debug-only dual mode for `DeepClone`: clone with both serializers and compare the results.
 
 Exit: dual mode reports no differences across all Python test groups.
+
+**Done, with the attributes of the Phase 0 decision.** A Roslyn script (kept out of the repository, it ran once) gave
+the 1,117 `[Serializable]` types of the compiled sources `[PmxType(id)]` and every field the binary formatter writes
+`[PmxKey(n)]` in declaration order - an auto-property `[field: PmxKey(n)]`, a field marked `[NonSerialized]`
+nothing, so it stays out. `Controller` keeps no keys, since it is no longer stored. The id ranges, in sorted file
+order within each project:
+
+| Project | Ids |
+|---|---|
+| CaeGlobals | 1000 - 1999 |
+| CaeMesh | 2000 - 2999 |
+| CaeModel | 3000 - 4999 |
+| CaeResults | 5000 - 5999 |
+| CaeJob | 6000 - 6099 |
+| vtkControl | 6100 - 6199 |
+| UserControls | 6200 - 6499 |
+| PrePoMax (commands in numbered folder order) | 10000 - 19999 |
+
+A field is stored under `(id of the declaring type << 10) | key`, so a type and its bases number their fields
+independently and a key never collides across a hierarchy.
+
+- The graph audit needs no code change: the serializer keeps shared references and cycles (Phase 0), and the one
+  cycle went away with `PmxDocument`.
+- No constructors or setters were needed: objects are created uninitialized and fields, read only ones included, are
+  set through emitted dynamic methods, as the binary formatter does.
+- `Schema_Snapshot.txt` lists every type number with its kind and every `(type, key)` with the stored type of the
+  field, by number where the field type is a stored type. `PmxTool schema --check` runs after every build of
+  `PrePoMax` (its `PostBuildEvent`) and fails the build when an entry changed its meaning or disappeared;
+  `PmxTool schema --update` adds new entries and keeps removed ones as retired (`R`), so a number is never reused.
+- Dual mode: a Debug build started with `PREPOMAX_DUAL_SERIALIZER=1` clones with both serializers, keeps the binary
+  formatter's clone, compares the two graphs field by field (`PmxGraphComparer`) and logs every difference to
+  `%TEMP%\PrePoMax\pmx_dual_serializer.log`. The whole Python test suite ran in dual mode with an empty log.
+  Before that, every file of the corpus was cloned with the new serializer and compared with the binary formatter
+  graph: no differences.
+- `CReplaceModelProperties` executed with the `ModelProperties` it stores, so the history and the model shared one
+  object (graph audit); it now executes with a clone, as every other command does.
 
 ---
 

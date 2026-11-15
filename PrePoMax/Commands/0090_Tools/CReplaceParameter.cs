@@ -22,11 +22,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10216)]
     class CReplaceParameter : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldParameterName;
-        private EquationParameter _newParameter;
+        [PmxKey(0)] private string _oldParameterName;
+        [PmxKey(1)] private EquationParameter _newParameter;
 
 
         // Constructor                                                                                                              

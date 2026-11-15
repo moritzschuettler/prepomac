@@ -20,12 +20,13 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10203)]
     class CReplaceLoad : PreprocessCommand, IFileDependentCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string _oldLoadName;
-        private Load _newLoad;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string _oldLoadName;
+        [PmxKey(2)] private Load _newLoad;
 
 
         // Properties                                                                                                               

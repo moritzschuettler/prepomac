@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3145)]
     internal class CalBodyFlux : CalLoad
     {
         // Variables                                                                                                                
-        private BodyFlux _flux;
+        [PmxKey(0)] private BodyFlux _flux;
 
         
         // Constructor                                                                                                              

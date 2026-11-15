@@ -10,15 +10,17 @@
 using System;
 using System.Text;
 using CaeModel;
+using CaeGlobals;
 
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3080)]
     internal class CalDistributing : CalculixKeyword
     {
         // Variables                                                                                                                
-        private DistributingCoupling _distributingCoupling;
+        [PmxKey(0)] private DistributingCoupling _distributingCoupling;
 
 
         // Properties                                                                                                               

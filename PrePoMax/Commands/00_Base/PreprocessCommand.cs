@@ -19,6 +19,7 @@ using System.Runtime.Serialization;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10222)]
     public abstract class PreprocessCommand : Command
     {
         // Variables                                                                                                                

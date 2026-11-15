@@ -18,6 +18,7 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3202)]
     public class PointMassSection : MassSection, ISerializable
     {
         // Variables                                                                                                                

@@ -18,6 +18,7 @@ using CaeGlobals;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5004)]
     public enum ComplexResultTypeEnum
     {
         [StandardValue("Real", DisplayName = "Real", Description = "Real")]

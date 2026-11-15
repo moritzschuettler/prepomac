@@ -22,11 +22,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10140)]
     class CAddConstraint : PreprocessCommand
     {
         // Variables                                                                                                                
-        private Constraint _constraint;
-        private bool _update;
+        [PmxKey(0)] private Constraint _constraint;
+        [PmxKey(1)] private bool _update;
 
 
         // Constructor                                                                                                              

@@ -22,12 +22,13 @@ using System.Threading.Tasks;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3284)]
     public class InitialVelocity : InitialCondition, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private double _v1;
-        private double _v2;
-        private double _v3;
+        [PmxKey(0)] private double _v1;
+        [PmxKey(1)] private double _v2;
+        [PmxKey(2)] private double _v3;
 
 
         // Properties                                                                                                               

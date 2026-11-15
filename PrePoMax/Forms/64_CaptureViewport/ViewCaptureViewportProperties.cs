@@ -16,11 +16,12 @@ using DynamicTypeDescriptor;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10494)]
     public class ViewCaptureViewportProperties
     {
         // Variables                                                                                                                
-        private CaptureViewportProperties _properties;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private CaptureViewportProperties _properties;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

@@ -20,11 +20,12 @@ using System.Drawing.Design;
 namespace PrePoMax.Settings
 {
     [Serializable]
+    [PmxType(10491)]
     public class ViewStatusBlockSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private StatusBlockSettings _statusBlockSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private StatusBlockSettings _statusBlockSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

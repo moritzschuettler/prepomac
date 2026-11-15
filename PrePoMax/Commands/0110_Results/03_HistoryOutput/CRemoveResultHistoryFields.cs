@@ -16,15 +16,17 @@ using PrePoMax;
 using CaeModel;
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10263)]
     class CRemoveResultHistoryFields : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string _historyResultSetName;
-        private string[] _historyResultFieldNames;
+        [PmxKey(0)] private string _historyResultSetName;
+        [PmxKey(1)] private string[] _historyResultFieldNames;
         
 
         // Constructor                                                                                                              

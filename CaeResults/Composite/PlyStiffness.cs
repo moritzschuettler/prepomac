@@ -8,18 +8,20 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace CaeResults
 {
     // The in-plane elastic constants of a ply, which give its plane stresses from its in-plane strains
     [Serializable]
+    [PmxType(5000)]
     public class PlyStiffness
     {
         // Variables                                                                                                                
-        private double _q11;
-        private double _q22;
-        private double _q12;
-        private double _q66;
+        [PmxKey(0)] private double _q11;
+        [PmxKey(1)] private double _q22;
+        [PmxKey(2)] private double _q12;
+        [PmxKey(3)] private double _q66;
 
 
         // Constructor                                                                                                              

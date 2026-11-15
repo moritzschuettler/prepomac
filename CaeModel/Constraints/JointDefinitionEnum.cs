@@ -9,10 +9,12 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3010)]
     public enum JointDefinitionEnum
     {
         [StandardValue("Master surface", "Master surface", Description =

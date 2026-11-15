@@ -19,12 +19,13 @@ namespace CaeResults
     // composite shell, the material axes and the material, and the ply strengths of the materials. The results
     // project does not reference the model, so the controller builds this when the results are opened.
     [Serializable]
+    [PmxType(5002)]
     public class ShellResultData
     {
         // Variables
-        private Dictionary<int, ShellResultElement> _elements;
-        private Dictionary<string, PlyStrength> _plyStrengths;
-        [OptionalField]
+        [PmxKey(0)] private Dictionary<int, ShellResultElement> _elements;
+        [PmxKey(1)] private Dictionary<string, PlyStrength> _plyStrengths;
+        [PmxKey(2)] [OptionalField]
         private Dictionary<string, PlyStiffness> _plyStiffnesses;
         [NonSerialized] private FeMesh _nodeDataMesh;
         [NonSerialized] private Dictionary<int, ShellResultElement[]> _nodeData;

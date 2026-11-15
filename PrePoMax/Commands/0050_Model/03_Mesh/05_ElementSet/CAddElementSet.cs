@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10104)]
     class CAddElementSet : PreprocessCommand
     {
         // Variables                                                                                                                
-        private FeElementSet _elementSet;
+        [PmxKey(0)] private FeElementSet _elementSet;
 
 
         // Constructor                                                                                                              

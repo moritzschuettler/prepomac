@@ -14,17 +14,18 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3174)]
     public class CompositeStrength : MaterialProperty, ISerializable
     {
         // Variables                                                                                                                
         public const double DefaultTsaiWuCoefficient = -0.5;
-        private EquationContainer _tensileStrength1;            //ISerializable
-        private EquationContainer _compressiveStrength1;        //ISerializable
-        private EquationContainer _tensileStrength2;            //ISerializable
-        private EquationContainer _compressiveStrength2;        //ISerializable
-        private EquationContainer _shearStrength12;             //ISerializable
-        private EquationContainer _shearStrength23;             //ISerializable
-        private EquationContainer _tsaiWuCoefficient;           //ISerializable
+        [PmxKey(0)] private EquationContainer _tensileStrength1;            //ISerializable
+        [PmxKey(1)] private EquationContainer _compressiveStrength1;        //ISerializable
+        [PmxKey(2)] private EquationContainer _tensileStrength2;            //ISerializable
+        [PmxKey(3)] private EquationContainer _compressiveStrength2;        //ISerializable
+        [PmxKey(4)] private EquationContainer _shearStrength12;             //ISerializable
+        [PmxKey(5)] private EquationContainer _shearStrength23;             //ISerializable
+        [PmxKey(6)] private EquationContainer _tsaiWuCoefficient;           //ISerializable
 
 
         // Properties                                                                                                               

@@ -12,10 +12,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2023)]
     public class ParabolicPyramidElement : FeElement3D
     {
         // Variables                                                                                                                

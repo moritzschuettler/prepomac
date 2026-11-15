@@ -16,15 +16,17 @@ using PrePoMax;
 using CaeModel;
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10195)]
     class CRemoveBCs : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string[] _boundaryConditionNames;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string[] _boundaryConditionNames;
 
         // Constructor                                                                                                              
         public CRemoveBCs(string stepName, string[] boundaryConditionNames)

@@ -14,10 +14,12 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3122)]
     internal enum OpKeywordEnum
     {
         None,
@@ -32,6 +34,7 @@ namespace FileInOut.Output.Calculix
     }
     //
     [Serializable]
+    [PmxType(3123)]
     internal enum OpTypeEnum
     {
         None,
@@ -40,11 +43,12 @@ namespace FileInOut.Output.Calculix
     }
     //
     [Serializable]
+    [PmxType(3124)]
     internal class CalOpParameter : CalculixKeyword
     {
         // Variables                                                                                                                
-        private OpKeywordEnum _opKeyword;
-        private OpTypeEnum _opType;
+        [PmxKey(0)] private OpKeywordEnum _opKeyword;
+        [PmxKey(1)] private OpTypeEnum _opType;
 
 
         // Properties                                                                                                               

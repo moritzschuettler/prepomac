@@ -20,10 +20,11 @@ using DynamicTypeDescriptor;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10332)]
     public class ViewLocalMeshSize : ViewMeshSetupItem
     {
         // Variables                                                                                                                
-        private LocalMeshSize _localMeshSize;
+        [PmxKey(0)] private LocalMeshSize _localMeshSize;
 
 
         // Properties                                                                                                               

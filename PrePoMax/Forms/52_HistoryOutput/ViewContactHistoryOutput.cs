@@ -20,6 +20,7 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10437)]
     [EnumResource("PrePoMax.Properties.Resources")]
     [Editor(typeof(StandardValueEditor), typeof(System.Drawing.Design.UITypeEditor))]
     [Flags]
@@ -45,10 +46,11 @@ namespace PrePoMax
     }
 
     [Serializable]
+    [PmxType(10438)]
     public class ViewContactHistoryOutput : ViewHistoryOutput
     {
         // Variables                                                                                                                
-        private ContactHistoryOutput _historyOutput;
+        [PmxKey(0)] private ContactHistoryOutput _historyOutput;
 
 
         // Properties                                                                                                               

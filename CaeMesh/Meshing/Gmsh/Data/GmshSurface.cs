@@ -10,25 +10,27 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2100)]
     public class GmshSurface : IComparable<GmshSurface>
     {
-        public int[] OppositeEdgesA;
-        public int[] OppositeEdgesB;
-        public int Id;
-        public int[] VertexIds;
-        public int[] EdgeIds;
-        private int[] _loopEdgeIds;
-        private int[][] _edgeVertexIds;
-        public bool ThreeSided;
-        public bool FourSided;
-        public bool HasHole;
-        public bool Collapsed;
-        public bool Transfinite;
-        public bool Recombine;
+        [PmxKey(0)] public int[] OppositeEdgesA;
+        [PmxKey(1)] public int[] OppositeEdgesB;
+        [PmxKey(2)] public int Id;
+        [PmxKey(3)] public int[] VertexIds;
+        [PmxKey(4)] public int[] EdgeIds;
+        [PmxKey(5)] private int[] _loopEdgeIds;
+        [PmxKey(6)] private int[][] _edgeVertexIds;
+        [PmxKey(7)] public bool ThreeSided;
+        [PmxKey(8)] public bool FourSided;
+        [PmxKey(9)] public bool HasHole;
+        [PmxKey(10)] public bool Collapsed;
+        [PmxKey(11)] public bool Transfinite;
+        [PmxKey(12)] public bool Recombine;
         //
         public GmshSurface(int id, int[] vertexIds, int[] edgeIds, double[] edgeLengths, int[][] edgeVertexIds)
         {

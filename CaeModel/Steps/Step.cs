@@ -20,6 +20,7 @@ using DynamicTypeDescriptor;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3278)]
     public enum IncrementationTypeEnum
     {
         Default,
@@ -28,6 +29,7 @@ namespace CaeModel
     }
     //
     [Serializable]
+    [PmxType(3279)]
     public enum SolverTypeEnum
     {
         Default,
@@ -43,22 +45,23 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3280)]
     public abstract class Step : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        protected OrderedDictionary<string, HistoryOutput> _historyOutputs;             //ISerializable
-        protected OrderedDictionary<string, FieldOutput> _fieldOutputs;                 //ISerializable
-        protected OrderedDictionary<string, BoundaryCondition> _boundaryConditions;     //ISerializable
-        protected OrderedDictionary<string, Load> _loads;                               //ISerializable
-        protected OrderedDictionary<string, DefinedField> _definedFields;               //ISerializable
-        protected bool _runAnalysis;                                                    //ISerializable
-        protected bool _perturbation;                                                   //ISerializable
-        protected bool _nlgeom;                                                         //ISerializable
-        protected int _maxIncrements;                                                   //ISerializable
-        protected IncrementationTypeEnum _incrementationType;                           //ISerializable
-        protected SolverTypeEnum _solverType;                                           //ISerializable
-        protected int _outputFrequency;                                                 //ISerializable
-        protected StepControls _stepControls;                                           //ISerializable
+        [PmxKey(0)] protected OrderedDictionary<string, HistoryOutput> _historyOutputs;             //ISerializable
+        [PmxKey(1)] protected OrderedDictionary<string, FieldOutput> _fieldOutputs;                 //ISerializable
+        [PmxKey(2)] protected OrderedDictionary<string, BoundaryCondition> _boundaryConditions;     //ISerializable
+        [PmxKey(3)] protected OrderedDictionary<string, Load> _loads;                               //ISerializable
+        [PmxKey(4)] protected OrderedDictionary<string, DefinedField> _definedFields;               //ISerializable
+        [PmxKey(5)] protected bool _runAnalysis;                                                    //ISerializable
+        [PmxKey(6)] protected bool _perturbation;                                                   //ISerializable
+        [PmxKey(7)] protected bool _nlgeom;                                                         //ISerializable
+        [PmxKey(8)] protected int _maxIncrements;                                                   //ISerializable
+        [PmxKey(9)] protected IncrementationTypeEnum _incrementationType;                           //ISerializable
+        [PmxKey(10)] protected SolverTypeEnum _solverType;                                           //ISerializable
+        [PmxKey(11)] protected int _outputFrequency;                                                 //ISerializable
+        [PmxKey(12)] protected StepControls _stepControls;                                           //ISerializable
 
 
         // Properties                                                                                                               

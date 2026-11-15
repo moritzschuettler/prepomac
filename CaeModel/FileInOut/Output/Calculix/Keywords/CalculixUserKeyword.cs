@@ -16,17 +16,19 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3061)]
     public class CalculixUserKeyword : CalculixKeyword, ISerializable
     {
         // Variables                                                                                                                
-        private string _firstLine;                  //ISerializable
-        private string _data;                       //ISerializable
-        private object _parent;                     //ISerializable
-        private bool _suppressed;                   //ISerializable
+        [PmxKey(0)] private string _firstLine;                  //ISerializable
+        [PmxKey(1)] private string _data;                       //ISerializable
+        [PmxKey(2)] private object _parent;                     //ISerializable
+        [PmxKey(3)] private bool _suppressed;                   //ISerializable
 
 
         // Properties                                                                                                               

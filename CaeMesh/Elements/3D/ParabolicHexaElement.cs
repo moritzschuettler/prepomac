@@ -13,10 +13,12 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2022)]
     public class ParabolicHexaElement : FeElement3D
     {
         // Variables                                                                                                                

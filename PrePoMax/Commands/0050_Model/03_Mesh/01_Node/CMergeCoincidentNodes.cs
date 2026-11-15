@@ -23,10 +23,11 @@ using PrePoMax.Forms;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10084)]
     class CMergeCoincidentNodes : PreprocessCommand
     {
         // Variables                                                                                                                
-        private MergeCoincidentNodes _mergeCoincidentNodes;
+        [PmxKey(0)] private MergeCoincidentNodes _mergeCoincidentNodes;
 
 
         // Constructor                                                                                                              

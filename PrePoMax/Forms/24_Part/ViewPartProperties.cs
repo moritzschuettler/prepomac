@@ -21,12 +21,13 @@ using System.Drawing.Design;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10353)]
     public class ViewPartProperties
     {
         // Variables                                                                                                                
-        private PartProperties _partProperties;
-        private ElementTypeCount[] _elementTypeCounts;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private PartProperties _partProperties;
+        [PmxKey(1)] private ElementTypeCount[] _elementTypeCounts;
+        [PmxKey(2)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

@@ -20,13 +20,14 @@ using System.Diagnostics;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10521)]
     public class ViewMultiRegion : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
-        private IMultiRegion _multiRegion;
-        private Dictionary<RegionTypeEnum, string> _regionTypePropertyNamePairs;
-        private Dictionary<string, RegionTypeEnum> _regionNameRegionTypePairs;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private IMultiRegion _multiRegion;
+        [PmxKey(1)] private Dictionary<RegionTypeEnum, string> _regionTypePropertyNamePairs;
+        [PmxKey(2)] private Dictionary<string, RegionTypeEnum> _regionNameRegionTypePairs;
+        [PmxKey(3)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

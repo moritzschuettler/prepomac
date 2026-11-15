@@ -16,15 +16,17 @@ using PrePoMax;
 using CaeModel;
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10202)]
     class CRemoveLoads : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string[] _loadNames;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string[] _loadNames;
 
         // Constructor                                                                                                              
         public CRemoveLoads(string stepName, string[] loadNames)

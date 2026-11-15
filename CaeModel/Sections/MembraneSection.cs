@@ -18,10 +18,11 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3201)]
     public class MembraneSection : Section, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer _offset;         //ISerializable
+        [PmxKey(0)] private EquationContainer _offset;         //ISerializable
 
 
         // Properties                                                                                                               

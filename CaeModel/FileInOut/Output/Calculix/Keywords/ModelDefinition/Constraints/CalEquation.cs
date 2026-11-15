@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3081)]
     internal class CalEquation : CalculixKeyword
     {
         // Variables                                                                                                                
-        private double[] _parameters;
+        [PmxKey(0)] private double[] _parameters;
 
 
         // Properties                                                                                                               

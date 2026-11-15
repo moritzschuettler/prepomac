@@ -19,18 +19,19 @@ using DynamicTypeDescriptor;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3034)]
     public abstract class MappedDistribution : Distribution, ISerializable
     {
         // Variables                                                                                                                
-        protected CloudInterpolatorEnum _interpolatorType;      //ISerializable
-        protected EquationContainer _interpolatorRadius;        //ISerializable
-        private EquationContainer _scaleX;                      //ISerializable
-        private EquationContainer _scaleY;                      //ISerializable
-        private EquationContainer _scaleZ;                      //ISerializable
-        private EquationContainer _translateX;                  //ISerializable
-        private EquationContainer _translateY;                  //ISerializable
-        private EquationContainer _translateZ;                  //ISerializable
-        protected double[][] _coorValues;                       //ISerializable
+        [PmxKey(0)] protected CloudInterpolatorEnum _interpolatorType;      //ISerializable
+        [PmxKey(1)] protected EquationContainer _interpolatorRadius;        //ISerializable
+        [PmxKey(2)] private EquationContainer _scaleX;                      //ISerializable
+        [PmxKey(3)] private EquationContainer _scaleY;                      //ISerializable
+        [PmxKey(4)] private EquationContainer _scaleZ;                      //ISerializable
+        [PmxKey(5)] private EquationContainer _translateX;                  //ISerializable
+        [PmxKey(6)] private EquationContainer _translateY;                  //ISerializable
+        [PmxKey(7)] private EquationContainer _translateZ;                  //ISerializable
+        [PmxKey(8)] protected double[][] _coorValues;                       //ISerializable
         //
         [NonSerialized] protected CloudInterpolator _interpolator;
         [NonSerialized] protected CloudPoint[] _cloudPoints;

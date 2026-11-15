@@ -20,11 +20,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10164)]
     class CReplaceDistribution : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private string _oldDistributionName;
-        private Distribution _newDistribution;
+        [PmxKey(0)] private string _oldDistributionName;
+        [PmxKey(1)] private Distribution _newDistribution;
 
 
         // Properties                                                                                                               

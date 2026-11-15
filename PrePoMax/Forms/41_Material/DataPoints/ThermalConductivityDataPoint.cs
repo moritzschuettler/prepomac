@@ -20,10 +20,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10366)]
     public class ThermalConductivityDataPoint : TempDataPoint
     {
         // Variables                                                                                                                
-        private EquationContainer _thermalConductivity;
+        [PmxKey(0)] private EquationContainer _thermalConductivity;
 
 
         // Properties                                                                                                               

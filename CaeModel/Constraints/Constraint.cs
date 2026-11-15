@@ -21,23 +21,24 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3004)]
     public abstract class Constraint : NamedClass, IMasterSlaveMultiRegion, IContainsEquations, ISerializable
     {
         // Variables                                                                                                                
-        private string _masterRegionName;               //ISerializable
-        private RegionTypeEnum _masterRegionType;       //ISerializable
-        private string _slaveRegionName;                //ISerializable
-        private RegionTypeEnum _slaveRegionType;        //ISerializable
+        [PmxKey(0)] private string _masterRegionName;               //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _masterRegionType;       //ISerializable
+        [PmxKey(2)] private string _slaveRegionName;                //ISerializable
+        [PmxKey(3)] private RegionTypeEnum _slaveRegionType;        //ISerializable
         //
-        private int[] _masterCreationIds;               //ISerializable
-        private Selection _masterCreationData;          //ISerializable
-        private int[] _slaveCreationIds;                //ISerializable
-        private Selection _slaveCreationData;           //ISerializable
+        [PmxKey(4)] private int[] _masterCreationIds;               //ISerializable
+        [PmxKey(5)] private Selection _masterCreationData;          //ISerializable
+        [PmxKey(6)] private int[] _slaveCreationIds;                //ISerializable
+        [PmxKey(7)] private Selection _slaveCreationData;           //ISerializable
         //
-        protected Color _masterColor;                   //ISerializable
-        protected Color _slaveColor;                    //ISerializable
+        [PmxKey(8)] protected Color _masterColor;                   //ISerializable
+        [PmxKey(9)] protected Color _slaveColor;                    //ISerializable
         //
-        private bool _twoD;                             //ISerializable
+        [PmxKey(10)] private bool _twoD;                             //ISerializable
 
 
         // Properties                                                                                                               

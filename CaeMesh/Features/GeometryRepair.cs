@@ -18,18 +18,19 @@ using System.Threading.Tasks;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2067)]
     public class GeometryRepair : ISerializable
     {
         // Variables                                                                                                                
-        private int[] _creationIds;                         //ISerializable
-        private Selection _creationData;                    //ISerializable
-        private bool _fixShape;                             //ISerializable
-        private bool _removeSmallEdges;                     //ISerializable
-        private bool _removeSmallFaces;                     //ISerializable
-        private bool _sewFaces;                             //ISerializable
-        private bool _fuseFaces;                            //ISerializable
-        private bool _joinEdges;                            //ISerializable
-        private double _tolerance;                          //ISerializable
+        [PmxKey(0)] private int[] _creationIds;                         //ISerializable
+        [PmxKey(1)] private Selection _creationData;                    //ISerializable
+        [PmxKey(2)] private bool _fixShape;                             //ISerializable
+        [PmxKey(3)] private bool _removeSmallEdges;                     //ISerializable
+        [PmxKey(4)] private bool _removeSmallFaces;                     //ISerializable
+        [PmxKey(5)] private bool _sewFaces;                             //ISerializable
+        [PmxKey(6)] private bool _fuseFaces;                            //ISerializable
+        [PmxKey(7)] private bool _joinEdges;                            //ISerializable
+        [PmxKey(8)] private double _tolerance;                          //ISerializable
 
 
         // Properties                                                                                                               

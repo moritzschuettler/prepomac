@@ -9,10 +9,12 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace UserControls
 {
     [Serializable]
+    [PmxType(6214)]
     public enum XYPlotLineStyleEnum
     {
         [StandardValue("Solid", "A continuous line.")]

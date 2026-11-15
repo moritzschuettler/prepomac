@@ -20,13 +20,14 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3018)]
     public abstract class SpringConstraint : Constraint, IMultiRegion, ISerializable
     {
         // Variables                                                                                                                
-        private bool _checkPositive;        //ISerializable
-        private EquationContainer _k1;      //ISerializable
-        private EquationContainer _k2;      //ISerializable
-        private EquationContainer _k3;      //ISerializable
+        [PmxKey(0)] private bool _checkPositive;        //ISerializable
+        [PmxKey(1)] private EquationContainer _k1;      //ISerializable
+        [PmxKey(2)] private EquationContainer _k2;      //ISerializable
+        [PmxKey(3)] private EquationContainer _k3;      //ISerializable
 
 
         // Properties                                                                                                               

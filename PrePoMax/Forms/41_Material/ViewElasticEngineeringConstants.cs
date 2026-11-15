@@ -17,10 +17,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10372)]
     public class ViewElasticEngineeringConstants : ViewMaterialProperty
     {
         // Variables                                                                                                                
-        private List<ElasticEngineeringConstantsDataPoint> _points;
+        [PmxKey(0)] private List<ElasticEngineeringConstantsDataPoint> _points;
 
 
         // Properties                                                                                                               

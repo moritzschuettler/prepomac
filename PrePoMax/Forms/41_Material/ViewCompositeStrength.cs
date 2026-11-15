@@ -16,10 +16,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10369)]
     public class ViewCompositeStrength : ViewMaterialProperty
     {
         // Variables                                                                                                                
-        private CompositeStrength _compositeStrength;
+        [PmxKey(0)] private CompositeStrength _compositeStrength;
 
 
         // Properties                                                                                                               

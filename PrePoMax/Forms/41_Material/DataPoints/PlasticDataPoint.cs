@@ -19,11 +19,12 @@ using CaeGlobals;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10363)]
     public class PlasticDataPoint : TempDataPoint
     {
         // Variables                                                                                                                
-        private EquationContainer _strain;
-        private EquationContainer _stress;
+        [PmxKey(0)] private EquationContainer _strain;
+        [PmxKey(1)] private EquationContainer _stress;
 
 
         // Properties                                                                                                               

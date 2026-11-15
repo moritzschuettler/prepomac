@@ -13,17 +13,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3274)]
     public class ModalDynamicsStep : StaticStep, ISerializable
     {
         // Variables                                                                                                                
-        private bool _steadyState;          //ISerializable
-        private ModalDamping _modalDamping; //ISerializable
-        private double _relativeError;      //ISerializable
+        [PmxKey(0)] private bool _steadyState;          //ISerializable
+        [PmxKey(1)] private ModalDamping _modalDamping; //ISerializable
+        [PmxKey(2)] private double _relativeError;      //ISerializable
 
 
         // Properties                                                                                                               

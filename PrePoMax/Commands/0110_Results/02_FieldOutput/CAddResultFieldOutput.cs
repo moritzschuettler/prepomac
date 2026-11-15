@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10255)]
     class CAddResultFieldOutput : PostprocessCommand
     {
         // Variables                                                                                                                
-        private ResultFieldOutput _resultFieldOutput;
+        [PmxKey(0)] private ResultFieldOutput _resultFieldOutput;
 
 
         // Constructor                                                                                                              

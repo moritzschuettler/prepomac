@@ -8,10 +8,12 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2046)]
     public enum IntegrationScaleType
     {
         None,
@@ -26,10 +28,11 @@ namespace CaeMesh
     // - Thickness:    weight = t (constant)      (plane stress / plane strain slab of thickness t)
     // - Axisymmetric: weight = 2 * pi * r        (surface / volume of revolution)
     [Serializable]
+    [PmxType(2047)]
     public struct IntegrationScale
     {
-        public IntegrationScaleType Type;
-        public double Thickness;    // used when Type == Thickness
+        [PmxKey(0)] public IntegrationScaleType Type;
+        [PmxKey(1)] public double Thickness;    // used when Type == Thickness
 
 
         // A default(IntegrationScale) has Type == None, so it behaves as an unscaled integral.

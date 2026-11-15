@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10269)]
     class CAddMeshingParameters : PreprocessCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private MeshingParameters _meshingParameters;
+        [PmxKey(0)] private MeshingParameters _meshingParameters;
 
 
         // Constructor                                                                                                              

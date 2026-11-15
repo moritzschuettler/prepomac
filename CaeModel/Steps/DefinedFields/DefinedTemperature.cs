@@ -22,6 +22,7 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3229)]
     public enum DefinedTemperatureTypeEnum
     {
         [StandardValue("ByValue", DisplayName = "By value")]
@@ -31,16 +32,17 @@ namespace CaeModel
     }
     //
     [Serializable]
+    [PmxType(3230)]
                 
     public class DefinedTemperature : DefinedField, IDistribution, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private DefinedTemperatureTypeEnum _definedTemperatureType;     //ISerializable
-        private int _nodeId;                                            //ISerializable
-        private EquationContainer _temperature;                         //ISerializable
-        private string _fileName;                                       //ISerializable
-        private int _stepNumber;                                        //ISerializable
-        private string _distributionName;                               //ISerializable
+        [PmxKey(0)] private DefinedTemperatureTypeEnum _definedTemperatureType;     //ISerializable
+        [PmxKey(1)] private int _nodeId;                                            //ISerializable
+        [PmxKey(2)] private EquationContainer _temperature;                         //ISerializable
+        [PmxKey(3)] private string _fileName;                                       //ISerializable
+        [PmxKey(4)] private int _stepNumber;                                        //ISerializable
+        [PmxKey(5)] private string _distributionName;                               //ISerializable
 
 
         // Properties                                                                                                               

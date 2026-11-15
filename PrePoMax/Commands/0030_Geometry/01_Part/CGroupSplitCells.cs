@@ -22,12 +22,13 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10041)]
     class CGroupSplitCells : PreprocessCommand
     {
         // Variables
-        private string _compoundPartName;
-        private string[] _cellNames;
-        private string _subPartName;
+        [PmxKey(0)] private string _compoundPartName;
+        [PmxKey(1)] private string[] _cellNames;
+        [PmxKey(2)] private string _subPartName;
 
 
         // Constructor

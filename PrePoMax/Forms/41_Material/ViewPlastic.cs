@@ -20,11 +20,12 @@ using CaeGlobals;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10375)]
     public class ViewPlastic : ViewMaterialProperty
     {
         // Variables                                                                                                                
-        private List<PlasticDataPoint> _points;
-        private PlasticHardening _hardening;
+        [PmxKey(0)] private List<PlasticDataPoint> _points;
+        [PmxKey(1)] private PlasticHardening _hardening;
 
 
         // Properties                                                                                                               

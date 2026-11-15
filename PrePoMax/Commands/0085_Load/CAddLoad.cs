@@ -20,11 +20,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10198)]
     class CAddLoad : PreprocessCommand, IFileDependentCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private Load _load;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private Load _load;
 
 
         // Properties                                                                                                               

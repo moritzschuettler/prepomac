@@ -20,10 +20,11 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10462)]
     public class ViewCFlux : ViewLoad
     {
         // Variables                                                                                                                
-        private CaeModel.CFlux _cFlux;
+        [PmxKey(0)] private CaeModel.CFlux _cFlux;
 
 
         // Properties                                                                                                               

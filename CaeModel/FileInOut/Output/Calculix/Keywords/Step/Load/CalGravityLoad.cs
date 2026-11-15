@@ -19,11 +19,12 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3152)]
     internal class CalGravityLoad : CalLoad
     {
         // Variables                                                                                                                
-        private GravityLoad _load;
-        private ComplexLoadTypeEnum _complexLoadType;
+        [PmxKey(0)] private GravityLoad _load;
+        [PmxKey(1)] private ComplexLoadTypeEnum _complexLoadType;
 
 
         // Properties                                                                                                               

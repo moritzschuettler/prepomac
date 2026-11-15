@@ -20,6 +20,7 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10448)]
     [EnumResource("PrePoMax.Properties.Resources")]
     [Editor(typeof(StandardValueEditor), typeof(System.Drawing.Design.UITypeEditor))]
     [Flags]
@@ -62,10 +63,11 @@ namespace PrePoMax
     }
 
     [Serializable]
+    [PmxType(10449)]
     public class ViewElementFieldOutput : ViewFieldOutput
     {
         // Variables                                                                                                                
-        private ElementFieldOutput _fieldOutput;
+        [PmxKey(0)] private ElementFieldOutput _fieldOutput;
 
 
         // Properties                                                                                                               

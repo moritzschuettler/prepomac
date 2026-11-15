@@ -24,6 +24,7 @@ using System.IO;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10232)]
     class CRemoveCurrentResults : PostprocessCommand
     {
         // Variables                                                                                                                

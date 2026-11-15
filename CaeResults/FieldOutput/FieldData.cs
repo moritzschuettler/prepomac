@@ -12,10 +12,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5014)]
     public enum StepTypeEnum
     {
         None,
@@ -29,19 +31,20 @@ namespace CaeResults
     }
 
     [Serializable]
+    [PmxType(5015)]
     public class FieldData : CaeGlobals.NamedClass
     {
         // Variables                                                                                                                
-        public string Component;
-        public int GlobalIncrementId;
-        public int ModeNumber;
-        public int NodalDiameter;
-        public int MethodId;
-        public StepTypeEnum StepType;
-        public float Time;
-        public int StepId;
-        public int StepIncrementId;
-        public string Unit;
+        [PmxKey(0)] public string Component;
+        [PmxKey(1)] public int GlobalIncrementId;
+        [PmxKey(2)] public int ModeNumber;
+        [PmxKey(3)] public int NodalDiameter;
+        [PmxKey(4)] public int MethodId;
+        [PmxKey(5)] public StepTypeEnum StepType;
+        [PmxKey(6)] public float Time;
+        [PmxKey(7)] public int StepId;
+        [PmxKey(8)] public int StepIncrementId;
+        [PmxKey(9)] public string Unit;
         
 
 

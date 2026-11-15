@@ -18,11 +18,12 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3187)]
     public class ThermalExpansion : MaterialProperty, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer[][] _thermalExpansionTemp;        //ISerializable
-        private EquationContainer _zeroTemperature;                 //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _thermalExpansionTemp;        //ISerializable
+        [PmxKey(1)] private EquationContainer _zeroTemperature;                 //ISerializable
 
 
         // Properties                                                                                                               

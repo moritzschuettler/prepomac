@@ -21,6 +21,7 @@ using Octree;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5034)]
     public static class CloudPointReader
     {
         // Variables                                                                                                                

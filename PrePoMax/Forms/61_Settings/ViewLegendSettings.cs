@@ -20,6 +20,7 @@ using System.Drawing.Design;
 namespace PrePoMax.Settings
 {
     [Serializable]
+    [PmxType(10483)]
     public enum ColorSpectrum
     {
         [StandardValue("CoolWarm", DisplayName = "Cool-warm", Description = "Cool-warm")]
@@ -66,11 +67,12 @@ namespace PrePoMax.Settings
     }
 
     [Serializable]
+    [PmxType(10484)]
     public class ViewLegendSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private LegendSettings _legendSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private LegendSettings _legendSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
        
 
         // Color spectrum settings                                                                      

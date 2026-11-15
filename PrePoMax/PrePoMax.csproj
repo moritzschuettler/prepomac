@@ -1478,6 +1478,8 @@
       <MoveToLibFolder Include="$(OutputPath)*.dll ; $(OutputPath)*.pdb ; $(OutputPath)*.xml" />
     </ItemGroup>
     <Move SourceFiles="@(MoveToLibFolder)" DestinationFolder="$(OutputPath)lib" OverwriteReadOnlyFiles="true" />
+    <!-- No stored type or field may change its meaning - see PmxTool\SchemaSnapshot.cs -->
+    <Exec Command="&quot;$(TargetDir)lib\PmxTool.exe&quot; schema --check &quot;$(SolutionDir)Schema_Snapshot.txt&quot;" />
   </Target>
   <PropertyGroup>
     <PostBuildEvent>del *.dll.config
@@ -1540,6 +1542,10 @@ rem PrePoMaxCmd is the console subsystem launcher deployed as PrePoMax.com so th
 rem keeps the shell waiting and receives the exit code - see PrePoMaxCmd\Program.cs
 copy "$(SolutionDir)PrePoMaxCmd\bin\x64\$(ConfigurationName)\PrePoMaxCmd.exe" "$(TargetDir)PrePoMax.com"
 IF EXIST "$(TargetDir)PrePoMax.com.config" del "$(TargetDir)PrePoMax.com.config"
+
+rem PmxTool sits next to the assemblies, where AfterBuild runs its check of Schema_Snapshot.txt
+copy "$(SolutionDir)PmxTool\bin\x64\$(ConfigurationName)\PmxTool.exe" "$(TargetDir)lib\PmxTool.exe"
+copy "$(SolutionDir)PmxTool\bin\x64\$(ConfigurationName)\PmxTool.exe.config" "$(TargetDir)lib\PmxTool.exe.config"
 </PostBuildEvent>
   </PropertyGroup>
 </Project>

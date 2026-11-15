@@ -13,10 +13,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10523)]
     public enum PointSelectionMethodEnum
     {
         [StandardValue("OnPoint", Description = "On point", DisplayName = "On point")]

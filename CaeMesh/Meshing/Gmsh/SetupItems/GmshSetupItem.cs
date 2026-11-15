@@ -20,25 +20,26 @@ using GmshCommon;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2117)]
     public class GmshSetupItem : MeshSetupItem, ISerializable
     {
         // Variables                                                                                                                
-        private GmshAlgorithmMesh2DEnum _algorithmMesh2D;                   // ISerializable
-        private GmshAlgorithmMesh3DEnum _algorithmMesh3D;                   // ISerializable
-        private GmshAlgorithmRecombineEnum _algorithmRecombine;             // ISerializable
-        private double _recombineMinQuality;                                // ISerializable
-        private TransfiniteThreeSidedEnum _transfiniteThreeSided;           // ISerializable
-        private bool _transfiniteFourSided;                                 // ISerializable
-        private double _transfiniteAngleDeg;                                // ISerializable
-        private GmshOptimizeFirstOrderShellEnum _optimizeFirstOrderShell;   // ISerializable
-        private GmshOptimizeFirstOrderSolidEnum _optimizeFirstOrderSolid;   // ISerializable
-        private GmshOptimizeHighOrderEnum _optimizeHighOrder;               // ISerializable
-        private ElementSizeTypeEnum _elementSizeType;                       // ISerializable
-        private double _elementScaleFactor;                                 // ISerializable
-        private int _numberOfElements;                                      // ISerializable
-        private double[] _layerSizes;                                       // ISerializable
-        private int[] _numOfElementsPerLayer;                               // ISerializable
-        private int _numberOfThreads;                                       // ISerializable
+        [PmxKey(0)] private GmshAlgorithmMesh2DEnum _algorithmMesh2D;                   // ISerializable
+        [PmxKey(1)] private GmshAlgorithmMesh3DEnum _algorithmMesh3D;                   // ISerializable
+        [PmxKey(2)] private GmshAlgorithmRecombineEnum _algorithmRecombine;             // ISerializable
+        [PmxKey(3)] private double _recombineMinQuality;                                // ISerializable
+        [PmxKey(4)] private TransfiniteThreeSidedEnum _transfiniteThreeSided;           // ISerializable
+        [PmxKey(5)] private bool _transfiniteFourSided;                                 // ISerializable
+        [PmxKey(6)] private double _transfiniteAngleDeg;                                // ISerializable
+        [PmxKey(7)] private GmshOptimizeFirstOrderShellEnum _optimizeFirstOrderShell;   // ISerializable
+        [PmxKey(8)] private GmshOptimizeFirstOrderSolidEnum _optimizeFirstOrderSolid;   // ISerializable
+        [PmxKey(9)] private GmshOptimizeHighOrderEnum _optimizeHighOrder;               // ISerializable
+        [PmxKey(10)] private ElementSizeTypeEnum _elementSizeType;                       // ISerializable
+        [PmxKey(11)] private double _elementScaleFactor;                                 // ISerializable
+        [PmxKey(12)] private int _numberOfElements;                                      // ISerializable
+        [PmxKey(13)] private double[] _layerSizes;                                       // ISerializable
+        [PmxKey(14)] private int[] _numOfElementsPerLayer;                               // ISerializable
+        [PmxKey(15)] private int _numberOfThreads;                                       // ISerializable
 
 
         // Properties                                                                                                               

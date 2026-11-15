@@ -20,11 +20,12 @@ using DynamicTypeDescriptor;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10344)]
     public class ViewRemeshingParameters : ViewMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
-        private RemeshingParameters _parameters;
+        [PmxKey(0)] private string _selectionHidden;
+        [PmxKey(1)] private RemeshingParameters _parameters;
 
 
         // Properties                                                                                                               

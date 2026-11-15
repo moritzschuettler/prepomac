@@ -12,11 +12,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     // Used to encode the selected geometry items into ItemTypePart id
     [Serializable]
+    [PmxType(2053)]
     public enum GeometryType
     {
         Unknown = -1,

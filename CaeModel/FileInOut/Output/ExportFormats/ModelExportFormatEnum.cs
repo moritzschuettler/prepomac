@@ -8,10 +8,12 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace FileInOut.Output
 {
     [Serializable]
+    [PmxType(3167)]
     public enum ModelExportFormatEnum
     {
         Calculix,

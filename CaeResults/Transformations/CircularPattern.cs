@@ -19,13 +19,14 @@ using Octree;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5059)]
     public class CircularPattern : Transformation
     {
         // Variables                                                                                                                
-        protected double[] _axisFirstPoint;
-        protected double[] _axisSecondPoint;
-        protected double _angle;
-        protected int _numberOfItems;
+        [PmxKey(0)] protected double[] _axisFirstPoint;
+        [PmxKey(1)] protected double[] _axisSecondPoint;
+        [PmxKey(2)] protected double _angle;
+        [PmxKey(3)] protected int _numberOfItems;
 
 
         // Properties                                                                                                               

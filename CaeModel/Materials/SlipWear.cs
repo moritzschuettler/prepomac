@@ -18,11 +18,12 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3184)]
     public class SlipWear : MaterialProperty, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer _hardness;            //ISerializable
-        private EquationContainer _wearCoefficient;     //ISerializable
+        [PmxKey(0)] private EquationContainer _hardness;            //ISerializable
+        [PmxKey(1)] private EquationContainer _wearCoefficient;     //ISerializable
 
 
         // Properties                                                                                                               

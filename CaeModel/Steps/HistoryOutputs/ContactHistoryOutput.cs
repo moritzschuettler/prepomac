@@ -19,6 +19,7 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3243)]
     [Flags]
     public enum ContactHistoryVariable
     {
@@ -33,10 +34,11 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3244)]
     public class ContactHistoryOutput : HistoryOutput, ISerializable
     {
         // Variables                                                                                                                
-        private ContactHistoryVariable _variables;          //ISerializable
+        [PmxKey(0)] private ContactHistoryVariable _variables;          //ISerializable
 
 
         // Properties                                                                                                               

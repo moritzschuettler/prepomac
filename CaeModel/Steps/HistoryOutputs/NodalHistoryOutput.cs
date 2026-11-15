@@ -19,6 +19,7 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3249)]
     [Flags]
     public enum NodalHistoryVariable
     {
@@ -32,10 +33,11 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3250)]
     public class NodalHistoryOutput : HistoryOutput, ISerializable
     {
         // Variables                                                                                                                
-        private NodalHistoryVariable _variables;            //ISerializable
+        [PmxKey(0)] private NodalHistoryVariable _variables;            //ISerializable
 
 
         // Properties                                                                                                               

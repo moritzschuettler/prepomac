@@ -20,11 +20,12 @@ using DynamicTypeDescriptor;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10411)]
     public abstract class ViewMappedDistribution : ViewDistribution
     {
         // Variables                                                                                                                
-        private DynamicCustomTypeDescriptor _dctd;
-        private MappedDistribution _mappedDistribution;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(1)] private MappedDistribution _mappedDistribution;
 
 
         // Properties                                                                                                               

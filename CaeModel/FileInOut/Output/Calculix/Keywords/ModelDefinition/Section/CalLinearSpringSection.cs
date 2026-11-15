@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3100)]
     internal class CalLinearSpringSection : CalculixKeyword
     {
         // Variables                                                                                                                
-        private LinearSpringSectionData _linearSpringSectionData;
+        [PmxKey(0)] private LinearSpringSectionData _linearSpringSectionData;
 
 
         // Properties                                                                                                               

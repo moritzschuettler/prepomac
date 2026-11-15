@@ -15,10 +15,12 @@ using System.Threading.Tasks;
 using CaeMesh;
 using System.ComponentModel;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3233)]
     [Flags]
     public enum ContactFieldVariable
     {
@@ -30,10 +32,11 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3234)]
     public class ContactFieldOutput : FieldOutput, ISerializable
     {
         // Variables                                                                                                                
-        private ContactFieldVariable _variables;        //ISerializable
+        [PmxKey(0)] private ContactFieldVariable _variables;        //ISerializable
 
 
         // Properties                                                                                                               

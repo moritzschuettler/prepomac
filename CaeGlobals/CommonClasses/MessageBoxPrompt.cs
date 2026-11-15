@@ -12,15 +12,16 @@ using System;
 namespace CaeGlobals
 {
     [Serializable]
+    [PmxType(1009)]
     public class MessageBoxPrompt
     {
         // Variables
-        private readonly string _caption;
-        private readonly string _text;
-        private readonly string _buttons;
-        private readonly string _answer;
-        private readonly bool _isDecision;
-        private readonly bool _isRefused;
+        [PmxKey(0)] private readonly string _caption;
+        [PmxKey(1)] private readonly string _text;
+        [PmxKey(2)] private readonly string _buttons;
+        [PmxKey(3)] private readonly string _answer;
+        [PmxKey(4)] private readonly bool _isDecision;
+        [PmxKey(5)] private readonly bool _isRefused;
 
 
         // Properties

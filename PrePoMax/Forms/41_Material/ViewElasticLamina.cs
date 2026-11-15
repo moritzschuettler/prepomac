@@ -17,10 +17,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10373)]
     public class ViewElasticLamina : ViewMaterialProperty
     {
         // Variables                                                                                                                
-        private List<ElasticLaminaDataPoint> _points;
+        [PmxKey(0)] private List<ElasticLaminaDataPoint> _points;
 
 
         // Properties                                                                                                               

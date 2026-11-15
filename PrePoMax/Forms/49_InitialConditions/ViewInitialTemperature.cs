@@ -20,10 +20,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10417)]
     public class ViewInitialTemperature : ViewInitialCondition
     {
         // Variables                                                                                                                
-        private InitialTemperature _initialTemperature;
+        [PmxKey(0)] private InitialTemperature _initialTemperature;
 
 
         // Properties                                                                                                               

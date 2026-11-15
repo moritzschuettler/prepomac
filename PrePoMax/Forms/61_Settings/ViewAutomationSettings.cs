@@ -15,11 +15,12 @@ using DynamicTypeDescriptor;
 namespace PrePoMax.Settings
 {
     [Serializable]
+    [PmxType(10478)]
     public class ViewAutomationSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private AutomationSettings _automationSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private AutomationSettings _automationSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
         [NonSerialized] private Func<string> _getRunningEndpointUrl;
 
 

@@ -9,6 +9,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -18,15 +19,16 @@ namespace CaeMesh
     /// alone. It is what a part is given when the structured mesh its geometry supports is not wanted.
     /// </summary>
     [Serializable]
+    [PmxType(2125)]
     public class NetgenMesh : MeshSetupItem, ISerializable
     {
         // Variables
-        private int _optimizeSteps2D;               //ISerializable
-        private int _optimizeSteps3D;               //ISerializable
-        private bool _quadDominated;                //ISerializable
-        private TransfiniteThreeSidedEnum _transfiniteThreeSided;   //ISerializable
-        private bool _transfiniteFourSided;         //ISerializable
-        private double _transfiniteAngleDeg;        //ISerializable
+        [PmxKey(0)] private int _optimizeSteps2D;               //ISerializable
+        [PmxKey(1)] private int _optimizeSteps3D;               //ISerializable
+        [PmxKey(2)] private bool _quadDominated;                //ISerializable
+        [PmxKey(3)] private TransfiniteThreeSidedEnum _transfiniteThreeSided;   //ISerializable
+        [PmxKey(4)] private bool _transfiniteFourSided;         //ISerializable
+        [PmxKey(5)] private double _transfiniteAngleDeg;        //ISerializable
 
 
         // Properties

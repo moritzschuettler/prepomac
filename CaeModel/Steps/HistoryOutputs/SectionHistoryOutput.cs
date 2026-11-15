@@ -19,6 +19,7 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3251)]
     [Flags]
     public enum SectionHistoryVariableEnum
     {
@@ -29,10 +30,11 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3252)]
     public class SectionHistoryOutput : HistoryOutput, ISerializable
     {
         // Variables                                                                                                                
-        private SectionHistoryVariableEnum _variables;              //ISerializable
+        [PmxKey(0)] private SectionHistoryVariableEnum _variables;              //ISerializable
 
 
         // Properties                                                                                                               

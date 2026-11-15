@@ -23,10 +23,11 @@ namespace PrePoMax.Commands
 {
     // Compatibility v1.1.1 - the command was renamed to CSetNewModelProperties
     [Serializable]
+    [PmxType(10125)]
     class CSetModelUnitSystem : PreprocessCommand
     {
         // Variables                                                                                                                
-        private UnitSystemType _unitSystemType;
+        [PmxKey(0)] private UnitSystemType _unitSystemType;
 
 
         // Constructor                                                                                                              

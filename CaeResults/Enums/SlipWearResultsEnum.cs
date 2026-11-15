@@ -13,10 +13,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5006)]
     public enum SlipWearResultsEnum
     {
         [StandardValue("All", DisplayName = "All")]

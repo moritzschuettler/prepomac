@@ -19,11 +19,12 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3271)]
     public abstract class VariablePressure : Load, ISerializable
     {
         // Variables                                                                                                                
-        protected string _surfaceName;          //ISerializable
-        protected RegionTypeEnum _regionType;   //ISerializable
+        [PmxKey(0)] protected string _surfaceName;          //ISerializable
+        [PmxKey(1)] protected RegionTypeEnum _regionType;   //ISerializable
 
 
         // Properties                                                                                                               

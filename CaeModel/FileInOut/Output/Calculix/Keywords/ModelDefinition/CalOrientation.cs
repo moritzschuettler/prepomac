@@ -14,12 +14,13 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3071)]
     internal class CalOrientation : CalculixKeyword
     {
         // Variables                                                                                                                
-        private string _name;
-        private double[] _axis1;
-        private double[] _axis2;
+        [PmxKey(0)] private string _name;
+        [PmxKey(1)] private double[] _axis1;
+        [PmxKey(2)] private double[] _axis2;
 
 
         // Properties                                                                                                               

@@ -12,15 +12,17 @@ using System;
 using System.Runtime.Serialization;
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10078)]
     class CCreateBoundaryLayer : PreprocessCommand, ISerializable
     {
         // Variables
-        private GeometrySelection _geometrySelection;   //ISerializable
-        private double _thickness;                      //ISerializable
+        [PmxKey(0)] private GeometrySelection _geometrySelection;   //ISerializable
+        [PmxKey(1)] private double _thickness;                      //ISerializable
 
 
         // Constructor

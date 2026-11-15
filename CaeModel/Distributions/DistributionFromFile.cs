@@ -24,11 +24,12 @@ using static CaeGlobals.Geometry2;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3033)]
     public class DistributionFromFile : MappedDistribution, ISerializable
     {
         // Variables                                                                                                                
-        private string _fileName;                                   //ISerializable
-        private FileInfo _oldFileInfo;                              //ISerializable
+        [PmxKey(0)] private string _fileName;                                   //ISerializable
+        [PmxKey(1)] private FileInfo _oldFileInfo;                              //ISerializable
 
 
         // Properties                                                                                                               

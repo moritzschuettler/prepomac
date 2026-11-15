@@ -17,9 +17,10 @@ using CaeGlobals;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2139)]
     public class AvgData
     {
-        public Dictionary<int, AvgNodalData> Nodes;
+        [PmxKey(0)] public Dictionary<int, AvgNodalData> Nodes;
 
 
         // Constructors
@@ -79,9 +80,10 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2140)]
     public class AvgNodalData
     {
-        public Dictionary<int, AvgNodalElementData> Elements;
+        [PmxKey(0)] public Dictionary<int, AvgNodalElementData> Elements;
 
 
         // Constructors
@@ -100,10 +102,11 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2141)]
     public class AvgNodalElementData
     {
         // Value, area, normal
-        public List<Tuple<double, double>> Data;
+        [PmxKey(0)] public List<Tuple<double, double>> Data;
 
 
         // Constructors

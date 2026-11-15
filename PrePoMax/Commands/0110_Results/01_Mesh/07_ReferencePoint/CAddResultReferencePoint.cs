@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10243)]
     class CAddResultReferencePoint : PostprocessCommand
     {
         // Variables                                                                                                                
-        private FeReferencePoint _referencePoint;
+        [PmxKey(0)] private FeReferencePoint _referencePoint;
 
 
         // Constructor                                                                                                              

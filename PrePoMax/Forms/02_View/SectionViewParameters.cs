@@ -22,19 +22,20 @@ using System.Drawing;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10318)]
     public class SectionViewParameters
     {
         // Variables                                                                                                                      
-        private DynamicCustomTypeDescriptor _dctd = null;
-        private ItemSetData _pointItemSetData;
-        private ItemSetData _normalItemSetData;
-        private double[] _point;
-        private double[] _normal;
-        private bool _lightenColors = true;
-        private bool _useSingleColor = false;
-        private Color _sectionColor = Color.LightGreen;
-        private bool _elementWise = false;
-        private bool _hatch = false;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(1)] private ItemSetData _pointItemSetData;
+        [PmxKey(2)] private ItemSetData _normalItemSetData;
+        [PmxKey(3)] private double[] _point;
+        [PmxKey(4)] private double[] _normal;
+        [PmxKey(5)] private bool _lightenColors = true;
+        [PmxKey(6)] private bool _useSingleColor = false;
+        [PmxKey(7)] private Color _sectionColor = Color.LightGreen;
+        [PmxKey(8)] private bool _elementWise = false;
+        [PmxKey(9)] private bool _hatch = false;
 
 
         // Properties                                                                                                               

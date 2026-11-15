@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -28,6 +29,7 @@ namespace CaeMesh
     UntangleMeshGeometry
     */
     [Serializable]
+    [PmxType(2108)]
     public enum GmshOptimizeFirstOrderShellEnum
     {
         [StandardValue("None", DisplayName = "None")]

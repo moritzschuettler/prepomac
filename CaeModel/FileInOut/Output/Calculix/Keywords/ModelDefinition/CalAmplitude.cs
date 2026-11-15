@@ -18,10 +18,11 @@ using CaeModel;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3063)]
     internal class CalAmplitude : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Amplitude _amplitude;
+        [PmxKey(0)] private Amplitude _amplitude;
 
 
         // Properties                                                                                                               

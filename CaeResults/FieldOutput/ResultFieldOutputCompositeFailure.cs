@@ -10,10 +10,12 @@
 using System;
 using System.Runtime.Serialization;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5020)]
     public enum CompositeFailureCriterionEnum
     {
         [StandardValue("MaxStress", DisplayName = "Maximum stress")]
@@ -29,6 +31,7 @@ namespace CaeResults
     // A failure criterion of the plies of composite shells, evaluated from the in-plane stresses in the ply axes with
     // the ply strengths of the material of the ply
     [Serializable]
+    [PmxType(5021)]
     public class ResultFieldOutputCompositeFailure : ResultFieldOutput
     {
         // Variables
@@ -37,9 +40,9 @@ namespace CaeResults
         public const string ComponentMode = "MODE";
         public const string ComponentMaxFailureIndex = "MAX_FAILURE_INDEX";
         public const string ComponentCriticalLayer = "CRITICAL_LAYER";
-        private string _fieldName;
-        private CompositeFailureCriterionEnum _criterion;
-        [OptionalField]
+        [PmxKey(0)] private string _fieldName;
+        [PmxKey(1)] private CompositeFailureCriterionEnum _criterion;
+        [PmxKey(2)] [OptionalField]
         private ShellInPlaneQuantityEnum _quantity;
 
 

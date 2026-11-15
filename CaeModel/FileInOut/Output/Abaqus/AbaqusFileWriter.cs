@@ -27,6 +27,7 @@ using System.Security;
 namespace FileInOut.Output
 {
     [Serializable]
+    [PmxType(3043)]
     public static class AbaqusFileWriter
     {
         // Methods                                                                                                                  

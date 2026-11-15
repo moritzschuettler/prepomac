@@ -19,10 +19,11 @@ using CaeGlobals;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10359)]
     public class DensityDataPoint : TempDataPoint
     {
         // Variables                                                                                                                
-        private EquationContainer _density;
+        [PmxKey(0)] private EquationContainer _density;
 
 
         // Properties                                                                                                               

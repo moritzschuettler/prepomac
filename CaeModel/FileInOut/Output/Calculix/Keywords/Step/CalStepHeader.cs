@@ -14,14 +14,16 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3129)]
     internal class CalStepHeader : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Step _step;
+        [PmxKey(0)] private Step _step;
 
 
         // Properties                                                                                                               

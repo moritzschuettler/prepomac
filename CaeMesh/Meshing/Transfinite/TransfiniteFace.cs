@@ -9,6 +9,7 @@
 
 using System;
 using System.Linq;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -18,13 +19,14 @@ namespace CaeMesh
     /// meet at a flatter angle than the transfinite angle.
     /// </summary>
     [Serializable]
+    [PmxType(2129)]
     public class TransfiniteFace
     {
         // Variables
-        private int _faceId;
-        private int[] _cornerNodeIds;
-        private double[] _cornerAnglesDeg;
-        private int[][] _sideEdgeIds;
+        [PmxKey(0)] private int _faceId;
+        [PmxKey(1)] private int[] _cornerNodeIds;
+        [PmxKey(2)] private double[] _cornerAnglesDeg;
+        [PmxKey(3)] private int[][] _sideEdgeIds;
 
 
         // Properties

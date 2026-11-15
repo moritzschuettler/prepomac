@@ -21,6 +21,7 @@ using System.Text.RegularExpressions;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3020)]
     public class Tie : Constraint, ISerializable
     {
         // Static variables                                                                                                         
@@ -29,8 +30,8 @@ namespace CaeModel
 
         // Variables                                                                                                                
         private static string _nonNegative = "The value must be larger or equal to 0.";
-        private EquationContainer _positionTolerance;       //ISerializable
-        private bool _adjust;                               //ISerializable
+        [PmxKey(0)] private EquationContainer _positionTolerance;       //ISerializable
+        [PmxKey(1)] private bool _adjust;                               //ISerializable
 
 
         // Properties                                                                                                               

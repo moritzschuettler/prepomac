@@ -19,12 +19,13 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3258)]
     public class DFlux : Load, ISerializable
     {
         // Variables                                                                                                                
-        private string _surfaceName;                //ISerializable
-        private RegionTypeEnum _regionType;         //ISerializable
-        private EquationContainer _magnitude;       //ISerializable
+        [PmxKey(0)] private string _surfaceName;                //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;         //ISerializable
+        [PmxKey(2)] private EquationContainer _magnitude;       //ISerializable
 
 
         // Properties                                                                                                               

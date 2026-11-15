@@ -23,11 +23,12 @@ using System.IO;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10027)]
     class COpenFile : PreprocessCommand, IFileCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private string _fileName;
-        private string _parameters;
+        [PmxKey(0)] private string _fileName;
+        [PmxKey(1)] private string _parameters;
 
 
         // Properties                                                                                                               

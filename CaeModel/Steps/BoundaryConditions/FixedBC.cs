@@ -20,6 +20,7 @@ using System.Drawing;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3210)]
     public class FixedBC : BoundaryCondition, ISerializable
     {
         // Variables                                                                                                                

@@ -18,12 +18,13 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3179)]
     public class ElasticWithDensity : MaterialProperty, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer _youngsModulus;          //ISerializable
-        private EquationContainer _poissonsRatio;          //ISerializable
-        private EquationContainer _density;                //ISerializable
+        [PmxKey(0)] private EquationContainer _youngsModulus;          //ISerializable
+        [PmxKey(1)] private EquationContainer _poissonsRatio;          //ISerializable
+        [PmxKey(2)] private EquationContainer _density;                //ISerializable
 
 
         // Properties                                                                                                               

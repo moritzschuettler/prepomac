@@ -18,6 +18,7 @@ using CaeGlobals;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3197)]
     public class GapSectionData : SectionData, ISerializable
     {
         // Static Variables                                                                                                         
@@ -26,10 +27,10 @@ namespace CaeModel
 
 
         // Variables                                                                                                                
-        private double _clearance;                          //ISerializable
-        private double[] _direction;                        //ISerializable
-        private double _springStiffness;                    //ISerializable
-        private double _tensileForceAtNegativeInfinity;     //ISerializable
+        [PmxKey(0)] private double _clearance;                          //ISerializable
+        [PmxKey(1)] private double[] _direction;                        //ISerializable
+        [PmxKey(2)] private double _springStiffness;                    //ISerializable
+        [PmxKey(3)] private double _tensileForceAtNegativeInfinity;     //ISerializable
 
 
         // Properties                                                                                                               

@@ -22,11 +22,12 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10135)]
     class CReplaceMaterialOrientation : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldMaterialOrientationName;
-        private MaterialOrientation _newMaterialOrientation;
+        [PmxKey(0)] private string _oldMaterialOrientationName;
+        [PmxKey(1)] private MaterialOrientation _newMaterialOrientation;
 
 
         // Constructor                                                                                                              

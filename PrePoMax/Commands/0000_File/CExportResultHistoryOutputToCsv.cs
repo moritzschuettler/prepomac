@@ -21,10 +21,11 @@ using CaeResults;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10021)]
     class CExportResultHistoryOutputToCsv : PostprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
-        private ExportHistoryResultSetFileProperties _properties;
+        [PmxKey(0)] private ExportHistoryResultSetFileProperties _properties;
 
 
         // Properties                                                                                                               

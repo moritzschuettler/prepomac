@@ -12,10 +12,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2143)]
     public struct PartProperties
     {
         // Only the properties, that cannot be changed by any other edit form (like MeshingParameters...)
@@ -28,31 +30,31 @@ namespace CaeMesh
                 _name = value;
             }
         }
-        public PartType PartType;
-        public bool IsCADPart;
-        public System.Drawing.Color Color;
-        public bool ColorContours;
-        public int NumberOfElements;
-        public int NumberOfNodes;
-        public PartMassProperties MassProperties;
+        [PmxKey(0)] public PartType PartType;
+        [PmxKey(1)] public bool IsCADPart;
+        [PmxKey(2)] public System.Drawing.Color Color;
+        [PmxKey(3)] public bool ColorContours;
+        [PmxKey(4)] public int NumberOfElements;
+        [PmxKey(5)] public int NumberOfNodes;
+        [PmxKey(6)] public PartMassProperties MassProperties;
         //
-        public FeElementTypeLinearBeam LinearBeamType;
-        public FeElementTypeParabolicBeam ParabolicBeamType;
+        [PmxKey(7)] public FeElementTypeLinearBeam LinearBeamType;
+        [PmxKey(8)] public FeElementTypeParabolicBeam ParabolicBeamType;
         //
-        public FeElementTypeLinearTria LinearTriaType;
-        public FeElementTypeParabolicTria ParabolicTriaType;
-        public FeElementTypeLinearQuad LinearQuadType;
-        public FeElementTypeParabolicQuad ParabolicQuadType;
+        [PmxKey(9)] public FeElementTypeLinearTria LinearTriaType;
+        [PmxKey(10)] public FeElementTypeParabolicTria ParabolicTriaType;
+        [PmxKey(11)] public FeElementTypeLinearQuad LinearQuadType;
+        [PmxKey(12)] public FeElementTypeParabolicQuad ParabolicQuadType;
         //
-        public FeElementTypeLinearTetra LinearTetraType;
-        public FeElementTypeParabolicTetra ParabolicTetraType;
-        public FeElementTypeLinearPyramid LinearPyramidType;
-        public FeElementTypeParabolicPyramid ParabolicPyramidType;
-        public FeElementTypeLinearWedge LinearWedgeType;
-        public FeElementTypeParabolicWedge ParabolicWedgeType;
-        public FeElementTypeLinearHexa LinearHexaType;
-        public FeElementTypeParabolicHexa ParabolicHexaType;
+        [PmxKey(13)] public FeElementTypeLinearTetra LinearTetraType;
+        [PmxKey(14)] public FeElementTypeParabolicTetra ParabolicTetraType;
+        [PmxKey(15)] public FeElementTypeLinearPyramid LinearPyramidType;
+        [PmxKey(16)] public FeElementTypeParabolicPyramid ParabolicPyramidType;
+        [PmxKey(17)] public FeElementTypeLinearWedge LinearWedgeType;
+        [PmxKey(18)] public FeElementTypeParabolicWedge ParabolicWedgeType;
+        [PmxKey(19)] public FeElementTypeLinearHexa LinearHexaType;
+        [PmxKey(20)] public FeElementTypeParabolicHexa ParabolicHexaType;
         //
-        private string _name;
+        [PmxKey(21)] private string _name;
     }
 }

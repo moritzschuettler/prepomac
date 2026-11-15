@@ -20,12 +20,13 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10210)]
     class CReplaceDefinedField : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string _oldDefinedFieldName;
-        private DefinedField _newDefinedField;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string _oldDefinedFieldName;
+        [PmxKey(2)] private DefinedField _newDefinedField;
 
 
         // Properties                                                                                                               

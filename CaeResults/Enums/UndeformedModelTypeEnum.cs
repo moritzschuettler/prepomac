@@ -14,6 +14,7 @@ using CaeGlobals;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5007)]
     public enum UndeformedModelTypeEnum
     {
         [StandardValue("None", Description = "None")]

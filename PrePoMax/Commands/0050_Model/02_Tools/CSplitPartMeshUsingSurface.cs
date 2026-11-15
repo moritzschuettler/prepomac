@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10081)]
     class CSplitPartMeshUsingSurface : PreprocessCommand
     {
         // Variables                                                                                                                
-        private SplitPartMeshData _splitPartMeshData;
+        [PmxKey(0)] private SplitPartMeshData _splitPartMeshData;
 
 
         // Constructor                                                                                                              

@@ -12,15 +12,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace UserControls
 {
     [Serializable]
+    [PmxType(6202)]
     public class PanelItem
     {
         // Variables                                                                                                                
-        protected string _text;
-        protected int _indentLevel;
+        [PmxKey(0)] protected string _text;
+        [PmxKey(1)] protected int _indentLevel;
 
 
         // Properties                                                                                                               

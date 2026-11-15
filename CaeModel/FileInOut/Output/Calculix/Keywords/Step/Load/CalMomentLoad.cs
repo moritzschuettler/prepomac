@@ -19,13 +19,14 @@ using CaeGlobals;
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3155)]
     internal class CalMomentLoad : CalLoad
     {
         // Variables                                                                                                                
-        private MomentLoad _load;
-        private Dictionary<string, CalReferencePoint> _referencePoints;
-        protected ComplexLoadTypeEnum _complexLoadType;
-        protected int _maxNumberNodeDOFs;
+        [PmxKey(0)] private MomentLoad _load;
+        [PmxKey(1)] private Dictionary<string, CalReferencePoint> _referencePoints;
+        [PmxKey(2)] protected ComplexLoadTypeEnum _complexLoadType;
+        [PmxKey(3)] protected int _maxNumberNodeDOFs;
 
 
         // Properties                                                                                                               

@@ -19,10 +19,11 @@ using DynamicTypeDescriptor;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2147)]
     public class FeMeshRefinement : MeshSetupItem, ISerializable
     {
         // Variables                                                                                                                
-        private double _meshSize;           //ISerializable
+        [PmxKey(0)] private double _meshSize;           //ISerializable
 
 
         // Properties                                                                                                               

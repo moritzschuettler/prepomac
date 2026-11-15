@@ -21,12 +21,13 @@ using CaeResults;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10020)]
     class CExportResultFieldOutputToCsv : PostprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
-        private string _fileName;
-        private string _resultName;
-        private FieldData _fieldData;
+        [PmxKey(0)] private string _fileName;
+        [PmxKey(1)] private string _resultName;
+        [PmxKey(2)] private FieldData _fieldData;
 
 
         // Properties                                                                                                               

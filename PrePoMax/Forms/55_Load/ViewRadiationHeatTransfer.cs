@@ -21,10 +21,11 @@ using CaeModel;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10472)]
     public class ViewRadiationHeatTransfer : ViewLoad
     {
         // Variables                                                                                                                
-        private RadiationHeatTransfer _radiationHeatTransfer;
+        [PmxKey(0)] private RadiationHeatTransfer _radiationHeatTransfer;
 
 
         // Properties                                                                                                               

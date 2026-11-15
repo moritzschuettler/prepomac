@@ -13,11 +13,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3213)]
     public class BoundaryDisplacementStep : Step, ISerializable
     {
         // Variables                                                                                                                

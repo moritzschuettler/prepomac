@@ -21,10 +21,11 @@ using System.Drawing;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10394)]
     public class ViewRigidBody : ViewConstraint
     {
         // Variables                                                                                                                
-        private CaeModel.RigidBody _rigidBody;
+        [PmxKey(0)] private CaeModel.RigidBody _rigidBody;
 
 
         // Properties                                                                                                               

@@ -9,6 +9,7 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -17,6 +18,7 @@ namespace CaeMesh
     /// source surfaces while gmsh meshes the rest.
     /// </summary>
     [Serializable]
+    [PmxType(2112)]
     public enum SweepAlgorithmMesh2DEnum
     {
         [StandardValue("MeshAdapt", DisplayName = "MeshAdapt")]

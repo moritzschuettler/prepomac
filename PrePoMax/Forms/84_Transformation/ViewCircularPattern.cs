@@ -22,12 +22,13 @@ using CaeResults;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10515)]
     public class ViewCircularPattern : ViewTransformation
     {
         // Variables                                                                                                                      
-        private CircularPattern _circularPattern;
-        private PointSelectionMethodEnum _firstPointSelectionMethod;
-        private PointSelectionMethodEnum _secondPointSelectionMethod;
+        [PmxKey(0)] private CircularPattern _circularPattern;
+        [PmxKey(1)] private PointSelectionMethodEnum _firstPointSelectionMethod;
+        [PmxKey(2)] private PointSelectionMethodEnum _secondPointSelectionMethod;
 
 
         // Properties                                                                                                               

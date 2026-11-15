@@ -17,11 +17,12 @@ using System.Runtime.Serialization;
 namespace CaeGlobals
 {
     [Serializable]
+    [PmxType(1026)]
     public abstract class SelectionNode : ISerializable
     {
         // Variables                                                                                                                
-        protected vtkSelectOperation _selectOperation;      //ISerializable
-        protected int[] _partIds;                           //ISerializable
+        [PmxKey(0)] protected vtkSelectOperation _selectOperation;      //ISerializable
+        [PmxKey(1)] protected int[] _partIds;                           //ISerializable
         [NonSerialized] protected int _hash;
 
 

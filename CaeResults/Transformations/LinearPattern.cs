@@ -19,12 +19,13 @@ using Octree;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5060)]
     public class LinearPattern : Transformation
     {
         // Variables                                                                                                                
-        protected double[] _startPoint;
-        protected double[] _endPoint;
-        protected int _numberOfItems;
+        [PmxKey(0)] protected double[] _startPoint;
+        [PmxKey(1)] protected double[] _endPoint;
+        [PmxKey(2)] protected int _numberOfItems;
 
 
         // Properties                                                                                                               

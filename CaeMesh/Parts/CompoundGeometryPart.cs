@@ -18,17 +18,18 @@ using CaeGlobals;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2136)]
     public class CompoundGeometryPart : GeometryPart
     {
         // Variables                                                                                                                
-        private string[] _createdFromPartNames;
-        private string[] _subPartNames;
-        private Guid _linkedGroupId;
-        [OptionalField]
+        [PmxKey(0)] private string[] _createdFromPartNames;
+        [PmxKey(1)] private string[] _subPartNames;
+        [PmxKey(2)] private Guid _linkedGroupId;
+        [PmxKey(3)] [OptionalField]
         private string[] _cellSubPartNames;
-        [OptionalField]
+        [PmxKey(4)] [OptionalField]
         private int[] _cellSubPartIds;
-        [OptionalField]
+        [PmxKey(5)] [OptionalField]
         private string[] _splitSubPartOrder;
         [NonSerialized] private CompoundSharedEdges _sharedEdges;
 

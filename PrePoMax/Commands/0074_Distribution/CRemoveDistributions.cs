@@ -16,14 +16,16 @@ using PrePoMax;
 using CaeModel;
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10163)]
     class CRemoveDistributions : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _distributionNames;
+        [PmxKey(0)] private string[] _distributionNames;
 
         // Constructor                                                                                                              
         public CRemoveDistributions(string[] distributionsNames)

@@ -14,10 +14,12 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3048)]
     internal class AbqFieldContactOutput : CalContactFile
     {
         // Variables                                                                                                                

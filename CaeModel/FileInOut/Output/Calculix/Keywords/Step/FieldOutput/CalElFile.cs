@@ -14,16 +14,18 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
     [Serializable]
+    [PmxType(3139)]
     internal class CalElFile : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected ElementFieldOutput _elementFieldOutput;
-        protected int _outputFrequency;
-        protected bool _binary;
+        [PmxKey(0)] protected ElementFieldOutput _elementFieldOutput;
+        [PmxKey(1)] protected int _outputFrequency;
+        [PmxKey(2)] protected bool _binary;
 
 
         // Properties

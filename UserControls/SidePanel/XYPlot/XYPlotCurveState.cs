@@ -8,16 +8,18 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace UserControls
 {
     [Serializable]
+    [PmxType(6211)]
     public class XYPlotCurveState
     {
         // Variables                                                                                                                
-        private double[] _xValues;
-        private double[] _yValues;
-        private XYPlotCurveSettings _settings;
+        [PmxKey(0)] private double[] _xValues;
+        [PmxKey(1)] private double[] _yValues;
+        [PmxKey(2)] private XYPlotCurveSettings _settings;
 
 
         // Properties                                                                                                               

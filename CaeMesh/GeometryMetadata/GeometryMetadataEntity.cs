@@ -4,16 +4,18 @@
 
 using System;
 using System.Collections.Generic;
+using CaeGlobals;
 
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2087)]
     public class GeometryMetadataEntity
     {
         // Variables
-        private readonly string _kind;
-        private readonly int _id;
-        private readonly Dictionary<string, GeometryMetadataProperty> _properties;
+        [PmxKey(0)] private readonly string _kind;
+        [PmxKey(1)] private readonly int _id;
+        [PmxKey(2)] private readonly Dictionary<string, GeometryMetadataProperty> _properties;
 
 
         // Properties

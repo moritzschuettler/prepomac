@@ -20,10 +20,11 @@ using System.Threading.Tasks;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10329)]
     public class ViewSplitByPlaneThreePoints : ViewGeometryFeature
     {
         // Variables
-        private SplitByPlaneThreePoints _splitByPlaneThreePoints;
+        [PmxKey(0)] private SplitByPlaneThreePoints _splitByPlaneThreePoints;
 
 
         // Properties

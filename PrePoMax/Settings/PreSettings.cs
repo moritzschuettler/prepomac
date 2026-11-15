@@ -21,25 +21,26 @@ using System.Drawing;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10541)]
     public class PreSettings : ISettings
     {
         // Variables                                                                                                                
-        private GeometrySelectModeEnum _geometrySelectMode;
-        private Color _primaryHighlightColor;
-        private Color _secondaryHighlightColor;
-        private Color _mouseHighlightColor;
-        private Color _constraintSymbolColor;
-        private Color _initialConditionSymbolColor;
-        private Color _boundaryConditionSymbolColor;
-        private Color _loadSymbolColor;
-        private Color _definedFieldSymbolColor;
-        private Color _splitToolSymbolColor;
-        private int _symbolSize;
-        private int _nodeSymbolSize;
-        private bool _drawSymbolEdges;
+        [PmxKey(0)] private GeometrySelectModeEnum _geometrySelectMode;
+        [PmxKey(1)] private Color _primaryHighlightColor;
+        [PmxKey(2)] private Color _secondaryHighlightColor;
+        [PmxKey(3)] private Color _mouseHighlightColor;
+        [PmxKey(4)] private Color _constraintSymbolColor;
+        [PmxKey(5)] private Color _initialConditionSymbolColor;
+        [PmxKey(6)] private Color _boundaryConditionSymbolColor;
+        [PmxKey(7)] private Color _loadSymbolColor;
+        [PmxKey(8)] private Color _definedFieldSymbolColor;
+        [PmxKey(9)] private Color _splitToolSymbolColor;
+        [PmxKey(10)] private int _symbolSize;
+        [PmxKey(11)] private int _nodeSymbolSize;
+        [PmxKey(12)] private bool _drawSymbolEdges;
         //
-        private AnnotationBackgroundType _colorBarBackgroundType;
-        private bool _colorBarDrawBorder;
+        [PmxKey(13)] private AnnotationBackgroundType _colorBarBackgroundType;
+        [PmxKey(14)] private bool _colorBarDrawBorder;
 
 
         // Properties                                                                                                               

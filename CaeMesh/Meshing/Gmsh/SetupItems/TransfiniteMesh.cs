@@ -20,10 +20,11 @@ using GmshCommon;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2122)]
     public class TransfiniteMesh : GmshSetupItem, ISerializable
     {
         // Variables                                                                                                                
-        private bool _allowPyramidElements;              // ISerializable
+        [PmxKey(0)] private bool _allowPyramidElements;              // ISerializable
 
 
         // Properties                                                                                                               

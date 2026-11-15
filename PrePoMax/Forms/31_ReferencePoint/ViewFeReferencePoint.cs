@@ -21,12 +21,13 @@ using System.Drawing.Design;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10357)]
     public class ViewFeReferencePoint : ViewMultiRegion
     {
         // Variables                                                                                                                
-        private FeReferencePoint _referencePoint;
-        private int _numOfNodeSets;
-        private int _numOfSurfaces;
+        [PmxKey(0)] private FeReferencePoint _referencePoint;
+        [PmxKey(1)] private int _numOfNodeSets;
+        [PmxKey(2)] private int _numOfSurfaces;
 
 
 

@@ -23,14 +23,15 @@ using System.Threading.Tasks;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10094)]
     class CRotateModelParts : PreprocessCommand, ISerializable
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private double[] _rotateCenter;
-        private double[] _rotateAxis;
-        private double _rotateAngle;
-        private int _numberOfCopies;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private double[] _rotateCenter;
+        [PmxKey(2)] private double[] _rotateAxis;
+        [PmxKey(3)] private double _rotateAngle;
+        [PmxKey(4)] private int _numberOfCopies;
 
 
         // Constructor                                                                                                              

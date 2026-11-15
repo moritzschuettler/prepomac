@@ -20,6 +20,7 @@ using System.Drawing;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3021)]
     public enum ContactPairMethod
     {
         [StandardValue("Node to surface", "Node to surface",  Description =
@@ -38,6 +39,7 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3022)]
     public class ContactPair : NamedClass, IMasterSlaveMultiRegion
     {
         // Static variables                                                                                                         
@@ -47,24 +49,24 @@ namespace CaeModel
         // Variables                                                                                                                
         private static string _positive = "The value must be larger than 0.";
         //
-        private string _surfaceInteractionName;
-        private ContactPairMethod _method;
-        private bool _smallSliding;
-        private bool _adjust;
-        private double _adjustmentSize;
+        [PmxKey(0)] private string _surfaceInteractionName;
+        [PmxKey(1)] private ContactPairMethod _method;
+        [PmxKey(2)] private bool _smallSliding;
+        [PmxKey(3)] private bool _adjust;
+        [PmxKey(4)] private double _adjustmentSize;
         //
-        private RegionTypeEnum _slaveRegionType;
-        private string _slaveSurfaceName;
-        private RegionTypeEnum _masterRegionType;
-        private string _masterSurfaceName;
+        [PmxKey(5)] private RegionTypeEnum _slaveRegionType;
+        [PmxKey(6)] private string _slaveSurfaceName;
+        [PmxKey(7)] private RegionTypeEnum _masterRegionType;
+        [PmxKey(8)] private string _masterSurfaceName;
         //
-        private int[] _slaveCreationIds;
-        private Selection _slaveCreationData;
-        private int[] _masterCreationIds;
-        private Selection _masterCreationData;
+        [PmxKey(9)] private int[] _slaveCreationIds;
+        [PmxKey(10)] private Selection _slaveCreationData;
+        [PmxKey(11)] private int[] _masterCreationIds;
+        [PmxKey(12)] private Selection _masterCreationData;
         //
-        protected Color _masterColor;
-        protected Color _slaveColor;
+        [PmxKey(13)] protected Color _masterColor;
+        [PmxKey(14)] protected Color _slaveColor;
 
 
         // Properties                                                                                                               

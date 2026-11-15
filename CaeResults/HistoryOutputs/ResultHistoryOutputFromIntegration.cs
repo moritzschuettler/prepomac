@@ -21,6 +21,7 @@ using DynamicTypeDescriptor;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5052)]
     public enum IntegralTypeEnum
     {
         Line,
@@ -29,6 +30,7 @@ namespace CaeResults
     }
     //
     [Serializable]
+    [PmxType(5053)]
     public enum IntegralResultEnum
     {
         // Geometry:          the region measure              integral of w
@@ -43,18 +45,19 @@ namespace CaeResults
     }
 
     [Serializable]
+    [PmxType(5054)]
     public class ResultHistoryOutputFromIntegration : ResultHistoryOutput
     {
         // Variables
-        private IntegralTypeEnum _integralType;
-        private IntegralResultEnum _integralResult;
-        private string _fieldName;
-        private string[] _componentNames;
-        private string _unit;
-        private string _deformationVariableName;
-        private string[] _parentNames;
-        private IntegrationScaleType _crossSection;         // 2D out-of-plane scaling (Line and Volume integrals)
-        private double _thickness;                          // used when _crossSection == Thickness
+        [PmxKey(0)] private IntegralTypeEnum _integralType;
+        [PmxKey(1)] private IntegralResultEnum _integralResult;
+        [PmxKey(2)] private string _fieldName;
+        [PmxKey(3)] private string[] _componentNames;
+        [PmxKey(4)] private string _unit;
+        [PmxKey(5)] private string _deformationVariableName;
+        [PmxKey(6)] private string[] _parentNames;
+        [PmxKey(7)] private IntegrationScaleType _crossSection;         // 2D out-of-plane scaling (Line and Volume integrals)
+        [PmxKey(8)] private double _thickness;                          // used when _crossSection == Thickness
 
 
         // Properties

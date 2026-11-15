@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10251)]
     class CHideResultCoordinateSystems : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _coordinateSystems;
+        [PmxKey(0)] private string[] _coordinateSystems;
 
 
         // Constructor                                                                                                              

@@ -8,10 +8,12 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10538)]
     public enum NumberFormatType
     {
         Scientific,
@@ -19,11 +21,12 @@ namespace PrePoMax
     }
 
     [Serializable]
+    [PmxType(10539)]
     public class NumberFormatSettings : ISettings
     {
         // Variables
-        private NumberFormatType _numberFormat;
-        private int _numberOfSignificantDigits;
+        [PmxKey(0)] private NumberFormatType _numberFormat;
+        [PmxKey(1)] private int _numberOfSignificantDigits;
 
 
         // Properties

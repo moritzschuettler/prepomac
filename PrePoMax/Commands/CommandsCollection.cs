@@ -24,6 +24,7 @@ using FileInOut.Output.Calculix;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10266)]
     public enum RegenerateTypeEnum
     {
         All,
@@ -33,6 +34,7 @@ namespace PrePoMax.Commands
     }
 
     [Serializable]
+    [PmxType(10267)]
     public class CommandsCollection
     {
         private enum KeywordOverrideStatus
@@ -52,13 +54,13 @@ namespace PrePoMax.Commands
         }
         
         // Variables                                                                                                                
-        private int _currPositionIndex;
+        [PmxKey(0)] private int _currPositionIndex;
         [NonSerialized] private Controller _controller;
-        private List<Command> _commands;
-        private string _historyFileNameBin;
-        private ViewGeometryModelResults _previousView;
-        private List<string> _errors;
-        private bool _postprocessingDeclined;
+        [PmxKey(1)] private List<Command> _commands;
+        [PmxKey(2)] private string _historyFileNameBin;
+        [PmxKey(3)] private ViewGeometryModelResults _previousView;
+        [PmxKey(4)] private List<string> _errors;
+        [PmxKey(5)] private bool _postprocessingDeclined;
         [NonSerialized] private int _commandRecordingSuppressionCount;
         [NonSerialized] private int _numOfCommandsExecutedWithoutRecording;
         [NonSerialized] private int _historyReplayCount;

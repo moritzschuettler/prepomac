@@ -19,11 +19,12 @@ using System.Threading.Tasks;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2093)]
     public abstract class MeshSetupItem : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        protected int[] _creationIds;               //ISerializable
-        protected Selection _creationData;          //ISerializable
+        [PmxKey(0)] protected int[] _creationIds;               //ISerializable
+        [PmxKey(1)] protected Selection _creationData;          //ISerializable
 
 
         // Properties                                                                                                               

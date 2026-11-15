@@ -20,14 +20,15 @@ using System.Drawing;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3003)]
     public class CompressionOnly : Constraint, IMultiRegion, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer _clearance;                       //ISerializable
-        private EquationContainer _springStiffness;                 //ISerializable
-        private EquationContainer _tensileForceAtNegativeInfinity;  //ISerializable
-        private EquationContainer _offset;                          //ISerializable
-        private bool _nonLinear;                                    //ISerializable
+        [PmxKey(0)] private EquationContainer _clearance;                       //ISerializable
+        [PmxKey(1)] private EquationContainer _springStiffness;                 //ISerializable
+        [PmxKey(2)] private EquationContainer _tensileForceAtNegativeInfinity;  //ISerializable
+        [PmxKey(3)] private EquationContainer _offset;                          //ISerializable
+        [PmxKey(4)] private bool _nonLinear;                                    //ISerializable
 
 
         // Properties                                                                                                               

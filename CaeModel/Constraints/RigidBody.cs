@@ -20,6 +20,7 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3017)]
     public class RigidBody : Constraint, IMultiRegion, ISerializable // ISerializable must be here
     {
         // Variables                                                                                                                

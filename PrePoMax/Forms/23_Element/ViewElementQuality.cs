@@ -21,6 +21,7 @@ using System.Drawing.Printing;
 namespace PrePoMax.Forms
 {
     [Serializable]
+    [PmxType(10347)]
     public enum GmshElementQualityHighlightCriteriaEnum
     {
         Smaller,
@@ -28,17 +29,18 @@ namespace PrePoMax.Forms
     }
 
     [Serializable]
+    [PmxType(10348)]
     public class ViewElementQuality
     {
         // Variables                                                                                                                
-        private GmshElementQualityMetricEnum _elementQualityMetric;
-        private double _min;
-        private double _max;
-        private double _average;
-        private double _standardDeviation;
-        private GmshElementQualityHighlightCriteriaEnum _highlightCriteria;
-        private double _highlightLimit;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private GmshElementQualityMetricEnum _elementQualityMetric;
+        [PmxKey(1)] private double _min;
+        [PmxKey(2)] private double _max;
+        [PmxKey(3)] private double _average;
+        [PmxKey(4)] private double _standardDeviation;
+        [PmxKey(5)] private GmshElementQualityHighlightCriteriaEnum _highlightCriteria;
+        [PmxKey(6)] private double _highlightLimit;
+        [PmxKey(7)] private DynamicCustomTypeDescriptor _dctd = null;
         private static readonly Dictionary<GmshElementQualityMetricEnum, string> _metricDescriptions =
             new Dictionary<GmshElementQualityMetricEnum, string>()
             {

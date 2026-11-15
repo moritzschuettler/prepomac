@@ -19,16 +19,17 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3268)]
     public class RadiationHeatTransfer : Load, ISerializable
     {
         // Variables                                                                                                                
-        private string _surfaceName;                    //ISerializable
-        private RegionTypeEnum _regionType;             //ISerializable
-        private bool _cavityRadiation;                  //ISerializable
-        private string _cavityName;                     //ISerializable
-        private EquationContainer _sinkTemperature;     //ISerializable
-        private EquationContainer _emissivity;          //ISerializable
-        protected string _emissivityAmplitudeName;      //ISerializable
+        [PmxKey(0)] private string _surfaceName;                    //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;             //ISerializable
+        [PmxKey(2)] private bool _cavityRadiation;                  //ISerializable
+        [PmxKey(3)] private string _cavityName;                     //ISerializable
+        [PmxKey(4)] private EquationContainer _sinkTemperature;     //ISerializable
+        [PmxKey(5)] private EquationContainer _emissivity;          //ISerializable
+        [PmxKey(6)] protected string _emissivityAmplitudeName;      //ISerializable
 
 
         // Properties                                                                                                               

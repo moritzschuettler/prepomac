@@ -20,6 +20,7 @@ using CaeJob;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3226)]
     public enum ModalDampingTypeEnum
     {
         Off,
@@ -29,14 +30,15 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3227)]
     public class ModalDamping : NamedClass
     {
         // Variables                                                                                                                
-        private ModalDampingTypeEnum _dampingType;
-        private double _alpha;
-        private double _beta;
-        private double _viscousDampingRatio;
-        private List<DampingRatioAndRange> _dampingRatiosAndRanges;
+        [PmxKey(0)] private ModalDampingTypeEnum _dampingType;
+        [PmxKey(1)] private double _alpha;
+        [PmxKey(2)] private double _beta;
+        [PmxKey(3)] private double _viscousDampingRatio;
+        [PmxKey(4)] private List<DampingRatioAndRange> _dampingRatiosAndRanges;
 
 
         // Properties                                                                                                               

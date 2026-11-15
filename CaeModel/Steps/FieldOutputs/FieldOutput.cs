@@ -22,12 +22,13 @@ using System.Data;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3238)]
     public abstract class FieldOutput : NamedClass, ISerializable
     {
         // Variables                                                                                                                
-        private bool _lastIterations;       //ISerializable
-        private bool _contactElements;      //ISerializable
-        private bool _global;               //ISerializable
+        [PmxKey(0)] private bool _lastIterations;       //ISerializable
+        [PmxKey(1)] private bool _contactElements;      //ISerializable
+        [PmxKey(2)] private bool _global;               //ISerializable
 
 
         // Properties                                                                                                               

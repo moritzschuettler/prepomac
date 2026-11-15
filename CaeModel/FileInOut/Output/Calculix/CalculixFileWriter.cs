@@ -30,6 +30,7 @@ using System.Security.Cryptography;
 namespace FileInOut.Output
 {
     [Serializable]
+    [PmxType(3056)]
     public static class CalculixFileWriter
     {
         // Variables                                                                                                                

@@ -38,6 +38,7 @@ using static CaeGlobals.Geometry2;
 namespace CaeResults
 {
     [Serializable]
+    [PmxType(5008)]
     public class FeResults : ISerializable
     {
         // Variables                                                                                                                
@@ -142,19 +143,20 @@ namespace CaeResults
                            FOComponentNames.ME12, FOComponentNames.ME23, FOComponentNames.ME13 }
         };
         //
-        private string _hashName;
-        private string _fileName;
-        private FeMesh _mesh;
-        private OrderedDictionary<string, ResultFieldOutput> _resultFieldOutputs;
-        private ShellResultData _shellResultData;
-        private OrderedDictionary<string, ResultHistoryOutput> _resultHistoryOutputs;
+        [PmxKey(0)] private string _hashName;
+        [PmxKey(1)] private string _fileName;
+        [PmxKey(2)] private FeMesh _mesh;
+        [PmxKey(3)] private OrderedDictionary<string, ResultFieldOutput> _resultFieldOutputs;
+        [PmxKey(4)] private ShellResultData _shellResultData;
+        [PmxKey(5)] private OrderedDictionary<string, ResultHistoryOutput> _resultHistoryOutputs;
         [NonSerialized]
         private HistoryResults _history;
-        private DateTime _dateTime;
-        private UnitSystem _unitSystem;
-        private string _deformationFieldOutputName;
-        private ComplexResultTypeEnum _complexResultType;
-        private float _complexAngleDeg;
+        [PmxKey(6)] private DateTime _dateTime;
+        [PmxKey(7)] private UnitSystem _unitSystem;
+        [PmxKey(8)] private string _deformationFieldOutputName;
+        [PmxKey(9)] private ComplexResultTypeEnum _complexResultType;
+        [PmxKey(10)] private float _complexAngleDeg;
+        [PmxKey(11)]
         private string _modelSpace;                             // null for a results file whose heading does not name it
 
 

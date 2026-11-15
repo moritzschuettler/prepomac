@@ -19,6 +19,7 @@ using CaeMesh;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3235)]
     [Flags]
     public enum ElementFieldVariable
     {
@@ -40,6 +41,7 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3236)]
     public enum ElementFieldOutputOutputEnum
     {
         Default,
@@ -50,11 +52,12 @@ namespace CaeModel
     }
 
     [Serializable]
+    [PmxType(3237)]
     public class ElementFieldOutput : FieldOutput, ISerializable
     {
         // Variables                                                                                                                
-        private ElementFieldOutputOutputEnum _output;           //ISerializable
-        private ElementFieldVariable _variables;                //ISerializable
+        [PmxKey(0)] private ElementFieldOutputOutputEnum _output;           //ISerializable
+        [PmxKey(1)] private ElementFieldVariable _variables;                //ISerializable
 
 
         // Properties                                                                                                               

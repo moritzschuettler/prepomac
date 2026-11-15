@@ -22,10 +22,11 @@ using PrePoMax.Python.Journal;
 namespace PrePoMax.Commands
 {
     [Serializable]
+    [PmxType(10148)]
     class CAddSurfaceInteraction : PreprocessCommand
     {
         // Variables                                                                                                                
-        private SurfaceInteraction _surfaceInteraction;
+        [PmxKey(0)] private SurfaceInteraction _surfaceInteraction;
 
 
         // Constructor                                                                                                              

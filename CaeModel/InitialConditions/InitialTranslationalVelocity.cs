@@ -22,14 +22,15 @@ using System.Runtime.Serialization;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3173)]
     public class InitialTranslationalVelocity : InitialCondition, IPreviewable, ISerializable
     {
         // Variables                                                                                                                
-        private int _nodeId;                        //ISerializable
-        private EquationContainer _v1;              //ISerializable
-        private EquationContainer _v2;              //ISerializable
-        private EquationContainer _v3;              //ISerializable
-        private EquationContainer _magnitude;       //ISerializable
+        [PmxKey(0)] private int _nodeId;                        //ISerializable
+        [PmxKey(1)] private EquationContainer _v1;              //ISerializable
+        [PmxKey(2)] private EquationContainer _v2;              //ISerializable
+        [PmxKey(3)] private EquationContainer _v3;              //ISerializable
+        [PmxKey(4)] private EquationContainer _magnitude;       //ISerializable
 
 
         // Properties                                                                                                               

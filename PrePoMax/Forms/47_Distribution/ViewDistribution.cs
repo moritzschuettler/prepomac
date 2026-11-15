@@ -21,10 +21,11 @@ using CaeMesh;
 namespace PrePoMax
 {
     [Serializable]
+    [PmxType(10408)]
     public abstract class ViewDistribution
     {
         // Variables                                                                                                                
-        private DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties                                                                                                               

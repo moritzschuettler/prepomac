@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 namespace CaeGlobals
 {
     [Serializable]
+    [PmxType(1015)]
     public class CompareDoubleArray : IEqualityComparer<double[]>
     {
         public bool Equals(double[] x, double[] y)

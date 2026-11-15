@@ -20,6 +20,7 @@ using System.Drawing;
 namespace CaeMesh
 {
     [Serializable]
+    [PmxType(2079)]
     public enum FeReferencePointCreatedFrom
     {
         [StandardValue("Coordinates", Description = "Coordinates", DisplayName = "Coordinates")]
@@ -37,29 +38,30 @@ namespace CaeMesh
     }
     //
     [Serializable]
+    [PmxType(2080)]
     public class FeReferencePoint : NamedClass, IMultiRegion, ISerializable, IContainsEquations
     {
         // Variables                                                                                                                
         public const string RefName = "_Ref_";
         public const string RotName = "_Rot_";
-        private EquationContainer _x;                           //ISerializable
-        private EquationContainer _y;                           //ISerializable
-        private EquationContainer _z;                           //ISerializable
-        private FeReferencePointCreatedFrom _createdFrom;       //ISerializable
-        private string _regionName;                 // new      //ISerializable
-        private RegionTypeEnum _regionType;         // new      //ISerializable
-        private int[] _creationIds;                             //ISerializable
-        private Selection _creationData;                        //ISerializable
-        private int _createdFromRefNodeId1;                     //ISerializable
-        private int _createdFromRefNodeId2;                     //ISerializable
-        private string _refNodeSetName;                         //ISerializable
-        private FeReferencePointMotion _motion;                 //ISerializable
-        private string _rotNodeSetName;                         //ISerializable
-        private int _refNodeId;                                 //ISerializable
-        private int _rotNodeId;                                 //ISerializable
-        private bool _nameVisible;                             //ISerializable
-        private bool _twoD;                                     //ISerializable
-        private Color _color;                                   //ISerializable
+        [PmxKey(0)] private EquationContainer _x;                           //ISerializable
+        [PmxKey(1)] private EquationContainer _y;                           //ISerializable
+        [PmxKey(2)] private EquationContainer _z;                           //ISerializable
+        [PmxKey(3)] private FeReferencePointCreatedFrom _createdFrom;       //ISerializable
+        [PmxKey(4)] private string _regionName;                 // new      //ISerializable
+        [PmxKey(5)] private RegionTypeEnum _regionType;         // new      //ISerializable
+        [PmxKey(6)] private int[] _creationIds;                             //ISerializable
+        [PmxKey(7)] private Selection _creationData;                        //ISerializable
+        [PmxKey(8)] private int _createdFromRefNodeId1;                     //ISerializable
+        [PmxKey(9)] private int _createdFromRefNodeId2;                     //ISerializable
+        [PmxKey(10)] private string _refNodeSetName;                         //ISerializable
+        [PmxKey(11)] private FeReferencePointMotion _motion;                 //ISerializable
+        [PmxKey(12)] private string _rotNodeSetName;                         //ISerializable
+        [PmxKey(13)] private int _refNodeId;                                 //ISerializable
+        [PmxKey(14)] private int _rotNodeId;                                 //ISerializable
+        [PmxKey(15)] private bool _nameVisible;                             //ISerializable
+        [PmxKey(16)] private bool _twoD;                                     //ISerializable
+        [PmxKey(17)] private Color _color;                                   //ISerializable
 
 
         // Properties                                                                                                               

@@ -21,10 +21,11 @@ using System.Xml.Linq;
 namespace CaeModel
 {
     [Serializable]
+    [PmxType(3176)]
     public class Elastic : MaterialProperty, ISerializable
     {
         // Variables                                                                                                                
-        private EquationContainer[][] _youngsPoissonsTemp;         //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _youngsPoissonsTemp;         //ISerializable
 
 
         // Properties                                                                                                               
