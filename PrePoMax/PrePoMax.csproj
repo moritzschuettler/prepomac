@@ -470,6 +470,7 @@
     <Compile Include="Commands\_Compatibility\v2.1.0\CReplaceReferencePoint.cs" />
     <Compile Include="Commands\_Compatibility\v2.1.0\CShowReferencePoints.cs" />
     <Compile Include="Commands\_Compatibility\v2.2.0\CDeleteStlPartFacesCommand.cs" />
+    <Compile Include="PmxDocument.cs" />
     <Compile Include="Controller.cs" />
     <Compile Include="Controller.HistoryOutputTables.cs" />
     <Compile Include="Enums\ShowItemIdsEnum.cs" />

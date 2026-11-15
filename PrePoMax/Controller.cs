@@ -1024,40 +1024,33 @@ namespace PrePoMax
             //
             OpenedFileName = fileName;
             //
-            Controller tmp = null;
-            object[] data = null;
+            PmxDocument document;
             string fileVersion;
+            string incompatibleVersion;
             //
-            data = TryReadCompressedPmx(fileName, out _model, out _allResults, out fileVersion);
-            if (data != null && data.Length == 1 && ((string)data[0]).StartsWith("IncompatibleVersion"))
+            document = TryReadCompressedPmx(fileName, out _model, out _allResults, out fileVersion, out incompatibleVersion);
+            if (incompatibleVersion != null)
             {
                 New();
-                string[] versionData = ((string)data[0]).Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
-                if (versionData.Length == 2)
-                    throw new CaeException("The file cannot be read. It is either corrupt or its version " + versionData[1] +
-                                           " is incompatible with this version of PrePoMax.");
-                return;
+                throw new CaeException("The file cannot be read. It is either corrupt or its version " + incompatibleVersion +
+                                       " is incompatible with this version of PrePoMax.");
             }
-            if (data == null) data = TryReadUncompressedPmx(fileName, out _model, out _allResults);
-            if (data == null || data.Length < 3)
+            if (document == null) document = TryReadUncompressedPmx(fileName, out _model, out _allResults);
+            if (document == null)
             {
                 New();
                 throw new CaeException("The file cannot be read. It is either corrupt or was created by a previous version.");
             }
             // Compatibility
             ApplyCompatibility();
-            // Get controller
-            tmp = (Controller)data[0];
-            // Regeneration
-            if (_batchRegenerationMode) tmp.BatchRegenerationMode = true;
             // Commands
-            InitializeNewCommands(tmp._commands);
+            InitializeNewCommands(document.Commands);
             // Annotations
-            _annotations = new AnnotationContainer(tmp._annotations, this);
+            _annotations = new AnnotationContainer(document.Annotations, this);
             // Jobs
-            if (data[1] is OrderedDictionary<string, AnalysisJob> od)
+            if (document.Jobs != null)
             {
-                _jobs = od;
+                _jobs = document.Jobs;
                 ResetUnfinishedJobStatuses();
             }
             // Settings
@@ -1072,13 +1065,10 @@ namespace PrePoMax
             // Regenerate tree
             _form.RegenerateTree(false);
             // Set tree states
-            if (data[2] is bool[][] states) _form.SetTreeExpandCollapseState(states);
+            if (document.TreeStates != null) _form.SetTreeExpandCollapseState(document.TreeStates);
             // Set pending side panels state; FrmMain restores it after the first draw
             if (parameters == null || !parameters.Contains(Globals.FromLastSave))
-            {
-                SidePanelsState sidePanelsState = data.Length > 3 ? data[3] as SidePanelsState : null;
-                _form.SetPendingSidePanelsState(sidePanelsState);
-            }
+                _form.SetPendingSidePanelsState(document.SidePanelsState);
             // Set user views
             _form.UpdateUserViewsThreadSafe(_model.UserViews.Keys.ToArray());
         }
@@ -2251,12 +2241,13 @@ namespace PrePoMax
             {
             }
         }
-        private object[] TryReadCompressedPmx(string fileName, out FeModel model, out ResultsCollection allResults,
-                                              out string programmNameVersion)
+        private PmxDocument TryReadCompressedPmx(string fileName, out FeModel model, out ResultsCollection allResults,
+                                                 out string programmNameVersion, out string incompatibleVersion)
         {
             model = null;
             allResults = null;
             programmNameVersion = null;
+            incompatibleVersion = null;
             _openedPmxVersion = 0;
             //
             int major = 0;
@@ -2264,8 +2255,7 @@ namespace PrePoMax
             int build = 0;
             try
             {
-                object[] data = null;
-                Controller tmp = null;
+                PmxDocument document = null;
                 byte[] versionBuffer = new byte[32];
                 using (FileStream fs = new FileStream(fileName, FileMode.Open))
                 {
@@ -2289,28 +2279,38 @@ namespace PrePoMax
                     _openedPmxVersion = version;
                     //
                     if (version < 2_000_006)
-                        data = TryReadCompressedPmxBefore_2_0_6(fs, version, out model, out allResults);
+                        document = TryReadCompressedPmxBefore_2_0_6(fs, version, out model, out allResults);
                     else
-                        data = TryReadCompressedPmxAfter_2_0_6(fs, version, out model, out allResults);
+                        document = TryReadCompressedPmxAfter_2_0_6(fs, version, out model, out allResults);
                     //
-                    if (data == null || model == null)
+                    if (document == null || model == null)
                         throw new CaeException("IncompatibleVersion");
                     //
                     model.UpdateMeshPartsElementTypes(true);
                     //
                     if (version < 2_003_002 && model != null && model.Mesh != null) model.Mesh.ComputeVolumeArea();
                 }
-                return data;
+                return document;
             }
             catch (Exception ex)
             {
-                if (ex.Message == "IncompatibleVersion")
-                    return new object[] { ex.Message + string.Format(" {0}.{1}.{2}", major, minor, build) };
-                else return null;
+                if (ex.Message == "IncompatibleVersion") incompatibleVersion = string.Format("{0}.{1}.{2}", major, minor, build);
+                return null;
             }
         }
-        private object[] TryReadCompressedPmxBefore_2_0_6(FileStream fs, int version, out FeModel model,
-                                                          out ResultsCollection allResults)
+        // The layout before PmxDocument: object[] { Controller, jobs, tree states, side panels state }
+        private static PmxDocument CreatePmxDocumentFromLegacyData(object data, FeModel model, ResultsCollection allResults)
+        {
+            object[] items = data as object[];
+            if (items == null || items.Length < 3) return null;
+            //
+            Controller tmp = (Controller)items[0];
+            return new PmxDocument(model, allResults, tmp._commands, tmp._annotations,
+                                   items[1] as OrderedDictionary<string, AnalysisJob>, items[2] as bool[][],
+                                   items.Length > 3 ? items[3] as SidePanelsState : null);
+        }
+        private PmxDocument TryReadCompressedPmxBefore_2_0_6(FileStream fs, int version, out FeModel model,
+                                                             out ResultsCollection allResults)
         {
             model = null;
             allResults = null;
@@ -2378,24 +2378,22 @@ namespace PrePoMax
                     }
                 }
                 //
-                return data;
+                return CreatePmxDocumentFromLegacyData(data, model, allResults);
             }
-            catch (Exception ex)
+            catch
             {
-                if (ex.Message == "IncompatibleVersion") return new object[] { ex.Message };
-                else return null;
+                return null;
             }
         }
-        private object[] TryReadCompressedPmxAfter_2_0_6(FileStream fileStream, int version, out FeModel model,
-                                                         out ResultsCollection allResults)
+        private PmxDocument TryReadCompressedPmxAfter_2_0_6(FileStream fileStream, int version, out FeModel model,
+                                                            out ResultsCollection allResults)
         {
             model = null;
             allResults = null;
             //
             try
             {
-                object[] data = null;
-                Controller tmp = null;
+                PmxDocument document;
                 //
                 byte[] buffer = new byte[4];
                 fileStream.Read(buffer, 0, buffer.Length);
@@ -2407,10 +2405,20 @@ namespace PrePoMax
                 using (MemoryStream memoryStream = new MemoryStream(buffer))
                 using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
                 {
-                    data = Tools.LoadDumpFromFile<object[]>(br);
-                    tmp = (Controller)data[0];
-                    model = tmp._model;
-                    allResults = tmp._allResults;
+                    object data = Tools.LoadDumpFromFile<object>(br);
+                    document = data as PmxDocument;
+                    if (document != null)
+                    {
+                        model = document.Model;
+                        allResults = document.AllResults;
+                    }
+                    else
+                    {
+                        Controller tmp = (Controller)((object[])data)[0];
+                        model = tmp._model;
+                        allResults = tmp._allResults;
+                        document = CreatePmxDocumentFromLegacyData(data, model, allResults);
+                    }
                     //
                     FeModel.ReadFromBinaryReader(model, br, version);
                     //
@@ -2423,15 +2431,14 @@ namespace PrePoMax
                     UpdateNCalcParameters(false);
                 }
                 //
-                return data;
+                return document;
             }
-            catch (Exception ex)
+            catch
             {
-                if (ex.Message == "IncompatibleVersion") return new object[] { ex.Message };
-                else return null;
+                return null;
             }
         }
-        private object[] TryReadUncompressedPmx(string fileName, out FeModel model, out ResultsCollection allResults)
+        private PmxDocument TryReadUncompressedPmx(string fileName, out FeModel model, out ResultsCollection allResults)
         {
             allResults = new ResultsCollection();
             //
@@ -2454,7 +2461,7 @@ namespace PrePoMax
                 //
                 model.UpdateMeshPartsElementTypes(true);
                 //
-                return data;
+                return CreatePmxDocumentFromLegacyData(data, model, allResults);
             }
             catch
             {
@@ -3237,7 +3244,6 @@ namespace PrePoMax
                 //
                 //_commands.SaveToSeparateFiles(Path.GetDirectoryName(fileName));
                 //
-                object[] data = new object[] { this, _jobs, states, sidePanelsState };
                 // Use a temporary file to save the data and copy it at the end
                 string tmpFileName = Tools.GetNonExistentRandomFileName(Path.GetDirectoryName(fileName), ".tmp");
                 //
@@ -3247,20 +3253,22 @@ namespace PrePoMax
                 {
                     ResultsCollection allResults = null;
                     bool saveResults = _settings.General.SaveResultsInPmx;
-                    // When controller (data[0]) is dumped to stream, the results should be null if set in settings
+                    // When the document is dumped to stream, the results should be empty if set in settings
                     if (saveResults == false)
                     {
                         allResults = _allResults;
                         _allResults = new ResultsCollection();
                     }
+                    PmxDocument document = new PmxDocument(_model, _allResults, _commands, _annotations, _jobs, states,
+                                                           sidePanelsState);
                     // Write program name and version to the file
                     Tools.WriteStringToFileStream(fs, Globals.ProgramName, 32);
                     // Prepare binary writer
                     using (BinaryWriter bw = new BinaryWriter(new MemoryStream()))
                     {
                         // Dump everything to the stream
-                        data.DumpToStream(bw);
-                        // Write model mesh data - data is saved inside data[0]._model but without mesh data - speed up
+                        document.DumpToStream(bw);
+                        // Write model mesh data - data is saved inside the document model but without mesh data - speed up
                         FeModel.WriteToBinaryWriter(_model, bw);
                         // Rewind the writer
                         bw.Flush();
@@ -3272,7 +3280,7 @@ namespace PrePoMax
                         // Write the compressed data
                         fs.Write(compressedData, 0, compressedData.Length);
                     }
-                    // Results - data is saved inside data[0]._allResults but without mesh data - speed up
+                    // Results - data is saved inside the document results but without mesh data - speed up
                     ResultsCollection.WriteToFileStream(_allResults, fs, compressionLevel);
                     // After dumping restore the results
                     if (saveResults == false)

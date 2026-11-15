@@ -168,8 +168,30 @@ the drawing types, `Type` and `FileInfo`.
 | Gripper.pmx | 5.99 MB | 581 ms | 26 ms | 46 ms | 93 ms |
 | impeller.pmx | 24.8 MB | 55 ms | 41 ms | 70 ms | 88 ms |
 
-The whole save and open of the application is timed per corpus file by `Tests/Storage/Run_Corpus.py` (the `--report`
-of each run), against which Phases 3 and 4 are measured.
+Phases 3 and 4 are measured against this binary formatter baseline with the same files: `DeepClone` of the model,
+the history and the results, and the storage part of a save and an open (the model dump with its mesh and the
+results, compressed as the file stores them).
+
+### Review of the major decisions (Fable 5.2, 2026-11-15)
+
+The user asked for each major decision to be put to Fable 5.2 with the code, the options and the measurements. Its
+recommendation and the decision taken:
+
+| Decision | Recommendation | Decision |
+|---|---|---|
+| Resolver | Hand-written on MessagePackWriter/Reader; the stock resolver needs constructor and readonly changes on ~1,100 types and still loses references and comparers | As recommended |
+| Type and member identity | One `[PmxType(id)]` per type and `[PmxKey(n)]` per declaring class; enumeration members in the snapshot; ids append only after the first assignment; a removed type gives an honest message | As recommended: enumeration members are snapshot entries (`E`), the unknown-type message names a removed type as a cause, retired numbers stay in the snapshot |
+| Shared references and cycles | The serializer keeps references; fix `CReplaceModelProperties`, which stored the live `ModelProperties`; an older reader must not silently turn a reference into a skipped field into null | As recommended: the command now executes with a clone, and a reference to an object the reader skipped fails with "written by a newer version" instead of reading as null |
+| Container | Chunked file, not ZIP; model, annotations, jobs and UI in one document; history as its own chunk in journal frames | Container as recommended, but the history stays in the document: `CommandsCollection` carries its position and view state with the commands, one payload keeps one reference space, and the CRC of the document already locates damage. Saving loads every result first and goes through a temporary file, as Fable required |
+| Journal | Design right; consider a durable flush, a Debug check of commands changed after recording, surfacing a cut-off journal | Kept without `Flush(true)` (the history was never flushed to disk before either, and one fsync per command would slow scripted sessions); a cut-off journal reads up to the last intact frame |
+| Legacy import | NRBF reader in `PrePoMax.LegacyImport`, the only option that survives modern .NET; the Immutable 9 redirect is process wide | As recommended; the redirect is in `PrePoMax.exe.config`, `PmxTool.exe.config` and `GmshCaller.exe.config` |
+| Phase 5 scope | Keep the `SerializationInfo` constructors and `_Compatibility` shims (old files name those types); delete `GetObjectData` and `ISerializable`, the legacy reader then detects the constructor; drop `[Serializable]` last, after checking clipboard and `.resx` | As recommended (the clipboard carries only text and images, the `.resx` objects are only `System.Drawing.Color`) |
+| Settings JSON | Yes; per-section fallback; invariant numbers; atomic write; import `settings.bin` only when there is no `settings.json` | Per-section fallback, invariant numbers and the temporary-file write are in. `settings.bin` is also imported when it is newer than `settings.json`, because the documented upgrade is to copy it into a new folder after its first start; the folders are portable, so two versions never share one |
+
+Fable also flagged that a field missing from an older file comes back zero or null rather than at its initializer
+value (an `[OnDeserializing]`/`[OnDeserialized]` method sets such a default, as the binary formatter required too),
+and that the `SerializationInfo` constructors no longer run for new files; the dual mode of Phase 2 compares exactly
+that difference over the whole test suite.
 
 The serializer and type ids follow decision 1 with two changes recorded here: the stable numbers are written as
 `[PmxType(id)]` on every stored type and `[PmxKey(n)]` on every stored field (attributes of `CaeGlobals`, so the domain
@@ -180,13 +202,21 @@ the bases - every stored class has one number, which also names it in an `object
 
 ## 4. Phase 1 - One seam for all serialization
 
-- [ ] `IObjectSerializer` in `CaeGlobals` with `Clone`, `Serialize(Stream)`, `Deserialize(Stream)`.
-- [ ] Route `DeepClone`, `DumpToFile`, `DumpToStream`, `LoadFromFile`, `Tools.LoadDumpFromFile` through it. The
+- [x] `IObjectSerializer` in `CaeGlobals` with `Clone`, `Serialize(Stream)`, `Deserialize(Stream)`.
+- [x] Route `DeepClone`, `DumpToFile`, `DumpToStream`, `LoadFromFile`, `Tools.LoadDumpFromFile` through it. The
       BinaryFormatter implementation stays the default; nothing changes for the user.
-- [ ] Add `PmxDocument`; `SaveToPmx` and `OpenPmx` build and read it instead of `object[] { this, ... }`. The file
+- [x] Add `PmxDocument`; `SaveToPmx` and `OpenPmx` build and read it instead of `object[] { this, ... }`. The file
       is still BinaryFormatter at this point (a new internal layout, reader keeps old layouts).
 
 Exit: all Python test groups pass; old files open; files saved by this build open in this build.
+
+**Done.** `CaeGlobals/Serialization`: `IObjectSerializer`, `BinaryObjectSerializer` and the static
+`ObjectSerializer.Default`. `PmxDocument { Model, AllResults, Commands, Annotations, Jobs, TreeStates,
+SidePanelsState }` is what `SaveToPmx` dumps; the readers return a `PmxDocument` for the new layout and build one from
+the `object[]` of the old layouts (`CreatePmxDocumentFromLegacyData`), so `OpenPmx` has one path.
+`CommandsCollection._controller` and its undo/redo event are `[NonSerialized]`, which removes the only cycle of the
+graph audit; old files still carry them, which the binary formatter skips. Verified with the test groups of the
+Verification section plus `Test_Model_Document`, `Test_Record_And_Run` and `Test_Batch`, and the corpus run.
 
 ---
 

@@ -53,7 +53,7 @@ namespace PrePoMax.Commands
         
         // Variables                                                                                                                
         private int _currPositionIndex;
-        private Controller _controller;
+        [NonSerialized] private Controller _controller;
         private List<Command> _commands;
         private string _historyFileNameBin;
         private ViewGeometryModelResults _previousView;
@@ -107,7 +107,7 @@ namespace PrePoMax.Commands
 
 
         // Events                                                                                                                   
-        public event Action<string, string> EnableDisableUndoRedo;
+        [field: NonSerialized] public event Action<string, string> EnableDisableUndoRedo;
 
 
         // Constructor                                                                                                              

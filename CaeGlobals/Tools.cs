@@ -14,7 +14,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Reflection;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.ComponentModel;
 using DynamicTypeDescriptor;
 using System.Linq.Expressions;
@@ -37,30 +36,17 @@ namespace CaeGlobals
         // Read clone from File
         public static T LoadDumpFromFile<T>(string fileName)
         {
-            using (MemoryStream stream = new MemoryStream())
+            using (MemoryStream stream = new MemoryStream(File.ReadAllBytes(fileName)))
             {
-                FileStream fs = new FileStream(fileName, FileMode.Open);
-                byte[] bytes = new byte[fs.Length];
-                fs.Read(bytes, 0, (int)fs.Length);
-                stream.Write(bytes, 0, (int)fs.Length);
-                fs.Close();
-                stream.Position = 0;
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Binder = RenamedTypeSerializationBinder.Instance;
-                return (T)formatter.Deserialize(stream);
+                return (T)ObjectSerializer.Default.Deserialize(stream);
             }
         }
         public static T LoadDumpFromFile<T>(BinaryReader br)
         {
-            using (MemoryStream stream = new MemoryStream())
+            long length = br.ReadInt64();
+            using (MemoryStream stream = new MemoryStream(br.ReadBytes((int)length)))
             {
-                long length = br.ReadInt64();
-                byte[] bytes = br.ReadBytes((int)length);
-                stream.Write(bytes, 0, (int)length);
-                stream.Position = 0;
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Binder = RenamedTypeSerializationBinder.Instance;
-                return (T)formatter.Deserialize(stream);
+                return (T)ObjectSerializer.Default.Deserialize(stream);
             }
         }
         public static async Task<T> LoadDumpFromFileAsync<T>(string fileName)

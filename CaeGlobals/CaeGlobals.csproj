@@ -104,6 +104,9 @@
     <Compile Include="CommonClasses\OrderedDictionary.cs" />
     <Compile Include="CommonClasses\OrderedDictionaryItemLayout.cs" />
     <Compile Include="CommonClasses\SortedIntKey.cs" />
+    <Compile Include="Serialization\BinaryObjectSerializer.cs" />
+    <Compile Include="Serialization\IObjectSerializer.cs" />
+    <Compile Include="Serialization\ObjectSerializer.cs" />
     <Compile Include="Comparers\CompareDoubleArray.cs" />
     <Compile Include="Comparers\CompareIntArray.cs" />
     <Compile Include="DynamicTypeDescriptor\MultiChoiceContainer.cs" />
