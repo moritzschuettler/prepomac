@@ -65,12 +65,6 @@ namespace vtkControl.Native
             }
             return names;
         }
-        // Exact picking (the default): the point on the ray of the pixel and, where the pixel misses, the geometry
-        // within the selection distance; else the point from the depth of the pick and no pick within the distance
-        public void SetExactPicking(bool exact)
-        {
-            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_exact_picking(Handle(), exact ? 1 : 0));
-        }
         public void SetSectionViewPickMode(bool partSelection, bool nodeOrElementSelection)
         {
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_section_view_pick_mode(Handle(), partSelection ? 1 : 0,
