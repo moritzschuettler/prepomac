@@ -145,6 +145,12 @@ namespace CaeMesh
         {
             AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.AtLeastSum, new int[][] { side }, surfaceId, bound));
         }
+        public void AddAtLeastDifference(string name, IntervalRowTierEnum tier, int[] sideA, int[] sideB, int bound,
+                                         int surfaceId = 0)
+        {
+            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.AtLeastDifference, new int[][] { sideA, sideB },
+                                   surfaceId, bound));
+        }
         public void AddThreeSided(string name, IntervalRowTierEnum tier, int[][] sides, int surfaceId = 0)
         {
             AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.ThreeSided, sides, surfaceId));
@@ -283,6 +289,14 @@ namespace CaeMesh
                 {
                     Dictionary<int, double> coefficients = new Dictionary<int, double>();
                     addSide(coefficients, row.Sides[0], 1);
+                    rowCoefficients.Add(coefficients);
+                    rowType = LpSolve.GE;
+                }
+                else if (row.Kind == IntervalRowKindEnum.AtLeastDifference)
+                {
+                    Dictionary<int, double> coefficients = new Dictionary<int, double>();
+                    addSide(coefficients, row.Sides[0], 1);
+                    addSide(coefficients, row.Sides[1], -1);
                     rowCoefficients.Add(coefficients);
                     rowType = LpSolve.GE;
                 }

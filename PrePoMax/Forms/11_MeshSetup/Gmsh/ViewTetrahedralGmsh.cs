@@ -56,6 +56,7 @@ namespace PrePoMax.Forms
             //
             _dctd.GetProperty(nameof(AlgorithmRecombine)).SetIsBrowsable(false);
             _dctd.GetProperty(nameof(RecombineMinQuality)).SetIsBrowsable(false);
+            _dctd.GetProperty(nameof(TransfiniteSubmapped)).SetIsBrowsable(false);
             //
             _dctd.GetProperty(nameof(OptimizeFirstOrderShell)).SetIsBrowsable(false);
             //

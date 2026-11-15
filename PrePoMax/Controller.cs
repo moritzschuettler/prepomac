@@ -13711,7 +13711,8 @@ namespace PrePoMax
                 if (mesherSetupItem is ShellGmsh shellGmsh)
                     return _model.Geometry.GetTransfiniteShellFaces(part, shellGmsh.TransfiniteThreeSided,
                                                                     shellGmsh.TransfiniteFourSided,
-                                                                    shellGmsh.TransfiniteAngleDeg);
+                                                                    shellGmsh.TransfiniteAngleDeg,
+                                                                    shellGmsh.TransfiniteSubmapped);
                 else if (mesherSetupItem is ShellQuadWild shellQuadWild)
                     return _model.Geometry.GetTransfiniteShellFaces(part, shellQuadWild.TransfiniteThreeSided,
                                                                     shellQuadWild.TransfiniteFourSided,

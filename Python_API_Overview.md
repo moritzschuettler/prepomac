@@ -1058,7 +1058,8 @@ item does not use in the state it ends up with is refused before its range, nami
 used: the factors against `relative_size`, the two Hausdorff distances of a shell MMG item against `relative_size`,
 the QuadWild settings of a sweep against `algorithm_2d`, the `recombine_min_quality` of a Gmsh item against
 `algorithm_recombine='None'`, the `transfinite_angle_deg` of a Gmsh, Netgen or QuadWild item against
-`transfinite_three_sided='No'` together with `transfinite_four_sided=False`, and the `smooth`, `alpha`,
+`transfinite_three_sided='No'` together with `transfinite_four_sided=False` (and, for `shell_gmsh` and
+`sweep_mesh`, `transfinite_submapped=False`), and the `smooth`, `alpha`,
 `flow_profile`, `boundary_layer` and transfinite settings of a QuadWild shell item against `preview=True`, which
 shows the triangulation without running QuadWild. Such a value is also left out of `get_settings`. A minimum is checked
 against the maximum the item ends up with - the one given, or the one it keeps or takes from the selected parts - so a
@@ -1082,7 +1083,23 @@ item, with one exception: the transfinite mesh also takes `algorithm_2d` and `al
 hidden, because they set the mesh size the 2D algorithm needs and mesh the faces and volumes it does not structure.
 A shell has no volume and a sweep builds its volume mesh itself, so neither takes `algorithm_3d`.
 `recombine_min_quality` is shown and taken only while `algorithm_recombine` is not `None`, and
-`transfinite_angle_deg` only while `transfinite_three_sided` is not `No` or `transfinite_four_sided` is `True`.
+`transfinite_angle_deg` only while `transfinite_three_sided` is not `No` or `transfinite_four_sided` is `True`, or,
+for `shell_gmsh` and `sweep_mesh`, `transfinite_submapped` is `True`.
+`transfinite_submapped` belongs to `shell_gmsh` and `sweep_mesh` and is `True` by default, like `transfinite_four_sided`; an item
+read from a file written before the setting existed has it `False`. It meshes as a structured grid every face of one
+boundary loop - no hole - whose vertices are all ends, sides or corners by the interior angle of the face there: an end
+from 180 degrees minus `transfinite_angle_deg` to `transfinite_angle_deg`, a corner from 360 degrees minus it to 180
+degrees plus it, and a side between, the ends outnumbering the corners by four and at least one corner, such as L, T,
+U, plus and staircase shaped faces. Its edges are balanced together with the 3-sided and 4-sided faces, the edges
+running one way against those running the opposite way, so a number of elements set on one edge carries over, and its
+sides that face each other across it are kept at least one element apart, so a web or a leg thinner than the element
+size keeps a row of elements. A face
+whose counts cannot be balanced, whose counts do not close a valid outline, or whose grid would fold or have a quad
+corner of a scaled Jacobian below 0.2 is meshed free instead, and the output says why; the meshing never fails for it.
+A sweep submaps only its source surfaces, of the blocks swept between two ends, by the rules of its structured
+sources: the rows that tie the counts of such a source are given up at a price rather than refuse the sweep, also
+when the numbers of elements set on its edges make the grid impossible, and the source is then meshed free; under
+`algorithm_2d='QuadWild'` a submapped source is left to gmsh.
 `transfinite_three_sided` of a Gmsh item is `Polar`, `Mapped` (the default for a new item) or `No`: a
 3-sided face with `Polar` is the structured grid gmsh collapses at one corner, with triangles there and arcs around
 it as a revolution about that corner would make, and its two sides meeting there carry one number of elements. The
@@ -1098,9 +1115,9 @@ polar face the counts fixed on its sides do not allow is meshed as an ordinary p
 | Item | Settings |
 | --- | --- |
 | `tetrahedral_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_solid`, `optimize_high_order` |
-| `shell_gmsh` | `algorithm_2d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell` |
+| `shell_gmsh` | `algorithm_2d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_submapped`, `transfinite_angle_deg`, `optimize_first_order_shell` |
 | `transfinite_mesh` | `allow_pyramid_elements`, `algorithm_2d`, `algorithm_3d`, `recombine`, `transfinite_angle_deg`, `transfinite_three_sided` (`Polar` caps the five-faced cells with the grid gmsh collapses at one corner and fills them with wedges and hexahedra; `Mapped` meshes the caps as three blocks of quads and, recombined, the cells by hexahedra only) |
-| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell`, `elements_per_layer`, `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`). gmsh meshes the walls whichever mesher meshes the sources, so the recombination and optimisation settings apply with either `algorithm_2d`; as in the dialog, the `quad_wild_*` settings are used only with `algorithm_2d='QuadWild'`, refused naming `algorithm_2d` otherwise and left out of `get_settings` |
+| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_submapped`, `transfinite_angle_deg`, `optimize_first_order_shell`, `elements_per_layer`, `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`). gmsh meshes the walls whichever mesher meshes the sources, so the recombination and optimisation settings apply with either `algorithm_2d`; as in the dialog, the `quad_wild_*` settings are used only with `algorithm_2d='QuadWild'`, refused naming `algorithm_2d` otherwise and left out of `get_settings` |
 
 A mesh setup item takes the selection its dialog would have recorded, which is also what a session
 journal replays: a whole part mesher - `meshing_parameters`, `shell_mmg`, `shell_gmsh`,

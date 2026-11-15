@@ -786,6 +786,7 @@ F 2098.23 System.Int32[] SurfaceIds
 F 2098.24 System.Double[][][][] ParameterizationLinesU
 F 2098.25 System.Double[][][][] ParameterizationLinesV
 F 2098.26 System.Double StlFeatureAngleDeg
+F 2098.27 #2148[] SubmapFaces
 T 2099 class CaeMesh.GmshEdge
 F 2099.0 System.Int32 Id
 F 2099.1 System.Int32[] VertexIds
@@ -912,6 +913,7 @@ F 2117.12 System.Int32 _numberOfElements
 F 2117.13 System.Double[] _layerSizes
 F 2117.14 System.Int32[] _numOfElementsPerLayer
 F 2117.15 System.Int32 _numberOfThreads
+F 2117.16 System.Boolean _transfiniteSubmapped
 T 2118 class CaeMesh.RevolveMesh
 T 2119 class CaeMesh.ShellGmsh
 T 2120 class CaeMesh.SweepMesh
@@ -1107,6 +1109,12 @@ F 2146.13 System.Int32[] _edgeKernelIds
 F 2146.14 System.Int32[] _vertexNodeIds
 T 2147 class CaeMesh.FeMeshRefinement
 F 2147.0 System.Double _meshSize
+T 2148 class CaeMesh.SubmapFace
+F 2148.0 System.Int32 _faceId
+F 2148.1 System.Int32[] _vertexNodeIds
+F 2148.2 System.Int32[] _edgeIds
+F 2148.3 System.Int32[] _edgeDirections
+F 2148.4 System.Double[] _vertexAnglesDeg
 T 3000 enum CaeModel.AmplitudeTimeSpanEnum
 E 3000.0 member StepTime
 E 3000.1 member TotalTime

@@ -104,11 +104,22 @@ namespace PrePoMax.Forms
         }
         //
         [CategoryAttribute("Mesh settings")]
-        [OrderedDisplayName(7, 20, "Transfinite threshold angle")]
+        [OrderedDisplayName(7, 20, "Submapped faces")]
+        [DescriptionAttribute("Use a structured grid on model faces with one boundary loop whose corners are all close " +
+                              "to 90° or 270°, such as L, T and U shaped faces.")]
+        [Id(7, 3)]
+        public bool TransfiniteSubmapped
+        {
+            get { return _gmshSetupItem.TransfiniteSubmapped; }
+            set { _gmshSetupItem.TransfiniteSubmapped = value; UpdateVisibility(); }
+        }
+        //
+        [CategoryAttribute("Mesh settings")]
+        [OrderedDisplayName(8, 20, "Transfinite threshold angle")]
         [DescriptionAttribute("Faces with a corner angle larger than the threshold angle or smaller than 180° minus the " +
                               "threshold angle are meshed without the transfinite constraint.")]
         [TypeConverter(typeof(StringAngleDegConverter))]
-        [Id(7, 3)]
+        [Id(8, 3)]
         public double TransfiniteAngleDeg
         {
             get { return _gmshSetupItem.TransfiniteAngleDeg; }
@@ -265,6 +276,7 @@ namespace PrePoMax.Forms
             UpdateVisibility();
             //
             _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteFourSided));
+            _dctd.RenameBooleanPropertyToYesNo(nameof(TransfiniteSubmapped));
         }
         public override MeshSetupItem GetBase()
         {
@@ -287,8 +299,9 @@ namespace PrePoMax.Forms
             // Transfinite
             if (_dctd.GetProperty(nameof(TransfiniteFourSided)).IsBrowsable)
             {
+                bool submapped = _dctd.GetProperty(nameof(TransfiniteSubmapped)).IsBrowsable && TransfiniteSubmapped;
                 _dctd.GetProperty(nameof(TransfiniteAngleDeg)).SetIsBrowsable(_gmshSetupItem.IsTransfiniteThreeSided ||
-                                                                              TransfiniteFourSided);
+                                                                              TransfiniteFourSided || submapped);
             }
             // Element size
             if (_dctd.GetProperty(nameof(ElementSizeType)).IsBrowsable)

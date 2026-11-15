@@ -166,7 +166,7 @@ namespace CaeMesh
         /// the boundary segments from their parameters, so that (w0 u + w1 v, w2 v) is close to isometric over the
         /// face. The identity when the fit is not positive definite.
         /// </summary>
-        private static double[] GetMetricFrame(double[][][] sideUv, double[][][] sideXyz)
+        internal static double[] GetMetricFrame(double[][][] sideUv, double[][][] sideXyz)
         {
             double[,] m = new double[3, 4];
             for (int k = 0; k < 3; k++)
@@ -240,11 +240,11 @@ namespace CaeMesh
             }
             return true;
         }
-        private static double[] ToFrame(double[] w, double[] uv)
+        internal static double[] ToFrame(double[] w, double[] uv)
         {
             return new double[] { w[0] * uv[0] + w[1] * uv[1], w[2] * uv[1] };
         }
-        private static double[] FromFrame(double[] w, double[] p)
+        internal static double[] FromFrame(double[] w, double[] p)
         {
             double v = p[1] / w[2];
             return new double[] { (p[0] - w[1] * v) / w[0], v };
@@ -269,7 +269,7 @@ namespace CaeMesh
         /// <summary>
         /// The nodes every node shares a quad edge with, in ascending order.
         /// </summary>
-        private static int[][] GetNeighbours(int numOfNodes, List<int[]> quads)
+        internal static int[][] GetNeighbours(int numOfNodes, List<int[]> quads)
         {
             SortedSet<int>[] sets = new SortedSet<int>[numOfNodes];
             for (int i = 0; i < numOfNodes; i++) sets[i] = new SortedSet<int>();
@@ -287,7 +287,7 @@ namespace CaeMesh
         /// Places every node after the boundary ones at the mean of its neighbours, by conjugate gradients on each
         /// coordinate, starting from where the nodes are.
         /// </summary>
-        private static void SolveBarycentricEmbedding(double[][] points, int[][] neighbours, int numOfBoundaryNodes)
+        internal static void SolveBarycentricEmbedding(double[][] points, int[][] neighbours, int numOfBoundaryNodes)
         {
             int n = points.Length - numOfBoundaryNodes;
             if (n == 0) return;
@@ -458,7 +458,7 @@ namespace CaeMesh
         /// <summary>
         /// The sine of the angle at corner c of the quad, negative where the quad turns against the orientation.
         /// </summary>
-        private static double GetScaledJacobian(double[][] points, int[] quad, int c, double orientation)
+        internal static double GetScaledJacobian(double[][] points, int[] quad, int c, double orientation)
         {
             double[] p = points[quad[c]];
             double[] next = points[quad[(c + 1) % 4]];
@@ -474,8 +474,8 @@ namespace CaeMesh
         /// <summary>
         /// The negative condition energy of the corners a node changes, minus infinity when one of them folds.
         /// </summary>
-        private static double GetNodeQuality(double[][] points, int[][] quads, int[] cornerStart, int[] cornerQuads,
-                                             int[] cornerIndices, int node, double orientation)
+        internal static double GetNodeQuality(double[][] points, int[][] quads, int[] cornerStart, int[] cornerQuads,
+                                              int[] cornerIndices, int node, double orientation)
         {
             double energy = 0;
             for (int i = cornerStart[node]; i < cornerStart[node + 1]; i++)
@@ -506,7 +506,7 @@ namespace CaeMesh
         /// <summary>
         /// The signed area of the boundary loop, the first nodes in loop order.
         /// </summary>
-        private static double GetSignedArea(double[][] points, int numOfBoundaryNodes)
+        internal static double GetSignedArea(double[][] points, int numOfBoundaryNodes)
         {
             double area = 0;
             for (int i = 0; i < numOfBoundaryNodes; i++)

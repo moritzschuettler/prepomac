@@ -34,7 +34,8 @@ namespace CaeMesh
         public int[][] Sides { get { return _sides; } }
         /// <summary>The surface whose grid the row keeps, or 0.</summary>
         public int SurfaceId { get { return _surfaceId; } }
-        /// <summary>The fewest elements an AtLeastSum row lets its side carry.</summary>
+        /// <summary>The fewest elements an AtLeastSum row lets its side carry, or an AtLeastDifference row its first side
+        /// carry more than its second.</summary>
         public int Bound { get { return _bound; } }
 
 
@@ -58,6 +59,7 @@ namespace CaeMesh
             if (_kind == IntervalRowKindEnum.EqualSums) return sums[0] == sums[1];
             if (_kind == IntervalRowKindEnum.EvenSum) return sums[0] % 2 == 0;
             if (_kind == IntervalRowKindEnum.AtLeastSum) return sums[0] >= _bound;
+            if (_kind == IntervalRowKindEnum.AtLeastDifference) return sums[0] - sums[1] >= _bound;
             int total = sums.Sum();
             return total % 2 == 0 && sums.All(sum => 2 * sum < total);
         }
@@ -70,7 +72,8 @@ namespace CaeMesh
             return string.Join(" | ", _sides.Select(side => string.Join(" + ", side.Select(id => "Edge " + id + "=" +
                                                                                                 getCount(id))) +
                                                            " = " + side.Sum(getCount))) +
-                   (_kind == IntervalRowKindEnum.AtLeastSum ? ", at least " + _bound : "");
+                   (_kind == IntervalRowKindEnum.AtLeastSum ? ", at least " + _bound : "") +
+                   (_kind == IntervalRowKindEnum.AtLeastDifference ? ", the first at least " + _bound + " more" : "");
         }
     }
 }

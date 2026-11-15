@@ -4558,12 +4558,19 @@ namespace CaeMesh
             // A shell is structured on the faces the one definition all meshers follow finds
             ShellGmsh shellGmsh = gmshData.GmshSetupItems?.OfType<ShellGmsh>().FirstOrDefault();
             if (shellGmsh != null) gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, shellGmsh, null);
+            // and submapped on the faces whose corners lie near multiples of 90 degrees
+            if (shellGmsh != null && shellGmsh.TransfiniteSubmapped)
+                gmshData.SubmapFaces = GetSubmapFacesForGmsh(partNames, shellGmsh, gmshData.TransfiniteFaces, null);
             // So are the sources of a sweep
             SweepMesh sweepMesh = gmshData.GmshSetupItems?.OfType<SweepMesh>().FirstOrDefault();
             if (sweepMesh != null && sweepMesh.BlockSourceSurfaceIds != null)
-                gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, sweepMesh,
-                                                                       new HashSet<int>(sweepMesh.BlockSourceSurfaceIds
-                                                                                        .SelectMany(ids => ids)));
+            {
+                HashSet<int> sourceSurfaceIds = new HashSet<int>(sweepMesh.BlockSourceSurfaceIds.SelectMany(ids => ids));
+                gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, sweepMesh, sourceSurfaceIds);
+                if (sweepMesh.TransfiniteSubmapped)
+                    gmshData.SubmapFaces = GetSubmapFacesForGmsh(partNames, sweepMesh, gmshData.TransfiniteFaces,
+                                                                 sourceSurfaceIds);
+            }
         }
         /// <summary>
         /// The structured faces of the parts by the one definition all meshers follow, with gmsh topology ids: of the
@@ -4593,6 +4600,37 @@ namespace CaeMesh
                 }
             }
             return transfiniteFaces.ToArray();
+        }
+        /// <summary>
+        /// The submapped faces with gmsh topology ids, other than the structured faces already found: of the shells,
+        /// or, where faceTopologyIds is given, those faces of any part.
+        /// </summary>
+        private SubmapFace[] GetSubmapFacesForGmsh(string[] partNames, GmshSetupItem gmshSetupItem,
+                                                  TransfiniteFace[] transfiniteFaces, HashSet<int> faceTopologyIds)
+        {
+            HashSet<int> transfiniteFaceIds = new HashSet<int>();
+            if (transfiniteFaces != null)
+            {
+                foreach (var face in transfiniteFaces) transfiniteFaceIds.Add(face.FaceId);
+            }
+            List<SubmapFace> submapFaces = new List<SubmapFace>();
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                if (faceTopologyIds == null && part.PartType != PartType.Shell) continue;
+                //
+                foreach (var face in SubmapFaceDetector.Detect(this, part, gmshSetupItem.TransfiniteAngleDeg))
+                {
+                    int faceId = GmshTopologyId(face.FaceId, part.PartId);
+                    if (transfiniteFaceIds.Contains(faceId)) continue;
+                    if (faceTopologyIds != null && !faceTopologyIds.Contains(faceId)) continue;
+                    int[] edgeIds = new int[face.EdgeIds.Length];
+                    for (int k = 0; k < edgeIds.Length; k++) edgeIds[k] = GmshTopologyId(face.EdgeIds[k], part.PartId);
+                    submapFaces.Add(new SubmapFace(faceId, face.VertexNodeIds.ToArray(), edgeIds,
+                                                   face.EdgeDirections.ToArray(), face.VertexAnglesDeg.ToArray()));
+                }
+            }
+            return submapFaces.ToArray();
         }
         /// <summary>
         /// Finds the surfaces that two of the given parts have in common - the interfaces between the
@@ -5221,12 +5259,20 @@ namespace CaeMesh
         }
         // Mesh types
         /// <summary>
-        /// Which faces of a shell part are meshed by a structured grid, by the one definition all meshers follow.
+        /// Which faces of a shell part are meshed by a structured grid, by the one definition all meshers follow, and
+        /// with submapped also the faces SubmapFaceDetector finds.
         /// </summary>
         public bool[] GetTransfiniteShellFaces(BasePart part, TransfiniteThreeSidedEnum threeSided, bool fourSided,
-                                               double transfiniteAngleDeg)
+                                               double transfiniteAngleDeg, bool submapped = false)
         {
-            return TransfiniteFaceDetector.GetTransfiniteFaceFlags(this, part, threeSided, fourSided, transfiniteAngleDeg);
+            bool[] transfinite = TransfiniteFaceDetector.GetTransfiniteFaceFlags(this, part, threeSided, fourSided,
+                                                                                 transfiniteAngleDeg);
+            if (submapped)
+            {
+                foreach (var face in SubmapFaceDetector.Detect(this, part, transfiniteAngleDeg))
+                    transfinite[face.FaceId] = true;
+            }
+            return transfinite;
         }
 
         #endregion #################################################################################################################

@@ -26,7 +26,7 @@ namespace CaeMesh
     public static class TransfiniteFaceDetector
     {
         // Variables
-        private const double _cornerAngleToleranceDeg = 0.1;
+        internal const double _cornerAngleToleranceDeg = 0.1;
         private const int _foldCheckDivisions = 16;
         private const double _heightFieldMinCosine = 0.05;
 
@@ -286,7 +286,7 @@ namespace CaeMesh
         /// Whether every cell of the face faces the same side of the plane with the given normal, so that the face
         /// lies over the plane without turning back.
         /// </summary>
-        private static bool IsHeightFieldOverPlane(FeMesh mesh, VisualizationData vis, int faceId, double[] normal)
+        internal static bool IsHeightFieldOverPlane(FeMesh mesh, VisualizationData vis, int faceId, double[] normal)
         {
             if (vis.CellIdsByFace == null || faceId >= vis.CellIdsByFace.Length) return false;
             //
@@ -371,7 +371,7 @@ namespace CaeMesh
         /// The points of an edge in order from the given vertex, read off its edge cells. Null when the cells do
         /// not chain from the vertex.
         /// </summary>
-        private static List<double[]> GetEdgePoints(FeMesh mesh, VisualizationData vis, int edgeId, int startNodeId)
+        internal static List<double[]> GetEdgePoints(FeMesh mesh, VisualizationData vis, int edgeId, int startNodeId)
         {
             int[] cellIds = vis.EdgeCellIdsByEdge[edgeId];
             bool[] used = new bool[cellIds.Length];
@@ -397,7 +397,7 @@ namespace CaeMesh
         /// <summary>
         /// The points at equal steps of the length of a polyline, its two ends included, and its length.
         /// </summary>
-        private static double[][] Resample(List<double[]> polyline, int divisions, out double length)
+        internal static double[][] Resample(List<double[]> polyline, int divisions, out double length)
         {
             double[] lengths = new double[polyline.Count];
             for (int i = 1; i < polyline.Count; i++)
@@ -430,7 +430,7 @@ namespace CaeMesh
         /// Orders the edges of a face head to tail into one loop. A face with a hole, an edge inside it, a closed
         /// edge or a seam has edges that do not make one simple loop, and has none.
         /// </summary>
-        private static bool GetBoundaryLoop(VisualizationData vis, int[] faceEdgeIds,
+        internal static bool GetBoundaryLoop(VisualizationData vis, int[] faceEdgeIds,
                                             Dictionary<int, int[]> edgeIdVertexIds,
                                             out int[] loopEdgeIds, out int[] loopVertexIds)
         {

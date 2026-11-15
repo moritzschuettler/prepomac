@@ -35,12 +35,17 @@ namespace CaeMesh
         private HashSet<int> _transfiniteSurfaceIds = new HashSet<int>();
         // The three-sided faces of a shell meshed as three blocks of quads once gmsh has meshed the surfaces
         private List<TransfiniteFace> _threeBlockFaces = new List<TransfiniteFace>();
+        // The submapped faces of a shell whose counts are balanced, meshed by SubmapMapping once gmsh has meshed the
+        // surfaces
+        private List<SubmapFace> _submapFaces = new List<SubmapFace>();
         // The five-faced transfinite volumes whose three-sided caps are meshed as three blocks of quads, and the
         // volumes by hexahedra between them
         private List<GmshThreeBlockPrism> _threeBlockPrisms = new List<GmshThreeBlockPrism>();
         // The sweep sources structured by the one definition all meshers follow that the edge graph of the opposite
         // edges cannot carry: those with a side of several edges, and the three-sided ones, meshed as three blocks
         private Dictionary<int, TransfiniteFace> _structuredSourceFaces = new Dictionary<int, TransfiniteFace>();
+        // The sweep sources meshed by SubmapMapping, registered by the rules of the structured ones
+        private Dictionary<int, SubmapFace> _submapSourceFaces = new Dictionary<int, SubmapFace>();
         // How the three-sided faces are structured, and the corner a polar grid collapses on each of them
         private TransfiniteThreeSidedEnum _transfiniteThreeSided;
         private Dictionary<int, int> _surfaceIdPolarCornerIndex = new Dictionary<int, int>();
@@ -85,6 +90,7 @@ namespace CaeMesh
         private const int _numSurfaceParameterSamples = 16;
         private const int _numLayerEdgeSamples = 256;
         private const double _cornerAngleToleranceDeg = 0.1;
+        private const string _submapRowPrefix = "Submapped Surface ";
         private bool _graded;
         private double _gradingMaxSize;
         private GmshSizeGrading _sizeGrading;
@@ -252,7 +258,8 @@ namespace CaeMesh
                     bool sweepMesh = _gmshData.EdgeIdsBySweepLayer != null;
                     // A shell is structured on the faces the one definition all meshers follow found
                     if (_isOCC && gsi is ShellGmsh && _gmshData.TransfiniteFaces != null)
-                        SetTransfiniteShellFaces(_gmshData.TransfiniteFaces);
+                        SetTransfiniteShellFaces(_gmshData.TransfiniteFaces, _gmshData.SubmapFaces ?? new SubmapFace[0],
+                                                 IsFullQuad(algorithmRecombine));
                     else if (_isOCC && (gsi.IsTransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
                         SetTransfiniteSurfaces(gsi.IsTransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume,
@@ -690,6 +697,12 @@ namespace CaeMesh
             // The three-sided faces become three blocks of quads around one inner node, split into triangles where the
             // surfaces are not recombined
             foreach (var face in _threeBlockFaces) GmshThreeBlockMesher.Mesh(face, recombine);
+            // The submapped faces likewise, each left as gmsh meshed it when its grid folds or is poor
+            string reason;
+            foreach (var face in _submapFaces)
+            {
+                if (!GmshSubmapMesher.Mesh(face, recombine, out reason)) WriteSubmapFreeMessage(face.FaceId, reason);
+            }
             // Optimize first order
             if (gmshSetupItem.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
             {
@@ -1116,6 +1129,20 @@ namespace CaeMesh
                     if (!block.ClosesRing) _quadWildSourceIds.ExceptWith(block.TargetSurfaceIds);
                 }
                 foreach (var block in _sweepBlocks) _quadWildSourceIds.ExceptWith(block.WallSurfaceIds);
+                // A submapped source of a block swept between two ends is meshed by gmsh and SubmapMapping, as a
+                // source QuadWild cannot mesh is meshed by gmsh
+                if (_gmshData.SubmapFaces != null)
+                {
+                    HashSet<int> sweptSourceIds = new HashSet<int>(_sweepBlocks.Where(block => !block.IsRevolved)
+                                                                               .SelectMany(block => block.SourceSurfaceIds));
+                    HashSet<int> revolvedSourceIds = new HashSet<int>(_sweepBlocks.Where(block => block.IsRevolved)
+                                                                                  .SelectMany(block => block.SourceSurfaceIds));
+                    foreach (var face in _gmshData.SubmapFaces)
+                    {
+                        if (sweptSourceIds.Contains(face.FaceId) && !revolvedSourceIds.Contains(face.FaceId))
+                            _quadWildSourceIds.Remove(face.FaceId);
+                    }
+                }
                 _freeMeshedSurfaceIds.UnionWith(_quadWildSourceIds);
             }
         }
@@ -1857,6 +1884,8 @@ namespace CaeMesh
                                                                                     entry => entry.Value[0]);
                 _gmshData.TransfiniteFaces = RenumberTransfiniteFaces(_gmshData.TransfiniteFaces, pointIdMap, edgeIdMap,
                                                                       surfaceIdMap);
+                if (_gmshData.SubmapFaces != null)
+                    _gmshData.SubmapFaces = RenumberSubmapFaces(_gmshData.SubmapFaces, pointIdMap, edgeIdMap, surfaceIdMap);
             }
             // The messages name the entities by the tags they carry now. An error above still names them by the
             // tags they carried before, so the names follow only here
@@ -2662,6 +2691,13 @@ namespace CaeMesh
             {
                 if (face.NumberOfSides == 3 && !IsPolar(face))
                     GmshThreeBlockMesher.Mesh(face, GetAlgorithmRecombine(sweepMesh) != GmshAlgorithmRecombineEnum.None);
+            }
+            // The submapped sources likewise; one whose grid folds or is poor keeps the free mesh gmsh laid over it
+            string reason;
+            foreach (var face in _submapSourceFaces.Values.ToArray())
+            {
+                if (!GmshSubmapMesher.Mesh(face, GetAlgorithmRecombine(sweepMesh) != GmshAlgorithmRecombineEnum.None,
+                                           out reason)) FreeSubmapSource(face.FaceId, reason);
             }
             // Remove the volumes and the target surface meshes. A target shared with the next block is
             // rebuilt by the sweep of this block and read back as the source of the next one.
@@ -4225,9 +4261,9 @@ namespace CaeMesh
             if (solution.HasCounts)
             {
                 // A structured source given up keeps a free mesh, unless the user set every count on it: a grid the user
-                // asked for with sides that cannot agree is refused
+                // asked for with sides that cannot agree is refused. A submapped source given up is meshed free always
                 List<IntervalRow> refusedRows = solution.ViolatedRows
-                    .Where(row => row.Tier == IntervalRowTierEnum.Structured &&
+                    .Where(row => row.Tier == IntervalRowTierEnum.Structured && !row.Name.StartsWith(_submapRowPrefix) &&
                                   row.Sides.All(side => side.All(problem.EdgeIdFixedCount.ContainsKey)))
                     .ToList();
                 if (refusedRows.Count == 0) return solution;
@@ -4490,6 +4526,25 @@ namespace CaeMesh
                 else if (face.NumberOfSides == 3)
                     problem.AddThreeSided("Structured Surface " + face.FaceId + " three blocks", IntervalRowTierEnum.Structured,
                                           face.SideEdgeIds, face.FaceId);
+            }
+            // The submapped sources: the edges along each direction against those along the opposite one, and the
+            // sides that face each other kept apart, two elements under a full-quad recombination, whose halved counts
+            // keep one then. Given up, a submapped source is meshed free, never refused
+            foreach (var face in _submapSourceFaces.Values)
+            {
+                int bound = _fullQuadSourceIds.Contains(face.FaceId) ? 2 : 1;
+                TransfiniteSidePair[] pairs = face.GetSidePairs();
+                problem.AddEqualSums(_submapRowPrefix + face.FaceId + " along i", IntervalRowTierEnum.Structured,
+                                     pairs[0].SideA, pairs[0].SideB, face.FaceId);
+                problem.AddEqualSums(_submapRowPrefix + face.FaceId + " along j", IntervalRowTierEnum.Structured,
+                                     pairs[1].SideA, pairs[1].SideB, face.FaceId);
+                double[] lengths = new double[face.EdgeIds.Length];
+                for (int k = 0; k < lengths.Length; k++) Gmsh.Model.OCC.GetMass(1, face.EdgeIds[k], out lengths[k]);
+                foreach (var separation in face.GetSeparations(lengths, bound))
+                    problem.AddAtLeastDifference(_submapRowPrefix + face.FaceId + " between Edge " +
+                                                 separation.FirstSideEdgeId + " and Edge " + separation.SecondSideEdgeId,
+                                                 IntervalRowTierEnum.Structured, separation.TowardsEdgeIds,
+                                                 separation.BackEdgeIds, separation.Bound, face.FaceId);
             }
             // The parity of the sources: a full-quad recombination halves every edge of a source - an edge between two
             // sources as well, which no wall fixes and which gmsh left at 1 element on sweep_43_1 - and QuadWild needs an
@@ -5277,16 +5332,23 @@ namespace CaeMesh
         /// transfinite settings of the sweep, and no others. A source with four sides of one edge each stays in the
         /// edge graph of the opposite edges; one with a side of several edges, or three sides, is kept for the
         /// balancing of its counts against the walls. A source the sweep meshes free, a wall of another block and the
-        /// source of a revolved block keep the rules of the sweep.
+        /// source of a revolved block keep the rules of the sweep. A submapped source is registered by the same rules,
+        /// where no structured face takes it.
         /// </summary>
         private void SetStructuredSweepSources(Dictionary<int, GmshSurface> surfaceIdSurface,
                                                HashSet<int> surfaceIdsWithInternalCurves)
         {
             _structuredSourceFaces.Clear();
+            _submapSourceFaces.Clear();
             Dictionary<int, TransfiniteFace> faces = new Dictionary<int, TransfiniteFace>();
             if (_gmshData.TransfiniteFaces != null)
             {
                 foreach (var face in _gmshData.TransfiniteFaces) faces[face.FaceId] = face;
+            }
+            Dictionary<int, SubmapFace> submapFaces = new Dictionary<int, SubmapFace>();
+            if (_gmshData.SubmapFaces != null)
+            {
+                foreach (var face in _gmshData.SubmapFaces) submapFaces[face.FaceId] = face;
             }
             HashSet<int> wallSurfaceIds = new HashSet<int>(_sweepBlocks.SelectMany(block => block.WallSurfaceIds));
             HashSet<int> revolvedSourceIds = new HashSet<int>(_sweepBlocks.Where(block => block.IsRevolved)
@@ -5304,6 +5366,10 @@ namespace CaeMesh
                 surface.Transfinite = structured && structuredFace.NumberOfSides == 4 && surface.FourSided &&
                                       structuredFace.SideEdgeIds.All(side => side.Length == 1);
                 if (structured && !surface.Transfinite) _structuredSourceFaces[surfaceId] = structuredFace;
+                // A submapped source by the same rules, meshed free first like a three-sided one
+                SubmapFace submapFace;
+                if (!structured && submapFaces.TryGetValue(surfaceId, out submapFace) &&
+                    !surfaceIdsWithInternalCurves.Contains(surfaceId)) _submapSourceFaces[surfaceId] = submapFace;
             }
         }
         /// <summary>
@@ -5317,6 +5383,14 @@ namespace CaeMesh
             _structuredSourceFaces.Remove(surfaceId);
             if (_sweepRecombine) Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
             _writeOutput?.Invoke(NameGmshEntities(message));
+        }
+        /// <summary>
+        /// Meshes a submapped sweep source free: it keeps the free mesh gmsh lays over it, recombined as every source is.
+        /// </summary>
+        private void FreeSubmapSource(int surfaceId, string reason)
+        {
+            _submapSourceFaces.Remove(surfaceId);
+            WriteSubmapFreeMessage(surfaceId, reason);
         }
         /// <summary>
         /// The edges of the two sides of a wall paired across it, in order, when both are chains of as many edges whose
@@ -5420,6 +5494,27 @@ namespace CaeMesh
                     lines.Add(description + ". Its edges: " + edges + ".");
                 else FreeStructuredSource(face.FaceId, description + ", so it is meshed free. Its edges: " + edges + ".");
             }
+            // A submapped source whose counts close no valid outline, or leave sides that face each other without the
+            // cells between them, is meshed free, whoever set its counts
+            string reason;
+            foreach (var face in _submapSourceFaces.Values.OrderBy(face => face.FaceId).ToArray())
+            {
+                int[] counts = face.EdgeIds.Select(edgeId => sideCount(new int[] { edgeId })).ToArray();
+                if (!SubmapMapping.AreCountsValid(face.EdgeDirections, counts, out reason))
+                    reason = GmshSubmapMesher.NameLoopEdges(face, reason);
+                else
+                {
+                    double[] lengths = new double[face.EdgeIds.Length];
+                    for (int k = 0; k < lengths.Length; k++) Gmsh.Model.OCC.GetMass(1, face.EdgeIds[k], out lengths[k]);
+                    int bound = _fullQuadSourceIds.Contains(face.FaceId) ? 2 : 1;
+                    SubmapSeparation unkept = face.GetSeparations(lengths, bound).FirstOrDefault(separation =>
+                        sideCount(separation.TowardsEdgeIds) - sideCount(separation.BackEdgeIds) < separation.Bound);
+                    if (unkept == null) continue;
+                    reason = "the walls leave no cell between its sides along Edge " + unkept.FirstSideEdgeId +
+                             " and Edge " + unkept.SecondSideEdgeId;
+                }
+                FreeSubmapSource(face.FaceId, reason);
+            }
             if (lines.Count == 0) return;
             lines.Add("Change the number of elements set on these edges, or switch off the transfinite meshing of the " +
                       "3-sided and 4-sided surfaces.");
@@ -5434,10 +5529,17 @@ namespace CaeMesh
         /// as many elements as the other two; gmsh meshes it free first and the blocks replace that mesh. A polar one
         /// is the grid gmsh collapses at one corner, which needs the two sides meeting there to carry the same number
         /// of elements.
+        /// A submapped face joins the balance by its two pairs of sides, the edges along +i against those along -i and
+        /// the edges along +j against those along -j, and by its separations, which keep the sides that face each other
+        /// across it apart in its lattice, and is meshed by SubmapMapping once gmsh has meshed it free. It
+        /// never makes the meshing fail: one whose pairs the balance leaves unequal, or whose counts do not close a
+        /// valid logical outline, is meshed free and the balance is made again without it. A full-quad recombination
+        /// meshes the surface gmsh meshes first on every second node of its edges, so its edges are then given even
+        /// numbers of elements.
         /// </summary>
-        private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces)
+        private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces, SubmapFace[] submapFaces, bool fullQuad)
         {
-            if (transfiniteFaces.Length == 0) return;
+            if (transfiniteFaces.Length == 0 && submapFaces.Length == 0) return;
             // An edge embedded in a face would be crossed by the grid, which gmsh then does not follow
             Tuple<int, int>[] surfaceDimTags;
             Gmsh.Model.GetEntities(out surfaceDimTags, 2);
@@ -5452,27 +5554,32 @@ namespace CaeMesh
                 }
                 else faces.Add(face);
             }
-            if (faces.Count == 0) return;
+            List<SubmapFace> submapped = new List<SubmapFace>();
+            foreach (var face in submapFaces)
+            {
+                if (surfaceIdsWithInternalCurves.Contains(face.FaceId))
+                    WriteSubmapFreeMessage(face.FaceId, "it carries an edge inside it");
+                else submapped.Add(face);
+            }
+            if (faces.Count == 0 && submapped.Count == 0) return;
             // The numbers of elements the mesh size asks for, which the pinned edges already carry
             GenerateMesh(1);
             IntPtr[] nodeTags;
             Dictionary<int, int> naturalCounts = new Dictionary<int, int>();
-            foreach (var edgeId in faces.SelectMany(face => face.SideEdgeIds.SelectMany(side => side)).Distinct())
+            foreach (var edgeId in faces.SelectMany(face => face.SideEdgeIds.SelectMany(side => side))
+                                        .Concat(submapped.SelectMany(face => face.EdgeIds)).Distinct())
             {
                 Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
                 naturalCounts[edgeId] = Math.Max(1, nodeTags.Length - 1);
             }
-            Dictionary<int, int> edgeIdCount = new Dictionary<int, int>(naturalCounts);
             HashSet<int> pinnedEdgeIds = new HashSet<int>();
             int numOfElements;
             foreach (var edgeId in naturalCounts.Keys)
             {
                 if (IsFixedEdgeCount(edgeId) && _gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
-                {
-                    edgeIdCount[edgeId] = Math.Max(1, numOfElements);
                     pinnedEdgeIds.Add(edgeId);
-                }
             }
+            Dictionary<int, int> maxSizeCounts = GetMaxSizeCounts(naturalCounts);
             //
             List<TransfiniteSidePair> pairs = new List<TransfiniteSidePair>();
             List<TransfiniteSideTriple> triples = new List<TransfiniteSideTriple>();
@@ -5486,28 +5593,132 @@ namespace CaeMesh
                 else if (IsPolar(face)) pairs.Add(face.GetPolarSidePair(GetPolarCornerIndex(face)));
                 else triples.Add(new TransfiniteSideTriple(face.FaceId, face.SideEdgeIds));
             }
-            HashSet<int> structuredFaceIds = new HashSet<int>(faces.Select(face => face.FaceId));
-            HashSet<int> freeFaceEdgeIds = new HashSet<int>();
-            Tuple<int, int>[] boundaryDimTags;
-            foreach (var surfaceDimTag in surfaceDimTags)
+            HashSet<int> transfiniteEdgeIds = new HashSet<int>(faces.SelectMany(face => face.SideEdgeIds
+                                                                                         .SelectMany(side => side)));
+            // The sides of a submapped face that face each other across it keep a cell between them, two under a full-quad
+            // recombination, whose halved counts keep one then
+            int bound = fullQuad ? 2 : 1;
+            Dictionary<int, double> edgeIdLength = new Dictionary<int, double>();
+            Func<int, double> getEdgeLength = edgeId =>
             {
-                if (structuredFaceIds.Contains(surfaceDimTag.Item2)) continue;
-                Gmsh.Model.GetBoundary(new Tuple<int, int>[] { surfaceDimTag }, out boundaryDimTags, false, false, false);
-                freeFaceEdgeIds.UnionWith(boundaryDimTags.Select(dimTag => Math.Abs(dimTag.Item2)));
-            }
+                double length;
+                if (!edgeIdLength.TryGetValue(edgeId, out length))
+                {
+                    Gmsh.Model.OCC.GetMass(1, edgeId, out length);
+                    edgeIdLength.Add(edgeId, length);
+                }
+                return length;
+            };
+            // The submapped faces the balance cannot keep are meshed free, and the balance is made again without them,
+            // until it keeps all that are left; the transfinite faces alone are balanced as without them
+            Dictionary<int, int> edgeIdCount;
+            Dictionary<int, int> sizedEdgeIdCounts;
+            List<TransfiniteSidePair> unbalanced;
             List<TransfiniteSideTriple> unbalancedTriples;
-            Dictionary<int, int> sizedEdgeIdCounts = _sizedEdgeIdNumElements.Where(entry => edgeIdCount.ContainsKey(entry.Key))
-                                                                             .ToDictionary(entry => entry.Key,
-                                                                                           entry => entry.Value);
-            List<TransfiniteSidePair> unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts,
-                                                                                         pinnedEdgeIds, pairs, triples,
-                                                                                         out unbalancedTriples,
-                                                                                         freeFaceEdgeIds, sizedEdgeIdCounts,
-                                                                                         GetMaxSizeCounts(naturalCounts));
+            while (true)
+            {
+                HashSet<int> edgeIds = new HashSet<int>(transfiniteEdgeIds);
+                edgeIds.UnionWith(submapped.SelectMany(face => face.EdgeIds));
+                edgeIdCount = new Dictionary<int, int>();
+                foreach (var edgeId in naturalCounts.Keys)
+                {
+                    if (!edgeIds.Contains(edgeId)) continue;
+                    if (pinnedEdgeIds.Contains(edgeId))
+                        edgeIdCount[edgeId] = Math.Max(1, _gmshData.EdgeIdNumElements[edgeId]);
+                    else edgeIdCount[edgeId] = naturalCounts[edgeId];
+                }
+                Dictionary<TransfiniteSidePair, SubmapFace> submapPairFaces = new Dictionary<TransfiniteSidePair, SubmapFace>();
+                List<TransfiniteSidePair> allPairs = new List<TransfiniteSidePair>(pairs);
+                foreach (var face in submapped)
+                {
+                    foreach (var pair in face.GetSidePairs())
+                    {
+                        submapPairFaces.Add(pair, face);
+                        allPairs.Add(pair);
+                    }
+                }
+                HashSet<int> structuredFaceIds = new HashSet<int>(faces.Select(face => face.FaceId)
+                                                                       .Concat(submapped.Select(face => face.FaceId)));
+                HashSet<int> freeFaceEdgeIds = new HashSet<int>();
+                Tuple<int, int>[] boundaryDimTags;
+                foreach (var surfaceDimTag in surfaceDimTags)
+                {
+                    if (structuredFaceIds.Contains(surfaceDimTag.Item2)) continue;
+                    Gmsh.Model.GetBoundary(new Tuple<int, int>[] { surfaceDimTag }, out boundaryDimTags, false, false, false);
+                    freeFaceEdgeIds.UnionWith(boundaryDimTags.Select(dimTag => Math.Abs(dimTag.Item2)));
+                }
+                sizedEdgeIdCounts = _sizedEdgeIdNumElements.Where(entry => edgeIdCount.ContainsKey(entry.Key))
+                                                           .ToDictionary(entry => entry.Key, entry => entry.Value);
+                if (allPairs.Count == 0 && triples.Count == 0)
+                {
+                    unbalanced = new List<TransfiniteSidePair>();
+                    unbalancedTriples = new List<TransfiniteSideTriple>();
+                    break;
+                }
+                HashSet<int> evenEdgeIds = fullQuad ? new HashSet<int>(submapped.SelectMany(face => face.EdgeIds)) : null;
+                Dictionary<SubmapSeparation, SubmapFace> separationFaces = new Dictionary<SubmapSeparation, SubmapFace>();
+                List<SubmapSeparation> separations = new List<SubmapSeparation>();
+                foreach (var face in submapped)
+                {
+                    foreach (var separation in face.GetSeparations(face.EdgeIds.Select(getEdgeLength).ToArray(), bound))
+                    {
+                        separationFaces.Add(separation, face);
+                        separations.Add(separation);
+                    }
+                }
+                List<SubmapSeparation> unbalancedSeparations;
+                unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts, pinnedEdgeIds, allPairs,
+                                                                  triples, separations, out unbalancedTriples,
+                                                                  out unbalancedSeparations, freeFaceEdgeIds,
+                                                                  sizedEdgeIdCounts, maxSizeCounts, evenEdgeIds);
+                //
+                Dictionary<SubmapFace, string> dropped = new Dictionary<SubmapFace, string>();
+                SubmapFace unbalancedFace;
+                foreach (var pair in unbalanced)
+                {
+                    if (submapPairFaces.TryGetValue(pair, out unbalancedFace) && !dropped.ContainsKey(unbalancedFace))
+                        dropped.Add(unbalancedFace, "the numbers of elements set on its edges leave its sides along " +
+                                                    "one direction unequal to those along the opposite one");
+                }
+                foreach (var separation in unbalancedSeparations)
+                {
+                    unbalancedFace = separationFaces[separation];
+                    if (!dropped.ContainsKey(unbalancedFace))
+                        dropped.Add(unbalancedFace, "the numbers of elements set on its edges leave no cell between its " +
+                                                    "sides along Edge " + separation.FirstSideEdgeId + " and Edge " +
+                                                    separation.SecondSideEdgeId);
+                }
+                string reason;
+                foreach (var face in submapped)
+                {
+                    if (dropped.ContainsKey(face)) continue;
+                    if (!SubmapMapping.AreCountsValid(face.EdgeDirections, face.GetEdgeCounts(edgeIdCount), out reason))
+                        dropped.Add(face, GmshSubmapMesher.NameLoopEdges(face, reason));
+                    else if (fullQuad && face.EdgeIds.Any(edgeId => edgeIdCount[edgeId] % 2 != 0))
+                        dropped.Add(face, "the full-quad recombination meshes it on every second node of its edges, " +
+                                          "and Edge " + face.EdgeIds.First(edgeId => edgeIdCount[edgeId] % 2 != 0) +
+                                          " carries an odd number of elements");
+                }
+                bool transfiniteUnbalanced = unbalancedTriples.Count > 0 ||
+                                             unbalanced.Any(pair => !submapPairFaces.ContainsKey(pair));
+                if (dropped.Count == 0 && transfiniteUnbalanced && submapped.Count > 0)
+                {
+                    foreach (var face in submapped)
+                        dropped.Add(face, "its numbers of elements cannot agree with those of the structured faces " +
+                                          "beside it");
+                }
+                if (dropped.Count == 0) break;
+                foreach (var face in submapped)
+                {
+                    if (dropped.TryGetValue(face, out reason)) WriteSubmapFreeMessage(face.FaceId, reason);
+                }
+                submapped = submapped.Where(face => !dropped.ContainsKey(face)).ToList();
+            }
             if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
                 throw new CaeException(GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
                                                                  pinnedEdgeIds, null, sizedEdgeIdCounts));
             //
+            _submapFaces.AddRange(submapped);
             Gmsh.Model.Mesh.Clear();
             foreach (var entry in edgeIdCount) Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
             foreach (var face in faces)
@@ -5541,6 +5752,10 @@ namespace CaeMesh
                 if (count > 1) maxSizeCounts[entry.Key] = count;
             }
             return maxSizeCounts;
+        }
+        private void WriteSubmapFreeMessage(int surfaceId, string reason)
+        {
+            _writeOutput?.Invoke(NameGmshEntities("Submapping: Surface " + surfaceId + " is meshed free - " + reason + "."));
         }
         private bool IsPolar(TransfiniteFace face)
         {
@@ -6153,6 +6368,11 @@ namespace CaeMesh
                 _gmshData.TransfiniteFaces = RenumberTransfiniteFaces(_gmshData.TransfiniteFaces, netgenVertexIdGmshVertexId,
                                                                       netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
             }
+            if (_gmshData.SubmapFaces != null)
+            {
+                _gmshData.SubmapFaces = RenumberSubmapFaces(_gmshData.SubmapFaces, netgenVertexIdGmshVertexId,
+                                                            netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
+            }
             // Defeature
             if (_gmshData.SurfaceIds != null)
             {
@@ -6254,6 +6474,9 @@ namespace CaeMesh
                                                       .Where(face => surfaceIds.Contains(face.FaceId) &&
                                                                      face.SideEdgeIds.All(side => side.All(curveIds.Contains)))
                                                       .ToArray();
+            if (_gmshData.SubmapFaces != null)
+                _gmshData.SubmapFaces = _gmshData.SubmapFaces.Where(face => surfaceIds.Contains(face.FaceId) &&
+                                                                            face.EdgeIds.All(curveIds.Contains)).ToArray();
             //
             _writeOutput?.Invoke("Sweep: the compound is symmetric across " + sweepMesh.SymmetryPlanes.Length +
                                  " plane/s - " + keptVolumeIds.Count + " of its " + volumeDimTags.Length + " cells are " +
@@ -6296,6 +6519,31 @@ namespace CaeMesh
                     surfaceIdIndex.Add(surfaceId, renumbered.Count);
                     renumbered.Add(renumberedFace);
                 }
+            }
+            return renumbered.ToArray();
+        }
+        // A submapped face whose surface, vertices or edges gmsh does not have is not on the meshed part
+        private static SubmapFace[] RenumberSubmapFaces(SubmapFace[] submapFaces,
+                                                        Dictionary<int, int> netgenVertexIdGmshVertexId,
+                                                        Dictionary<int, int> netgenEdgeIdGmshEdgeId,
+                                                        Dictionary<int, int> netgenFaceIdGmshFaceId)
+        {
+            int surfaceId;
+            List<SubmapFace> renumbered = new List<SubmapFace>();
+            foreach (var face in submapFaces)
+            {
+                if (!netgenFaceIdGmshFaceId.TryGetValue(face.FaceId, out surfaceId)) continue;
+                //
+                int[] vertexIds = new int[face.VertexNodeIds.Length];
+                int[] edgeIds = new int[face.EdgeIds.Length];
+                bool mapped = true;
+                for (int i = 0; i < vertexIds.Length && mapped; i++)
+                    mapped = netgenVertexIdGmshVertexId.TryGetValue(face.VertexNodeIds[i], out vertexIds[i]);
+                for (int i = 0; i < edgeIds.Length && mapped; i++)
+                    mapped = netgenEdgeIdGmshEdgeId.TryGetValue(face.EdgeIds[i], out edgeIds[i]);
+                if (!mapped) continue;
+                //
+                renumbered.Add(new SubmapFace(surfaceId, vertexIds, edgeIds, face.EdgeDirections, face.VertexAnglesDeg));
             }
             return renumbered.ToArray();
         }
