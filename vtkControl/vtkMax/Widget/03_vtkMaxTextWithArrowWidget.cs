@@ -8,469 +8,92 @@
 // Contributors:
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Kitware.VTK;
 using vtkControl.Native;
 
 
 namespace vtkControl
 {
+    // The native widget places the box from the anchor, keeps it in the plane of the anchor while the camera moves and
+    // draws the leader; its box and leader are what the arrangement of the boxes reads
     class vtkMaxTextWithArrowWidget : vtkMaxTextWidget
     {
-        // Variables                                                                                                                
-        string _name;
-        private bool _anchorAlreadySet;
-        vtkCoordinate _worldAnchorPoint;
-        vtkCoordinate _worldTopLeftPoint;
+        // Variables
+        private const double AnchorPointBoxOffset = 15;
         //
-        vtkPolyData _leaderPolyData;
-        vtkPolyDataMapper2D _leaderMapper2D;
-        vtkActor2D _leaderActor2D;
-        //
-        vtkPolyData _headPolyData;
-        vtkGlyph3D _headGlyph;
-        vtkActor2D _headActor2D;
+        private string _name;
+        private double[] _anchorPoint;
 
 
-        // Constructors                                                                                                             
+        // Constructors
         public vtkMaxTextWithArrowWidget(string name)
         {
             _name = name;
-            //
-            _anchorAlreadySet = false;
-            _scaleBySectors = true;
-            
-            vtkDoubleArray vecs;
-
-            _worldAnchorPoint = vtkCoordinate.New();
-            _worldAnchorPoint.SetCoordinateSystemToWorld();
-            _worldAnchorPoint.SetValue(0, 0, 0);
-
-            _worldTopLeftPoint = vtkCoordinate.New();
-            _worldTopLeftPoint.SetCoordinateSystemToWorld();
-
-            // Leader - This is the leader (line) from the attachment point to the caption                              
-            _leaderPolyData = vtkPolyData.New();
-            vtkPoints pts = vtkPoints.New();
-            pts.SetNumberOfPoints(2);
-            pts.SetPoint(0, 0, 0, 0);
-            pts.SetPoint(0, 100, 100, 0);
-            _leaderPolyData.SetPoints(pts);
-
-            vtkCellArray leader = vtkCellArray.New();
-            leader.InsertNextCell(2);
-            leader.InsertCellPoint(0);
-            leader.InsertCellPoint(1); //at the attachment point
-            _leaderPolyData.SetLines(leader);
-
-            // mapper/actor combination
-            _leaderMapper2D = vtkPolyDataMapper2D.New();
-            _leaderMapper2D.SetInput(_leaderPolyData);
-
-            _leaderActor2D = vtkActor2D.New();
-            _leaderActor2D.SetMapper(_leaderMapper2D);
-            _leaderActor2D.GetProperty().SetColor(0, 0, 0);
-
-
-            // Arrow                                                                                                    
-            vtkArrowSource arrowSource = vtkArrowSource.New();
-            arrowSource.SetTipLength(1);
-            arrowSource.SetTipRadius(0.2);
-            arrowSource.SetShaftRadius(0.3);
-
-            vtkTransform transform = vtkTransform.New();
-            transform.Translate(-1, 0, 0); // so that tip is at the coordinates point
-
-            // Transform the polydata
-            vtkTransformPolyDataFilter translatedArrow = vtkTransformPolyDataFilter.New();
-            translatedArrow.SetTransform(transform);
-            translatedArrow.SetInputConnection(arrowSource.GetOutputPort());
-
-            // Glyph - This is for glyphing the head of the leader: A single point with a vector for glyph orientation  
-            _headPolyData = vtkPolyData.New();
-            pts = vtkPoints.New();
-            pts.SetNumberOfPoints(1);
-            pts.SetPoint(0, 0, 0, 0);
-            _headPolyData.SetPoints(pts);
-            vecs = vtkDoubleArray.New();
-            vecs.SetNumberOfComponents(3);
-            vecs.SetNumberOfTuples(1);
-            vecs.SetTuple3(0, 1, 1, 1);
-            _headPolyData.GetPointData().SetVectors(vecs);
-
-            _headGlyph = vtkGlyph3D.New();
-            _headGlyph.SetSourceConnection(translatedArrow.GetOutputPort());
-            _headGlyph.SetInput(_headPolyData);
-            _headGlyph.SetScaleModeToDataScalingOff();
-            _headGlyph.SetScaleFactor(20);
-            _headGlyph.Update();
-
-            // Mapper/actor combination
-            vtkPolyDataMapper2D arrowMapper2D = vtkPolyDataMapper2D.New();
-            arrowMapper2D.SetInput(_headGlyph.GetOutput());
-
-            _headActor2D = vtkActor2D.New();
-            _headActor2D.SetMapper(arrowMapper2D);
-            _headActor2D.GetProperty().SetColor(0, 0, 0);
+            _anchorPoint = null;
         }
 
 
-        // Private methods                                                                                                          
-        private void RecomputeLeader()
-        {
-            if (_position == null) return;              // if border is changed before _positionInPixels is initialized
-
-            double[] end = RecomputeLeaderEnd();        // this is arrow head
-            double[] start = RecomputeLeaderStart();    // this is the start of the arrow
-            RecomputeHead(start, end);
-        }
-        private double[] RecomputeLeaderStart()
-        {
-            vtkPoints pts = _leaderPolyData.GetPoints();
-
-            double[] head = pts.GetPoint(1);
-            double[] start;
-            if (head[0] < _position[0])                         // head is left from border
-                start = new double[] { _position[0], _position[1] + _size[1] / 2 };
-            else if (head[0] > _position[0] + _size[0])         // head is right from border
-                start = new double[] { _position[0] + _size[0], _position[1] + _size[1] / 2 };
-            else if (head[1] < _position[1])                    // head is below the border
-                start = new double[] { _position[0] + _size[0] / 2, _position[1] };
-            else                                                // head is over the border
-                start = new double[] { _position[0] + _size[0] / 2, _position[1] + _size[1] };
-
-            pts.SetPoint(0, start[0], start[1], 0);
-
-            return start;
-        }
-        private double[] RecomputeLeaderEnd()
-        {
-            vtkPoints pts = _leaderPolyData.GetPoints();
-
-            double[] attach = _worldAnchorPoint.GetComputedWorldValue(_renderer);
-            _renderer.SetWorldPoint(attach[0], attach[1], attach[2], 1.0);
-            _renderer.WorldToDisplay();
-            double[] display = _renderer.GetDisplayPoint();
-            pts.SetPoint(1, display[0], display[1], 0);
-
-            return display;
-        }
-        private void RecomputeHead(double[] start, double[] end)
-        {
-            try
-            {
-                _headPolyData.GetPoints().SetPoint(0, end[0], end[1], 0);
-                _headPolyData.GetPointData().GetVectors().SetTuple3(0, end[0] - start[0], end[1] - start[1], 0);
-                _headPolyData.Modified();
-            }
-            catch { }
-        }
-        private double[] ProjectPointOnPlane(double[] point, double[] pointOnPlane, double[] normal)
-        {
-            //The projection of a point q = (x, y, z) onto a plane given by a point p = (a, b, c) and a normal n = (d, e, f) is
-            //q_proj = q - dot(q - p, n) * n
-
-            double[] tmp = new double[3];
-            tmp[0] = point[0] - pointOnPlane[0];
-            tmp[1] = point[1] - pointOnPlane[1];
-            tmp[2] = point[2] - pointOnPlane[2];
-
-            double dot = tmp[0] * normal[0] + tmp[1] * normal[1] + tmp[2] * normal[2];
-
-            tmp[0] = point[0] - dot * normal[0];
-            tmp[1] = point[1] - dot * normal[1];
-            tmp[2] = point[2] - dot * normal[2];
-
-            return tmp;
-        }
-
-
-        // Public methods                                                                                                           
-        public override void OnRenderWindowModified()
-        {
-            if (!_visibility) return;
-
-            base.OnRenderWindowModified();
-            if (_anchorAlreadySet) SetWorldTopLeftFromPosition();
-            RecomputeLeader();
-        }
-        public override void CameraModified()
-        {
-            if (!_visibility) return;
-
-            base.CameraModified();
-            SetPositionFromWorldTopLeft();
-            RecomputeLeader();
-        }
-        public override void OnSizeChanged()
-        {
-            base.OnSizeChanged();
-            //
-            // The camera reference is the top-left point, so the text can be resized independently.
-            if (_anchorAlreadySet && _renderer != null) SetPositionFromWorldTopLeft();
-            if (_renderer != null) RecomputeLeader();
-        }
-        //
-        public override void MiddleButtonPress(int x, int y)
-        {
-            if (!_visibility) return;
-            
-            base.MiddleButtonPress(x, y);
-            RecomputeLeader();
-        }
-        public override void MiddleButtonRelease(int x, int y)
-        {
-            if (!_visibility) return;
-
-            base.MiddleButtonRelease(x, y);
-            SetPositionFromWorldTopLeft();
-            RecomputeLeader();
-        }
-        public override bool MouseMove(int x, int y)
-        {
-            if (!_visibility) return false;
-
-            if (base.MouseMove(x, y))
-            {
-                SetWorldTopLeftFromPosition();
-                RecomputeLeader();
-                return true;
-            }
-            return false;
-        }
-        public override void MousePan(int dx, int dy)
-        {
-            if (!_visibility) return;
-
-            base.MousePan(dx, dy);
-            SetPosition(_position[0] + dx, _position[1] + dy);
-            SetWorldTopLeftFromPosition();
-            RecomputeLeader();
-        }
-        public override void MouseRotate(double azimuthAngle, double ElevationAngle)
-        {
-            if (!_visibility) return;
-
-            base.MouseRotate(azimuthAngle, ElevationAngle);
-            SetPositionFromWorldTopLeft();
-            RecomputeLeader();
-        }
-        public override void MouseWheelScrolled()
-        {
-            if (!_visibility) return;
-
-            base.MouseWheelScrolled();
-            SetPositionFromWorldTopLeft();
-            RecomputeLeader();
-        }
-        //
-        public override void VisibilityOn()
-        {
-            if (_visibility == false)
-            {
-                SetWorldTopLeftFromPosition();
-                // Arrow first
-                if (_leaderActor2D != null) _renderer.AddActor(_leaderActor2D);
-                if (_headActor2D != null) _renderer.AddActor(_headActor2D);
-                // Box last
-                base.VisibilityOn();
-            }
-        }
-        public override void VisibilityOff()
-        {
-            if (_visibility == true)
-            {
-                base.VisibilityOff();
-                if (_leaderActor2D != null) _renderer.RemoveActor(_leaderActor2D);
-                if (_headActor2D != null) _renderer.RemoveActor(_headActor2D);
-            }
-        }
-        public override void BringToFront()
-        {
-            if (!_visibility || _renderer == null) return;
-            //
-            // Keep the arrow behind its label.
-            if (_leaderActor2D != null)
-            {
-                _renderer.RemoveActor(_leaderActor2D);
-                _renderer.AddActor(_leaderActor2D);
-            }
-            if (_headActor2D != null)
-            {
-                _renderer.RemoveActor(_headActor2D);
-                _renderer.AddActor(_headActor2D);
-            }
-            base.BringToFront();
-        }
-        //
+        // Public methods
         public void ResetInitialPosition()
         {
-            _anchorAlreadySet = false;
             _nativeMirror?.ResetInitialPosition();
         }
         public void ResetPositionFromAnchor()
         {
-            _anchorAlreadySet = false;
-            _nativeMirror?.ResetInitialPosition();
-            double[] anchor = _worldAnchorPoint.GetValue();
-            SetAnchorPoint(anchor[0], anchor[1], anchor[2]);
+            if (_anchorPoint != null) _nativeMirror?.ResetPositionFromAnchor();
         }
-
-
-        // Public setters                                                                                                           
-        public override void SetInteractor(vtkRenderer renderer, vtkRenderWindowInteractor renderWindowInteractor)
-        {
-            // Arrow first
-            if (_visibility)
-            {
-                renderer.AddActor(_leaderActor2D);
-                renderer.AddActor(_headActor2D);
-            }
-            // Box last
-            base.SetInteractor(renderer, renderWindowInteractor);
-        }
-        public override void RemoveInteractor()
-        {
-            _renderer.RemoveActor(_leaderActor2D);
-            _renderer.RemoveActor(_headActor2D);
-            //
-            base.RemoveInteractor();
-        }
-        public void SetAnchorPoint(double x, double y, double z)
-        {
-            _worldAnchorPoint.SetValue(x, y, z);
-
-            if (!_anchorAlreadySet)     // change the position only the first time the anchor point is set
-            {
-                _renderer.SetWorldPoint(x, y, z, 1.0);
-                _renderer.WorldToDisplay();
-                double[] displayAnchor = _renderer.GetDisplayPoint();
-
-                int[] windowSize = _renderer.GetSize();
-
-                double dx = -80;
-                double dy = 50;
-
-                if (displayAnchor[0] + dx + _size[0] > windowSize[0]) dx = -(_size[0] + dx);     // if there is no room to the left, go to the right
-                if (displayAnchor[1] + dy + _size[1] > windowSize[1]) dy = -(_size[1] + dy);     // if there is no room to the top, go down
-
-                // Preserve the existing automatic placement, which was defined around the label center,
-                // but store its upper-left corner as the camera reference.
-                double[] displayTopLeft = new double[]
-                {
-                    displayAnchor[0] + dx - _size[0] / 2,
-                    displayAnchor[1] + dy + _size[1] / 2
-                };
-                SetWorldTopLeftFromDisplayPoint(displayTopLeft);
-                SetPositionFromWorldTopLeft();
-
-                _anchorAlreadySet = true;
-            }
-            RecomputeLeader();
-            //OnBorderRepresentationModified();
-            _nativeMirror?.SetAnchorPoint(x, y, z);
-        }
-        public override void SetText(string text)
-        {
-            base.SetText(text);
-            if (_renderer != null) RecomputeLeader();
-        }
-        private void SetPositionFromWorldTopLeft()
-        {
-            double[] worldTopLeft = _worldTopLeftPoint.GetValue();
-            // Get the display projection of the stored upper-left point.
-            _renderer.SetWorldPoint(worldTopLeft[0], worldTopLeft[1], worldTopLeft[2], 1.0);
-            _renderer.WorldToDisplay();
-            SetDisplayTopLeftPoint(_renderer.GetDisplayPoint());
-        }
-        private void SetWorldTopLeftFromPosition()
-        {
-            double[] displayTopLeft = GetDisplayTopLeftPoint();
-            if (displayTopLeft == null) return;
-            //
-            SetWorldTopLeftFromDisplayPoint(displayTopLeft);
-        }
-        private void SetWorldTopLeftFromDisplayPoint(double[] displayTopLeft)
-        {
-            vtkCamera camera = _renderer.GetActiveCamera();
-            // Get the world projection of the displayed upper-left point.
-            _renderer.SetDisplayPoint(displayTopLeft[0], displayTopLeft[1], 0);
-            _renderer.DisplayToWorld();
-            double[] worldTopLeft = _renderer.GetWorldPoint();
-            // Project world position on the plane through anchor point
-            double[] normal = camera.GetViewPlaneNormal();
-            double[] pointOnPlane = _worldAnchorPoint.GetValue();
-            double[] projectedOnPlane = ProjectPointOnPlane(worldTopLeft, pointOnPlane, normal);
-            _worldTopLeftPoint.SetValue(projectedOnPlane[0], projectedOnPlane[1], projectedOnPlane[2]);
-        }
-        //
         public void OffsetPosition(double x, double y)
         {
-            _position[0] += x;
-            _position[1] += y;
-            //
-            SetWorldTopLeftFromPosition();
-            //
-            SetPositionFromWorldTopLeft(); // must be here
-            RecomputeLeader();             // must be here
             _nativeMirror?.OffsetPosition(x, y);
         }
-        // The native box takes the anchor first and then the position of this one, from which it finds its own
-        // corner in the plane of the anchor
+
+
+        // Public setters
+        public void SetAnchorPoint(double x, double y, double z)
+        {
+            _anchorPoint = new double[] { x, y, z };
+            _nativeMirror?.SetAnchorPoint(x, y, z);
+        }
+        // The native box takes the anchor, from which it places itself, instead of a position, before it is shown
         protected override void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
         {
-            nativeMirror.SetTextStyle(vtkMaxWidgetTools.GetNativeTextStyle(_textMapper.GetTextProperty()));
-            nativeMirror.SetPadding(_padding);
-            nativeMirror.SetText(GetText());
-            if (!_anchorAlreadySet)
+            if (_anchorPoint == null)
             {
                 base.CopyStateToNativeMirror(nativeMirror);
                 return;
             }
-            double[] anchor = _worldAnchorPoint.GetValue();
-            nativeMirror.SetAnchorPoint(anchor[0], anchor[1], anchor[2]);
-            base.CopyStateToNativeMirror(nativeMirror);
-            nativeMirror.OffsetPosition(0, 0);
+            nativeMirror.SetTextStyle(_textStyle);
+            nativeMirror.SetPadding(_padding);
+            nativeMirror.SetText(_text);
+            MirrorFrame(nativeMirror);
+            nativeMirror.SetAnchorPoint(_anchorPoint[0], _anchorPoint[1], _anchorPoint[2]);
+            nativeMirror.SetVisibility(_visibility);
         }
-        
-        
-        // Public getters                                                                                                           
+
+
+        // Public getters
         public string GetName()
         {
             return _name;
         }
         public CaeMesh.BoundingBox GetAnchorPointBox()
         {
-            vtkPoints pts = _leaderPolyData.GetPoints();
-            double[] head = pts.GetPoint(1);
+            double[] head = GetLeaderLine()[1];
             //
-            double offset = 15; //px
             CaeMesh.BoundingBox box = new CaeMesh.BoundingBox();
-            box.MinX = head[0] - offset;
-            box.MaxX = head[0] + offset;
-            box.MinY = head[1] - offset;
-            box.MaxY = head[1] + offset;
-            box.MinZ = head[2] - offset;
-            box.MaxZ = head[2] + offset;
+            box.MinX = head[0] - AnchorPointBoxOffset;
+            box.MaxX = head[0] + AnchorPointBoxOffset;
+            box.MinY = head[1] - AnchorPointBoxOffset;
+            box.MaxY = head[1] + AnchorPointBoxOffset;
             box.MinZ = 0;
             box.MaxZ = 1;
             //
             return box;
         }
+        // The leader from the box to the arrow head: { start, end }, each x, y
         public double[][] GetLeaderLine()
         {
-            vtkPoints points = _leaderPolyData.GetPoints();
-            double[] start = points.GetPoint(0);
-            double[] end = points.GetPoint(1);
-            // Return copies so placement code cannot modify the VTK data by accident.
-            return new double[][]
-            {
-                new double[] { start[0], start[1], start[2] },
-                new double[] { end[0], end[1], end[2] }
-            };
+            if (_nativeMirror != null) return _nativeMirror.GetLeaderLine();
+            return new double[][] { new double[] { _position[0], _position[1] }, new double[] { 0, 0 } };
         }
     }
 }

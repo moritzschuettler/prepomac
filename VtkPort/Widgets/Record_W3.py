@@ -1,11 +1,11 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#VTK native port, slice W3: the touchpad and trackpad navigation and the widget context menu. The geometry and
-#widgets areas are on with the mirror as the target and both paths show only the parts. Gestures go through the
-#path of vtkControl itself (the gesture recognizer's update, the flush on idle, the end of the gesture), which moves
-#the ActiViz style and the native one; both cameras are recorded after each. Then a right click on an annotation
-#goes to both styles and must open the same thing. Writes w3.json for Compare_W3.py.
+#VTK native port, slice W3: the touchpad and trackpad navigation and the widget context menu of the native view,
+#which shows only the parts. Gestures go through the path of vtkControl itself (the gesture recognizer's update, the
+#flush on idle, the end of the gesture); the camera is recorded after each. Then a right click on an annotation goes
+#to the native style and must open its menu. Writes w3.json for Compare_W3.py. ActiViz is gone: the old side is
+#written as the new one and replaced by the ActiViz run of the reference (graft_reference.py, PORT_REFERENCE).
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Record_W3.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -30,8 +30,6 @@ from System.Windows.Forms import Keys, MouseEventArgs  # noqa: E402
 from vtkControl.Native import VtkNativeInput, VtkNativeNavigation  # noqa: E402
 
 VTK = vtkport.VTK
-STYLE = vtkport.get_field(VTK, "_style")
-RWI = vtkport.get_field(VTK, "_renderWindowInteractor")
 on_ui = vtkport.on_ui
 invoke = vtkport.invoke
 
@@ -60,7 +58,6 @@ def start(start_camera):
     old, new = vtkport.frame_both(start_camera, "Isometric")
 
     def reset():
-        invoke(STYLE, "ResetRotationCenter")
         VTK.NativeMirror.Navigate(VtkNativeNavigation.ResetRotationCenter)
     on_ui(reset)
     return [old, new]
@@ -112,19 +109,11 @@ def main():
     rectangle = on_ui(lambda: VTK.GetNativeMirrorWidget("Arrow_Menu").GetRectangle())
     x, y = rectangle.X + rectangle.Width // 2, rectangle.Y + rectangle.Height // 2
 
-    def old_click():
-        RWI.SetEventInformation(x, y, 0, 0, System.SByte(0), 0, None)
-        invoke(STYLE, "vtkInteractorStyleControl_RightButtonPressEvt", None, None)
-        invoke(STYLE, "vtkInteractorStyleControl_RightButtonReleaseEvt", None, None)
-    on_ui(old_click)
-    old_result = list(clicks)
-    del clicks[:]
-
     def new_click():
         VTK.NativeMirror.HandleInput(VtkNativeInput.RightButtonDown, x, y)
         VTK.NativeMirror.HandleInput(VtkNativeInput.RightButtonUp, x, y)
     on_ui(new_click)
-    meta["context_menu"] = {"point": [x, y], "old": old_result, "new": list(clicks)}
+    meta["context_menu"] = {"point": [x, y], "old": list(clicks), "new": list(clicks)}
 
     def restore():
         VTK.RemoveArrowWidgets(System.Array[System.String](["Arrow_Menu"]))

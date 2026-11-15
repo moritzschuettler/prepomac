@@ -79,7 +79,6 @@ namespace vtkControl
         private bool _nativeInWindow;
         private bool _pushingCameraToNativeWindow;
         private bool _nativeWindowIndependent;
-        private List<vtkProp> _nativeMirrorScalarBarHiddenProps;
         private List<vtkMaxBorderWidget> _nativeMirrorScalarBarHiddenWidgets;
         private vtkRenderWindowInteractor _renderWindowInteractor;
         private vtkLight _light1;
@@ -89,8 +88,6 @@ namespace vtkControl
         private int _arrowTipResolution = 21;
         private int _arrowShaftResolution = 15;
         // Widgets
-        private const int VtkCursorDefault = 0;
-        private const int VtkCursorHand = 9;
         private const int CoorSysWidgetMargin = 24;
         private vtkMaxCoorSysWidget _coorSysWidget;
         private vtkMaxCoorSysSymbols _coorSysSymbols;
@@ -98,7 +95,12 @@ namespace vtkControl
         private vtkMaxCoorSysSymbols _materialAxesSelectionSymbols;
         private vtkMaxScaleWidget _scaleWidget;
         private vtkLookupTable _lookupTable;
-        private vtkMaxScalarBarWidget _scalarBarWidget;
+        private bool _scalarBarVisible;
+        private string _scalarBarLabelFormat;
+        private bool _scalarBarBackgroundVisible;
+        private bool _scalarBarBorderVisible;
+        private string[] _scalarBarText;
+        private double[] _scalarBarRange;
         private vtkMaxColorBarWidget _colorBarWidget;
         private vtkMaxStatusBlockWidget _statusBlockWidget;
         private vtkInteractorStyleControl _style;
@@ -593,12 +595,6 @@ namespace vtkControl
                 default: break;
             }
         }
-        private void coorSysWidget_HoverChanged(bool hovered)
-        {
-            if (_renderWindow == null) return;
-            //
-            _renderWindow.SetCurrentCursor(hovered ? VtkCursorHand : VtkCursorDefault);
-        }
 
         // Trackpad                                                                                                                 
         private const int WM_MOUSEWHEEL = 0x020A;
@@ -949,13 +945,13 @@ namespace vtkControl
             // Off
             if (_selectBy == vtkSelectBy.Off) return;
             else if (_selectBy == vtkSelectBy.Widget) return;
-            else if (!_widgetInteractionEnabled && sender is vtkMaxBorderWidget) return;
+            else if (!_widgetInteractionEnabled && (sender is vtkMaxBorderWidget || sender is VtkNativeScalarBar)) return;
             //
             if (sender != null && sender is vtkMaxTextWithArrowWidget widget)
             {
-                Form_WidgetPicked(e, Keys.None, widget.GetName(), GetWidgetRectangle(widget));
+                Form_WidgetPicked(e, Keys.None, widget.GetName(), widget.GetRectangle());
             }
-            else if (sender is vtkMaxScalarBarWidget)
+            else if (sender is VtkNativeScalarBar)
             {
                 vtkResultWidgetContextMenuTypeEnum contextMenuType;
                 bool minimum = false;
@@ -2439,7 +2435,6 @@ namespace vtkControl
             _style.MouseInteractionEvent += style_MouseInteractionEvent;
             _style.RotationPointChanged += _style_RotationPointChanged;
             _style.ZoomChangedEvent += style_ZoomChangedEvent;
-            _style.KeyPressEvt += style_KeyPressEvt;
             _style.LeaveEvt += style_LeaveEvt;
             _style.EnterEvt += style_EnterEvt;
             _renderWindowInteractor.SetInteractorStyle(_style);
@@ -2456,13 +2451,12 @@ namespace vtkControl
             vtkPolyDataMapper.SetResolveCoincidentTopologyToPolygonOffset();
             // Scale bar
             _scaleWidget = new vtkMaxScaleWidget();
-            _scaleWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
             _scaleWidget.SetWidth(400);
             _scaleWidget.SetHorizontallyRelativePosition(320, 0);
             _scaleWidget.SetBorderColor(0, 0, 0);
-            _scaleWidget.SetTextProperty(CreateNewTextProperty());
+            _scaleWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
             _scaleWidget.SetPadding(5);
-            _scaleWidget.GetBackgroundProperty().SetColor(1, 1, 1);
+            _scaleWidget.SetBackgroundColor(1, 1, 1);
             _scaleWidget.VisibilityOn();
             _scaleWidget.BackgroundVisibilityOff();
             _scaleWidget.BorderVisibilityOff();
@@ -2470,41 +2464,33 @@ namespace vtkControl
             InitializeScalarBar();
             // Color bar
             _colorBarWidget = new vtkMaxColorBarWidget();
-            _colorBarWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
-            _colorBarWidget.SetTextProperty(CreateNewTextProperty());
+            _colorBarWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
             _colorBarWidget.SetPadding(15);
             _colorBarWidget.VisibilityOn();
             _colorBarWidget.BackgroundVisibilityOn();
             _colorBarWidget.BorderVisibilityOn();
             _colorBarWidget.SetBackgroundColor(1, 1, 1);
-            _colorBarWidget.MouseDoubleClick += colorBarWidget_DoubleClicked;
             // Status block
             _statusBlockWidget = new vtkMaxStatusBlockWidget();
-            _statusBlockWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
-            _statusBlockWidget.SetTextProperty(CreateNewTextProperty());
+            _statusBlockWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
             _statusBlockWidget.SetPadding(5);
-            _statusBlockWidget.GetBackgroundProperty().SetColor(1, 1, 1);
+            _statusBlockWidget.SetBackgroundColor(1, 1, 1);
             _statusBlockWidget.BackgroundVisibilityOff();
             _statusBlockWidget.VisibilityOff();
-            _statusBlockWidget.MouseDoubleClick += statusBlockWidget_DoubleClicked;
             // Probe widget
             _probeWidget = new vtkMaxTextWidget();
-            _probeWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
             _probeWidget.SetBorderColor(0, 0, 0);
-            _probeWidget.SetTextProperty(CreateNewTextProperty());
+            _probeWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
             _probeWidget.SetPadding(5);
-            _probeWidget.GetBackgroundProperty().SetColor(1, 1, 1);
+            _probeWidget.SetBackgroundColor(1, 1, 1);
             _probeWidget.VisibilityOff();
             // Arrow widgets
             _arrowWidgets = new Dictionary<string, vtkMaxTextWithArrowWidget>();
             // Coordinate system
             _coorSysWidget = new vtkMaxCoorSysWidget();
-            _coorSysWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
-            _coorSysWidget.SetTextProperty(CreateNewTextProperty());
+            _coorSysWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
             _coorSysWidget.BackgroundVisibilityOff();
             _coorSysWidget.BorderVisibilityOff();
-            _coorSysWidget.TargetClicked += coorSysWidget_TargetClicked;
-            _coorSysWidget.HoverChanged += coorSysWidget_HoverChanged;
             SetCoorSysVisibility(_drawCoorSys);
             // Model coordinate systems
             _coorSysSymbols = new vtkMaxCoorSysSymbols();
@@ -2532,28 +2518,17 @@ namespace vtkControl
         {
             // Lookup table
             _lookupTable = vtkLookupTable.New();
-            // Scalar bar
-            _scalarBarWidget = new vtkMaxScalarBarWidget();
-            _scalarBarWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
-            _scalarBarWidget.SetTextProperty(CreateNewTextProperty());
-            _scalarBarWidget.CreateLookupTable(GetColorTransferFunction(), 0, 1);
-            _scalarBarWidget.SetLabelFormat("E3");
-            _scalarBarWidget.SetPadding(15);
-            _scalarBarWidget.VisibilityOn();
-            _scalarBarWidget.BackgroundVisibilityOn();
-            _scalarBarWidget.BorderVisibilityOn();
-            _scalarBarWidget.SetBackgroundColor(1, 1, 1);
-            //
-            _scalarBarWidget.MouseDoubleClick += scalarBarWidget_DoubleClicked;
+            // Scalar bar: the native view makes it from this state when it shows the widgets
+            _scalarBarRange = new double[] { 0, 1, double.NaN, double.NaN };
+            _scalarBarLabelFormat = "E3";
+            _scalarBarVisible = true;
+            _scalarBarBackgroundVisible = true;
+            _scalarBarBorderVisible = true;
         }
         private void Timer_Tick(object sender, EventArgs e)
         {
             ((Timer)sender).Enabled = false;
             AddDiskAnimation();
-        }
-        private void style_KeyPressEvt(vtkObject sender, vtkObjectEventArgs e)
-        {
-            if (_scalarBarWidget.GetVisibility() == 1) _scalarBarWidget.OnRenderWindowModified();
         }
         private vtkTextProperty CreateNewTextProperty()
         {
@@ -7636,33 +7611,22 @@ namespace vtkControl
         // Scalar bar
         public void InitializeResultWidgetPositions()
         {
-            _scalarBarWidget.SetTopLeftPosition(20, 20);
             if (_nativeMirrorScalarBar != null) _nativeMirrorScalarBar.SetPosition(VtkNativeWidgetAnchor.TopLeft, 20, 20);
             _statusBlockWidget.SetTopLeftPosition(Width - _statusBlockWidget.GetWidth() - 20, 20);
         }
         public void SetScalarBarColorSpectrum(vtkMaxColorSpectrum colorSpectrum)
         {
             _colorSpectrum.DeepCopy(colorSpectrum);
-            //
-            bool smoothColors = _colorSpectrum.Mode == vtkColorSpectrumMode.Smooth;
-            _scalarBarWidget.SetSmoothColors(smoothColors);
-            _scalarBarWidget.SetNumberOfColors(_colorSpectrum.NumberOfColors);  // colors or legend intervals
-            _scalarBarWidget.MinColorVisible = colorSpectrum.MinColorVisible;
-            _scalarBarWidget.MaxColorVisible = colorSpectrum.MaxColorVisible;
-            _scalarBarWidget.MinColor = colorSpectrum.MinColor;
-            _scalarBarWidget.MaxColor = colorSpectrum.MaxColor;
             MirrorScalarBarColorSpectrum(colorSpectrum);
         }
         // Below-min / above-max limit color bands only exist when the manual limit clips the data
         public bool ScalarBarAddMinColor
         {
-            get { return NativeShowsView && _nativeMirrorScalarBar != null ? _nativeMirrorScalarBar.AddMinColor :
-                                                                               _scalarBarWidget.AddMinColor; }
+            get { return _nativeMirrorScalarBar != null && _nativeMirrorScalarBar.AddMinColor; }
         }
         public bool ScalarBarAddMaxColor
         {
-            get { return NativeShowsView && _nativeMirrorScalarBar != null ? _nativeMirrorScalarBar.AddMaxColor :
-                                                                               _scalarBarWidget.AddMaxColor; }
+            get { return _nativeMirrorScalarBar != null && _nativeMirrorScalarBar.AddMaxColor; }
         }
         public void SetScalarBarVisibility(bool visibility)
         {
@@ -7672,30 +7636,33 @@ namespace vtkControl
         public bool TryGetScalarBarValueEditData(bool editMinimum, out Rectangle rectangle, out string valueText,
                                                  out double minimum, out double maximum)
         {
-            if (NativeShowsView && _nativeMirrorScalarBar != null)
+            if (_nativeMirrorScalarBar != null)
                 return _nativeMirrorScalarBar.TryGetValueEditData(editMinimum, out rectangle, out valueText,
                                                                   out minimum, out maximum);
-            return _scalarBarWidget.TryGetValueEditData(editMinimum, out rectangle, out valueText,
-                                                        out minimum, out maximum);
+            rectangle = Rectangle.Empty;
+            valueText = null;
+            minimum = double.NaN;
+            maximum = double.NaN;
+            return false;
         }
         private bool TryGetScalarBarValueEditData(int x, int y, out bool editMinimum, out Rectangle rectangle,
                                                   out string valueText, out double minimum, out double maximum)
         {
-            if (NativeShowsView && _nativeMirrorScalarBar != null)
+            if (_nativeMirrorScalarBar != null)
                 return _nativeMirrorScalarBar.TryGetValueEditData(x, y, out editMinimum, out rectangle, out valueText,
                                                                   out minimum, out maximum);
-            return _scalarBarWidget.TryGetValueEditData(x, y, out editMinimum, out rectangle, out valueText,
-                                                        out minimum, out maximum);
+            editMinimum = false;
+            return TryGetScalarBarValueEditData(false, out rectangle, out valueText, out minimum, out maximum);
         }
         public void SetScalarBarNumberFormat(string numberFormat)
         {
-            _scalarBarWidget.SetLabelFormat(numberFormat);
+            _scalarBarLabelFormat = numberFormat;
             if (_nativeMirrorScalarBar != null) _nativeMirrorScalarBar.SetLabelFormat(numberFormat);
         }
         public void SetScalarBarText(string fieldName, string componentName, string unitAbbreviation, string complexComponent,
                                      string minMaxType)
         {
-            _scalarBarWidget.SetText(fieldName, componentName, unitAbbreviation, complexComponent, minMaxType);
+            _scalarBarText = new string[] { fieldName, componentName, unitAbbreviation, complexComponent, minMaxType };
             if (_nativeMirrorScalarBar != null)
                 _nativeMirrorScalarBar.SetText(fieldName, componentName, unitAbbreviation, complexComponent, minMaxType);
             //
@@ -7703,22 +7670,19 @@ namespace vtkControl
         }
         public void DrawScalarBarBackground(bool drawBackground)
         {
-            _scalarBarWidget.SetBackgroundColor(1, 1, 1);
-            if (drawBackground) _scalarBarWidget.BackgroundVisibilityOn();
-            else _scalarBarWidget.BackgroundVisibilityOff();
+            _scalarBarBackgroundVisible = drawBackground;
             MirrorScalarBarFrame();
         }
         public void DrawScalarBarBorder(bool drawBorder)
         {
-            if (drawBorder) _scalarBarWidget.BorderVisibilityOn();
-            else _scalarBarWidget.BorderVisibilityOff();
+            _scalarBarBorderVisible = drawBorder;
             MirrorScalarBarFrame();
         }
         private string GetUnitAbbreviation()
         {
-            if (_scalarBarWidget.GetVisibility() == 0) return "";
+            if (!_scalarBarVisible) return "";
             //
-            string unitAbbreviation = _scalarBarWidget.UnitAbbreviation;
+            string unitAbbreviation = _scalarBarText == null ? "" : _scalarBarText[2];
             if (unitAbbreviation == "/") unitAbbreviation = "";
             else unitAbbreviation = " " + unitAbbreviation;
             return unitAbbreviation;
@@ -7804,17 +7768,11 @@ namespace vtkControl
         // General
         public void SetBackground(bool gradient, Color topColor, Color bottomColor, bool redraw)
         {
-            if (_renderer != null)
-            {
-                _renderer.SetGradientBackground(gradient);
-                _renderer.SetBackground2(topColor.R / 255.0, topColor.G / 255.0, topColor.B / 255.0);
-                _renderer.SetBackground(bottomColor.R / 255.0, bottomColor.G / 255.0, bottomColor.B / 255.0);
-                _gradientBackground = gradient;
-                _backgroundTop = new double[] { topColor.R / 255.0, topColor.G / 255.0, topColor.B / 255.0 };
-                _backgroundBottom = new double[] { bottomColor.R / 255.0, bottomColor.G / 255.0, bottomColor.B / 255.0 };
-                MirrorGeometry("SetBackground", SyncNativeMirror);
-                if (redraw) RenderScene();
-            }
+            _gradientBackground = gradient;
+            _backgroundTop = new double[] { topColor.R / 255.0, topColor.G / 255.0, topColor.B / 255.0 };
+            _backgroundBottom = new double[] { bottomColor.R / 255.0, bottomColor.G / 255.0, bottomColor.B / 255.0 };
+            MirrorGeometry("SetBackground", SyncNativeMirror);
+            if (redraw) RenderScene();
         }
         public void SetLighting(double ambient, double diffuse, bool redraw)
         {
@@ -7844,18 +7802,6 @@ namespace vtkControl
                 if (pointSmoothing != (_renderWindow.GetPointSmoothing() == 1) ||
                     lineSmoothing != (_renderWindow.GetLineSmoothing() == 1))
                 {
-                    List<vtkMaxBorderWidget> widgets = new List<vtkMaxBorderWidget>();
-                    if (_coorSysWidget != null) widgets.Add(_coorSysWidget);
-                    if (_scaleWidget != null) widgets.Add(_scaleWidget);
-                    if (_scalarBarWidget != null) widgets.Add(_scalarBarWidget);
-                    if (_colorBarWidget != null) widgets.Add(_colorBarWidget);
-                    if (_statusBlockWidget != null) widgets.Add(_statusBlockWidget);
-                    if (_probeWidget != null) widgets.Add(_probeWidget);
-                    if (_arrowWidgets != null) widgets.AddRange(_arrowWidgets.Values);
-
-                    // Widgets keep a reference to the interactor. Detach them before disposing it so
-                    // they never call through an invalid native VTK pointer after the window is rebuilt.
-                    foreach (vtkMaxBorderWidget widget in widgets) widget.RemoveInteractor();
                     _renderWindowInteractor.ModifiedEvt -= _renderWindowInteractor_ModifiedEvt;
                     _renderWindowInteractor.Dispose();
                     _renderWindow.Dispose();
@@ -7877,9 +7823,6 @@ namespace vtkControl
 
                     _renderWindow.SetInteractor(_renderWindowInteractor);
                     _renderWindowInteractor.ModifiedEvt += _renderWindowInteractor_ModifiedEvt;
-
-                    foreach (vtkMaxBorderWidget widget in widgets)
-                        widget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
 
                     if (pointSmoothing) _renderWindow.PointSmoothingOn();
                     else _renderWindow.PointSmoothingOff();
@@ -9524,7 +9467,7 @@ namespace vtkControl
             _animationFrameData = new vtkMaxAnimationFrameData();
             _keepScalarBarVisible = false;
             //
-            if (_scalarBarWidget != null) SetScalarBarWidgetVisibility(false);
+            SetScalarBarWidgetVisibility(false);
             if (_colorBarWidget != null) HideColorBar();
             if (_statusBlockWidget != null) _statusBlockWidget.VisibilityOff();
             if (_style != null) _style.ResetRotationCenter();
@@ -9934,23 +9877,23 @@ namespace vtkControl
         {
             _widgetInteractionEnabled = enabled;
             //
-            if (_style != null) _style.SetWidgetLocalHighlightEnabled(enabled);
             MirrorWidgetHighlight();
             RenderScene();
         }
         public void SetWidgetHighlightLocked(bool locked)
         {
             _widgetHighlightLocked = locked;
-            if (!locked && _style != null) _style.ClearWidgetHighlights();
         }
         public void SetWidgetHighlightEnabled(bool enabled)
         {
             _widgetHighlightEnabled = enabled;
-            if (_style != null) _style.SetWidgetHighlightEnabled(enabled);
             MirrorWidgetHighlight();
         }
+        // The scale bar is centered with the width its native twin measures; before the twin exists it is centered
+        // when the twin is made
         public void ResetScaleBarPosition()
         {
+            _scaleBarPositionResetPending = GetNativeMirrorWidget(NativeScaleBarName) == null;
             _scaleWidget.SetHorizontallyRelativePosition((Width - _scaleWidget.GetWidth()) / 2, 0);
         }
         public void AddArrowWidget(string name, string text, string numberFormat, double[] anchorPoint,
@@ -9969,15 +9912,12 @@ namespace vtkControl
             {
                 newWidget = true;
                 arrowWidget = new vtkMaxTextWithArrowWidget(name);
-                arrowWidget.SetInteractor(_widgetRenderer, _renderWindowInteractor);
                 arrowWidget.SetBorderColor(0, 0, 0);
-                arrowWidget.SetTextProperty(CreateNewTextProperty());
+                arrowWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
                 arrowWidget.SetPadding(5);
-                arrowWidget.GetBackgroundProperty().SetColor(1, 1, 1);
+                arrowWidget.SetBackgroundColor(1, 1, 1);
                 // Set number format before the widget contents are updated
                 arrowWidget.SetNumberFormat(numberFormat);
-                // Event
-                arrowWidget.MouseDoubleClick += arrowWidget_DoubleClicked;
                 // Add
                 _arrowWidgets.Add(name, arrowWidget);
                 MirrorArrowWidget(name, arrowWidget);
@@ -10135,7 +10075,7 @@ namespace vtkControl
             double[][] widgetLeader = widget.GetLeaderLine();
             double[] leaderEnd = widgetLeader[1];
             CaeMesh.BoundingBox anchorBox = widget.GetAnchorPointBox();
-            int[] viewportSize = _selectionRenderer.GetSize();
+            int[] viewportSize = GetWidgetViewportSize();
             // Snapshot fixed geometry. It must not move while the new widget is being positioned.
             List<CaeMesh.BoundingBox> fixedBoxes = new List<CaeMesh.BoundingBox>();
             List<double[][]> fixedLeaderLines = new List<double[][]>();
@@ -10201,6 +10141,15 @@ namespace vtkControl
             // The viewport can be too crowded for a collision-free result. Use the lowest-penalty candidate in that case.
             widget.OffsetPosition(bestX - originalBox.MinX, bestY - originalBox.MinY);
             return false;
+        }
+        private int[] GetWidgetViewportSize()
+        {
+            if (_nativeMirror == null) return new int[] { Width, Height };
+            //
+            int width;
+            int height;
+            _nativeMirror.GetSize(out width, out height);
+            return new int[] { width, height };
         }
         private bool EvaluateArrowWidgetPosition(double x, double y, double width, double height,
                                                  double preferredX, double preferredY, double viewportMargin,
@@ -10424,7 +10373,6 @@ namespace vtkControl
         }
         public void RemoveAllArrowWidgets()
         {
-            foreach (var entry in _arrowWidgets) entry.Value.RemoveInteractor();
             foreach (var entry in _arrowWidgets) UnmirrorWidget(entry.Key);
             //
             _arrowWidgets.Clear();
@@ -10438,7 +10386,6 @@ namespace vtkControl
             {
                 if (_arrowWidgets.TryGetValue(name, out widget))
                 {
-                    widget.RemoveInteractor();
                     UnmirrorWidget(name);
                     _arrowWidgets.Remove(name);
                     _animationArrowAnchors.Remove(name);
@@ -10745,39 +10692,41 @@ namespace vtkControl
                 _overlayRenderer.SetDraw(1);
                 _selectionRenderer.SetDraw(1);
                 _widgetRenderer.SetDraw(1);
-                if (_nativeMirrorScalarBar != null)
-                    _nativeMirrorScalarBar.SetVisibility(_scalarBarWidget.GetVisibility() == 1);
+                if (_nativeMirrorScalarBar != null) _nativeMirrorScalarBar.SetVisibility(_scalarBarVisible);
                 ShowNativeMirrorWidgets(true);
             }
             RenderScene();
         }
         //
-        // The scalar bar of the mirror: it is set up as InitializeScalarBar sets up the scalar bar of this control,
-        // and every later change of the legend reaches both
+        // The scalar bar of the native view: it is made from the state this control keeps of the legend, and every
+        // later change of the legend reaches it
         public VtkNativeScalarBar NativeMirrorScalarBar { get { return _nativeMirrorScalarBar; } }
         private void CreateNativeMirrorScalarBar()
         {
             _nativeMirrorScalarBar = new VtkNativeScalarBar(_nativeMirror);
             _nativeMirrorScalarBar.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
             MirrorScalarBarColorSpectrum(_colorSpectrum);
-            _nativeMirrorScalarBar.CreateLookupTable(VtkNativeColorSpectrum.FromColorSpectrum(_colorSpectrum).GetColor, 0, 1);
-            _nativeMirrorScalarBar.SetLabelFormat(_scalarBarWidget.GetLabelFormat());
+            _nativeMirrorScalarBar.CreateLookupTable(VtkNativeColorSpectrum.FromColorSpectrum(_colorSpectrum).GetColor,
+                                                     _scalarBarRange[0], _scalarBarRange[1], _scalarBarRange[2],
+                                                     _scalarBarRange[3]);
+            _nativeMirrorScalarBar.SetLabelFormat(_scalarBarLabelFormat);
+            if (_scalarBarText != null)
+                _nativeMirrorScalarBar.SetText(_scalarBarText[0], _scalarBarText[1], _scalarBarText[2], _scalarBarText[3],
+                                               _scalarBarText[4]);
             _nativeMirrorScalarBar.SetPadding(15);
-            _nativeMirrorScalarBar.SetVisibility(_scalarBarWidget.GetVisibility() == 1);
+            _nativeMirrorScalarBar.SetVisibility(_scalarBarVisible);
             _nativeMirrorScalarBar.MouseDoubleClick += scalarBarWidget_DoubleClicked;
             MirrorScalarBarFrame();
         }
         private void SetScalarBarWidgetVisibility(bool visible)
         {
-            if (visible) _scalarBarWidget.VisibilityOn();
-            else _scalarBarWidget.VisibilityOff();
+            _scalarBarVisible = visible;
             if (_nativeMirrorScalarBar != null) _nativeMirrorScalarBar.SetVisibility(visible);
         }
         private void CreateScalarBarLookupTable(double scalarRangeMin, double scalarRangeMax, double minUserValue,
                                                 double maxUserValue)
         {
-            vtkColorTransferFunction ctf = GetColorTransferFunction();
-            _scalarBarWidget.CreateLookupTable(ctf, scalarRangeMin, scalarRangeMax, minUserValue, maxUserValue);
+            _scalarBarRange = new double[] { scalarRangeMin, scalarRangeMax, minUserValue, maxUserValue };
             if (_nativeMirrorScalarBar != null)
                 _nativeMirrorScalarBar.CreateLookupTable(VtkNativeColorSpectrum.FromColorSpectrum(_colorSpectrum).GetColor,
                                                          scalarRangeMin, scalarRangeMax, minUserValue, maxUserValue);
@@ -10796,10 +10745,8 @@ namespace vtkControl
         private void MirrorScalarBarFrame()
         {
             if (_nativeMirrorScalarBar == null) return;
-            _nativeMirrorScalarBar.SetFrame(_scalarBarWidget.GetBackgroundVisibility() == 1,
-                                            _scalarBarWidget.GetBackgroundProperty().GetColor(),
-                                            _scalarBarWidget.GetBorderVisibility() == 1,
-                                            _scalarBarWidget.GetBorderProperty().GetColor());
+            _nativeMirrorScalarBar.SetFrame(_scalarBarBackgroundVisible, new double[] { 1, 1, 1 }, _scalarBarBorderVisible,
+                                            new double[] { 0, 0, 0 });
         }
         //
         // Picking through the mirror: style_PointPickedOnLeftUpEvt with the screen to model step made by the native
@@ -10885,24 +10832,11 @@ namespace vtkControl
             }
             return selectedActorNames.ToArray();
         }
-        // Shows only the scalar bar on both paths: the props of the 3D layers are hidden, the other widgets are
-        // switched off, and the mirror drops its parts
+        // Shows only the scalar bar: the other widgets are switched off and the native view drops its parts
         public void SetNativeMirrorScalarBarOnly(bool scalarBarOnly)
         {
-            if (scalarBarOnly && _nativeMirrorScalarBarHiddenProps == null)
+            if (scalarBarOnly && _nativeMirrorScalarBarHiddenWidgets == null)
             {
-                _nativeMirrorScalarBarHiddenProps = new List<vtkProp>();
-                foreach (vtkRenderer renderer in new vtkRenderer[] { _renderer, _overlayRenderer, _selectionRenderer })
-                {
-                    vtkPropCollection props = renderer.GetViewProps();
-                    props.InitTraversal();
-                    for (vtkProp prop = props.GetNextProp(); prop != null; prop = props.GetNextProp())
-                    {
-                        if (prop.GetVisibility() == 0) continue;
-                        prop.VisibilityOff();
-                        _nativeMirrorScalarBarHiddenProps.Add(prop);
-                    }
-                }
                 List<vtkMaxBorderWidget> widgets = new List<vtkMaxBorderWidget>
                 {
                     _coorSysWidget, _scaleWidget, _colorBarWidget, _statusBlockWidget, _probeWidget
@@ -10915,22 +10849,16 @@ namespace vtkControl
                     widget.VisibilityOff();
                     _nativeMirrorScalarBarHiddenWidgets.Add(widget);
                 }
-                _overlayRenderer.SetDraw(0);
-                _selectionRenderer.SetDraw(0);
                 if (_nativeMirror != null)
                 {
                     _nativeMirror.ClearActors();
                     _nativeMirrorNames.Clear();
                 }
             }
-            else if (!scalarBarOnly && _nativeMirrorScalarBarHiddenProps != null)
+            else if (!scalarBarOnly && _nativeMirrorScalarBarHiddenWidgets != null)
             {
-                foreach (vtkProp prop in _nativeMirrorScalarBarHiddenProps) prop.VisibilityOn();
                 foreach (vtkMaxBorderWidget widget in _nativeMirrorScalarBarHiddenWidgets) widget.VisibilityOn();
-                _nativeMirrorScalarBarHiddenProps = null;
                 _nativeMirrorScalarBarHiddenWidgets = null;
-                _overlayRenderer.SetDraw(1);
-                _selectionRenderer.SetDraw(1);
             }
             RenderScene();
         }

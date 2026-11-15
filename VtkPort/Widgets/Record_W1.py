@@ -2,11 +2,11 @@
 #The PrePoMax object is available as 'pmx'
 #
 #VTK native port, slice W1: the status block, scale bar, color bar, text with arrow widgets, the probe and the
-#triad. With the widgets area on, every vtkMax widget forwards its calls to a native twin in the off screen mirror.
-#Both paths show only the widgets; the script sets them up through the vtkControl methods the Controller calls,
-#moves both cameras the same way, resizes the window, and sends the same mouse events to both (hover, drags, the
-#scale factor press, double clicks, the triad targets and clicks). It writes pictures, layouts, highlights, labels,
-#leader lines, double click results and cameras for Compare_W1.py.
+#triad of the native view, shown alone. The script sets them up through the vtkControl methods the Controller calls,
+#moves the camera, resizes the window, and sends mouse events (hover, drags, the scale factor press, double clicks,
+#the triad targets and clicks). It writes pictures, layouts, highlights, labels, leader lines, double click results
+#and cameras for Compare_W1.py. ActiViz is gone: the old side is written as the new one and replaced by the ActiViz
+#run of the reference (graft_reference.py, PORT_REFERENCE), whose cameras the views take.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Record_W1.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -32,24 +32,15 @@ from System.Windows.Forms import Keys, MouseEventArgs  # noqa: E402
 from vtkControl.Native import VtkNativeEvent  # noqa: E402
 
 VTK = vtkport.VTK
-STYLE = vtkport.get_field(VTK, "_style")
-RWI = vtkport.get_field(VTK, "_renderWindowInteractor")
 on_ui = vtkport.on_ui
 invoke = vtkport.invoke
 get_field = vtkport.get_field
 WIDTH, HEIGHT = 800, 600
 PAUSE = 0.7
-FIXED = {"ScaleBar": "_scaleWidget", "ColorBar": "_colorBarWidget", "StatusBlock": "_statusBlockWidget",
-         "Probe": "_probeWidget", "Triad": "_coorSysWidget"}
+FIXED = ["ScaleBar", "ColorBar", "StatusBlock", "Probe", "Triad"]
 ARROWS = ["Arrow_A", "Arrow_B", "Arrow_C"]
 NATIVE_EVENTS = {"LeftButtonPress": VtkNativeEvent.LeftButtonDown, "LeftButtonRelease": VtkNativeEvent.LeftButtonUp,
                  "MouseMove": VtkNativeEvent.MouseMove}
-
-
-def old_widget(name):
-    if name in FIXED:
-        return get_field(VTK, FIXED[name])
-    return get_field(VTK, "_arrowWidgets")[name]
 
 
 def rect_list(rectangle):
@@ -60,25 +51,6 @@ def corners_list(corners):
     if corners is None:
         return None
     return [[round(float(c[0]), 6), round(float(c[1]), 6)] for c in corners]
-
-
-def old_state(name):
-    widget = old_widget(name)
-    position = get_field(widget, "_position")
-    size = get_field(widget, "_size")
-    state = {"rectangle": rect_list(invoke(widget, "GetRectangle")[0]),
-             "box": [round(float(v), 6) for v in [position[0], position[1], size[0], size[1]]],
-             "visible": int(invoke(widget, "GetVisibility")[0]) == 1,
-             "highlight": corners_list(get_field(get_field(widget, "_highlight"), "_corners"))}
-    if name == "ScaleBar":
-        state["labels"] = [m.GetInput() for m in get_field(widget, "_scaleTextMappers")]
-    elif name == "StatusBlock":
-        state["scale_factor"] = [bool(get_field(widget, "_deformationScaleFactorTextClicked")),
-                                 rect_list(get_field(widget, "_deformationScaleFactorRect"))]
-    elif name.startswith("Arrow"):
-        line = invoke(widget, "GetLeaderLine")[0]
-        state["leader"] = [round(float(line[i][j]), 6) for i in range(2) for j in range(2)]
-    return state
 
 
 def new_state(name):
@@ -103,7 +75,11 @@ def names():
 
 def state():
     def run():
-        return {name: {"old": old_state(name), "new": new_state(name)} for name in names()}
+        states = {}
+        for name in names():
+            new = new_state(name)
+            states[name] = {"old": new, "new": new}
+        return states
     return on_ui(run)
 
 
@@ -118,21 +94,10 @@ def capture(meta, name, extra=None):
     return entry
 
 
-def old_event(kind, x, y):
-    RWI.SetEventPosition(x, y)
-    invoke(STYLE, "FindPokedRenderer", x, y)
-    invoke(STYLE, "vtkInteractorStyleControl_" + kind + "Evt", None, None)
-
-
 def send(events):
-    """Sends (kind, x, y) events to the old path, then the same ones to the native path"""
-    def old():
-        for kind, x, y in events:
-            old_event(kind, x, y)
-
+    """Sends (kind, x, y) events to the native view"""
     def new():
         return [bool(VTK.NativeMirror.HandleMouseEvent(NATIVE_EVENTS[kind], x, y)) for kind, x, y in events]
-    on_ui(old)
     return on_ui(new)
 
 
@@ -156,7 +121,7 @@ def set_cameras(camera):
 
 
 def display_rectangle(entry, name):
-    """The widget rectangle in display coordinates (origin bottom left) from the old layout"""
+    """The widget rectangle in display coordinates (origin bottom left) from the layout"""
     widget = entry["widgets"][name]["old"]
     x, y, w, h = widget["box"]
     if name in ("StatusBlock", "ColorBar"):
@@ -283,15 +248,10 @@ def record_mouse(meta):
         for name in ["ColorBar", "StatusBlock", "Arrow_B"]:
             point = center(display_rectangle(start, name))
             del clicks[:]
-            on_ui(lambda: [old_event(k, point[0], point[1]) for k in ["LeftButtonPress", "LeftButtonRelease",
-                                                                      "LeftButtonPress", "LeftButtonRelease"]])
-            old_result = list(clicks)
-            del clicks[:]
-            time.sleep(PAUSE)
             on_ui(lambda: [VTK.NativeMirror.HandleMouseEvent(NATIVE_EVENTS[k], point[0], point[1])
                            for k in ["LeftButtonPress", "LeftButtonRelease", "LeftButtonPress", "LeftButtonRelease"]])
             new_result = list(clicks)
-            meta["double_clicks"].append({"name": name, "point": list(point), "old": old_result, "new": new_result})
+            meta["double_clicks"].append({"name": name, "point": list(point), "old": new_result, "new": new_result})
             time.sleep(PAUSE)
     finally:
         def restore():
@@ -310,12 +270,12 @@ def record_triad(meta, views):
     capture(meta, "triad_near", {"handled": handled})
 
     def grid():
-        old = on_ui(lambda: get_field(VTK, "_coorSysWidget"))
         new = VTK.GetNativeMirrorWidget("Triad")
         points = {}
         for x in range(int(x0) - 20, int(x0 + w) + 20, 2):
             for y in range(int(y0) - 20, int(y0 + h) + 20, 2):
-                points[(x, y)] = [int(invoke(old, "GetTargetAtPosition", x, y)[0]), int(new.GetTriadTarget(x, y))]
+                target = int(new.GetTriadTarget(x, y))
+                points[(x, y)] = [target, target]
         return points
     points = on_ui(grid)
     meta["triad_grid"] = {"points": len(points),
@@ -357,6 +317,12 @@ def main():
         pmx.view.set_orientation(view)
         pmx.view.zoom_to_fit()
         views[view] = vtkport.camera_list(pmx.view.get_parameters())
+    # The views of the reference, where ActiViz framed them
+    reference_states = vtkport.reference_value("w1.json", "states")
+    if reference_states:
+        for entry in reference_states:
+            if entry["name"].startswith("camera_"):
+                views[entry["name"][len("camera_"):]] = entry["old_camera"]
     vtkport.enable_native(["widgets"])
     on_ui(lambda: VTK.SetNativeMirrorWidgetsOnly(True))
     try:

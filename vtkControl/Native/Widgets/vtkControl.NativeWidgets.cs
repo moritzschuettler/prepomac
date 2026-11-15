@@ -12,14 +12,13 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using Kitware.VTK;
 using vtkControl.Native;
 
 namespace vtkControl
 {
-    // The widgets area of the native port: every widget of this control has a native twin in the native view while
-    // the area is on. The twin receives the state of the widget, in the order the control set it up, and from then
-    // on every call the widget takes; its events end in the handlers of the widget it ports
+    // The widgets area of the native view: every widget of this control is drawn by a native twin in the native view
+    // while the area is on. The twin receives the state the widget keeps, in the order the control set it up, and
+    // from then on every call the widget takes; its events end in the handlers of this control
     public partial class vtkControl
     {
         // Variables
@@ -31,7 +30,7 @@ namespace vtkControl
         //
         private Dictionary<string, VtkNativeWidget> _nativeMirrorWidgets;
         private Dictionary<string, vtkMaxBorderWidget> _nativeMirroredWidgets;
-        private List<vtkProp> _nativeMirrorWidgetsHiddenProps;
+        private bool _scaleBarPositionResetPending;
 
 
         // Methods
@@ -54,6 +53,7 @@ namespace vtkControl
             MirrorInteractionSettings();
             _nativeMirror.NativeEvent += NativeMirror_InteractionEvent;
             MirrorWidget(NativeScaleBarName, _scaleWidget, VtkNativeWidgetKind.ScaleBar);
+            if (_scaleBarPositionResetPending) ResetScaleBarPosition();
             VtkNativeWidget colorBar = MirrorWidget(NativeColorBarName, _colorBarWidget, VtkNativeWidgetKind.ColorBar);
             colorBar.MouseDoubleClick += colorBarWidget_DoubleClicked;
             VtkNativeWidget statusBlock = MirrorWidget(NativeStatusBlockName, _statusBlockWidget,
@@ -76,10 +76,7 @@ namespace vtkControl
         {
             if (_nativeMirrorWidgets == null) return;
             VtkNativeWidget nativeWidget = MirrorWidget(name, widget, VtkNativeWidgetKind.TextWithArrow);
-            nativeWidget.MouseDoubleClick += (sender, e) =>
-            {
-                if (_widgetInteractionEnabled) Form_WidgetPicked(e, Keys.None, name, nativeWidget.GetRectangle());
-            };
+            nativeWidget.MouseDoubleClick += (sender, e) => arrowWidget_DoubleClicked(widget, e);
         }
         private void UnmirrorWidget(string name)
         {
@@ -151,23 +148,12 @@ namespace vtkControl
             if (_nativeMirror == null || (_nativeAreas & VtkNativeArea.Widgets) == 0) return;
             new VtkNativeNavigationTarget(_nativeMirror).EndMultiTouchGesture();
         }
-        // The rectangle the widget the user sees covers: the native twin's in the window
-        private Rectangle GetWidgetRectangle(vtkMaxBorderWidget widget)
-        {
-            if (NativeShowsView && _nativeMirrorWidgets != null)
-            {
-                foreach (var entry in _nativeMirroredWidgets)
-                {
-                    if (entry.Value == widget) return _nativeMirrorWidgets[entry.Key].GetRectangle();
-                }
-            }
-            return widget.GetRectangle();
-        }
-        // The widget a native widget id belongs to: the scalar bar or one of the twins
+        // The widget a native widget id belongs to: the scalar bar or the widget of one of the twins
         private object GetMirroredWidget(int widgetId)
         {
             if (widgetId == 0) return null;
-            if (_nativeMirrorScalarBar != null && _nativeMirrorScalarBar.WidgetId == widgetId) return _scalarBarWidget;
+            if (_nativeMirrorScalarBar != null && _nativeMirrorScalarBar.WidgetId == widgetId)
+                return _nativeMirrorScalarBar;
             foreach (var entry in _nativeMirrorWidgets)
             {
                 if (entry.Value.WidgetId == widgetId) return _nativeMirroredWidgets[entry.Key];
@@ -248,34 +234,14 @@ namespace vtkControl
             else if (target >= VtkNativeTriadTarget.XPositive)
                 _nativeMirror.SetAxisView(axes[target - VtkNativeTriadTarget.XPositive], false);
         }
-        // Shows only the widgets on both paths: the props of the 3D layers of this control are hidden and the native
-        // view drops its parts; the camera is kept, since the scale bar, the triad and the arrows follow it
+        // Shows only the widgets: the native view drops its parts, which the next redraw sends again; the camera is
+        // kept, since the scale bar, the triad and the arrows follow it
         public void SetNativeMirrorWidgetsOnly(bool widgetsOnly)
         {
-            if (widgetsOnly && _nativeMirrorWidgetsHiddenProps == null)
+            if (widgetsOnly && _nativeMirror != null)
             {
-                _nativeMirrorWidgetsHiddenProps = new List<vtkProp>();
-                foreach (vtkRenderer renderer in new vtkRenderer[] { _renderer, _overlayRenderer, _selectionRenderer })
-                {
-                    vtkPropCollection props = renderer.GetViewProps();
-                    props.InitTraversal();
-                    for (vtkProp prop = props.GetNextProp(); prop != null; prop = props.GetNextProp())
-                    {
-                        if (prop.GetVisibility() == 0) continue;
-                        prop.VisibilityOff();
-                        _nativeMirrorWidgetsHiddenProps.Add(prop);
-                    }
-                }
-                if (_nativeMirror != null)
-                {
-                    _nativeMirror.ClearActors();
-                    if (_nativeMirrorNames != null) _nativeMirrorNames.Clear();
-                }
-            }
-            else if (!widgetsOnly && _nativeMirrorWidgetsHiddenProps != null)
-            {
-                foreach (vtkProp prop in _nativeMirrorWidgetsHiddenProps) prop.VisibilityOn();
-                _nativeMirrorWidgetsHiddenProps = null;
+                _nativeMirror.ClearActors();
+                if (_nativeMirrorNames != null) _nativeMirrorNames.Clear();
             }
             RenderScene();
         }

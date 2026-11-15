@@ -159,7 +159,7 @@ namespace vtkControl
             double[] right;
             double[] up;
             double[] viewPlaneNormal;
-            vtkMaxCoorSysGeometry.GetCameraBasis(camera, out right, out up, out viewPlaneNormal);
+            vtkMaxCoorSysSymbol.GetCameraBasis(camera, out right, out up, out viewPlaneNormal);
             //
             foreach (vtkMaxCoorSysSymbol symbol in _symbols)
             {
@@ -230,7 +230,7 @@ namespace vtkControl
                 int[] labelSize;
                 if (!_labelSizes.TryGetValue(labels[i], out labelSize))
                 {
-                    labelSize = vtkMaxWidgetTools.GetTextSize(symbol.GetLabelMapper(i), _renderer);
+                    labelSize = vtkMaxCoorSysSymbol.GetTextSize(symbol.GetLabelMapper(i), _renderer);
                     _labelSizes.Add(labels[i], labelSize);
                 }
                 labelSizes[i] = labelSize;

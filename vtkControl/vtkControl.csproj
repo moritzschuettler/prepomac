@@ -176,11 +176,9 @@
     <Compile Include="vtkMax\Widget\DataFieldType.cs" />
     <Compile Include="vtkMax\Widget\01_vtkMaxBorderWidget.cs" />
     <Compile Include="vtkMax\Actor\vtkMaxActorData.cs" />
-    <Compile Include="vtkMax\Widget\03_vtkMaxScalarBarWidget.cs" />
     <Compile Include="vtkMax\Widget\03_vtkMaxStatusBlock.cs" />
     <Compile Include="vtkMax\Widget\02_vtkMaxTextWidget.cs" />
     <Compile Include="vtkMax\Widget\03_vtkMaxTextWithArrowWidget.cs" />
-    <Compile Include="vtkMax\Widget\vtkMaxWidgetTools.cs" />
     <Service Include="{94E38DFF-614B-4cbd-B67C-F211BB35CE8B}" />
   </ItemGroup>
   <ItemGroup>

@@ -22,6 +22,29 @@ namespace vtkControl
     public delegate double[] GetPickPointDelegate(out vtkActor pickedActor, int x, int y);
     class vtkInteractorStyleControl : vtkInteractorStyleTrackballCamera, ITrackpadNavigationTarget
     {
+        // The widgets this style fed with the mouse: the native view takes the mouse of its widgets, none is added
+        public abstract class StyleWidget
+        {
+            public abstract bool LeftButtonPress(MouseEventArgs e);
+            public abstract bool LeftButtonRelease(int x, int y);
+            public abstract void MiddleButtonPress(int x, int y);
+            public abstract void MiddleButtonRelease(int x, int y);
+            public abstract bool RightButtonPress(int x, int y);
+            public abstract bool MouseOver(int x, int y);
+            public abstract bool MouseMove(int x, int y);
+            public abstract bool UpdateMouseProximity(int x, int y);
+            public abstract bool ClearMouseProximity();
+            public abstract bool UpdateMouseHover(int x, int y, bool mouseOver, bool highlightEntireWidget = false);
+            public abstract bool ClearMouseHover();
+            public abstract void BringToFront();
+            public abstract void BringHighlightToFront();
+            public abstract void MousePan(int dx, int dy);
+            public abstract void MouseRotate(double azimuthAngle, double elevationAngle);
+            public abstract void MouseWheelScrolled();
+            public abstract void CameraModified();
+            public abstract void SetLocalHighlightEnabled(bool enabled);
+            public abstract int GetVisibility();
+        }
         // Enum
         private enum EventIds
         {
@@ -152,9 +175,9 @@ namespace vtkControl
         protected vtkActor2D _selectionBackgroundActor;
         protected vtkActor2D _selectionBorderActor;
         //
-        protected List<vtkMaxBorderWidget> _widgets;
-        protected List<vtkMaxBorderWidget> _reversedWidgets;
-        protected vtkMaxBorderWidget _capturedWidget;
+        protected List<StyleWidget> _widgets;
+        protected List<StyleWidget> _reversedWidgets;
+        protected StyleWidget _capturedWidget;
         protected bool _capturedWidgetPromoted;
         protected bool _widgetHighlightEnabled;
         protected bool _widgetLocalHighlightEnabled;
@@ -246,8 +269,8 @@ namespace vtkControl
             //
             _selectionBoxEnabled = true;
             _boxZoomEnabled = false;
-            _widgets = new List<vtkMaxBorderWidget>();
-            _reversedWidgets = new List<vtkMaxBorderWidget>();
+            _widgets = new List<StyleWidget>();
+            _reversedWidgets = new List<StyleWidget>();
             _capturedWidget = null;
             _capturedWidgetPromoted = false;
             _widgetHighlightEnabled = true;
@@ -302,9 +325,9 @@ namespace vtkControl
             if (renderer == null) return;
             _clickPosWorld = DisplayToWorld(renderer, new double[] { x, y });
             // Widgets
-            vtkMaxBorderWidget borderWidget = null;
+            StyleWidget borderWidget = null;
             MouseEventArgs mea = new MouseEventArgs(MouseButtons.Left, _numOfClicks, x, y, 0);
-            foreach (vtkMaxBorderWidget widget in _reversedWidgets)
+            foreach (StyleWidget widget in _reversedWidgets)
             {
                 if (widget.LeftButtonPress(mea))
                 {
@@ -421,7 +444,7 @@ namespace vtkControl
             //
             AddAnnotationForCenter3D(rwi, renderer);
             // Widgets - middle pressed
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 widget.MiddleButtonPress(x, y);
             }
@@ -472,7 +495,7 @@ namespace vtkControl
             if (this.GetAutoAdjustCameraClippingRange() == 1) ResetClippingRange();
             if (rwi.GetLightFollowCamera() == 1) renderer.UpdateLightsGeometryToFollowCamera();
             // Widgets - middle released
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 widget.MiddleButtonRelease(currClickPos[0], currClickPos[1]);
             }
@@ -502,10 +525,10 @@ namespace vtkControl
             {
                 int[] clickPos = rwi.GetEventPosition();
                 // Widgets - right pressed
-                vtkMaxBorderWidget clickedWidget = null;
+                StyleWidget clickedWidget = null;
                 MouseEventArgs mea = new MouseEventArgs(MouseButtons.Right, 1, x, y, 0);
                 //
-                foreach (vtkMaxBorderWidget widget in _reversedWidgets)
+                foreach (StyleWidget widget in _reversedWidgets)
                 {
                     if (widget.RightButtonPress(x, y))
                     {
@@ -704,20 +727,20 @@ namespace vtkControl
         }
         public bool IsPositionOverWidget(int x, int y)
         {
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 if (widget.MouseOver(x, y)) return true;
             }
             return false;
         }
         //
-        public void AddVtkMaxWidget(vtkMaxBorderWidget widget)
+        public void AddVtkMaxWidget(StyleWidget widget)
         {
             widget.SetLocalHighlightEnabled(_widgetLocalHighlightEnabled);
             _widgets.Add(widget);
             _reversedWidgets.Insert(0, widget);
         }
-        public void RemoveVtkMaxWidget(vtkMaxBorderWidget widget)
+        public void RemoveVtkMaxWidget(StyleWidget widget)
         {
             if (_capturedWidget == widget)
             {
@@ -728,7 +751,7 @@ namespace vtkControl
             _widgets.Remove(widget);
             _reversedWidgets.Remove(widget);
         }
-        public void VtkMaxWidgetVisibilityOn(vtkMaxBorderWidget widget)
+        public void VtkMaxWidgetVisibilityOn(StyleWidget widget)
         {
             if (!_widgets.Contains(widget)) return;
             //
@@ -742,7 +765,7 @@ namespace vtkControl
         public void ClearWidgetProximity()
         {
             bool proximityChanged = false;
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 if (widget.ClearMouseProximity()) proximityChanged = true;
             }
@@ -759,7 +782,7 @@ namespace vtkControl
         public void SetWidgetLocalHighlightEnabled(bool enabled)
         {
             _widgetLocalHighlightEnabled = enabled;
-            foreach (vtkMaxBorderWidget widget in _widgets) widget.SetLocalHighlightEnabled(enabled);
+            foreach (StyleWidget widget in _widgets) widget.SetLocalHighlightEnabled(enabled);
             RefreshWidgetHighlights();
         }
         public void SetWidgetHighlightEnabled(bool enabled)
@@ -773,18 +796,18 @@ namespace vtkControl
         private bool ClearWidgetHighlightsInternal()
         {
             bool highlightChanged = false;
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 if (widget.ClearMouseHover()) highlightChanged = true;
             }
             return highlightChanged;
         }
-        private void PromoteWidget(vtkMaxBorderWidget widget)
+        private void PromoteWidget(StyleWidget widget)
         {
             MoveWidgetToTop(widget);
             UpdateWidgetZOrder();
         }
-        private void MoveWidgetToTop(vtkMaxBorderWidget widget)
+        private void MoveWidgetToTop(StyleWidget widget)
         {
             _widgets.Remove(widget);
             _widgets.Add(widget);
@@ -794,7 +817,7 @@ namespace vtkControl
         private bool UpdateWidgetProximity(int x, int y)
         {
             bool proximityChanged = false;
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 if (widget.UpdateMouseProximity(x, y)) proximityChanged = true;
             }
@@ -804,10 +827,10 @@ namespace vtkControl
         {
             if (!_widgetHighlightEnabled) return ClearWidgetHighlightsInternal();
             //
-            vtkMaxBorderWidget highlightedWidget = _capturedWidget;
+            StyleWidget highlightedWidget = _capturedWidget;
             if (highlightedWidget == null)
             {
-                foreach (vtkMaxBorderWidget widget in _reversedWidgets)
+                foreach (StyleWidget widget in _reversedWidgets)
                 {
                     if (widget.MouseOver(x, y))
                     {
@@ -818,7 +841,7 @@ namespace vtkControl
             }
             //
             bool highlightChanged = false;
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 bool isHighlighted = widget == highlightedWidget;
                 bool highlightEntireWidget = isHighlighted && _capturedWidget != null;
@@ -831,7 +854,7 @@ namespace vtkControl
         {
             // Each widget highlight belongs directly above its own content and below all widgets
             // that are logically in front of it.
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 widget.BringToFront();
                 widget.BringHighlightToFront();
@@ -991,7 +1014,7 @@ namespace vtkControl
             // Widgets - Pan
             int dx;
             int dy;
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 // Compute the delta
                 dx = (int)(clickPos[0] - rwi.GetLastEventPosition()[0]);
@@ -1034,7 +1057,7 @@ namespace vtkControl
             vtkRenderWindowInteractor rwi = this.GetInteractor();
             if (rwi.GetLightFollowCamera() == 1) renderer.UpdateLightsGeometryToFollowCamera();
             // Widgets - Pan
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 widget.MousePan((int)dx, (int)dy);
             }
@@ -1060,7 +1083,7 @@ namespace vtkControl
             //
             camera.SetParallelScale(camera.GetParallelScale() * factor);
             // Widgets - mouse wheel scrolled
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 widget.MouseWheelScrolled();
             }
@@ -1090,7 +1113,7 @@ namespace vtkControl
             // Box selection
             if (_boxSelection) DrawBoxSelection(_x, _y);
             // Widgets - mouse wheel scrolled
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 widget.MouseWheelScrolled();
             }
@@ -1237,7 +1260,7 @@ namespace vtkControl
             // Adjust the lights
             if (rwi.GetLightFollowCamera() == 1) renderer.UpdateLightsGeometryToFollowCamera();
             // Widgets - Rotate
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 widget.MouseRotate(azimuthAngle, elevationAngle);
             }
@@ -1405,7 +1428,7 @@ namespace vtkControl
             AdjustCameraDistance(renderer, camera);
             ResetClippingRange();
             // Widgets - Modified
-            foreach (vtkMaxBorderWidget widget in _widgets)
+            foreach (StyleWidget widget in _widgets)
             {
                 widget.CameraModified();
             }

@@ -73,6 +73,52 @@ namespace vtkControl
                 _labelActors[i].UseBoundsOff();
             }
         }
+        private void InsertCone(vtkPoints points, vtkCellArray polygons, int endId)
+        {
+            double[] direction = GetNormalizedEndDirection(endId);
+            double[] normal = new double[] { -direction[1], direction[0] };
+            double[] apex = _endPositions[endId];
+            double[] baseCenter = GetConeBaseCenter(endId);
+            // The projection of the base circle is an ellipse that is foreshortened along the axis
+            double semiAxis = _coneRadius * Math.Abs(_endDepths[endId]);
+            //
+            long firstPointId = points.GetNumberOfPoints();
+            polygons.InsertNextCell(NumOfCircleSegments);
+            for (int i = 0; i < NumOfCircleSegments; i++)
+            {
+                double angle = 2 * Math.PI * i / NumOfCircleSegments;
+                double alongAxis = semiAxis * Math.Cos(angle);
+                double alongNormal = _coneRadius * Math.Sin(angle);
+                points.InsertNextPoint(baseCenter[0] + alongAxis * direction[0] + alongNormal * normal[0],
+                                       baseCenter[1] + alongAxis * direction[1] + alongNormal * normal[1], 0);
+                polygons.InsertCellPoint(firstPointId + i);
+            }
+            //
+            firstPointId = points.GetNumberOfPoints();
+            points.InsertNextPoint(apex[0], apex[1], 0);
+            points.InsertNextPoint(baseCenter[0] + _coneRadius * normal[0], baseCenter[1] + _coneRadius * normal[1], 0);
+            points.InsertNextPoint(baseCenter[0] - _coneRadius * normal[0], baseCenter[1] - _coneRadius * normal[1], 0);
+            polygons.InsertNextCell(3);
+            for (int i = 0; i < 3; i++) polygons.InsertCellPoint(firstPointId + i);
+        }
+        private void InsertDisk(vtkPoints points, vtkCellArray polygons, double[] diskCenter, double radius)
+        {
+            long firstPointId = points.GetNumberOfPoints();
+            //
+            polygons.InsertNextCell(NumOfCircleSegments);
+            for (int i = 0; i < NumOfCircleSegments; i++)
+            {
+                double angle = 2 * Math.PI * i / NumOfCircleSegments;
+                points.InsertNextPoint(diskCenter[0] + radius * Math.Cos(angle),
+                                       diskCenter[1] + radius * Math.Sin(angle), 0);
+                polygons.InsertCellPoint(firstPointId + i);
+            }
+        }
+        private static void InsertColor(vtkUnsignedCharArray colors, double[] color, double opacity)
+        {
+            colors.InsertNextTuple4(Math.Round(255 * color[0]), Math.Round(255 * color[1]),
+                                    Math.Round(255 * color[2]), Math.Round(255 * opacity));
+        }
 
 
         // Public methods                                                                                                           
@@ -87,6 +133,37 @@ namespace vtkControl
             {
                 double[] labelPosition = GetLabelPosition(axisId, labelSizes[axisId]);
                 _labelCoordinates[axisId].SetValue(labelPosition[0], labelPosition[1]);
+            }
+        }
+        public void AppendOrigin(vtkPoints points, vtkCellArray polygons, vtkUnsignedCharArray colors)
+        {
+            InsertDisk(points, polygons, _center, _originRadius);
+            InsertColor(colors, GetOriginColor(), 1);
+        }
+        public void AppendShaft(vtkPoints points, vtkCellArray lines, vtkUnsignedCharArray colors, int endId)
+        {
+            long firstPointId = points.GetNumberOfPoints();
+            points.InsertNextPoint(_center[0], _center[1], 0);
+            points.InsertNextPoint(_endPositions[endId][0], _endPositions[endId][1], 0);
+            //
+            lines.InsertNextCell(2);
+            lines.InsertCellPoint(firstPointId);
+            lines.InsertCellPoint(firstPointId + 1);
+            //
+            InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
+        }
+        public void AppendEnd(vtkPoints points, vtkCellArray polygons, vtkUnsignedCharArray colors, int endId)
+        {
+            if (IsPositiveEnd(endId))
+            {
+                InsertCone(points, polygons, endId);
+                InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
+                InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
+            }
+            else
+            {
+                InsertDisk(points, polygons, _endPositions[endId], _negativeEndRadius);
+                InsertColor(colors, GetEndColor(endId), GetEndOpacity(endId));
             }
         }
         public void AddLabelsToRenderer(vtkRenderer renderer)
@@ -131,6 +208,45 @@ namespace vtkControl
             {
                 _labelMappers[i].SetTextProperty(textProperty);
             }
+        }
+
+
+        // Static methods
+        public static void GetCameraBasis(vtkCamera camera, out double[] right, out double[] up,
+                                          out double[] viewPlaneNormal)
+        {
+            viewPlaneNormal = new double[] { 0, 0, 1 };
+            double[] viewUp = new double[] { 0, 1, 0 };
+            if (camera != null)
+            {
+                viewPlaneNormal = camera.GetViewPlaneNormal();  // points from the focal point towards the camera
+                viewUp = camera.GetViewUp();
+            }
+            GetCameraBasis(viewPlaneNormal, viewUp, out right, out up);
+        }
+        public static int[] GetTextSize(vtkTextMapper textMapper, vtkRenderer renderer)
+        {
+            int[] size = new int[2];
+
+            if (renderer != null)
+            {
+                IntPtr sizeIntPtr = System.Runtime.InteropServices.Marshal.AllocHGlobal(2 * 4);
+                try
+                {
+                    textMapper.GetSize(renderer, sizeIntPtr);
+                    System.Runtime.InteropServices.Marshal.Copy(sizeIntPtr, size, 0, 2);
+                }
+                finally
+                {
+                    System.Runtime.InteropServices.Marshal.FreeHGlobal(sizeIntPtr);
+                }
+            }
+            else
+            {
+                size[0] = size[1] = 50;
+            }
+
+            return size;
         }
     }
 }
