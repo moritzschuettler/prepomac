@@ -10595,7 +10595,7 @@ namespace vtkControl
         public VtkNativeView NativeMirror { get { return _nativeMirror; } }
         public void EnableNativeMirror(bool enable)
         {
-            SetNativeAreas(enable ? VtkNativeArea.All : VtkNativeArea.None, false);
+            SetNativeAreas(VtkNativeArea.All, true);
         }
         public VtkNativeArea NativeAreas { get { return _nativeAreas; } }
         public bool NativeInWindow { get { return _nativeInWindow; } }

@@ -91,7 +91,8 @@ for suite in "${SUITES[@]}"; do
         status=0
         for scene in $scene_list; do
             mapfile -t args < <(py -3 "$ROOT_U/VtkPort/Harness/scenes.py" "$scene" | tr -d '\r')
-            "$(cygpath -u "$EXE_W")" "${args[@]}" --script "$HARNESS\Record_Scene.py" \
+            PORT_REFERENCE="${REFERENCE:+$REFERENCE\\$name}" "$(cygpath -u "$EXE_W")" "${args[@]}" \
+                --script "$HARNESS\Record_Scene.py" \
                 --scriptArgs "$HARNESS|$scene|$areas|$OUT\\$name" -g No -w "$WORK" | grep -E "SCENE|Scene|Error|Exception"
         done
         graft_status=0

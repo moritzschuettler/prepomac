@@ -644,3 +644,17 @@ with ActiViz are kept as the reference the checks compare against once ActiViz i
   ActiViz visibility.
 - **Settings.** The background and the smoothing are kept by the control instead of being read back from the
   ActiViz renderer; a smoothing change reached the native view one settings change late.
+
+### The checks against the ActiViz reference
+
+- The full `Run_Port_Checks.sh` on stage 1 with ActiViz (2026-11-15, 08:25 - 10:38): all 28 suites passed, S4 with
+  its one known difference. Its output folder is the reference: `%TEMP%\VtkPortH\reference_activiz` (358 MB).
+- The harness now targets the native view in the window (`vtkport.enable_native` defaults to the window,
+  `EnableNativeMirror` switches the window view on, `disable_native` puts all areas back in the window); the off
+  screen mirror goes with ActiViz. With `--reference` the runner grafts the ActiViz side of the reference into each
+  suite before comparing, and `vtkport.reference_value` gives a recorder a value of the reference (the ActiViz camera
+  of the scenes that take it).
+- First run in the window against the reference: `geometry_scenes` 36/36, `geometry_slice_a` 36/36,
+  `geometry_g5_png` 4/4 passed. `widgets_w1` (triad clicks) and `selection_s2` (four hover pictures) failed: their
+  recorders still drive the ActiViz style by hand, and in the window an ActiViz click turns the native camera too,
+  so a triad click is applied twice. Each removal stream adapts the recorders of its area.

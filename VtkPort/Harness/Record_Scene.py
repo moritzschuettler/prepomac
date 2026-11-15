@@ -39,7 +39,9 @@ def main():
             name = "%s_%dx%d_%s.png" % (SCENE, width, height, view)
             old_camera, new_camera = vtkport.frame_both(start_camera, view)
             if SCENE in scenes.SAME_CAMERA:
-                new_camera = vtkport.set_native_camera(old_camera)
+                reference_camera = vtkport.reference_value(SCENE + "_scene.json", "images", len(record["images"]),
+                                                           "old_camera")
+                new_camera = vtkport.set_native_camera(reference_camera or old_camera)
             vtkport.save_pair(out_dir, name)
             record["images"].append({"file": name, "view": view, "viewport": [width, height],
                                      "old_camera": old_camera, "new_camera": new_camera})

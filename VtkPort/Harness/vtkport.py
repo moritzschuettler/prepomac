@@ -113,9 +113,10 @@ def area_flags(areas):
     return System.Enum.ToObject(clr.GetClrType(VtkNativeArea), value)
 
 
-def enable_native(areas, in_window=False, redraw=True):
-    """Switches the given native areas on ("geometry", "widgets", "selection") with the mirror or the native
-    window as the target; the Controller redraws, so the native view receives the current scene"""
+def enable_native(areas, in_window=True, redraw=True):
+    """Switches the given native areas on ("geometry", "widgets", "selection") with the native view in the window
+    as the target (the off screen mirror goes with ActiViz); the Controller redraws, so the native view receives the
+    current scene"""
     flags = area_flags(areas)
 
     def run():
@@ -135,12 +136,29 @@ def disable_native():
     def run():
         VTK.SetNativeMirrorPartsOnly(False)
         VTK.SetNativeMirrorScalarBarOnly(False)
-        VTK.SetNativeAreas(area_flags([]), False)
+        VTK.SetNativeAreas(area_flags(["geometry", "widgets", "selection"]), True)
     on_ui(run)
 
 
 def parts_only(on):
     on_ui(lambda: VTK.SetNativeMirrorPartsOnly(on))
+
+
+def reference_value(document, *path):
+    """A value of the reference run the checks compare with (PORT_REFERENCE, a suite folder of a run on a build
+    with ActiViz), or None without one: the ActiViz camera a scene gives the native view, for example"""
+    reference = os.environ.get("PORT_REFERENCE")
+    if not reference:
+        return None
+    import json
+    full = os.path.join(reference, document)
+    if not os.path.isfile(full):
+        return None
+    with open(full) as stream:
+        value = json.load(stream)
+    for key in path:
+        value = value[key]
+    return value
 
 
 def camera_list(values):
