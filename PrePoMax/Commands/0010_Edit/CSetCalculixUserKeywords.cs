@@ -23,9 +23,8 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10039)]
-    class CSetCalculixUserKeywords : PreprocessCommand, ISerializable
+    class CSetCalculixUserKeywords : PreprocessCommand
     {
         // Variables                                                                                                                
         [PmxKey(0)] private OrderedDictionary<int[], Calculix.CalculixUserKeyword> _userKeywords;   //ISerializable
@@ -82,12 +81,6 @@ namespace PrePoMax.Commands
         public override string GetCommandString()
         {
             return base.GetCommandString() + _userKeywords.Count;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            info.AddValue("_userKeywords", _userKeywords, typeof(OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
         }
     }
 }

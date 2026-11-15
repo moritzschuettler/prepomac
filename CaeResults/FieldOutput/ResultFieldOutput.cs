@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {   
-    [Serializable]
     [PmxType(5019)]
     public abstract class ResultFieldOutput : NamedClass
     {

@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10010)]
     public class SurfaceAnnotation : AnnotationBase
     {

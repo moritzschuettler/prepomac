@@ -20,7 +20,6 @@ using System.Runtime.InteropServices;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10532)]
     public enum AnnotationBackgroundType
     {
@@ -29,7 +28,6 @@ namespace PrePoMax
     }
 
 
-    [Serializable]
     [PmxType(10533)]
     public class LegendSettings : ISettings
     {

@@ -21,9 +21,8 @@ using System.Runtime.InteropServices;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3270)]
-    public class STLoad : Load, IDistribution, IPreviewable, ISerializable
+    public class STLoad : Load, IDistribution, IPreviewable
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _surfaceName;            //ISerializable
@@ -143,6 +142,18 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetF1(_f1, false);
+            SetF2(_f2, false);
+            SetF3(_f3, false);
+            SetFMagnitude(_fMagnitude, false);
+            SetP1(_p1, false);
+            SetP2(_p2, false);
+            SetP3(_p3, false);
+            SetPMagnitude(_pMagnitude, false);
+        }
         private void UpdateEquations()
         {
             try
@@ -495,24 +506,6 @@ namespace CaeModel
             double[][] values;
             GetForcesPerAreaAndDistancesForPoints(model, points, out _, out values);
             return values[0];
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_f1", _f1, typeof(EquationContainer));
-            info.AddValue("_f2", _f2, typeof(EquationContainer));
-            info.AddValue("_f3", _f3, typeof(EquationContainer));
-            info.AddValue("_fMagnitude", _fMagnitude, typeof(EquationContainer));
-            info.AddValue("_p1", _p1, typeof(EquationContainer));
-            info.AddValue("_p2", _p2, typeof(EquationContainer));
-            info.AddValue("_p3", _p3, typeof(EquationContainer));
-            info.AddValue("_pMagnitude", _pMagnitude, typeof(EquationContainer));
-            info.AddValue("_distributionName", _distributionName, typeof(string));
         }
     }
 }

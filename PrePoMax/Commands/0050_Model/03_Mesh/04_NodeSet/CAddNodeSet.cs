@@ -21,7 +21,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10100)]
     class CAddNodeSet : PreprocessCommand
     {

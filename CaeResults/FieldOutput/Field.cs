@@ -21,7 +21,6 @@ using System.Diagnostics.Eventing.Reader;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5009)]
     public enum DataTypeEnum
     {
@@ -31,7 +30,6 @@ namespace CaeResults
         Tensor
     }
 
-    [Serializable]
     [PmxType(5010)]
     public enum DataStateEnum
     {
@@ -41,7 +39,6 @@ namespace CaeResults
     }
 
 
-    [Serializable]
     [PmxType(5011)]
     public struct IDValuePair
     {
@@ -49,7 +46,6 @@ namespace CaeResults
         [PmxKey(1)] public float Value;
     }
 
-    [Serializable]
     [PmxType(5012)]
     public class Field : NamedClass
     {

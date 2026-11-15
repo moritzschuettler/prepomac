@@ -19,9 +19,8 @@ using GmshCommon;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2122)]
-    public class TransfiniteMesh : GmshSetupItem, ISerializable
+    public class TransfiniteMesh : GmshSetupItem
     {
         // Variables                                                                                                                
         [PmxKey(0)] private bool _allowPyramidElements;              // ISerializable
@@ -69,13 +68,6 @@ namespace CaeMesh
         {
             base.CopyFrom(transfiniteMesh);
             _allowPyramidElements = transfiniteMesh._allowPyramidElements;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_allowPyramidElements", _allowPyramidElements, typeof(bool));
         }
     }
 }

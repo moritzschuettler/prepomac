@@ -19,7 +19,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3058)]
     public abstract class CalculixKeyword //: ISerializable - this would mean that all derived classes must be Serializable !!!
     {
@@ -106,13 +105,6 @@ namespace FileInOut.Output.Calculix
             else throw new NotSupportedException();
             //
             return ratio;
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_keywords", _keywords, typeof(List<CalculixKeyword>));
-            info.AddValue("_active", _active, typeof(bool));
         }
     }
 }

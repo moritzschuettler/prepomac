@@ -20,7 +20,6 @@ using System.Xml.Linq;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3016)]
     public class PointSpringData
     {

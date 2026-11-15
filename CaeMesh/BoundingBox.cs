@@ -60,7 +60,6 @@ namespace CaeMesh
         }
     }
 
-    [Serializable]
     [PmxType(2000)]
     public class BoundingBox
     {

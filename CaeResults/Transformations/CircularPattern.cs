@@ -18,7 +18,6 @@ using Octree;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5059)]
     public class CircularPattern : Transformation
     {

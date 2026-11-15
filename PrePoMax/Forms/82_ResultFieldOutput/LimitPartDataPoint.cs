@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10497)]
     public class LimitPartDataPoint
     {

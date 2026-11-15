@@ -21,7 +21,6 @@ using System.Security.Cryptography;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10345)]
     public class ViewSplitPartMeshData : ViewMasterSlaveMultiRegion
     {

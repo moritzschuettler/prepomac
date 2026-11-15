@@ -18,8 +18,6 @@ using CaeGlobals;
 
 namespace FileInOut.Input
 {
-    [Serializable]
-    [PmxType(3042)]
     public static class UnvFileReader
     {
         //

@@ -18,9 +18,8 @@ using DynamicTypeDescriptor;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3034)]
-    public abstract class MappedDistribution : Distribution, ISerializable
+    public abstract class MappedDistribution : Distribution
     {
         // Variables                                                                                                                
         [PmxKey(0)] protected CloudInterpolatorEnum _interpolatorType;      //ISerializable
@@ -99,6 +98,17 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetInterpolatorRadius(_interpolatorRadius, false);
+            SetScaleX(_scaleX, false);
+            SetScaleY(_scaleY, false);
+            SetScaleZ(_scaleZ, false);
+            SetTranslateX(_translateX, false);
+            SetTranslateY(_translateY, false);
+            SetTranslateZ(_translateZ, false);
+        }
         private void SetInterpolatorRadius(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _interpolatorRadius, value, CheckPositive, EquationChanged, checkEquation);
@@ -134,22 +144,6 @@ namespace CaeModel
         {
             if (value <= 0) throw new CaeException("The value must be larger than 0.");
             else return value;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_interpolatorType", _interpolatorType, typeof(CloudInterpolatorEnum));
-            info.AddValue("_interpolatorRadius", _interpolatorRadius, typeof(EquationContainer));
-            info.AddValue("_scaleX", _scaleX, typeof(EquationContainer));
-            info.AddValue("_scaleY", _scaleY, typeof(EquationContainer));
-            info.AddValue("_scaleZ", _scaleZ, typeof(EquationContainer));
-            info.AddValue("_translateX", _translateX, typeof(EquationContainer));
-            info.AddValue("_translateY", _translateY, typeof(EquationContainer));
-            info.AddValue("_translateZ", _translateZ, typeof(EquationContainer));
-            info.AddValue("_coorValues", _coorValues, typeof(double[][]));
         }
     }
 }

@@ -18,9 +18,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3222)]
-    public class CoupledTempDispStep : UncoupledTempDispStep, ISerializable
+    public class CoupledTempDispStep : UncoupledTempDispStep
     {
         // Variables                                                                                                                
         
@@ -48,12 +47,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-       
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-        }
     }
 }

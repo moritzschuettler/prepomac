@@ -18,7 +18,6 @@ using Octree;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5060)]
     public class LinearPattern : Transformation
     {

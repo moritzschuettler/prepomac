@@ -19,7 +19,6 @@ namespace Octree
     //                          
     // a*x + b*y + c*z + d = 0  
     //                          
-    [Serializable]
     [PmxType(1022)]
     public class Plane
     {

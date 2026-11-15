@@ -21,9 +21,8 @@ using System.Data;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3172)]
-    public class InitialTemperature : InitialCondition, IDistribution, IPreviewable, ISerializable
+    public class InitialTemperature : InitialCondition, IDistribution, IPreviewable
     {
         // Variables                                                                                                                
         [PmxKey(0)] private int _nodeId;                            //ISerializable
@@ -79,6 +78,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetTemp(_temperature, false);
+        }
         private void SetTemp(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _temperature, value, null, null, checkEquation);
@@ -223,16 +227,6 @@ namespace CaeModel
                     else throw new NotSupportedException();
                 }
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_nodeId", _nodeId, typeof(int));
-            info.AddValue("_temperature", _temperature, typeof(EquationContainer));
-            info.AddValue("_distributionName", _distributionName, typeof(string));
         }
     }
 }

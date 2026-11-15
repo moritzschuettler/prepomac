@@ -22,7 +22,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10072)]
     class CCreateMesh : PreprocessCommand
     {

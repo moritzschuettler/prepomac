@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10356)]
     public class ViewFeSurface : UserControls.IMissingPropertyValues
     {

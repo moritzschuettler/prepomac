@@ -12,7 +12,6 @@ using CaeGlobals;
 
 namespace vtkControl
 {
-    [Serializable]
     [PmxType(6106)]
     public enum vtkResultWidgetContextMenuTypeEnum
     {

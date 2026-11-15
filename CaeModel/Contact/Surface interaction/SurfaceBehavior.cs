@@ -16,7 +16,6 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3026)]
     public enum PressureOverclosureEnum
     {
@@ -27,7 +26,6 @@ namespace CaeModel
         Tied
     }
 
-    [Serializable]
     [PmxType(3027)]
     public class SurfaceBehavior : SurfaceInteractionProperty
     {

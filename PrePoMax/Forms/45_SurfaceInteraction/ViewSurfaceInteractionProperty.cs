@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10403)]
     public abstract class ViewSurfaceInteractionProperty
     {

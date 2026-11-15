@@ -22,7 +22,6 @@ namespace CaeResults
     // The From Element Size history output was replaced by the From Integration history output using the
     // Geometry integral result. It can no longer be created, but existing definitions are still read and
     // evaluated, and they can still be edited.
-    [Serializable]
     [PmxType(5065)]
     public enum ElementSizeTypeEnum
     {
@@ -31,7 +30,6 @@ namespace CaeResults
     }
 
 
-    [Serializable]
     [PmxType(5066)]
     public class ResultHistoryOutputFromElementSize : ResultHistoryOutput
     {

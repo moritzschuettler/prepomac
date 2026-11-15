@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2126)]
     public enum QuadWildBoundaryLayerEnum
     {

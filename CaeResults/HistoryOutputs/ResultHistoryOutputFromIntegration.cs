@@ -20,7 +20,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5052)]
     public enum IntegralTypeEnum
     {
@@ -29,7 +28,6 @@ namespace CaeResults
         Volume
     }
     //
-    [Serializable]
     [PmxType(5053)]
     public enum IntegralResultEnum
     {
@@ -44,7 +42,6 @@ namespace CaeResults
         FieldByGeometry
     }
 
-    [Serializable]
     [PmxType(5054)]
     public class ResultHistoryOutputFromIntegration : ResultHistoryOutput
     {

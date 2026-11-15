@@ -17,9 +17,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3197)]
-    public class GapSectionData : SectionData, ISerializable
+    public class GapSectionData : SectionData
     {
         // Static Variables                                                                                                         
         public static readonly double InitialSpringStiffness = 1E12;
@@ -80,19 +79,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-       
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_clearance", _clearance, typeof(double));
-            info.AddValue("_direction", _direction, typeof(double[]));
-            info.AddValue("_springStiffness", _springStiffness, typeof(double));
-            info.AddValue("_tensileForceAtNegativeInfinity", _tensileForceAtNegativeInfinity, typeof(double));
-        }
     }
 }

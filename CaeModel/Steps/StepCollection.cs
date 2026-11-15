@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3281)]
     public class StepCollection
     {

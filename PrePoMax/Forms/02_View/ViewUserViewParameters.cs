@@ -21,7 +21,6 @@ using System.Drawing.Design;
 
 namespace PrePoMax.Forms
 {    
-    [Serializable]
     [PmxType(10321)]
     public class ViewUserViewParameters
     {

@@ -17,7 +17,6 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3002)]
     public class AmplitudeTabular : Amplitude
     {

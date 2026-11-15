@@ -22,7 +22,6 @@ using CaeResults;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10213)]
     class CExportParameters : PreprocessCommand, IExportFileCommand
     {

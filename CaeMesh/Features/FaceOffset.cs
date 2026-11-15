@@ -17,9 +17,8 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2065)]
-    public class FaceOffset : ISerializable
+    public class FaceOffset
     {
         // Variables                                                                                                                
         [PmxKey(0)] private int[] _creationIds;                         //ISerializable
@@ -68,14 +67,6 @@ namespace CaeMesh
             if (_creationIds == null || _creationIds.Length == 0) return "Select at least one surface to offset.";
             //
             return null;
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_offset", _offset, typeof(double));
         }
     }
 }

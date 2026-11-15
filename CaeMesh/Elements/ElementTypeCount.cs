@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2026)]
     public class ElementTypeCount
     {

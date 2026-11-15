@@ -19,7 +19,6 @@ using System.Runtime.InteropServices;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3055)]
     internal class AbqImportedPressureLoad : CalImportedPressureLoad
     {

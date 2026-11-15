@@ -22,9 +22,8 @@ using static CaeGlobals.Geometry2;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5037)]
-    public class HistoryResultEntries : NamedClass, ISerializable
+    public class HistoryResultEntries : NamedClass
     {
         // Variables                                                                                                                
         [PmxKey(0)] private List<double> _time;             //ISerializable
@@ -275,18 +274,6 @@ namespace CaeResults
                     else _count.Add(count[i]);
                 }
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_time", _time, typeof(List<double>));
-            info.AddValue("_values", _values, typeof(List<double>));
-            info.AddValue("_count", _count, typeof(List<int>));
-            info.AddValue("_local", _local, typeof(bool));
-            info.AddValue("_unit", _unit, typeof(string));
         }
     }
 }

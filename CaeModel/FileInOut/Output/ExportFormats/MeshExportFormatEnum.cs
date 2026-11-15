@@ -12,7 +12,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output
 {
-    [Serializable]
     [PmxType(3166)]
     public enum MeshExportFormatEnum
     {

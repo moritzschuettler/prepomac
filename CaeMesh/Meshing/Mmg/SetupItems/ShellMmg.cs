@@ -13,9 +13,8 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2123)]
-    public class ShellMmg : MeshSetupItem, ISerializable
+    public class ShellMmg : MeshSetupItem
     {
         // Variables
         public static readonly double DefaultRelativeHausdorff = 0.01;
@@ -112,15 +111,6 @@ namespace CaeMesh
             if (shellMmg1._hausdorff != shellMmg2._hausdorff) return false;
             if (shellMmg1._keepModelEdges != shellMmg2._keepModelEdges) return false;
             return true;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            info.AddValue("_relativeSize", _relativeSize, typeof(bool));
-            info.AddValue("_relativeHausdorff", _relativeHausdorff, typeof(double));
-            info.AddValue("_hausdorff", _hausdorff, typeof(double));
-            info.AddValue("_keepModelEdges", _keepModelEdges, typeof(bool));
         }
     }
 }

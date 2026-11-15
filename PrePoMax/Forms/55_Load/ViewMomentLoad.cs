@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10470)]
     public class ViewMomentLoad : ViewLoad
     {

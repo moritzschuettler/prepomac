@@ -19,9 +19,8 @@ using GmshCommon;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2121)]
-    public class TetrahedralGmsh : GmshSetupItem, ISerializable
+    public class TetrahedralGmsh : GmshSetupItem
     {
         // Variables                                                                                                                
 
@@ -62,12 +61,6 @@ namespace CaeMesh
         public void CopyFrom(TetrahedralGmsh tetrahedronGmsh)
         {
             base.CopyFrom(tetrahedronGmsh);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
         }
     }
 }

@@ -20,7 +20,6 @@ using System.IO;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10306)]
     public class ExportHistoryResultSetFileProperties : ExportFileProperties
     {

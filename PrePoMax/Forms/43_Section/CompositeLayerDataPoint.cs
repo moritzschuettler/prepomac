@@ -14,7 +14,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10381)]
     public class CompositeLayerDataPoint
     {

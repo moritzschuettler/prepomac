@@ -14,7 +14,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10535)]
     public enum TrackpadGesturesEnum
     {
@@ -31,7 +30,6 @@ namespace PrePoMax
         On,
     }
 
-    [Serializable]
     [PmxType(10536)]
     public enum TwoFingerDragEnum
     {
@@ -42,7 +40,6 @@ namespace PrePoMax
         Pan,
     }
 
-    [Serializable]
     [PmxType(10537)]
     public class NavigationSettings : ISettings
     {

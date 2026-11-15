@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5004)]
     public enum ComplexResultTypeEnum
     {

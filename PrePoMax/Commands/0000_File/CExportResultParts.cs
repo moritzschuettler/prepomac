@@ -24,7 +24,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10022)]
     class CExportResultParts : PostprocessCommand, IExportFileCommand
     {

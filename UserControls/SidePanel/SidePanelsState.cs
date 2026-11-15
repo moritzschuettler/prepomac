@@ -12,7 +12,6 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6208)]
     public class SidePanelsState
     {

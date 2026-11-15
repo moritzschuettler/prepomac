@@ -18,7 +18,6 @@ using CaeMesh;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3193)]
     public class EquationParameterCollection
     {

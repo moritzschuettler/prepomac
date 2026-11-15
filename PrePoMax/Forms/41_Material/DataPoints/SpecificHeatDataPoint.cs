@@ -19,7 +19,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10364)]
     public class SpecificHeatDataPoint : TempDataPoint
     {

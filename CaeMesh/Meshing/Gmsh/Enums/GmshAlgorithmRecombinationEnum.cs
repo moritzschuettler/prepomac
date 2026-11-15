@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2105)]
     public enum GmshAlgorithmRecombineEnum
     {

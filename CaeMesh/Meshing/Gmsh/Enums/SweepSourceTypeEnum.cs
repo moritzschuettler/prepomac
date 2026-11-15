@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2114)]
     public enum SweepSourceTypeEnum
     {

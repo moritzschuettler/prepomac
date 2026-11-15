@@ -42,7 +42,6 @@ namespace CaeGlobals
     /// A UI-independent node used to organize the items of an <see cref="OrderedDictionary{TKey, TValue}"/>.
     /// Item nodes reference dictionary keys while group nodes contain child nodes.
     /// </summary>
-    [Serializable]
     [PmxType(1012)]
     public sealed class OrderedDictionaryItemNode<TKey>
     {
@@ -153,7 +152,6 @@ namespace CaeGlobals
     /// <summary>
     /// An immutable snapshot of the hierarchy used to display an ordered dictionary.
     /// </summary>
-    [Serializable]
     [PmxType(1013)]
     public sealed class OrderedDictionaryItemLayout<TKey>
     {

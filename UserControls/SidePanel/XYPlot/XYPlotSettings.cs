@@ -14,7 +14,6 @@ using ZedGraph;
 
 namespace UserControls
 {
-    [System.Serializable]
     [PmxType(6216)]
     public class XYPlotSettings : IXYPlotSettings
     {

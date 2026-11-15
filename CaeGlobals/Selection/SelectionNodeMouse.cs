@@ -16,9 +16,8 @@ using System.Runtime.Serialization;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1029)]
-    public class SelectionNodeMouse : SelectionNode, ISerializable
+    public class SelectionNodeMouse : SelectionNode
     {
         // Variables                                                                                                                
         [PmxKey(0)] private double[] _pickedPoint;                                  //ISerializable
@@ -187,22 +186,6 @@ namespace CaeGlobals
             if (length == 0) return vector;
             return new double[] { vector[0] * targetLength / length, vector[1] * targetLength / length,
                                   vector[2] * targetLength / length };
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_pickedPoint", _pickedPoint, typeof(double[]));
-            info.AddValue("_selectionDirection", _selectionDirection, typeof(double[]));
-            info.AddValue("_planeParameters", _planeParameters, typeof(double[][]));
-            info.AddValue("_completelyInside", _completelyInside, typeof(bool));
-            info.AddValue("_selectBy", _selectBy, typeof(vtkSelectBy));
-            info.AddValue("_angle", _angle, typeof(double));
-            info.AddValue("_partOffsets", _partOffsets, typeof(double[][]));
-            info.AddValue("_precision", _precision, typeof(double));
-            info.AddValue("_pickedOnUndeformedGeometry", _pickedOnUndeformedGeometry, typeof(bool));
-            info.AddValue("_partIdsGiven", _partIdsGiven, typeof(bool));
         }
 
 

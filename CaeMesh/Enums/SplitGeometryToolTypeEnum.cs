@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2061)]
     public enum SplitGeometryToolTypeEnum
     {

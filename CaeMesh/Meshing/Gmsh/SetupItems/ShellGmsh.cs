@@ -19,9 +19,8 @@ using GmshCommon;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2119)]
-    public class ShellGmsh : GmshSetupItem, ISerializable
+    public class ShellGmsh : GmshSetupItem
     {
         // Variables                                                                                                                
         
@@ -62,12 +61,6 @@ namespace CaeMesh
         public void CopyFrom(ShellGmsh shellGmsh)
         {
             base.CopyFrom(shellGmsh);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
         }
     }
 }

@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2006)]
     public class MassElement : FeElement0D
     {

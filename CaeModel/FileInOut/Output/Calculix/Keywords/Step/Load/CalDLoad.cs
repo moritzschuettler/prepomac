@@ -19,7 +19,6 @@ using System.Diagnostics;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3150)]
     internal class CalDLoad : CalLoad
     {

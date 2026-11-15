@@ -19,9 +19,8 @@ using System.Drawing;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3204)]
-    public abstract class SectionData : NamedClass, IMultiRegion, ISerializable
+    public abstract class SectionData : NamedClass, IMultiRegion
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _materialName;               //ISerializable
@@ -77,22 +76,6 @@ namespace CaeModel
             }
         }
 
-        // Methods                                                                                                                  
-
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_materialName", _materialName, typeof(string));
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_thickness", _thickness, typeof(double));
-        }
 
     }
 

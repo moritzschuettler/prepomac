@@ -20,7 +20,6 @@ using System.IO;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5064)]
     public class HistoryResultSetExporter
     {

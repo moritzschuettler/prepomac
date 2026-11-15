@@ -22,9 +22,8 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10268)]
-    class CSetMeshingParameters : PreprocessCommand, ICommandWithDialog, ISerializable
+    class CSetMeshingParameters : PreprocessCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
 
@@ -65,11 +64,6 @@ namespace PrePoMax.Commands
         {
             // Compatibility for version v1.3.5
             return base.GetCommandString();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Compatibility for version v1.3.5
         }
     }
 }

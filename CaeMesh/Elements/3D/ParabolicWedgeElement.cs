@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2025)]
     public class ParabolicWedgeElement : FeElement3D
     {

@@ -14,7 +14,6 @@ namespace PrePoMax
 {
     // The process exit code contract for unattended runs. These values are part of the command line
     // interface and must stay stable.
-    [Serializable]
     [PmxType(10017)]
     public enum ExitCodeEnum
     {

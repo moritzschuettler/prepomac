@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 
 namespace CaeJob
 {
-    [Serializable]
     [PmxType(3225)]
     public class DampingRatioAndRange
     {

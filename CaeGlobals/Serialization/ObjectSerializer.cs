@@ -17,7 +17,7 @@ namespace CaeGlobals
     {
         // Variables                                                                                                                
         private static IObjectSerializer _default = new PmxObjectSerializer();
-        private static Func<Stream, object> _legacyReader = new BinaryObjectSerializer().Deserialize;
+        private static Func<Stream, object> _legacyReader = null;
 
 
         // Properties                                                                                                               
@@ -30,7 +30,8 @@ namespace CaeGlobals
                 _default = value;
             }
         }
-        // Reads a stream written before the storage payloads, by the binary formatter of an older version
+        // Reads a stream an older version wrote with the binary formatter; the application sets it to
+        // PrePoMax.LegacyImport, so that no other part of PrePoMax reads that format
         public static Func<Stream, object> LegacyReader
         {
             get { return _legacyReader; }

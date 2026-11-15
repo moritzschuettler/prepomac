@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10411)]
     public abstract class ViewMappedDistribution : ViewDistribution
     {

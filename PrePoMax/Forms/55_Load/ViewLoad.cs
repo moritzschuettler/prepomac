@@ -20,7 +20,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10469)]
     public abstract class ViewLoad: ViewMultiRegion
     {

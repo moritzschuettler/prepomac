@@ -20,7 +20,6 @@ using UnitsNet;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1020)]
     public class EquationString
     {

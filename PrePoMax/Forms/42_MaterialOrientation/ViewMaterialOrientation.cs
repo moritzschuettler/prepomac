@@ -17,7 +17,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10380)]
     public class ViewMaterialOrientation : ViewMultiRegion
     {

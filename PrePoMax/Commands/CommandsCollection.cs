@@ -23,7 +23,6 @@ using FileInOut.Output.Calculix;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10266)]
     public enum RegenerateTypeEnum
     {
@@ -33,7 +32,6 @@ namespace PrePoMax.Commands
         PostProcess
     }
 
-    [Serializable]
     [PmxType(10267)]
     public class CommandsCollection
     {

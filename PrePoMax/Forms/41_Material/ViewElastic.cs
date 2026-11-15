@@ -19,7 +19,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10371)]
     public class ViewElastic : ViewMaterialProperty
     {

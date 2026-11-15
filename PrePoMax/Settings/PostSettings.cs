@@ -22,7 +22,6 @@ using System.Drawing;
 namespace PrePoMax
 {
 
-    [Serializable]
     [PmxType(10540)]
     public class PostSettings : ISettings
     {

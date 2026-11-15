@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Serialization;
 using System.Text;
 using CaeGlobals;
 
@@ -105,6 +106,35 @@ namespace PmxTool
             }
             return entries;
         }
+        // The check and changed callbacks of an equation container are not stored, so an owner that wires them in its
+        // setters - SetX(EquationContainer value, bool checkEquation) - wires them again after every read, a clone
+        // included, in an [OnDeserialized] method that calls those setters
+        private static List<string> GetEquationOwnersWithoutCallbacks()
+        {
+            List<string> errors = new List<string>();
+            BindingFlags declared = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+            foreach (var entry in PmxTypeRegistry.GetAllTypes())
+            {
+                for (Type level = entry.Value; level != null && level != typeof(object); level = level.BaseType)
+                {
+                    if (level.IsEnum || level.IsValueType) break;
+                    bool wiresEquations = level.GetMethods(declared).Any(method => IsEquationSetter(method));
+                    if (!wiresEquations) continue;
+                    bool hasCallback = level.GetMethods(declared).Any(method => method.IsDefined(typeof(OnDeserializedAttribute), false));
+                    string error = level.FullName + " stores equation containers but has no [OnDeserialized] method that wires " +
+                                   "their callbacks again (see RestoreEquationCallbacks in CaeModel.STLoad)";
+                    if (!hasCallback && !errors.Contains(error)) errors.Add(error);
+                }
+            }
+            return errors;
+        }
+        private static bool IsEquationSetter(MethodInfo method)
+        {
+            ParameterInfo[] parameters = method.GetParameters();
+            return parameters.Length == 2 && parameters[1].ParameterType == typeof(bool) &&
+                   (parameters[0].ParameterType == typeof(EquationContainer) ||
+                    parameters[0].ParameterType == typeof(EquationContainer[][]));
+        }
         public static int Run(string snapshotFileName, bool update)
         {
             List<string> current = Create();
@@ -136,6 +166,7 @@ namespace PmxTool
                                "; give the changed type or field a new number instead");
             }
             int newEntries = now.Keys.Count(key => !old.ContainsKey(key));
+            errors.AddRange(GetEquationOwnersWithoutCallbacks());
             //
             if (errors.Count > 0)
             {

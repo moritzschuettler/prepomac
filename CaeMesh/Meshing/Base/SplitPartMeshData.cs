@@ -18,7 +18,6 @@ using System.Drawing;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2095)]
     public class SplitPartMeshData : IMasterSlaveMultiRegion
     {

@@ -21,7 +21,6 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10526)]
     public enum ColorPaletteEnum
     {
@@ -65,7 +64,6 @@ namespace PrePoMax
         Custom,
     }
 
-    [Serializable]
     [PmxType(10527)]
     public class ColorSettings : ISettings, Settings.IReset
     {

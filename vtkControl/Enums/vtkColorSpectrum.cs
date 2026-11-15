@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace vtkControl
 {
-    [Serializable]
     [PmxType(6100)]
     public enum vtkColorSpectrumMode
     {
@@ -25,7 +24,6 @@ namespace vtkControl
         Smooth
     }
 
-    [Serializable]
     [PmxType(6101)]
     public enum vtkColorSpectrumType
     {

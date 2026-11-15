@@ -22,9 +22,8 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10099)]
-    class CTranslateModelParts : PreprocessCommand, ISerializable 
+    class CTranslateModelParts : PreprocessCommand 
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string[] _partNames;
@@ -80,15 +79,6 @@ namespace PrePoMax.Commands
         public override string GetCommandString()
         {
             return base.GetCommandString() + GetArrayAsString(_partNames);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_partNames", _partNames, typeof(string[]));
-            info.AddValue("_translateVector", _translateVector, typeof(double[]));
-            info.AddValue("_numberOfCopies", _numberOfCopies, typeof(int));
         }
     }
 }

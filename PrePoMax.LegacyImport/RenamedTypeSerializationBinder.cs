@@ -11,7 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-namespace CaeGlobals
+namespace PrePoMax.LegacyImport
 {
     public class RenamedTypeSerializationBinder : SerializationBinder
     {

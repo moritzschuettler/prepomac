@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10333)]
     public class ViewThickenShellMesh : ViewMeshSetupItem
     {

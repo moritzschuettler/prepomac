@@ -8,7 +8,6 @@ using System.Collections.Generic;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5056)]
     public class ResultHistoryOutputFromTable : ResultHistoryOutput
     {

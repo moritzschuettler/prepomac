@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3096)]
     internal class CalThermalConductivity : CalculixKeyword
     {

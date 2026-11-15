@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10368)]
     public class MaterialLibraryItem : NamedClass
     {

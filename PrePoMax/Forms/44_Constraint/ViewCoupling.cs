@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10389)]
     public enum CouplingTypeEnum
     {
@@ -30,7 +29,6 @@ namespace PrePoMax
         Distributing
     }
 
-    [Serializable]
     [PmxType(10390)]
     public class ViewCoupling : ViewConstraint
     {

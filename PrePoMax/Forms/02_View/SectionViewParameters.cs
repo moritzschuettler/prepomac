@@ -21,7 +21,6 @@ using System.Drawing;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10318)]
     public class SectionViewParameters
     {

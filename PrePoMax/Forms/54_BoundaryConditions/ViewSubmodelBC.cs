@@ -20,7 +20,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10456)]
     public class ViewSubmodelBC : ViewBoundaryCondition
     {

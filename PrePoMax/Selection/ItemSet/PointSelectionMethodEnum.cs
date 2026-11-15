@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10523)]
     public enum PointSelectionMethodEnum
     {

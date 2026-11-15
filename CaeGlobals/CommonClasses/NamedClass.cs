@@ -17,7 +17,6 @@ using System.Runtime.Serialization;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1010)]
     public abstract class NamedClass //: ISerializable - this would mean that all derived classes must be Serializable !!!
     {
@@ -240,20 +239,6 @@ namespace CaeGlobals
         public override string ToString()
         {
             return _name;
-        }
-
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_name", _name, typeof(string));
-            info.AddValue("_active", _active, typeof(bool));
-            info.AddValue("_visible", _visible, typeof(bool));
-            info.AddValue("_modified", _modified, typeof(bool));
-            info.AddValue("_valid", _valid, typeof(bool));
-            info.AddValue("_internal", _internal, typeof(bool));
-            info.AddValue("_checkName", _checkName, typeof(bool));
-            info.AddValue("_additionalCharacters", _additionalCharacters, typeof(HashSet<char>));
         }
     }
 }

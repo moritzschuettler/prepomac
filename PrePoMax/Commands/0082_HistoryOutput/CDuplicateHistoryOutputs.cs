@@ -21,7 +21,6 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10182)]
     class CDuplicateHistoryOutputs : PreprocessCommand
     {

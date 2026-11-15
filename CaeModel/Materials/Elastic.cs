@@ -20,9 +20,8 @@ using System.Xml.Linq;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3176)]
-    public class Elastic : MaterialProperty, ISerializable
+    public class Elastic : MaterialProperty
     {
         // Variables                                                                                                                
         [PmxKey(0)] private EquationContainer[][] _youngsPoissonsTemp;         //ISerializable
@@ -83,6 +82,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetYoungsPoissonsTemp(_youngsPoissonsTemp, false);
+        }
         private void SetYoungsPoissonsTemp(double[][] value, bool checkEquation = true)
         {
             _youngsPoissonsTemp = new EquationContainer[value.Length][];
@@ -116,14 +120,6 @@ namespace CaeModel
                 _youngsPoissonsTemp[i][1].CheckEquation();
                 _youngsPoissonsTemp[i][2].CheckEquation();
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_youngsPoissonsTemp", _youngsPoissonsTemp, typeof(EquationContainer[][]));
         }
     }
 }

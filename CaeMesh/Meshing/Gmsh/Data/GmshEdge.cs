@@ -14,7 +14,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2099)]
     public class GmshEdge : IComparable<GmshEdge>
     {

@@ -19,7 +19,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10376)]
     public class ViewSlipWear : ViewMaterialProperty
     {

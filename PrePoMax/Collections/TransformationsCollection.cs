@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10016)]
     public class TransformationsCollection
     {

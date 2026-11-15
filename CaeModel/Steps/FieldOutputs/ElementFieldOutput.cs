@@ -18,7 +18,6 @@ using CaeMesh;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3235)]
     [Flags]
     public enum ElementFieldVariable
@@ -40,7 +39,6 @@ namespace CaeModel
         SDV = 1073741824,
     }
 
-    [Serializable]
     [PmxType(3236)]
     public enum ElementFieldOutputOutputEnum
     {
@@ -51,9 +49,8 @@ namespace CaeModel
         ThreeD
     }
 
-    [Serializable]
     [PmxType(3237)]
-    public class ElementFieldOutput : FieldOutput, ISerializable
+    public class ElementFieldOutput : FieldOutput
     {
         // Variables                                                                                                                
         [PmxKey(0)] private ElementFieldOutputOutputEnum _output;           //ISerializable
@@ -99,15 +96,6 @@ namespace CaeModel
                          _variables.HasFlag(ElementFieldVariable.ZZS);
             if (_variables.HasFlag(ElementFieldVariable.S) && !error) result += ", NOE";
             return result;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_output", _output, typeof(ElementFieldOutputOutputEnum));
-            info.AddValue("_variables", _variables, typeof(ElementFieldVariable));
         }
     }
 }

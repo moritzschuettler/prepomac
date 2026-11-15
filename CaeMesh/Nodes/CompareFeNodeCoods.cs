@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2131)]
     public class CompareFeNodeCoods : IEqualityComparer<FeNode>
     {

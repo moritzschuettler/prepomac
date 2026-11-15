@@ -16,9 +16,8 @@ using System.Runtime.Serialization;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1027)]
-    public class SelectionNodeIds : SelectionNode, ISerializable
+    public class SelectionNodeIds : SelectionNode
     {
         // Variables                                                                                                                
         [PmxKey(0)] private bool _selectAll;                                //ISerializable
@@ -111,17 +110,6 @@ namespace CaeGlobals
                 }
             }
             return false;
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_selectAll", _selectAll, typeof(bool));
-            info.AddValue("_itemIds", _itemIds, typeof(int[]));
-            info.AddValue("_isGeometryBased", _isGeometryBased, typeof(bool));
-            info.AddValue("_geometrySelectMode", _geometrySelectMode, typeof(GeometrySelectModeEnum));
         }
     }
 }

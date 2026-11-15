@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5026)]
     public enum LimitPlotBasedOnEnum
     {
@@ -31,7 +30,6 @@ namespace CaeResults
     }
 
 
-    [Serializable]
     [PmxType(5027)]
     public class ResultFieldOutputLimit : ResultFieldOutput
     {

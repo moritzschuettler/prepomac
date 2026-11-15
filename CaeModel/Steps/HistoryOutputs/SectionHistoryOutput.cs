@@ -18,7 +18,6 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3251)]
     [Flags]
     public enum SectionHistoryVariableEnum
@@ -29,9 +28,8 @@ namespace CaeModel
         SOAREA = 4,
     }
 
-    [Serializable]
     [PmxType(3252)]
-    public class SectionHistoryOutput : HistoryOutput, ISerializable
+    public class SectionHistoryOutput : HistoryOutput
     {
         // Variables                                                                                                                
         [PmxKey(0)] private SectionHistoryVariableEnum _variables;              //ISerializable
@@ -61,16 +59,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_variables", _variables, typeof(SectionHistoryVariableEnum));
-        }
     }
 }

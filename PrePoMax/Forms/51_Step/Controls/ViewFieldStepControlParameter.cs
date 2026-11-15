@@ -19,7 +19,6 @@ using System.Windows.Forms;
 
 namespace PrePoMax.PropertyViews
 {
-    [Serializable]
     [PmxType(10420)]
     public class ViewFieldStepControlParameter : ViewStepControlParameter
     {

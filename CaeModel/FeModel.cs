@@ -31,9 +31,8 @@ using System.Collections.Concurrent;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3035)]
-    public class FeModel : ISerializable
+    public class FeModel
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _name;                                                                   //ISerializable
@@ -9128,34 +9127,6 @@ namespace CaeModel
             {
                 return null;
             }
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_name", _name, typeof(string));
-            info.AddValue("_geometry", _geometry, typeof(FeMesh));
-            info.AddValue("_mesh", _mesh, typeof(FeMesh));
-            info.AddValue("_userViews", _userViews, typeof(OrderedDictionary<string, UserViewParameters>));
-            info.AddValue("_parameters", _parameters, typeof(EquationParameterCollection));
-            info.AddValue("_materials", _materials, typeof(OrderedDictionary<string, Material>));
-            info.AddValue("_sections", _sections, typeof(OrderedDictionary<string, Section>));
-            info.AddValue("_materialOrientations", _materialOrientations,
-                          typeof(OrderedDictionary<string, MaterialOrientation>));
-            info.AddValue("_constraints", _constraints, typeof(OrderedDictionary<string, Constraint>));
-            info.AddValue("_surfaceInteractions", _surfaceInteractions, typeof(OrderedDictionary<string, SurfaceInteraction>));
-            info.AddValue("_contactPairs", _contactPairs, typeof(OrderedDictionary<string, ContactPair>));
-            info.AddValue("_distributions", _distributions, typeof(OrderedDictionary<string, Distribution>));
-            info.AddValue("_amplitudes", _amplitudes, typeof(OrderedDictionary<string, Amplitude>));
-            info.AddValue("_initialConditions", _initialConditions, typeof(OrderedDictionary<string, InitialCondition>));
-            info.AddValue("_stepCollection", _stepCollection, typeof(StepCollection));
-            info.AddValue("_calculixUserKeywords", _calculixUserKeywords,
-                          typeof(OrderedDictionary<int[], Calculix.CalculixUserKeyword>));
-            info.AddValue("_calculixKeywordOverrides", _calculixKeywordOverrides,
-                          typeof(List<Calculix.CalculixKeywordOverride>));
-            info.AddValue("_properties", _properties, typeof(ModelProperties));
-            info.AddValue("_unitSystem", _unitSystem, typeof(UnitSystem));
-            info.AddValue("_hashName", _hashName, typeof(string));
         }
 
     }

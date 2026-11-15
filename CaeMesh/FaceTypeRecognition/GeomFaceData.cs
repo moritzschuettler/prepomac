@@ -17,7 +17,6 @@ namespace CaeMesh
     /// The result of the mesh based recognition of a visualization face.
     /// Besides the face type it also contains the parameters of the recognized analytic surface.
     /// </summary>
-    [Serializable]
     [PmxType(2064)]
     public class GeomFaceData
     {

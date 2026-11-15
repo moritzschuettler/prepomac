@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3148)]
     internal class CalCLoad : CalLoad
     {

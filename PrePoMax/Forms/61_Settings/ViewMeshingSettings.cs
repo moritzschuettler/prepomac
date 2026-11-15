@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
     [PmxType(10485)]
     public class ViewMeshingSettings : Forms.ViewMeshingParameters, IViewSettings, IReset
     {

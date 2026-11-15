@@ -13,7 +13,6 @@ using CaeGlobals;
 namespace CaeResults
 {
     // The ply strengths of a material, the compressive ones as positive values
-    [Serializable]
     [PmxType(5001)]
     public class PlyStrength
     {

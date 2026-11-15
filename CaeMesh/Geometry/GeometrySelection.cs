@@ -17,7 +17,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2089)]
     public class GeometrySelection : NamedClass
     {

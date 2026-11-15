@@ -19,7 +19,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10194)]
     class CPropagateBC : PreprocessCommand
     {

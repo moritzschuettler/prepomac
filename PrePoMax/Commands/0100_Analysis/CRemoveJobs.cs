@@ -21,7 +21,6 @@ using CaeJob;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10228)]
     class CRemoveJobs : PreprocessCommand
     {

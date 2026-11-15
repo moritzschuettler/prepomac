@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10363)]
     public class PlasticDataPoint : TempDataPoint
     {

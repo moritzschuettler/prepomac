@@ -19,7 +19,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-   [Serializable]
    [PmxType(10378)]
     public class ViewThermalConductivity : ViewMaterialProperty
     {

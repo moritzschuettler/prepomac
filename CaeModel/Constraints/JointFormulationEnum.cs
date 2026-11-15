@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3011)]
     public enum JointFormulationEnum
     {

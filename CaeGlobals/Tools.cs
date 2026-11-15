@@ -24,7 +24,6 @@ using UnitsNet;
 
 namespace CaeGlobals
 {
-    [Serializable]
     public static class Tools
     {
         private static readonly float _oneThird = 1f / 3f;

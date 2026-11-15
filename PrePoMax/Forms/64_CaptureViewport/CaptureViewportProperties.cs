@@ -15,7 +15,6 @@ namespace PrePoMax
 {
     // What a picture of the viewport is made of. The toolbar button takes these defaults and asks
     // nothing, so the picture it writes and the one the dialog writes come out of one renderer call.
-    [Serializable]
     [PmxType(10493)]
     public class CaptureViewportProperties
     {

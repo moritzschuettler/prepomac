@@ -18,7 +18,6 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2133)]
     public enum NodesToKeepEnum
     {
@@ -28,7 +27,6 @@ namespace CaeMesh
         LargerID
     }
     //
-    [Serializable]
     [PmxType(2134)]
     public class MergeCoincidentNodes
     {

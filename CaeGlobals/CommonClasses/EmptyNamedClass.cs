@@ -15,7 +15,6 @@ using System.Threading.Tasks;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1007)]
     public class EmptyNamedClass : NamedClass
     {

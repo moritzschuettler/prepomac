@@ -44,10 +44,8 @@ namespace CaeGlobals
     /// <typeparam name="TKey">The types of the keys in the dictionary.</typeparam>
     /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
     /// 
-    [Serializable]
     [PmxType(1011)]
-    public class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, ISerializable, IDeserializationCallback,
-                                                   IOrderedDictionaryItemLayout<TKey>
+    public class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDeserializationCallback, IOrderedDictionaryItemLayout<TKey>
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _name;                               //ISerializable
@@ -1122,14 +1120,6 @@ namespace CaeGlobals
                     _itemLayout = null;
                 }
             }
-        }
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_name", _name, typeof(string));
-            info.AddValue("_list", _list, typeof(List<TKey>));
-            info.AddValue("_dictionary", _dictionary, typeof(Dictionary<TKey, TValue>));
-            info.AddValue("_itemLayout", SerializeItemLayout(), typeof(byte[]));
         }
         private bool IsOrderedKeyListValid()
         {

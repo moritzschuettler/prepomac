@@ -15,9 +15,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3014)]
-    public class KinematicCoupling : Coupling, ISerializable // ISerializable must be here
+    public class KinematicCoupling : Coupling // ISerializable must be here
     {
         // Variables                                                                                                                
         [PmxKey(0)] private bool _u1;                           //ISerializable
@@ -69,17 +68,6 @@ namespace CaeModel
             if (_u2) directions.Add(2);
             if (_u3) directions.Add(3);
             return directions.ToArray();
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_u1", _u1, typeof(bool));
-            info.AddValue("_u2", _u2, typeof(bool));
-            info.AddValue("_u3", _u3, typeof(bool));
         }
     }
 }

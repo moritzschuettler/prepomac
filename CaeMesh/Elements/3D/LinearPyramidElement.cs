@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2019)]
     public class LinearPyramidElement : FeElement3D
     {

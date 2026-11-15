@@ -20,9 +20,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3273)]
-    public class ImportedSTLoad : Load, IPreviewable, ISerializable
+    public class ImportedSTLoad : Load, IPreviewable
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _surfaceName;                        //ISerializable
@@ -109,6 +108,13 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetInterpolatorRadius(_interpolatorRadius, false);
+            SetMagnitudeFactor(_magnitudeFactor, false);
+            SetGeomScaleFactor(_geomScaleFactor, false);
+        }
         private void SetInterpolatorRadius(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _interpolatorRadius, value, CheckPositive, checkEquation);
@@ -309,22 +315,6 @@ namespace CaeModel
                                         out double[] distance, out double[] values);
             for (int i = 0; i < values.Length; i++) values[i] *= _magnitudeFactor.Value;
             return values;
-        }
-        
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_fileName", _fileName, typeof(string));
-            info.AddValue("_interpolatorType", _interpolatorType, typeof(InterpolatorEnum));
-            info.AddValue("_interpolatorRadius", _interpolatorRadius, typeof(EquationContainer));
-            info.AddValue("_magnitudeFactor", _magnitudeFactor, typeof(EquationContainer));
-            info.AddValue("_geomScaleFactor", _geomScaleFactor, typeof(EquationContainer));
-            info.AddValue("_oldFileInfo", _oldFileInfo, typeof(FileInfo));
         }
     }
 }

@@ -18,9 +18,8 @@ using DynamicTypeDescriptor;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2147)]
-    public class FeMeshRefinement : MeshSetupItem, ISerializable
+    public class FeMeshRefinement : MeshSetupItem
     {
         // Variables                                                                                                                
         [PmxKey(0)] private double _meshSize;           //ISerializable
@@ -81,13 +80,6 @@ namespace CaeMesh
         public FeMeshRefinement DeepCopy()
         {
             return new FeMeshRefinement(this);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_meshSize", _meshSize, typeof(double));
         }
     }
 }

@@ -13,9 +13,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3194)]
-    public class CompositeLayer : ISerializable
+    public class CompositeLayer
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _materialName;               //ISerializable
@@ -63,6 +62,12 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetThickness(_thickness, false);
+            SetAngle(_angle, false);
+        }
         private void SetThickness(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _thickness, value, CheckPositive, checkEquation);
@@ -86,14 +91,6 @@ namespace CaeModel
         {
             _thickness.CheckEquation();
             _angle.CheckEquation();
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_materialName", _materialName, typeof(string));
-            info.AddValue("_thickness", _thickness, typeof(EquationContainer));
-            info.AddValue("_angle", _angle, typeof(EquationContainer));
         }
     }
 }

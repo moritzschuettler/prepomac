@@ -15,7 +15,6 @@ using CaeMesh;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10005)]
     public enum MeasurementAnnotationType
     {
@@ -24,7 +23,6 @@ namespace PrePoMax
         Circle
     }
 
-    [Serializable]
     [PmxType(10006)]
     public class MeasurementAnnotation : AnnotationBase
     {

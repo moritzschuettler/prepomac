@@ -19,7 +19,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10439)]
     [EnumResource("PrePoMax.Properties.Resources")]
     [Editor(typeof(StandardValueEditor), typeof(System.Drawing.Design.UITypeEditor))]
@@ -54,7 +53,6 @@ namespace PrePoMax
         SDV = 1073741824,
     }
 
-    [Serializable]
     [PmxType(10440)]
     public class ViewElementHistoryOutput : ViewHistoryOutput
     {

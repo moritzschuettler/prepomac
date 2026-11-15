@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10448)]
     [EnumResource("PrePoMax.Properties.Resources")]
     [Editor(typeof(StandardValueEditor), typeof(System.Drawing.Design.UITypeEditor))]
@@ -62,7 +61,6 @@ namespace PrePoMax
         SDV = 1073741824,
     }
 
-    [Serializable]
     [PmxType(10449)]
     public class ViewElementFieldOutput : ViewFieldOutput
     {

@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10432)]
     public class ViewSlipWearStep : ViewStaticStep
     {

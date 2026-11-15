@@ -21,7 +21,6 @@ using CaeJob;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10431)]
     public class ViewModalDynamics : ViewStep
     {

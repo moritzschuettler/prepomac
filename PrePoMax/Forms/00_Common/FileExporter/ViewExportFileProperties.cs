@@ -59,7 +59,6 @@ namespace PrePoMax
         }
     }
 
-    [Serializable]
     [PmxType(10308)]
     public class ViewExportFileProperties
     {

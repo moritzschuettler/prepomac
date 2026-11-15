@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3048)]
     internal class AbqFieldContactOutput : CalContactFile
     {

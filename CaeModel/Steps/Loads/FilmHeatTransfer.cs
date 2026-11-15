@@ -18,9 +18,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3260)]
-    public class FilmHeatTransfer : Load, ISerializable
+    public class FilmHeatTransfer : Load
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _surfaceName;                    //ISerializable
@@ -98,6 +97,12 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetSinkTemperature(_sinkTemperature, false);
+            SetFilmCoefficient(_filmCoefficient, false);
+        }
         private void SetSinkTemperature(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _sinkTemperature, value, null, checkEquation);
@@ -113,18 +118,6 @@ namespace CaeModel
             //
             _sinkTemperature.CheckEquation();
             _filmCoefficient.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_sinkTemperature", _sinkTemperature, typeof(EquationContainer));
-            info.AddValue("_filmCoefficient", _filmCoefficient, typeof(EquationContainer));
-            info.AddValue("_coefficientAmplitudeName", _coefficientAmplitudeName, typeof(string));
         }
     }
 }

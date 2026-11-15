@@ -20,7 +20,6 @@ using System.Drawing.Design;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10353)]
     public class ViewPartProperties
     {

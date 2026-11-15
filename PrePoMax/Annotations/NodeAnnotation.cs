@@ -16,7 +16,6 @@ using System.Threading.Tasks;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10008)]
     public class NodeAnnotation : AnnotationBase
     {

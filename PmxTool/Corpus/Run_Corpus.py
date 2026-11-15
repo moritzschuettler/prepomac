@@ -145,7 +145,9 @@ def regenerated(folder):
     if not os.path.exists(file_name):
         return False
     with open(file_name, "r", encoding="utf-8", errors="replace") as file:
-        return "Process finished successfully" in file.read()
+        text = file.read()
+    # A history that cannot be read still ends the regeneration run successfully, on an empty model
+    return "Process finished successfully" in text and "The file cannot be read" not in text
 
 
 def own_problems(folder):

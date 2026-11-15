@@ -19,7 +19,6 @@ using System.Threading.Tasks;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3137)]
     internal class CalDefinedTemperature : CalculixKeyword
     {

@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3000)]
     public enum AmplitudeTimeSpanEnum
     {
@@ -28,7 +27,6 @@ namespace CaeModel
         [StandardValue("TotalTime", DisplayName = "Total time")]
         TotalTime
     }
-    [Serializable]
     [PmxType(3001)]
     public abstract class Amplitude : NamedClass
     {

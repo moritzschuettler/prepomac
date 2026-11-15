@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10012)]
     public class EdgesVisibilitiesCollection
     {

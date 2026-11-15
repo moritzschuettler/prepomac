@@ -21,9 +21,8 @@ using System.IO;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5042)]
-    public class HistoryResultSet : NamedClass, ISerializable
+    public class HistoryResultSet : NamedClass
     {
         // Variables                                                                                                                
         [PmxKey(0)] protected bool _harmonic;                                           //ISerializable
@@ -216,16 +215,6 @@ namespace CaeResults
                 fieldNameComponentNames.Add(entry.Key, entry.Value.Components.Keys.ToArray());
             }
             return fieldNameComponentNames;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_harmonic", _harmonic, typeof(bool));
-            info.AddValue("_fields", _fields, typeof(OrderedDictionary<string, HistoryResultField>));
-            info.AddValue("_baseSetName", _baseSetName, typeof(string));
         }
 
     }

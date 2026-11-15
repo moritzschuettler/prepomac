@@ -12,7 +12,6 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6211)]
     public class XYPlotCurveState
     {

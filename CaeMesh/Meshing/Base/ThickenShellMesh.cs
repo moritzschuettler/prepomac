@@ -18,9 +18,8 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2096)]
-    public class ThickenShellMesh : MeshSetupItem, ISerializable
+    public class ThickenShellMesh : MeshSetupItem
     {
         // Variables                                                                                                                
         [PmxKey(0)] private double _thickness;          //ISerializable
@@ -101,16 +100,6 @@ namespace CaeMesh
             _numberOfLayers = thickenShellMesh.NumberOfLayers;
             _offset = thickenShellMesh.Offset;
             _keepModelEdges = thickenShellMesh.KeepModelEdges;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_thickness", _thickness, typeof(double));
-            info.AddValue("_numberOfLayers", _numberOfLayers, typeof(int));
-            info.AddValue("_offset", _offset, typeof(double));
-            info.AddValue("_keepModelEdges", _keepModelEdges, typeof(bool));
         }
 
     }

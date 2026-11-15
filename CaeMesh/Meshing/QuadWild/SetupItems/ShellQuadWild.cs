@@ -13,9 +13,8 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2128)]
-    public class ShellQuadWild : MeshSetupItem, ISerializable
+    public class ShellQuadWild : MeshSetupItem
     {
         // Variables
         [PmxKey(0)] private MesherTypeEnum _triangulationMesher;                      // ISerializable
@@ -190,28 +189,6 @@ namespace CaeMesh
             _transfiniteThreeSided = shellQuadWild._transfiniteThreeSided;
             _transfiniteFourSided = shellQuadWild._transfiniteFourSided;
             _transfiniteAngleDeg = shellQuadWild._transfiniteAngleDeg;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_triangulationMesher", _triangulationMesher, typeof(MesherTypeEnum));
-            info.AddValue("_preview", _preview, typeof(bool));
-            info.AddValue("_smooth", _smooth, typeof(bool));
-            info.AddValue("_alpha", _alpha, typeof(double));
-            info.AddValue("_flowProfile", _flowProfile, typeof(QuadWildFlowProfileEnum));
-            info.AddValue("_boundaryLayer", _boundaryLayer, typeof(QuadWildBoundaryLayerEnum));
-            info.AddValue("_keepFilesOnFailure", _keepFilesOnFailure, typeof(bool));
-            info.AddValue("_debugVisualization", _debugVisualization, typeof(bool));
-            info.AddValue("_oldAlgorithm", _oldAlgorithm, typeof(bool));
-            info.AddValue("_pinEdgeNodes", _pinEdgeNodes, typeof(bool));
-            info.AddValue("_edgeRotations", _edgeRotations, typeof(bool));
-            info.AddValue("_singularityPosition", _singularityPosition, typeof(double));
-            info.AddValue("_countSearch", _countSearch, typeof(int));
-            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(TransfiniteThreeSidedEnum));
-            info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
-            info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
         }
     }
 }

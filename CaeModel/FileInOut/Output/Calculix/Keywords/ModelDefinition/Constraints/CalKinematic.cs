@@ -15,7 +15,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3082)]
     internal class CalKinematic : CalculixKeyword
     {

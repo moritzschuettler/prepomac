@@ -17,9 +17,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3199)]
-    public class MassSection : Section, ISerializable
+    public class MassSection : Section
     {
         // Variables                                                                                                                
         [PmxKey(0)] private EquationContainer _mass;            //ISerializable
@@ -55,6 +54,11 @@ namespace CaeModel
         }
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetMass(_mass, false);
+        }
         private void SetMass(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _mass, value, CheckPositive, checkEquation);
@@ -81,14 +85,6 @@ namespace CaeModel
                 return true;
             }
             catch (Exception ex) { return false; }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_mass", _mass, typeof(EquationContainer));
         }
     }
 }

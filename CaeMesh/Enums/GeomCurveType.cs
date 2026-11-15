@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-	[Serializable]
 	[PmxType(2052)]
 	public enum GeomCurveType
     {

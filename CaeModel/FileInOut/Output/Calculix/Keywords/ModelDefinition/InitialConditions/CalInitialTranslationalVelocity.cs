@@ -19,7 +19,6 @@ using System.Drawing;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3087)]
     internal class CalInitialTranslationalVelocity : CalculixKeyword
     {

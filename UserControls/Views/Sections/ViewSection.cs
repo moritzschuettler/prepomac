@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6219)]
     public class ViewSection
     {

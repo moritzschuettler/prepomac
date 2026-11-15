@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2076)]
     public class FeGroup : NamedClass
     {

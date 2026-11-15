@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3182)]
     public enum PlasticHardening
     {
@@ -26,9 +25,8 @@ namespace CaeModel
         Combined
     }
 
-    [Serializable]
     [PmxType(3183)]
-    public class Plastic : MaterialProperty, ISerializable
+    public class Plastic : MaterialProperty
     {
         // Variables                                                                                                                
         [PmxKey(0)] private EquationContainer[][] _stressStrainTemp;        //ISerializable
@@ -77,6 +75,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetStressStrainTemp(_stressStrainTemp, false);
+        }
         private void SetStressStrainTemp(double[][] value, bool checkEquation = true)
         {
             _stressStrainTemp = new EquationContainer[value.Length][];
@@ -102,15 +105,6 @@ namespace CaeModel
                 _stressStrainTemp[i][0].CheckEquation();
                 _stressStrainTemp[i][1].CheckEquation();
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_stressStrainTemp", _stressStrainTemp, typeof(EquationContainer[][]));
-            info.AddValue("_hardening", _hardening, typeof(PlasticHardening));
         }
     }
 }

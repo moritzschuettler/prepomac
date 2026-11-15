@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5022)]
     public class ResultFieldOutputCoordinateSystemTransform : ResultFieldOutput
     {

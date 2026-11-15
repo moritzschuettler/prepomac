@@ -14,7 +14,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5020)]
     public enum CompositeFailureCriterionEnum
     {
@@ -30,7 +29,6 @@ namespace CaeResults
 
     // A failure criterion of the plies of composite shells, evaluated from the in-plane stresses in the ply axes with
     // the ply strengths of the material of the ply
-    [Serializable]
     [PmxType(5021)]
     public class ResultFieldOutputCompositeFailure : ResultFieldOutput
     {

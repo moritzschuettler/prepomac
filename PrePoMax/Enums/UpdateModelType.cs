@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10300)]
     [Flags]
     public enum UpdateType

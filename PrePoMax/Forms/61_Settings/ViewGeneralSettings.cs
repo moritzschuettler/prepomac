@@ -20,7 +20,6 @@ using System.IO.Compression;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
     [PmxType(10480)]
     public enum CompressionEnum
     {
@@ -34,7 +33,6 @@ namespace PrePoMax.Settings
         Optimal,
     }
     //
-    [Serializable]
     [PmxType(10481)]
     public class ViewGeneralSettings : IViewSettings, IReset
     {

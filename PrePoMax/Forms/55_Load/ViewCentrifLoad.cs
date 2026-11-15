@@ -20,7 +20,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10461)]
     public class ViewCentrifLoad : ViewLoad
     {

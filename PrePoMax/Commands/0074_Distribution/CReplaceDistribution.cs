@@ -19,7 +19,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10164)]
     class CReplaceDistribution : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {

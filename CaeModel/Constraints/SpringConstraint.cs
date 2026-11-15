@@ -19,9 +19,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3018)]
-    public abstract class SpringConstraint : Constraint, IMultiRegion, ISerializable
+    public abstract class SpringConstraint : Constraint, IMultiRegion
     {
         // Variables                                                                                                                
         [PmxKey(0)] private bool _checkPositive;        //ISerializable
@@ -97,6 +96,13 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetK1(_k1, false);
+            SetK2(_k2, false);
+            SetK3(_k3, false);
+        }
         private void SetK1(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _k1, value, CheckPositive, checkEquation);
@@ -144,17 +150,6 @@ namespace CaeModel
             _k1.CheckEquation();
             _k2.CheckEquation();
             _k3.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_checkPositive", _checkPositive, typeof(bool));
-            info.AddValue("_k1", _k1, typeof(EquationContainer));
-            info.AddValue("_k2", _k2, typeof(EquationContainer));
-            info.AddValue("_k3", _k3, typeof(EquationContainer));
         }
     }
 }

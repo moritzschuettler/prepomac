@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6221)]
     public class ViewStaticStep : ViewStep
     {

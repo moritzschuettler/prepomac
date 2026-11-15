@@ -45,38 +45,49 @@ constructors with `case "_name":` fallbacks.
 
 ## 2. Design decisions
 
-1. **Explicit schema in code with stable numeric keys.** Persisted types get `[MessagePackObject]`, members get
-   `[Key(n)]`, abstract bases get `[Union(id, typeof(...))]`. Files depend only on these numbers, never on class,
-   field, namespace or assembly names, so refactoring cannot break a file. Fields are tagged, so an older PrePoMax
-   skips unknown fields and a newer one defaults missing fields; most changes need no version check.
-2. **Serializer: MessagePack-CSharp.** netstandard2.0 (runs on net48) and modern .NET, among the fastest .NET
-   serializers, source generated (AOT friendly) on modern .NET. Alternative considered: protobuf-net (similar
-   robustness, slower, weaker polymorphism).
-3. **Persisted data is a tree, not a graph.** No shared references, no cycles. Cross references are by name, which
-   PrePoMax mostly does already (a load names its surface, a section its material).
+1. **Explicit schema in code with stable numeric keys.** Every stored type carries `[PmxType(id)]` and every stored
+   field `[PmxKey(n)]` (attributes of `CaeGlobals`); a field is stored under the number of the class that declares it
+   combined with its key, and a value in an `object`, interface or base class slot is written with the number of its
+   type. Files depend only on these numbers, never on class, field, namespace or assembly names, so refactoring cannot
+   break a file. Fields are tagged, so a newer PrePoMax reads an older file and a field the file lacks starts at zero
+   or null unless an `[OnDeserialized]` method sets it. An older PrePoMax reading a newer file skips fields it does
+   not know, and refuses the file, naming the reason, when a skipped field held an object referenced elsewhere or a
+   type it does not have. *(Changed in Phase 0 from `[MessagePackObject]`/`[Key]`/`[Union]`; see the Phase 0 results.)*
+2. **Serializer: MessagePack wire format, PrePoMax's own resolver.** `MessagePackWriter`/`MessagePackReader` of
+   MessagePack-CSharp (netstandard2.0, runs on net48 and modern .NET) with formatters in `CaeGlobals/Serialization`
+   that keep the binary formatter's semantics: objects created without a constructor, read only fields set through
+   emitted methods, dictionary comparers kept, deserialization callbacks run. The source generator can replace the
+   reflection after the SDK style move. Alternative considered: protobuf-net (similar robustness, slower, weaker
+   polymorphism).
+3. **Persisted data keeps its references.** Each payload numbers the objects it writes and writes an object met again
+   as a reference to its number, so the back references of the model (a surface to its constraint) and shared
+   arrays come back as they were, without code changes. Cross references between items are by name, as before.
+   *(Changed in Phase 0 from "a tree, not a graph" after the graph audit.)*
 4. **`DeepClone` is a round trip through the same serializer.** One set of rules: what is cloned is exactly what is
-   saved. Expected 10-50x faster than BinaryFormatter.
+   saved. Expected 10-50x faster than BinaryFormatter; measured 3-9x on large models (Phase 3).
 5. **`Controller` is no longer persisted.** A new root `PmxDocument { Model, Results, Commands, Annotations, Jobs,
    UiState }` is what is saved.
 6. **Container: chunked file, not ZIP.**
    ```
    header       magic "PMX2", format version, writer program version
    chunk table  name, offset, length, codec, CRC32 (per chunk)
-   chunks       model, history, annotations, jobs, ui, geometry, mesh, results/<n>, ...
+   chunks       document (model without mesh, history, annotations, jobs, ui), mesh, results/<name>
    ```
-   - Zstd compression (ZstdSharp.Port, pure managed), chunks compressed in parallel.
+   - Zstd compression (ZstdSharp.Port, pure managed), chunks and 1 MB frames within them compressed in parallel.
    - CRC32 per chunk: corruption is detected and located; a damaged results chunk still lets the model open.
    - Results chunks are loaded lazily, when first shown.
-   - Mesh and results stay hand-written binary, as raw little-endian arrays (bulk readable with
-     `MemoryMarshal.Cast` on modern .NET).
+   - Mesh and results stay hand-written binary (`FeModel.WriteToBinaryWriter`, `FeResults.WriteToFileStream`).
    - A `pmx-dump` tool prints any chunk as JSON for debugging.
 7. **History is an append-only journal.** One frame per command: length + CRC32 + MessagePack payload. Saving a
    command appends one frame instead of rewriting the whole history; a crash loses at most the last command.
-8. **Schema snapshot test.** A generated text file lists every union id and every `(type, key, member type)`. A check
-   fails when an existing entry changes meaning; new entries are allowed. This is the long run safeguard.
-9. **Legacy files in their own project.** `PrePoMax.LegacyImport` reads old `.pmx`/`.pmh` files and holds all of
-   today's compatibility code. Once it works, the `SerializationInfo` constructors and `_Compatibility` shims are
-   deleted from the domain classes.
+8. **Schema snapshot test.** `Schema_Snapshot.txt` lists every type number, every `(type, key, member type)` and
+   every enumeration member value. `PmxTool schema --check` runs after every build and fails when an existing entry
+   changes meaning or disappears; new entries are allowed, removed ones are retired and never reused. This is the
+   long run safeguard.
+9. **Legacy files in their own project.** `PrePoMax.LegacyImport` reads old `.pmx`/`.pmh`/settings files with an
+   NRBF decoder, without the binary formatter. Old files name the domain types, so the `SerializationInfo`
+   constructors and the `_Compatibility` shim types stay in the domain assemblies and the import calls them;
+   `GetObjectData`, `ISerializable` and `[Serializable]` are removed. *(Changed in Phase 5; see there.)*
 10. **Settings are plain JSON.** Small, human editable, independent of everything else.
 
 ---
@@ -186,6 +197,7 @@ recommendation and the decision taken:
 | Journal | Design right; consider a durable flush, a Debug check of commands changed after recording, surfacing a cut-off journal | Kept without `Flush(true)` (the history was never flushed to disk before either, and one fsync per command would slow scripted sessions); a cut-off journal reads up to the last intact frame |
 | Legacy import | NRBF reader in `PrePoMax.LegacyImport`, the only option that survives modern .NET; the Immutable 9 redirect is process wide | As recommended; the redirect is in `PrePoMax.exe.config`, `PmxTool.exe.config` and `GmshCaller.exe.config` |
 | Phase 5 scope | Keep the `SerializationInfo` constructors and `_Compatibility` shims (old files name those types); delete `GetObjectData` and `ISerializable`, the legacy reader then detects the constructor; drop `[Serializable]` last, after checking clipboard and `.resx` | As recommended (the clipboard carries only text and images, the `.resx` objects are only `System.Drawing.Color`) |
+| Equation callbacks after a read (found by the Phase 3/4 test runs) | The owner wires them in an `[OnDeserialized]` method calling its own setters; not the legacy constructors on every read, not a back reference from the container; plus a check that a new owner cannot forget it; audit the other `[NonSerialized]` state the legacy constructors set | As recommended: `RestoreEquationCallbacks` in 51 classes, `PmxTool schema --check` fails a type with an equation setter and no `[OnDeserialized]` method; the audit found `SelectionNode._hash`, reset to -1 in `[OnDeserializing]` |
 | Settings JSON | Yes; per-section fallback; invariant numbers; atomic write; import `settings.bin` only when there is no `settings.json` | Per-section fallback, invariant numbers and the temporary-file write are in. `settings.bin` is also imported when it is newer than `settings.json`, because the documented upgrade is to copy it into a new folder after its first start; the folders are portable, so two versions never share one |
 
 Fable also flagged that a field missing from an older file comes back zero or null rather than at its initializer
@@ -300,6 +312,18 @@ two dictionary fields are retired in the schema snapshot (the first use of the r
 The payloads are 5-35 % smaller than the binary formatter's. The first clone of a session also builds the plans of
 the types it meets (reflection and emitted accessors), about 100 ms in all.
 
+**Found later.** The full test runs of the Phase 3 and Phase 4 commits, which finished during Phase 5, failed 20 of
+81 scripts on two faults of this phase, both fixed in the Phase 5 commit:
+- `GmshCaller.exe` reads its data as a storage payload since this phase, and MessagePack needs the binding redirects
+  of `GmshCaller.exe.config`, which the post-build step never copied into `lib` (17 meshing scripts).
+- The check and changed callbacks of `EquationContainer` are `[NonSerialized]` delegates that the `SerializationInfo`
+  constructors wired on every binary formatter clone; the new clone left them null, so a replaced load kept its old
+  magnitude and a zero value was no longer refused (3 scripts). The dual mode of Phase 2 compared fields, not
+  delegates. Each owner now wires them in `RestoreEquationCallbacks`, an `[OnDeserialized]` method calling its
+  setters, and `PmxTool schema --check` fails a type with an equation setter and no such method. An audit of the
+  other `[NonSerialized]` state those constructors set found `SelectionNode._hash`, which must start at -1 (a clone got
+  0, a key the selection cache shares between nodes).
+
 ---
 
 ## 7. Phase 4 - New container and journal
@@ -359,14 +383,52 @@ read (bug_sdv.pmx: 7 times faster). A history append writes one frame instead of
 
 ## 8. Phase 5 - Legacy import and removal of BinaryFormatter
 
-- [ ] `PrePoMax.LegacyImport` (NRBF reader, or the upgrader executable from Phase 0): old `.pmx`/`.pmh` → the new
+- [x] `PrePoMax.LegacyImport` (NRBF reader, or the upgrader executable from Phase 0): old `.pmx`/`.pmh` → the new
       domain objects, carrying the logic of today's `TryReadCompressedPmx*` readers and `_Compatibility` shims.
-- [ ] Delete BinaryFormatter, `RenamedTypeSerializationBinder`, the `SerializationInfo` constructors and
-      `GetObjectData` from the domain projects.
-- [ ] Drop `[Serializable]` where nothing else needs it (clipboard, remoting) - check first.
+- [x] Delete BinaryFormatter, `RenamedTypeSerializationBinder`, the `SerializationInfo` constructors and
+      `GetObjectData` from the domain projects. *(The constructors stay - see below.)*
+- [x] Drop `[Serializable]` where nothing else needs it (clipboard, remoting) - check first.
 
 Exit: no `BinaryFormatter` reference outside `PrePoMax.LegacyImport`; the oldest reference files (v1.3.x) still
 open.
+
+**Done.** `PrePoMax.LegacyImport` (net48, x64) holds `LegacyObjectReader`, `LegacyReader` and
+`RenamedTypeSerializationBinder`, moved there from `CaeGlobals`. `Program` hands `LegacyReader.Read` to
+`ObjectSerializer.LegacyReader`, so `CaeGlobals` no longer knows how an old stream is read, and the readers of old files
+in `Controller`, `CommandsCollection`, the settings and the material library are unchanged: they still receive the
+same objects. `BinaryObjectSerializer` and `DualObjectSerializer` are deleted. No source file names the binary
+formatter any more; the remaining mentions are the standard header comment the WinForms designer writes into every
+`.resx`.
+
+`LegacyObjectReader` decodes the records with `System.Formats.Nrbf` and builds the graph the way the binary formatter
+did:
+- an object is created without a constructor and its fields are set by the member names of the record (a field of a
+  base type is `Base+_field`), converting a primitive where the field type changed;
+- a type with a `(SerializationInfo, StreamingContext)` constructor is given its members through it. These
+  constructors run after the graph is read, in the order the binary formatter ran them: once the record of the object
+  and the records of its members were read and every constructor reached from its members - through objects without
+  one and arrays - had run, the one completed last first. Both halves matter. `UnitSystem` sets the units of the
+  string converters and the materials of a v1.3 file build their `EquationContainer`s from them (run depth first,
+  `error.pmx` got a Young's modulus of 0.21 instead of 210000); `FeMesh` converts the `FeMeshRefinement`s it finds in
+  its dictionary of mesh setup items (run in plain stream order, those were still empty and ten v2.x files did not
+  open);
+- `[OnDeserializing]` runs before the fields are set; `[OnDeserialized]` and `IDeserializationCallback` run once the
+  graph is complete (the collections of the base library rebuild themselves there);
+- a `System.Type` (`UnitySerializationHolder`) is resolved through the binder, a delegate is read as null, and a type
+  that no longer exists is read as null where the binary formatter threw - an old history with such a command now
+  opens and that command fails on regeneration instead of the whole history being refused.
+
+Departure from the plan: the `SerializationInfo` constructors are **not** deleted. Old files name the domain types and
+their old member names, and the constructors with the `case "Command+_name":` fallbacks and the `_Compatibility`
+types are where that knowledge lives; moving it into the import project would copy ~150 constructors into a second
+place for no gain. What is gone is the writing side: `GetObjectData` and `ISerializable` from 152 files and
+`[Serializable]` from 992, since nothing writes that format any more. The clipboard carries only text and images and
+nothing uses remoting, so no type needs the attribute. The static classes that carried `[PmxType]` (file readers and
+writers, `AdvisorCreator`) lost it; their ids are retired in the snapshot. This is what Fable 5.2 recommended for the
+Phase 5 scope (see the review table).
+
+System.Formats.Nrbf brings System.Collections.Immutable 9.0.0.11, whose binding redirect is in `PrePoMax.exe.config`,
+`PmxTool.exe.config` and `GmshCaller.exe.config`.
 
 ---
 
@@ -378,6 +440,41 @@ open.
   results, kept outside the repository; a script that opens each, saves it, reopens it and regenerates the history.
 - Schema snapshot check on every build.
 - Timings against the Phase 0 baseline: save, open (with and without results), `DeepClone`, history append.
+
+**The corpus used.** 151 `.pmx` files: up to two per PrePoMax version found in a local folder of users' files
+(v1.3.0 to v3.0.1, read from copies, never modified), two per folder of the repository's `Tests`, and the three
+largest models with results; plus 6 `.pmh` histories. The list names local files and stays outside the repository.
+`PmxTool/Corpus/Run_Corpus.py` runs each file through `Corpus_Fingerprint.py`: open the copy (A), save it, open the
+saved file (B), regenerate its history into a new file (R) and open that (C); A, B and C are fingerprints of the model
+(counts, names, the CalculiX deck) and of the results. A file fails when B differs from A, when the history does not
+regenerate, or when A or C differ from the same run with the build before the migration (the baseline, `master` at
+the start of the branch).
+
+The judging is relative to the baseline because the baseline itself does not pass every file: 75 of the 151 fail
+there. 7 do not open (the four files from v1.3.0 to v1.3.4, older than the oldest version the reader supports, two
+saved by v2.4.x development builds and one holding a type that no longer exists), 9 reopen differently (some decks list `*Dload` lines and some nodes in no fixed
+order) and 66 do not regenerate, 60 of them because the history imports a geometry file that is not in the copy. What
+the baseline fails in the same way is reported as a note, not a failure. `sweep_test.pmx` regenerates to a different
+mesh on every run, the baseline included (4330 or 4250 elements), and is marked nondeterministic: its regenerated deck
+is not compared. The random model hash in the deck heading is ignored.
+
+**Results at the end of Phase 5.** All 81 Python API scripts pass. The corpus: 150 of the 151 `.pmx` files and all 6
+`.pmh` histories pass, and the new build fails fewer files of its own than the baseline (72 against 75: 6 do not open,
+4 reopen differently, 64 do not regenerate, each also failed by the baseline except as below; `Plosca_MB_3.pmx` and
+`palica_NDT.pmx`, which the baseline reopened differently, now pass). Of the 14 files from
+v1.3.x the 10 the baseline opens still open, `error.pmx` among them with its units and material values as before, and
+the 4 from v1.3.0 to v1.3.4 are refused as before. Two files are read further than the baseline read them, and
+their histories then stop at commands the current version cannot replay:
+
+- `tmp_massLoad.pmx` (v2.0.3) is the one reported failure. It holds a `MassUnderGravityLoad`, a type that no longer
+  exists. The baseline refuses the whole file; the new reader reads the load as null (see Phase 5), so the model
+  opens with an error from the validity check, and the history fails at the commands that add, edit and remove that
+  load.
+- `clamp.pmx` (v1.3.x): the baseline cannot read its history; the new build reads it, and the old initial velocity
+  commands then fail in `ConvertSelectionBasedInitialCondition`.
+
+Both are follow-ups outside this migration. A null left in a model collection by a missing type could be dropped
+when the collection is read, and the old initial velocity commands need a conversion that works on replay.
 
 ---
 

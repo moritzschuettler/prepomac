@@ -19,7 +19,6 @@ using CaeJob;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3221)]
     public class TimeIncrementationStepControlParameter : StepControlParameter
     {

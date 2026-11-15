@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10428)]
     public class ViewDynamicStep : ViewStaticStep
     {

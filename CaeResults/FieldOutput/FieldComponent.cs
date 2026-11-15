@@ -18,7 +18,6 @@ using System.Security.Cryptography;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5013)]
     public class FieldComponent : NamedClass
     {

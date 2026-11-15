@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3122)]
     internal enum OpKeywordEnum
     {
@@ -33,7 +32,6 @@ namespace FileInOut.Output.Calculix
         Temperature
     }
     //
-    [Serializable]
     [PmxType(3123)]
     internal enum OpTypeEnum
     {
@@ -42,7 +40,6 @@ namespace FileInOut.Output.Calculix
         New
     }
     //
-    [Serializable]
     [PmxType(3124)]
     internal class CalOpParameter : CalculixKeyword
     {

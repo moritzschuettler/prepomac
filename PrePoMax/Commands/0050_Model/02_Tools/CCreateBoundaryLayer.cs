@@ -16,9 +16,8 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10078)]
-    class CCreateBoundaryLayer : PreprocessCommand, ISerializable
+    class CCreateBoundaryLayer : PreprocessCommand
     {
         // Variables
         [PmxKey(0)] private GeometrySelection _geometrySelection;   //ISerializable
@@ -70,13 +69,6 @@ namespace PrePoMax.Commands
         public override string GetCommandString()
         {
             return base.GetCommandString() + "Thickness: " + _thickness.ToString();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            info.AddValue("_geometrySelection", _geometrySelection, typeof(GeometrySelection));
-            info.AddValue("_thickness", _thickness, typeof(double));
         }
     }
 }

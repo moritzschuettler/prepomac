@@ -22,7 +22,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10292)]
     class CExportPartsAsGmshMesh : PreprocessCommand, IExportFileCommand
     {

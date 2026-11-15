@@ -20,7 +20,6 @@ using System.Runtime.InteropServices;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10544)]
     public class StatusBlockSettings : ISettings
     {

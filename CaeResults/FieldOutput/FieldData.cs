@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5014)]
     public enum StepTypeEnum
     {
@@ -30,7 +29,6 @@ namespace CaeResults
         ComplexFrequency
     }
 
-    [Serializable]
     [PmxType(5015)]
     public class FieldData : CaeGlobals.NamedClass
     {

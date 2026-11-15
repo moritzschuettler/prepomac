@@ -17,7 +17,6 @@ using CaeMesh;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10001)]
     public class AnnotationContainer
     {

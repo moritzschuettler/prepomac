@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2070)]
     public class SplitByExtrudedEdges : GeometryFeature
     {
@@ -123,19 +122,6 @@ namespace CaeMesh
             if (_lengthType == SplitExtrusionLengthTypeEnum.Value && _length <= 0)
                 return "The extrusion length must be larger than zero.";
             return null;
-        }
-        // ISerialization
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_directionType", _directionType, typeof(SplitExtrusionDirectionTypeEnum));
-            info.AddValue("_direction", _direction, typeof(double[]));
-            info.AddValue("_lengthType", _lengthType, typeof(SplitExtrusionLengthTypeEnum));
-            info.AddValue("_length", _length, typeof(double));
-            info.AddValue("_bothDirections", _bothDirections, typeof(bool));
-            info.AddValue("_directionIds", _directionIds, typeof(int[]));
-            info.AddValue("_directionData", _directionData, typeof(Selection));
         }
     }
 }

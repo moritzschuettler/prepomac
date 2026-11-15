@@ -18,9 +18,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3008)]
-    public class Joint : Constraint, ISerializable
+    public class Joint : Constraint
     {
         // Variables
         [PmxKey(0)] private JointTypeEnum _jointType;                   //ISerializable
@@ -198,6 +197,17 @@ namespace CaeModel
 
 
         // Methods
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetX(_x, false);
+            SetY(_y, false);
+            SetZ(_z, false);
+            SetN1(_n1, false);
+            SetN2(_n2, false);
+            SetN3(_n3, false);
+            SetStiffness(_stiffness, false);
+        }
         private void SetX(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _x, value, null, checkEquation);
@@ -287,27 +297,6 @@ namespace CaeModel
             Selection tmpCreationData = MasterCreationData;
             MasterCreationData = SlaveCreationData;
             SlaveCreationData = tmpCreationData;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_jointType", _jointType, typeof(JointTypeEnum));
-            info.AddValue("_centerDefinition", _centerDefinition, typeof(JointCenterDefinitionEnum));
-            info.AddValue("_centerCreationIds", _centerCreationIds, typeof(int[]));
-            info.AddValue("_centerCreationData", _centerCreationData, typeof(Selection));
-            info.AddValue("_x", _x, typeof(EquationContainer));
-            info.AddValue("_y", _y, typeof(EquationContainer));
-            info.AddValue("_z", _z, typeof(EquationContainer));
-            info.AddValue("_axisDefinition", _axisDefinition, typeof(JointDefinitionEnum));
-            info.AddValue("_n1", _n1, typeof(EquationContainer));
-            info.AddValue("_n2", _n2, typeof(EquationContainer));
-            info.AddValue("_n3", _n3, typeof(EquationContainer));
-            info.AddValue("_formulation", _formulation, typeof(JointFormulationEnum));
-            info.AddValue("_stiffnessDefinition", _stiffnessDefinition, typeof(JointStiffnessDefinitionEnum));
-            info.AddValue("_stiffness", _stiffness, typeof(EquationContainer));
         }
     }
 }

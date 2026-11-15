@@ -37,9 +37,8 @@ using static CaeGlobals.Geometry2;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5008)]
-    public class FeResults : ISerializable
+    public class FeResults
     {
         // Variables                                                                                                                
         [NonSerialized]
@@ -294,24 +293,6 @@ namespace CaeResults
             rhofi.Valid = resultHistoryOutput.Valid;
             //
             return rhofi;
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_hashName", _hashName, typeof(string));
-            info.AddValue("_fileName", _fileName, typeof(string));
-            info.AddValue("_mesh", _mesh, typeof(FeMesh));
-            info.AddValue("_resultFieldOutputs", _resultFieldOutputs, typeof(OrderedDictionary<string, ResultFieldOutput>));
-            info.AddValue("_resultHistoryOutputs", _resultHistoryOutputs, typeof(OrderedDictionary<string, ResultHistoryOutput>));
-            //info.AddValue("_history", _history, typeof(HistoryResults)); - not needed - Compatibility for version v2.3.5
-            info.AddValue("_dateTime", _dateTime, typeof(DateTime));
-            info.AddValue("_unitSystem", _unitSystem, typeof(UnitSystem));
-            info.AddValue("_deformationFieldOutputName", _deformationFieldOutputName, typeof(string));
-            info.AddValue("_complexResultType", _complexResultType, typeof(ComplexResultTypeEnum));
-            info.AddValue("_complexAngleDeg", _complexAngleDeg, typeof(float));
-            info.AddValue("_modelSpace", _modelSpace, typeof(string));
-            info.AddValue("_shellResultData", _shellResultData, typeof(ShellResultData));
         }
 
 

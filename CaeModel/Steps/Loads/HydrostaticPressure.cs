@@ -20,7 +20,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3262)]
     public enum HydrostaticPressureCutoffEnum
     {
@@ -32,9 +31,8 @@ namespace CaeModel
         Negative
     }
 
-    [Serializable]
     [PmxType(3263)]
-    public class HydrostaticPressure : VariablePressure, IPreviewable, ISerializable
+    public class HydrostaticPressure : VariablePressure, IPreviewable
     {
         // Variables                                                                                                                
         [PmxKey(0)] private EquationContainer _x1;                                      //ISerializable
@@ -193,6 +191,21 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetX1(_x1, false);
+            SetY1(_y1, false);
+            SetZ1(_z1, false);
+            SetX2(_x2, false);
+            SetY2(_y2, false);
+            SetZ2(_z2, false);
+            SetN1(_n1, false);
+            SetN2(_n2, false);
+            SetN3(_n3, false);
+            SetFirstPointPressure(_firstPointPressure, false);
+            SetSecondPointPressure(_secondPointPressure, false);
+        }
         
         private void SetX1(EquationContainer value, bool checkEquation = true)
         {
@@ -384,25 +397,6 @@ namespace CaeModel
                 else throw new NotSupportedException();
             }
             return values;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_x1", _x1, typeof(EquationContainer));
-            info.AddValue("_y1", _y1, typeof(EquationContainer));
-            info.AddValue("_z1", _z1, typeof(EquationContainer));
-            info.AddValue("_x2", _x2, typeof(EquationContainer));
-            info.AddValue("_y2", _y2, typeof(EquationContainer));
-            info.AddValue("_z2", _z2, typeof(EquationContainer));
-            info.AddValue("_n1", _n1, typeof(EquationContainer));
-            info.AddValue("_n2", _n2, typeof(EquationContainer));
-            info.AddValue("_n3", _n3, typeof(EquationContainer));
-            info.AddValue("_firstPointPressure", _firstPointPressure, typeof(EquationContainer));
-            info.AddValue("_secondPointPressure", _secondPointPressure, typeof(EquationContainer));
-            info.AddValue("_hydrostaticPressureCutoff", _hydrostaticPressureCutoff, typeof(HydrostaticPressureCutoffEnum));
         }
     }
 }

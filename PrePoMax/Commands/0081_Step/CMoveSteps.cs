@@ -20,7 +20,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10177)]
     class CMoveSteps : PreprocessCommand
     {

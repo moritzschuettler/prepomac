@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2027)]
     public enum FeFaceName
     {
@@ -30,7 +29,6 @@ namespace CaeMesh
     }
 
 
-    [Serializable]
     [PmxType(2028)]
     public abstract class FeElement
     {

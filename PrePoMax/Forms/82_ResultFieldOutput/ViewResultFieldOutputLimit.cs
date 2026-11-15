@@ -20,7 +20,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10503)]
     public class ViewResultFieldOutputLimit : ViewResultFieldOutput
     {

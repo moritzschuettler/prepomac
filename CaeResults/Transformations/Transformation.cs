@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5063)]
     public abstract class Transformation : NamedClass
     {

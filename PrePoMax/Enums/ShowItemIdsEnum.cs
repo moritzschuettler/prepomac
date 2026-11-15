@@ -12,7 +12,7 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable, Flags]
+    [Flags]
     [PmxType(10299)]
     public enum ShowItemIdsEnum
     {

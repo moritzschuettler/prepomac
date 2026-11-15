@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2111)]
     public enum RevolveSourceTypeEnum
     {

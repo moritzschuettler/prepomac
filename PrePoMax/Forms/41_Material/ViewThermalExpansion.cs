@@ -19,7 +19,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-   [Serializable]
    [PmxType(10379)]
     public class ViewThermalExpansion : ViewMaterialProperty
     {

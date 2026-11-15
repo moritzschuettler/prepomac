@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10426)]
     public class ViewComplexFrequencyStep : ViewStep
     {

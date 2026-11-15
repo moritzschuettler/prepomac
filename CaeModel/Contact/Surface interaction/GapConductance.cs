@@ -16,14 +16,12 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3024)]
     public enum GapConductanceEnum
     {
         Constant,
         Tabular
     }
-    [Serializable]
     [PmxType(3025)]
     public class GapConductance : SurfaceInteractionProperty
     {

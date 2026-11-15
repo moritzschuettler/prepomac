@@ -26,7 +26,6 @@ using CaeMesh;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10309)]
     public class ViewExportHistoryResultSetFileProperties : ViewExportFileProperties
     {

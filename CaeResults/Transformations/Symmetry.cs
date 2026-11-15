@@ -18,7 +18,6 @@ using Octree;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5061)]
     public enum SymmetryPlaneEnum
     {
@@ -27,7 +26,6 @@ namespace CaeResults
         Z
     }
 
-    [Serializable]
     [PmxType(5062)]
     public class Symmetry : Transformation
     {

@@ -22,7 +22,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10293)]
     class CExportPartsAsMmgMesh : PreprocessCommand, IExportFileCommand
     {

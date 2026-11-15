@@ -14,7 +14,6 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3091)]
     internal class CalElasticLamina : CalculixKeyword
     {

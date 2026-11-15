@@ -19,7 +19,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10460)]
     public class ViewBodyFlux : ViewLoad
     {

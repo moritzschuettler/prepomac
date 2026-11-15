@@ -13,7 +13,6 @@ using CaeGlobals;
 namespace CaeResults
 {
     // The shell data of one result element: an expanded shell element or a layer of an expanded composite shell
-    [Serializable]
     [PmxType(5003)]
     public class ShellResultElement
     {

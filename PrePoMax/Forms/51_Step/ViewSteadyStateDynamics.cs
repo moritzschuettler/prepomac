@@ -21,7 +21,6 @@ using CaeJob;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10434)]
     public class ViewSteadyStateDynamics : ViewStep
     {

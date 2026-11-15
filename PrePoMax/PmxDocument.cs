@@ -20,7 +20,6 @@ namespace PrePoMax
     // What a .pmx file keeps: the model without its mesh, the results without their field data, the command history,
     // the annotations, the analyses and the state of the user interface. The mesh and the field data follow it in the
     // file in their own binary form.
-    [Serializable]
     [PmxType(10522)]
     public class PmxDocument
     {

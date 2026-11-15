@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6214)]
     public enum XYPlotLineStyleEnum
     {

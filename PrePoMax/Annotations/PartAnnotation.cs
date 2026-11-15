@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10009)]
     public class PartAnnotation : AnnotationBase
     {

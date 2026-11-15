@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10015)]
     public class SectionViewsCollection
     {

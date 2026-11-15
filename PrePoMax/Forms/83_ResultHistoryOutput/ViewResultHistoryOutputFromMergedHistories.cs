@@ -12,7 +12,6 @@ using System.Linq;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10512)]
     public class ViewResultHistoryOutputFromMergedHistories : ViewResultHistoryOutput
     {

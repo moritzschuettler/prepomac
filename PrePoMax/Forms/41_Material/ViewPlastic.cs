@@ -19,7 +19,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10375)]
     public class ViewPlastic : ViewMaterialProperty
     {

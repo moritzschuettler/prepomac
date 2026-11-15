@@ -9,7 +9,6 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3079)]
     internal class CalCyclicSymmetry : CalculixKeyword
     {

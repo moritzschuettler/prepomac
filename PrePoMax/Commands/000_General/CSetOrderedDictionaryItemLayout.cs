@@ -17,7 +17,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10034)]
     internal sealed class OrderedDictionaryItemLayoutCommandData
     {
@@ -63,7 +62,6 @@ namespace PrePoMax.Commands
     /// <summary>
     /// Stores one complete resulting layout for a geometry/model tree organization gesture.
     /// </summary>
-    [Serializable]
     [PmxType(10035)]
     internal sealed class CSetOrderedDictionaryItemLayout : PreprocessCommand
     {
@@ -99,7 +97,6 @@ namespace PrePoMax.Commands
     /// Stores the geometry and model part layouts produced by one linked-group rename.
     /// Both layouts are replayed by one history command.
     /// </summary>
-    [Serializable]
     [PmxType(10036)]
     internal sealed class CSetLinkedPartGroupLayouts : PreprocessCommand
     {
@@ -145,7 +142,6 @@ namespace PrePoMax.Commands
     /// <summary>
     /// Results-tree counterpart required by the existing postprocessing replay classifier.
     /// </summary>
-    [Serializable]
     [PmxType(10037)]
     internal sealed class CSetResultOrderedDictionaryItemLayout : PostprocessCommand
     {

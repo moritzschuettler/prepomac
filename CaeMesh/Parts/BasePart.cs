@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2135)]
     public class BasePart : FeGroup, IComparable<BasePart>, IStoreAsNameInCommands
     {

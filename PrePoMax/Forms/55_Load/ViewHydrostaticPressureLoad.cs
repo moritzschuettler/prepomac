@@ -20,7 +20,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10468)]
     public class ViewHydrostaticPressureLoad : ViewLoad
     {

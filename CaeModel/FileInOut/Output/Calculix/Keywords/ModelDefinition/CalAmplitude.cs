@@ -17,7 +17,6 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3063)]
     internal class CalAmplitude : CalculixKeyword
     {

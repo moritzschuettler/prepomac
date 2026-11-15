@@ -22,7 +22,6 @@ using System.Drawing.Design;
 namespace PrePoMax.Forms
 {
     
-    [Serializable]
     [PmxType(10358)]
     public class ViewCoordinateSystem
     {

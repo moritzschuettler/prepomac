@@ -23,7 +23,6 @@ using System.IO;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10233)]
     class CSetCurrentResults : PostprocessCommand
     {

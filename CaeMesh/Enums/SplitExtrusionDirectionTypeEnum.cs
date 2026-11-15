@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2059)]
     public enum SplitExtrusionDirectionTypeEnum
     {

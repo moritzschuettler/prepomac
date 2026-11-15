@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10398)]
     public class GapConductanceDataPoint : TempDataPoint
     {

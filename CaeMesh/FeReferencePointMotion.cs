@@ -12,7 +12,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2081)]
     public class FeReferencePointMotion
     {

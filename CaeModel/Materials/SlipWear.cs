@@ -17,9 +17,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3184)]
-    public class SlipWear : MaterialProperty, ISerializable
+    public class SlipWear : MaterialProperty
     {
         // Variables                                                                                                                
         [PmxKey(0)] private EquationContainer _hardness;            //ISerializable
@@ -67,6 +66,12 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetHardness(_hardness, false);
+            SetWearCoefficient(_wearCoefficient, false);
+        }
         private void SetHardness(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _hardness, value, CheckPositive, checkEquation);
@@ -86,15 +91,6 @@ namespace CaeModel
         {
             _hardness.CheckEquation();
             _wearCoefficient.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_hardness", _hardness, typeof(EquationContainer));
-            info.AddValue("_wearCoefficient", _wearCoefficient, typeof(EquationContainer));
         }
     }
 }

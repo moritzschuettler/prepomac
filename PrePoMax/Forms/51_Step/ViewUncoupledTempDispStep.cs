@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10436)]
     public class ViewUncoupledTempDispStep : ViewHeatTransferStep
     {

@@ -20,9 +20,8 @@ using System.Drawing;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3259)]
-    public class DLoad : VariablePressure, IDistribution, IPreviewable, ISerializable
+    public class DLoad : VariablePressure, IDistribution, IPreviewable
     {
         // Variables                                                                                                                
         [PmxKey(0)] private int _elementId;                     //ISerializable
@@ -88,6 +87,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetMagnitude(_magnitude, false);
+        }
         private void SetMagnitude(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _magnitude, value, null, checkEquation);
@@ -247,17 +251,6 @@ namespace CaeModel
             double[] values;
             GetPressuresAndDistancesForPoints(model, points, out _, out values);
             return values;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_elementId", _elementId, typeof(int));
-            info.AddValue("_elementFaceName", _elementFaceName, typeof(FeFaceName));
-            info.AddValue("_magnitude", _magnitude, typeof(EquationContainer));
-            info.AddValue("_distributionName", _distributionName, typeof(string));
         }
     }
 }

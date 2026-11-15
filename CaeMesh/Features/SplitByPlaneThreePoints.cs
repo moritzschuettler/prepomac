@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2072)]
     public class SplitByPlaneThreePoints : GeometryFeature
     {
@@ -113,15 +112,6 @@ namespace CaeMesh
             if (GetPlaneNormal() == null)
                 return "The three points of the splitting plane lie on one line.";
             return null;
-        }
-        // ISerialization
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_points", _points, typeof(double[][]));
-            info.AddValue("_numberOfPoints", _numberOfPoints, typeof(int));
-            info.AddValue("_offset", _offset, typeof(double));
         }
     }
 }

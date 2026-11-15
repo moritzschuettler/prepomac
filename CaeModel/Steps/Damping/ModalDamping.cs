@@ -19,7 +19,6 @@ using CaeJob;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3226)]
     public enum ModalDampingTypeEnum
     {
@@ -29,7 +28,6 @@ namespace CaeModel
         Rayleigh
     }
 
-    [Serializable]
     [PmxType(3227)]
     public class ModalDamping : NamedClass
     {

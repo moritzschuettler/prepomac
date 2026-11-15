@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10520)]
     public class ViewMasterSlaveMultiRegion : UserControls.IMissingPropertyValues
     {

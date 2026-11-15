@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2127)]
     public enum QuadWildFlowProfileEnum
     {

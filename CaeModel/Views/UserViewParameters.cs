@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3283)]
     public class UserViewParameters : NamedClass
     {

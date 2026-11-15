@@ -15,7 +15,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10494)]
     public class ViewCaptureViewportProperties
     {

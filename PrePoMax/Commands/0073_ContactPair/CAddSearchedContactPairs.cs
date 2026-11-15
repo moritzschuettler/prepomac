@@ -18,7 +18,6 @@ namespace PrePoMax.Commands
 {
     // The ties, contact pairs and surfaces of unresolved ties one OK of the Search Contact Pairs dialog adds. It keeps
     // what the search found, not the search, so a regeneration adds the same items under the same names
-    [Serializable]
     [PmxType(10153)]
     class CAddSearchedContactPairs : PreprocessCommand
     {

@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3012)]
     public enum JointStiffnessDefinitionEnum
     {

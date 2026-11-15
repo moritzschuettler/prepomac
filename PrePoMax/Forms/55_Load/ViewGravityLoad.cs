@@ -19,7 +19,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10467)]
     public class ViewGravityLoad : ViewLoad
     {

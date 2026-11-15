@@ -17,7 +17,6 @@ using CaeMesh;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10542)]
     public class SettingsContainer
     {

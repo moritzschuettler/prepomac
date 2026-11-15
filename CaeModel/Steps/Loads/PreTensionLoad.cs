@@ -19,7 +19,6 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3266)]
     public enum PreTensionLoadType
     {
@@ -29,9 +28,8 @@ namespace CaeModel
         Displacement = 1
     }
     //
-    [Serializable]
     [PmxType(3267)]
-    public class PreTensionLoad : Load, ISerializable
+    public class PreTensionLoad : Load
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _surfaceName;                    //ISerializable
@@ -138,6 +136,15 @@ namespace CaeModel
         }
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetX(_x, false);
+            SetY(_y, false);
+            SetZ(_z, false);
+            SetForceMagnitude(_forceMagnitude, false);
+            SetDisplacementMagnitude(_dispMagnitude, false);
+        }
         private void SetX(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _x, value, null, checkEquation);
@@ -187,23 +194,6 @@ namespace CaeModel
             if (_type == PreTensionLoadType.Force) return _forceMagnitude.Value;
             else if (_type == PreTensionLoadType.Displacement) return _dispMagnitude.Value;
             else throw new NotSupportedException();
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_autoComputeDirection", _autoComputeDirection, typeof(bool));
-            info.AddValue("_x", _x, typeof(EquationContainer));
-            info.AddValue("_y", _y, typeof(EquationContainer));
-            info.AddValue("_z", _z, typeof(EquationContainer));
-            info.AddValue("_type", _type, typeof(PreTensionLoadType));
-            info.AddValue("_forceMagnitude", _forceMagnitude, typeof(EquationContainer));
-            info.AddValue("_dispMagnitude", _dispMagnitude, typeof(EquationContainer));
         }
     }
 }

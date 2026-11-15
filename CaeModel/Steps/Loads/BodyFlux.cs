@@ -18,9 +18,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3254)]
-    public class BodyFlux : Load, ISerializable
+    public class BodyFlux : Load
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _regionName;                 //ISerializable
@@ -68,6 +67,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetMagnitude(_magnitude, false);
+        }
         private void SetMagnitude(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _magnitude, value, null, checkEquation);
@@ -78,16 +82,6 @@ namespace CaeModel
             base.CheckEquations();
             //
             _magnitude.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_magnitude", _magnitude, typeof(EquationContainer));
         }
     }
 }

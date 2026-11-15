@@ -19,7 +19,6 @@ using System.Drawing.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10475)]
     public abstract class ViewDefinedField : ViewMultiRegion
     {

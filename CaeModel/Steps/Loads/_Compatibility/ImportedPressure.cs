@@ -20,9 +20,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3272)]
-    public class ImportedPressure : VariablePressure, IPreviewable, ISerializable
+    public class ImportedPressure : VariablePressure, IPreviewable
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _fileName;                       //ISerializable
@@ -114,6 +113,12 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetMagnitudeFactor(_magnitudeFactor, false);
+            SetGeomScaleFactor(_geomScaleFactor, false);
+        }
         private void SetMagnitudeFactor(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _magnitudeFactor, value, null, checkEquation);
@@ -309,20 +314,6 @@ namespace CaeModel
                 values[i] *= magnitude;
             }
             return values;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_fileName", _fileName, typeof(string));
-            info.AddValue("_pressureTime", _pressureTime, typeof(string));
-            info.AddValue("_pressureVariableName", _pressureVariableName, typeof(string));
-            info.AddValue("_interpolatorType", _interpolatorType, typeof(InterpolatorEnum));
-            info.AddValue("_magnitudeFactor", _magnitudeFactor, typeof(EquationContainer));
-            info.AddValue("_geomScaleFactor", _geomScaleFactor, typeof(EquationContainer));
-            info.AddValue("_oldFileInfo", _oldFileInfo, typeof(FileInfo));
         }
     }
 }

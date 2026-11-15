@@ -13,7 +13,6 @@ using CaeGlobals;
 namespace CaeMesh
 {
     // The names are the ones gmsh takes for its element quality measures
-    [Serializable]
     [PmxType(2107)]
     public enum GmshElementQualityMetricEnum
     {

@@ -17,9 +17,8 @@ using System.Threading.Tasks;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5036)]
-    public class HistoryResultData : NamedClass, ISerializable
+    public class HistoryResultData : NamedClass
     {
         // Variables                                                                                                                
         [PmxKey(0)] public string SetName;                  //ISerializable
@@ -65,15 +64,5 @@ namespace CaeResults
         }
 
 
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("SetName", SetName, typeof(string));
-            info.AddValue("FieldName", FieldName, typeof(string));
-            info.AddValue("ComponentName", ComponentName, typeof(string));
-        }
     }
 }

@@ -20,7 +20,6 @@ using System.Security.Policy;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10409)]
     public class ViewDistributionFromEquation : ViewDistribution
     {

@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10446)]
     [EnumResource("PrePoMax.Properties.Resources")]
     [Editor(typeof(StandardValueEditor), typeof(System.Drawing.Design.UITypeEditor))]
@@ -40,7 +39,6 @@ namespace PrePoMax
         PCON = 8
     }
 
-    [Serializable]
     [PmxType(10447)]
     public class ViewContactFieldOutput : ViewFieldOutput
     {

@@ -20,7 +20,6 @@ namespace Octree
     /// designed with the exact same interface to provide maximum compatibility.
     /// </remarks>
 
-    [Serializable]
     [PmxType(1023)]
     public struct Point
     {

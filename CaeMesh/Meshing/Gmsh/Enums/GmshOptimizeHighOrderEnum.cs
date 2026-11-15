@@ -28,7 +28,6 @@ namespace CaeMesh
     QuadQuasiStructured
     UntangleMeshGeometry
     */
-    [Serializable]
     [PmxType(2110)]
     public enum GmshOptimizeHighOrderEnum
     {

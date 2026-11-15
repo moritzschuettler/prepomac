@@ -21,9 +21,8 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3284)]
-    public class InitialVelocity : InitialCondition, IPreviewable, ISerializable
+    public class InitialVelocity : InitialCondition, IPreviewable
     {
         // Variables                                                                                                                
         [PmxKey(0)] private double _v1;
@@ -152,16 +151,6 @@ namespace CaeModel
         public FeResults GetPreview(FeModel model, string resultName, UnitSystem unitSystem)
         {
             return GetPreview(model.Mesh, resultName, unitSystem);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_v1", _v1, typeof(double));
-            info.AddValue("_v2", _v2, typeof(double));
-            info.AddValue("_v3", _v3, typeof(double));
         }
     }
 }

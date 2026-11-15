@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2082)]
     public enum FeSurfaceCreatedFrom
     {
@@ -30,7 +29,6 @@ namespace CaeMesh
     }
 
     // used in Calculix inp file
-    [Serializable]
     [PmxType(2083)]
     public enum FeSurfaceType
     {
@@ -38,7 +36,6 @@ namespace CaeMesh
         Node
     }
 
-    [Serializable]
     [PmxType(2084)]
     public enum FeSurfaceFaceTypes
     {
@@ -49,7 +46,6 @@ namespace CaeMesh
         SolidFaces
     }
 
-    [Serializable]
     [PmxType(2085)]
     public class FeSurface : NamedClass
     {

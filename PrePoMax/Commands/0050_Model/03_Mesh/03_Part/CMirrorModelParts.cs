@@ -22,9 +22,8 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10090)]
-    class CMirrorModelParts : PreprocessCommand, ISerializable
+    class CMirrorModelParts : PreprocessCommand
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string[] _partNames;
@@ -83,16 +82,6 @@ namespace PrePoMax.Commands
         public override string GetCommandString()
         {
             return base.GetCommandString() + GetArrayAsString(_partNames);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_partNames", _partNames, typeof(string[]));
-            info.AddValue("_mirrorPoint", _mirrorPoint, typeof(double[]));
-            info.AddValue("_mirrorDirection", _mirrorDirection, typeof(double[]));
-            info.AddValue("_copy", _copy, typeof(bool));
         }
     }
 }

@@ -19,7 +19,6 @@ using System.Diagnostics;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10521)]
     public class ViewMultiRegion : UserControls.IMissingPropertyValues
     {

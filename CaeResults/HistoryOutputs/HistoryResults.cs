@@ -20,9 +20,8 @@ using System.IO;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5041)]
-    public class HistoryResults : NamedClass, ISerializable
+    public class HistoryResults : NamedClass
     {
         
         // Variables                                                                                                                
@@ -182,14 +181,6 @@ namespace CaeResults
                 if (_sets.TryGetValue(entry.Key, out set)) set.AppendFields(entry.Value);
                 else _sets.Add(entry.Key, entry.Value);
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_sets", _sets, typeof(OrderedDictionary<string, HistoryResultSet>));
         }
 
     }

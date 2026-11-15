@@ -21,9 +21,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3173)]
-    public class InitialTranslationalVelocity : InitialCondition, IPreviewable, ISerializable
+    public class InitialTranslationalVelocity : InitialCondition, IPreviewable
     {
         // Variables                                                                                                                
         [PmxKey(0)] private int _nodeId;                        //ISerializable
@@ -97,6 +96,14 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetV1(_v1, false);
+            SetV2(_v2, false);
+            SetV3(_v3, false);
+            SetMagnitude(_magnitude, false);
+        }
         private void UpdateEquations()
         {
             try
@@ -225,18 +232,6 @@ namespace CaeModel
             results.AddField(fieldData, field);
             //
             return results;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_nodeId", _nodeId, typeof(int));
-            info.AddValue("_v1", _v1, typeof(EquationContainer));
-            info.AddValue("_v2", _v2, typeof(EquationContainer));
-            info.AddValue("_v3", _v3, typeof(EquationContainer));
-            info.AddValue("_magnitude", _magnitude, typeof(EquationContainer));
         }
     }
 }

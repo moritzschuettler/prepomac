@@ -18,9 +18,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3242)]
-    public class HeatTransferStep : StaticStep, ISerializable
+    public class HeatTransferStep : StaticStep
     {
         // Variables                                                                                                                
         [PmxKey(0)] private bool _steadyState;                  //ISerializable
@@ -114,15 +113,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return false;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_steadyState", _steadyState, typeof(bool));
-            info.AddValue("_deltmx", _deltmx, typeof(double));
         }
     }
 }

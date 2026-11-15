@@ -19,9 +19,8 @@ using CaeResults;
 
 namespace CaeModel
 {    
-    [Serializable]
     [PmxType(3212)]
-    public class TemperatureBC : BoundaryCondition, IDistribution, IPreviewable, ISerializable
+    public class TemperatureBC : BoundaryCondition, IDistribution, IPreviewable
     {
         // Variables                                                                                                                
         [PmxKey(0)] private int _nodeId;                            //ISerializable
@@ -77,6 +76,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetTemperature(_temperature, false);
+        }
         private void SetTemperature(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _temperature, value, null, checkEquation);
@@ -221,16 +225,6 @@ namespace CaeModel
                     else throw new NotSupportedException();
                 }
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_nodeId", _nodeId, typeof(int));
-            info.AddValue("_temperature", _temperature, typeof(EquationContainer));
-            info.AddValue("_distributionName", _distributionName, typeof(string));
         }
     }
 }

@@ -23,9 +23,8 @@ using static CaeGlobals.Geometry2;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3033)]
-    public class DistributionFromFile : MappedDistribution, ISerializable
+    public class DistributionFromFile : MappedDistribution
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _fileName;                                   //ISerializable
@@ -183,15 +182,6 @@ namespace CaeModel
             {
                 throw new CaeException(ex.Message);
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_fileName", _fileName, typeof(string));
-            info.AddValue("_oldFileInfo", _oldFileInfo, typeof(FileInfo));
         }
     }
 }

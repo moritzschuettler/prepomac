@@ -20,7 +20,6 @@ using System.Drawing;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10476)]
     public class ViewDefinedTemperature : ViewDefinedField
     {

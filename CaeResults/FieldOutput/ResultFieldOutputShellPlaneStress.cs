@@ -15,7 +15,6 @@ namespace CaeResults
 {
     // The shell in-plane state: the in-plane components and the in-plane principal values, in the material axes of the
     // shell elements, of their stresses or of their strains, neglecting the components through the thickness
-    [Serializable]
     [PmxType(5029)]
     public class ResultFieldOutputShellPlaneStress : ResultFieldOutput
     {

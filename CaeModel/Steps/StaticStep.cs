@@ -18,9 +18,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3276)]
-    public class StaticStep : Step, ISerializable
+    public class StaticStep : Step
     {
         // Variables                                                                                                                
         [PmxKey(0)] private double _timePeriod;                 //ISerializable
@@ -173,18 +172,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return true;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_timePeriod", _timePeriod, typeof(double));
-            info.AddValue("_initialTimeIncrement", _initialTimeIncrement, typeof(double));
-            info.AddValue("_minTimeIncrement", _minTimeIncrement, typeof(double));
-            info.AddValue("_maxTimeIncrement", _maxTimeIncrement, typeof(double));
-            info.AddValue("_direct", _direct, typeof(bool));
         }
     }
 }

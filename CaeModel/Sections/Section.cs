@@ -19,9 +19,8 @@ using System.Drawing;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3203)]
-    public abstract class Section : NamedClass, IMultiRegion, IContainsEquations, ISerializable
+    public abstract class Section : NamedClass, IMultiRegion, IContainsEquations
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _materialName;               //ISerializable
@@ -99,6 +98,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetThickness(_thickness, false);
+        }
         private void SetThickness(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _thickness, value, CheckPositive, checkEquation);
@@ -122,20 +126,6 @@ namespace CaeModel
                 return true;
             }
             catch (Exception ex) { return false; }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_materialName", _materialName, typeof(string));
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_thickness", _thickness, typeof(EquationContainer));
-            info.AddValue("_twoD", _twoD, typeof(bool));
         }
     }
 

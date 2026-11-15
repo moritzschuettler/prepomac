@@ -19,7 +19,6 @@ using System.Threading.Tasks;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5058)]
     public class ResultsCollection
     {

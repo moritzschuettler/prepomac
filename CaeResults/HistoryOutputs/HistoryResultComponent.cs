@@ -20,9 +20,8 @@ using System.IO;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5035)]
-    public class HistoryResultComponent : NamedClass, ISerializable
+    public class HistoryResultComponent : NamedClass
     {
         // Variables                                                                                                                
         [PmxKey(0)] protected string _unit;                                                     //ISerializable
@@ -461,15 +460,6 @@ namespace CaeResults
             }
 
             return true;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_unit", _unit, typeof(string));
-            info.AddValue("_entries", _entries, typeof(OrderedDictionary<string, HistoryResultComponent>));
         }
 
     }

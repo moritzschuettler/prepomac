@@ -19,9 +19,8 @@ using System.Threading.Tasks;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1025)]
-    public class Selection : ISerializable
+    public class Selection
     {
         // Variables                                                                                                                
         [PmxKey(0)] private List<SelectionNode> _nodes;                 //ISerializable
@@ -299,21 +298,6 @@ namespace CaeGlobals
         {
             // This prevents calling DeepClone!
             throw new NotSupportedException();
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_nodes", _nodes, typeof(List<SelectionNode>));
-            info.AddValue("_selectItem", _selectItem, typeof(vtkSelectItem));
-            info.AddValue("_currentView", _currentView, typeof(int));
-            info.AddValue("_maxNumberOfGeometryIds", _maxNumberOfGeometryIds, typeof(int));
-            info.AddValue("_maxNumberOfItemIds", _maxNumberOfItemIds, typeof(int));
-            info.AddValue("_limitSelectionToFirstPart", _limitSelectionToFirstPart, typeof(bool));
-            info.AddValue("_limitSelectionToFirstGeometryType", _limitSelectionToFirstGeometryType, typeof(bool));
-            info.AddValue("_limitSelectionToFirstMesherType", _limitSelectionToFirstMesherType, typeof(bool));
-            info.AddValue("_limitSelectionToShellEdges", _limitSelectionToShellEdges, typeof(bool));
-            info.AddValue("_enableShellEdgeFaceSelection", _enableShellEdgeFaceSelection, typeof(bool));
         }
     }
 }

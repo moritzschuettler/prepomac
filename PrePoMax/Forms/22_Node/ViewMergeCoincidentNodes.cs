@@ -20,7 +20,6 @@ using System.Drawing.Printing;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10346)]
     public class ViewMergeCoincidentNodes
     {

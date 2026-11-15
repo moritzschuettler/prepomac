@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3030)]
     public enum DistributionTypeEnum
     {
@@ -28,9 +27,8 @@ namespace CaeModel
         [StandardValue("Vector", DisplayName = "Vector")]
         Vector
     }
-    [Serializable]
     [PmxType(3031)]
-    public abstract class Distribution : NamedClass, ISerializable
+    public abstract class Distribution : NamedClass
     {
         // Variables                                                                                                                
         [PmxKey(0)] protected DistributionTypeEnum _distributionType;           //ISerializable
@@ -93,14 +91,5 @@ namespace CaeModel
         public abstract bool ImportDistribution();
         public abstract void GetMagnitudesAndDistancesForPoints(FeModel model, double[][] points, out double[][] magnitudes,
                                                                 out double[][] distances);
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_distributionType", _distributionType, typeof(DistributionTypeEnum));
-            info.AddValue("_coordinateSystemName", _coordinateSystemName, typeof(string));
-        }
     }
 }

@@ -17,7 +17,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10543)]
     public class SolverSettings : ISettings
     {

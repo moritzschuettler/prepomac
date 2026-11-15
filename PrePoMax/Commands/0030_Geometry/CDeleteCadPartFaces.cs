@@ -21,7 +21,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10058)]
     class CDeleteCadPartFaces : PreprocessCommand
     {

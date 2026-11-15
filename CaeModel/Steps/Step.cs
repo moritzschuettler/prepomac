@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3278)]
     public enum IncrementationTypeEnum
     {
@@ -28,7 +27,6 @@ namespace CaeModel
         Direct
     }
     //
-    [Serializable]
     [PmxType(3279)]
     public enum SolverTypeEnum
     {
@@ -44,9 +42,8 @@ namespace CaeModel
         IterativeCholesky
     }
 
-    [Serializable]
     [PmxType(3280)]
-    public abstract class Step : NamedClass, ISerializable
+    public abstract class Step : NamedClass
     {
         // Variables                                                                                                                
         [PmxKey(0)] protected OrderedDictionary<string, HistoryOutput> _historyOutputs;             //ISerializable
@@ -233,27 +230,6 @@ namespace CaeModel
         {
             if (_stepControls != null && _stepControls.Parameters != null) return _stepControls.Parameters.Count;
             else return 0;
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_historyOutputs", _historyOutputs, typeof(OrderedDictionary<string, HistoryOutput>));
-            info.AddValue("_fieldOutputs", _fieldOutputs, typeof(OrderedDictionary<string, FieldOutput>));
-            info.AddValue("_boundaryConditions", _boundaryConditions, typeof(OrderedDictionary<string, BoundaryCondition>));
-            info.AddValue("_loads", _loads, typeof(OrderedDictionary<string, Load>));
-            info.AddValue("_definedFields", _definedFields, typeof(OrderedDictionary<string, DefinedField>));
-            info.AddValue("_runAnalysis", _runAnalysis, typeof(bool));
-            info.AddValue("_perturbation", _perturbation, typeof(bool));
-            info.AddValue("_nlgeom", _nlgeom, typeof(bool));
-            info.AddValue("_maxIncrements", _maxIncrements, typeof(int));
-            info.AddValue("_incrementationType", _incrementationType, typeof(IncrementationTypeEnum));
-            info.AddValue("_solverType", _solverType, typeof(SolverTypeEnum));
-            info.AddValue("_outputFrequency", _outputFrequency, typeof(int));
-            info.AddValue("_stepControls", _stepControls, typeof(StepControls));
         }
     }
 }

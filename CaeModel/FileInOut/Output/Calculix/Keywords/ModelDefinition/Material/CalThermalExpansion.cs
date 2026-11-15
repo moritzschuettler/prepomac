@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3097)]
     internal class CalThermalExpansion : CalculixKeyword
     {

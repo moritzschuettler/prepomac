@@ -17,8 +17,6 @@ using UserControls;
 
 namespace PrePoMax
 {
-    [Serializable]
-    [PmxType(10303)]
     public static class AdvisorCreator
     {
         // Methods                                                                                                                  

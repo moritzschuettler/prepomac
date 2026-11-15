@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3180)]
     public class Material : NamedClass
     {

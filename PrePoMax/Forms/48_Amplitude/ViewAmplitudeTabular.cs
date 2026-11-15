@@ -19,7 +19,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10414)]
     public class ViewAmplitudeTabular : ViewAmplitude
     {

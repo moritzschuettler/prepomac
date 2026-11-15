@@ -19,7 +19,6 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10324)]
     public class ViewGeometryRepair : UserControls.IMissingPropertyValues
     {

@@ -16,7 +16,6 @@ using System.Runtime.Serialization;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1024)]
     public enum vtkSelectItem
     {   

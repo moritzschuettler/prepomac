@@ -19,7 +19,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10442)]
     [EnumResource("PrePoMax.Properties.Resources")]
     [Editor(typeof(StandardValueEditor), typeof(System.Drawing.Design.UITypeEditor))]
@@ -40,7 +39,6 @@ namespace PrePoMax
         RFL = 16,
     }
 
-    [Serializable]
     [PmxType(10443)]
     public class ViewNodalHistoryOutput : ViewHistoryOutput
     {

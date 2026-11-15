@@ -18,9 +18,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3253)]
-    public class InitialStep : Step, ISerializable
+    public class InitialStep : Step
     {
         // Variables                                                                                                                
 
@@ -56,12 +55,6 @@ namespace CaeModel
         public override bool IsDefinedFieldSupported(DefinedField definedField)
         {
             return true;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
         }
     }
 }

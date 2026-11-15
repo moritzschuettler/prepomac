@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10395)]
     public enum SurfaceSupportTypeEnum
     {
@@ -31,7 +30,6 @@ namespace PrePoMax
         CompressionOnly
     }
 
-    [Serializable]
     [PmxType(10396)]
     public class ViewSurfaceSupport : ViewConstraint
     {

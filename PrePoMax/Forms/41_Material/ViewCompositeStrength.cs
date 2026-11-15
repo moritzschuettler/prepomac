@@ -15,7 +15,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10369)]
     public class ViewCompositeStrength : ViewMaterialProperty
     {

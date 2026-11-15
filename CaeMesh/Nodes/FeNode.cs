@@ -17,7 +17,6 @@ using System.Xml.Linq;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2132)]
     public struct FeNode
     {

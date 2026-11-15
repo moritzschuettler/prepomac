@@ -17,9 +17,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3198)]
-    public class LinearSpringSectionData : SectionData, ISerializable
+    public class LinearSpringSectionData : SectionData
     {
         // Variables                                                                                                                
         [PmxKey(0)] private int _direction;                 //ISerializable
@@ -69,18 +68,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-        
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_direction", _direction, typeof(int));
-            info.AddValue("_secondDirection", _secondDirection, typeof(int));
-            info.AddValue("_stiffness", _stiffness, typeof(double));
-        }
     }
 }

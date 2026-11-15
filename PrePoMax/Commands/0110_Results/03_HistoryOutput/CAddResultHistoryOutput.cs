@@ -21,7 +21,6 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10260)]
     class CAddResultHistoryOutput : PostprocessCommand
     {

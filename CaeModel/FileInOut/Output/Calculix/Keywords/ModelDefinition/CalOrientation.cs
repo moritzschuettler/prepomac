@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3071)]
     internal class CalOrientation : CalculixKeyword
     {

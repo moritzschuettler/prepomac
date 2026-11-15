@@ -18,7 +18,6 @@ using CaeGlobals;
 namespace CaeMesh
 {
     // 0D                                                                                                                           
-    [Serializable]
     [PmxType(2029)]
     public enum FeElementType0D
     {
@@ -28,7 +27,6 @@ namespace CaeMesh
     }
 
     // 1D                                                                                                                           
-    [Serializable]
     [PmxType(2030)]
     public enum FeElementTypeGap
     {
@@ -37,7 +35,6 @@ namespace CaeMesh
         GAPUNI = 10,
     }
     //
-    [Serializable]
     [PmxType(2031)]
     public enum FeElementTypeSpring
     {
@@ -48,7 +45,6 @@ namespace CaeMesh
         SPRINGA = 12,
     }
     //
-    [Serializable]
     [PmxType(2032)]
     public enum FeElementTypeLinearBeam
     {
@@ -61,7 +57,6 @@ namespace CaeMesh
         B21 = 21,
     }
     //
-    [Serializable]
     [PmxType(2033)]
     public enum FeElementTypeParabolicBeam
     {
@@ -72,7 +67,6 @@ namespace CaeMesh
         B32R = 12,
     }
     // 2D                                                                                                                           
-    [Serializable]
     [PmxType(2034)]
     public enum FeElementTypeLinearTria
     {
@@ -85,7 +79,6 @@ namespace CaeMesh
         CAX3 = 40
     }
     //
-    [Serializable]
     [PmxType(2035)]
     public enum FeElementTypeParabolicTria
     {
@@ -98,7 +91,6 @@ namespace CaeMesh
         CAX6 = 40
     }
     //
-    [Serializable]
     [PmxType(2036)]
     public enum FeElementTypeLinearQuad
     {
@@ -116,7 +108,6 @@ namespace CaeMesh
         CAX4R = 41
     }
     //
-    [Serializable]
     [PmxType(2037)]
     public enum FeElementTypeParabolicQuad
     {
@@ -134,7 +125,6 @@ namespace CaeMesh
         CAX8R = 41
     }
     // 3D                                                                                                                           
-    [Serializable]
     [PmxType(2038)]
     public enum FeElementTypeLinearTetra
     {
@@ -143,7 +133,6 @@ namespace CaeMesh
         C3D4 = 10
     }
     //
-    [Serializable]
     [PmxType(2039)]
     public enum FeElementTypeParabolicTetra
     {
@@ -153,7 +142,6 @@ namespace CaeMesh
         C3D10T = 11
     }
     //
-    [Serializable]
     [PmxType(2040)]
     public enum FeElementTypeLinearPyramid
     {
@@ -162,7 +150,6 @@ namespace CaeMesh
         C3D5 = 10
     }
     //
-    [Serializable]
     [PmxType(2041)]
     public enum FeElementTypeParabolicPyramid
     {
@@ -171,7 +158,6 @@ namespace CaeMesh
         C3D13 = 10
     }
     //
-    [Serializable]
     [PmxType(2042)]
     public enum FeElementTypeLinearWedge
     {
@@ -180,7 +166,6 @@ namespace CaeMesh
         C3D6 = 10
     }
     //
-    [Serializable]
     [PmxType(2043)]
     public enum FeElementTypeParabolicWedge
     {
@@ -189,7 +174,6 @@ namespace CaeMesh
         C3D15 = 10
     }
     //
-    [Serializable]
     [PmxType(2044)]
     public enum FeElementTypeLinearHexa
     {
@@ -200,7 +184,6 @@ namespace CaeMesh
         C3D8I = 12
     }
     //
-    [Serializable]
     [PmxType(2045)]
     public enum FeElementTypeParabolicHexa
     {

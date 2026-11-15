@@ -20,7 +20,6 @@ using System.Net.Configuration;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2002)]
     public enum CsPointCreatedFromEnum
     {
@@ -34,7 +33,6 @@ namespace CaeMesh
         CircleCenter
     }
     //
-    [Serializable]
     [PmxType(2003)]
     public enum CoordinateSystemTypeEnum
     {
@@ -44,9 +42,8 @@ namespace CaeMesh
         Cylindrical,
     }
     //
-    [Serializable]
     [PmxType(2004)]
-    public class CoordinateSystem : NamedClass, ISerializable, IContainsEquations
+    public class CoordinateSystem : NamedClass, IContainsEquations
     {
         // Variables                                                                                                                
         [PmxKey(0)] private CoordinateSystemTypeEnum _type;                 //ISerializable
@@ -205,6 +202,19 @@ namespace CaeMesh
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetX1(_x1, false);
+            SetY1(_y1, false);
+            SetZ1(_z1, false);
+            SetX2(_x2, false);
+            SetY2(_y2, false);
+            SetZ2(_z2, false);
+            SetX3(_x3, false);
+            SetY3(_y3, false);
+            SetZ3(_z3, false);
+        }
         private void SetX1(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _x1, value, null, EquationChanged, checkEquation);
@@ -488,35 +498,6 @@ namespace CaeMesh
                 error = ex.Message;
                 return false;
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_type", _type, typeof(CoordinateSystemTypeEnum));
-            info.AddValue("_x1", _x1, typeof(EquationContainer));
-            info.AddValue("_y1", _y1, typeof(EquationContainer));
-            info.AddValue("_z1", _z1, typeof(EquationContainer));
-            info.AddValue("_x2", _x2, typeof(EquationContainer));
-            info.AddValue("_y2", _y2, typeof(EquationContainer));
-            info.AddValue("_z2", _z2, typeof(EquationContainer));
-            info.AddValue("_x3", _x3, typeof(EquationContainer));
-            info.AddValue("_y3", _y3, typeof(EquationContainer));
-            info.AddValue("_z3", _z3, typeof(EquationContainer));
-            info.AddValue("_centerCreatedFrom", _centerCreatedFrom, typeof(CsPointCreatedFromEnum));
-            info.AddValue("_pointXCreatedFrom", _pointXCreatedFrom, typeof(CsPointCreatedFromEnum));
-            info.AddValue("_pointXYCreatedFrom", _pointXYCreatedFrom, typeof(CsPointCreatedFromEnum));
-            info.AddValue("_centerCreationIds", _centerCreationIds, typeof(int[]));
-            info.AddValue("_centerCreationData", _centerCreationData, typeof(Selection));
-            info.AddValue("_pointXCreationIds", _pointXCreationIds, typeof(int[]));
-            info.AddValue("_pointXCreationData", _pointXCreationData, typeof(Selection));
-            info.AddValue("_pointXYCreationIds", _pointXYCreationIds, typeof(int[]));
-            info.AddValue("_pointXYCreationData", _pointXYCreationData, typeof(Selection));
-            info.AddValue("_nameVisible", _nameVisible, typeof(bool));
-            info.AddValue("_twoD", _twoD, typeof(bool));
-            info.AddValue("_color", _color, typeof(Color));
         }
     }
 }

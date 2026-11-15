@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {   
-    [Serializable]
     [PmxType(5043)]
     public abstract class ResultHistoryOutput : NamedClass, IMultiRegion
     {

@@ -6,7 +6,6 @@ using System;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1004)]
     public enum ResultFieldTypeEnum
     {
@@ -15,7 +14,6 @@ namespace CaeGlobals
         SymmetricTensor
     }
 
-    [Serializable]
     [PmxType(1005)]
     public enum ResultFieldValueModeEnum
     {
@@ -28,7 +26,6 @@ namespace CaeGlobals
     /// Complete nodal field data required to reconstruct a selected, direction-dependent
     /// result component after display-only geometry transformations.
     /// </summary>
-    [Serializable]
     [PmxType(1006)]
     public class ResultFieldExchangeData
     {

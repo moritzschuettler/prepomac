@@ -19,7 +19,6 @@ using CaeJob;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3223)]
     public enum DampingTypeEnum
     {
@@ -27,7 +26,6 @@ namespace CaeModel
         Rayleigh
     }
 
-    [Serializable]
     [PmxType(3224)]
     public class Damping : NamedClass
     {

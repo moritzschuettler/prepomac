@@ -20,9 +20,8 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3061)]
-    public class CalculixUserKeyword : CalculixKeyword, ISerializable
+    public class CalculixUserKeyword : CalculixKeyword
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _firstLine;                  //ISerializable
@@ -89,16 +88,6 @@ namespace FileInOut.Output.Calculix
         {
             string[] tmp = _data.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
             if (tmp.Length > 0) _firstLine = tmp[0];
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_firstLine", _firstLine, typeof(string));
-            info.AddValue("_data", _data, typeof(string));
-            info.AddValue("_parent", _parent, typeof(object));
-            info.AddValue("_suppressed", _suppressed, typeof(bool));
         }
     }
 }

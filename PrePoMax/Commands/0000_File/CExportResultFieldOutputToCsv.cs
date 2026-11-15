@@ -20,7 +20,6 @@ using CaeResults;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10020)]
     class CExportResultFieldOutputToCsv : PostprocessCommand, IExportFileCommand
     {

@@ -22,7 +22,6 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10028)]
     public class CSaveToPmx : SaveCommand, IFileCommand
     {

@@ -21,7 +21,6 @@ using System.Diagnostics;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10334)]
     public class ViewGmshSetupItem : ViewMeshSetupItem
     {

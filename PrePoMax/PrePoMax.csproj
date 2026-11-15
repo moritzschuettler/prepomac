@@ -1330,6 +1330,10 @@
       <Project>{bca7c65b-cc0b-48ca-b852-49255bd3851d}</Project>
       <Name>CaeResults</Name>
     </ProjectReference>
+    <ProjectReference Include="..\PrePoMax.LegacyImport\PrePoMax.LegacyImport.csproj">
+      <Project>{5a398a3e-3f33-4fe4-b383-f4494938b452}</Project>
+      <Name>PrePoMax.LegacyImport</Name>
+    </ProjectReference>
     <ProjectReference Include="..\UserControls\UserControls.csproj">
       <Project>{74ea83fb-2743-49ee-85a8-5b42cbce19b3}</Project>
       <Name>UserControls</Name>
@@ -1537,6 +1541,8 @@ IF NOT EXIST "$(TargetDir)Help\Python\" mkdir "$(TargetDir)Help\Python\"
 copy "$(SolutionDir)AgentSkill\prepomax\SKILL.md" "$(TargetDir)Help\Python\SKILL.md"
 
 IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
+rem GmshCaller reads its data with the storage serializer, whose dependencies need the binding redirects of its config
+IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe.config" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe.config" "$(TargetDir)lib"
 
 rem PrePoMaxCmd is the console subsystem launcher deployed as PrePoMax.com so that a command line run
 rem keeps the shell waiting and receives the exit code - see PrePoMaxCmd\Program.cs

@@ -20,7 +20,6 @@ using System.Drawing;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10545)]
     public class UnitSystemSettings : ISettings
     {

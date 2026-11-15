@@ -33,7 +33,6 @@ namespace CaeJob
     //    Failed
     //}
 
-    [Serializable]
     [PmxType(6004)]
     public class ExecutableJob : NamedClass
     {

@@ -20,7 +20,6 @@ using System.Drawing.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10404)]
     public class ViewContactPair : ViewMasterSlaveMultiRegion
     {

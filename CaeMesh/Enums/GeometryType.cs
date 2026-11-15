@@ -17,7 +17,6 @@ using CaeGlobals;
 namespace CaeMesh
 {
     // Used to encode the selected geometry items into ItemTypePart id
-    [Serializable]
     [PmxType(2053)]
     public enum GeometryType
     {

@@ -39,7 +39,6 @@ using vtkControl;
 
 namespace PrePoMax
 {
-    [Serializable]
     public partial class Controller //: ISerializable
     {
         // Variables                                                                                                                

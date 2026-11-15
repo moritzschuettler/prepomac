@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3053)]
     internal class AbqShellEdgeLoad : CalShellEdgeLoad
     {

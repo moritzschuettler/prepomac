@@ -20,7 +20,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10466)]
     public class ViewFilmHeatTransfer : ViewLoad
     {

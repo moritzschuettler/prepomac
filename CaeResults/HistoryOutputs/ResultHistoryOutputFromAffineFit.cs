@@ -12,7 +12,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5044)]
     public enum AffineFitPointSourceEnum
     {
@@ -20,7 +19,6 @@ namespace CaeResults
         CellCentroids
     }
 
-    [Serializable]
     [PmxType(5045)]
     public enum AffineFitWeightingEnum
     {
@@ -29,7 +27,6 @@ namespace CaeResults
         Perimeter
     }
 
-    [Serializable]
     [PmxType(5046)]
     public enum AffineFitStrainMeasureEnum
     {
@@ -38,7 +35,6 @@ namespace CaeResults
         Logarithmic
     }
 
-    [Serializable]
     [PmxType(5047)]
     public class ResultHistoryOutputFromAffineFit : ResultHistoryOutput
     {

@@ -18,7 +18,6 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3068)]
     internal class CalHeading : CalculixKeyword
     {

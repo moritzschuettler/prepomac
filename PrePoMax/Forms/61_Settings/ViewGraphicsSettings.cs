@@ -19,7 +19,6 @@ using System.Drawing;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
     [PmxType(10482)]
     public class ViewGraphicsSettings : IViewSettings, IReset
     {

@@ -14,7 +14,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
     [PmxType(10486)]
     public class ViewNavigationSettings : IViewSettings, IReset
     {

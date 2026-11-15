@@ -20,7 +20,6 @@ using static System.Windows.Forms.Design.AxImporter;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10498)]
     public abstract class ViewResultFieldOutput
     {

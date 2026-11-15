@@ -21,7 +21,6 @@ using CaeResults;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10518)]
     public abstract class ViewTransformation
     {

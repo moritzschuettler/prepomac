@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-	[Serializable]
 	[PmxType(2054)]
 	public enum GeomFaceType
 	{

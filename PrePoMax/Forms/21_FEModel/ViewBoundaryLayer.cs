@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10341)]
     class BoundaryLayer
     {
@@ -39,7 +38,6 @@ namespace PrePoMax.Forms
     }
 
 
-    [Serializable]
     [PmxType(10342)]
     public class ViewBoundaryLayer
     {

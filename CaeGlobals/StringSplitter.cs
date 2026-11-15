@@ -11,7 +11,6 @@ using System;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1031)]
     /// <summary>
     /// A high performance string splitter

@@ -17,9 +17,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3179)]
-    public class ElasticWithDensity : MaterialProperty, ISerializable
+    public class ElasticWithDensity : MaterialProperty
     {
         // Variables                                                                                                                
         [PmxKey(0)] private EquationContainer _youngsModulus;          //ISerializable
@@ -79,6 +78,13 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetYoungsModulus(_youngsModulus, false);
+            SetPoissonsRatio(_poissonsRatio, false);
+            SetDensity(_density, false);
+        }
         private void SetYoungsModulus(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _youngsModulus, value, CheckPositive, checkEquation);
@@ -103,16 +109,6 @@ namespace CaeModel
             _youngsModulus.CheckEquation();
             _poissonsRatio.CheckEquation();
             _density.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_youngsModulus", _youngsModulus, typeof(EquationContainer));
-            info.AddValue("_poissonsRatio", _poissonsRatio, typeof(EquationContainer));
-            info.AddValue("_density", _density, typeof(EquationContainer));
         }
     }
 }

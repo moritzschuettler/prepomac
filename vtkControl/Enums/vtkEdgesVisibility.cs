@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace vtkControl
 {
-    [Serializable]
     [PmxType(6103)]
     public enum vtkEdgesVisibility
     {

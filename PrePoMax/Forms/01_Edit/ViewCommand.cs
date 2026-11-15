@@ -14,7 +14,6 @@ using PrePoMax.Commands;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
     [PmxType(10312)]
     public class ViewCommand
     {

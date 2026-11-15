@@ -22,7 +22,6 @@ using System.Threading.Tasks;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10304)]
     public class Export3mfFileProperties : ExportFileProperties
     {

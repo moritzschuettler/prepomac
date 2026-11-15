@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10313)]
     public enum ExplodedViewDirectionEnum
     {
@@ -30,7 +29,6 @@ namespace PrePoMax
         YZ = 6
     }
     //
-    [Serializable]
     [PmxType(10314)]
     public enum ExplodedViewMethodEnum
     {
@@ -47,7 +45,6 @@ namespace PrePoMax
         CenterPoint = 2
     }
     //
-    [Serializable]
     [PmxType(10315)]
     public class ExplodedViewParameters
     {

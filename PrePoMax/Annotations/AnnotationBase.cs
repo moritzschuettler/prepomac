@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10000)]
     public abstract class AnnotationBase : NamedClass
     {

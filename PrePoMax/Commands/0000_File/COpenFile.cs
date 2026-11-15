@@ -22,7 +22,6 @@ using System.IO;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10027)]
     class COpenFile : PreprocessCommand, IFileCommand, ICommandWithDialog
     {

@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3028)]
     public class SurfaceInteraction : NamedClass
     {

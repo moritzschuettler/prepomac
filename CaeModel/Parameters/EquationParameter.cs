@@ -18,7 +18,6 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3192)]
     public class EquationParameter : NamedClass
     {

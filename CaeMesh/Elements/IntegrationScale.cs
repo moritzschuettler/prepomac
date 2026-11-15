@@ -12,7 +12,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2046)]
     public enum IntegrationScaleType
     {
@@ -27,7 +26,6 @@ namespace CaeMesh
     // - None:         weight = 1                 (3D or plain geometric integral)
     // - Thickness:    weight = t (constant)      (plane stress / plane strain slab of thickness t)
     // - Axisymmetric: weight = 2 * pi * r        (surface / volume of revolution)
-    [Serializable]
     [PmxType(2047)]
     public struct IntegrationScale
     {

@@ -7,7 +7,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3057)]
     public class CalReferencePoint
     {

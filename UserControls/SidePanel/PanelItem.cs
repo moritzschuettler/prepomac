@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6202)]
     public class PanelItem
     {

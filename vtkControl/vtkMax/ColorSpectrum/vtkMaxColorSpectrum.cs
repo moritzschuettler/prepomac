@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace vtkControl
 {
-    [Serializable]
     [PmxType(6107)]
     public class vtkMaxColorSpectrum
     {

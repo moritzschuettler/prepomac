@@ -21,7 +21,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10050)]
     class CSetColorForGeometryParts : PreprocessCommand
     {

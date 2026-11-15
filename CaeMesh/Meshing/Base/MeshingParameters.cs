@@ -19,9 +19,8 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2092)]
-    public class MeshingParameters : MeshSetupItem , ISerializable
+    public class MeshingParameters : MeshSetupItem
     {
         // fineness ... Mesh density: 0...1 (0 => coarse; 1 => fine)
         // grading  ... Mesh grading: 0...1 (0 => uniform mesh; 1 => aggressive local grading)
@@ -472,36 +471,6 @@ namespace CaeMesh
             if (meshingParameters1._mergeCompoundParts != meshingParameters2._mergeCompoundParts) return false;
             if (meshingParameters1._mergeCells != meshingParameters2._mergeCells) return false;
             return true;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_advancedView", _advancedView, typeof(bool));
-            info.AddValue("_defaultSizeIsRelative", _defaultSizeIsRelative, typeof(bool));
-            info.AddValue("_relativeSize", _relativeSize, typeof(bool));
-            //
-            info.AddValue("_factorMax", _factorMax, typeof(double));
-            info.AddValue("_factorMin", _factorMin, typeof(double));
-            //
-            info.AddValue("_maxH", _maxH, typeof(double));
-            info.AddValue("_minH", _minH, typeof(double));
-            info.AddValue("_fineness", _fineness, typeof(double));
-            info.AddValue("_grading", _grading, typeof(double));
-            info.AddValue("_elementsPerEdge", _elementsPerEdge, typeof(double));
-            info.AddValue("_elementsPerCurve", _elementsPerCurve, typeof(double));
-            info.AddValue("_secondOrder", _secondOrder, typeof(bool));
-            info.AddValue("_quadDominated", _quadDominated, typeof(bool));
-            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(TransfiniteThreeSidedEnum));
-            info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
-            info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
-            info.AddValue("_midsideNodesOnGeometry", _midsideNodesOnGeometry, typeof(bool));
-            info.AddValue("_optimizeSteps2D", _optimizeSteps2D, typeof(int));
-            info.AddValue("_optimizeSteps3D", _optimizeSteps3D, typeof(int));
-            info.AddValue("_splitCompoundMesh", _splitCompoundMesh, typeof(bool));
-            info.AddValue("_mergeCompoundParts", _mergeCompoundParts, typeof(bool));
-            info.AddValue("_mergeCells", _mergeCells, typeof(bool));
         }
     }
 }

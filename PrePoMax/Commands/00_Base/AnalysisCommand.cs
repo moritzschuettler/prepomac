@@ -18,7 +18,6 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10218)]
     public abstract class AnalysisCommand : Command
     {

@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10362)]
     public class ElasticLaminaDataPoint : TempDataPoint
     {

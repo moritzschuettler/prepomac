@@ -14,9 +14,8 @@ using CaeMesh;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3191)]
-    public class MaterialOrientation : NamedClass, IMultiRegion, IContainsEquations, ISerializable
+    public class MaterialOrientation : NamedClass, IMultiRegion, IContainsEquations
     {
         // Variables                                                                                                                
         public const int DefaultSymbolDensity = 50;
@@ -108,6 +107,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetRotationAngle(_rotationAngle, false);
+        }
         private void SetRotationAngle(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _rotationAngle, value, CheckFinite, checkEquation);
@@ -143,21 +147,6 @@ namespace CaeModel
                 return true;
             }
             catch (Exception) { return false; }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_coordinateSystemName", _coordinateSystemName, typeof(string));
-            info.AddValue("_referenceAxis", _referenceAxis, typeof(MaterialOrientationAxisEnum));
-            info.AddValue("_rotationAngle", _rotationAngle, typeof(EquationContainer));
-            info.AddValue("_symbolDensity", _symbolDensity, typeof(int));
         }
     }
 }

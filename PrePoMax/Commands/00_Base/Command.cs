@@ -19,7 +19,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10219)]
     public abstract class Command   //: ISerializable - this would mean that all derived classes must be Serializable !!!
     {
@@ -113,14 +112,6 @@ namespace PrePoMax.Commands
             names += "]";
 
             return names;
-        }
-        protected virtual void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_name", _name, typeof(string));
-            info.AddValue("_dateCreated", _dateCreated, typeof(DateTime));
-            info.AddValue("_timeSpan", _timeSpan, typeof(TimeSpan));
-            info.AddValue("_periodicFacesSplitOnlyOnRequest", _periodicFacesSplitOnlyOnRequest, typeof(bool));
         }
     }
 }

@@ -28,7 +28,6 @@ namespace PrePoMax.Commands
     /// front of the meshing instead would not do: a model built by a script carries no meshing command at
     /// all, since the whole script is recorded as one command.
     /// </summary>
-    [Serializable]
     [PmxType(10071)]
     class CAddNetgenMeshToUncoveredParts : PreprocessCommand
     {

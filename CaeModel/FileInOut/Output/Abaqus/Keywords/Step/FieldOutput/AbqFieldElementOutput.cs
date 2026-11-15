@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3049)]
     internal class AbqFieldElementOutput : CalElFile
     {

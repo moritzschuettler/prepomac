@@ -17,9 +17,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3241)]
-    public class FrequencyStep : Step, ISerializable
+    public class FrequencyStep : Step
     {
         // Variables                                                                                                                
         [PmxKey(0)] private int _numOfFrequencies;          //ISerializable
@@ -194,19 +193,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return false;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_numOfFrequencies", _numOfFrequencies, typeof(int));
-            info.AddValue("_lowerFrequency", _lowerFrequency, typeof(double));
-            info.AddValue("_upperFrequency", _upperFrequency, typeof(double));
-            info.AddValue("_storage", _storage, typeof(bool));
-            info.AddValue("_cyclicSymmetryModeMin", _cyclicSymmetryModeMin, typeof(int));
-            info.AddValue("_cyclicSymmetryModeMax", _cyclicSymmetryModeMax, typeof(int));
         }
     }
 }

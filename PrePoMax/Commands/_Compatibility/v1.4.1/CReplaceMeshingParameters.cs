@@ -21,7 +21,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10275)]
     class CReplaceMeshingParameters : PreprocessCommand, ICommandWithDialog
     {

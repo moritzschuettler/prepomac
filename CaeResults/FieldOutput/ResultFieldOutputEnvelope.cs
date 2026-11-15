@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5023)]
     public enum EnvelopeTypeEnum
     {
@@ -31,7 +30,6 @@ namespace CaeResults
     }
 
 
-    [Serializable]
     [PmxType(5024)]
     public class ResultFieldOutputEnvelope : ResultFieldOutput
     {

@@ -19,7 +19,6 @@ using System.Drawing.Design;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
     [PmxType(10483)]
     public enum ColorSpectrum
     {
@@ -66,7 +65,6 @@ namespace PrePoMax.Settings
         Grayscale
     }
 
-    [Serializable]
     [PmxType(10484)]
     public class ViewLegendSettings : IViewSettings, IReset
     {

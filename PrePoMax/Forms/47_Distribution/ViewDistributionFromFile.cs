@@ -20,7 +20,6 @@ using System.Drawing.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10410)]
     public class ViewDistributionFromFile : ViewMappedDistribution
     {

@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6213)]
     public enum XYPlotLegendPositionEnum
     {

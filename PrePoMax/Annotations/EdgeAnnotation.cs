@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10002)]
     public class EdgeAnnotation : AnnotationBase
     {

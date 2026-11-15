@@ -19,9 +19,8 @@ namespace CaeMesh
     /// The finished symbol of a splitting tool, in the coordinates of the parts themselves. It is made when
     /// the split is applied, while the picks still name the geometry they were made on.
     /// </summary>
-    [Serializable]
     [PmxType(2074)]
-    public class SplitToolSymbol : ISerializable
+    public class SplitToolSymbol
     {
         // Variables
         [PmxKey(0)] private List<double[][]> _surfaceNodeCoor;          //ISerializable
@@ -94,16 +93,6 @@ namespace CaeMesh
         private static T[][] Copy<T>(T[][] values)
         {
             return values.Select(value => value.ToArray()).ToArray();
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_surfaceNodeCoor", _surfaceNodeCoor, typeof(List<double[][]>));
-            info.AddValue("_surfaceCells", _surfaceCells, typeof(List<int[][]>));
-            info.AddValue("_borderNodeCoor", _borderNodeCoor, typeof(List<double[][]>));
-            info.AddValue("_borderCells", _borderCells, typeof(List<int[][]>));
-            info.AddValue("_points", _points, typeof(List<double[]>));
         }
     }
 }

@@ -16,7 +16,6 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2012)]
     public abstract class FeElement2D : FeElement
     {

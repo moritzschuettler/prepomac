@@ -16,7 +16,6 @@ namespace PrePoMax
     // The automation server is an open door onto the model the user has open, so nothing here starts
     // it unless the user asked for it. Whether it currently runs is session state and lives on the
     // server; these are the choices worth remembering between sessions.
-    [Serializable]
     [PmxType(10525)]
     public class AutomationSettings : ISettings
     {

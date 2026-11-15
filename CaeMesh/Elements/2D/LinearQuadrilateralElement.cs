@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2013)]
     public class LinearQuadrilateralElement : FeElement2D
     {

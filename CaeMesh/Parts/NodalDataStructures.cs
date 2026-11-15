@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2139)]
     public class AvgData
     {
@@ -79,7 +78,6 @@ namespace CaeMesh
         }
     }
     //
-    [Serializable]
     [PmxType(2140)]
     public class AvgNodalData
     {
@@ -101,7 +99,6 @@ namespace CaeMesh
         }
     }
     //
-    [Serializable]
     [PmxType(2141)]
     public class AvgNodalElementData
     {

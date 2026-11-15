@@ -13,7 +13,6 @@ using CaeGlobals;
 namespace CaeResults
 {
     // The in-plane elastic constants of a ply, which give its plane stresses from its in-plane strains
-    [Serializable]
     [PmxType(5000)]
     public class PlyStiffness
     {

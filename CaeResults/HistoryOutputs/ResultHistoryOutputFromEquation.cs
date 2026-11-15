@@ -18,7 +18,6 @@ using System.Threading.Tasks;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5048)]
     public class ResultHistoryOutputFromEquation : ResultHistoryOutput
     {

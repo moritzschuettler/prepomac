@@ -20,7 +20,6 @@ using System.Drawing.Printing;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10347)]
     public enum GmshElementQualityHighlightCriteriaEnum
     {
@@ -28,7 +27,6 @@ namespace PrePoMax.Forms
         Larger,
     }
 
-    [Serializable]
     [PmxType(10348)]
     public class ViewElementQuality
     {

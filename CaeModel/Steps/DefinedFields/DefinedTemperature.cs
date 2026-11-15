@@ -21,7 +21,6 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3229)]
     public enum DefinedTemperatureTypeEnum
     {
@@ -31,10 +30,9 @@ namespace CaeModel
         FromFile
     }
     //
-    [Serializable]
     [PmxType(3230)]
                 
-    public class DefinedTemperature : DefinedField, IDistribution, IPreviewable, ISerializable
+    public class DefinedTemperature : DefinedField, IDistribution, IPreviewable
     {
         // Variables                                                                                                                
         [PmxKey(0)] private DefinedTemperatureTypeEnum _definedTemperatureType;     //ISerializable
@@ -113,6 +111,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetTemp(_temperature, false);
+        }
         private void SetTemp(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _temperature, value, null, null, checkEquation);
@@ -264,19 +267,6 @@ namespace CaeModel
                     else throw new NotSupportedException();
                 }
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_definedTemperatureType", _definedTemperatureType, typeof(DefinedTemperatureTypeEnum));
-            info.AddValue("_nodeId", _nodeId, typeof(int));
-            info.AddValue("_temperature", _temperature, typeof(EquationContainer));
-            info.AddValue("_fileName", _fileName, typeof(string));
-            info.AddValue("_stepNumber", _stepNumber, typeof(int));
-            info.AddValue("_distributionName", _distributionName, typeof(string));
         }
     }
 }

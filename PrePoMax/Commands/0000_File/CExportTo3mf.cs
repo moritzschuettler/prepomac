@@ -15,7 +15,6 @@ using System;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10023)]
     class CExportTo3mf : PreprocessCommand, IExportFileCommand
     {

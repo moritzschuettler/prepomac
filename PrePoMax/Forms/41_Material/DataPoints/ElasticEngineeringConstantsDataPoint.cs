@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10361)]
     public class ElasticEngineeringConstantsDataPoint : TempDataPoint
     {

@@ -13,9 +13,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3006)]
-    public class CyclicSymmetry : Tie, IMultiRegion, ISerializable // ISerializable must be here
+    public class CyclicSymmetry : Tie, IMultiRegion // ISerializable must be here
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _regionName;                         //ISerializable
@@ -150,6 +149,16 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetX(_x, false);
+            SetY(_y, false);
+            SetZ(_z, false);
+            SetN1(_n1, false);
+            SetN2(_n2, false);
+            SetN3(_n3, false);
+        }
         private static EquationContainer GetEquationContainer(object value, Type converterType)
         {
             if (value is double valueDouble) return new EquationContainer(converterType, valueDouble);
@@ -223,26 +232,6 @@ namespace CaeModel
             _n3.CheckEquation();
             //
             CheckAxisDirection();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_numberOfSectors", _numberOfSectors, typeof(int));
-            info.AddValue("_numberOfGraphSectors", _numberOfGraphSectors, typeof(int));
-            info.AddValue("_checkSectorAngle", _checkSectorAngle, typeof(bool));
-            info.AddValue("_x", _x, typeof(EquationContainer));
-            info.AddValue("_y", _y, typeof(EquationContainer));
-            info.AddValue("_z", _z, typeof(EquationContainer));
-            info.AddValue("_n1", _n1, typeof(EquationContainer));
-            info.AddValue("_n2", _n2, typeof(EquationContainer));
-            info.AddValue("_n3", _n3, typeof(EquationContainer));
         }
     }
 }

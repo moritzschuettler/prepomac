@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5032)]
     enum FrdFeDescriptorId
     {

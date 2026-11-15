@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace DynamicTypeDescriptor
 {
-    [Serializable]
     [PmxType(1018)]
     [Editor(typeof(StandardValueEditor), typeof(System.Drawing.Design.UITypeEditor))]
     [Flags]

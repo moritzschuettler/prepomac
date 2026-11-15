@@ -20,7 +20,6 @@ using System.Drawing.Design;
 
 namespace PrePoMax.Forms
 {    
-    [Serializable]
     [PmxType(10319)]
     public class ViewExplodedViewParameters
     {

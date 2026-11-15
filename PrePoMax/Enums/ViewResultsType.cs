@@ -12,7 +12,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10302)]
     public enum ViewResultsTypeEnum
     {

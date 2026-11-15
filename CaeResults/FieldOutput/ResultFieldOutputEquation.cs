@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5025)]
     public class ResultFieldOutputEquation : ResultFieldOutput
     {

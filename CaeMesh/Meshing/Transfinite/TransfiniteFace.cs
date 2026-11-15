@@ -18,7 +18,6 @@ namespace CaeMesh
     /// boundary loop runs, and the edges of each side between them. A side is a chain of edges, joined where they
     /// meet at a flatter angle than the transfinite angle.
     /// </summary>
-    [Serializable]
     [PmxType(2129)]
     public class TransfiniteFace
     {

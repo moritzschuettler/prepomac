@@ -17,7 +17,6 @@ namespace CaeMesh
     /// The result of the mesh based recognition of a visualization edge.
     /// Besides the curve type it also contains the parameters of the recognized analytic curve.
     /// </summary>
-    [Serializable]
     [PmxType(2063)]
     public class GeomCurveData
     {

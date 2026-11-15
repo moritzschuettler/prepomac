@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6203)]
     public class PanelItemLabel : PanelItem
     {

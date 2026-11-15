@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10401)]
     public class ViewGapConductance : ViewSurfaceInteractionProperty
     {

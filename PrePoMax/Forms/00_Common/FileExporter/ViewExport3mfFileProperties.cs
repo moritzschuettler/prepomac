@@ -25,7 +25,6 @@ using System.Windows.Forms.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10307)]
     public class ViewExport3mfFileProperties : ViewExportFileProperties
     {

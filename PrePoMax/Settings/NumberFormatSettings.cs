@@ -12,7 +12,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10538)]
     public enum NumberFormatType
     {
@@ -20,7 +19,6 @@ namespace PrePoMax
         General
     }
 
-    [Serializable]
     [PmxType(10539)]
     public class NumberFormatSettings : ISettings
     {

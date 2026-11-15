@@ -19,9 +19,8 @@ using GmshCommon;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2117)]
-    public class GmshSetupItem : MeshSetupItem, ISerializable
+    public class GmshSetupItem : MeshSetupItem
     {
         // Variables                                                                                                                
         [PmxKey(0)] private GmshAlgorithmMesh2DEnum _algorithmMesh2D;                   // ISerializable
@@ -227,28 +226,6 @@ namespace CaeMesh
             if (gmshSetupItem._numOfElementsPerLayer != null) _numOfElementsPerLayer = gmshSetupItem._numOfElementsPerLayer.ToArray();
             else _numOfElementsPerLayer = null;
             _numberOfThreads = gmshSetupItem._numberOfThreads;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_algorithmMesh2D", _algorithmMesh2D, typeof(GmshAlgorithmMesh2DEnum));
-            info.AddValue("_algorithmMesh3D", _algorithmMesh3D, typeof(GmshAlgorithmMesh3DEnum));
-            info.AddValue("_algorithmRecombine", _algorithmRecombine, typeof(GmshAlgorithmRecombineEnum));
-            info.AddValue("_recombineMinQuality", _recombineMinQuality, typeof(double));
-            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(TransfiniteThreeSidedEnum));
-            info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
-            info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
-            info.AddValue("_optimizeFirstOrderShell", _optimizeFirstOrderShell, typeof(GmshOptimizeFirstOrderShellEnum));
-            info.AddValue("_optimizeFirstOrderSolid", _optimizeFirstOrderSolid, typeof(GmshOptimizeFirstOrderSolidEnum));
-            info.AddValue("_optimizeHighOrder", _optimizeHighOrder, typeof(GmshOptimizeHighOrderEnum));
-            info.AddValue("_elementSizeType", _elementSizeType, typeof(ElementSizeTypeEnum));
-            info.AddValue("_elementScaleFactor", _elementScaleFactor, typeof(double));
-            info.AddValue("_numberOfElements", _numberOfElements, typeof(int));
-            info.AddValue("_layerSizes", _layerSizes, typeof(double[]));
-            info.AddValue("_numOfElementsPerLayer", _numOfElementsPerLayer, typeof(int[]));
-            info.AddValue("_numberOfThreads", _numberOfThreads, typeof(int));
         }
     }
 }

@@ -18,9 +18,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3277)]
-    public class SteadyStateDynamicsStep : Step, ISerializable
+    public class SteadyStateDynamicsStep : Step
     {
         // Variables                                                                                                                
         [PmxKey(0)] private bool _harmonic;             //ISerializable
@@ -182,22 +181,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return false;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_harmonic", _harmonic, typeof(bool));
-            info.AddValue("_lowerFrequency", _lowerFrequency, typeof(double));
-            info.AddValue("_upperFrequency", _upperFrequency, typeof(double));
-            info.AddValue("_numDataPoints", _numDataPoints, typeof(int));
-            info.AddValue("_bias", _bias, typeof(double));
-            info.AddValue("_numFourierTerms", _numFourierTerms, typeof(int));
-            info.AddValue("_timeLower", _timeLower, typeof(double));
-            info.AddValue("_timeUpper", _timeUpper, typeof(double));
-            info.AddValue("_modalDamping", _modalDamping, typeof(ModalDamping));
         }
     }
 }

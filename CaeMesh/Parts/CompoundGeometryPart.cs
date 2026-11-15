@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2136)]
     public class CompoundGeometryPart : GeometryPart
     {

@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6215)]
     public class XYPlotPanelState
     {

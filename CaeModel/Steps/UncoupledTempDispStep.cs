@@ -18,9 +18,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3282)]
-    public class UncoupledTempDispStep : HeatTransferStep, ISerializable
+    public class UncoupledTempDispStep : HeatTransferStep
     {
         // Variables                                                                                                                
 
@@ -93,11 +92,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return false;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
         }
     }
 }

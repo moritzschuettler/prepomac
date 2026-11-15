@@ -19,7 +19,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3134)]
     internal class CalTimeIncrementationParameter : CalculixKeyword
     {

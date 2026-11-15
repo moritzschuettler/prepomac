@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10441)]
     public abstract class ViewHistoryOutput : ViewMultiRegion
     {

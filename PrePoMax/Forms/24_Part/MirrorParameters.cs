@@ -22,7 +22,6 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10349)]
     public class MirrorParameters
     {

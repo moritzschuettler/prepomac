@@ -17,9 +17,8 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2067)]
-    public class GeometryRepair : ISerializable
+    public class GeometryRepair
     {
         // Variables                                                                                                                
         [PmxKey(0)] private int[] _creationIds;                         //ISerializable
@@ -116,20 +115,6 @@ namespace CaeMesh
             if (!double.IsNaN(_tolerance) && _tolerance <= 0) return "The tolerance must be larger than zero.";
             //
             return null;
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_fixShape", _fixShape, typeof(bool));
-            info.AddValue("_removeSmallEdges", _removeSmallEdges, typeof(bool));
-            info.AddValue("_removeSmallFaces", _removeSmallFaces, typeof(bool));
-            info.AddValue("_sewFaces", _sewFaces, typeof(bool));
-            info.AddValue("_fuseFaces", _fuseFaces, typeof(bool));
-            info.AddValue("_joinEdges", _joinEdges, typeof(bool));
-            info.AddValue("_tolerance", _tolerance, typeof(double));
         }
     }
 }

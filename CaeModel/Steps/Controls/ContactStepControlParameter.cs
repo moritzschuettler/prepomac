@@ -19,7 +19,6 @@ using CaeJob;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3216)]
     public class ContactStepControlParameter : StepControlParameter
     {

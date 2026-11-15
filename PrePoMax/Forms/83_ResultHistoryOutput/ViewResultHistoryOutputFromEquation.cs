@@ -19,7 +19,6 @@ using CaeResults;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10508)]
     public class ViewResultHistoryOutputFromEquation : ViewResultHistoryOutput
     {

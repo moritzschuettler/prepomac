@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2073)]
     public class SplitByPointAndNormal : GeometryFeature
     {
@@ -93,15 +92,6 @@ namespace CaeMesh
         {
             if (GetPlaneNormal() == null) return "The normal of the splitting plane is zero.";
             return null;
-        }
-        // ISerialization
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_point", _point, typeof(double[]));
-            info.AddValue("_normal", _normal, typeof(double[]));
-            info.AddValue("_offset", _offset, typeof(double));
         }
     }
 }

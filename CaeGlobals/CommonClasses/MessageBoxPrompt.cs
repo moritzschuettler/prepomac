@@ -11,7 +11,6 @@ using System;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1009)]
     public class MessageBoxPrompt
     {

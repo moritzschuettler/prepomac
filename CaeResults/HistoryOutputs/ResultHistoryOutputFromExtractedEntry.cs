@@ -12,7 +12,6 @@ using System;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5049)]
     public class ResultHistoryOutputFromExtractedEntry : ResultHistoryOutput
     {

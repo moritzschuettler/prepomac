@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2069)]
     public class SplitByExtendedFace : GeometryFeature
     {
@@ -108,14 +107,6 @@ namespace CaeMesh
             if (GetNumberOfExtendedFaces() == 0)
                 return "None of the selected faces can be extended past its boundary.";
             return null;
-        }
-        // ISerialization
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_faceTypes", _faceTypes, typeof(GeomFaceType[]));
-            info.AddValue("_offset", _offset, typeof(double));
         }
     }
 }

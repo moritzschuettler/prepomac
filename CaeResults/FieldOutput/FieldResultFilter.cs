@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5016)]
     public enum FieldResultFilterTypeEnum
     {
@@ -26,7 +25,6 @@ namespace CaeResults
         Average,
         Smooth,
     }
-    [Serializable]
     [PmxType(5017)]
     public enum FieldResultFilterSourceTypeEnum
     {
@@ -36,7 +34,6 @@ namespace CaeResults
         SurfaceNodes,
     }
     //
-    [Serializable]
     [PmxType(5018)]
     public class FieldResultFilter
     {

@@ -22,9 +22,8 @@ using static CaeGlobals.Geometry2;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3032)]
-    public class DistributionFromEquation : Distribution, ISerializable
+    public class DistributionFromEquation : Distribution
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _equationMagnitude;          //ISerializable
@@ -195,17 +194,6 @@ namespace CaeModel
             {
                 MyNCalc.ExistingParameters = existingParameters;
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_equationMagnitude", _equationMagnitude, typeof(string));
-            info.AddValue("_equationD1", _equationD1, typeof(string));
-            info.AddValue("_equationD2", _equationD2, typeof(string));
-            info.AddValue("_equationD3", _equationD3, typeof(string));
         }
     }
 }

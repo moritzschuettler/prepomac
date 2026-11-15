@@ -15,7 +15,6 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10261)]
     class CDuplicateResultHistoryOutputs : PostprocessCommand
     {

@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3132)]
     internal class CalFieldParameter : CalculixKeyword
     {

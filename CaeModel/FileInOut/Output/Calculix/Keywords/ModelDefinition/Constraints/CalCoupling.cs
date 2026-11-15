@@ -16,7 +16,6 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3078)]
     internal class CalCoupling : CalculixKeyword
     {

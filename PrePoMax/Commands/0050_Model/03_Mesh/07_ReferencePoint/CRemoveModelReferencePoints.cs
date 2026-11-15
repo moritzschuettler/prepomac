@@ -21,7 +21,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10116)]
     class CRemoveModelReferencePoints : PreprocessCommand
     {

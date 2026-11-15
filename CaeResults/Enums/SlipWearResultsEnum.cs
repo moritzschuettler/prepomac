@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5006)]
     public enum SlipWearResultsEnum
     {

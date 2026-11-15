@@ -13,7 +13,6 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6212)]
     public enum XYPlotFontFamilyEnum
     {

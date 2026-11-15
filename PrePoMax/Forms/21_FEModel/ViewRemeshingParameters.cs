@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10344)]
     public class ViewRemeshingParameters : ViewMultiRegion
     {

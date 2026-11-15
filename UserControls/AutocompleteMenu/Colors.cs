@@ -15,7 +15,6 @@ using CaeGlobals;
 
 namespace AutocompleteMenuNS
 {
-    [Serializable]
     [PmxType(6200)]
     public class Colors
     {

@@ -21,7 +21,6 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10187)]
     class CDuplicateFieldOutputs : PreprocessCommand
     {

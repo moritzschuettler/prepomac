@@ -11,9 +11,8 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2086)]
-    public class GeometryMetadata : ISerializable, IDeserializationCallback
+    public class GeometryMetadata : IDeserializationCallback
     {
         // Variables
         [PmxKey(0)] private readonly int _formatVersion;
@@ -79,14 +78,6 @@ namespace CaeMesh
         }
 
 
-        // Methods
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            info.AddValue("_formatVersion", _formatVersion, typeof(int));
-            info.AddValue("_coordinateSystem", _coordinateSystem, typeof(string));
-            info.AddValue("_lengthUnit", _lengthUnit, typeof(string));
-            info.AddValue("_entityData", WriteEntities(), typeof(byte[]));
-        }
         [OnSerializing]
         private void OnSerializing(StreamingContext context)
         {

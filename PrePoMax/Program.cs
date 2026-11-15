@@ -95,18 +95,10 @@ namespace PrePoMax
             //
             return;
         }
-        // A Debug build started with the environment variable PREPOMAX_DUAL_SERIALIZER=1 clones every object with both
-        // serializers and logs where they differ
+        // The files of older versions, written by the binary formatter, are read by the legacy import only
         private static void SetObjectSerializer()
         {
-#if DEBUG
-            if (Environment.GetEnvironmentVariable(DualObjectSerializer.EnvironmentVariable) == "1")
-            {
-                string logFileName = Path.Combine(Path.GetTempPath(), "PrePoMax", "pmx_dual_serializer.log");
-                ObjectSerializer.Default = new DualObjectSerializer(new BinaryObjectSerializer(), new PmxObjectSerializer(),
-                                                                    logFileName);
-            }
-#endif
+            ObjectSerializer.LegacyReader = LegacyImport.LegacyReader.Read;
         }
         private static void AttachToParentConsole()
         {

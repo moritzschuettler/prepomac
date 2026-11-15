@@ -18,7 +18,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10430)]
     public class ViewHeatTransferStep : ViewStaticStep
     {

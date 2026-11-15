@@ -21,7 +21,6 @@ using System.Threading.Tasks;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10511)]
     public class ViewResultHistoryOutputFromIntegration : ViewResultHistoryOutput
     {

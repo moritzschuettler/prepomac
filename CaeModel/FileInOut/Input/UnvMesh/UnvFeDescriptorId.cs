@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace FileInOut.Input
 {
-    [Serializable]
     [PmxType(3041)]
     enum UnvFeDescriptorId
     {

@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2124)]
     public enum NetgenTransfiniteFacesEnum
     {

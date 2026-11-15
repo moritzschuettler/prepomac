@@ -18,9 +18,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3211)]
-    public class SubmodelBC : BoundaryCondition, ISerializable
+    public class SubmodelBC : BoundaryCondition
     {
         // Variables                                                                                                                
         [PmxKey(0)] private EquationContainer _stepNumber;      //ISerializable
@@ -87,6 +86,11 @@ namespace CaeModel
         }
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetStepNumber(_stepNumber, false);
+        }
         private void SetStepNumber(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _stepNumber, value, CheckStepNumber, checkEquation);
@@ -115,20 +119,6 @@ namespace CaeModel
             base.CheckEquations();
             //
             _stepNumber.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_stepNumber", _stepNumber, typeof(EquationContainer));
-            info.AddValue("_u1", _u1, typeof(bool));
-            info.AddValue("_u2", _u2, typeof(bool));
-            info.AddValue("_u3", _u3, typeof(bool));
-            info.AddValue("_ur1", _ur1, typeof(bool));
-            info.AddValue("_ur2", _ur2, typeof(bool));
-            info.AddValue("_ur3", _ur3, typeof(bool));
         }
     }
 }

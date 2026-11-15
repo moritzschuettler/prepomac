@@ -18,9 +18,8 @@ namespace CaeMesh
     /// elements. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen
     /// alone. It is what a part is given when the structured mesh its geometry supports is not wanted.
     /// </summary>
-    [Serializable]
     [PmxType(2125)]
-    public class NetgenMesh : MeshSetupItem, ISerializable
+    public class NetgenMesh : MeshSetupItem
     {
         // Variables
         [PmxKey(0)] private int _optimizeSteps2D;               //ISerializable
@@ -183,18 +182,6 @@ namespace CaeMesh
                    _transfiniteThreeSided == netgenMesh._transfiniteThreeSided &&
                    _transfiniteFourSided == netgenMesh._transfiniteFourSided &&
                    _transfiniteAngleDeg == netgenMesh._transfiniteAngleDeg;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_optimizeSteps2D", _optimizeSteps2D, typeof(int));
-            info.AddValue("_optimizeSteps3D", _optimizeSteps3D, typeof(int));
-            info.AddValue("_quadDominated", _quadDominated, typeof(bool));
-            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(TransfiniteThreeSidedEnum));
-            info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
-            info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
         }
     }
 }

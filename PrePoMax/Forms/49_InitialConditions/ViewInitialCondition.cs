@@ -19,7 +19,6 @@ using System.Drawing.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10416)]
     public abstract class ViewInitialCondition : ViewMultiRegion
     {

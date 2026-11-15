@@ -19,7 +19,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10417)]
     public class ViewInitialTemperature : ViewInitialCondition
     {

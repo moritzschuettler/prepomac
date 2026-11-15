@@ -23,7 +23,6 @@ using PrePoMax.Forms;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10227)]
     class CPrepareAndRunJob : AnalysisCommand, ICommandAsynchronous
     {

@@ -16,7 +16,6 @@ using Calculix = FileInOut.Output.Calculix;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10038)]
     class CSetCalculixKeywordEditorState : PreprocessCommand
     {

@@ -20,7 +20,6 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3247)]
     public enum TotalsTypeEnum
     {
@@ -32,9 +31,8 @@ namespace CaeModel
         No
     }
 
-    [Serializable]
     [PmxType(3248)]
-    public abstract class HistoryOutput : NamedClass, IMultiRegion, ISerializable
+    public abstract class HistoryOutput : NamedClass, IMultiRegion
     {
         // Variables                                                                                                                
         [PmxKey(0)] private RegionTypeEnum _regionType;         //ISerializable
@@ -97,21 +95,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_totals", _totals, typeof(TotalsTypeEnum));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_global", _global, typeof(bool));
-        }
     }
 }

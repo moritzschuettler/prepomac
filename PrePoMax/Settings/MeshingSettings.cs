@@ -22,7 +22,6 @@ using CaeMesh;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10534)]
     public class MeshingSettings : ISettings
     {

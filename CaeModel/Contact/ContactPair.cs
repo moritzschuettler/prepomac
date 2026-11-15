@@ -19,7 +19,6 @@ using System.Drawing;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3021)]
     public enum ContactPairMethod
     {
@@ -38,7 +37,6 @@ namespace CaeModel
 
     }
 
-    [Serializable]
     [PmxType(3022)]
     public class ContactPair : NamedClass, IMasterSlaveMultiRegion
     {

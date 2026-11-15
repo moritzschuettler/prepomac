@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace DynamicTypeDescriptor
 {
-    [Serializable]
     [PmxType(1017)]
     public class MultiChoiceContainer
     {

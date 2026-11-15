@@ -17,9 +17,8 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2066)]
-    public abstract class GeometryFeature : ISerializable
+    public abstract class GeometryFeature
     {
         // Variables
         [PmxKey(0)] protected RegionTypeEnum _regionType;               //ISerializable
@@ -131,19 +130,5 @@ namespace CaeMesh
         /// Returns the reason the item cannot be applied, or null when it is properly defined.
         /// </summary>
         public abstract string CheckValidity();
-        // ISerialization
-        public virtual void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_splitType", _splitType, typeof(SplitTypeEnum));
-            info.AddValue("_partNames", _partNames, typeof(string[]));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_splitterIds", _splitterIds, typeof(int[]));
-            info.AddValue("_splitterData", _splitterData, typeof(Selection));
-            info.AddValue("_fuzzyValue", _fuzzyValue, typeof(double));
-            info.AddValue("_toolSymbol", _toolSymbol, typeof(SplitToolSymbol));
-        }
     }
 }

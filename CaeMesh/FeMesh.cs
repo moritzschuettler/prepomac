@@ -36,9 +36,8 @@ using static GmshCommon.Gmsh;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2077)]
-    public class FeMesh : ISerializable
+    public class FeMesh
     {
         // Variables                                                                                                                
         private static int _partDigits = 10000;
@@ -12844,22 +12843,6 @@ namespace CaeMesh
             {
                 return null;
             }
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_meshRepresentation", _meshRepresentation, typeof(MeshRepresentation));
-            info.AddValue("_meshSetupItems", _meshSetupItems, typeof(OrderedDictionary<string, MeshSetupItem>));
-            info.AddValue("_parts", _parts, typeof(OrderedDictionary<string, BasePart>));
-            info.AddValue("_nodeSets", _nodeSets, typeof(OrderedDictionary<string, FeNodeSet>));
-            info.AddValue("_elementSets", _elementSets, typeof(OrderedDictionary<string, FeElementSet>));
-            info.AddValue("_surfaces", _surfaces, typeof(OrderedDictionary<string, FeSurface>));
-            info.AddValue("_referencePoints", _referencePoints, typeof(OrderedDictionary<string, FeReferencePoint>));
-            info.AddValue("_coordinateSystems", _coordinateSystems, typeof(OrderedDictionary<string, CoordinateSystem>));
-            info.AddValue("_maxNodeId", _maxNodeId, typeof(int));
-            info.AddValue("_maxElementId", _maxElementId, typeof(int));
-            info.AddValue("_boundingBox", _boundingBox, typeof(BoundingBox));
         }
     }
 }

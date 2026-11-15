@@ -16,7 +16,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5039)]
     public enum HistoryResultFilterTypeEnum
     {
@@ -27,7 +26,6 @@ namespace CaeResults
         Average
     }
     //
-    [Serializable]
     [PmxType(5040)]
     public class HistoryResultFilter
     {

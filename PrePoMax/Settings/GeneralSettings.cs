@@ -22,7 +22,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10528)]
     public enum RunPostProcessingEnum
     {
@@ -35,7 +34,6 @@ namespace PrePoMax
         [StandardValue("Ask", DisplayName = "Ask")]
         Ask,
     }
-    [Serializable]
     [PmxType(10529)]
     public class GeneralSettings : ISettings
     {

@@ -20,9 +20,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3004)]
-    public abstract class Constraint : NamedClass, IMasterSlaveMultiRegion, IContainsEquations, ISerializable
+    public abstract class Constraint : NamedClass, IMasterSlaveMultiRegion, IContainsEquations
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _masterRegionName;               //ISerializable
@@ -133,27 +132,6 @@ namespace CaeModel
                 return true;
             }
             catch (Exception ex) { return false; }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_masterRegionName", _masterRegionName, typeof(string));
-            info.AddValue("_masterRegionType", _masterRegionType, typeof(RegionTypeEnum));
-            info.AddValue("_slaveRegionName", _slaveRegionName, typeof(string));
-            info.AddValue("_slaveRegionType", _slaveRegionType, typeof(RegionTypeEnum));
-            //
-            info.AddValue("_masterCreationIds", _masterCreationIds, typeof(int[]));
-            info.AddValue("_masterCreationData", _masterCreationData, typeof(Selection));
-            info.AddValue("_slaveCreationIds", _slaveCreationIds, typeof(int[]));
-            info.AddValue("_slaveCreationData", _slaveCreationData, typeof(Selection));
-            //
-            info.AddValue("_masterColor", _masterColor, typeof(Color));
-            info.AddValue("_slaveColor", _slaveColor, typeof(Color));
-            //
-            info.AddValue("_twoD", _twoD, typeof(bool));
         }
 
     }

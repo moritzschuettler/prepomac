@@ -24,7 +24,6 @@ using System.Windows.Forms.Design;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10354)]
     public class ViewNodeSet
     {

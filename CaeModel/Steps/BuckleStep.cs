@@ -18,9 +18,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3214)]
-    public class BuckleStep : Step, ISerializable
+    public class BuckleStep : Step
     {
         // Variables                                                                                                                
         [PmxKey(0)] private int _numOfBucklingFactors;      //ISerializable
@@ -124,15 +123,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return false;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_numOfBucklingFactors", _numOfBucklingFactors, typeof(int));
-            info.AddValue("_accuracy", _accuracy, typeof(double));
         }
     }
 }

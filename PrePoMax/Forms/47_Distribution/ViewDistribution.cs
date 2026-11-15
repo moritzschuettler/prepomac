@@ -20,7 +20,6 @@ using CaeMesh;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10408)]
     public abstract class ViewDistribution
     {

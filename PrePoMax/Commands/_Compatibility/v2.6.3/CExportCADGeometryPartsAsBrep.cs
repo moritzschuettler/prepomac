@@ -22,7 +22,6 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10289)]
     class CExportCADGeometryPartsAsBrep : PreprocessCommand, IExportFileCommand
     {

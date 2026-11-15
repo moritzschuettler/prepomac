@@ -25,7 +25,6 @@ using System.Windows.Forms.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10305)]
     public class ExportFileProperties
     {

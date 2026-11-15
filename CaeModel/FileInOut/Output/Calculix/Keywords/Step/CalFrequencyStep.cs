@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
     [PmxType(3119)]
     internal class CalFrequencyStep : CalStep
     {

@@ -20,7 +20,6 @@ using System.Drawing.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10474)]
     public class ViewSTLoad : ViewLoad
     {

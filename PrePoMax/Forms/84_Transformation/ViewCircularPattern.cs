@@ -21,7 +21,6 @@ using CaeResults;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10515)]
     public class ViewCircularPattern : ViewTransformation
     {

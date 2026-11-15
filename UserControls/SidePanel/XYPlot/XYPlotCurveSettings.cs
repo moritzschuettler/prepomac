@@ -15,7 +15,6 @@ using DynamicTypeDescriptor;
 
 namespace UserControls
 {
-    [System.Serializable]
     [PmxType(6210)]
     public class XYPlotCurveSettings : IXYPlotSettings
     {

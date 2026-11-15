@@ -20,7 +20,6 @@ using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10258)]
     class CRemoveResultFieldOutputs : PostprocessCommand
     {

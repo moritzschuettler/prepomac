@@ -18,7 +18,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10365)]
     public class TempDataPoint
     {

@@ -13,9 +13,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3177)]
-    public class ElasticEngineeringConstants : MaterialProperty, ISerializable
+    public class ElasticEngineeringConstants : MaterialProperty
     {
         // Variables                                                                                                                
         public const int YoungsModulus1Id = 0;
@@ -70,6 +69,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetEngineeringConstantsTemp(_engineeringConstantsTemp, false);
+        }
         private void SetEngineeringConstantsTemp(double[][] value, bool checkEquation = true)
         {
             CheckDataSize(value);
@@ -194,13 +198,6 @@ namespace CaeModel
                 CheckStability(i);
             }
             CheckTemperatures();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_engineeringConstantsTemp", _engineeringConstantsTemp, typeof(EquationContainer[][]));
         }
     }
 }

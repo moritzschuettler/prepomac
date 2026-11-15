@@ -26,7 +26,6 @@ namespace PrePoMax.Forms
 {
     
 
-    [Serializable]
     [PmxType(10495)]
     public class ViewAnalysisJob
     {

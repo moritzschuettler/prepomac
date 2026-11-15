@@ -20,9 +20,8 @@ using System.Text.RegularExpressions;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3020)]
-    public class Tie : Constraint, ISerializable
+    public class Tie : Constraint
     {
         // Static variables                                                                                                         
         public static readonly double InitialPositionTolerance = 0.05;
@@ -95,6 +94,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetPositionTolerance(_positionTolerance, false);
+        }
         private void SetPositionTolerance(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _positionTolerance, value, CheckPositionTolerance, checkEquation);
@@ -133,15 +137,6 @@ namespace CaeModel
             Selection tmpCreationData = MasterCreationData;
             MasterCreationData = SlaveCreationData;
             SlaveCreationData = tmpCreationData;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_positionTolerance", _positionTolerance, typeof(EquationContainer));
-            info.AddValue("_adjust", _adjust, typeof(bool));
         }
 
 

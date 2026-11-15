@@ -26,7 +26,6 @@ using System.Runtime.InteropServices;
 
 namespace CaeJob
 {
-    [Serializable]
     [PmxType(6000)]
     public enum JobStatus
     {
@@ -40,7 +39,6 @@ namespace CaeJob
         FailedWithResults,
     }
     //
-    [Serializable]
     [PmxType(6001)]
     public enum FEMSolverEnum
     {
@@ -49,9 +47,8 @@ namespace CaeJob
         FEMaster
     }
     //
-    [Serializable]
     [PmxType(6002)]
-    public class AnalysisJob : NamedClass, ISerializable
+    public class AnalysisJob : NamedClass
     {
         // Variables                                                                                                                        
         [PmxKey(0)] protected string _workDirectory;                                // ISerializable
@@ -1009,32 +1006,6 @@ namespace CaeJob
             else throw new NotSupportedException();
             //
             return argument;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_workDirectory", _workDirectory, typeof(string));
-            info.AddValue("_executable", _executable, typeof(string));
-            info.AddValue("_argument", _argument, typeof(string));
-            info.AddValue("_compatibilityMode", _compatibilityMode, typeof(bool));
-            info.AddValue("_jobStatus", _jobStatus, typeof(JobStatus));
-            info.AddValue("_numCPUs", _numCPUs, typeof(int));
-            info.AddValue("_environmentVariables", _environmentVariables, typeof(List<EnvironmentVariable>));
-            info.AddValue("_datFileLength", _datFileLength, typeof(long));
-            info.AddValue("_datFileContents", _datFileContents, typeof(string));
-            info.AddValue("_statusFileLength", _statusFileLength, typeof(long));
-            info.AddValue("_statusFileContents", _statusFileContents, typeof(string));
-            info.AddValue("_convergenceFileLength", _convergenceFileLength, typeof(long));
-            info.AddValue("_convergenceFileContents", _convergenceFileContents, typeof(string));
-            info.AddValue("_endTime", _endTime, typeof(DateTime));
-            info.AddValue("_femSolver", _femSolver, typeof(FEMSolverEnum));
-            info.AddValue("_onlyCheckModel", _onlyCheckModel, typeof(bool));
-            info.AddValue("_numCPUsOverridden", _numCPUsOverridden, typeof(bool));
-            info.AddValue("_environmentVariablesOverridden", _environmentVariablesOverridden, typeof(bool));
-            info.AddValue("_executableOverridden", _executableOverridden, typeof(bool));
-            info.AddValue("_workDirectoryOverridden", _workDirectoryOverridden, typeof(bool));
         }
     }
 }

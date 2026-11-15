@@ -13,7 +13,6 @@ using System.Collections.Generic;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2097)]
     public struct GmshIdLocation
     {
@@ -22,7 +21,6 @@ namespace CaeMesh
         [PmxKey(2)] public double[] Location;
     }
 
-    [Serializable]
     [PmxType(2098)]
     public class GmshData
     {

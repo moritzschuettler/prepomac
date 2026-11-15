@@ -18,7 +18,6 @@ namespace CaeResults
     // The shell data the model gives to its results: for every result element of a shell, and of every layer of a
     // composite shell, the material axes and the material, and the ply strengths of the materials. The results
     // project does not reference the model, so the controller builds this when the results are opened.
-    [Serializable]
     [PmxType(5002)]
     public class ShellResultData
     {

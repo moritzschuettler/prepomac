@@ -20,7 +20,6 @@ using System.Drawing;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10530)]
     public enum BackgroundType
     {
@@ -34,7 +33,6 @@ namespace PrePoMax
         Gradient,
     }
 
-    [Serializable]
     [PmxType(10531)]
     public class GraphicsSettings : ISettings
     {

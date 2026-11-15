@@ -19,7 +19,6 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10336)]
     public class ViewSweepMesh : ViewGmshSetupItem
     {

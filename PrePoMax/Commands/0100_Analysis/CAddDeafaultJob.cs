@@ -22,7 +22,6 @@ using PrePoMax.Forms;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10224)]
     class CAddDeafaultJob : PreprocessCommand
     {

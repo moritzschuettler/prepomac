@@ -18,7 +18,6 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3243)]
     [Flags]
     public enum ContactHistoryVariable
@@ -33,9 +32,8 @@ namespace CaeModel
         //CFS = 64
     }
 
-    [Serializable]
     [PmxType(3244)]
-    public class ContactHistoryOutput : HistoryOutput, ISerializable
+    public class ContactHistoryOutput : HistoryOutput
     {
         // Variables                                                                                                                
         [PmxKey(0)] private ContactHistoryVariable _variables;          //ISerializable
@@ -66,16 +64,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_variables", _variables, typeof(ContactHistoryVariable));
-        }
     }
 }

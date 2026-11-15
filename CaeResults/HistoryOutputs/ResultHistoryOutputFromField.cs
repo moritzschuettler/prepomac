@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5050)] 
     public enum OutputNodeCoordinatesEnum
     {
@@ -26,7 +25,6 @@ namespace CaeResults
         Deformed
     }
 
-    [Serializable]
     [PmxType(5051)]
     public class ResultHistoryOutputFromField : ResultHistoryOutput
     {

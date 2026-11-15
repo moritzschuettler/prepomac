@@ -16,7 +16,6 @@ using System.ComponentModel;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10339)]
     public class ViewShellQuadWild : ViewMeshSetupItem
     {

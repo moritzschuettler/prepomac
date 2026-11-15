@@ -13,7 +13,6 @@ using System.Collections.Generic;
 
 namespace CaeResults
 {
-    [Serializable]
     [PmxType(5055)]
     public class ResultHistoryOutputFromMergedHistories : ResultHistoryOutput
     {

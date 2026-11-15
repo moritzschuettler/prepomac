@@ -20,7 +20,6 @@ using System.Windows.Forms.VisualStyles;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2146)]
     public class VisualizationData
     {

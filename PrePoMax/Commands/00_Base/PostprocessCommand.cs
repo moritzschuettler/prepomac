@@ -18,7 +18,6 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10221)]
     public abstract class PostprocessCommand : Command
     {

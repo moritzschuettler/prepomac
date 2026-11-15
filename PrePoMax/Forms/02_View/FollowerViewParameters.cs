@@ -17,7 +17,6 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10316)]
     public enum FollowerViewTypeEnum
     {
@@ -25,7 +24,6 @@ namespace PrePoMax
         Plane
     }
     //
-    [Serializable]
     [PmxType(10317)]
     public class FollowerViewParameters
     {

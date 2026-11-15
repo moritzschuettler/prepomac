@@ -21,7 +21,6 @@ using UnitsNet;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1019)]
     public class EquationContainer
     {

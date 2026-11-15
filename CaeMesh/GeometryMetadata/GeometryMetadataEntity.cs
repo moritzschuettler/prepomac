@@ -8,7 +8,6 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
     [PmxType(2087)]
     public class GeometryMetadataEntity
     {

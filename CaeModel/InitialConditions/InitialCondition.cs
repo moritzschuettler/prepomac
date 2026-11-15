@@ -20,9 +20,8 @@ using System.Drawing;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3171)]
-    public abstract class InitialCondition : NamedClass, IMultiRegion, IContainsEquations, ISerializable
+    public abstract class InitialCondition : NamedClass, IMultiRegion, IContainsEquations
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _regionName;             //ISerializable
@@ -103,19 +102,6 @@ namespace CaeModel
                 return true;
             }
             catch (Exception ex) { return false; }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_twoD", _twoD, typeof(bool));
-            info.AddValue("_color", _color, typeof(Color));
         }
     }
 }

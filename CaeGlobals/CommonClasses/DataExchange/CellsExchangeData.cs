@@ -16,7 +16,6 @@ using System.Drawing;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1001)]
     public class CellsExchangeData
     {

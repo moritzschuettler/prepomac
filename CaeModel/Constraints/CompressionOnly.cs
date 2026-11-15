@@ -19,9 +19,8 @@ using System.Drawing;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3003)]
-    public class CompressionOnly : Constraint, IMultiRegion, ISerializable
+    public class CompressionOnly : Constraint, IMultiRegion
     {
         // Variables                                                                                                                
         [PmxKey(0)] private EquationContainer _clearance;                       //ISerializable
@@ -93,6 +92,14 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetClearance(_clearance, false);
+            SetSpringStiffness(_springStiffness, false);
+            SetTensileForceAtNegativeInfinity(_tensileForceAtNegativeInfinity, false);
+            SetOffset(_offset, false);
+        }
         private void SetClearance(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _clearance, value, null, checkEquation);
@@ -118,18 +125,6 @@ namespace CaeModel
             _springStiffness.CheckEquation();
             _tensileForceAtNegativeInfinity.CheckEquation();
             _offset.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_clearance", _clearance, typeof(EquationContainer));
-            info.AddValue("_springStiffness", _springStiffness, typeof(EquationContainer));
-            info.AddValue("_tensileForceAtNegInfinity", _tensileForceAtNegativeInfinity, typeof(EquationContainer));
-            info.AddValue("_offset", _offset, typeof(EquationContainer));
-            info.AddValue("_nonLinear", _nonLinear, typeof(bool));
         }
     }
 }

@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
     [PmxType(6205)]
     public enum ViewGeometryModelResults
     {
@@ -27,7 +26,6 @@ namespace UserControls
         Results
     }
     //
-    [Serializable]
     [PmxType(6206)]
     public class PanelPage
     {

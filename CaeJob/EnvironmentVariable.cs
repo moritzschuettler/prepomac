@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 
 namespace CaeJob
 {
-    [Serializable]
     [PmxType(6003)]
     public class EnvironmentVariable
     {

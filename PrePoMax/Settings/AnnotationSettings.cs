@@ -20,7 +20,6 @@ using System.Runtime.InteropServices;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10524)]
     public class AnnotationSettings : ISettings
     {

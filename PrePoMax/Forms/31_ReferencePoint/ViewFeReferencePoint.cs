@@ -20,7 +20,6 @@ using System.Drawing.Design;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10357)]
     public class ViewFeReferencePoint : ViewMultiRegion
     {

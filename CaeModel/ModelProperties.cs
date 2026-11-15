@@ -25,7 +25,6 @@ using static System.Collections.Specialized.BitVector32;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3188)]
     public enum ModelType
     {
@@ -37,7 +36,6 @@ namespace CaeModel
         SlipWearModel
     }
     //
-    [Serializable]
     [PmxType(3189)]
     public enum ModelSpaceEnum
     {
@@ -143,9 +141,8 @@ namespace CaeModel
         }
     }
     //
-    [Serializable]
     [PmxType(3190)]
-    public class ModelProperties : ISerializable, IContainsEquations
+    public class ModelProperties : IContainsEquations
     {
         // Variables                                                                                                                
         [PmxKey(0)] private ModelSpaceEnum _modelSpace;                 //ISerializable
@@ -259,6 +256,13 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetNumOfCycles(_numberOfCycles, false);
+            SetCyclesIncrement(_cyclesIncrement, false);
+            SetNumOfSmoothingSteps(_numOfSmoothingSteps, false);
+        }
         private void SetNumOfCycles(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _numberOfCycles, value, CheckLessThanOne, checkEquation);
@@ -300,22 +304,6 @@ namespace CaeModel
                 return true;
             }
             catch (Exception ex) { return false; }
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("ModelSpace", _modelSpace, typeof(ModelSpaceEnum));
-            info.AddValue("ModelType", _modelType, typeof(ModelType));
-            info.AddValue("GlobalResultsFileName", _globalResultsFileName, typeof(string));
-            info.AddValue("SlipWearResults", _slipWearResults, typeof(SlipWearResultsEnum));
-            info.AddValue("_numberOfCycles", _numberOfCycles, typeof(EquationContainer));
-            info.AddValue("_cyclesIncrement", _cyclesIncrement, typeof(EquationContainer));
-            info.AddValue("_numOfSmoothingSteps", _numOfSmoothingSteps, typeof(EquationContainer));
-            info.AddValue("_bdmRemeshing", _bdmRemeshing, typeof(bool));
-            info.AddValue("AbsoluteZero", _absoluteZero, typeof(double));
-            info.AddValue("StefanBoltzmann", _stefanBoltzmann, typeof(double));
-            info.AddValue("NewtonGravity", _newtonGravity, typeof(double));
         }
     }
 }

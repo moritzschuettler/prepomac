@@ -23,7 +23,6 @@ using System.ComponentModel;
 
 namespace CaeGlobals
 {
-    [Serializable]
     [PmxType(1033)]
     public enum UnitSystemType
     {
@@ -47,9 +46,8 @@ namespace CaeGlobals
     }
 
 
-    [Serializable]
     [PmxType(1034)]
-    public class UnitSystem : ISerializable
+    public class UnitSystem
     {
         // Variables                                                                                                                
         [PmxKey(0)] private UnitSystemType _unitSystemType;                             //ISerializable
@@ -731,12 +729,6 @@ namespace CaeGlobals
             double result = (double)converter.ConvertFrom(valueWithUnit);
             SetConverterUnits();
             return result;
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_unitSystemType", _unitSystemType, typeof(UnitSystemType));
         }
         public override string ToString()
         {

@@ -20,21 +20,18 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
     [PmxType(10405)]
     public enum SearchContactPairType
     {
         Tie,
         Contact
     }
-    [Serializable]
     [PmxType(10406)]
     public enum SearchContactPairAdjust
     {
         Yes,
         No
     }
-    [Serializable]
     [PmxType(10407)]
     public class SearchContactPair
     {

@@ -21,7 +21,6 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10029)]
     class CActivateDeactivateMultiple : PreprocessCommand
     {

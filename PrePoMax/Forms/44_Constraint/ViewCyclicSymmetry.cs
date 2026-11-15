@@ -18,7 +18,6 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10391)]
     public class ViewCyclicSymmetry : ViewTie
     {

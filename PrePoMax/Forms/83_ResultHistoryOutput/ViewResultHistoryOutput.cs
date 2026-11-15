@@ -22,7 +22,6 @@ using static System.Windows.Forms.Design.AxImporter;
 
 namespace PrePoMax
 {
-    [Serializable]
     [PmxType(10506)]
     public abstract class ViewResultHistoryOutput : ViewMultiRegion
     {

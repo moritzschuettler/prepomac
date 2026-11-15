@@ -17,7 +17,6 @@ using System.Text;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
     [PmxType(10033)]
     class CRunPythonScript : GeneralCommand
     {

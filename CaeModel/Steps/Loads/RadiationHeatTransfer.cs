@@ -18,9 +18,8 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
     [PmxType(3268)]
-    public class RadiationHeatTransfer : Load, ISerializable
+    public class RadiationHeatTransfer : Load
     {
         // Variables                                                                                                                
         [PmxKey(0)] private string _surfaceName;                    //ISerializable
@@ -125,6 +124,12 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetSinkTemperature(_sinkTemperature, false);
+            SetEmissivity(_emissivity, false);
+        }
         private void SetSinkTemperature(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _sinkTemperature, value, null, checkEquation);
@@ -147,21 +152,6 @@ namespace CaeModel
             //
             _sinkTemperature.CheckEquation();
             _emissivity.CheckEquation();
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_cavityRadiation", _cavityRadiation, typeof(bool));
-            info.AddValue("_cavityName", _cavityName, typeof(string));
-            info.AddValue("_sinkTemperature", _sinkTemperature, typeof(EquationContainer));
-            info.AddValue("_emissivity", _emissivity, typeof(EquationContainer));
-            info.AddValue("_emissivityAmplitudeName", _emissivityAmplitudeName, typeof(string));
         }
     }
 }

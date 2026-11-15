@@ -20,7 +20,6 @@ namespace FileInOut.Output.Calculix
     /// tree before user keywords are inserted. The original signature prevents an edit from being
     /// applied to a different generated keyword after the model has changed.
     /// </summary>
-    [Serializable]
     [PmxType(3059)]
     public class CalculixKeywordOverride
     {
@@ -61,7 +60,6 @@ namespace FileInOut.Output.Calculix
     /// A transient rendered keyword used only while writing. It keeps the original child keyword list
     /// so one generated fragment can be overridden independently.
     /// </summary>
-    [Serializable]
     [PmxType(3060)]
     internal class CalKeywordOverride : CalculixKeyword
     {
