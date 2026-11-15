@@ -1,10 +1,12 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#VTK native port, stream S: the probe label of a query. With a query in progress, a hover through the ActiViz path
-#(Style_PointPickedOnMouseMoveEvt) and through the native view (HoverWithNativeMirror) must leave the probe widget with
-#the same text, position and visibility, for nodes, elements and parts; the native twin of the probe is shown and
-#placed at the probe. A hover that misses hides the probe on both paths. Writes probe_label.json.
+#VTK native port, stream S: the probe label of a query. With a query in progress, a hover through the native view
+#(HoverWithNativeMirror) must leave the probe widget with the text, position and visibility the ActiViz path
+#(Style_PointPickedOnMouseMoveEvt) left it with, for nodes, elements and parts; the native twin of the probe is shown
+#and placed at the probe. A hover that misses hides the probe. The ActiViz side is the one of the reference run the
+#checks compare with (PORT_REFERENCE); without a reference the probe is compared with no ActiViz state. Writes
+#probe_label.json.
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Probe_Label.py --scriptArgs "<harness>|<out>" -g No -w <work>
 #
@@ -47,6 +49,14 @@ def probe_state():
     return on_ui(run)
 
 
+REFERENCE = vtkport.reference_value("probe_label.json")
+
+
+def old_state(label, index):
+    """The probe the ActiViz path left at the point of the reference, or None"""
+    return None if REFERENCE is None else REFERENCE["modes"][label][index]["old"]
+
+
 def hover(native, x, y):
     def run():
         CONTROLLER.ClearSelectionHistory()
@@ -55,10 +65,7 @@ def hover(native, x, y):
         probe.SetText("")
         probe.SetPosition(0.0, 0.0)
         probe.VisibilityOff()
-        if native:
-            VTK.HoverWithNativeMirror(x, y, False, 0, 0)
-        else:
-            vtkport.invoke(VTK, "Style_PointPickedOnMouseMoveEvt", x, y, False, 0, 0)
+        VTK.HoverWithNativeMirror(x, y, False, 0, 0)
     on_ui(run)
     return probe_state()
 
@@ -86,6 +93,9 @@ def main():
     vtkport.frame_both(vtkport.camera_list(pmx.view.get_parameters()), "Isometric")
     points = hit_points()
     check(len(points) >= 3, "points of the view hit the model", len(points))
+    # The points of the reference, where its ActiViz path left the probe
+    if REFERENCE is not None:
+        points = [tuple(p) for p in REFERENCE["points"]]
     record = {"points": points, "modes": {}}
     on_ui(lambda: setattr(VTK, "QuerySelectionInProgress", True))
     for label, select_item, select_by in MODES:
@@ -95,20 +105,20 @@ def main():
         on_ui(set_mode)
         states = []
         for x, y in points[:4]:
-            old = hover(False, x, y)
+            old = old_state(label, len(states))
             new = hover(True, x, y)
             states.append({"x": x, "y": y, "old": old, "new": new})
-            same = (old["text"], old["visible"], old["position"]) == (new["text"], new["visible"], new["position"])
-            check(same, "%s (%d, %d): the same probe on both paths" % (label, x, y), [old, new])
+            if old is not None:
+                same = (old["text"], old["visible"], old["position"]) == (new["text"], new["visible"],
+                                                                        new["position"])
+                check(same, "%s (%d, %d): the same probe on both paths" % (label, x, y), [old, new])
             check(new["visible"] == 1 and new["text"] != "", "%s (%d, %d): the probe shows a label" % (label, x, y),
                   new["text"])
             check(new["twin_visible"] is True, "%s (%d, %d): the native twin of the probe is shown" % (label, x, y),
                   new["twin_visible"])
         # A miss hides it
-        old = hover(False, 2, 2)
         new = hover(True, 2, 2)
-        check(old["visible"] == 0 and new["visible"] == 0, label + ": a miss hides the probe on both paths",
-              [old["visible"], new["visible"]])
+        check(new["visible"] == 0, label + ": a miss hides the probe", new["visible"])
         record["modes"][label] = states
     def reset():
         VTK.QuerySelectionInProgress = False

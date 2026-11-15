@@ -1,12 +1,13 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#VTK native pilot, slice C: picking. vtkControl mirrors its parts into an off screen VTK 9.7 view with the same
-#camera. Every pick of the Phase 0 plan (a 16 x 12 grid of point picks and four boxes, for the node, element,
-#edge, surface and part modes) is made twice: through vtkControl.Pick (ActiViz) and through PickWithNativeMirror,
-#which takes the screen to model step from the native view and raises the same events. The Controller resolves
-#both into ids; the reported points, directions, frustum planes, part names and the resolved ids are written for
-#Compare_SliceC.py.
+#VTK native pilot, slice C: picking. Every pick of the Phase 0 plan (a 16 x 12 grid of point picks and four boxes,
+#for the node, element, edge, surface and part modes) is made through PickWithNativeMirror, which takes the screen to
+#model step from the native view and raises the events the Controller resolves into ids; the reported points,
+#directions, frustum planes, part names and the resolved ids are written for Compare_SliceC.py. The ActiViz side
+#(old) is the one of the reference run the checks compare with (PORT_REFERENCE): it is taken from there, the probes
+#around a pick where one side misses included. Without a reference the old side is picked through vtkControl.Pick,
+#the native view as well.
 #
 #  solid:  PrePoMax.com -f L_bracket_r.step -u MM_TON_S_C --script Record_SliceC.py --scriptArgs "solid|<out>" -g No
 #  hinge:  PrePoMax.com -f Joint_Hinge.pmx --script Record_SliceC.py --scriptArgs "hinge|<out>" -g No
@@ -79,6 +80,15 @@ def set_viewport_size(width, height):
     actual = on_ui(resize)
     if actual != [width, height]:
         raise Exception("The viewport could not be sized to %dx%d" % (width, height))
+
+
+def reference_document(name):
+    """The document of the reference run (PORT_REFERENCE), or None"""
+    reference = os.environ.get("PORT_REFERENCE")
+    if not reference or not os.path.isfile(os.path.join(reference, name)):
+        return None
+    with open(os.path.join(reference, name)) as stream:
+        return json.load(stream)
 
 
 def array_to_list(values):
@@ -154,20 +164,29 @@ def record_picks(prefix):
              ("crossing_large", width * 7 // 8, height * 7 // 8, width // 8, height // 8)]
     result = {"case": prefix, "viewport": [width, height], "old_camera": old_camera, "new_camera": new_camera,
               "selection_distance": int(on_ui(lambda: get_field(VTK, "_selectionDistance"))), "modes": {}}
+    reference = reference_document(prefix + "_slice_c.json")
     for mode, select_item, select_by in PICK_MODES:
         set_select_mode(select_item, select_by)
+        old_records = reference["modes"][mode] if reference is not None else None
         records = []
         for x, y in points:
+            if old_records is not None:
+                old_record = old_records[len(records)]
+                record = {"x1": x, "y1": y, "box": False, "old": old_record["old"], "new": pick(True, x, y)}
+                if "old_neighbor_hits" in old_record: record["old_neighbor_hits"] = old_record["old_neighbor_hits"]
+                records.append(record)
+                continue
             record = {"x1": x, "y1": y, "box": False, "old": pick(False, x, y), "new": pick(True, x, y)}
-            # Where one path hits and the other misses, the ActiViz path is probed two pixels around the pick: a
-            # mix of hits and misses there puts the pick on the outline of the model
+            # Where one path hits and the other misses, the old path is probed two pixels around the pick: a mix of
+            # hits and misses there puts the pick on the outline of the model
             if (record["old"]["point"] is None) != (record["new"]["point"] is None):
                 record["old_neighbor_hits"] = [pick(False, x + dx, y + dy)["point"] is not None
                                                for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2)]]
             records.append(record)
         for name, x1, y1, x2, y2 in boxes:
+            old = old_records[len(records)]["old"] if old_records is not None else pick(False, x1, y1, True, x2, y2)
             records.append({"name": name, "x1": x1, "y1": y1, "x2": x2, "y2": y2, "box": True,
-                            "old": pick(False, x1, y1, True, x2, y2), "new": pick(True, x1, y1, True, x2, y2)})
+                            "old": old, "new": pick(True, x1, y1, True, x2, y2)})
         result["modes"][mode] = records
         clear_select_mode()
     return result
@@ -175,11 +194,11 @@ def record_picks(prefix):
 
 def mirror_scene():
     def run():
-        # The ActiViz view has no ambient occlusion; the settings of the build folder may have it on
+        # The ActiViz view of the reference has no ambient occlusion; the settings of the build folder may have it on
         VTK.SetAmbientOcclusion(False, 0.05, 64, False)
         VTK.EnableNativeMirror(True)
         CONTROLLER.Redraw(False)
-        # Both paths show only the mirrored parts, so the symbols take no part in the framing of the view
+        # Only the parts are shown, so the symbols take no part in the framing of the view
         VTK.SetNativeMirrorPartsOnly(True)
         return list(VTK.GetNativeMirrorNames())
     return on_ui(run)

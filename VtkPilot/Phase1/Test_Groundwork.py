@@ -1,10 +1,11 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#VTK native pilot, phase 1: checks the groundwork inside a running PrePoMax that renders with ActiViz 5.8 - the
-#vtkNative library and VTK 9.7 load beside it, the C API conventions hold (handles, status codes and the last error,
-#arrays and strings in both directions, callbacks), a view renders off screen to a PNG and embedded in vtkControl,
-#and the ActiViz view still renders the phase 0 reference afterwards.
+#VTK native pilot, phase 1: checks the groundwork inside a running PrePoMax - the vtkNative library and VTK 9.7 load,
+#the C API conventions hold (handles, status codes and the last error, arrays and strings in both directions,
+#callbacks), a view renders off screen to a PNG, the view of vtkControl is the native view embedded in it, and the
+#view renders the phase 0 reference scene again afterwards (Run_Groundwork.sh sets it beside the ActiViz picture of
+#phase 0).
 #
 #  PrePoMax.com -f Joint_Hinge.pmx --script Test_Groundwork.py --scriptArgs "<out dir>|<reference dir>" -g No
 #
@@ -20,7 +21,6 @@ from System import Action
 from System.Reflection import BindingFlags
 
 clr.AddReference("vtkControl")
-clr.AddReference("Kitware.VTK")
 from vtkControl.Native import VtkNativeEvent, VtkNativeException, VtkNativeLibrary, VtkNativeStatus, VtkNativeView
 
 FLAGS = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static
@@ -54,6 +54,7 @@ def main_form():
 
 FORM = main_form()
 VTK = get_field(FORM, "_vtk")
+CONTROLLER = get_field(FORM, "_controller")
 
 
 def on_ui(function):
@@ -130,12 +131,8 @@ def test_load_and_versions():
     on_ui(lambda: VtkNativeLibrary.EnsureLoaded())
     load_seconds = time.time() - started
     native_version = on_ui(lambda: VtkNativeLibrary.GetVtkVersion())
-    from Kitware.VTK import vtkVersion
-    activiz_version = vtkVersion.GetVTKVersion()
     check(native_version == "9.7.1", "vtkNative reports VTK 9.7.1, got " + native_version)
-    check(activiz_version.startswith("5.8"), "ActiViz reports VTK 5.8 in the same process, got " + activiz_version)
     modules = loaded_modules()
-    check("vtkcommon.dll" in modules and "vtkrendering.dll" in modules, "the ActiViz 5.8 native modules are loaded")
     check("vtkcommoncore-9.7.dll" in modules and "vtkrenderingopengl2-9.7.dll" in modules,
           "the VTK 9.7 native modules are loaded")
     RESULTS.append("info library loaded in %.2f s; VTK 9.7 modules in the process: %d" %
@@ -229,9 +226,9 @@ def test_embedded(out_dir):
         events.append((str(args.Event), list(args.Values)))
 
     def show():
-        VTK.ShowNativeView(True)
         System.Windows.Forms.Application.DoEvents()
         view = host.View
+        view.ClearActors()
         view.NativeEvent += on_event
         view.SetBackground(color(0.85, 0.85, 0.85), color(1.0, 1.0, 1.0))
         points, cells, types = grid(6, 1.0)
@@ -240,7 +237,8 @@ def test_embedded(out_dir):
         view.Render()
         return view
     view = on_ui(show)
-    check(view is not None and not view.OffScreen, "showing the native view creates an embedded view")
+    check(view is not None and not view.OffScreen and System.Object.ReferenceEquals(view, VTK.NativeMirror),
+          "the view of vtkControl is an embedded native view")
     size = on_ui(lambda: [host.ClientSize.Width, host.ClientSize.Height])
     native_size = on_ui(lambda: view.GetSize(0, 0))
     check([native_size[0], native_size[1]] == size, "the embedded view has the host's size %s" % size)
@@ -273,11 +271,13 @@ def test_embedded(out_dir):
     host_size, view_size = on_ui(resize)
     check(host_size == view_size, "a resized host resizes the native view %s %s" % (host_size, view_size))
     #
-    def hide():
+    def restore():
         view.NativeEvent -= on_event
-        VTK.ShowNativeView(False)
+        # The control gives the view its scene and its settings back
+        VTK.EnableNativeMirror(True)
+        CONTROLLER.Redraw(False)
         System.Windows.Forms.Application.DoEvents()
-    on_ui(hide)
+    on_ui(restore)
     RESULTS.append("info events received: %d (%s)" % (len(events), ", ".join(sorted(set(e[0] for e in events)))))
 
 
@@ -313,8 +313,8 @@ def define_user32():
 User32 = define_user32()
 
 
-def test_old_path_unchanged(out_dir, reference_dir):
-    # The phase 0 hinge Isometric view, rendered by ActiViz again after VTK 9.7 rendered in the same process
+def test_view_restored(out_dir, reference_dir):
+    # The phase 0 hinge Isometric view, rendered by the view of vtkControl again after the test scene
     import json
     with open(os.path.join(reference_dir, "hinge", "hinge_meta.json")) as stream:
         meta = json.load(stream)
@@ -334,7 +334,7 @@ def test_old_path_unchanged(out_dir, reference_dir):
     pmx.view.zoom_to_fit()
     path = os.path.join(out_dir, "hinge_femodel_800x600_Isometric.png")
     pmx.view.save_image(path)
-    RESULTS.append("info ActiViz picture after VTK 9.7 rendered: " + path)
+    RESULTS.append("info picture of the view after the test scene: " + path)
     return path, os.path.join(reference_dir, "hinge", image["file"])
 
 
@@ -353,8 +353,8 @@ def main():
     test_off_screen(out_dir)
     progress("embedded")
     test_embedded(out_dir)
-    progress("old path")
-    new_path, reference_path = test_old_path_unchanged(out_dir, reference_dir)
+    progress("view restored")
+    new_path, reference_path = test_view_restored(out_dir, reference_dir)
     with open(os.path.join(out_dir, "groundwork_results.txt"), "w", encoding="utf-8") as stream:
         stream.write("\n".join(RESULTS) + "\ncompare " + new_path + " " + reference_path + "\n")
     for line in RESULTS:
