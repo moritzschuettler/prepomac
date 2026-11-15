@@ -83,20 +83,98 @@ constructors with `case "_name":` fallbacks.
 
 ## 3. Phase 0 - Spike (verify before committing)
 
-- [ ] MessagePack-CSharp on net48 with the legacy csproj and `packages.config`: dynamic resolver works; check
+- [x] MessagePack-CSharp on net48 with the legacy csproj and `packages.config`: dynamic resolver works; check
       whether the source generator works with C# 7.3 projects (`PrePoMax`, `APIs` pin `LangVersion` 7.3) or only
       after the move to SDK style projects.
-- [ ] ZstdSharp.Port on net48: speed and ratio against `Tools.Compress` on 3-4 real `.pmx` files.
-- [ ] `System.Formats.Nrbf`: confirm it runs on net48 and decodes a real `.pmx` payload (`object[]` with
+- [x] ZstdSharp.Port on net48: speed and ratio against `Tools.Compress` on 3-4 real `.pmx` files.
+- [x] `System.Formats.Nrbf`: confirm it runs on net48 and decodes a real `.pmx` payload (`object[]` with
       `Controller`). Fallback if not: a net48 `PmxUpgrader.exe` that loads with BinaryFormatter and writes the new
       format (same pattern as `GmshCaller`).
-- [ ] Graph audit: a walker over a loaded model that reports every object reached twice and every cycle. The list
+- [x] Graph audit: a walker over a loaded model that reports every object reached twice and every cycle. The list
       decides how much of decision 3 needs code changes.
-- [ ] Types that BinaryFormatter tolerated only because they were null at save time (VTK objects, delegates,
+- [x] Types that BinaryFormatter tolerated only because they were null at save time (VTK objects, delegates,
       events): list them.
-- [ ] Baseline timings: save, open and `DeepClone` of a large model with results.
+- [x] Baseline timings: save, open and `DeepClone` of a large model with results.
 
 Exit: a go/no-go note per item, and the measured baseline.
+
+### Phase 0 results (2026-11-15)
+
+Measured with throw-away spikes (net48 console programs against the v3.0.n Debug build) on files from `C:\Temp`; the
+corpus used for every round trip is described under Verification.
+
+**MessagePack-CSharp - GO, with a hand-written resolver instead of the dynamic resolver and the generator.**
+MessagePack 3.1.12 runs on net48 from `packages.config`; its dependencies are the ones `CaeGlobals` already has
+(System.Memory 4.5.5, Unsafe 6.0, Immutable 8.0, Bcl.AsyncInterfaces 8.0) plus `Microsoft.NET.StringTools`. The source
+generator is not usable: the legacy csproj files do not run analyzers from `packages.config`, and `PrePoMax`/`APIs` pin
+C# 7.3. The plan's fallback - a resolver that works by reflection - is taken, but written for PrePoMax rather than
+using `DynamicObjectResolver`, because the stock resolver cannot keep what BinaryFormatter guarantees today and the
+2,200 `DeepClone` call sites rely on:
+- objects are created without running a constructor (most domain types have no parameterless one) and read only
+  fields are set (emitted IL, as BinaryFormatter does);
+- shared references and cycles survive (see the graph audit);
+- the comparer of a dictionary or hash set survives (model collections are case insensitive);
+- `[OnDeserialized]`/`IDeserializationCallback` run, as `OrderedDictionary` and `GeometryMetadata` need.
+MessagePack is used for its wire format and its `MessagePackWriter`/`MessagePackReader`; the formatters live in
+`CaeGlobals/Serialization`. The source generator can replace the reflection part after the SDK style move.
+
+**ZstdSharp.Port - GO, level 3.** ZstdSharp.Port 0.8.5 (0.8.8 needs System.Memory 4.6, which would need binding
+redirects across the solution). The model payload (BinaryFormatter dump + mesh), compressed:
+
+| File | Raw | Deflate Optimal (today) | Zstd 3 | Zstd 9 |
+|---|---|---|---|---|
+| Model.pmx (v2.5.1) | 2.89 MB | 1.18 MB, 128 ms / 6 ms | 0.97 MB, 11 ms / 2 ms | 0.88 MB, 55 ms / 2 ms |
+| Gripper.pmx (v2.6.3) | 13.2 MB | 5.07 MB, 497 ms / 29 ms | 4.53 MB, 49 ms / 17 ms | 4.23 MB, 245 ms / 17 ms |
+| impeller.pmx (v2.6.0) | 51.8 MB | 25.9 MB, 2069 ms / 118 ms | 25.4 MB, 173 ms / 67 ms | 23.2 MB, 654 ms / 69 ms |
+
+(times are compress / decompress). Zstd 3 is smaller than today's Deflate and compresses 10-12x faster.
+
+**System.Formats.Nrbf - GO.** System.Formats.Nrbf 9.0.11 runs on net48 and decodes the `object[]` payload of every
+version tried (v1.3.5, v1.4.0, v2.0.6, v2.5.1, v2.6.0, v2.6.1, v2.6.3, v3.0.1): Gripper.pmx 176,660 records in 87 ms.
+The fallback `PmxUpgrader.exe` is not needed. It brings System.Reflection.Metadata 9 and System.Collections.Immutable 9,
+so it stays inside `PrePoMax.LegacyImport`.
+
+**Graph audit - decision 3 amended: references are preserved by the serializer.** Objects reached twice in real
+files:
+- model items through back references: `FeSurface._parentMasterMultiRegion`/`_parentSlaveMultiRegion`/
+  `_parentMultiRegion` and `FeGroup.ParentMultiRegion` point at the constraint, contact pair, BC, load, section or
+  initial condition that also sits in its model collection;
+- `ResultsCollection._currentResult` is also an entry of `_results`;
+- `GeometryMetadata._kindIdEntity` indexes the entities of `_entities`;
+- `CalculixUserKeywords` keeps the same `int[]` key in its list and its dictionary;
+- `SelectionNodeMouse._partOffsets` arrays shared between selection nodes;
+- `CReplaceModelProperties._newModelProperties` holding the live `ModelProperties` of the model;
+- comparers, `Type` objects.
+The only cycle is `CommandsCollection._controller -> Controller`, which exists only because `Controller` is the root of
+today's file. Rewriting the back references as names would touch the selection and region code everywhere, so the
+serializer numbers every object it writes and writes an object met again as a reference to its number - the same
+graph BinaryFormatter keeps. Persisted data is still written as a tree of tagged values; only the reference marker
+(an extension value) makes it a graph. The cycle goes away with `PmxDocument` (Phase 1).
+
+**Types tolerated only because they were empty at save time.** Delegates: `AnalysisJob.DataOutputEvent`,
+`JobStatusChanged`, `PreRun`, `PostRun`, `LastRunCompleted`, `ExecutableJob.AppendOutput`, `PanelPage.SetViewEvent`, and
+`CommandsCollection.EnableDisableUndoRedo` (not empty: BinaryFormatter wrote the whole `Controller` it points to).
+Non-serializable field types: `DynamicCustomTypeDescriptor _dctd` in about 40 `View*` wrappers, `ItemSetData` fields of
+the `View*` wrappers and transform parameters, `SearchContactPair._masterSlaveItem`. Types that need an explicit
+formatter: `System.Drawing.Color` (48 fields), `Size`, `System.Type` (5), `FileInfo` (3). The new serializer never
+stores a delegate, stores a type without a schema only while it is null (as BinaryFormatter did), and has formatters for
+the drawing types, `Type` and `FileInfo`.
+
+**Baseline timings (BinaryFormatter, model part of the file only).**
+
+| File | Dump | Deserialize | Serialize | `DeepClone(model)` | `DeepClone(commands)` |
+|---|---|---|---|---|---|
+| Model.pmx | 0.90 MB | 22 ms | 10 ms | 9 ms | 25 ms |
+| Gripper.pmx | 5.99 MB | 581 ms | 26 ms | 46 ms | 93 ms |
+| impeller.pmx | 24.8 MB | 55 ms | 41 ms | 70 ms | 88 ms |
+
+The whole save and open of the application is timed per corpus file by `Tests/Storage/Run_Corpus.py` (the `--report`
+of each run), against which Phases 3 and 4 are measured.
+
+The serializer and type ids follow decision 1 with two changes recorded here: the stable numbers are written as
+`[PmxType(id)]` on every stored type and `[PmxKey(n)]` on every stored field (attributes of `CaeGlobals`, so the domain
+projects do not reference MessagePack), and polymorphism uses the type number of the value instead of `[Union]` lists on
+the bases - every stored class has one number, which also names it in an `object` or interface slot.
 
 ---
 
