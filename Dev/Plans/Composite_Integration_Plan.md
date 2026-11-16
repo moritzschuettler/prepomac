@@ -101,7 +101,7 @@ The ccx 2.22 manual sections quoted are 6.2.14 (shells), 7.42 `*DISTRIBUTION`, 7
 
 ### Reference models
 
-The models and scripts are in [Composite_Phase0](Composite_Phase0) (untracked): `models/cNN_*/*.inp`, plus
+The models and scripts are in [Composite_Phase0](../Composite_Phase0) (untracked): `models/cNN_*/*.inp`, plus
 `scripts/gen.py` and `gen2.py` to regenerate them and `frd.py`, `analyze.py` and `analyze2.py` to read the results.
 To rerun: `py -I scripts/gen.py <dir>` and `py -I scripts/gen2.py <dir>`, run `ccx_dynamic.exe -i <case>` in each
 case folder, then `py -I scripts/analyze.py <dir> <cases…>` and `py -I scripts/analyze2.py <dir>`.

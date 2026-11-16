@@ -13,8 +13,8 @@ RESULT="$(bash "$(dirname "$0")/Run_Selection_Picks.sh" "$OUT" femodel \
 STATUS=$?
 echo "$RESULT"
 [ $STATUS -eq 0 ] && exit 0
-ROOT_U="$(cd "$(dirname "$0")/../.." && pwd)"
-py -3 "$ROOT_U/VtkPilot/Phase4/Compare_SliceC.py" "$OUT" | py -3 -c "
+ROOT_U="$(cd "$(dirname "$0")/../../.." && pwd)"
+py -3 "$ROOT_U/Dev/VtkPilot/Phase4/Compare_SliceC.py" "$OUT" | py -3 -c "
 import sys
 known_case, known_point = sys.argv[1].split(' ', 1)
 case, unexpected = None, []

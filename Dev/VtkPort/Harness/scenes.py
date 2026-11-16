@@ -9,9 +9,9 @@ prints the PrePoMax command line arguments that open the scene's model, one per 
 import os
 import sys
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
 MODELS = os.path.join(ROOT, "APIs", "Python", "Test_Scripts", "Models")
-JOINTS = os.path.join(ROOT, "Tests", "Joints")
+JOINTS = os.path.join(ROOT, "Dev", "Tests", "Joints")
 
 
 def _mesh_first_part(pmx):

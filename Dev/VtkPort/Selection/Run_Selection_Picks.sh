@@ -6,7 +6,7 @@
 #
 # <modes>: femodel or geometry (Record_Selection_Picks.py). PREPOMAX_EXE selects another build.
 set -e
-ROOT_U="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT_U="$(cd "$(dirname "$0")/../../.." && pwd)"
 ROOT="$(cygpath -w "$ROOT_U")"
 OUT="$1"
 MODES="$2"
@@ -16,13 +16,13 @@ WORK="$(cygpath -w "${TEMP:-/tmp}")\VtkPilotWork"
 mkdir -p "$(cygpath -u "$WORK")"
 rm -rf "$(cygpath -u "$OUT")"
 for scene in "$@"; do
-    mapfile -t args < <(py -3 "$ROOT_U/VtkPort/Harness/scenes.py" "$scene" | tr -d '\r')
-    "$EXE" "${args[@]}" --script "$ROOT\VtkPort\Selection\Record_Selection_Picks.py" \
-        --scriptArgs "$ROOT\VtkPort\Harness|$scene|$MODES|$OUT" -g No -w "$WORK" |
+    mapfile -t args < <(py -3 "$ROOT_U/Dev/VtkPort/Harness/scenes.py" "$scene" | tr -d '\r')
+    "$EXE" "${args[@]}" --script "$ROOT\Dev\VtkPort\Selection\Record_Selection_Picks.py" \
+        --scriptArgs "$ROOT\Dev\VtkPort\Harness|$scene|$MODES|$OUT" -g No -w "$WORK" |
         grep -E "SELECTION|Picks|Error|Exception|line "
 done
-[ -z "$PORT_REFERENCE" ] || py -3 "$ROOT_U"/VtkPort/Harness/graft_reference.py "$PORT_REFERENCE" "$OUT"
-py -3 "$ROOT_U/VtkPilot/Phase4/Compare_SliceC.py" "$OUT"
+[ -z "$PORT_REFERENCE" ] || py -3 "$ROOT_U"/Dev/VtkPort/Harness/graft_reference.py "$PORT_REFERENCE" "$OUT"
+py -3 "$ROOT_U/Dev/VtkPilot/Phase4/Compare_SliceC.py" "$OUT"
 py -3 -c "
 import glob, json, os, sys
 worst = max(json.load(open(f)).get('closest_cells_worst', 0.0) for f in glob.glob(os.path.join(sys.argv[1], '*_slice_c.json')))
