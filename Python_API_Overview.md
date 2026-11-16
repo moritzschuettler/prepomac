@@ -1143,7 +1143,13 @@ nodes of three quads; a face with no corner is first split by a line between its
 four inner nodes of three quads. A side with a pole of the surface inside it (the half dome) is split there, otherwise
 near the middle of each side, and the line runs straight in the parameters of the surface, from a pole along a
 meridian. The sum of its edges is balanced even and each side 4 elements at least with the other structured faces, so
-a half dome on a half cylinder carries the count of the cylinder. A lens face is meshed on the nodes of its edges before
+a half dome on a half cylinder carries the count of the cylinder. A thin lens face, whose line would otherwise carry far
+more elements than its length asks for because its sides carry different counts (a flat circular segment, whose arc is
+given more elements than its chord), also asks for equal counts on its two sides, at the weakest tier, which never
+changes a number set on an edge or a structured face. Once its pieces are laid, the nodes inside the face (those of the
+line included) are smoothed together, in the parameters of the surface or in the chart of its one pole, so that the
+grid lines run on smoothly across the line; the smoothed grid is kept only when it is no worse in space, and a face with
+two poles is not smoothed. A lens face is meshed on the nodes of its edges before
 gmsh meshes the other surfaces, like a cap; numbers set on its edges that leave an odd sum or a side below 4, and a grid
 that would fold or have a quad corner below 0.2, leave it to gmsh, meshed free ("Lens mapping: Surface N is meshed free
 - reason"). A face with two corners that is submapped (a planar half disc) is meshed as a submapped face and, only when

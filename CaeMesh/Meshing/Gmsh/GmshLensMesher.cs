@@ -19,15 +19,22 @@ namespace CaeMesh
     /// Meshes a lens face (LensFace) on the nodes of its edges: gmsh supplies the nodes its edges carry, their
     /// parameters on the surface and the evaluation of the surface. A two-sided face is split by one inner line into
     /// two three-sided pieces of three blocks of quads each, a face with no corner first by a line between its vertices
-    /// (GmshLensGrid). The face is meshed once gmsh has meshed the edges and before it meshes the surfaces, which it
-    /// then leaves as it is (Mesh.MeshOnlyEmpty); elements already on it are replaced, as when the face is the fallback
-    /// of a submapped face whose grid was refused. Counts the pieces cannot take, a grid that folds or one with a quad
-    /// corner below SubmapFaceDetector.MinScaledJacobian, measured in space against the normal of the surface (at a
-    /// pole against the normal of the quad), leave the face to gmsh. Also lays the three-sided faces with a pole of
-    /// their surface at a corner, mapped in the chart of the pole.
+    /// (GmshLensGrid); the nodes inside the face are then smoothed together where that leaves the grid no worse
+    /// (GmshLensGrid.Smooth). The face is meshed once gmsh has meshed the edges and before it meshes the surfaces,
+    /// which it then leaves as it is (Mesh.MeshOnlyEmpty); elements already on it are replaced, as when the face is
+    /// the fallback of a submapped face whose grid was refused. Counts the pieces cannot take, a grid that folds or one
+    /// with a quad corner below SubmapFaceDetector.MinScaledJacobian, measured in space against the normal of the
+    /// surface (at a pole against the normal of the quad), leave the face to gmsh. Also lays the three-sided faces with
+    /// a pole of their surface at a corner, mapped in the chart of the pole.
     /// </summary>
     public static class GmshLensMesher
     {
+        // Variables                                                                                                                
+        private const int MinNumberOfLineElements = 2;
+        // A lens face is thin when its line must carry more elements than this times the number its length asks for
+        private const double ThinLineFactor = 1.25;
+
+
         // Methods                                                                                                                  
         /// <summary>
         /// The face carries gmsh ids: its surface, its vertices and its edges. Without quads, as for a surface that is
@@ -76,9 +83,62 @@ namespace CaeMesh
             bool laid = face.NumberOfSides == 2 ? grid.LayTwoSided(sides[0], sides[1], out reason) :
                                                   grid.LayZeroSided(sides[0], sides[1], out reason);
             if (!laid) return false;
+            grid.Smooth();
             if (!Judge(grid, true, out reason)) return false;
             grid.Write(quads);
             return true;
+        }
+        /// <summary>
+        /// Whether the two-sided face, which carries gmsh ids and whose edges gmsh has meshed, is thin: the fewest
+        /// elements its line can carry with the counts a and b the mesh size asks for on its sides is more than
+        /// ThinLineFactor times the number its length asks for, two at least. Split at their middles, the sides leave
+        /// pieces whose sides differ by half of |a - b|, made even as the total must be, and a line of the parity of
+        /// that difference must carry two more (GmshLensGrid.ChooseSplit). The number the length asks for is the
+        /// distance between the nodes nearest the middle of each side by length over the mean element length, the
+        /// length of both sides over a + b. A thin face is meshed far finer across than the size asks unless its sides
+        /// carry equal counts, which leave a line of two elements possible.
+        /// </summary>
+        public static bool IsThin(LensFace face, Dictionary<int, int> edgeIdCount)
+        {
+            if (face.NumberOfSides != 2) return false;
+            int[] starts = face.SideStartIndices;
+            int[][] sideEdgeIds = face.SideEdgeIds;
+            int[] counts = new int[2];
+            double[] lengths = new double[2];
+            double[][] middles = new double[2][];
+            for (int k = 0; k < 2; k++)
+            {
+                List<IntPtr> tags;
+                List<double[]> xyz;
+                try
+                {
+                    GmshThreeBlockMesher.GetSideNodes(face.FaceId, face.VertexNodeIds[starts[k]],
+                                                      face.VertexNodeIds[k == 0 ? starts[1] : 0], sideEdgeIds[k],
+                                                      out tags, out xyz);
+                }
+                catch (CaeException)
+                {
+                    return false;
+                }
+                counts[k] = sideEdgeIds[k].Sum(edgeId => edgeIdCount[edgeId]);
+                double[] distances = new double[xyz.Count];
+                for (int i = 1; i < xyz.Count; i++)
+                    distances[i] = distances[i - 1] + GmshPoleChart.GetDistance(xyz[i - 1], xyz[i]);
+                lengths[k] = distances[xyz.Count - 1];
+                double half = lengths[k] / 2;
+                int middle = 0;
+                for (int i = 1; i < xyz.Count; i++)
+                {
+                    if (Math.Abs(distances[i] - half) < Math.Abs(distances[middle] - half)) middle = i;
+                }
+                middles[k] = xyz[middle];
+            }
+            double meanLength = (lengths[0] + lengths[1]) / (counts[0] + counts[1]);
+            if (!(meanLength > 0)) return false;
+            double width = GmshPoleChart.GetDistance(middles[0], middles[1]);
+            int difference = Math.Abs(counts[0] - counts[1]);
+            int numOfLineElements = (difference + difference % 2) / 2 + MinNumberOfLineElements;
+            return numOfLineElements > ThinLineFactor * Math.Max(MinNumberOfLineElements, width / meanLength);
         }
         /// <summary>
         /// Whether a corner of the three-sided face, which carries gmsh ids, is a pole of its surface.

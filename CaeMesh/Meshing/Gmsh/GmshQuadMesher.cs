@@ -582,7 +582,7 @@ namespace CaeMesh
         /// one parameter, as around a face cut along its seam, the fit leaves the shear open and gives the identity; the
         /// scales of the two parameters are then fitted alone.
         /// </summary>
-        private static double[] GetFrame(double[][][] segmentUv, double[][][] segmentXyz)
+        internal static double[] GetFrame(double[][][] segmentUv, double[][][] segmentXyz)
         {
             double[] w = ThreeBlockMapping.GetMetricFrame(segmentUv, segmentXyz);
             if (w[0] != 1 || w[1] != 0 || w[2] != 1) return w;

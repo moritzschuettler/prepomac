@@ -5873,8 +5873,9 @@ namespace CaeMesh
         /// whose seam set leaves no ring, is meshed free like a tube.
         /// A lens face joins the balance by an even total of its edges and LensFace.MinNumberOfElementsPerSide on each
         /// of its sides, with the tier of the pairs, and is meshed by GmshLensMesher before gmsh meshes the surfaces;
-        /// one the balance cannot keep is meshed free like a cap. A lens face the submapping keeps is balanced as a
-        /// submapped face and meshed as a lens face only when its submapped grid is refused.
+        /// one the balance cannot keep is meshed free like a cap. A thin two-sided lens face (GmshLensMesher.IsThin)
+        /// also asks for equal counts on its two sides, at the weakest tier. A lens face the submapping keeps is
+        /// balanced as a submapped face and meshed as a lens face only when its submapped grid is refused.
         /// Under the all-quad recombination every other face, which gmsh meshes free and GmshQuadMesher then turns into
         /// quads only, asks for an even number of elements around its boundary, at the weakest tier, so that it never
         /// changes a number the user set or a structured face. Only the edges of such faces whose count the balance
@@ -5980,6 +5981,9 @@ namespace CaeMesh
                 Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
                 naturalCounts[edgeId] = Math.Max(1, nodeTags.Length - 1);
             }
+            // A thin lens face asks for equal counts on its sides, so that its line across is no finer than it is long
+            HashSet<int> thinLensFaceIds = new HashSet<int>(lenses.Where(face => GmshLensMesher.IsThin(face, naturalCounts))
+                                                                  .Select(face => face.FaceId));
             // A recombination other than the simple one makes gmsh mesh every curve that is not transfinite with an even
             // count once the surfaces are recombined, which the edges of the free faces are measured with
             Dictionary<int, int> freeCounts = naturalCounts;
@@ -6200,7 +6204,9 @@ namespace CaeMesh
                                                                   CapFace.MinNumberOfElementsRound,
                                                                   lenses.Select(face => face.AllEdgeIds).ToList(),
                                                                   lenses.SelectMany(face => face.SideEdgeIds).ToList(),
-                                                                  LensFace.MinNumberOfElementsPerSide);
+                                                                  LensFace.MinNumberOfElementsPerSide,
+                                                                  lenses.Where(face => thinLensFaceIds.Contains(face.FaceId))
+                                                                        .Select(face => face.SideEdgeIds).ToList());
                 //
                 Dictionary<SubmapFace, string> dropped = new Dictionary<SubmapFace, string>();
                 SubmapFace unbalancedFace;

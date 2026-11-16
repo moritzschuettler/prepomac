@@ -71,7 +71,9 @@ namespace CaeMesh
         /// Every one of structuredEvenSides, the rim of a structured cap, is asked for an even total of
         /// minStructuredEvenSum elements at least, with the tier of the pairs. Every one of evenLoops, the loop of a
         /// lens face, is asked for an even total, and every one of minSumSides, a side of a lens face, for minSideSum
-        /// elements at least, both with the tier of the pairs.
+        /// elements at least, both with the tier of the pairs. Every one of equalSumSides, the two sides of a thin lens
+        /// face, is asked for equal totals at the preferred tier, which gives way to the rows of the pairs and to the
+        /// numbers the user set; such a row left unkept is not returned.
         /// </summary>
         public static List<TransfiniteSidePair> Balance(Dictionary<int, int> edgeIdCount,
                                                         Dictionary<int, int> naturalCounts,
@@ -87,7 +89,8 @@ namespace CaeMesh
                                                         List<int[]> evenSides = null,
                                                         List<int[]> structuredEvenSides = null,
                                                         int minStructuredEvenSum = 0, List<int[]> evenLoops = null,
-                                                        List<int[]> minSumSides = null, int minSideSum = 0)
+                                                        List<int[]> minSumSides = null, int minSideSum = 0,
+                                                        List<int[][]> equalSumSides = null)
         {
             if (separations == null) separations = new List<SubmapSeparation>();
             int count;
@@ -107,7 +110,7 @@ namespace CaeMesh
                 Dictionary<int, int> balancedCounts = new Dictionary<int, int>(edgeIdCount);
                 if (BalanceBySolve(balancedCounts, naturalCounts, pinnedEdgeIds, edgeIdLowestCount, sizedEdgeIdCounts,
                                    maxSizeCounts, pairs, triples, separations, edgeIdMultiples, evenSides, structuredEvenSides,
-                                   minStructuredEvenSum, evenLoops, minSumSides, minSideSum, out unbalanced,
+                                   minStructuredEvenSum, evenLoops, minSumSides, minSideSum, equalSumSides, out unbalanced,
                                    out unbalancedTriples, out unbalancedSeparations) &&
                     unbalanced.Count == 0 && unbalancedTriples.Count == 0 && unbalancedSeparations.Count == 0)
                 {
@@ -118,7 +121,7 @@ namespace CaeMesh
             // The numbers the user set leave no room for the lowest counts, so they give way
             if (!BalanceBySolve(edgeIdCount, naturalCounts, pinnedEdgeIds, new Dictionary<int, int>(), sizedEdgeIdCounts,
                                 maxSizeCounts, pairs, triples, separations, edgeIdMultiples, evenSides, structuredEvenSides,
-                                minStructuredEvenSum, evenLoops, minSumSides, minSideSum, out unbalanced,
+                                minStructuredEvenSum, evenLoops, minSumSides, minSideSum, equalSumSides, out unbalanced,
                                 out unbalancedTriples, out unbalancedSeparations))
                 throw new CaeException("lp_solve found no element counts for the structured faces.");
             return unbalanced;
@@ -134,7 +137,8 @@ namespace CaeMesh
                                            List<SubmapSeparation> separations, Dictionary<int, int> edgeIdMultiples,
                                            List<int[]> evenSides, List<int[]> structuredEvenSides,
                                            int minStructuredEvenSum, List<int[]> evenLoops, List<int[]> minSumSides,
-                                           int minSideSum, out List<TransfiniteSidePair> unbalanced,
+                                           int minSideSum, List<int[][]> equalSumSides,
+                                           out List<TransfiniteSidePair> unbalanced,
                                            out List<TransfiniteSideTriple> unbalancedTriples,
                                            out List<SubmapSeparation> unbalancedSeparations)
         {
@@ -203,6 +207,12 @@ namespace CaeMesh
             {
                 for (int i = 0; i < minSumSides.Count; i++)
                     problem.AddAtLeastSum("Least side " + i, IntervalRowTierEnum.Hard, minSumSides[i], minSideSum);
+            }
+            if (equalSumSides != null)
+            {
+                for (int i = 0; i < equalSumSides.Count; i++)
+                    problem.AddEqualSums("Equal sides " + i, IntervalRowTierEnum.Preferred, equalSumSides[i][0],
+                                         equalSumSides[i][1]);
             }
             //
             IntervalSolution solution = problem.Solve(false, _timeoutSeconds);

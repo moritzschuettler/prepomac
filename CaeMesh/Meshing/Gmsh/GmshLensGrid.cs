@@ -24,7 +24,8 @@ namespace CaeMesh
     /// (GmshPoleChart) and in the parameters of the surface, the best grid in space kept (MapPiece), the others in
     /// the parameters of the surface. An inner line runs straight in the parameters
     /// between its two nodes, an end at a pole taking the angular parameter of the other end (both ends at poles: the
-    /// middle of the face), its nodes at equal lengths along it.
+    /// middle of the face), its nodes at equal lengths along it. Once all pieces are laid, the nodes inside the face
+    /// are smoothed together (Smooth), so that the grid lines run on across the inner lines.
     /// </summary>
     internal class GmshLensGrid
     {
@@ -40,7 +41,9 @@ namespace CaeMesh
         private Dictionary<int, GmshPoleChart> _poleCharts = new Dictionary<int, GmshPoleChart>();
         private List<int[]> _quads = new List<int[]>();
         private int _numOfFoldedQuads;
+        private int _numOfBoundaryNodes;
         private const int NumOfLineSamples = 128;
+        private const int NumOfSmoothingSweeps = 50;
         private const int SplitSearchWidth = 3;
         private const int MinPieceSideCount = 2;
 
@@ -83,6 +86,7 @@ namespace CaeMesh
         /// </summary>
         public void SetBoundary(IEnumerable<int> vertexNodeIds)
         {
+            _numOfBoundaryNodes = _xyz.Count;
             double[][] uv = GmshThreeBlockMesher.GetParametricCoordinates(_surfaceId, _xyz);
             for (int i = 0; i < uv.Length; i++) _uv[i] = uv[i];
             double[] low = new double[] { double.MaxValue, double.MaxValue, double.MaxValue };
@@ -236,8 +240,8 @@ namespace CaeMesh
                     ThreeBlockGrid candidate;
                     double[][] candidateInnerUv;
                     string candidateReason;
-                    if (!TryMap(sides, poleUv == null ? chart : null, poleId, poleUv, out candidate, out candidateInnerUv,
-                                out candidateReason))
+                    if (!TryMap(sides, poleUv == null ? chart : null, poleId, poleUv, out candidate,
+                                out candidateInnerUv, out candidateReason))
                     {
                         if (reason == null) reason = candidateReason;
                         continue;
@@ -390,6 +394,94 @@ namespace CaeMesh
                 for (int i = 0; i < sides[k].Length - 1; i++) nodeIds[grid.GetBoundaryNodeId(k, i)] = sides[k][i];
             }
             return nodeIds;
+        }
+        /// <summary>
+        /// Smooths every node that is not on the boundary of the face - the nodes of the inner lines and the inner
+        /// nodes of the pieces - together by QuadSmoothing.SmoothRegion: the inner lines were laid first and stayed
+        /// while each piece was smoothed on its own, so the grid lines bend where they cross them. The plane is the
+        /// parameters of the surface in the frame fitted over the segments of the boundary (GmshQuadMesher.GetFrame)
+        /// on a face without a pole, and the chart of the pole, the pole at its origin, on a face with one; a face with
+        /// two poles or more, or whose grid folds, is left as it is. The smoothed grid is kept only when no quad folds
+        /// in the plane or in space and its worst scaled Jacobian in space (Judge) is not lower than before; otherwise
+        /// the nodes go back to where they were. Returns whether the smoothed grid was kept.
+        /// </summary>
+        public bool Smooth()
+        {
+            int numOfNodes = _xyz.Count;
+            if (_poleCharts.Count > 1 || _numOfFoldedQuads > 0 || numOfNodes == _numOfBoundaryNodes) return false;
+            // The points in the plane
+            double[][] points = new double[numOfNodes][];
+            GmshPoleChart chart = null;
+            double[] frame = null;
+            if (_poleCharts.Count == 1)
+            {
+                int poleId = _poleCharts.Keys.First();
+                chart = _poleCharts[poleId];
+                for (int i = 0; i < numOfNodes; i++)
+                    points[i] = i == poleId ? new double[] { 0, 0 } : chart.ToChart(_uv[i]);
+            }
+            else
+            {
+                double[] reference = _uv[0];
+                double[][] unwrapped = _uv.Select(uv => Unwrap(uv, reference)).ToArray();
+                double[][][] segmentUv = new double[_numOfBoundaryNodes][][];
+                double[][][] segmentXyz = new double[_numOfBoundaryNodes][][];
+                for (int i = 0; i < _numOfBoundaryNodes; i++)
+                {
+                    int next = (i + 1) % _numOfBoundaryNodes;
+                    segmentUv[i] = new double[][] { unwrapped[i], unwrapped[next] };
+                    segmentXyz[i] = new double[][] { _xyz[i], _xyz[next] };
+                }
+                frame = GmshQuadMesher.GetFrame(segmentUv, segmentXyz);
+                for (int i = 0; i < numOfNodes; i++) points[i] = ThreeBlockMapping.ToFrame(frame, unwrapped[i]);
+            }
+            int[][] quads = _quads.ToArray();
+            double area = 0;
+            foreach (var quad in quads)
+            {
+                for (int c = 0; c < 4; c++)
+                {
+                    double[] p = points[quad[c]];
+                    double[] q = points[quad[(c + 1) % 4]];
+                    area += p[0] * q[1] - q[0] * p[1];
+                }
+            }
+            double orientation = area < 0 ? -1 : 1;
+            if (QuadSmoothing.CountFoldedElements(points, quads, orientation) > 0) return false;
+            int numOfFoldedQuads;
+            double minScaledJacobian = Judge(out numOfFoldedQuads);
+            if (numOfFoldedQuads > 0) return false;
+            // The smoothing, and the moved nodes on the surface
+            int[] freeNodes = Enumerable.Range(_numOfBoundaryNodes, numOfNodes - _numOfBoundaryNodes).ToArray();
+            QuadSmoothing.SmoothRegion(points, quads, freeNodes, orientation, NumOfSmoothingSweeps,
+                                       SubmapFaceDetector.MinScaledJacobian);
+            if (QuadSmoothing.CountFoldedElements(points, quads, orientation) > 0) return false;
+            double[][] smoothedUv = new double[freeNodes.Length][];
+            for (int i = 0; i < freeNodes.Length; i++)
+            {
+                double[] point = points[freeNodes[i]];
+                smoothedUv[i] = chart != null ? chart.ToUv(point) :
+                                                WrapIntoBounds(ThreeBlockMapping.FromFrame(frame, point));
+            }
+            double[] coor;
+            Gmsh.Model.GetValue(2, _surfaceId, smoothedUv.SelectMany(uv => uv).ToArray(), out coor);
+            if (coor == null || coor.Length != 3 * freeNodes.Length) return false;
+            List<double[]> previousUv = _uv.GetRange(_numOfBoundaryNodes, freeNodes.Length);
+            List<double[]> previousXyz = _xyz.GetRange(_numOfBoundaryNodes, freeNodes.Length);
+            for (int i = 0; i < freeNodes.Length; i++)
+            {
+                _uv[freeNodes[i]] = smoothedUv[i];
+                _xyz[freeNodes[i]] = new double[] { coor[3 * i], coor[3 * i + 1], coor[3 * i + 2] };
+            }
+            // Kept only when it is no worse in space
+            double smoothedMinScaledJacobian = Judge(out numOfFoldedQuads);
+            if (numOfFoldedQuads == 0 && smoothedMinScaledJacobian >= minScaledJacobian) return true;
+            for (int i = 0; i < freeNodes.Length; i++)
+            {
+                _uv[freeNodes[i]] = previousUv[i];
+                _xyz[freeNodes[i]] = previousXyz[i];
+            }
+            return false;
         }
         /// <summary>
         /// Writes the grid into the surface in place of any elements gmsh meshed on it, the quads turned with the
