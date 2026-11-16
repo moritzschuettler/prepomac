@@ -4667,7 +4667,8 @@ namespace CaeMesh
             }
             // The recombined sources meshed free, which GmshQuadMesher turns into quads only, ask for an even total around
             // them at the weakest tier: such a source keeps a triangle rather than move a count anything else holds. One
-            // with an edge the problem does not count already is left out, so that no edge is pinned for it alone
+            // with an edge the problem does not count already is left out, so that no edge is pinned for it alone; a seam,
+            // which the source meets on both sides, does not count
             if (_sweepRecombine && _sweepBlocks != null)
             {
                 HashSet<int> sweepWallSurfaceIds = new HashSet<int>(_sweepBlocks.SelectMany(block => block.WallSurfaceIds));
@@ -4677,8 +4678,8 @@ namespace CaeMesh
                     if (_fullQuadSourceIds.Contains(surfaceId) ||
                         !IsFreeSource(surfaceId, sweepWallSurfaceIds, sweepTargetSurfaceIds)) continue;
                     Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
-                    int[] loopEdgeIds = edgeIds.Select(id => Math.Abs(id)).ToArray();
-                    if (loopEdgeIds.Length == 0 || loopEdgeIds.Distinct().Count() != loopEdgeIds.Length ||
+                    int[] loopEdgeIds = GmshQuadMesher.GetParityEdgeIds(surfaceId, edgeIds.Select(id => Math.Abs(id)).ToArray());
+                    if (loopEdgeIds == null || loopEdgeIds.Length == 0 ||
                         !loopEdgeIds.All(problem.EdgeIdTarget.ContainsKey)) continue;
                     problem.AddEvenSum("All-quad Surface " + surfaceId, IntervalRowTierEnum.Preferred, loopEdgeIds);
                 }
@@ -5778,7 +5779,7 @@ namespace CaeMesh
                     WriteRingFreeMessage(face.FaceId, "it carries an edge inside it");
                 else rings.Add(face);
             }
-            // The edges around every face that may be meshed free, but for one with a seam or an edge inside it
+            // The edges around every face that may be meshed free, a seam left out, but for one with an edge inside it
             Dictionary<int, int[]> freeFaceLoopEdgeIds = new Dictionary<int, int[]>();
             if (allQuad)
             {
@@ -5787,9 +5788,10 @@ namespace CaeMesh
                 {
                     if (surfaceIdsWithInternalCurves.Contains(surfaceDimTag.Item2)) continue;
                     Gmsh.Model.GetBoundary(new Tuple<int, int>[] { surfaceDimTag }, out loopDimTags, false, false, false);
-                    int[] loopEdgeIds = loopDimTags.Select(dimTag => Math.Abs(dimTag.Item2)).ToArray();
-                    if (loopEdgeIds.Length > 0 && loopEdgeIds.Distinct().Count() == loopEdgeIds.Length)
-                        freeFaceLoopEdgeIds.Add(surfaceDimTag.Item2, loopEdgeIds);
+                    int[] loopEdgeIds = GmshQuadMesher.GetParityEdgeIds(surfaceDimTag.Item2,
+                                                                        loopDimTags.Select(dimTag => Math.Abs(dimTag.Item2))
+                                                                                   .ToArray());
+                    if (loopEdgeIds != null && loopEdgeIds.Length > 0) freeFaceLoopEdgeIds.Add(surfaceDimTag.Item2, loopEdgeIds);
                 }
             }
             if (faces.Count == 0 && submapped.Count == 0 && rings.Count == 0 && freeFaceLoopEdgeIds.Count == 0) return;

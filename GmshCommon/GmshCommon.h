@@ -331,6 +331,23 @@ namespace GmshCommon {
                 max = gcnew array<double>((int)max_native.size());
                 if ((int)max_native.size() > 0) Marshal::Copy(IntPtr(max_native.data()), max, 0, (int)max_native.size());
             }
+            static void ReparametrizeOnSurface(int dim, int tag, array<double>^ parametricCoord, int surfaceTag,
+                [System::Runtime::InteropServices::Out] array<double>^% surfaceParametricCoord, int which)
+            {
+                std::vector<double> parametricCoord_native(parametricCoord->Length);
+                if (parametricCoord->Length > 0)
+                    Marshal::Copy(parametricCoord, 0, IntPtr(&parametricCoord_native[0]), parametricCoord->Length);
+                //
+                std::vector<double> surfaceParametricCoord_native;
+                //
+                gmsh::model::reparametrizeOnSurface(dim, tag, parametricCoord_native, surfaceTag,
+                                                    surfaceParametricCoord_native, which);
+                //
+                surfaceParametricCoord = gcnew array<double>((int)surfaceParametricCoord_native.size());
+                if ((int)surfaceParametricCoord_native.size() > 0)
+                    Marshal::Copy(IntPtr(surfaceParametricCoord_native.data()), surfaceParametricCoord, 0,
+                                  (int)surfaceParametricCoord_native.size());
+            }
             static int IsInside(int dim, int tag, array<double>^ coord, System::Boolean parametric)
             {
                 std::vector<double> coord_native(coord->Length);

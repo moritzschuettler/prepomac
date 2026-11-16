@@ -1138,9 +1138,11 @@ measures the edges as gmsh meshes them in the end. A face that still has an odd 
 which a pair of triangles cannot be joined well keeps that pair. A face is kept as gmsh meshed it when the
 conversion would not lower its number of triangles, would fold a quad or have a corner of a scaled Jacobian below 0.2
 that gmsh's own mesh does not have, and the output says why a face keeps triangles ("All-quad meshing: Surface N keeps
-M triangles - reason"); a face with a seam, a degenerate edge, or an edge or point inside it is, for now, kept as gmsh
-meshed it as well. A face gmsh meshed with quads only has its valences evened out and its nodes smoothed in the same
-way, which is kept only when it leaves no more irregular inner nodes, no fold and no worse corner.
+M triangles - reason"). A face closed along a seam - a full cylinder, cone, torus or other surface of revolution or
+extrusion, with or without holes - is converted as well: it is cut open along its seams, and a seam does not count in
+the even total, since the face meets it on both sides. A face with a degenerate edge (the pole of a sphere, the apex
+of a cone), or an edge or point inside it is, for now, kept as gmsh meshed it. A face gmsh meshed with quads only has
+its valences evened out and its nodes smoothed in the same way, which is kept only when it leaves no more irregular inner nodes, no fold and no worse corner.
 Second order elements and the full-quad recombinations work as before; `tetrahedral_gmsh` takes `AllQuad`
 as `Simple`, and a sweep meshes with it as with `Simple`. A recombined sweep turns its free sources into quads only in
 the same way by default, with no setting, and asks the sweep counts for an even total around each such source at the
