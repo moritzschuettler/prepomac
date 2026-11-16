@@ -780,7 +780,7 @@ namespace CaeMesh
         /// The interior angle of the face at every vertex of its loop: the sum of the angles of its cells at the vertex
         /// node. Null when a vertex is in no cell of the face.
         /// </summary>
-        private static double[] GetInteriorAnglesDeg(FeMesh mesh, VisualizationData vis, int faceId, int[] vertexIds)
+        internal static double[] GetInteriorAnglesDeg(FeMesh mesh, VisualizationData vis, int faceId, int[] vertexIds)
         {
             Dictionary<int, int> vertexIdIndex = new Dictionary<int, int>();
             for (int k = 0; k < vertexIds.Length; k++) vertexIdIndex[vertexIds[k]] = k;

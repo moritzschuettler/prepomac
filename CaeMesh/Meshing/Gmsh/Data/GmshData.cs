@@ -76,6 +76,8 @@ namespace CaeMesh
         [PmxKey(29)] public TubeFace[] TubeFaces;
         // Cap mapping: the faces CapFaceDetector found on the shells, by the same ids
         [PmxKey(30)] public CapFace[] CapFaces;
+        // Lens mapping: the faces LensFaceDetector found on the shells, by the same ids
+        [PmxKey(31)] public LensFace[] LensFaces;
 
 
         // Constructors                                                                                                             

@@ -39,7 +39,9 @@
 #  - The parts of several faces: every cap and every tube in them structured with one N round on the circles they
 #    share, the disc of the closed cone meshed free, quads only under AllQuad and the full-quad recombinations; the
 #    pressure vessel has no irregular inner node but the eight block corners.
-#  - The faces that are no caps are not detected and are meshed exactly as with transfinite_submapped=False.
+#  - The faces that are no caps are not detected and are meshed exactly as with transfinite_submapped=False, but for
+#    the half dome, which is a lens face (Test_Model_Meshing_Lens): quads only, two inner nodes of three quads and no
+#    other inner node without four, no message.
 #  - The needle: gmsh itself cannot be relied on at the apex of a sharp cone (meshed free it has folded elements, splits
 #    the edges of the face or fails), which is why a cap is meshed before gmsh meshes the surfaces and is kept down to a
 #    worst scaled Jacobian of 0.1, half the floor of the other structured faces. At both sizes with Simple, AllQuad and
@@ -81,6 +83,8 @@ SHELLS = ["hemisphere", "shallow cap", "cone 45", "sharp cone", "paraboloid", "e
           "dome on frustum", "torispherical head", "half dome", "needle cone"]
 CAPS = SHELLS[:10]
 NOT_CAPS = ["dome with hole", "sphere with hole", "half dome"]
+# The faces that are no caps but lens faces, meshed otherwise than with transfinite_submapped=False
+LENSES = ["half dome"]
 MULTI = {"pressure vessel": (2, 1), "closed cone": (1, 0), "dome on frustum": (1, 1), "torispherical head": (1, 1)}
 # By cap and size: the elements round, N, and on the seam, M, under every recombination but the full-quad ones, which
 # make both even
@@ -548,6 +552,12 @@ def check_not_caps(parts):
             messages = output_messages(part.name)
             print(name + " with " + recombine + ":", face.kinds(), "irregular", len(irregular_inner_nodes(face.elements)),
                   "worst scaled Jacobian", round(min_scaled_jacobian(face), 3), messages)
+            if name in LENSES:
+                irregular = irregular_inner_nodes(face.elements)
+                valence = valences(face.elements)
+                check(face.kinds()[1] == 0 and len(irregular) == 2 and all(valence[node] == 3 for node in irregular)
+                      and len(messages) == 0, "the " + name + " with " + recombine + " is not meshed as a lens face")
+                continue
             check(face.kinds() == before.kinds() and face.points(face.used_nodes()) == before.points(before.used_nodes())
                   and messages == before_messages, "the " + name + " with " + recombine + " is not meshed as before the caps")
             check(not any("Cap mapping:" in message for message in messages), "the " + name + " wrote " + str(messages))

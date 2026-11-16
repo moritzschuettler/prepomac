@@ -22,8 +22,10 @@
 #    multiple of four elements, as many on each edge, and its four corner nodes, the boundary nodes of three quads,
 #    lie within half a node spacing of the 45 degree directions about its centre. The two half circles turned by 30
 #    degrees give the mesh of the two on the axis, up to the spacing of the nodes. The discs, the annulus and the
-#    elliptic hole are not detected: a round outer loop is left free, and an ellipse is not round. The discs are
-#    meshed free without a message, and the annulus and the elliptic hole, faces of two loops, as rings
+#    elliptic hole are not detected: a round outer loop is left free, and an ellipse is not round. The disc of one
+#    closed edge is meshed free without a message, the disc of two half circles, a face with no corner and two
+#    vertices, as a lens face (Test_Model_Meshing_Lens: quads only, four inner nodes of three quads and no other inner
+#    node without four, no message), and the annulus and the elliptic hole, faces of two loops, as rings
 #    (Test_Model_Meshing_Ring) of as many quads as recorded.
 #  - The slot-shaped plate at the element size 1.5: its half circles carry 20 elements or more, the quad at either end
 #    of a half circle turns by 180 degrees less 180 degrees over that count, below the floor, so the mesher leaves it
@@ -67,7 +69,8 @@ SHEAR = math.tan(math.radians(15))
 SHELLS = ["round hole", "two halves", "turned halves", "four quarters", "off-centre round", "four bolt holes",
           "L with round hole", "slot along", "slot across", "slot plate", "round and rectangle", "sheared round",
           "disc", "annulus", "elliptic hole", "coarse border", "disc of halves"]
-FREE = ["disc", "disc of halves"]
+FREE = ["disc"]
+LENSES = ["disc of halves"]
 # The faces no lattice can take that are meshed as rings (Test_Model_Meshing_Ring), by their quads
 RINGS = {"annulus": 78, "elliptic hole": 240}
 SOLIDS = ["plate round", "L bracket", "plate slot", "plate four holes", "round and square"]
@@ -373,6 +376,19 @@ def check_shells(parts):
                   "the " + name + " must be meshed free without a message: " + str(face.kinds()))
             print(name + ": not detected, free", face.kinds())
             plot("round_" + name.replace(" ", "_"), name + ": free " + str(face.kinds()), face.elements, face.uv)
+            continue
+        if name in LENSES:
+            check(len(faces) == 0, "the " + name + " must not be detected")
+            mesh(part)
+            face = FaceMesh(part.name)
+            irregular = irregular_inner_nodes(face.elements)
+            valence = valences(face.elements)
+            check("triangle" not in face.kinds() and len(irregular) == 4 and
+                  all(valence[node] == 3 for node in irregular) and len(submapping_messages(part.name)) == 0,
+                  "the " + name + " must be meshed as a lens face without a message: " + str(face.kinds()))
+            print(name + ": not detected, a lens face", face.kinds())
+            plot("round_" + name.replace(" ", "_"), name + ": a lens face " + str(face.kinds()), face.elements,
+                 face.uv)
             continue
         check(len(faces) == 1, "the " + name + " must be detected as submapped: " + str(len(faces)) + " faces")
         holes, round_holes, turns = describe(faces[0])

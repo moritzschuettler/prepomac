@@ -22,11 +22,14 @@ namespace CaeMesh
     /// Each corner and each joint of a side is judged on its own, so a face is also held to the grid its sides span:
     /// a side chained through many nearly straight joints can still wind far across the face, and a grid stretched
     /// between it and the other sides folds. A three-sided face is held to the grid of the layout it is meshed by.
+    /// The angle at a vertex is that of its edges unless the face turns round it otherwise (GetLoopAnglesDeg): a
+    /// reentrant vertex makes the face neither three- nor four-sided, and the apex of a cone has its developed angle.
     /// </summary>
     public static class TransfiniteFaceDetector
     {
         // Variables
         internal const double _cornerAngleToleranceDeg = 0.1;
+        private const double _maxInteriorAngleDifferenceDeg = 30;
         private const int _foldCheckDivisions = 16;
         private const double _heightFieldMinCosine = 0.05;
 
@@ -95,20 +98,15 @@ namespace CaeMesh
             if (!GetBoundaryLoop(vis, faceEdgeIds, edgeIdVertexIds, out loopEdgeIds, out loopVertexIds)) return null;
             // loopVertexIds[k] is the vertex where loop edge k - 1 ends and loop edge k starts
             int n = loopEdgeIds.Length;
-            double[] anglesDeg = new double[n];
-            for (int k = 0; k < n; k++)
-            {
-                double[] incoming = GetEdgeTangent(mesh, vis, loopEdgeIds[(k + n - 1) % n], loopVertexIds[k]);
-                double[] outgoing = GetEdgeTangent(mesh, vis, loopEdgeIds[k], loopVertexIds[k]);
-                anglesDeg[k] = GetAngleDeg(incoming, outgoing);
-                if (double.IsNaN(anglesDeg[k])) return null;
-            }
+            double[] anglesDeg = GetLoopAnglesDeg(mesh, vis, faceId, loopEdgeIds, loopVertexIds);
+            if (anglesDeg == null) return null;
             //
             double maxCornerAngleDeg = transfiniteAngleDeg + _cornerAngleToleranceDeg;
             double minCornerAngleDeg = 180 - transfiniteAngleDeg - _cornerAngleToleranceDeg;
             List<int> corners = new List<int>();
             for (int k = 0; k < n; k++)
             {
+                if (IsReentrant(anglesDeg[k], transfiniteAngleDeg)) return null;
                 if (anglesDeg[k] <= maxCornerAngleDeg) corners.Add(k);
             }
             if (!((corners.Count == 4 && fourSided) ||
@@ -481,6 +479,43 @@ namespace CaeMesh
             loopEdgeIds = edgeLoop.ToArray();
             loopVertexIds = vertexLoop.ToArray();
             return true;
+        }
+        /// <summary>
+        /// The angle of the face at every vertex of its boundary loop: the angle between the edges where they leave
+        /// the vertex, unless the interior angle of the face there, the sum of the angles of its cells at the vertex,
+        /// differs from it by more than _maxInteriorAngleDifferenceDeg - a reentrant vertex, whose edges leave it at
+        /// 360° less its interior angle, or the apex of a cone or the pole of a sphere, round which the face turns by
+        /// more or less than its edges show - then the interior angle. Null when an edge has no direction.
+        /// </summary>
+        internal static double[] GetLoopAnglesDeg(FeMesh mesh, VisualizationData vis, int faceId, int[] loopEdgeIds,
+                                                  int[] loopVertexIds)
+        {
+            int n = loopEdgeIds.Length;
+            double[] anglesDeg = new double[n];
+            for (int k = 0; k < n; k++)
+            {
+                double[] incoming = GetEdgeTangent(mesh, vis, loopEdgeIds[(k + n - 1) % n], loopVertexIds[k]);
+                double[] outgoing = GetEdgeTangent(mesh, vis, loopEdgeIds[k], loopVertexIds[k]);
+                anglesDeg[k] = GetAngleDeg(incoming, outgoing);
+                if (double.IsNaN(anglesDeg[k])) return null;
+            }
+            if (vis.CellIdsByFace == null || faceId >= vis.CellIdsByFace.Length) return anglesDeg;
+            double[] interiorAnglesDeg = SubmapFaceDetector.GetInteriorAnglesDeg(mesh, vis, faceId, loopVertexIds);
+            if (interiorAnglesDeg == null) return anglesDeg;
+            for (int k = 0; k < n; k++)
+            {
+                if (Math.Abs(interiorAnglesDeg[k] - anglesDeg[k]) > _maxInteriorAngleDifferenceDeg)
+                    anglesDeg[k] = interiorAnglesDeg[k];
+            }
+            return anglesDeg;
+        }
+        /// <summary>
+        /// Whether a vertex of the given angle is reentrant: the face turns round it by more than 360° less the
+        /// transfinite angle.
+        /// </summary>
+        internal static bool IsReentrant(double angleDeg, double transfiniteAngleDeg)
+        {
+            return angleDeg >= 360 - transfiniteAngleDeg - _cornerAngleToleranceDeg;
         }
         /// <summary>
         /// The direction an edge leaves one of its vertices in, read off the edge cell at that vertex.

@@ -12,13 +12,15 @@
 #    whose roof meets its walls at 117 and 127 degrees, a disc of r 20 with a bore of r 8 off the centre by 11.8 mm, a
 #    square plate of 60 with a square hole of the diagonal 8 turned by 45 degrees, a plate of 80 x 50 with holes of r 4,
 #    6 and 9, an irregular heptagon, an L whose legs are 2 mm wide and 30 long, and a quarter of a cylinder of r 40 and
-#    50 high with a round hole of r 6 cut through it radially. The half disc and the cylinder patch fall back from the
-#    submapping, the plate with three holes and the thin L are submapped, the others are free.
+#    50 high with a round hole of r 6 cut through it radially. The half disc falls back from the submapping to a lens
+#    face, two three-sided pieces of three blocks of quads (quads only with Simple as well), and the cylinder patch to a
+#    free mesh, the plate with three holes and the thin L are submapped, the others are free.
 #    At the element size 5, without the three-sided mapping so that the triangle is meshed free as well: Simple leaves
 #    triangles on the free faces; AllQuad gives an even number of elements around every face and quads only, none
 #    folded, a worst scaled Jacobian of 0.2 at least measured in space, the same boundary nodes as Simple where it has
 #    as many elements around the face as Simple, and no all-quad message. The table of both and the time are printed.
-#    Simple meshes every face as recorded, as before the all-quad recombination existed.
+#    Simple meshes every face as recorded, as before the all-quad recombination existed, but for the half disc, which
+#    is a lens face.
 #  - Pinned odd totals: 25 elements on the circle of the disc, and 5 on every edge of the heptagon, leave exactly one
 #    triangle on each and an all-quad message that names the odd total. A number set on one edge of a face whose other
 #    edges are free is balanced to an even total instead.
@@ -54,8 +56,9 @@ FLOOR = 0.2
 SHELLS = ["disc", "half disc", "triangle", "house", "eccentric annulus", "plate with diamond", "three holes",
           "heptagon", "thin L", "cylinder patch"]
 SOLIDS = SHELLS[:8]
-# Simple at the element size 5: quads and triangles, as before the all-quad recombination existed
-EXPECTED_SIMPLE = {"disc": (58, 16), "half disc": (33, 12), "triangle": (56, 23), "house": (61, 10),
+# Simple at the element size 5: quads and triangles, as before the all-quad recombination existed; the half disc is a
+# lens face since the lens faces exist (33 quads and 12 triangles before)
+EXPECTED_SIMPLE = {"disc": (58, 16), "half disc": (46, 0), "triangle": (56, 23), "house": (61, 10),
                    "eccentric annulus": (58, 14), "plate with diamond": (165, 54), "three holes": (133, 0),
                    "heptagon": (97, 31), "thin L": (17, 0), "cylinder patch": (152, 46)}
 CYLINDER_RADIUS = 40.0

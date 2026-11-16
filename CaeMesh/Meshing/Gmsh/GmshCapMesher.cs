@@ -50,8 +50,7 @@ namespace CaeMesh
         /// </summary>
         public const double MinScaledJacobian = 0.1;
         private const int NumOfAngles = 128;
-        private const int NumOfSamples = 256;
-        private const double MaxPoleDistance = 1E-6;
+        private const int NumOfSamples = GmshPoleChart.NumOfSamples;
 
 
         // Methods                                                                                                                  
@@ -139,8 +138,9 @@ namespace CaeMesh
             double size = GetDistance(seamXyz[0], seamXyz[m]) + GetDistance(seamXyz[0], seamXyz[m / 2]);
             double poleV;
             double farV;
-            if (!GetPoleParameter(surfaceId, p, min, max, seamXyz[m], size, out poleV, out farV) ||
-                (!face.HasRim && !GetPoleParameter(surfaceId, p, min, max, seamXyz[0], size, out farV, out poleV)))
+            if (!GmshPoleChart.GetPoleParameter(surfaceId, p, min, max, seamXyz[m], size, out poleV, out farV) ||
+                (!face.HasRim && !GmshPoleChart.GetPoleParameter(surfaceId, p, min, max, seamXyz[0], size, out farV,
+                                                                 out poleV)))
             {
                 reason = "its seam does not end in a pole of its surface";
                 return false;
@@ -153,7 +153,8 @@ namespace CaeMesh
             }
             double[][] tableV;
             double[][] tableR;
-            GetArcLengthTables(surfaceId, p, seamU, period, poleV, farV, out tableV, out tableR);
+            GmshPoleChart.GetArcLengthTables(surfaceId, p, seamU, period, NumOfAngles, NumOfAngles, poleV, farV, out tableV,
+                                             out tableR);
             // The seam from the pole: its levels in the chart radius
             double[] seamR = new double[m + 1];
             for (int k = 0; k <= m; k++)
@@ -415,77 +416,6 @@ namespace CaeMesh
             int numOfElementsRound = 2 * (int)Math.Round(longest / elementSize / 2);
             return Math.Max(CapFace.MinNumberOfElementsRound, numOfElementsRound);
         }
-        /// <summary>
-        /// The bound of the parameter other than the periodic one p at which the surface collapses into the pole, and the
-        /// other bound; false when neither bound does.
-        /// </summary>
-        private static bool GetPoleParameter(int surfaceId, int p, double[] min, double[] max, double[] pole, double size,
-                                             out double poleV, out double farV)
-        {
-            poleV = 0;
-            farV = 0;
-            int numOfAngles = 8;
-            foreach (var atMin in new bool[] { true, false })
-            {
-                double v = atMin ? min[1 - p] : max[1 - p];
-                double[] uv = new double[2 * numOfAngles];
-                for (int i = 0; i < numOfAngles; i++)
-                {
-                    uv[2 * i + p] = min[p] + (max[p] - min[p]) * (i + 0.5) / numOfAngles;
-                    uv[2 * i + 1 - p] = v;
-                }
-                double[] coor;
-                Gmsh.Model.GetValue(2, surfaceId, uv, out coor);
-                bool collapses = coor.Length == 3 * numOfAngles;
-                for (int i = 0; i < numOfAngles && collapses; i++)
-                    collapses = GetDistance(new double[] { coor[3 * i], coor[3 * i + 1], coor[3 * i + 2] }, pole) <=
-                                MaxPoleDistance * size;
-                if (!collapses) continue;
-                poleV = v;
-                farV = atMin ? max[1 - p] : min[1 - p];
-                return true;
-            }
-            return false;
-        }
-        /// <summary>
-        /// The arc length along the iso-lines of the periodic parameter from the pole: at NumOfAngles values of the periodic
-        /// parameter from the seam, NumOfSamples + 1 values of the other parameter from the pole to the far bound, tableV,
-        /// and the lengths up to them, tableR.
-        /// </summary>
-        private static void GetArcLengthTables(int surfaceId, int p, double seamU, double period, double poleV, double farV,
-                                               out double[][] tableV, out double[][] tableR)
-        {
-            tableV = new double[NumOfAngles][];
-            tableR = new double[NumOfAngles][];
-            double[] v = new double[NumOfSamples + 1];
-            for (int s = 0; s <= NumOfSamples; s++) v[s] = poleV + (farV - poleV) * s / NumOfSamples;
-            double[] uv = new double[2 * NumOfAngles * (NumOfSamples + 1)];
-            int count = 0;
-            for (int k = 0; k < NumOfAngles; k++)
-            {
-                tableV[k] = v;
-                for (int s = 0; s <= NumOfSamples; s++)
-                {
-                    uv[count + p] = seamU + period * k / NumOfAngles;
-                    uv[count + 1 - p] = v[s];
-                    count += 2;
-                }
-            }
-            double[] coor;
-            Gmsh.Model.GetValue(2, surfaceId, uv, out coor);
-            for (int k = 0; k < NumOfAngles; k++)
-            {
-                tableR[k] = new double[NumOfSamples + 1];
-                for (int s = 1; s <= NumOfSamples; s++)
-                {
-                    int q1 = 3 * (k * (NumOfSamples + 1) + s);
-                    int q0 = q1 - 3;
-                    tableR[k][s] = tableR[k][s - 1] + Math.Sqrt(Math.Pow(coor[q1] - coor[q0], 2) +
-                                                                Math.Pow(coor[q1 + 1] - coor[q0 + 1], 2) +
-                                                                Math.Pow(coor[q1 + 2] - coor[q0 + 2], 2));
-                }
-            }
-        }
         // The angle in the chart, from the seam, of a value of the periodic parameter, and back
         private static double ToU(double theta, double seamU, double period)
         {
@@ -509,7 +439,8 @@ namespace CaeMesh
             int k1;
             double t;
             GetAngleIndex(u, seamU, period, out k0, out k1, out t);
-            return (1 - t) * Interpolate(tableV[k0], tableR[k0], v) + t * Interpolate(tableV[k1], tableR[k1], v);
+            return (1 - t) * GmshPoleChart.Interpolate(tableV[k0], tableR[k0], v) +
+                   t * GmshPoleChart.Interpolate(tableV[k1], tableR[k1], v);
         }
         private static double GetMeridianLength(double[][] tableR, double u, double seamU, double period)
         {
@@ -533,27 +464,9 @@ namespace CaeMesh
             GetAngleIndex(u, seamU, period, out k0, out k1, out t);
             double[] uv = new double[2];
             uv[p] = Wrap(u, start, period);
-            uv[1 - p] = (1 - t) * Interpolate(tableR[k0], tableV[k0], r) + t * Interpolate(tableR[k1], tableV[k1], r);
+            uv[1 - p] = (1 - t) * GmshPoleChart.Interpolate(tableR[k0], tableV[k0], r) +
+                        t * GmshPoleChart.Interpolate(tableR[k1], tableV[k1], r);
             return uv;
-        }
-        // Linear interpolation of ys at x in the increasing or decreasing xs, held at the ends
-        private static double Interpolate(double[] xs, double[] ys, double x)
-        {
-            int last = xs.Length - 1;
-            bool increasing = xs[last] >= xs[0];
-            if (increasing ? x <= xs[0] : x >= xs[0]) return ys[0];
-            if (increasing ? x >= xs[last] : x <= xs[last]) return ys[last];
-            int low = 0;
-            int high = last;
-            while (high - low > 1)
-            {
-                int middle = (low + high) / 2;
-                if ((xs[middle] <= x) == increasing) low = middle;
-                else high = middle;
-            }
-            double span = xs[high] - xs[low];
-            double share = span != 0 ? (x - xs[low]) / span : 0;
-            return ys[low] + (ys[high] - ys[low]) * share;
         }
         /// <summary>
         /// The block about a pole in its Cartesian chart, node [i][k] at (x, y): i from 0 to blockA across the seam, k from

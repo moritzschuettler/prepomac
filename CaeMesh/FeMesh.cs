@@ -4565,6 +4565,7 @@ namespace CaeMesh
                 gmshData.RingFaces = GetRingFacesForGmsh(partNames, gmshData.TransfiniteFaces, null);
                 gmshData.TubeFaces = GetTubeFacesForGmsh(partNames);
                 gmshData.CapFaces = GetCapFacesForGmsh(partNames);
+                gmshData.LensFaces = GetLensFacesForGmsh(partNames, shellGmsh);
             }
             // So are the sources of a sweep
             SweepMesh sweepMesh = gmshData.GmshSetupItems?.OfType<SweepMesh>().FirstOrDefault();
@@ -4741,6 +4742,28 @@ namespace CaeMesh
                 }
             }
             return capFaces.ToArray();
+        }
+        /// <summary>
+        /// The lens faces of the shells with gmsh topology ids. A face with two corners or none is never one of the
+        /// structured faces found before but a submapped one, which the submapping keeps.
+        /// </summary>
+        private LensFace[] GetLensFacesForGmsh(string[] partNames, GmshSetupItem gmshSetupItem)
+        {
+            List<LensFace> lensFaces = new List<LensFace>();
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                if (part.PartType != PartType.Shell) continue;
+                //
+                foreach (var face in LensFaceDetector.Detect(this, part, gmshSetupItem.TransfiniteAngleDeg))
+                {
+                    int[] edgeIds = new int[face.EdgeIds.Length];
+                    for (int k = 0; k < edgeIds.Length; k++) edgeIds[k] = GmshTopologyId(face.EdgeIds[k], part.PartId);
+                    lensFaces.Add(new LensFace(GmshTopologyId(face.FaceId, part.PartId), face.VertexNodeIds.ToArray(),
+                                               edgeIds, face.CornerIndices.ToArray()));
+                }
+            }
+            return lensFaces.ToArray();
         }
         /// <summary>
         /// Finds the surfaces that two of the given parts have in common - the interfaces between the
@@ -5370,8 +5393,8 @@ namespace CaeMesh
         // Mesh types
         /// <summary>
         /// Which faces of a shell part are meshed by a structured grid, by the one definition all meshers follow, and
-        /// with submapped also the faces SubmapFaceDetector, RingFaceDetector, TubeFaceDetector and CapFaceDetector
-        /// find.
+        /// with submapped also the faces SubmapFaceDetector, RingFaceDetector, TubeFaceDetector, CapFaceDetector and
+        /// LensFaceDetector find.
         /// </summary>
         public bool[] GetTransfiniteShellFaces(BasePart part, TransfiniteThreeSidedEnum threeSided, bool fourSided,
                                                double transfiniteAngleDeg, bool submapped = false)
@@ -5385,6 +5408,8 @@ namespace CaeMesh
                 foreach (var face in RingFaceDetector.Detect(this, part)) transfinite[face.FaceId] = true;
                 foreach (var face in TubeFaceDetector.Detect(this, part)) transfinite[face.FaceId] = true;
                 foreach (var face in CapFaceDetector.Detect(part)) transfinite[face.FaceId] = true;
+                foreach (var face in LensFaceDetector.Detect(this, part, transfiniteAngleDeg))
+                    transfinite[face.FaceId] = true;
             }
             return transfinite;
         }

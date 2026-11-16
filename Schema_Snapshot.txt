@@ -790,6 +790,7 @@ F 2098.27 #2148[] SubmapFaces
 F 2098.28 #2149[] RingFaces
 F 2098.29 #2150[] TubeFaces
 F 2098.30 #2151[] CapFaces
+F 2098.31 #2152[] LensFaces
 T 2099 class CaeMesh.GmshEdge
 F 2099.0 System.Int32 Id
 F 2099.1 System.Int32[] VertexIds
@@ -1145,6 +1146,11 @@ F 2151.1 System.Int32 _seamEdgeId
 F 2151.2 System.Int32[] _rimVertexNodeIds
 F 2151.3 System.Int32[] _rimEdgeIds
 F 2151.4 System.Int32[] _poleVertexNodeIds
+T 2152 class CaeMesh.LensFace
+F 2152.0 System.Int32 _faceId
+F 2152.1 System.Int32[] _vertexNodeIds
+F 2152.2 System.Int32[] _edgeIds
+F 2152.3 System.Int32[] _cornerIndices
 T 3000 enum CaeModel.AmplitudeTimeSpanEnum
 E 3000.0 member StepTime
 E 3000.1 member TotalTime

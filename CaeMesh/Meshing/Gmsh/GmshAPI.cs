@@ -49,6 +49,11 @@ namespace CaeMesh
         private List<CapFace> _capFaces = new List<CapFace>();
         private Dictionary<int, int> _capSeamNumOfElements = new Dictionary<int, int>();
         private Dictionary<int, int> _capNumOfElementsRound = new Dictionary<int, int>();
+        // The lens faces of a shell whose counts are balanced, meshed by GmshLensMesher before gmsh meshes the
+        // surfaces, and the submapped faces with two corners that are meshed by it when their grid is refused, by their
+        // surface
+        private List<LensFace> _lensFaces = new List<LensFace>();
+        private Dictionary<int, LensFace> _lensFallbackFaces = new Dictionary<int, LensFace>();
         // The five-faced transfinite volumes whose three-sided caps are meshed as three blocks of quads, and the
         // volumes by hexahedra between them
         private List<GmshThreeBlockPrism> _threeBlockPrisms = new List<GmshThreeBlockPrism>();
@@ -273,13 +278,16 @@ namespace CaeMesh
                     bool sweepMesh = _gmshData.EdgeIdsBySweepLayer != null;
                     // A shell is structured on the faces the one definition all meshers follow found. The quasi-structured
                     // quad algorithm meshes the edges coarser and refines the whole mesh, which a cap meshed before the
-                    // surfaces cannot follow, and lays its own quads round a pole, so the caps are left to it
+                    // surfaces cannot follow, and lays its own quads round a pole, so the caps and the lens faces are
+                    // left to it
                     bool quasiStructured = GetAlgorithmMesh2D(gsi) == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad;
                     if (_isOCC && gsi is ShellGmsh && _gmshData.TransfiniteFaces != null)
                         SetTransfiniteShellFaces(_gmshData.TransfiniteFaces, _gmshData.SubmapFaces ?? new SubmapFace[0],
                                                  _gmshData.RingFaces ?? new RingFace[0],
                                                  _gmshData.TubeFaces ?? new TubeFace[0],
                                                  quasiStructured ? new CapFace[0] : _gmshData.CapFaces ?? new CapFace[0],
+                                                 quasiStructured ? new LensFace[0] :
+                                                                   _gmshData.LensFaces ?? new LensFace[0],
                                                  IsFullQuad(algorithmRecombine),
                                                  algorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad);
                     else if (_isOCC && (gsi.IsTransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
@@ -731,26 +739,47 @@ namespace CaeMesh
             // a sharp cone it leaves elements invalid, splits the edges of the face or fails - so the caps are meshed
             // first, on the meshed edges, and gmsh then meshes only the surfaces that are still empty. A cap whose grid
             // is refused is among them, meshed free as any other face
-            HashSet<int> capSurfaceIds = new HashSet<int>();
-            if (_capFaces.Count > 0)
+            HashSet<int> laidSurfaceIds = new HashSet<int>();
+            // So are the lens faces and the three-sided faces with a pole at a corner, but for the quasi-structured
+            // quad algorithm, which meshes the edges again; it gets the three-sided faces to mesh, which are replaced
+            // after it
+            bool quasiStructured = GetAlgorithmMesh2D(gmshSetupItem) == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad;
+            HashSet<int> poleThreeBlockSurfaceIds =
+                new HashSet<int>(_threeBlockFaces.Where(GmshLensMesher.HasPoleCorner).Select(face => face.FaceId));
+            if (_capFaces.Count > 0 || _lensFaces.Count > 0 || (poleThreeBlockSurfaceIds.Count > 0 && !quasiStructured))
             {
                 GenerateMesh(1);
                 foreach (var face in _capFaces)
                 {
                     if (GmshCapMesher.Mesh(face, _capSeamNumOfElements[face.FaceId], _capNumOfElementsRound[face.FaceId],
                                            recombine, out reason))
-                        capSurfaceIds.Add(face.FaceId);
+                        laidSurfaceIds.Add(face.FaceId);
                     else WriteCapFreeMessage(face.FaceId, reason);
+                }
+                foreach (var face in _lensFaces)
+                {
+                    if (GmshLensMesher.Mesh(face, recombine, out reason)) laidSurfaceIds.Add(face.FaceId);
+                    else WriteLensFreeMessage(face.FaceId, reason);
+                }
+                foreach (var face in _threeBlockFaces)
+                {
+                    if (quasiStructured || !poleThreeBlockSurfaceIds.Contains(face.FaceId)) continue;
+                    if (GmshLensMesher.MeshThreeSided(face, recombine, out reason)) laidSurfaceIds.Add(face.FaceId);
+                    else WriteThreeSidedFreeMessage(face.FaceId, reason);
                 }
             }
             // Recombine all. gmsh refuses a full-quad recombination of a periodic surface ("Full-quad recombination not
             // ready yet for periodic surfaces"), so the tubes, whose mesh GmshTubeMesher replaces, and the caps whose grid
-            // was refused are left out of it
+            // was refused are left out of it, and so are the lens faces and the three-sided faces with a pole on a
+            // periodic surface, a sphere or a cone, whose grid was refused or that wait for the grid of their submapped
+            // face to be refused
             HashSet<int> unrecombinedSurfaceIds = new HashSet<int>();
             if (IsFullQuad(gmshSetupItem.AlgorithmRecombine))
             {
                 unrecombinedSurfaceIds.UnionWith(_tubeFaces.Select(face => face.FaceId));
                 unrecombinedSurfaceIds.UnionWith(_capFaces.Select(face => face.FaceId));
+                unrecombinedSurfaceIds.UnionWith(_lensFaces.Select(face => face.FaceId).Concat(_lensFallbackFaces.Keys)
+                                                           .Concat(poleThreeBlockSurfaceIds).Where(IsPeriodicSurface));
             }
             if (recombine && unrecombinedSurfaceIds.Count > 0)
             {
@@ -766,27 +795,43 @@ namespace CaeMesh
             //
             try
             {
-                if (capSurfaceIds.Count > 0) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 1);
+                if (laidSurfaceIds.Count > 0) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 1);
                 if (preview) GenerateMesh(2);
                 else GenerateMesh(2);
             }
             finally
             {
-                if (capSurfaceIds.Count > 0) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 0);
+                if (laidSurfaceIds.Count > 0) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 0);
             }
             // The three-sided faces become three blocks of quads around one inner node, split into triangles where the
             // surfaces are not recombined
             HashSet<int> structuredSurfaceIds = new HashSet<int>(_transfiniteSurfaceIds);
             foreach (var face in _threeBlockFaces)
             {
-                GmshThreeBlockMesher.Mesh(face, recombine);
+                if (!poleThreeBlockSurfaceIds.Contains(face.FaceId)) GmshThreeBlockMesher.Mesh(face, recombine);
+                else if (!quasiStructured) continue;
+                else if (!GmshLensMesher.MeshThreeSided(face, recombine, out reason))
+                {
+                    WriteThreeSidedFreeMessage(face.FaceId, reason);
+                    continue;
+                }
                 structuredSurfaceIds.Add(face.FaceId);
             }
-            // The submapped faces likewise, each left as gmsh meshed it when its grid folds or is poor
+            // The submapped faces likewise, each left as gmsh meshed it when its grid folds or is poor, or meshed as a
+            // lens face when it is one
+            LensFace lensFace;
+            string lensReason = null;
             foreach (var face in _submapFaces)
             {
                 if (GmshSubmapMesher.Mesh(face, recombine, out reason)) structuredSurfaceIds.Add(face.FaceId);
-                else WriteSubmapFreeMessage(face.FaceId, reason);
+                else if (_lensFallbackFaces.TryGetValue(face.FaceId, out lensFace) &&
+                         GmshLensMesher.Mesh(lensFace, recombine, out lensReason))
+                    structuredSurfaceIds.Add(face.FaceId);
+                else
+                {
+                    WriteSubmapFreeMessage(face.FaceId, reason);
+                    if (lensFace != null) WriteLensFreeMessage(face.FaceId, lensReason);
+                }
             }
             foreach (var face in _ringFaces)
             {
@@ -799,7 +844,7 @@ namespace CaeMesh
                     structuredSurfaceIds.Add(face.FaceId);
                 else WriteTubeFreeMessage(face.FaceId, reason);
             }
-            structuredSurfaceIds.UnionWith(capSurfaceIds);
+            structuredSurfaceIds.UnionWith(laidSurfaceIds);
             // The all-quad recombination turns every face meshed free into quads only
             if (_isOCC && gmshSetupItem.AlgorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad)
             {
@@ -1999,6 +2044,8 @@ namespace CaeMesh
                     _gmshData.TubeFaces = RenumberTubeFaces(_gmshData.TubeFaces, pointIdMap, edgeIdMap, surfaceIdMap);
                 if (_gmshData.CapFaces != null)
                     _gmshData.CapFaces = RenumberCapFaces(_gmshData.CapFaces, pointIdMap, edgeIdMap, surfaceIdMap);
+                if (_gmshData.LensFaces != null)
+                    _gmshData.LensFaces = RenumberLensFaces(_gmshData.LensFaces, pointIdMap, edgeIdMap, surfaceIdMap);
             }
             // The messages name the entities by the tags they carry now. An error above still names them by the
             // tags they carried before, so the names follow only here
@@ -2163,9 +2210,11 @@ namespace CaeMesh
         /// The surfaces with an edge lying inside them (an internal edge): a curve that is not on the boundary of the
         /// surface, although it may bound other surfaces (a rib standing on the edge), and lies inside it. The OCC
         /// import embeds such an edge in its face, and the face must not be meshed as transfinite, which ignores
-        /// embedded curves.
+        /// embedded curves. With skipDegenerateCurves a degenerate curve, the pole of a face beside the surface, which
+        /// has no length, is no internal edge.
         /// </summary>
-        private static HashSet<int> GetSurfaceIdsWithInternalCurves(Tuple<int, int>[] surfaceDimTags)
+        private static HashSet<int> GetSurfaceIdsWithInternalCurves(Tuple<int, int>[] surfaceDimTags,
+                                                                     bool skipDegenerateCurves = false)
         {
             HashSet<int> surfaceIdsWithInternalCurves = new HashSet<int>();
             if (surfaceDimTags.Length == 0) return surfaceIdsWithInternalCurves;
@@ -2184,6 +2233,7 @@ namespace CaeMesh
                 {
                     int curveId = edgeDimTags[i].Item2;
                     if (boundaryCurveIds.Contains(curveId)) continue;
+                    if (skipDegenerateCurves && IsPointBox(curveBoxes[i], tolerance)) continue;
                     // The curve box must lie within the surface box
                     bool inBox = true;
                     for (int k = 0; k < 3 && inBox; k++)
@@ -2205,6 +2255,18 @@ namespace CaeMesh
             double xMin, yMin, zMin, xMax, yMax, zMax;
             Gmsh.Model.GetBoundingBox(dim, tag, out xMin, out yMin, out zMin, out xMax, out yMax, out zMax);
             return new double[] { xMin, yMin, zMin, xMax, yMax, zMax };
+        }
+        private static bool IsPeriodicSurface(int surfaceId)
+        {
+            double[] min;
+            double[] max;
+            Gmsh.Model.GetParametrizationBounds(2, surfaceId, out min, out max);
+            return GmshPoleChart.GetPeriod(surfaceId, 0, min, max) > 0 ||
+                   GmshPoleChart.GetPeriod(surfaceId, 1, min, max) > 0;
+        }
+        private static bool IsPointBox(double[] box, double tolerance)
+        {
+            return box[3] - box[0] <= tolerance && box[4] - box[1] <= tolerance && box[5] - box[2] <= tolerance;
         }
         /// <summary>
         /// True when three points of the curve lie on the surface and inside it.
@@ -5809,17 +5871,21 @@ namespace CaeMesh
         /// the number set on it, or the one CapFace.GetSeamNumOfElements chooses for the blocks at its poles, and a cap
         /// with no rim takes the number round GmshCapMesher.GetNumOfElementsRound gives. One the balance cannot keep, or
         /// whose seam set leaves no ring, is meshed free like a tube.
+        /// A lens face joins the balance by an even total of its edges and LensFace.MinNumberOfElementsPerSide on each
+        /// of its sides, with the tier of the pairs, and is meshed by GmshLensMesher before gmsh meshes the surfaces;
+        /// one the balance cannot keep is meshed free like a cap. A lens face the submapping keeps is balanced as a
+        /// submapped face and meshed as a lens face only when its submapped grid is refused.
         /// Under the all-quad recombination every other face, which gmsh meshes free and GmshQuadMesher then turns into
         /// quads only, asks for an even number of elements around its boundary, at the weakest tier, so that it never
         /// changes a number the user set or a structured face. Only the edges of such faces whose count the balance
         /// changed are given that count; the others keep the mesh gmsh lays on them.
         /// </summary>
         private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces, SubmapFace[] submapFaces,
-                                              RingFace[] ringFaces, TubeFace[] tubeFaces, CapFace[] capFaces, bool fullQuad,
-                                              bool allQuad)
+                                              RingFace[] ringFaces, TubeFace[] tubeFaces, CapFace[] capFaces,
+                                              LensFace[] lensFaces, bool fullQuad, bool allQuad)
         {
             if (transfiniteFaces.Length == 0 && submapFaces.Length == 0 && ringFaces.Length == 0 && tubeFaces.Length == 0 &&
-                capFaces.Length == 0 && !allQuad) return;
+                capFaces.Length == 0 && lensFaces.Length == 0 && !allQuad) return;
             // A face both submapped and a ring is meshed as one of them
             HashSet<int> submapFaceIds = new HashSet<int>(submapFaces.Select(face => face.FaceId));
             HashSet<int> ringFaceIds = new HashSet<int>();
@@ -5832,7 +5898,7 @@ namespace CaeMesh
             // An edge embedded in a face would be crossed by the grid, which gmsh then does not follow
             Tuple<int, int>[] surfaceDimTags;
             Gmsh.Model.GetEntities(out surfaceDimTags, 2);
-            HashSet<int> surfaceIdsWithInternalCurves = GetSurfaceIdsWithInternalCurves(surfaceDimTags);
+            HashSet<int> surfaceIdsWithInternalCurves = GetSurfaceIdsWithInternalCurves(surfaceDimTags, true);
             List<TransfiniteFace> faces = new List<TransfiniteFace>();
             foreach (var face in transfiniteFaces)
             {
@@ -5871,6 +5937,17 @@ namespace CaeMesh
                     WriteCapFreeMessage(face.FaceId, "it carries an edge inside it");
                 else caps.Add(face);
             }
+            // A lens face the submapping keeps is meshed as one only when its grid is refused
+            List<LensFace> lenses = new List<LensFace>();
+            HashSet<int> submappedFaceIds = new HashSet<int>(submapped.Select(face => face.FaceId));
+            foreach (var face in lensFaces)
+            {
+                if (submappedFaceIds.Contains(face.FaceId)) _lensFallbackFaces[face.FaceId] = face;
+                else if (submapFaceIds.Contains(face.FaceId) || ringFaceIds.Contains(face.FaceId)) continue;
+                else if (surfaceIdsWithInternalCurves.Contains(face.FaceId))
+                    WriteLensFreeMessage(face.FaceId, "it carries an edge inside it");
+                else lenses.Add(face);
+            }
             // The edges around every face that may be meshed free, a seam left out, but for one with an edge inside it
             Dictionary<int, int[]> freeFaceLoopEdgeIds = new Dictionary<int, int[]>();
             if (allQuad)
@@ -5887,7 +5964,7 @@ namespace CaeMesh
                 }
             }
             if (faces.Count == 0 && submapped.Count == 0 && rings.Count == 0 && tubes.Count == 0 && caps.Count == 0 &&
-                freeFaceLoopEdgeIds.Count == 0) return;
+                lenses.Count == 0 && freeFaceLoopEdgeIds.Count == 0) return;
             // The numbers of elements the mesh size asks for, which the pinned edges already carry
             GenerateMesh(1);
             IntPtr[] nodeTags;
@@ -5897,6 +5974,7 @@ namespace CaeMesh
                                         .Concat(rings.SelectMany(face => face.AllEdgeIds))
                                         .Concat(tubes.SelectMany(face => face.AllEdgeIds))
                                         .Concat(caps.SelectMany(face => face.AllEdgeIds))
+                                        .Concat(lenses.SelectMany(face => face.AllEdgeIds))
                                         .Concat(freeFaceLoopEdgeIds.Values.SelectMany(edgeIds => edgeIds)).Distinct())
             {
                 Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
@@ -5985,12 +6063,14 @@ namespace CaeMesh
                 edgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
                 edgeIds.UnionWith(tubes.SelectMany(face => face.AllEdgeIds));
                 edgeIds.UnionWith(caps.SelectMany(face => face.AllEdgeIds));
+                edgeIds.UnionWith(lenses.SelectMany(face => face.AllEdgeIds));
                 edgeIds.UnionWith(freeFaceLoopEdgeIds.Values.SelectMany(loopEdgeIds => loopEdgeIds));
                 HashSet<int> loopStructuredEdgeIds = new HashSet<int>(transfiniteEdgeIds);
                 loopStructuredEdgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
                 loopStructuredEdgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
                 loopStructuredEdgeIds.UnionWith(tubes.SelectMany(face => face.AllEdgeIds));
                 loopStructuredEdgeIds.UnionWith(caps.SelectMany(face => face.AllEdgeIds));
+                loopStructuredEdgeIds.UnionWith(lenses.SelectMany(face => face.AllEdgeIds));
                 Dictionary<int, int> targetCounts = new Dictionary<int, int>(naturalCounts);
                 foreach (var edgeId in naturalCounts.Keys)
                 {
@@ -6048,7 +6128,8 @@ namespace CaeMesh
                                                                        .Concat(submapped.Select(face => face.FaceId))
                                                                        .Concat(rings.Select(face => face.FaceId))
                                                                        .Concat(tubes.Select(face => face.FaceId))
-                                                                       .Concat(caps.Select(face => face.FaceId)));
+                                                                       .Concat(caps.Select(face => face.FaceId))
+                                                                       .Concat(lenses.Select(face => face.FaceId)));
                 HashSet<int> freeFaceEdgeIds = new HashSet<int>();
                 Tuple<int, int>[] boundaryDimTags;
                 foreach (var surfaceDimTag in surfaceDimTags)
@@ -6061,7 +6142,8 @@ namespace CaeMesh
                                                            .ToDictionary(entry => entry.Key, entry => entry.Value);
                 List<int[]> evenSides = freeFaceLoopEdgeIds.Where(entry => !structuredFaceIds.Contains(entry.Key))
                                                            .OrderBy(entry => entry.Key).Select(entry => entry.Value).ToList();
-                if (allPairs.Count == 0 && triples.Count == 0 && evenSides.Count == 0 && caps.Count == 0)
+                if (allPairs.Count == 0 && triples.Count == 0 && evenSides.Count == 0 && caps.Count == 0 &&
+                    lenses.Count == 0)
                 {
                     unbalanced = new List<TransfiniteSidePair>();
                     unbalancedTriples = new List<TransfiniteSideTriple>();
@@ -6088,7 +6170,8 @@ namespace CaeMesh
                 {
                     foreach (var edgeId in rings.SelectMany(face => face.AllEdgeIds)
                                                 .Concat(tubes.SelectMany(face => face.AllEdgeIds))
-                                                .Concat(caps.SelectMany(face => face.AllEdgeIds)))
+                                                .Concat(caps.SelectMany(face => face.AllEdgeIds))
+                                                .Concat(lenses.SelectMany(face => face.AllEdgeIds)))
                     {
                         if (!edgeIdMultiples.ContainsKey(edgeId)) edgeIdMultiples[edgeId] = 2;
                     }
@@ -6114,7 +6197,10 @@ namespace CaeMesh
                                                                   sizedEdgeIdCounts, maxSizeCounts, edgeIdMultiples, evenSides,
                                                                   caps.Where(face => face.HasRim).Select(face => face.RimEdgeIds)
                                                                       .ToList(),
-                                                                  CapFace.MinNumberOfElementsRound);
+                                                                  CapFace.MinNumberOfElementsRound,
+                                                                  lenses.Select(face => face.AllEdgeIds).ToList(),
+                                                                  lenses.SelectMany(face => face.SideEdgeIds).ToList(),
+                                                                  LensFace.MinNumberOfElementsPerSide);
                 //
                 Dictionary<SubmapFace, string> dropped = new Dictionary<SubmapFace, string>();
                 SubmapFace unbalancedFace;
@@ -6217,12 +6303,25 @@ namespace CaeMesh
                                               "edges, and Edge " + face.AllEdgeIds.First(edgeId => edgeIdCount[edgeId] % 2 != 0) +
                                               " carries an odd number of elements");
                 }
+                // A lens face by the sum of its edges and the elements of its sides
+                Dictionary<LensFace, string> droppedLenses = new Dictionary<LensFace, string>();
+                foreach (var face in lenses)
+                {
+                    reason = face.GetCountReason(edgeIdCount);
+                    if (reason != null) droppedLenses.Add(face, reason);
+                    else if (fullQuad && face.AllEdgeIds.Any(edgeId => edgeIdCount[edgeId] % 2 != 0))
+                        droppedLenses.Add(face, "the full-quad recombination meshes it on every second node of its " +
+                                                "edges, and Edge " +
+                                                face.AllEdgeIds.First(edgeId => edgeIdCount[edgeId] % 2 != 0) +
+                                                " carries an odd number of elements");
+                }
                 bool transfiniteUnbalanced = unbalancedTriples.Count > 0 ||
                                              unbalanced.Any(pair => !submapPairFaces.ContainsKey(pair) &&
                                                                     !ringPairFaces.ContainsKey(pair) &&
                                                                     !tubePairFaces.ContainsKey(pair));
                 if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0 && droppedCaps.Count == 0 &&
-                    transfiniteUnbalanced && (submapped.Count > 0 || rings.Count > 0 || tubes.Count > 0 || caps.Count > 0))
+                    droppedLenses.Count == 0 && transfiniteUnbalanced &&
+                    (submapped.Count > 0 || rings.Count > 0 || tubes.Count > 0 || caps.Count > 0 || lenses.Count > 0))
                 {
                     foreach (var face in submapped)
                         dropped.Add(face, "its numbers of elements cannot agree with those of the structured faces " +
@@ -6236,8 +6335,12 @@ namespace CaeMesh
                     foreach (var face in caps)
                         droppedCaps.Add(face, "its numbers of elements cannot agree with those of the structured faces " +
                                               "beside it");
+                    foreach (var face in lenses)
+                        droppedLenses.Add(face, "its numbers of elements cannot agree with those of the structured " +
+                                                "faces beside it");
                 }
-                if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0 && droppedCaps.Count == 0) break;
+                if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0 && droppedCaps.Count == 0 &&
+                    droppedLenses.Count == 0) break;
                 foreach (var face in submapped)
                 {
                     if (dropped.TryGetValue(face, out reason)) WriteSubmapFreeMessage(face.FaceId, reason);
@@ -6254,10 +6357,15 @@ namespace CaeMesh
                 {
                     if (droppedCaps.TryGetValue(face, out reason)) WriteCapFreeMessage(face.FaceId, reason);
                 }
+                foreach (var face in lenses)
+                {
+                    if (droppedLenses.TryGetValue(face, out reason)) WriteLensFreeMessage(face.FaceId, reason);
+                }
                 submapped = submapped.Where(face => !dropped.ContainsKey(face)).ToList();
                 rings = rings.Where(face => !droppedRings.ContainsKey(face)).ToList();
                 tubes = tubes.Where(face => !droppedTubes.ContainsKey(face)).ToList();
                 caps = caps.Where(face => !droppedCaps.ContainsKey(face)).ToList();
+                lenses = lenses.Where(face => !droppedLenses.ContainsKey(face)).ToList();
             }
             if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
                 throw new CaeException(GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
@@ -6275,12 +6383,14 @@ namespace CaeMesh
                 _capNumOfElementsRound[face.FaceId] = face.HasRim ? face.RimEdgeIds.Sum(edgeId => edgeIdCount[edgeId]) :
                                                                     capNumOfElementsRound[face.FaceId];
             }
+            _lensFaces.AddRange(lenses);
             Gmsh.Model.Mesh.Clear();
             HashSet<int> structuredEdgeIds = new HashSet<int>(transfiniteEdgeIds);
             structuredEdgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
             structuredEdgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
             structuredEdgeIds.UnionWith(tubes.SelectMany(face => face.AllEdgeIds));
             structuredEdgeIds.UnionWith(caps.SelectMany(face => face.AllEdgeIds));
+            structuredEdgeIds.UnionWith(lenses.SelectMany(face => face.AllEdgeIds));
             foreach (var entry in edgeIdCount)
             {
                 if (!structuredEdgeIds.Contains(entry.Key) &&
@@ -6513,6 +6623,16 @@ namespace CaeMesh
         private void WriteCapFreeMessage(int surfaceId, string reason)
         {
             _writeOutput?.Invoke(NameGmshEntities("Cap mapping: Surface " + surfaceId + " is meshed free - " + reason + "."));
+        }
+        private void WriteLensFreeMessage(int surfaceId, string reason)
+        {
+            _writeOutput?.Invoke(NameGmshEntities("Lens mapping: Surface " + surfaceId + " is meshed free - " + reason +
+                                                  "."));
+        }
+        private void WriteThreeSidedFreeMessage(int surfaceId, string reason)
+        {
+            _writeOutput?.Invoke(NameGmshEntities("Transfinite: Surface " + surfaceId + " is meshed free - " + reason +
+                                                  "."));
         }
         private bool IsPolar(TransfiniteFace face)
         {
@@ -7145,6 +7265,11 @@ namespace CaeMesh
                 _gmshData.CapFaces = RenumberCapFaces(_gmshData.CapFaces, netgenVertexIdGmshVertexId, netgenEdgeIdGmshEdgeId,
                                                       netgenFaceIdGmshFaceId);
             }
+            if (_gmshData.LensFaces != null)
+            {
+                _gmshData.LensFaces = RenumberLensFaces(_gmshData.LensFaces, netgenVertexIdGmshVertexId,
+                                                        netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
+            }
             // Defeature
             if (_gmshData.SurfaceIds != null)
             {
@@ -7258,6 +7383,9 @@ namespace CaeMesh
             if (_gmshData.CapFaces != null)
                 _gmshData.CapFaces = _gmshData.CapFaces.Where(face => surfaceIds.Contains(face.FaceId) &&
                                                                       face.AllEdgeIds.All(curveIds.Contains)).ToArray();
+            if (_gmshData.LensFaces != null)
+                _gmshData.LensFaces = _gmshData.LensFaces.Where(face => surfaceIds.Contains(face.FaceId) &&
+                                                                        face.AllEdgeIds.All(curveIds.Contains)).ToArray();
             //
             _writeOutput?.Invoke("Sweep: the compound is symmetric across " + sweepMesh.SymmetryPlanes.Length +
                                  " plane/s - " + keptVolumeIds.Count + " of its " + volumeDimTags.Length + " cells are " +
@@ -7411,6 +7539,25 @@ namespace CaeMesh
                 int[] poleVertexIds = RenumberIds(face.PoleVertexNodeIds, netgenVertexIdGmshVertexId);
                 if (rimVertexIds == null || rimEdgeIds == null || poleVertexIds == null) continue;
                 renumbered.Add(new CapFace(surfaceId, seamEdgeId, rimVertexIds, rimEdgeIds, poleVertexIds));
+            }
+            return renumbered.ToArray();
+        }
+        // A lens face whose surface, vertices or edges gmsh does not have is not on the meshed part
+        private static LensFace[] RenumberLensFaces(LensFace[] lensFaces,
+                                                    Dictionary<int, int> netgenVertexIdGmshVertexId,
+                                                    Dictionary<int, int> netgenEdgeIdGmshEdgeId,
+                                                    Dictionary<int, int> netgenFaceIdGmshFaceId)
+        {
+            int surfaceId;
+            List<LensFace> renumbered = new List<LensFace>();
+            foreach (var face in lensFaces)
+            {
+                if (!netgenFaceIdGmshFaceId.TryGetValue(face.FaceId, out surfaceId)) continue;
+                //
+                int[] vertexIds = RenumberIds(face.VertexNodeIds, netgenVertexIdGmshVertexId);
+                int[] edgeIds = RenumberIds(face.EdgeIds, netgenEdgeIdGmshEdgeId);
+                if (vertexIds == null || edgeIds == null) continue;
+                renumbered.Add(new LensFace(surfaceId, vertexIds, edgeIds, face.CornerIndices.ToArray()));
             }
             return renumbered.ToArray();
         }
