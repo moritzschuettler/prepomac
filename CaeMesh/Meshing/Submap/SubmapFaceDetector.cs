@@ -571,7 +571,7 @@ namespace CaeMesh
         /// joins that vertex twice and is a loop of its own, a round hole of one edge. False when a vertex does not join
         /// exactly two edges or an edge is used twice: an edge inside the face or a seam.
         /// </summary>
-        private static bool GetBoundaryLoops(VisualizationData vis, int[] faceEdgeIds, Dictionary<int, int[]> edgeIdVertexIds,
+        internal static bool GetBoundaryLoops(VisualizationData vis, int[] faceEdgeIds, Dictionary<int, int[]> edgeIdVertexIds,
                                              out List<int[]> loopsEdgeIds, out List<int[]> loopsVertexIds)
         {
             loopsEdgeIds = new List<int[]>();
@@ -659,7 +659,7 @@ namespace CaeMesh
         /// The frame of the plane of a closed polyline by Newell's method: its centre, its normal and two axes along
         /// it, turned so that the polyline runs counter-clockwise in them. Null when it has no area.
         /// </summary>
-        private static double[][] GetPlaneFrame(List<double[]> points)
+        internal static double[][] GetPlaneFrame(List<double[]> points)
         {
             double[] normal = new double[3];
             double[] centre = new double[3];
@@ -690,7 +690,7 @@ namespace CaeMesh
                                             normal[0] * axis1[1] - normal[1] * axis1[0] };
             return new double[][] { centre, normal, axis1, axis2 };
         }
-        private static double[] ToPlane(double[][] frame, double[] point)
+        internal static double[] ToPlane(double[][] frame, double[] point)
         {
             double[] centre = frame[0];
             double[] axis1 = frame[2];

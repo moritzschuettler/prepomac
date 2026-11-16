@@ -1101,7 +1101,15 @@ in the grid where it lies; its outer loop then needs no corner. A round hole - o
 quarters of equal length - is a square in the grid with its corners at 45 degrees, so it carries a multiple of four
 elements, as many on each of its edges, and bolt holes, a plate with a round hole or an L bracket with one are taken. A
 hole turned off the outline by more than 20 degrees from a multiple of 90, such as a diamond, an elliptic hole, and a
-face whose outer loop is round, a disc or an annulus, are meshed free. The counts leave room for every
+disc are not submapped. A face of exactly two loops that run roughly parallel - an annulus, a washer, an elliptic ring,
+a tube with or without corner radii, a plate with a large bore, a diamond or an elliptic hole - is meshed as a ring
+instead, unless its inner loop is shorter than a quarter of its outer one, as a small hole is: both loops carry the same
+number of elements, each node of one joined to a node of the other, with layers of elements between them as many as
+the distance between the loops over the element size, at least one. Where the two loops have as many edges facing each
+other one to one, each pair carries the same number, otherwise only the two loops do; a number of elements set on one
+loop carries over to the other, and numbers that make the two unequal leave the face free. A face that is both a ring
+and submapped is a ring when both the smallest and the mean distance between its loops are below 1.5 times the
+element size, a thin wall or ligament, and submapped otherwise. The counts leave room for every
 hole and a row of elements on each side of it, so a wall thinner than the element size is one element thick, its
 elements along the outer edges shortened at a corner so that the corner element does not fold. Its edges are balanced
 together with the 3-sided and 4-sided faces, the edges
@@ -1114,10 +1122,11 @@ multiple of four, or whose grid would fold or have a quad corner of a scaled Jac
 convex fillet of 8 or more elements or at the ends of a convex half circle of 16 or more - is meshed free instead, and
 the output says why; the meshing never fails for it.
 A sweep submaps only its source surfaces, of the blocks swept between two ends, by the rules of its structured
-sources, a source with holes as well, whose inner walls are swept like the outer ones: the rows that tie the counts
+sources, a source with holes as well, whose inner walls are swept like the outer ones, and meshes a ring source - a
+pipe, a tube, a flange - as a ring by the same choice: the rows that tie the counts
 of such a source are given up at a price rather than refuse the sweep, also
 when the numbers of elements set on its edges make the grid impossible, and the source is then meshed free; under
-`algorithm_2d='QuadWild'` a submapped source is left to gmsh.
+`algorithm_2d='QuadWild'` a submapped or ring source is left to gmsh.
 `transfinite_three_sided` of a Gmsh item is `Polar`, `Mapped` (the default for a new item) or `No`: a
 3-sided face with `Polar` is the structured grid gmsh collapses at one corner, with triangles there and arcs around
 it as a revolution about that corner would make, and its two sides meeting there carry one number of elements. The

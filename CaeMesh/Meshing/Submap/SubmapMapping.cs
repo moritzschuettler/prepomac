@@ -686,7 +686,7 @@ namespace CaeMesh
         /// step when it raises the smallest scaled Jacobian of the quad corners the node changes, until no quad folds
         /// or no node moves.
         /// </summary>
-        private static void Untangle(double[][] points, int[][] neighbours, int[][] quads, int[] cornerStart,
+        internal static void Untangle(double[][] points, int[][] neighbours, int[][] quads, int[] cornerStart,
                                      int[] cornerQuads, int[] cornerIndices, int numOfBoundaryNodes, double orientation)
         {
             int numOfNodes = points.Length;
@@ -753,7 +753,7 @@ namespace CaeMesh
         /// find the same energies and move nothing, so the sweeps give the same grid, but a sweep over a large grid that
         /// has settled costs little.
         /// </summary>
-        private static void LowerConditionEnergy(double[][] points, int[][] neighbours, int[][] quads, int[] cornerStart,
+        internal static void LowerConditionEnergy(double[][] points, int[][] neighbours, int[][] quads, int[] cornerStart,
                                                  int[] cornerQuads, int[] cornerIndices, int numOfBoundaryNodes,
                                                  double orientation)
         {
@@ -828,7 +828,7 @@ namespace CaeMesh
         /// The corners every inner node changes, as quad index and corner index, the nodes after each other in the
         /// order of ThreeBlockMapping.LowerConditionEnergy.
         /// </summary>
-        private static void GetCorners(int[][] quads, int numOfNodes, int numOfBoundaryNodes, out int[] cornerStart,
+        internal static void GetCorners(int[][] quads, int numOfNodes, int numOfBoundaryNodes, out int[] cornerStart,
                                        out int[] cornerQuads, out int[] cornerIndices)
         {
             cornerStart = new int[numOfNodes + 1];
@@ -881,7 +881,7 @@ namespace CaeMesh
                                                                         orientation));
             return min;
         }
-        private static double GetMinScaledJacobian(double[][] points, int[][] quads, double orientation)
+        internal static double GetMinScaledJacobian(double[][] points, int[][] quads, double orientation)
         {
             double min = 1;
             foreach (var quad in quads)
@@ -910,7 +910,7 @@ namespace CaeMesh
             for (int n = 0; n < points.Length; n++) copy[n] = new double[] { points[n][0], points[n][1] };
             return copy;
         }
-        private static int CountFoldedQuads(double[][] points, int[][] quads, double orientation)
+        internal static int CountFoldedQuads(double[][] points, int[][] quads, double orientation)
         {
             int numOfFoldedQuads = 0;
             foreach (var quad in quads)

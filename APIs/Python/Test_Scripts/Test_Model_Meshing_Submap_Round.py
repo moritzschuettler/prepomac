@@ -22,8 +22,9 @@
 #    multiple of four elements, as many on each edge, and its four corner nodes, the boundary nodes of three quads,
 #    lie within half a node spacing of the 45 degree directions about its centre. The two half circles turned by 30
 #    degrees give the mesh of the two on the axis, up to the spacing of the nodes. The discs, the annulus and the
-#    elliptic hole are not detected and are meshed free without a message: a round outer loop is left free, and an
-#    ellipse is not round.
+#    elliptic hole are not detected: a round outer loop is left free, and an ellipse is not round. The discs are
+#    meshed free without a message, and the annulus and the elliptic hole, faces of two loops, as rings
+#    (Test_Model_Meshing_Ring) of as many quads as recorded.
 #  - The slot-shaped plate at the element size 1.5: its half circles carry 20 elements or more, the quad at either end
 #    of a half circle turns by 180 degrees less 180 degrees over that count, below the floor, so the mesher leaves it
 #    free and says so, while the detection, which leaves those corners out, still takes it.
@@ -66,7 +67,9 @@ SHEAR = math.tan(math.radians(15))
 SHELLS = ["round hole", "two halves", "turned halves", "four quarters", "off-centre round", "four bolt holes",
           "L with round hole", "slot along", "slot across", "slot plate", "round and rectangle", "sheared round",
           "disc", "annulus", "elliptic hole", "coarse border", "disc of halves"]
-FREE = ["disc", "annulus", "elliptic hole", "disc of halves"]
+FREE = ["disc", "disc of halves"]
+# The faces no lattice can take that are meshed as rings (Test_Model_Meshing_Ring), by their quads
+RINGS = {"annulus": 78, "elliptic hole": 240}
 SOLIDS = ["plate round", "L bracket", "plate slot", "plate four holes", "round and square"]
 # The round holes of every shape by centre and radius in the coordinates of the shape
 ROUND_HOLES = {"round hole": [(30, 20, 10)], "two halves": [(30, 20, 10)], "turned halves": [(30, 20, 10)],
@@ -292,6 +295,14 @@ def is_free(face):
     return "triangle" in face.kinds() or len(irregular_inner_nodes([e for e in face.elements if len(e) == 4])) > 0
 
 
+def is_ring(face):
+    """Quadrilaterals only, every inner node in four quads and every boundary node in two: the grid of a ring."""
+    if is_free(face):
+        return False
+    valence = valences(face.elements)
+    return all(valence[node] == 2 for node in boundary_nodes(face.elements))
+
+
 # Checks ---------------------------------------------------------------------------------------------------------------
 def describe(face):
     """The loops of a detected face: the number of holes, of round holes, and the turns of the edges that turn twice."""
@@ -340,6 +351,20 @@ def check_shells(parts):
         part = parts[name]
         faces = detected_faces(part)
         size = 10.0 if name == "coarse border" else MAX_SIZE
+        if name in RINGS:
+            check(len(faces) == 0, "the " + name + " must not be detected")
+            mesh(part)
+            face = FaceMesh(part.name)
+            quality = min_scaled_jacobian(face.elements, face.uv)
+            check(is_ring(face) and len(face.elements) == RINGS[name] and quality >= 0.2 and
+                  len(submapping_messages(part.name)) == 0,
+                  "the " + name + " must be meshed as a ring of " + str(RINGS[name]) + " quads without a message: " +
+                  str(face.kinds()))
+            print(name + ": not detected, a ring of", len(face.elements), "quads, worst scaled Jacobian",
+                  round(quality, 3))
+            plot("round_" + name.replace(" ", "_"), name + ": a ring of " + str(len(face.elements)) + " quads",
+                 face.elements, face.uv)
+            continue
         if name in FREE:
             check(len(faces) == 0, "the " + name + " must not be detected")
             mesh(part)

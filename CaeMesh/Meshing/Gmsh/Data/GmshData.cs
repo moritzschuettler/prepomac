@@ -70,6 +70,8 @@ namespace CaeMesh
         // Submapping: the faces SubmapFaceDetector found on the shells - faces and edges by their gmsh topology ids,
         // vertices by their vertex node ids
         [PmxKey(27)] public SubmapFace[] SubmapFaces;
+        // Ring mapping: the faces RingFaceDetector found, by the same ids
+        [PmxKey(28)] public RingFace[] RingFaces;
 
 
         // Constructors                                                                                                             

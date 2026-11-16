@@ -4560,7 +4560,10 @@ namespace CaeMesh
             if (shellGmsh != null) gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, shellGmsh, null);
             // and submapped on the faces whose corners lie near multiples of 90 degrees
             if (shellGmsh != null && shellGmsh.TransfiniteSubmapped)
+            {
                 gmshData.SubmapFaces = GetSubmapFacesForGmsh(partNames, shellGmsh, gmshData.TransfiniteFaces, null);
+                gmshData.RingFaces = GetRingFacesForGmsh(partNames, gmshData.TransfiniteFaces, null);
+            }
             // So are the sources of a sweep
             SweepMesh sweepMesh = gmshData.GmshSetupItems?.OfType<SweepMesh>().FirstOrDefault();
             if (sweepMesh != null && sweepMesh.BlockSourceSurfaceIds != null)
@@ -4568,8 +4571,11 @@ namespace CaeMesh
                 HashSet<int> sourceSurfaceIds = new HashSet<int>(sweepMesh.BlockSourceSurfaceIds.SelectMany(ids => ids));
                 gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, sweepMesh, sourceSurfaceIds);
                 if (sweepMesh.TransfiniteSubmapped)
+                {
                     gmshData.SubmapFaces = GetSubmapFacesForGmsh(partNames, sweepMesh, gmshData.TransfiniteFaces,
                                                                  sourceSurfaceIds);
+                    gmshData.RingFaces = GetRingFacesForGmsh(partNames, gmshData.TransfiniteFaces, sourceSurfaceIds);
+                }
             }
         }
         /// <summary>
@@ -4646,6 +4652,42 @@ namespace CaeMesh
             return new SubmapFace(faceId, loop.VertexNodeIds.ToArray(), edgeIds, loop.EdgeDirections.ToArray(),
                                   loop.VertexAnglesDeg.ToArray(), loop.EdgeTurns == null ? null : loop.EdgeTurns.ToArray(),
                                   holes, loop.IsRound);
+        }
+        /// <summary>
+        /// The ring faces with gmsh topology ids, other than the structured faces already found: of the shells, or, where
+        /// faceTopologyIds is given, those faces of any part.
+        /// </summary>
+        private RingFace[] GetRingFacesForGmsh(string[] partNames, TransfiniteFace[] transfiniteFaces,
+                                               HashSet<int> faceTopologyIds)
+        {
+            HashSet<int> transfiniteFaceIds = new HashSet<int>();
+            if (transfiniteFaces != null)
+            {
+                foreach (var face in transfiniteFaces) transfiniteFaceIds.Add(face.FaceId);
+            }
+            List<RingFace> ringFaces = new List<RingFace>();
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                if (faceTopologyIds == null && part.PartType != PartType.Shell) continue;
+                //
+                foreach (var face in RingFaceDetector.Detect(this, part))
+                {
+                    int faceId = GmshTopologyId(face.FaceId, part.PartId);
+                    if (transfiniteFaceIds.Contains(faceId)) continue;
+                    if (faceTopologyIds != null && !faceTopologyIds.Contains(faceId)) continue;
+                    int[] outerEdgeIds = new int[face.OuterEdgeIds.Length];
+                    for (int k = 0; k < outerEdgeIds.Length; k++)
+                        outerEdgeIds[k] = GmshTopologyId(face.OuterEdgeIds[k], part.PartId);
+                    int[] innerEdgeIds = new int[face.InnerEdgeIds.Length];
+                    for (int k = 0; k < innerEdgeIds.Length; k++)
+                        innerEdgeIds[k] = GmshTopologyId(face.InnerEdgeIds[k], part.PartId);
+                    ringFaces.Add(new RingFace(faceId, face.OuterVertexNodeIds.ToArray(), outerEdgeIds,
+                                               face.InnerVertexNodeIds.ToArray(), innerEdgeIds, face.IsPaired,
+                                               face.MinLoopDistance, face.MeanLoopDistance));
+                }
+            }
+            return ringFaces.ToArray();
         }
         /// <summary>
         /// Finds the surfaces that two of the given parts have in common - the interfaces between the
@@ -5275,7 +5317,7 @@ namespace CaeMesh
         // Mesh types
         /// <summary>
         /// Which faces of a shell part are meshed by a structured grid, by the one definition all meshers follow, and
-        /// with submapped also the faces SubmapFaceDetector finds.
+        /// with submapped also the faces SubmapFaceDetector and RingFaceDetector find.
         /// </summary>
         public bool[] GetTransfiniteShellFaces(BasePart part, TransfiniteThreeSidedEnum threeSided, bool fourSided,
                                                double transfiniteAngleDeg, bool submapped = false)
@@ -5286,6 +5328,7 @@ namespace CaeMesh
             {
                 foreach (var face in SubmapFaceDetector.Detect(this, part, transfiniteAngleDeg))
                     transfinite[face.FaceId] = true;
+                foreach (var face in RingFaceDetector.Detect(this, part)) transfinite[face.FaceId] = true;
             }
             return transfinite;
         }

@@ -170,6 +170,7 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepCellCandidate.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepPartMaps.cs" />
     <Compile Include="Meshing\Gmsh\GmshSizeGrading.cs" />
+    <Compile Include="Meshing\Gmsh\GmshRingMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshSubmapMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockPrism.cs" />
@@ -183,6 +184,10 @@
     <Compile Include="Meshing\Transfinite\ThreeBlockGrid.cs" />
     <Compile Include="Meshing\Transfinite\ThreeBlockMapping.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteSideTriple.cs" />
+    <Compile Include="Meshing\Ring\RingFace.cs" />
+    <Compile Include="Meshing\Ring\RingFaceDetector.cs" />
+    <Compile Include="Meshing\Ring\RingGrid.cs" />
+    <Compile Include="Meshing\Ring\RingMapping.cs" />
     <Compile Include="Meshing\Submap\SubmapFace.cs" />
     <Compile Include="Meshing\Submap\SubmapFaceDetector.cs" />
     <Compile Include="Meshing\Submap\SubmapGrid.cs" />

@@ -17,9 +17,10 @@
 #    around every inner node, no folded quad, a worst scaled Jacobian of 0.2 at least and as many quads as recorded.
 #    The diamond hole is turned 45 degrees off the frame of the outer loop, and the visualization of the round hole
 #    plate is triangulated only in part and shows only the hole, a disc of two half circles to the detection, which
-#    leaves a round loop of one face free (round holes: Test_Model_Meshing_Submap_Round): both faces are not detected
-#    and are meshed free without a message. The hole 1 mm from the border keeps one cell between it and the border,
-#    so the wall of 1 mm is one element thick.
+#    leaves a round loop of one face free (round holes: Test_Model_Meshing_Submap_Round): both faces are not detected.
+#    The round hole plate is meshed free without a message, and the diamond hole, a face of two loops, as a ring
+#    (Test_Model_Meshing_Ring) of as many quads as recorded. The hole 1 mm from the border keeps one cell between it
+#    and the border, so the wall of 1 mm is one element thick.
 #  - 8 elements pinned on an edge of the centred hole are carried to the opposite edge of the hole.
 #  - A full-quad recombination meshes the centred and the filleted hole submapped, and second order elements keep the
 #    centred hole submapped.
@@ -54,7 +55,9 @@ MAX_SIZE = 5.0
 SPACING = 150.0
 SHELLS = ["centred hole", "off-centre hole", "two holes", "L-shaped hole", "filleted hole", "L with hole",
           "U with hole", "sheared", "mirrored L with hole", "diamond hole", "round hole", "thin border"]
-FREE = ["diamond hole", "round hole"]
+FREE = ["round hole"]
+# The faces no lattice can take that are meshed as rings (Test_Model_Meshing_Ring), by their quads
+RINGS = {"diamond hole": 336}
 SOLIDS = ["tube", "thin tube", "box section", "L with hole", "filleted tube"]
 # By shape: the number of holes, the direction in the frame of the outer loop the first edge of every hole runs in, the
 # turns of the edges of the holes that turn in their middle, and the quads at the element size 5
@@ -63,7 +66,7 @@ EXPECTED = {"centred hole": (1, [1], [], 72), "off-centre hole": (1, [1], [], 88
             "L with hole": (1, [1], [], 68), "U with hole": (1, [1], [], 82), "sheared": (1, [1], [], 73),
             "mirrored L with hole": (1, [1], [], 68), "thin border": (1, [1], [], 80)}
 # The hexahedra of the swept solids at the element size 5
-EXPECTED_HEXAHEDRA = {"tube": 384, "thin tube": 336, "box section": 312, "L with hole": 408, "filleted tube": 352}
+EXPECTED_HEXAHEDRA = {"tube": 384, "thin tube": 240, "box section": 312, "L with hole": 408, "filleted tube": 352}
 
 
 def check(condition, message):
@@ -257,6 +260,17 @@ def is_free(face):
     return "triangle" in face.kinds() or len(irregular_inner_nodes([e for e in face.elements if len(e) == 4])) > 0
 
 
+def is_ring(face):
+    """Quadrilaterals only, every inner node in four quads and every boundary node in two: the grid of a ring."""
+    if is_free(face):
+        return False
+    valence = {}
+    for quad in face.elements:
+        for node in quad:
+            valence[node] = valence.get(node, 0) + 1
+    return all(valence[node] == 2 for node in boundary_nodes(face.elements))
+
+
 # Checks ---------------------------------------------------------------------------------------------------------------
 def describe(face):
     """The loops of a detected face: the number of holes, the direction of the first edge of every hole in the frame of
@@ -272,6 +286,20 @@ def check_shells(parts):
     for name in SHELLS:
         part = parts[name]
         faces = detected_faces(part)
+        if name in RINGS:
+            check(len(faces) == 0, "the " + name + " must not be detected")
+            mesh(part)
+            face = FaceMesh(part.name)
+            quality = min_scaled_jacobian(face.elements, face.uv)
+            check(is_ring(face) and len(face.elements) == RINGS[name] and quality >= 0.2 and
+                  len(submapping_messages(part.name)) == 0,
+                  "the " + name + " must be meshed as a ring of " + str(RINGS[name]) + " quads without a message: " +
+                  str(face.kinds()))
+            print(name + ": not detected, a ring of", len(face.elements), "quads, worst scaled Jacobian",
+                  round(quality, 3))
+            plot("holes_" + name.replace(" ", "_"), name + ": a ring of " + str(len(face.elements)) + " quads",
+                 face.elements, face.uv)
+            continue
         if name in FREE:
             check(len(faces) == 0, "the " + name + " must not be detected")
             mesh(part)
