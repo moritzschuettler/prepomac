@@ -1116,6 +1116,7 @@ F 2148.2 System.Int32[] _edgeIds
 F 2148.3 System.Int32[] _edgeDirections
 F 2148.4 System.Double[] _vertexAnglesDeg
 F 2148.5 System.Int32[] _edgeTurns
+F 2148.6 #2148[] _holes
 T 3000 enum CaeModel.AmplitudeTimeSpanEnum
 E 3000.0 member StepTime
 E 3000.1 member TotalTime

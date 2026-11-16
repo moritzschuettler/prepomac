@@ -4624,14 +4624,28 @@ namespace CaeMesh
                     int faceId = GmshTopologyId(face.FaceId, part.PartId);
                     if (transfiniteFaceIds.Contains(faceId)) continue;
                     if (faceTopologyIds != null && !faceTopologyIds.Contains(faceId)) continue;
-                    int[] edgeIds = new int[face.EdgeIds.Length];
-                    for (int k = 0; k < edgeIds.Length; k++) edgeIds[k] = GmshTopologyId(face.EdgeIds[k], part.PartId);
-                    submapFaces.Add(new SubmapFace(faceId, face.VertexNodeIds.ToArray(), edgeIds,
-                                                   face.EdgeDirections.ToArray(), face.VertexAnglesDeg.ToArray(),
-                                                   face.EdgeTurns == null ? null : face.EdgeTurns.ToArray()));
+                    SubmapFace[] holes = null;
+                    if (face.HasHoles)
+                    {
+                        holes = new SubmapFace[face.Holes.Length];
+                        for (int h = 0; h < holes.Length; h++)
+                            holes[h] = GetSubmapLoopForGmsh(face.Holes[h], faceId, part.PartId, null);
+                    }
+                    submapFaces.Add(GetSubmapLoopForGmsh(face, faceId, part.PartId, holes));
                 }
             }
             return submapFaces.ToArray();
+        }
+        /// <summary>
+        /// A loop of a submapped face with the gmsh topology ids of its face and its edges.
+        /// </summary>
+        private SubmapFace GetSubmapLoopForGmsh(SubmapFace loop, int faceId, int partId, SubmapFace[] holes)
+        {
+            int[] edgeIds = new int[loop.EdgeIds.Length];
+            for (int k = 0; k < edgeIds.Length; k++) edgeIds[k] = GmshTopologyId(loop.EdgeIds[k], partId);
+            return new SubmapFace(faceId, loop.VertexNodeIds.ToArray(), edgeIds, loop.EdgeDirections.ToArray(),
+                                  loop.VertexAnglesDeg.ToArray(), loop.EdgeTurns == null ? null : loop.EdgeTurns.ToArray(),
+                                  holes);
         }
         /// <summary>
         /// Finds the surfaces that two of the given parts have in common - the interfaces between the

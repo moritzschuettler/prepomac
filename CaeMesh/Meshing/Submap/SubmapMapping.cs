@@ -14,19 +14,25 @@ using CaeGlobals;
 namespace CaeMesh
 {
     /// <summary>
-    /// The structured mapping of a face whose single boundary loop has corners near multiples of 90 degrees only, the
-    /// same for every mesher. Every loop vertex is an end (a left turn), a side (no turn) or a corner (a right turn), so
+    /// The structured mapping of a face whose boundary loops have corners near multiples of 90 degrees only, the same
+    /// for every mesher. Every loop vertex is an end (a left turn), a side (no turn) or a corner (a right turn), so
     /// that every edge runs along one of the logical directions +i, +j, -i, -j and the boundary nodes get integer
-    /// logical coordinates. The loop is then a simple rectilinear lattice polygon, counter-clockwise, and the quads are
-    /// the unit cells inside it; every inner node has four.
-    /// The inner nodes are placed in the parameter space, in the frame of ThreeBlockMapping that is close to isometric.
-    /// They start on the mean of the two straight lattice lines through them, each interpolated between the boundary
-    /// nodes it ends on, are relaxed to the discrete harmonic map, every node at the mean of its four neighbours, and
-    /// then to the discrete Winslow map, in which the logical coordinates are harmonic over the face instead. The
-    /// outline is not convex, so neither map is sure not to fold: the harmonic one bunches its lattice lines at a
-    /// corner of 270 degrees, the Winslow one much less. Folded quads are then untangled by moves that raise their
-    /// worst corner, and the condition energy descent of ThreeBlockMapping, run until it settles, evens out the quads
-    /// without folding one.
+    /// logical coordinates. The outer loop is then a simple rectilinear lattice polygon, counter-clockwise, and the
+    /// quads are the unit cells inside it; every inner node has four.
+    /// A face may have holes, loops inside the outer one that run clockwise in the lattice, each placed by the integer
+    /// offset of its first node from the first node of the outer loop (SubmapHolePlacement). No lattice point lies on
+    /// two loops, and the cells inside are those inside the outer loop and outside every hole, by the parity of the
+    /// boundary edges along i of all loops that a row of cells crosses. The edges of all loops are numbered one after
+    /// another, the outer loop first.
+    /// The inner nodes are placed in the parameter space, in the frame of ThreeBlockMapping that is close to isometric,
+    /// fitted over the outer loop. They start on the mean of the two straight lattice lines through them, each
+    /// interpolated between the nearest boundary nodes it ends on, of the outer loop or of a hole, are relaxed to the
+    /// discrete harmonic map, every node at the mean of its four neighbours, and then to the discrete Winslow map, in
+    /// which the logical coordinates are harmonic over the face instead. The outline is not convex, so neither map is
+    /// sure not to fold: the harmonic one bunches its lattice lines at a corner of 270 degrees, the Winslow one much
+    /// less. Folded quads are then untangled by moves that raise their worst corner, and the condition energy descent
+    /// of ThreeBlockMapping, run until it settles, evens out the quads without folding one. The quads turn the way the
+    /// outer loop turns.
     /// When the grid still folds but the start did not, the start is relaxed instead by steps that never fold a quad.
     /// The arithmetic is plain and ordered, so that a port gives the same grid.
     /// </summary>
@@ -56,30 +62,126 @@ namespace CaeMesh
         /// </summary>
         public static bool AreCountsValid(int[] edgeDirections, int[] edgeCounts, out string reason)
         {
+            return AreCountsValid(new int[][] { edgeDirections }, new int[][] { edgeCounts }, new int[0][], out reason);
+        }
+        /// <summary>
+        /// Whether the loops of a face, the outer one first and then its holes, each given by the logical directions
+        /// and the numbers of elements of its edges, close into simple lattice outlines, the outer one counter-clockwise
+        /// and every hole clockwise. With holeOffsets, the lattice offset of the first node of every hole from the first
+        /// node of the outer loop, also whether no lattice point lies on two loops and every hole lies inside the outer
+        /// outline and outside the other holes; without them every loop is judged on its own. The reason names the
+        /// edges by their places in all loops one after another.
+        /// </summary>
+        public static bool AreCountsValid(int[][] loopDirections, int[][] loopCounts, int[][] holeOffsets,
+                                          out string reason)
+        {
             reason = null;
+            int numOfLoops = loopDirections == null ? 0 : loopDirections.Length;
+            if (numOfLoops == 0 || loopCounts == null || loopCounts.Length != numOfLoops)
+            {
+                reason = "The face has " + numOfLoops + " loops of edge directions and " +
+                         (loopCounts == null ? 0 : loopCounts.Length) + " loops of edge counts.";
+                return false;
+            }
+            long[][] loopI = new long[numOfLoops][];
+            long[][] loopJ = new long[numOfLoops][];
+            int[] firstEdges = new int[numOfLoops];
+            for (int l = 0; l < numOfLoops; l++)
+            {
+                if (l > 0) firstEdges[l] = firstEdges[l - 1] + loopDirections[l - 1].Length;
+                if (!IsLoopValid(loopDirections[l], loopCounts[l], l, firstEdges[l], out loopI[l], out loopJ[l],
+                                 out reason)) return false;
+            }
+            if (holeOffsets == null) return true;
+            if (holeOffsets.Length != numOfLoops - 1)
+            {
+                reason = "The face has " + (numOfLoops - 1) + " holes and " + holeOffsets.Length + " hole offsets.";
+                return false;
+            }
+            // No lattice point on two loops
+            long[] offsetI = new long[numOfLoops];
+            long[] offsetJ = new long[numOfLoops];
+            for (int l = 1; l < numOfLoops; l++)
+            {
+                offsetI[l] = holeOffsets[l - 1][0];
+                offsetJ[l] = holeOffsets[l - 1][1];
+            }
+            HashSet<long> visited = new HashSet<long>();
+            for (int l = 0; l < numOfLoops; l++)
+            {
+                int p = 0;
+                for (int k = 0; k < loopDirections[l].Length; k++)
+                {
+                    for (int s = 0; s < loopCounts[l][k]; s++)
+                    {
+                        long i = loopI[l][p] + offsetI[l];
+                        long j = loopJ[l][p] + offsetJ[l];
+                        if (!visited.Add((i << 32) ^ (j & 0xFFFFFFFFL)))
+                        {
+                            reason = "The edge counts make the lattice outline of the face touch itself on edge " +
+                                     (firstEdges[l] + k) + ".";
+                            return false;
+                        }
+                        p++;
+                    }
+                }
+            }
+            // Every hole inside the outer outline and outside the other holes
+            for (int h = 1; h < numOfLoops; h++)
+            {
+                long i = loopI[h][0] + offsetI[h];
+                long j = loopJ[h][0] + offsetJ[h];
+                if (!IsInsideLoop(i, j, loopI[0], loopJ[0], 0, 0))
+                {
+                    reason = "The hole starting at Edge " + firstEdges[h] + " lies outside the lattice outline of the face.";
+                    return false;
+                }
+                for (int g = 1; g < numOfLoops; g++)
+                {
+                    if (g == h || !IsInsideLoop(i, j, loopI[g], loopJ[g], offsetI[g], offsetJ[g])) continue;
+                    reason = "The hole starting at Edge " + firstEdges[h] + " lies inside the hole starting at Edge " +
+                             firstEdges[g] + " in the lattice.";
+                    return false;
+                }
+            }
+            return true;
+        }
+        /// <summary>
+        /// Whether one loop of a face, loop 0 the outer one and any other a hole whose first edge is firstEdge of all
+        /// loops, closes into a simple lattice outline that turns the way it must, and the lattice coordinates of its
+        /// nodes from its first node.
+        /// </summary>
+        private static bool IsLoopValid(int[] edgeDirections, int[] edgeCounts, int loop, int firstEdge, out long[] nodeI,
+                                        out long[] nodeJ, out string reason)
+        {
+            reason = null;
+            nodeI = null;
+            nodeJ = null;
+            string loopName = loop == 0 ? "The loop of the face" : "The hole starting at Edge " + firstEdge + " of the face";
             if (edgeDirections == null || edgeCounts == null || edgeDirections.Length != edgeCounts.Length)
             {
-                reason = "The loop of the face has " + (edgeDirections == null ? 0 : edgeDirections.Length) +
+                reason = loopName + " has " + (edgeDirections == null ? 0 : edgeDirections.Length) +
                          " edge directions and " + (edgeCounts == null ? 0 : edgeCounts.Length) + " edge counts.";
                 return false;
             }
             int numOfEdges = edgeDirections.Length;
             if (numOfEdges < 4)
             {
-                reason = "The loop of the face has " + numOfEdges + " edges, and a lattice outline needs at least four.";
+                reason = loopName + " has " + numOfEdges + " edges, and a lattice outline needs at least four.";
                 return false;
             }
             for (int k = 0; k < numOfEdges; k++)
             {
                 if (edgeDirections[k] < 0 || edgeDirections[k] > 3)
                 {
-                    reason = "Edge " + k + " of the face runs in direction " + edgeDirections[k] +
+                    reason = "Edge " + (firstEdge + k) + " of the face runs in direction " + edgeDirections[k] +
                              ", which is not one of 0, 1, 2 and 3 (+i, +j, -i and -j).";
                     return false;
                 }
                 if (edgeCounts[k] < 1)
                 {
-                    reason = "Edge " + k + " of the face carries " + edgeCounts[k] + " elements, and every edge needs one.";
+                    reason = "Edge " + (firstEdge + k) + " of the face carries " + edgeCounts[k] +
+                             " elements, and every edge needs one.";
                     return false;
                 }
             }
@@ -88,34 +190,48 @@ namespace CaeMesh
                 int next = (k + 1) % numOfEdges;
                 if ((edgeDirections[next] - edgeDirections[k] + 4) % 4 == 2)
                 {
-                    reason = "Edges " + k + " and " + next + " of the face run in opposite directions, a reversal the " +
-                             "lattice cannot follow.";
+                    reason = "Edges " + (firstEdge + k) + " and " + (firstEdge + next) + " of the face run in opposite " +
+                             "directions, a reversal the lattice cannot follow.";
                     return false;
                 }
             }
             //
             long[] sums = new long[4];
-            for (int k = 0; k < numOfEdges; k++) sums[edgeDirections[k]] += edgeCounts[k];
+            long numOfNodes = 0;
+            for (int k = 0; k < numOfEdges; k++)
+            {
+                sums[edgeDirections[k]] += edgeCounts[k];
+                numOfNodes += edgeCounts[k];
+            }
             if (sums[0] != sums[2] || sums[1] != sums[3])
             {
-                reason = "The edges of the face carry " + sums[0] + " elements along +i and " + sums[2] + " along -i, " +
-                         sums[1] + " along +j and " + sums[3] + " along -j, so the lattice outline does not close.";
+                reason = (loop == 0 ? "The edges of the face" : "The edges of the hole starting at Edge " + firstEdge) +
+                         " carry " + sums[0] + " elements along +i and " + sums[2] + " along -i, " + sums[1] +
+                         " along +j and " + sums[3] + " along -j, so " + (loop == 0 ? "the" : "its") +
+                         " lattice outline does not close.";
                 return false;
             }
             // A closed path of unit steps is simple when it visits no lattice point twice
+            nodeI = new long[numOfNodes];
+            nodeJ = new long[numOfNodes];
             HashSet<long> visited = new HashSet<long>();
             long i = 0;
             long j = 0;
             long twiceArea = 0;
+            int p = 0;
             for (int k = 0; k < numOfEdges; k++)
             {
                 for (int s = 0; s < edgeCounts[k]; s++)
                 {
                     if (!visited.Add((i << 32) ^ (j & 0xFFFFFFFFL)))
                     {
-                        reason = "The edge counts make the lattice outline of the face touch itself on edge " + k + ".";
+                        reason = "The edge counts make the lattice outline of the face touch itself on edge " +
+                                 (firstEdge + k) + ".";
                         return false;
                     }
+                    nodeI[p] = i;
+                    nodeJ[p] = j;
+                    p++;
                     long nextI = i + DirectionI[edgeDirections[k]];
                     long nextJ = j + DirectionJ[edgeDirections[k]];
                     twiceArea += i * nextJ - nextI * j;
@@ -123,12 +239,34 @@ namespace CaeMesh
                     j = nextJ;
                 }
             }
-            if (twiceArea <= 0)
+            if (loop == 0 && twiceArea <= 0)
             {
                 reason = "The edges of the face turn clockwise in the lattice; the ends must be left turns.";
                 return false;
             }
+            if (loop > 0 && twiceArea >= 0)
+            {
+                reason = "The edges of the hole starting at Edge " + firstEdge + " turn counter-clockwise in the lattice; " +
+                         "the corners of a hole must be right turns.";
+                return false;
+            }
             return true;
+        }
+        /// <summary>
+        /// Whether a lattice point off a loop lies inside it: whether a ray from the point along +i, raised by half a
+        /// cell, crosses the edges along j of the loop, offset by oi and oj, an odd number of times.
+        /// </summary>
+        private static bool IsInsideLoop(long pi, long pj, long[] loopI, long[] loopJ, long oi, long oj)
+        {
+            bool inside = false;
+            int n = loopI.Length;
+            for (int p = 0; p < n; p++)
+            {
+                int q = (p + 1) % n;
+                if (loopI[p] != loopI[q] || loopI[p] + oi <= pi) continue;
+                if (Math.Min(loopJ[p], loopJ[q]) + oj == pj) inside = !inside;
+            }
+            return inside;
         }
         /// <summary>
         /// Maps the face whose edge k runs in the logical direction edgeDirections[k] (0, 1, 2, 3 for +i, +j, -i, -j)
@@ -140,44 +278,88 @@ namespace CaeMesh
         public static SubmapGrid Map(int[] edgeDirections, double[][][] edgeUv, double[][][] edgeXyz,
                                      Func<double[], double[]> evaluate)
         {
-            int numOfEdges = edgeDirections == null ? 0 : edgeDirections.Length;
-            if (edgeUv == null || edgeXyz == null || edgeUv.Length != numOfEdges || edgeXyz.Length != numOfEdges)
-                throw new CaeException("The loop of the face has " + numOfEdges + " edge directions, " +
-                                       (edgeUv == null ? 0 : edgeUv.Length) + " edges of parameters and " +
-                                       (edgeXyz == null ? 0 : edgeXyz.Length) + " edges of coordinates.");
-            int[] counts = new int[numOfEdges];
-            for (int k = 0; k < numOfEdges; k++)
+            return Map(new int[][] { edgeDirections }, new double[][][][] { edgeUv }, new double[][][][] { edgeXyz },
+                       new int[0][], evaluate);
+        }
+        /// <summary>
+        /// Maps the face of several loops, the outer one first and then its holes, each given as the single loop of Map
+        /// is, every hole placed by holeOffsets, the lattice offset of its first node from the first node of the outer
+        /// loop. The boundary nodes of the grid run over the edges of all loops one after another.
+        /// </summary>
+        public static SubmapGrid Map(int[][] loopDirections, double[][][][] loopUv, double[][][][] loopXyz,
+                                     int[][] holeOffsets, Func<double[], double[]> evaluate)
+        {
+            int numOfLoops = loopDirections == null ? 0 : loopDirections.Length;
+            if (numOfLoops == 0 || loopUv == null || loopXyz == null || loopUv.Length != numOfLoops ||
+                loopXyz.Length != numOfLoops)
+                throw new CaeException("The face has " + numOfLoops + " loops of edge directions, " +
+                                       (loopUv == null ? 0 : loopUv.Length) + " loops of parameters and " +
+                                       (loopXyz == null ? 0 : loopXyz.Length) + " loops of coordinates.");
+            int[][] loopCounts = new int[numOfLoops][];
+            List<int> edgeDirectionList = new List<int>();
+            List<int> edgeCountList = new List<int>();
+            int[] loopNumOfEdges = new int[numOfLoops];
+            int firstEdge = 0;
+            for (int l = 0; l < numOfLoops; l++)
             {
-                if (edgeUv[k] == null || edgeXyz[k] == null || edgeXyz[k].Length != edgeUv[k].Length)
-                    throw new CaeException("Edge " + k + " of the face has " + (edgeUv[k] == null ? 0 : edgeUv[k].Length) +
-                                           " parameters and " + (edgeXyz[k] == null ? 0 : edgeXyz[k].Length) +
-                                           " coordinates of its nodes.");
-                counts[k] = edgeUv[k].Length - 1;
+                int[] edgeDirections = loopDirections[l];
+                double[][][] edgeUv = loopUv[l];
+                double[][][] edgeXyz = loopXyz[l];
+                int numOfEdges = edgeDirections == null ? 0 : edgeDirections.Length;
+                string loopName = l == 0 ? "The loop of the face" : "The hole starting at Edge " + firstEdge + " of the face";
+                if (edgeUv == null || edgeXyz == null || edgeUv.Length != numOfEdges || edgeXyz.Length != numOfEdges)
+                    throw new CaeException(loopName + " has " + numOfEdges + " edge directions, " +
+                                           (edgeUv == null ? 0 : edgeUv.Length) + " edges of parameters and " +
+                                           (edgeXyz == null ? 0 : edgeXyz.Length) + " edges of coordinates.");
+                loopCounts[l] = new int[numOfEdges];
+                for (int k = 0; k < numOfEdges; k++)
+                {
+                    if (edgeUv[k] == null || edgeXyz[k] == null || edgeXyz[k].Length != edgeUv[k].Length)
+                        throw new CaeException("Edge " + (firstEdge + k) + " of the face has " +
+                                               (edgeUv[k] == null ? 0 : edgeUv[k].Length) + " parameters and " +
+                                               (edgeXyz[k] == null ? 0 : edgeXyz[k].Length) + " coordinates of its nodes.");
+                    loopCounts[l][k] = edgeUv[k].Length - 1;
+                    edgeDirectionList.Add(edgeDirections[k]);
+                    edgeCountList.Add(loopCounts[l][k]);
+                }
+                loopNumOfEdges[l] = numOfEdges;
+                firstEdge += numOfEdges;
             }
             string reason;
-            if (!AreCountsValid(edgeDirections, counts, out reason)) throw new CaeException(reason);
-            // The logical coordinates of the boundary nodes, the smallest being 0
+            if (!AreCountsValid(loopDirections, loopCounts, holeOffsets, out reason)) throw new CaeException(reason);
+            // The logical coordinates of the boundary nodes of all loops, the smallest being 0, and their parameters
             int numOfBoundaryNodes = 0;
-            for (int k = 0; k < numOfEdges; k++) numOfBoundaryNodes += counts[k];
+            foreach (var count in edgeCountList) numOfBoundaryNodes += count;
+            int numOfOuterNodes = 0;
+            foreach (var count in loopCounts[0]) numOfOuterNodes += count;
             int[] boundaryI = new int[numOfBoundaryNodes];
             int[] boundaryJ = new int[numOfBoundaryNodes];
+            double[][] boundaryUv = new double[numOfBoundaryNodes][];
+            int[] nextNodeIds = new int[numOfBoundaryNodes];
             int minI = 0;
             int minJ = 0;
             int id = 0;
-            int ci = 0;
-            int cj = 0;
-            for (int k = 0; k < numOfEdges; k++)
+            for (int l = 0; l < numOfLoops; l++)
             {
-                for (int s = 0; s < counts[k]; s++)
+                int ci = l == 0 ? 0 : holeOffsets[l - 1][0];
+                int cj = l == 0 ? 0 : holeOffsets[l - 1][1];
+                int loopStart = id;
+                for (int k = 0; k < loopCounts[l].Length; k++)
                 {
-                    boundaryI[id] = ci;
-                    boundaryJ[id] = cj;
-                    minI = Math.Min(minI, ci);
-                    minJ = Math.Min(minJ, cj);
-                    ci += DirectionI[edgeDirections[k]];
-                    cj += DirectionJ[edgeDirections[k]];
-                    id++;
+                    for (int s = 0; s < loopCounts[l][k]; s++)
+                    {
+                        boundaryI[id] = ci;
+                        boundaryJ[id] = cj;
+                        boundaryUv[id] = loopUv[l][k][s];
+                        nextNodeIds[id] = id + 1;
+                        minI = Math.Min(minI, ci);
+                        minJ = Math.Min(minJ, cj);
+                        ci += DirectionI[loopDirections[l][k]];
+                        cj += DirectionJ[loopDirections[l][k]];
+                        id++;
+                    }
                 }
+                nextNodeIds[id - 1] = loopStart;
             }
             int width = 0;
             int height = 0;
@@ -196,7 +378,7 @@ namespace CaeMesh
             bool[] verticalEdges = new bool[rowLength * height];
             for (int b = 0; b < numOfBoundaryNodes; b++)
             {
-                int next = (b + 1) % numOfBoundaryNodes;
+                int next = nextNodeIds[b];
                 if (boundaryI[next] == boundaryI[b])
                     verticalEdges[Math.Min(boundaryJ[b], boundaryJ[next]) * rowLength + boundaryI[b]] = true;
             }
@@ -237,25 +419,25 @@ namespace CaeMesh
                     quads.Add(new int[] { nodeIds[p], nodeIds[p + 1], nodeIds[p + 1 + rowLength], nodeIds[p + rowLength] });
                 }
             }
-            // The frame in which the parameters are close to isometric, fitted over the whole loop as one side
-            double[][] loopUv = new double[numOfBoundaryNodes + 1][];
-            double[][] loopXyz = new double[numOfBoundaryNodes + 1][];
+            // The frame in which the parameters are close to isometric, fitted over the whole outer loop as one side
+            double[][] outerUv = new double[numOfOuterNodes + 1][];
+            double[][] outerXyz = new double[numOfOuterNodes + 1][];
             id = 0;
-            for (int k = 0; k < numOfEdges; k++)
+            for (int k = 0; k < loopCounts[0].Length; k++)
             {
-                for (int s = 0; s < counts[k]; s++)
+                for (int s = 0; s < loopCounts[0][k]; s++)
                 {
-                    loopUv[id] = edgeUv[k][s];
-                    loopXyz[id] = edgeXyz[k][s];
+                    outerUv[id] = loopUv[0][k][s];
+                    outerXyz[id] = loopXyz[0][k][s];
                     id++;
                 }
             }
-            loopUv[numOfBoundaryNodes] = loopUv[0];
-            loopXyz[numOfBoundaryNodes] = loopXyz[0];
-            double[] w = ThreeBlockMapping.GetMetricFrame(new double[][][] { loopUv, new double[0][], new double[0][] },
-                                                          new double[][][] { loopXyz, new double[0][], new double[0][] });
+            outerUv[numOfOuterNodes] = outerUv[0];
+            outerXyz[numOfOuterNodes] = outerXyz[0];
+            double[] w = ThreeBlockMapping.GetMetricFrame(new double[][][] { outerUv, new double[0][], new double[0][] },
+                                                          new double[][][] { outerXyz, new double[0][], new double[0][] });
             double[][] points = new double[numOfNodes][];
-            for (int b = 0; b < numOfBoundaryNodes; b++) points[b] = ThreeBlockMapping.ToFrame(w, loopUv[b]);
+            for (int b = 0; b < numOfBoundaryNodes; b++) points[b] = ThreeBlockMapping.ToFrame(w, boundaryUv[b]);
             //
             SetLatticeLinePoints(points, nodeIds, logical, numOfBoundaryNodes, rowLength, height);
             int[][] neighbours = ThreeBlockMapping.GetNeighbours(numOfNodes, quads);
@@ -264,7 +446,7 @@ namespace CaeMesh
             int[] cornerQuads;
             int[] cornerIndices;
             GetCorners(quadArray, numOfNodes, numOfBoundaryNodes, out cornerStart, out cornerQuads, out cornerIndices);
-            double orientation = ThreeBlockMapping.GetSignedArea(points, numOfBoundaryNodes) < 0 ? -1 : 1;
+            double orientation = ThreeBlockMapping.GetSignedArea(points, numOfOuterNodes) < 0 ? -1 : 1;
             int numOfStartFolds = CountFoldedQuads(points, quadArray, orientation);
             double[][] start = CopyPoints(points);
             ThreeBlockMapping.SolveBarycentricEmbedding(points, neighbours, numOfBoundaryNodes);
@@ -303,8 +485,9 @@ namespace CaeMesh
                 for (int n = 0; n < numOfInnerNodes; n++)
                     innerXyz[n] = new double[] { flatXyz[3 * n], flatXyz[3 * n + 1], flatXyz[3 * n + 2] };
             }
-            return new SubmapGrid((int[])edgeDirections.Clone(), counts, logical.ToArray(), innerUv, innerXyz, quadArray,
-                                  numOfFoldedQuads, GetMinScaledJacobian(points, quadArray, orientation));
+            return new SubmapGrid(edgeDirectionList.ToArray(), edgeCountList.ToArray(), loopNumOfEdges, logical.ToArray(),
+                                  innerUv, innerXyz, quadArray, numOfFoldedQuads,
+                                  GetMinScaledJacobian(points, quadArray, orientation));
         }
         /// <summary>
         /// Places every inner node at the mean of the two lattice lines through it, along i and along j, each a straight

@@ -11,10 +11,10 @@ namespace CaeMesh
 {
     /// <summary>
     /// The lattice of quads SubmapMapping lays over a face whose corners are all near multiples of 90 degrees. The nodes
-    /// are numbered along the boundary loop first, node i of edge k being GetBoundaryNodeId(k, i), and then the inner
-    /// nodes row by row, inner node n being NumberOfBoundaryNodes + n. Every node has integer logical coordinates i, j;
-    /// the quads are the unit cells of the lattice inside the outline and turn the way the boundary loop turns in the
-    /// parameter space.
+    /// are numbered along the boundary loops first, the outer loop and then the holes, node i of edge k being
+    /// GetBoundaryNodeId(k, i) with the edges of all loops numbered one after another, and then the inner nodes row by
+    /// row, inner node n being NumberOfBoundaryNodes + n. Every node has integer logical coordinates i, j; the quads are
+    /// the unit cells of the lattice inside the outline and turn the way the outer loop turns in the parameter space.
     /// </summary>
     public class SubmapGrid
     {
@@ -22,6 +22,8 @@ namespace CaeMesh
         private int[] _edgeDirections;
         private int[] _edgeCounts;
         private int[] _edgeOffsets;
+        private int[] _nextEdges;
+        private int[] _loopNumOfEdges;
         private int _numOfBoundaryNodes;
         private int[][] _logicalCoordinates;
         private double[][] _innerUv;
@@ -33,13 +35,29 @@ namespace CaeMesh
 
         // Properties                                                                                                               
         /// <summary>
-        /// The logical direction of every edge: 0, 1, 2 and 3 for +i, +j, -i and -j.
+        /// The logical direction of every edge of all loops: 0, 1, 2 and 3 for +i, +j, -i and -j.
         /// </summary>
         public int[] EdgeDirections { get { return _edgeDirections; } }
         /// <summary>
         /// The number of elements on every edge.
         /// </summary>
         public int[] EdgeCounts { get { return _edgeCounts; } }
+        /// <summary>
+        /// The number of edges of every loop, the outer loop first.
+        /// </summary>
+        public int[] LoopNumberOfEdges { get { return _loopNumOfEdges; } }
+        /// <summary>
+        /// The number of boundary nodes on the outer loop, which come first.
+        /// </summary>
+        public int NumberOfOuterBoundaryNodes
+        {
+            get
+            {
+                int numOfNodes = 0;
+                for (int k = 0; k < _loopNumOfEdges[0]; k++) numOfNodes += _edgeCounts[k];
+                return numOfNodes;
+            }
+        }
         public int NumberOfBoundaryNodes { get { return _numOfBoundaryNodes; } }
         public int NumberOfInnerNodes { get { return _innerUv.Length; } }
         /// <summary>
@@ -65,8 +83,9 @@ namespace CaeMesh
 
 
         // Constructor                                                                                                              
-        public SubmapGrid(int[] edgeDirections, int[] edgeCounts, int[][] logicalCoordinates, double[][] innerUv,
-                          double[][] innerXyz, int[][] quads, int numOfFoldedQuads, double minScaledJacobian)
+        public SubmapGrid(int[] edgeDirections, int[] edgeCounts, int[] loopNumOfEdges, int[][] logicalCoordinates,
+                          double[][] innerUv, double[][] innerXyz, int[][] quads, int numOfFoldedQuads,
+                          double minScaledJacobian)
         {
             _edgeDirections = edgeDirections;
             _edgeCounts = edgeCounts;
@@ -76,6 +95,15 @@ namespace CaeMesh
             {
                 _edgeOffsets[k] = _numOfBoundaryNodes;
                 _numOfBoundaryNodes += edgeCounts[k];
+            }
+            _loopNumOfEdges = loopNumOfEdges;
+            _nextEdges = new int[edgeCounts.Length];
+            int loopStart = 0;
+            foreach (var numOfEdges in loopNumOfEdges)
+            {
+                for (int k = loopStart; k < loopStart + numOfEdges; k++) _nextEdges[k] = k + 1;
+                _nextEdges[loopStart + numOfEdges - 1] = loopStart;
+                loopStart += numOfEdges;
             }
             _logicalCoordinates = logicalCoordinates;
             _innerUv = innerUv;
@@ -88,11 +116,12 @@ namespace CaeMesh
 
         // Methods                                                                                                                  
         /// <summary>
-        /// The id of node i of edge k, which runs from loop vertex k (i = 0) to loop vertex k + 1 (i = EdgeCounts[k]).
+        /// The id of node i of edge k, which runs from its loop vertex (i = 0) to the next one of its loop
+        /// (i = EdgeCounts[k]).
         /// </summary>
         public int GetBoundaryNodeId(int k, int i)
         {
-            if (i == _edgeCounts[k]) return k == _edgeCounts.Length - 1 ? 0 : _edgeOffsets[k + 1];
+            if (i == _edgeCounts[k]) return _edgeOffsets[_nextEdges[k]];
             return _edgeOffsets[k] + i;
         }
         /// <summary>

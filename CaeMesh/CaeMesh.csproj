@@ -186,6 +186,7 @@
     <Compile Include="Meshing\Submap\SubmapFace.cs" />
     <Compile Include="Meshing\Submap\SubmapFaceDetector.cs" />
     <Compile Include="Meshing\Submap\SubmapGrid.cs" />
+    <Compile Include="Meshing\Submap\SubmapHolePlacement.cs" />
     <Compile Include="Meshing\Submap\SubmapSeparation.cs" />
     <Compile Include="Meshing\Submap\SubmapMapping.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepImprintPairing.cs" />

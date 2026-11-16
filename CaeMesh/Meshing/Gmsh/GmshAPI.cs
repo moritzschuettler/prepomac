@@ -4529,24 +4529,42 @@ namespace CaeMesh
             }
             // The submapped sources: the edges along each direction against those along the opposite one, and the
             // sides that face each other kept apart, two elements under a full-quad recombination, whose halved counts
-            // keep one then. Given up, a submapped source is meshed free, never refused
+            // keep one then; every hole closes on its own and has room with a cell on each side. Given up, a submapped
+            // source is meshed free, never refused
             foreach (var face in _submapSourceFaces.Values)
             {
                 int bound = _fullQuadSourceIds.Contains(face.FaceId) ? 2 : 1;
-                TransfiniteSidePair[] pairs = face.GetSidePairs();
-                problem.AddEqualSums(_submapRowPrefix + face.FaceId + " along i", IntervalRowTierEnum.Structured,
-                                     pairs[0].SideA, pairs[0].SideB, face.FaceId);
-                problem.AddEqualSums(_submapRowPrefix + face.FaceId + " along j", IntervalRowTierEnum.Structured,
-                                     pairs[1].SideA, pairs[1].SideB, face.FaceId);
+                SubmapFace[] loops = face.Loops;
+                for (int l = 0; l < loops.Length; l++)
+                {
+                    // Every hole closes on its own, as the outer loop does
+                    string loopName = _submapRowPrefix + face.FaceId + (l == 0 ? "" : " hole of Edge " + loops[l].EdgeIds[0]);
+                    TransfiniteSidePair[] pairs = loops[l].GetSidePairs();
+                    problem.AddEqualSums(loopName + " along i", IntervalRowTierEnum.Structured, pairs[0].SideA,
+                                         pairs[0].SideB, face.FaceId);
+                    problem.AddEqualSums(loopName + " along j", IntervalRowTierEnum.Structured, pairs[1].SideA,
+                                         pairs[1].SideB, face.FaceId);
+                }
                 double[] lengths = new double[face.EdgeIds.Length];
                 for (int k = 0; k < lengths.Length; k++) Gmsh.Model.OCC.GetMass(1, face.EdgeIds[k], out lengths[k]);
-                foreach (var separation in face.GetSeparations(lengths, bound))
-                    problem.AddAtLeastDifference(_submapRowPrefix + face.FaceId + " between Edge " +
-                                                 separation.FirstSideEdgeId + " and Edge " + separation.SecondSideEdgeId,
+                List<SubmapSeparation> separations = face.GetSeparations(lengths, bound);
+                if (face.HasHoles)
+                    separations.AddRange(face.GetRoomRows(GetLoopVertexPoints(face), 1, GetMaxElementSize()));
+                foreach (var separation in separations)
+                {
+                    string rowName = "between Edge " + separation.FirstSideEdgeId + " and Edge " + separation.SecondSideEdgeId;
+                    if (separation.IsCornerRow)
+                        rowName = "Edge " + separation.FirstSideEdgeId + " at the corner of the hole of Edge " +
+                                  separation.HoleEdgeIds[0];
+                    else if (separation.HoleEdgeIds != null)
+                        rowName = (separation.IsThinWallRow ? "thin walls beside" : "room for") + " the hole of Edge " +
+                                  string.Join(" and Edge ", separation.HoleEdgeIds) + " " + rowName;
+                    problem.AddAtLeastDifference(_submapRowPrefix + face.FaceId + " " + rowName,
                                                  IntervalRowTierEnum.Structured, separation.TowardsEdgeIds,
                                                  separation.BackEdgeIds, separation.Bound, face.FaceId);
+                }
                 // An edge that turns in its middle is split there into two halves of as many elements
-                foreach (var edgeId in face.TurnEdgeIds)
+                foreach (var edgeId in face.AllTurnEdgeIds)
                     problem.AddEvenSum(_submapRowPrefix + face.FaceId + " Edge " + edgeId + " turning in its middle",
                                        IntervalRowTierEnum.Structured, new int[] { edgeId });
             }
@@ -5499,27 +5517,30 @@ namespace CaeMesh
                 else FreeStructuredSource(face.FaceId, description + ", so it is meshed free. Its edges: " + edges + ".");
             }
             // A submapped source whose counts close no valid outline, leave sides that face each other without the
-            // cells between them, or cannot split an edge that turns in its middle, is meshed free, whoever set its counts
+            // cells between them or a hole without room or place, or cannot split an edge that turns in its middle, is
+            // meshed free, whoever set its counts
             string reason;
             foreach (var face in _submapSourceFaces.Values.OrderBy(face => face.FaceId).ToArray())
             {
                 Dictionary<int, int> edgeIdCount = new Dictionary<int, int>();
-                foreach (var edgeId in face.EdgeIds) edgeIdCount[edgeId] = sideCount(new int[] { edgeId });
+                foreach (var edgeId in face.AllEdgeIds) edgeIdCount[edgeId] = sideCount(new int[] { edgeId });
                 int turnEdgeId = face.GetOddTurnEdgeId(edgeIdCount);
+                double[][][] loopVertexPoints = face.HasHoles ? GetLoopVertexPoints(face) : null;
                 if (turnEdgeId >= 0) reason = GetOddTurnEdgeReason(turnEdgeId);
-                else if (!SubmapMapping.AreCountsValid(face.LogicalEdgeDirections, face.GetLogicalEdgeCounts(edgeIdCount),
-                                                       out reason))
-                    reason = GmshSubmapMesher.NameLoopEdges(face, reason);
+                else if (!face.AreCountsValid(edgeIdCount, out reason)) reason = GmshSubmapMesher.NameLoopEdges(face, reason);
                 else
                 {
                     double[] lengths = new double[face.EdgeIds.Length];
                     for (int k = 0; k < lengths.Length; k++) Gmsh.Model.OCC.GetMass(1, face.EdgeIds[k], out lengths[k]);
                     int bound = _fullQuadSourceIds.Contains(face.FaceId) ? 2 : 1;
-                    SubmapSeparation unkept = face.GetSeparations(lengths, bound).FirstOrDefault(separation =>
+                    List<SubmapSeparation> separations = face.GetSeparations(lengths, bound);
+                    if (face.HasHoles) separations.AddRange(face.GetRoomRows(loopVertexPoints, 1, GetMaxElementSize()));
+                    SubmapSeparation unkept = separations.FirstOrDefault(separation =>
                         sideCount(separation.TowardsEdgeIds) - sideCount(separation.BackEdgeIds) < separation.Bound);
-                    if (unkept == null) continue;
-                    reason = "the walls leave no cell between its sides along Edge " + unkept.FirstSideEdgeId +
-                             " and Edge " + unkept.SecondSideEdgeId;
+                    if (unkept != null) reason = "the walls leave " + GetSeparationDescription(unkept);
+                    else if (!face.HasHoles ||
+                             SubmapHolePlacement.TryPlace(face, edgeIdCount, loopVertexPoints, 1, out reason)) continue;
+                    else reason = GmshSubmapMesher.NameLoopEdges(face, reason);
                 }
                 FreeSubmapSource(face.FaceId, reason);
             }
@@ -5546,6 +5567,11 @@ namespace CaeMesh
         /// numbers of elements. An edge that turns in its middle, as a fillet does, is split at its middle node into two
         /// halves, so it is always given an even number; one whose number the user set odd leaves its face free. The
         /// full-quad recombination subdivides its mesh before SubmapMapping replaces it, so the halves need no more.
+        /// A face with holes joins by the pairs of every loop, each closing on its own, and by the rows that leave room
+        /// for every hole and a cell on each side (SubmapFace.GetRoomRows), with the corner and thin wall rows of a wall
+        /// thinner than the maximum element size; the grid is laid on the full counts, so the room needs one cell under
+        /// a full-quad recombination as well. Once balanced, its holes must find a place (SubmapHolePlacement), or it is
+        /// meshed free as well.
         /// </summary>
         private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces, SubmapFace[] submapFaces, bool fullQuad)
         {
@@ -5577,7 +5603,7 @@ namespace CaeMesh
             IntPtr[] nodeTags;
             Dictionary<int, int> naturalCounts = new Dictionary<int, int>();
             foreach (var edgeId in faces.SelectMany(face => face.SideEdgeIds.SelectMany(side => side))
-                                        .Concat(submapped.SelectMany(face => face.EdgeIds)).Distinct())
+                                        .Concat(submapped.SelectMany(face => face.AllEdgeIds)).Distinct())
             {
                 Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
                 naturalCounts[edgeId] = Math.Max(1, nodeTags.Length - 1);
@@ -5619,6 +5645,13 @@ namespace CaeMesh
                 }
                 return length;
             };
+            // A hole needs room in the lattice for itself and a cell on each side, which its place then keeps; the full
+            // counts are what SubmapMapping lays the grid on, under a full-quad recombination as well
+            Dictionary<SubmapFace, double[][][]> faceLoopVertexPoints = new Dictionary<SubmapFace, double[][][]>();
+            foreach (var face in submapped)
+            {
+                if (face.HasHoles) faceLoopVertexPoints.Add(face, GetLoopVertexPoints(face));
+            }
             // The submapped faces the balance cannot keep are meshed free, and the balance is made again without them,
             // until it keeps all that are left; the transfinite faces alone are balanced as without them
             Dictionary<int, int> edgeIdCount;
@@ -5628,7 +5661,7 @@ namespace CaeMesh
             while (true)
             {
                 HashSet<int> edgeIds = new HashSet<int>(transfiniteEdgeIds);
-                edgeIds.UnionWith(submapped.SelectMany(face => face.EdgeIds));
+                edgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
                 edgeIdCount = new Dictionary<int, int>();
                 foreach (var edgeId in naturalCounts.Keys)
                 {
@@ -5641,7 +5674,7 @@ namespace CaeMesh
                 List<TransfiniteSidePair> allPairs = new List<TransfiniteSidePair>(pairs);
                 foreach (var face in submapped)
                 {
-                    foreach (var pair in face.GetSidePairs())
+                    foreach (var pair in face.GetAllSidePairs())
                     {
                         submapPairFaces.Add(pair, face);
                         allPairs.Add(pair);
@@ -5667,13 +5700,17 @@ namespace CaeMesh
                 }
                 // Even counts on every edge under a full-quad recombination, and otherwise on the edges that turn in
                 // their middle, which are split there into two halves of as many elements
-                HashSet<int> evenEdgeIds = new HashSet<int>(submapped.SelectMany(face => fullQuad ? face.EdgeIds :
-                                                                                         face.TurnEdgeIds));
+                HashSet<int> evenEdgeIds = new HashSet<int>(submapped.SelectMany(face => fullQuad ? face.AllEdgeIds :
+                                                                                         face.AllTurnEdgeIds));
                 Dictionary<SubmapSeparation, SubmapFace> separationFaces = new Dictionary<SubmapSeparation, SubmapFace>();
                 List<SubmapSeparation> separations = new List<SubmapSeparation>();
                 foreach (var face in submapped)
                 {
-                    foreach (var separation in face.GetSeparations(face.EdgeIds.Select(getEdgeLength).ToArray(), bound))
+                    List<SubmapSeparation> faceSeparations = face.GetSeparations(face.EdgeIds.Select(getEdgeLength).ToArray(),
+                                                                                 bound);
+                    if (face.HasHoles) faceSeparations.AddRange(face.GetRoomRows(faceLoopVertexPoints[face], 1,
+                                                                                    GetMaxElementSize()));
+                    foreach (var separation in faceSeparations)
                     {
                         separationFaces.Add(separation, face);
                         separations.Add(separation);
@@ -5704,23 +5741,24 @@ namespace CaeMesh
                 {
                     unbalancedFace = separationFaces[separation];
                     if (!dropped.ContainsKey(unbalancedFace))
-                        dropped.Add(unbalancedFace, "the numbers of elements set on its edges leave no cell between its " +
-                                                    "sides along Edge " + separation.FirstSideEdgeId + " and Edge " +
-                                                    separation.SecondSideEdgeId);
+                        dropped.Add(unbalancedFace, "the numbers of elements set on its edges leave " +
+                                                    GetSeparationDescription(separation));
                 }
                 string reason;
                 foreach (var face in submapped)
                 {
                     if (dropped.ContainsKey(face)) continue;
-                    if (!SubmapMapping.AreCountsValid(face.LogicalEdgeDirections,
-                                                           face.GetLogicalEdgeCounts(edgeIdCount), out reason))
+                    if (!face.AreCountsValid(edgeIdCount, out reason))
                         dropped.Add(face, GmshSubmapMesher.NameLoopEdges(face, reason));
-                    else if (fullQuad && face.EdgeIds.Any(edgeId => edgeIdCount[edgeId] % 2 != 0))
+                    else if (face.HasHoles &&
+                             !SubmapHolePlacement.TryPlace(face, edgeIdCount, faceLoopVertexPoints[face], 1, out reason))
+                        dropped.Add(face, GmshSubmapMesher.NameLoopEdges(face, reason));
+                    else if (fullQuad && face.AllEdgeIds.Any(edgeId => edgeIdCount[edgeId] % 2 != 0))
                     {
                         // The halves of a turn edge set to twice an odd number leave an odd sum to balance
-                        int[] oddHalvesEdgeIds = face.TurnEdgeIds.Where(edgeId => edgeIdCount[edgeId] % 4 != 0).ToArray();
+                        int[] oddHalvesEdgeIds = face.AllTurnEdgeIds.Where(edgeId => edgeIdCount[edgeId] % 4 != 0).ToArray();
                         dropped.Add(face, "the full-quad recombination meshes it on every second node of its edges, " +
-                                          "and Edge " + face.EdgeIds.First(edgeId => edgeIdCount[edgeId] % 2 != 0) +
+                                          "and Edge " + face.AllEdgeIds.First(edgeId => edgeIdCount[edgeId] % 2 != 0) +
                                           " carries an odd number of elements" +
                                           (oddHalvesEdgeIds.Length == 0 ? "" :
                                            ", balancing the odd halves of Edge " + oddHalvesEdgeIds[0] +
@@ -5780,6 +5818,83 @@ namespace CaeMesh
                 if (count > 1) maxSizeCounts[entry.Key] = count;
             }
             return maxSizeCounts;
+        }
+        /// <summary>
+        /// What the counts leave out when a separation of a submapped face is not kept: the cell between the two sides
+        /// it keeps apart, the room for the holes between them, or the elements of a corner row.
+        /// </summary>
+        private static string GetSeparationDescription(SubmapSeparation separation)
+        {
+            string sides = "between its sides along Edge " + separation.FirstSideEdgeId + " and Edge " +
+                           separation.SecondSideEdgeId;
+            if (separation.HoleEdgeIds == null) return "no cell " + sides;
+            if (separation.IsCornerRow)
+                return "too few elements on Edge " + separation.FirstSideEdgeId + " for the corner of the hole of Edge " +
+                       separation.HoleEdgeIds[0] + " close to it";
+            if (separation.IsThinWallRow)
+                return "more than a cell in the thin walls beside the hole of Edge " + separation.HoleEdgeIds[0] + " " +
+                       sides;
+            return "no room for the hole" + (separation.HoleEdgeIds.Length > 1 ? "s" : "") + " of " +
+                   string.Join(" and ", separation.HoleEdgeIds.Select(edgeId => "Edge " + edgeId)) +
+                   " and a cell on each side " + sides;
+        }
+        /// <summary>
+        /// The element size the mesh is made to, the maximum one, below which a wall between a hole and the outer loop
+        /// of a submapped face is a single cell.
+        /// </summary>
+        private static double GetMaxElementSize()
+        {
+            return Gmsh.Option.GetNumber("Mesh.MeshSizeMax");
+        }
+        /// <summary>
+        /// The 2D coordinates of the vertices of every loop of a submapped face, in the plane of the vertices of its outer
+        /// loop by Newell's method, turned so that the outer loop runs counter-clockwise in it.
+        /// </summary>
+        private static double[][][] GetLoopVertexPoints(SubmapFace face)
+        {
+            SubmapFace[] loops = face.Loops;
+            double[][][] loopCoors = new double[loops.Length][][];
+            for (int l = 0; l < loops.Length; l++)
+                loopCoors[l] = loops[l].VertexNodeIds.Select(vertexId => GetVertexCoor(vertexId)).ToArray();
+            double[] normal = new double[3];
+            double[] centre = new double[3];
+            int n = loopCoors[0].Length;
+            for (int i = 0; i < n; i++)
+            {
+                double[] a = loopCoors[0][i];
+                double[] b = loopCoors[0][(i + 1) % n];
+                normal[0] += (a[1] - b[1]) * (a[2] + b[2]);
+                normal[1] += (a[2] - b[2]) * (a[0] + b[0]);
+                normal[2] += (a[0] - b[0]) * (a[1] + b[1]);
+                for (int d = 0; d < 3; d++) centre[d] += a[d] / n;
+            }
+            double normalLength = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+            if (normalLength > 0)
+            {
+                for (int d = 0; d < 3; d++) normal[d] /= normalLength;
+            }
+            else normal = new double[] { 0, 0, 1 };
+            double[] axis1 = Math.Abs(normal[0]) < 0.9 ? new double[] { 1, 0, 0 } : new double[] { 0, 1, 0 };
+            double along = axis1[0] * normal[0] + axis1[1] * normal[1] + axis1[2] * normal[2];
+            for (int d = 0; d < 3; d++) axis1[d] -= along * normal[d];
+            double axis1Length = Math.Sqrt(axis1[0] * axis1[0] + axis1[1] * axis1[1] + axis1[2] * axis1[2]);
+            for (int d = 0; d < 3; d++) axis1[d] /= axis1Length;
+            double[] axis2 = new double[] { normal[1] * axis1[2] - normal[2] * axis1[1],
+                                            normal[2] * axis1[0] - normal[0] * axis1[2],
+                                            normal[0] * axis1[1] - normal[1] * axis1[0] };
+            double[][][] loopPoints = new double[loops.Length][][];
+            for (int l = 0; l < loops.Length; l++)
+            {
+                loopPoints[l] = new double[loopCoors[l].Length][];
+                for (int i = 0; i < loopCoors[l].Length; i++)
+                {
+                    double[] r = new double[3];
+                    for (int d = 0; d < 3; d++) r[d] = loopCoors[l][i][d] - centre[d];
+                    loopPoints[l][i] = new double[] { r[0] * axis1[0] + r[1] * axis1[1] + r[2] * axis1[2],
+                                                      r[0] * axis2[0] + r[1] * axis2[1] + r[2] * axis2[2] };
+                }
+            }
+            return loopPoints;
         }
         private void WriteSubmapFreeMessage(int surfaceId, string reason)
         {
@@ -6508,7 +6623,7 @@ namespace CaeMesh
                                                       .ToArray();
             if (_gmshData.SubmapFaces != null)
                 _gmshData.SubmapFaces = _gmshData.SubmapFaces.Where(face => surfaceIds.Contains(face.FaceId) &&
-                                                                            face.EdgeIds.All(curveIds.Contains)).ToArray();
+                                                                            face.AllEdgeIds.All(curveIds.Contains)).ToArray();
             //
             _writeOutput?.Invoke("Sweep: the compound is symmetric across " + sweepMesh.SymmetryPlanes.Length +
                                  " plane/s - " + keptVolumeIds.Count + " of its " + volumeDimTags.Length + " cells are " +
@@ -6566,19 +6681,39 @@ namespace CaeMesh
             {
                 if (!netgenFaceIdGmshFaceId.TryGetValue(face.FaceId, out surfaceId)) continue;
                 //
-                int[] vertexIds = new int[face.VertexNodeIds.Length];
-                int[] edgeIds = new int[face.EdgeIds.Length];
-                bool mapped = true;
-                for (int i = 0; i < vertexIds.Length && mapped; i++)
-                    mapped = netgenVertexIdGmshVertexId.TryGetValue(face.VertexNodeIds[i], out vertexIds[i]);
-                for (int i = 0; i < edgeIds.Length && mapped; i++)
-                    mapped = netgenEdgeIdGmshEdgeId.TryGetValue(face.EdgeIds[i], out edgeIds[i]);
-                if (!mapped) continue;
-                //
-                renumbered.Add(new SubmapFace(surfaceId, vertexIds, edgeIds, face.EdgeDirections, face.VertexAnglesDeg,
-                                              face.EdgeTurns));
+                SubmapFace[] holes = null;
+                if (face.HasHoles)
+                {
+                    holes = new SubmapFace[face.Holes.Length];
+                    for (int h = 0; h < holes.Length && holes != null; h++)
+                    {
+                        holes[h] = RenumberSubmapLoop(face.Holes[h], surfaceId, null, netgenVertexIdGmshVertexId,
+                                                      netgenEdgeIdGmshEdgeId);
+                        if (holes[h] == null) holes = null;
+                    }
+                    if (holes == null) continue;
+                }
+                SubmapFace renumberedFace = RenumberSubmapLoop(face, surfaceId, holes, netgenVertexIdGmshVertexId,
+                                                               netgenEdgeIdGmshEdgeId);
+                if (renumberedFace != null) renumbered.Add(renumberedFace);
             }
             return renumbered.ToArray();
+        }
+        // A loop of a submapped face with gmsh ids, null when gmsh does not have one of its vertices or edges
+        private static SubmapFace RenumberSubmapLoop(SubmapFace loop, int surfaceId, SubmapFace[] holes,
+                                                     Dictionary<int, int> netgenVertexIdGmshVertexId,
+                                                     Dictionary<int, int> netgenEdgeIdGmshEdgeId)
+        {
+            int[] vertexIds = new int[loop.VertexNodeIds.Length];
+            int[] edgeIds = new int[loop.EdgeIds.Length];
+            bool mapped = true;
+            for (int i = 0; i < vertexIds.Length && mapped; i++)
+                mapped = netgenVertexIdGmshVertexId.TryGetValue(loop.VertexNodeIds[i], out vertexIds[i]);
+            for (int i = 0; i < edgeIds.Length && mapped; i++)
+                mapped = netgenEdgeIdGmshEdgeId.TryGetValue(loop.EdgeIds[i], out edgeIds[i]);
+            if (!mapped) return null;
+            return new SubmapFace(surfaceId, vertexIds, edgeIds, loop.EdgeDirections, loop.VertexAnglesDeg, loop.EdgeTurns,
+                                  holes);
         }
         private static void RenumberSurfaceIds(int[][] surfaceIds, Dictionary<int, int> netgenFaceIdGmshFaceId)
         {

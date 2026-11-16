@@ -37,6 +37,20 @@ namespace CaeMesh
     /// or is poor; the meshers judge the grid of the counts they give it again. The corner of the one quad at the middle
     /// of a convex turn edge is left out of that judgement: its angle depends only on the number of elements along the
     /// edge, which the proportional counts set far finer than a mesh does.
+    /// A face of several boundary loops is submapped when its holes have corners. Its loops are traversed with the face
+    /// on the same side, by the winding of a cell of the face along the first segment of every loop, and the turn of a
+    /// loop, the sum of the turns of its vertices and of its edges, tells the outer loop, about +360°, from a hole,
+    /// about -360°; there must be exactly one outer loop. Every loop is classified by the rules above, a hole with the
+    /// target -4 instead of +4, so that a rectangular hole is four corners and a cut-out with four filleted corners
+    /// four edges turning by -1; the outer loop then needs no corner and no six edges. A loop that cannot be classified
+    /// leaves the face free. The directions of a hole are turned into the logical frame of the outer loop by the
+    /// geometry: in the plane of the outer loop, the frame angle of a loop is the length-weighted circular mean of the
+    /// angle of the chord of every logical edge less 90° times its direction, and the difference between the frame
+    /// angles of the hole and of the outer loop, rounded to a multiple of 90°, is the turn. A difference further than
+    /// MaxHoleTurnDeviationDeg from a multiple of 90°, a diamond-shaped hole, and a face that is not a height field
+    /// over that plane leave the face free. The face is then judged like a face of one loop, all loops snapped with
+    /// one lattice step that the outer loop sets, the holes placed by SubmapHolePlacement; a round hole, a single
+    /// closed edge or two half circles, is not classified.
     /// </summary>
     public static class SubmapFaceDetector
     {
@@ -50,6 +64,10 @@ namespace CaeMesh
         /// How far the turn of a vertex or an edge may be off the turn its changed assignment gives it.
         /// </summary>
         public const double MaxTurnDeviationDeg = 50;
+        /// <summary>
+        /// How far the frame of a hole may be turned off a multiple of 90° from the frame of the outer loop.
+        /// </summary>
+        public const double MaxHoleTurnDeviationDeg = 20;
         private const double TieToleranceDeg = 1;
         private const int MaxNumOfAlternatives = 6;
         private const int MaxDeficit = 4;
@@ -97,7 +115,8 @@ namespace CaeMesh
             int[] loopEdgeIds;
             int[] loopVertexIds;
             if (!TransfiniteFaceDetector.GetBoundaryLoop(vis, faceEdgeIds, edgeIdVertexIds, out loopEdgeIds,
-                                                         out loopVertexIds)) return null;
+                                                         out loopVertexIds))
+                return DetectFaceWithHoles(mesh, vis, faceId, faceEdgeIds, transfiniteAngleDeg, edgeIdVertexIds);
             //
             int n = loopEdgeIds.Length;
             double[] anglesDeg = GetInteriorAnglesDeg(mesh, vis, faceId, loopVertexIds);
@@ -135,7 +154,50 @@ namespace CaeMesh
             if (deficit == 0 || Math.Abs(deficit) > MaxDeficit) return null;
             double[] edgeTurnsDeg = GetEdgeTurnsDeg(mesh, vis, faceId, loopVertexIds, loopEdgeIds);
             if (edgeTurnsDeg == null) return null;
-            // Feature 2k is vertex k and feature 2k + 1 edge k, in loop order
+            List<int[]> alternatives = GetChangedAssignments(anglesDeg, edgeTurnsDeg, vertexTurns, deficit);
+            if (alternatives == null) return null;
+            //
+            SubmapFace best = null;
+            double bestQuality = double.NegativeInfinity;
+            SubmapFace firstNotJudged = null;
+            foreach (var changedAssignments in alternatives)
+            {
+                int[] changedVertexTurns = new int[n];
+                int[] edgeTurns = new int[n];
+                bool hasTurnEdges = false;
+                for (int k = 0; k < n; k++)
+                {
+                    changedVertexTurns[k] = changedAssignments[2 * k];
+                    edgeTurns[k] = changedAssignments[2 * k + 1];
+                    if (edgeTurns[k] != 0) hasTurnEdges = true;
+                }
+                if (!hasTurnEdges) edgeTurns = null;
+                SubmapFace face = new SubmapFace(faceId, loopVertexIds, loopEdgeIds, GetDirections(changedVertexTurns, edgeTurns),
+                                                 anglesDeg, edgeTurns);
+                double quality = GetGridQuality(mesh, vis, face);
+                if (double.IsNaN(quality))
+                {
+                    if (firstNotJudged == null) firstNotJudged = face;
+                }
+                else if (quality > bestQuality)
+                {
+                    best = face;
+                    bestQuality = quality;
+                }
+            }
+            if (best != null && bestQuality >= MinScaledJacobian) return best;
+            return firstNotJudged;
+        }
+        /// <summary>
+        /// The assignments of the vertices and the edges of a loop, feature 2k vertex k and feature 2k + 1 edge k, that
+        /// change the assignments of the vertices by their angles by the deficit, one step for each of as many features
+        /// as the deficit counts, the features whose turns are furthest past their assignments in the direction needed;
+        /// features tied at the cut-off give alternatives. Null when too few features may change.
+        /// </summary>
+        private static List<int[]> GetChangedAssignments(double[] anglesDeg, double[] edgeTurnsDeg, int[] vertexTurns,
+                                                         int deficit)
+        {
+            int n = vertexTurns.Length;
             double[] turnsDeg = new double[2 * n];
             int[] assignments = new int[2 * n];
             for (int k = 0; k < n; k++)
@@ -168,14 +230,193 @@ namespace CaeMesh
             }
             tied.Sort();
             //
-            SubmapFace best = null;
-            double bestQuality = double.NegativeInfinity;
-            SubmapFace firstNotJudged = null;
+            List<int[]> alternatives = new List<int[]>();
             foreach (var choice in GetCombinations(tied.Count, numOfSteps - taken.Count, MaxNumOfAlternatives))
             {
                 int[] changedAssignments = (int[])assignments.Clone();
                 foreach (var f in taken) changedAssignments[f] += step;
                 foreach (var i in choice) changedAssignments[tied[i]] += step;
+                alternatives.Add(changedAssignments);
+            }
+            return alternatives;
+        }
+        /// <summary>
+        /// The face of several boundary loops whose holes have corners, its loops classified by their vertices or by
+        /// their turns, the outer loop first, and the directions of its holes turned into the frame of the outer loop;
+        /// null when a loop cannot be classified, the loops are not one outer loop and its holes, a hole is turned off
+        /// a multiple of 90°, the face is not a height field over the plane of its outer loop, or its grid is poor.
+        /// </summary>
+        private static SubmapFace DetectFaceWithHoles(FeMesh mesh, VisualizationData vis, int faceId, int[] faceEdgeIds,
+                                                      double transfiniteAngleDeg, Dictionary<int, int[]> edgeIdVertexIds)
+        {
+            List<int[]> loopsEdgeIds;
+            List<int[]> loopsVertexIds;
+            if (!GetBoundaryLoops(vis, faceEdgeIds, edgeIdVertexIds, out loopsEdgeIds, out loopsVertexIds) ||
+                loopsEdgeIds.Count < 2) return null;
+            int numOfLoops = loopsEdgeIds.Count;
+            // Every loop with the face on its left
+            for (int l = 0; l < numOfLoops; l++)
+            {
+                int side = GetFaceSide(vis, faceId, loopsEdgeIds[l][0], loopsVertexIds[l][0]);
+                if (side == 0) return null;
+                if (side > 0) continue;
+                int n = loopsEdgeIds[l].Length;
+                int[] edgeIds = new int[n];
+                int[] vertexIds = new int[n];
+                for (int k = 0; k < n; k++)
+                {
+                    edgeIds[k] = loopsEdgeIds[l][n - 1 - k];
+                    vertexIds[k] = loopsVertexIds[l][(n - k) % n];
+                }
+                loopsEdgeIds[l] = edgeIds;
+                loopsVertexIds[l] = vertexIds;
+            }
+            // The angles and the turns of every loop, the outer loop turning by about +360° and a hole by about -360°
+            Dictionary<int, int> vertexIdIndex = new Dictionary<int, int>();
+            foreach (var vertexIds in loopsVertexIds)
+            {
+                foreach (var vertexId in vertexIds) vertexIdIndex[vertexId] = vertexIdIndex.Count;
+            }
+            bool[] found;
+            double[] allAnglesDeg = GetNodeAnglesDeg(mesh, vis, faceId, vertexIdIndex, vertexIdIndex.Count, out found);
+            for (int i = 0; i < found.Length; i++)
+            {
+                if (!found[i]) return null;
+            }
+            double[][] anglesDeg = new double[numOfLoops][];
+            double[][] edgeTurnsDeg = new double[numOfLoops][];
+            int outer = -1;
+            for (int l = 0; l < numOfLoops; l++)
+            {
+                int n = loopsEdgeIds[l].Length;
+                anglesDeg[l] = new double[n];
+                for (int k = 0; k < n; k++) anglesDeg[l][k] = allAnglesDeg[vertexIdIndex[loopsVertexIds[l][k]]];
+                edgeTurnsDeg[l] = GetEdgeTurnsDeg(mesh, vis, faceId, loopsVertexIds[l], loopsEdgeIds[l]);
+                if (edgeTurnsDeg[l] == null) return null;
+                double loopTurnDeg = 0;
+                for (int k = 0; k < n; k++) loopTurnDeg += 180 - anglesDeg[l][k] + edgeTurnsDeg[l][k];
+                if (loopTurnDeg > 180)
+                {
+                    if (outer >= 0) return null;
+                    outer = l;
+                }
+                else if (loopTurnDeg > -180) return null;
+            }
+            if (outer < 0) return null;
+            int[] order = new int[numOfLoops];
+            order[0] = outer;
+            for (int l = 0, o = 1; l < numOfLoops; l++)
+            {
+                if (l != outer) order[o++] = l;
+            }
+            // The classifications of every loop in its own frame, edge 0 along +i
+            List<int[][]>[] assignments = new List<int[][]>[numOfLoops];
+            for (int o = 0; o < numOfLoops; o++)
+            {
+                int l = order[o];
+                assignments[o] = GetLoopAssignments(anglesDeg[l], edgeTurnsDeg[l], o == 0 ? 4 : -4, transfiniteAngleDeg);
+                if (assignments[o].Count == 0) return null;
+            }
+            // The plane of the outer loop by Newell's method over the points of its edges
+            List<double[]>[][] polylines = new List<double[]>[numOfLoops][];
+            for (int o = 0; o < numOfLoops; o++)
+            {
+                int l = order[o];
+                polylines[o] = new List<double[]>[loopsEdgeIds[l].Length];
+                for (int k = 0; k < polylines[o].Length; k++)
+                {
+                    polylines[o][k] = TransfiniteFaceDetector.GetEdgePoints(mesh, vis, loopsEdgeIds[l][k], loopsVertexIds[l][k]);
+                    if (polylines[o][k] == null) return null;
+                }
+            }
+            List<double[]> outerPoints = new List<double[]>();
+            foreach (var polyline in polylines[0])
+            {
+                for (int i = 0; i < polyline.Count - 1; i++) outerPoints.Add(polyline[i]);
+            }
+            double[][] frame = GetPlaneFrame(outerPoints);
+            if (frame == null || !TransfiniteFaceDetector.IsHeightFieldOverPlane(mesh, vis, faceId, frame[1])) return null;
+            //
+            SubmapFace best = null;
+            double bestQuality = double.NegativeInfinity;
+            int[] choice = new int[numOfLoops];
+            for (int alternative = 0; alternative < MaxNumOfAlternatives; alternative++)
+            {
+                int[][] outerAssignment = assignments[0][choice[0]];
+                double outerAngle = GetFrameAngle(polylines[0], outerAssignment[0], outerAssignment[1], frame);
+                SubmapFace[] holes = new SubmapFace[numOfLoops - 1];
+                for (int o = 1; o < numOfLoops && holes != null; o++)
+                {
+                    int l = order[o];
+                    int[][] assignment = assignments[o][choice[o]];
+                    double angle = GetFrameAngle(polylines[o], assignment[0], assignment[1], frame);
+                    double difference = (angle - outerAngle) * 180 / Math.PI;
+                    double turn = Math.Round(difference / 90);
+                    if (double.IsNaN(difference) || Math.Abs(difference - 90 * turn) > MaxHoleTurnDeviationDeg)
+                    {
+                        holes = null;
+                        break;
+                    }
+                    int[] directions = new int[assignment[0].Length];
+                    for (int k = 0; k < directions.Length; k++)
+                        directions[k] = (int)(((assignment[0][k] + (long)turn) % 4 + 4) % 4);
+                    holes[o - 1] = new SubmapFace(faceId, loopsVertexIds[l], loopsEdgeIds[l], directions, anglesDeg[l],
+                                                  assignment[1]);
+                }
+                if (holes != null)
+                {
+                    SubmapFace face = new SubmapFace(faceId, loopsVertexIds[outer], loopsEdgeIds[outer], outerAssignment[0],
+                                                     anglesDeg[outer], outerAssignment[1], holes);
+                    double quality = GetGridQuality(mesh, vis, face, polylines, frame);
+                    if (quality > bestQuality)
+                    {
+                        best = face;
+                        bestQuality = quality;
+                    }
+                }
+                // The next combination of the alternatives of the loops
+                int position = numOfLoops - 1;
+                while (position >= 0 && choice[position] == assignments[position].Count - 1)
+                {
+                    choice[position] = 0;
+                    position--;
+                }
+                if (position < 0) break;
+                choice[position]++;
+            }
+            if (best != null && bestQuality >= MinScaledJacobian) return best;
+            return null;
+        }
+        /// <summary>
+        /// The classifications of one loop of a face whose turns must add up to the target, +4 for the outer loop and
+        /// -4 for a hole, each as its directions in its own frame, edge 0 along +i, and its edge turns, null for none:
+        /// the one by the angles of its vertices when they add up, otherwise those by the turns of its vertices and of
+        /// its edges. Empty when a vertex is no end, side or corner, or no assignment adds up within the limits.
+        /// </summary>
+        private static List<int[][]> GetLoopAssignments(double[] anglesDeg, double[] edgeTurnsDeg, int target,
+                                                        double transfiniteAngleDeg)
+        {
+            List<int[][]> assignments = new List<int[][]>();
+            int n = anglesDeg.Length;
+            int[] vertexTurns = new int[n];
+            int deficit = target;
+            for (int k = 0; k < n; k++)
+            {
+                int? turn = GetTurn(anglesDeg[k], transfiniteAngleDeg);
+                if (!turn.HasValue) return assignments;
+                vertexTurns[k] = turn.Value;
+                deficit -= turn.Value;
+            }
+            if (deficit == 0)
+            {
+                assignments.Add(new int[][] { GetDirections(vertexTurns, null), null });
+                return assignments;
+            }
+            if (Math.Abs(deficit) > MaxDeficit) return assignments;
+            List<int[]> alternatives = GetChangedAssignments(anglesDeg, edgeTurnsDeg, vertexTurns, deficit);
+            if (alternatives == null) return assignments;
+            foreach (var changedAssignments in alternatives)
+            {
                 int[] changedVertexTurns = new int[n];
                 int[] edgeTurns = new int[n];
                 bool hasTurnEdges = false;
@@ -186,21 +427,176 @@ namespace CaeMesh
                     if (edgeTurns[k] != 0) hasTurnEdges = true;
                 }
                 if (!hasTurnEdges) edgeTurns = null;
-                SubmapFace face = new SubmapFace(faceId, loopVertexIds, loopEdgeIds, GetDirections(changedVertexTurns, edgeTurns),
-                                                 anglesDeg, edgeTurns);
-                double quality = GetGridQuality(mesh, vis, face);
-                if (double.IsNaN(quality))
+                assignments.Add(new int[][] { GetDirections(changedVertexTurns, edgeTurns), edgeTurns });
+            }
+            return assignments;
+        }
+        /// <summary>
+        /// Orders the edges of a face head to tail into its boundary loops, each starting at the first edge of the face
+        /// not yet in a loop, from the first vertex of that edge. False when a vertex does not join exactly two edges or
+        /// an edge is closed: an edge inside the face, a seam or a round hole of one edge.
+        /// </summary>
+        private static bool GetBoundaryLoops(VisualizationData vis, int[] faceEdgeIds, Dictionary<int, int[]> edgeIdVertexIds,
+                                             out List<int[]> loopsEdgeIds, out List<int[]> loopsVertexIds)
+        {
+            loopsEdgeIds = new List<int[]>();
+            loopsVertexIds = new List<int[]>();
+            int[] vertexIds;
+            Dictionary<int, List<int>> vertexIdEdgeIds = new Dictionary<int, List<int>>();
+            foreach (var edgeId in faceEdgeIds)
+            {
+                if (!edgeIdVertexIds.TryGetValue(edgeId, out vertexIds))
                 {
-                    if (firstNotJudged == null) firstNotJudged = face;
+                    vertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
+                    edgeIdVertexIds.Add(edgeId, vertexIds);
                 }
-                else if (quality > bestQuality)
+                if (vertexIds.Length != 2 || vertexIds[0] == vertexIds[1]) return false;
+                //
+                foreach (var vertexId in vertexIds)
                 {
-                    best = face;
-                    bestQuality = quality;
+                    List<int> edgeIds;
+                    if (!vertexIdEdgeIds.TryGetValue(vertexId, out edgeIds))
+                    {
+                        edgeIds = new List<int>();
+                        vertexIdEdgeIds.Add(vertexId, edgeIds);
+                    }
+                    edgeIds.Add(edgeId);
                 }
             }
-            if (best != null && bestQuality >= MinScaledJacobian) return best;
-            return firstNotJudged;
+            foreach (var entry in vertexIdEdgeIds)
+            {
+                if (entry.Value.Count != 2) return false;
+            }
+            //
+            HashSet<int> usedEdgeIds = new HashSet<int>();
+            foreach (var firstEdgeId in faceEdgeIds)
+            {
+                if (usedEdgeIds.Contains(firstEdgeId)) continue;
+                List<int> edgeLoop = new List<int>();
+                List<int> vertexLoop = new List<int>();
+                int currentEdgeId = firstEdgeId;
+                int currentVertexId = edgeIdVertexIds[currentEdgeId][0];
+                do
+                {
+                    if (!usedEdgeIds.Add(currentEdgeId)) return false;
+                    vertexLoop.Add(currentVertexId);
+                    edgeLoop.Add(currentEdgeId);
+                    int[] currentVertexIds = edgeIdVertexIds[currentEdgeId];
+                    currentVertexId = currentVertexIds[0] == currentVertexId ? currentVertexIds[1] : currentVertexIds[0];
+                    List<int> nextEdgeIds = vertexIdEdgeIds[currentVertexId];
+                    currentEdgeId = nextEdgeIds[0] == currentEdgeId ? nextEdgeIds[1] : nextEdgeIds[0];
+                }
+                while (currentEdgeId != firstEdgeId);
+                loopsEdgeIds.Add(edgeLoop.ToArray());
+                loopsVertexIds.Add(vertexLoop.ToArray());
+            }
+            return true;
+        }
+        /// <summary>
+        /// On which side of its first segment from the vertex an edge has the face: 1 on the left, where a cell of the
+        /// face runs through the segment in its own direction, -1 on the right, and 0 when no cell of the face holds it.
+        /// </summary>
+        private static int GetFaceSide(VisualizationData vis, int faceId, int edgeId, int startNodeId)
+        {
+            List<int> nodeIds = GetEdgeNodeIds(vis, edgeId, startNodeId);
+            if (nodeIds == null || nodeIds.Count < 2) return 0;
+            int a = nodeIds[0];
+            int b = nodeIds[1];
+            foreach (var cellId in vis.CellIdsByFace[faceId])
+            {
+                int[] cell = vis.Cells[cellId];
+                int numOfCorners = cell.Length == 6 ? 3 : cell.Length == 8 ? 4 : cell.Length;
+                for (int c = 0; c < numOfCorners; c++)
+                {
+                    int next = cell[(c + 1) % numOfCorners];
+                    if (cell[c] == a && next == b) return 1;
+                    if (cell[c] == b && next == a) return -1;
+                }
+            }
+            return 0;
+        }
+        /// <summary>
+        /// The frame of the plane of a closed polyline by Newell's method: its centre, its normal and two axes along
+        /// it, turned so that the polyline runs counter-clockwise in them. Null when it has no area.
+        /// </summary>
+        private static double[][] GetPlaneFrame(List<double[]> points)
+        {
+            double[] normal = new double[3];
+            double[] centre = new double[3];
+            int numOfPoints = points.Count;
+            for (int i = 0; i < numOfPoints; i++)
+            {
+                double[] a = points[i];
+                double[] b = points[(i + 1) % numOfPoints];
+                normal[0] += (a[1] - b[1]) * (a[2] + b[2]);
+                normal[1] += (a[2] - b[2]) * (a[0] + b[0]);
+                normal[2] += (a[0] - b[0]) * (a[1] + b[1]);
+                for (int d = 0; d < 3; d++) centre[d] += a[d];
+            }
+            double normalLength = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+            if (normalLength == 0 || numOfPoints == 0) return null;
+            for (int d = 0; d < 3; d++)
+            {
+                normal[d] /= normalLength;
+                centre[d] /= numOfPoints;
+            }
+            double[] axis1 = Math.Abs(normal[0]) < 0.9 ? new double[] { 1, 0, 0 } : new double[] { 0, 1, 0 };
+            double along = axis1[0] * normal[0] + axis1[1] * normal[1] + axis1[2] * normal[2];
+            for (int d = 0; d < 3; d++) axis1[d] -= along * normal[d];
+            double axis1Length = Math.Sqrt(axis1[0] * axis1[0] + axis1[1] * axis1[1] + axis1[2] * axis1[2]);
+            for (int d = 0; d < 3; d++) axis1[d] /= axis1Length;
+            double[] axis2 = new double[] { normal[1] * axis1[2] - normal[2] * axis1[1],
+                                            normal[2] * axis1[0] - normal[0] * axis1[2],
+                                            normal[0] * axis1[1] - normal[1] * axis1[0] };
+            return new double[][] { centre, normal, axis1, axis2 };
+        }
+        private static double[] ToPlane(double[][] frame, double[] point)
+        {
+            double[] centre = frame[0];
+            double[] axis1 = frame[2];
+            double[] axis2 = frame[3];
+            double[] r = new double[] { point[0] - centre[0], point[1] - centre[1], point[2] - centre[2] };
+            return new double[] { r[0] * axis1[0] + r[1] * axis1[1] + r[2] * axis1[2],
+                                  r[0] * axis2[0] + r[1] * axis2[1] + r[2] * axis2[2] };
+        }
+        /// <summary>
+        /// The angle of the logical frame of a loop in the plane: the length-weighted circular mean, over its logical
+        /// edges, of the angle of the chord of an edge less 90° times its direction. NaN when the chords have no length.
+        /// </summary>
+        private static double GetFrameAngle(List<double[]>[] polylines, int[] directions, int[] edgeTurns, double[][] frame)
+        {
+            double sumSin = 0;
+            double sumCos = 0;
+            for (int k = 0; k < polylines.Length; k++)
+            {
+                List<double[]> polyline = polylines[k];
+                double[] start = ToPlane(frame, polyline[0]);
+                double[] end = ToPlane(frame, polyline[polyline.Count - 1]);
+                int turn = edgeTurns == null ? 0 : edgeTurns[k];
+                if (turn == 0)
+                {
+                    AddChordAngle(start, end, directions[k], ref sumSin, ref sumCos);
+                    continue;
+                }
+                List<double[]> firstHalf;
+                List<double[]> secondHalf;
+                if (!SplitAtHalfLength(polyline, out firstHalf, out secondHalf)) continue;
+                double[] middle = ToPlane(frame, secondHalf[0]);
+                AddChordAngle(start, middle, directions[k], ref sumSin, ref sumCos);
+                AddChordAngle(middle, end, (directions[k] + turn + 4) % 4, ref sumSin, ref sumCos);
+            }
+            if (sumSin == 0 && sumCos == 0) return double.NaN;
+            return Math.Atan2(sumSin, sumCos);
+        }
+        private static void AddChordAngle(double[] start, double[] end, int direction, ref double sumSin, ref double sumCos)
+        {
+            double dx = end[0] - start[0];
+            double dy = end[1] - start[1];
+            double length = Math.Sqrt(dx * dx + dy * dy);
+            if (length == 0) return;
+            double angle = Math.Atan2(dy, dx) - 0.5 * Math.PI * direction;
+            sumSin += length * Math.Sin(angle);
+            sumCos += length * Math.Cos(angle);
         }
         /// <summary>
         /// The direction of every edge, edge k turning from edge k - 1 by the turn of edge k - 1 in its middle and by
@@ -472,6 +868,118 @@ namespace CaeMesh
             return minScaledJacobian;
         }
         /// <summary>
+        /// The quality of GetGridQuality for a face with holes, in the plane of its outer loop given by its frame, over
+        /// the polylines of the edges of every loop. All loops are snapped to one lattice step, set by the outer loop,
+        /// which is refined for all of them while a loop does not close or the holes find no place; the holes are placed
+        /// by SubmapHolePlacement on the plane coordinates of the nodes. -1 when the grid folds or cannot be made.
+        /// </summary>
+        private static double GetGridQuality(FeMesh mesh, VisualizationData vis, SubmapFace face,
+                                             List<double[]>[][] loopPolylines, double[][] frame)
+        {
+            SubmapFace[] loops = face.Loops;
+            int numOfLoops = loops.Length;
+            List<double[]>[][] logicalPolylines = new List<double[]>[numOfLoops][];
+            double[][] lengths = new double[numOfLoops][];
+            List<int> convexMiddleEdges = new List<int>();
+            int firstEdge = 0;
+            for (int l = 0; l < numOfLoops; l++)
+            {
+                SubmapFace loop = loops[l];
+                List<List<double[]>> polylineList = new List<List<double[]>>();
+                for (int k = 0; k < loop.EdgeIds.Length; k++)
+                {
+                    List<double[]> polyline = loopPolylines[l][k];
+                    if (loop.GetEdgeTurn(k) == 0) polylineList.Add(polyline);
+                    else
+                    {
+                        List<double[]> firstHalf;
+                        List<double[]> secondHalf;
+                        if (!SplitAtHalfLength(polyline, out firstHalf, out secondHalf)) return -1;
+                        polylineList.Add(firstHalf);
+                        if (loop.GetEdgeTurn(k) > 0) convexMiddleEdges.Add(firstEdge + polylineList.Count);
+                        polylineList.Add(secondHalf);
+                    }
+                }
+                logicalPolylines[l] = polylineList.ToArray();
+                lengths[l] = new double[polylineList.Count];
+                for (int k = 0; k < polylineList.Count; k++)
+                {
+                    TransfiniteFaceDetector.Resample(polylineList[k], 1, out lengths[l][k]);
+                    if (!(lengths[l][k] > 0)) return -1;
+                }
+                firstEdge += polylineList.Count;
+            }
+            int[][] directions = face.LoopLogicalEdgeDirections;
+            //
+            int divisions = NumOfOutlineDivisions;
+            for (int refinement = 0; refinement <= NumOfOutlineRefinements; refinement++, divisions *= 2)
+            {
+                int[][] counts = GetProportionalCounts(directions, lengths, divisions);
+                if (counts == null) continue;
+                double[][][][] edgeXyz = new double[numOfLoops][][][];
+                double[][][][] edgeUv = new double[numOfLoops][][][];
+                double[][][] nodePoints = new double[numOfLoops][][];
+                double length;
+                for (int l = 0; l < numOfLoops; l++)
+                {
+                    int n = counts[l].Length;
+                    edgeXyz[l] = new double[n][][];
+                    edgeUv[l] = new double[n][][];
+                    List<double[]> points = new List<double[]>();
+                    for (int k = 0; k < n; k++)
+                    {
+                        edgeXyz[l][k] = TransfiniteFaceDetector.Resample(logicalPolylines[l][k], counts[l][k], out length);
+                        edgeUv[l][k] = new double[edgeXyz[l][k].Length][];
+                        for (int i = 0; i < edgeXyz[l][k].Length; i++) edgeUv[l][k][i] = ToPlane(frame, edgeXyz[l][k][i]);
+                        for (int i = 0; i < counts[l][k]; i++) points.Add(edgeUv[l][k][i]);
+                    }
+                    nodePoints[l] = points.ToArray();
+                }
+                int[][] holeOffsets;
+                string reason;
+                if (!SubmapHolePlacement.TryPlace(directions, counts, nodePoints, 1, out holeOffsets, out reason)) continue;
+                //
+                SubmapGrid grid;
+                try
+                {
+                    grid = SubmapMapping.Map(directions, edgeUv, edgeXyz, holeOffsets, null);
+                }
+                catch (CaeException)
+                {
+                    return -1;
+                }
+                if (grid.NumberOfFoldedQuads > 0) return -1;
+                if (convexMiddleEdges.Count == 0) return grid.MinScaledJacobian;
+                // The grid again in the plane, without the corners at the middles of the convex turn edges
+                int numOfBoundaryNodes = grid.NumberOfBoundaryNodes;
+                double[][] gridPoints = new double[numOfBoundaryNodes + grid.NumberOfInnerNodes][];
+                int edge = 0;
+                for (int l = 0; l < numOfLoops; l++)
+                {
+                    for (int k = 0; k < counts[l].Length; k++, edge++)
+                    {
+                        for (int i = 0; i < counts[l][k]; i++) gridPoints[grid.GetBoundaryNodeId(edge, i)] = edgeUv[l][k][i];
+                    }
+                }
+                for (int i = 0; i < grid.NumberOfInnerNodes; i++) gridPoints[numOfBoundaryNodes + i] = grid.InnerUv[i];
+                HashSet<int> leftOutNodeIds = new HashSet<int>();
+                foreach (var k in convexMiddleEdges) leftOutNodeIds.Add(grid.GetBoundaryNodeId(k, 0));
+                double orientation = ThreeBlockMapping.GetSignedArea(gridPoints, grid.NumberOfOuterBoundaryNodes) < 0 ? -1 : 1;
+                double minScaledJacobian = 1;
+                foreach (var quad in grid.Quads)
+                {
+                    for (int c = 0; c < 4; c++)
+                    {
+                        if (leftOutNodeIds.Contains(quad[c])) continue;
+                        minScaledJacobian = Math.Min(minScaledJacobian,
+                                                     ThreeBlockMapping.GetScaledJacobian(gridPoints, quad, c, orientation));
+                    }
+                }
+                return minScaledJacobian;
+            }
+            return -1;
+        }
+        /// <summary>
         /// The polyline split at half its length into two, the point there ending the first and starting the second.
         /// False when it has no length.
         /// </summary>
@@ -542,44 +1050,67 @@ namespace CaeMesh
         /// </summary>
         public static int[] GetProportionalCounts(int[] directions, double[] lengths)
         {
-            int n = directions.Length;
-            double[][] outline = GetIdealOutline(directions, lengths);
-            if (outline == null) return null;
-            double perimeter = 0;
-            for (int k = 0; k < n; k++)
-            {
-                double[] a = outline[k];
-                double[] b = outline[(k + 1) % n];
-                perimeter += Math.Abs(b[0] - a[0]) + Math.Abs(b[1] - a[1]);
-            }
-            //
             int divisions = NumOfOutlineDivisions;
             for (int refinement = 0; refinement <= NumOfOutlineRefinements; refinement++)
             {
-                double step = perimeter / divisions;
+                int[][] counts = GetProportionalCounts(new int[][] { directions }, new double[][] { lengths }, divisions);
+                if (counts != null) return counts[0];
+                divisions *= 2;
+            }
+            return null;
+        }
+        /// <summary>
+        /// The counts of GetProportionalCounts for every loop of a face, the outer loop first, with one lattice step:
+        /// the perimeter of the ideal outline of the outer loop divided by the divisions. Every loop is snapped on its
+        /// own, its first vertex at the origin. Null when an edge snaps to nothing or a loop does not close a valid
+        /// outline on its own (SubmapMapping.AreCountsValid).
+        /// </summary>
+        private static int[][] GetProportionalCounts(int[][] loopDirections, double[][] loopLengths, int divisions)
+        {
+            int numOfLoops = loopDirections.Length;
+            double[][][] outlines = new double[numOfLoops][][];
+            for (int l = 0; l < numOfLoops; l++)
+            {
+                outlines[l] = GetIdealOutline(loopDirections[l], loopLengths[l]);
+                if (outlines[l] == null) return null;
+            }
+            double perimeter = 0;
+            int numOfOuterEdges = loopDirections[0].Length;
+            for (int k = 0; k < numOfOuterEdges; k++)
+            {
+                double[] a = outlines[0][k];
+                double[] b = outlines[0][(k + 1) % numOfOuterEdges];
+                perimeter += Math.Abs(b[0] - a[0]) + Math.Abs(b[1] - a[1]);
+            }
+            double step = perimeter / divisions;
+            //
+            int[][] counts = new int[numOfLoops][];
+            for (int l = 0; l < numOfLoops; l++)
+            {
+                int[] directions = loopDirections[l];
+                double[][] outline = outlines[l];
+                int n = directions.Length;
                 long snappedX = 0;
                 long snappedY = 0;
-                int[] counts = new int[n];
-                bool valid = true;
-                for (int k = 0; k < n && valid; k++)
+                counts[l] = new int[n];
+                for (int k = 0; k < n; k++)
                 {
                     // The last vertex is the first, at the origin
                     double[] next = outline[(k + 1) % n];
                     long nextX = (long)Math.Round(next[0] / step);
                     long nextY = (long)Math.Round(next[1] / step);
                     long count = DirectionI[directions[k]] * (nextX - snappedX) + DirectionJ[directions[k]] * (nextY - snappedY);
-                    if (count < 1 || count > int.MaxValue) valid = false;
-                    else counts[k] = (int)count;
+                    if (count < 1 || count > int.MaxValue) return null;
+                    counts[l][k] = (int)count;
                     if (directions[k] % 2 == 0) nextY = snappedY;
                     else nextX = snappedX;
                     snappedX = nextX;
                     snappedY = nextY;
                 }
-                string reason;
-                if (valid && SubmapMapping.AreCountsValid(directions, counts, out reason)) return counts;
-                divisions *= 2;
             }
-            return null;
+            string reason;
+            if (!SubmapMapping.AreCountsValid(loopDirections, counts, null, out reason)) return null;
+            return counts;
         }
         private static double GetAngleDeg(double[] a, double[] b)
         {

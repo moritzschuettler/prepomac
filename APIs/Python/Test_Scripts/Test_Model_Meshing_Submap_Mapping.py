@@ -20,6 +20,13 @@
 #    it, in the lattice and in the parameter space.
 #  - Counts that do not close, an outline that touches itself, a reversal, a clockwise loop and arrays that disagree
 #    are refused with a message that names the reason.
+#  - Outlines with holes, each hole given with the lattice offset of its first node: a rectangle with a centred hole,
+#    with two holes and with an L-shaped hole, and an L with a square hole, uniform, where every inner node sits at its
+#    lattice position, and the centred hole sheared and on a cylinder: as many quads as cells inside, as many inner
+#    nodes as Euler's formula gives, no fold, and SubmapHolePlacement finds the offsets from the parameters of the
+#    nodes. Mean value coordinates reproduce a linear map inside an L, and the multi-loop AreCountsValid names a hole
+#    that touches the outer loop or another hole, lies outside the outline or inside another hole, turns the wrong way
+#    or does not close, and offsets that do not match the holes.
 #  - A 100 x 100 cell L is mapped in well under the time bound.
 #  With the environment variable PMX_SUBMAP_PLOT_DIR set, every named case and the worst case of the sweep are
 #  written into that folder as SVG drawings of the outline and the quads.
@@ -34,7 +41,7 @@ import random
 import time
 import clr
 clr.AddReference('CaeMesh')
-from CaeMesh import SubmapMapping
+from CaeMesh import SubmapHolePlacement, SubmapMapping
 from System import Array, Double, Func, Int32
 
 TOLERANCE = 1E-9
@@ -662,6 +669,181 @@ def group_refusals():
     print("refusals: %d messages, AreCountsValid agrees" % len(messages))
 
 
+# Holes ------------------------------------------------------------------------------------------------------------
+def loop_edges(surface, start, sides, h, transform=None):
+    """The edges of a loop of uniform divisions from the start point, side by side as (direction, count)."""
+    directions = []
+    edges = []
+    x, y = start
+    move = transform or (lambda q: q)
+    for direction, count in sides:
+        x1 = x + DI[direction] * count * h
+        y1 = y + DJ[direction] * count * h
+        directions.append(direction)
+        edges.append(distribute(surface, surface.to_uv(*move([x, y])), surface.to_uv(*move([x1, y1])), count, 1.0))
+        x, y = x1, y1
+    for k in range(len(edges)):
+        edges[k][-1] = list(edges[(k + 1) % len(edges)][0])
+    return directions, edges
+
+
+def to_loops(loops):
+    """The loops as the nested arrays of the multi-loop mapping: directions, parameters and coordinates."""
+    return (Array[Array[Int32]]([Array[Int32](directions) for directions, _, _ in loops]),
+            Array[Array[Array[Array[Double]]]]([to_net(edges) for _, edges, _ in loops]),
+            Array[Array[Array[Array[Double]]]]([to_net(xyz) for _, _, xyz in loops]))
+
+
+def counts_valid_loops(loops, offsets):
+    directions = Array[Array[Int32]]([Array[Int32](d) for d, _ in loops])
+    counts = Array[Array[Int32]]([Array[Int32](c) for _, c in loops])
+    net_offsets = None if offsets is None else Array[Array[Int32]]([Array[Int32](o) for o in offsets])
+    result = SubmapMapping.AreCountsValid(directions, counts, net_offsets, None)
+    return bool(result[0]), result[1]
+
+
+def check_holes_grid(name, surface, loops, offsets, exact_h=None):
+    """Maps the loops, the outer one first, with the holes at the offsets: as many quads as the cells inside the outer
+    outline and outside the holes, as many inner nodes as Euler's formula gives for an outline with holes, four quads
+    around every inner node, no fold, every inner node inside the outer outline and outside the holes, and with
+    exact_h every inner node at its lattice position."""
+    loops = [(d, e, [[surface.eval(*uv) for uv in edge] for edge in e]) for d, e in loops]
+    directions, net_uv, net_xyz = to_loops(loops)
+
+    def evaluate(flat):
+        xyz = []
+        for i in range(len(flat) // 2):
+            xyz.extend(surface.eval(flat[2 * i], flat[2 * i + 1]))
+        return Array[Double](xyz)
+
+    grid = SubmapMapping.Map(directions, net_uv, net_xyz, Array[Array[Int32]]([Array[Int32](o) for o in offsets]),
+                             Func[Array[Double], Array[Double]](evaluate))
+    outlines = [[uv for edge in e for uv in edge[:-1]] for _, e, _ in loops]
+    boundary = sum(len(outline) for outline in outlines)
+    area = 0
+    for l, (d, e, _) in enumerate(loops):
+        loop_area, _ = lattice_counts(d, [len(edge) - 1 for edge in e])
+        area += loop_area
+    inner = area - boundary // 2 + 1 - (len(loops) - 1)
+    quads = [[int(n) for n in quad] for quad in grid.Quads]
+    inner_uv = [[float(c) for c in uv] for uv in grid.InnerUv]
+    check(grid.NumberOfBoundaryNodes == boundary, name + ": %d boundary nodes, not %d" %
+          (grid.NumberOfBoundaryNodes, boundary))
+    check(len(quads) == area, name + ": %d quads, but the outline with its holes encloses %d cells" %
+          (len(quads), area))
+    check(len(inner_uv) == inner, name + ": %d inner nodes, but Euler's formula gives %d" % (len(inner_uv), inner))
+    check(grid.NumberOfFoldedQuads == 0, name + ": %d quads fold" % grid.NumberOfFoldedQuads)
+    uv = [p for outline in outlines for p in outline] + inner_uv
+    valence = [0] * len(uv)
+    loop_sign = 1.0 if signed_area(outlines[0]) > 0 else -1.0
+    min_sj = 1.0
+    for quad in quads:
+        for node in quad:
+            valence[node] += 1
+        for c in range(4):
+            a = sub(uv[quad[(c + 1) % 4]], uv[quad[c]])
+            b = sub(uv[quad[(c + 3) % 4]], uv[quad[c]])
+            min_sj = min(min_sj, loop_sign * (a[0] * b[1] - a[1] * b[0]) / (norm(a) * norm(b)))
+    for n in range(boundary, len(uv)):
+        check(valence[n] == 4, name + ": inner node %d has %d quads" % (n, valence[n]))
+    for i, p in enumerate(inner_uv):
+        check(point_in_polygon(p, outlines[0]) and not any(point_in_polygon(p, o) for o in outlines[1:]),
+              name + ": inner node %d is outside the face" % i)
+    if exact_h is not None:
+        logical = [[int(c) for c in ij] for ij in grid.LogicalCoordinates]
+        i0, j0 = logical[0]
+        size = max(abs(c) for p in uv for c in p)
+        deviation = max(max(abs(uv[n][0] - (logical[n][0] - i0) * exact_h),
+                            abs(uv[n][1] - (logical[n][1] - j0) * exact_h)) for n in range(boundary, len(uv)))
+        check(deviation <= TOLERANCE * size, name + ": the inner nodes are off their lattice positions by %g" %
+              deviation)
+    check(min_sj > HOLES_BOUND, name + ": the smallest scaled Jacobian %.3f is below %.2f" % (min_sj, HOLES_BOUND))
+    if PLOT_DIR:
+        write_svg(name, surface, outlines[0], uv, quads, min_sj)
+    return grid, min_sj
+
+
+HOLES_BOUND = 0.5
+RECTANGLE = [(0, 10), (1, 8), (2, 10), (3, 8)]
+SQUARE_HOLE = [(1, 2), (0, 4), (3, 2), (2, 4)]
+
+
+def group_holes():
+    """Outlines with holes given with their lattice offsets: a rectangle with a centred hole, with two holes and with an
+    L-shaped hole, an L with a square hole, all uniform, where every inner node sits at its lattice position; the
+    centred hole sheared and on a cylinder; the offsets SubmapHolePlacement finds from the geometry; and the reasons
+    the multi-loop AreCountsValid gives."""
+    worst = 1.0
+    plane = Plane()
+    h = 2.5
+    l_hole = [(1, 4), (0, 4), (3, 2), (2, 2), (3, 2), (2, 2)]
+    cases = [("holes_centred", plane, RECTANGLE, [((3, 3), SQUARE_HOLE)], None),
+             ("holes_two", plane, [(0, 14), (1, 8), (2, 14), (3, 8)], [((2, 2), SQUARE_HOLE), ((8, 3), SQUARE_HOLE)],
+              None),
+             ("holes_L_shaped", plane, [(0, 10), (1, 10), (2, 10), (3, 10)], [((3, 3), l_hole)], None),
+             ("holes_in_L", plane, shape_l(12, 10, 6, 4), [((5, 1), [(1, 2), (0, 2), (3, 2), (2, 2)])], None),
+             ("holes_sheared", plane, RECTANGLE, [((3, 3), SQUARE_HOLE)], shear(15)),
+             ("holes_cylinder", Cylinder(20.0), RECTANGLE, [((3, 3), SQUARE_HOLE)], None)]
+    for name, surface, outer_sides, holes, transform in cases:
+        loops = [loop_edges(surface, (0.0, 0.0), outer_sides, h, transform)]
+        offsets = []
+        for offset, sides in holes:
+            loops.append(loop_edges(surface, (offset[0] * h, offset[1] * h), sides, h, transform))
+            offsets.append(list(offset))
+        exact = h if surface is plane and transform is None else None
+        grid, min_sj = check_holes_grid(name, surface, loops, offsets, exact)
+        # The placement finds the offsets the geometry gives, on the parameters of the nodes
+        directions = [d for d, _ in loops]
+        counts = [[len(edge) - 1 for edge in e] for _, e in loops]
+        points = [[uv for edge in e for uv in edge[:-1]] for _, e in loops]
+        result = SubmapHolePlacement.TryPlace(Array[Array[Int32]]([Array[Int32](d) for d in directions]),
+                                              Array[Array[Int32]]([Array[Int32](c) for c in counts]),
+                                              Array[Array[Array[Double]]]([Array[Array[Double]]([Array[Double](p)
+                                                                                                  for p in loop])
+                                                                           for loop in points]), 1, None, None)
+        placed = [[int(c) for c in o] for o in result[1]] if result[0] else None
+        check(placed == offsets, name + ": the placement finds the offsets %s, not %s (%s)" %
+              (placed, offsets, result[2]))
+        worst = min(worst, min_sj)
+        print("%-22s loops %d  quads %4d  inner nodes %4d  offsets %s  min SJ %.3f" %
+              (name, len(loops), len(grid.Quads), grid.NumberOfInnerNodes, placed, min_sj))
+    # Mean value coordinates reproduce a linear map on an outline that is not convex
+    l_outline = [[0.0, 0.0], [10.0, 0.0], [10.0, 4.0], [4.0, 4.0], [4.0, 10.0], [0.0, 10.0]]
+    values = [[2 * x - 3 * y + 1, x + y] for x, y in l_outline]
+    for point in [[2.0, 2.0], [7.0, 1.5], [1.0, 8.0], [3.9, 3.9]]:
+        value = SubmapHolePlacement.InterpolateMeanValue(Array[Array[Double]]([Array[Double](p) for p in l_outline]),
+                                                         Array[Array[Double]]([Array[Double](v) for v in values]),
+                                                         Array[Double](point))
+        expected = [2 * point[0] - 3 * point[1] + 1, point[0] + point[1]]
+        check(abs(value[0] - expected[0]) < 1E-9 and abs(value[1] - expected[1]) < 1E-9,
+              "the mean value coordinates do not reproduce a linear map at %s: %s" % (point, list(value)))
+    # The reasons of the multi-loop validity
+    outer = ([d for d, _ in RECTANGLE], [n for _, n in RECTANGLE])
+    hole = ([d for d, _ in SQUARE_HOLE], [n for _, n in SQUARE_HOLE])
+    ok, reason = counts_valid_loops([outer, hole], [[3, 3]])
+    check(ok and reason is None, "a rectangle with a centred hole is refused: " + str(reason))
+    ok, reason = counts_valid_loops([outer, hole], None)
+    check(ok, "the loops on their own are refused: " + str(reason))
+    reasons = []
+    for loops, offsets, words in [([outer, hole], [[0, 3]], ["touch itself"]),
+                                  ([outer, hole], [[12, 3]], ["Edge 4", "outside"]),
+                                  ([outer, hole, hole], [[2, 2], [3, 3]], ["touch itself"]),
+                                  ([outer, ([0, 1, 2, 3], [1, 1, 1, 1])], [[3, 3]],
+                                   ["counter-clockwise", "right turns"]),
+                                  ([outer, ([1, 0, 3, 2], [2, 4, 2, 3])], [[3, 3]], ["hole starting at Edge 4",
+                                                                                     "does not close"]),
+                                  ([outer, hole], [], ["1 holes and 0 hole offsets"]),
+                                  ([([0, 1, 2, 3], [20, 20, 20, 20]), ([1, 0, 3, 2], [10, 10, 10, 10]), hole],
+                                   [[5, 5], [8, 8]], ["Edge 8", "inside the hole starting at Edge 4"])]:
+        ok, reason = counts_valid_loops(loops, offsets)
+        check(not ok and all(word in reason for word in words), "the multi-loop validity gives '%s', not %s" %
+              (reason, words))
+        reasons.append(reason)
+    for reason in reasons:
+        print("refused: " + reason)
+    return worst
+
+
 def group_timing():
     plane = Plane()
     sides = shape_l(100, 100, 50, 50)
@@ -687,7 +869,7 @@ def main():
     if PLOT_DIR and not os.path.isdir(PLOT_DIR):
         os.makedirs(PLOT_DIR)
     results = [("uniform", group_uniform()), ("graded and split", group_graded()), ("skewed", group_skewed()),
-               ("curved", group_curved()), ("sweep", group_sweep())]
+               ("curved", group_curved()), ("sweep", group_sweep()), ("holes", group_holes())]
     group_refusals()
     group_timing()
     for name, worst in results:

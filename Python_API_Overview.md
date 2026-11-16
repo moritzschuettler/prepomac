@@ -1086,23 +1086,31 @@ A shell has no volume and a sweep builds its volume mesh itself, so neither take
 `transfinite_angle_deg` only while `transfinite_three_sided` is not `No` or `transfinite_four_sided` is `True`, or,
 for `shell_gmsh` and `sweep_mesh`, `transfinite_submapped` is `True`.
 `transfinite_submapped` belongs to `shell_gmsh` and `sweep_mesh` and is `True` by default, like `transfinite_four_sided`; an item
-read from a file written before the setting existed has it `False`. It meshes as a structured grid every face of one
-boundary loop - no hole - whose vertices are all ends, sides or corners by the interior angle of the face there: an end
+read from a file written before the setting existed has it `False`. It meshes as a structured grid every face whose
+vertices are all ends, sides or corners by the interior angle of the face there: an end
 from 180 degrees minus `transfinite_angle_deg` to `transfinite_angle_deg`, a corner from 360 degrees minus it to 180
 degrees plus it, and a side between, the ends outnumbering the corners by four and at least one corner, such as L, T,
 U, plus and staircase shaped faces. A face this rule leaves out is classified again by the turns of its vertices and of
 its edges, so that a fillet, which turns a corner in its middle, and a chamfer, whose two vertices each turn by half a
 corner, are taken as well: a filleted or chamfered L or U, a rectangle with rounded corners, a five-sided house. A
 fillet carries an even number of elements, as its two halves are two sides of the grid; a half circle, the end of a
-slot, is not taken. Its edges are balanced together with the 3-sided and 4-sided faces, the edges
+slot, is not taken. A face may have holes with corners - a rectangular tube or box section, a plate with rectangular,
+L-shaped or filleted cut-outs - each classified by the same rules, its corners turning the other way, and placed in
+the grid where it lies; its outer loop then needs no corner. A hole turned off the outline by more than 20 degrees from
+a multiple of 90, such as a diamond, and a round hole or a slot leave the face free. The counts leave room for every
+hole and a row of elements on each side of it, so a wall thinner than the element size is one element thick, its
+elements along the outer edges shortened at a corner so that the corner element does not fold. Its edges are balanced
+together with the 3-sided and 4-sided faces, the edges
 running one way against those running the opposite way, so a number of elements set on one edge carries over, and its
 sides that face each other across it are kept at least one element apart, so a web or a leg thinner than the element
 size keeps a row of elements. A face
-whose counts cannot be balanced, whose counts do not close a valid outline, whose fillet was set to an odd number of
+whose counts cannot be balanced, whose counts do not close a valid outline or leave no room or no place for a hole,
+whose fillet was set to an odd number of
 elements, or whose grid would fold or have a quad corner of a scaled Jacobian below 0.2 - as at the middle of a convex
 fillet of 8 or more elements - is meshed free instead, and the output says why; the meshing never fails for it.
 A sweep submaps only its source surfaces, of the blocks swept between two ends, by the rules of its structured
-sources: the rows that tie the counts of such a source are given up at a price rather than refuse the sweep, also
+sources, a source with holes as well, whose inner walls are swept like the outer ones: the rows that tie the counts
+of such a source are given up at a price rather than refuse the sweep, also
 when the numbers of elements set on its edges make the grid impossible, and the source is then meshed free; under
 `algorithm_2d='QuadWild'` a submapped source is left to gmsh.
 `transfinite_three_sided` of a Gmsh item is `Polar`, `Mapped` (the default for a new item) or `No`: a
