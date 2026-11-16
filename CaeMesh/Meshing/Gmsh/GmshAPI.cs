@@ -44,6 +44,11 @@ namespace CaeMesh
         // and the number of elements of the seam of each
         private List<TubeFace> _tubeFaces = new List<TubeFace>();
         private Dictionary<int, int> _tubeSeamNumOfElements = new Dictionary<int, int>();
+        // The cap faces of a shell whose counts are balanced, meshed by GmshCapMesher once gmsh has meshed the surfaces,
+        // the number of elements of the seam of each and the number round each
+        private List<CapFace> _capFaces = new List<CapFace>();
+        private Dictionary<int, int> _capSeamNumOfElements = new Dictionary<int, int>();
+        private Dictionary<int, int> _capNumOfElementsRound = new Dictionary<int, int>();
         // The five-faced transfinite volumes whose three-sided caps are meshed as three blocks of quads, and the
         // volumes by hexahedra between them
         private List<GmshThreeBlockPrism> _threeBlockPrisms = new List<GmshThreeBlockPrism>();
@@ -266,11 +271,16 @@ namespace CaeMesh
                     bool transfiniteVolume = gsi is TransfiniteMesh && gsi.IsTransfiniteThreeSided &&
                                              gsi.TransfiniteFourSided;
                     bool sweepMesh = _gmshData.EdgeIdsBySweepLayer != null;
-                    // A shell is structured on the faces the one definition all meshers follow found
+                    // A shell is structured on the faces the one definition all meshers follow found. The quasi-structured
+                    // quad algorithm meshes the edges coarser and refines the whole mesh, which a cap meshed before the
+                    // surfaces cannot follow, and lays its own quads round a pole, so the caps are left to it
+                    bool quasiStructured = GetAlgorithmMesh2D(gsi) == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad;
                     if (_isOCC && gsi is ShellGmsh && _gmshData.TransfiniteFaces != null)
                         SetTransfiniteShellFaces(_gmshData.TransfiniteFaces, _gmshData.SubmapFaces ?? new SubmapFace[0],
                                                  _gmshData.RingFaces ?? new RingFace[0],
-                                                 _gmshData.TubeFaces ?? new TubeFace[0], IsFullQuad(algorithmRecombine),
+                                                 _gmshData.TubeFaces ?? new TubeFace[0],
+                                                 quasiStructured ? new CapFace[0] : _gmshData.CapFaces ?? new CapFace[0],
+                                                 IsFullQuad(algorithmRecombine),
                                                  algorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad);
                     else if (_isOCC && (gsi.IsTransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
@@ -716,22 +726,54 @@ namespace CaeMesh
         private void ShellGmsh(GmshSetupItem gmshSetupItem, bool preview)
         {
             bool recombine = gmshSetupItem.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
-            // Recombine all. gmsh refuses a full-quad recombination of a periodic surface ("Full-quad recombination not
-            // ready yet for periodic surfaces"), so the tubes, whose mesh GmshTubeMesher replaces, are left out of it
-            if (recombine && IsFullQuad(gmshSetupItem.AlgorithmRecombine) && _tubeFaces.Count > 0)
+            string reason;
+            // The grid of a cap needs only the nodes of its edges, and gmsh cannot be relied on at a pole - at the apex of
+            // a sharp cone it leaves elements invalid, splits the edges of the face or fails - so the caps are meshed
+            // first, on the meshed edges, and gmsh then meshes only the surfaces that are still empty. A cap whose grid
+            // is refused is among them, meshed free as any other face
+            HashSet<int> capSurfaceIds = new HashSet<int>();
+            if (_capFaces.Count > 0)
             {
-                HashSet<int> tubeSurfaceIds = new HashSet<int>(_tubeFaces.Select(face => face.FaceId));
+                GenerateMesh(1);
+                foreach (var face in _capFaces)
+                {
+                    if (GmshCapMesher.Mesh(face, _capSeamNumOfElements[face.FaceId], _capNumOfElementsRound[face.FaceId],
+                                           recombine, out reason))
+                        capSurfaceIds.Add(face.FaceId);
+                    else WriteCapFreeMessage(face.FaceId, reason);
+                }
+            }
+            // Recombine all. gmsh refuses a full-quad recombination of a periodic surface ("Full-quad recombination not
+            // ready yet for periodic surfaces"), so the tubes, whose mesh GmshTubeMesher replaces, and the caps whose grid
+            // was refused are left out of it
+            HashSet<int> unrecombinedSurfaceIds = new HashSet<int>();
+            if (IsFullQuad(gmshSetupItem.AlgorithmRecombine))
+            {
+                unrecombinedSurfaceIds.UnionWith(_tubeFaces.Select(face => face.FaceId));
+                unrecombinedSurfaceIds.UnionWith(_capFaces.Select(face => face.FaceId));
+            }
+            if (recombine && unrecombinedSurfaceIds.Count > 0)
+            {
                 Tuple<int, int>[] surfaceDimTags;
                 Gmsh.Model.GetEntities(out surfaceDimTags, 2);
                 foreach (var surfaceDimTag in surfaceDimTags)
                 {
-                    if (!tubeSurfaceIds.Contains(surfaceDimTag.Item2)) Gmsh.Model.Mesh.SetRecombine(2, surfaceDimTag.Item2);
+                    if (!unrecombinedSurfaceIds.Contains(surfaceDimTag.Item2))
+                        Gmsh.Model.Mesh.SetRecombine(2, surfaceDimTag.Item2);
                 }
             }
             else if (recombine) Gmsh.Option.SetNumber("Mesh.RecombineAll", 1);
             //
-            if (preview) GenerateMesh(2);
-            else GenerateMesh(2);
+            try
+            {
+                if (capSurfaceIds.Count > 0) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 1);
+                if (preview) GenerateMesh(2);
+                else GenerateMesh(2);
+            }
+            finally
+            {
+                if (capSurfaceIds.Count > 0) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 0);
+            }
             // The three-sided faces become three blocks of quads around one inner node, split into triangles where the
             // surfaces are not recombined
             HashSet<int> structuredSurfaceIds = new HashSet<int>(_transfiniteSurfaceIds);
@@ -741,7 +783,6 @@ namespace CaeMesh
                 structuredSurfaceIds.Add(face.FaceId);
             }
             // The submapped faces likewise, each left as gmsh meshed it when its grid folds or is poor
-            string reason;
             foreach (var face in _submapFaces)
             {
                 if (GmshSubmapMesher.Mesh(face, recombine, out reason)) structuredSurfaceIds.Add(face.FaceId);
@@ -758,6 +799,7 @@ namespace CaeMesh
                     structuredSurfaceIds.Add(face.FaceId);
                 else WriteTubeFreeMessage(face.FaceId, reason);
             }
+            structuredSurfaceIds.UnionWith(capSurfaceIds);
             // The all-quad recombination turns every face meshed free into quads only
             if (_isOCC && gmshSetupItem.AlgorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad)
             {
@@ -1955,6 +1997,8 @@ namespace CaeMesh
                     _gmshData.RingFaces = RenumberRingFaces(_gmshData.RingFaces, pointIdMap, edgeIdMap, surfaceIdMap);
                 if (_gmshData.TubeFaces != null)
                     _gmshData.TubeFaces = RenumberTubeFaces(_gmshData.TubeFaces, pointIdMap, edgeIdMap, surfaceIdMap);
+                if (_gmshData.CapFaces != null)
+                    _gmshData.CapFaces = RenumberCapFaces(_gmshData.CapFaces, pointIdMap, edgeIdMap, surfaceIdMap);
             }
             // The messages name the entities by the tags they carry now. An error above still names them by the
             // tags they carried before, so the names follow only here
@@ -5760,16 +5804,22 @@ namespace CaeMesh
         /// A tube face joins the balance as a ring does, by its two rims or the pairs of their edges, and is meshed by
         /// GmshTubeMesher once gmsh has meshed it free; its seam carries the layers, whose number is free or the one set
         /// on it, and is even under a full-quad recombination like the rims.
+        /// A cap face joins the balance by its rim, whose total must be even and CapFace.MinNumberOfElementsRound at
+        /// least, with the tier of the pairs, and is meshed by GmshCapMesher once gmsh has meshed it free; its seam takes
+        /// the number set on it, or the one CapFace.GetSeamNumOfElements chooses for the blocks at its poles, and a cap
+        /// with no rim takes the number round GmshCapMesher.GetNumOfElementsRound gives. One the balance cannot keep, or
+        /// whose seam set leaves no ring, is meshed free like a tube.
         /// Under the all-quad recombination every other face, which gmsh meshes free and GmshQuadMesher then turns into
         /// quads only, asks for an even number of elements around its boundary, at the weakest tier, so that it never
         /// changes a number the user set or a structured face. Only the edges of such faces whose count the balance
         /// changed are given that count; the others keep the mesh gmsh lays on them.
         /// </summary>
         private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces, SubmapFace[] submapFaces,
-                                              RingFace[] ringFaces, TubeFace[] tubeFaces, bool fullQuad, bool allQuad)
+                                              RingFace[] ringFaces, TubeFace[] tubeFaces, CapFace[] capFaces, bool fullQuad,
+                                              bool allQuad)
         {
             if (transfiniteFaces.Length == 0 && submapFaces.Length == 0 && ringFaces.Length == 0 && tubeFaces.Length == 0 &&
-                !allQuad) return;
+                capFaces.Length == 0 && !allQuad) return;
             // A face both submapped and a ring is meshed as one of them
             HashSet<int> submapFaceIds = new HashSet<int>(submapFaces.Select(face => face.FaceId));
             HashSet<int> ringFaceIds = new HashSet<int>();
@@ -5814,6 +5864,13 @@ namespace CaeMesh
                     WriteTubeFreeMessage(face.FaceId, "it carries an edge inside it");
                 else tubes.Add(face);
             }
+            List<CapFace> caps = new List<CapFace>();
+            foreach (var face in capFaces)
+            {
+                if (surfaceIdsWithInternalCurves.Contains(face.FaceId))
+                    WriteCapFreeMessage(face.FaceId, "it carries an edge inside it");
+                else caps.Add(face);
+            }
             // The edges around every face that may be meshed free, a seam left out, but for one with an edge inside it
             Dictionary<int, int[]> freeFaceLoopEdgeIds = new Dictionary<int, int[]>();
             if (allQuad)
@@ -5829,7 +5886,7 @@ namespace CaeMesh
                     if (loopEdgeIds != null && loopEdgeIds.Length > 0) freeFaceLoopEdgeIds.Add(surfaceDimTag.Item2, loopEdgeIds);
                 }
             }
-            if (faces.Count == 0 && submapped.Count == 0 && rings.Count == 0 && tubes.Count == 0 &&
+            if (faces.Count == 0 && submapped.Count == 0 && rings.Count == 0 && tubes.Count == 0 && caps.Count == 0 &&
                 freeFaceLoopEdgeIds.Count == 0) return;
             // The numbers of elements the mesh size asks for, which the pinned edges already carry
             GenerateMesh(1);
@@ -5839,6 +5896,7 @@ namespace CaeMesh
                                         .Concat(submapped.SelectMany(face => face.AllEdgeIds))
                                         .Concat(rings.SelectMany(face => face.AllEdgeIds))
                                         .Concat(tubes.SelectMany(face => face.AllEdgeIds))
+                                        .Concat(caps.SelectMany(face => face.AllEdgeIds))
                                         .Concat(freeFaceLoopEdgeIds.Values.SelectMany(edgeIds => edgeIds)).Distinct())
             {
                 Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
@@ -5870,6 +5928,14 @@ namespace CaeMesh
                     pinnedEdgeIds.Add(edgeId);
             }
             Dictionary<int, int> maxSizeCounts = GetMaxSizeCounts(naturalCounts);
+            // A cap with no rim takes its number round from the element size of its seam and its longest circle
+            Dictionary<int, int> capNumOfElementsRound = new Dictionary<int, int>();
+            foreach (var face in caps)
+            {
+                if (!face.HasRim)
+                    capNumOfElementsRound[face.FaceId] = GmshCapMesher.GetNumOfElementsRound(face.FaceId, face.SeamEdgeId,
+                                                                                             naturalCounts[face.SeamEdgeId]);
+            }
             //
             List<TransfiniteSidePair> pairs = new List<TransfiniteSidePair>();
             List<TransfiniteSideTriple> triples = new List<TransfiniteSideTriple>();
@@ -5918,11 +5984,13 @@ namespace CaeMesh
                 edgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
                 edgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
                 edgeIds.UnionWith(tubes.SelectMany(face => face.AllEdgeIds));
+                edgeIds.UnionWith(caps.SelectMany(face => face.AllEdgeIds));
                 edgeIds.UnionWith(freeFaceLoopEdgeIds.Values.SelectMany(loopEdgeIds => loopEdgeIds));
                 HashSet<int> loopStructuredEdgeIds = new HashSet<int>(transfiniteEdgeIds);
                 loopStructuredEdgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
                 loopStructuredEdgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
                 loopStructuredEdgeIds.UnionWith(tubes.SelectMany(face => face.AllEdgeIds));
+                loopStructuredEdgeIds.UnionWith(caps.SelectMany(face => face.AllEdgeIds));
                 Dictionary<int, int> targetCounts = new Dictionary<int, int>(naturalCounts);
                 foreach (var edgeId in naturalCounts.Keys)
                 {
@@ -5979,7 +6047,8 @@ namespace CaeMesh
                 HashSet<int> structuredFaceIds = new HashSet<int>(faces.Select(face => face.FaceId)
                                                                        .Concat(submapped.Select(face => face.FaceId))
                                                                        .Concat(rings.Select(face => face.FaceId))
-                                                                       .Concat(tubes.Select(face => face.FaceId)));
+                                                                       .Concat(tubes.Select(face => face.FaceId))
+                                                                       .Concat(caps.Select(face => face.FaceId)));
                 HashSet<int> freeFaceEdgeIds = new HashSet<int>();
                 Tuple<int, int>[] boundaryDimTags;
                 foreach (var surfaceDimTag in surfaceDimTags)
@@ -5992,7 +6061,7 @@ namespace CaeMesh
                                                            .ToDictionary(entry => entry.Key, entry => entry.Value);
                 List<int[]> evenSides = freeFaceLoopEdgeIds.Where(entry => !structuredFaceIds.Contains(entry.Key))
                                                            .OrderBy(entry => entry.Key).Select(entry => entry.Value).ToList();
-                if (allPairs.Count == 0 && triples.Count == 0 && evenSides.Count == 0)
+                if (allPairs.Count == 0 && triples.Count == 0 && evenSides.Count == 0 && caps.Count == 0)
                 {
                     unbalanced = new List<TransfiniteSidePair>();
                     unbalancedTriples = new List<TransfiniteSideTriple>();
@@ -6018,7 +6087,8 @@ namespace CaeMesh
                 if (fullQuad)
                 {
                     foreach (var edgeId in rings.SelectMany(face => face.AllEdgeIds)
-                                                .Concat(tubes.SelectMany(face => face.AllEdgeIds)))
+                                                .Concat(tubes.SelectMany(face => face.AllEdgeIds))
+                                                .Concat(caps.SelectMany(face => face.AllEdgeIds)))
                     {
                         if (!edgeIdMultiples.ContainsKey(edgeId)) edgeIdMultiples[edgeId] = 2;
                     }
@@ -6041,7 +6111,10 @@ namespace CaeMesh
                 unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, targetCounts, pinnedEdgeIds, allPairs,
                                                                   triples, separations, out unbalancedTriples,
                                                                   out unbalancedSeparations, freeFaceEdgeIds,
-                                                                  sizedEdgeIdCounts, maxSizeCounts, edgeIdMultiples, evenSides);
+                                                                  sizedEdgeIdCounts, maxSizeCounts, edgeIdMultiples, evenSides,
+                                                                  caps.Where(face => face.HasRim).Select(face => face.RimEdgeIds)
+                                                                      .ToList(),
+                                                                  CapFace.MinNumberOfElementsRound);
                 //
                 Dictionary<SubmapFace, string> dropped = new Dictionary<SubmapFace, string>();
                 SubmapFace unbalancedFace;
@@ -6126,12 +6199,30 @@ namespace CaeMesh
                                                "edges, and Edge " + face.AllEdgeIds.First(edgeId => edgeIdCount[edgeId] % 2 != 0) +
                                                " carries an odd number of elements");
                 }
+                // A cap by its rim and its seam, which takes the number chosen for its blocks when it is not set
+                Dictionary<CapFace, string> droppedCaps = new Dictionary<CapFace, string>();
+                foreach (var face in caps)
+                {
+                    int numOfElementsRound = face.HasRim ? face.RimEdgeIds.Sum(edgeId => edgeIdCount[edgeId]) :
+                                                           capNumOfElementsRound[face.FaceId];
+                    if (!pinnedEdgeIds.Contains(face.SeamEdgeId) && numOfElementsRound % 2 == 0 &&
+                        numOfElementsRound >= CapFace.MinNumberOfElementsRound)
+                        edgeIdCount[face.SeamEdgeId] = CapFace.GetSeamNumOfElements(naturalCounts[face.SeamEdgeId],
+                                                                                    numOfElementsRound, face.NumberOfPoles,
+                                                                                    fullQuad);
+                    reason = face.GetCountReason(edgeIdCount, numOfElementsRound);
+                    if (reason != null) droppedCaps.Add(face, reason);
+                    else if (fullQuad && face.AllEdgeIds.Any(edgeId => edgeIdCount[edgeId] % 2 != 0))
+                        droppedCaps.Add(face, "the full-quad recombination meshes it on every second node of its " +
+                                              "edges, and Edge " + face.AllEdgeIds.First(edgeId => edgeIdCount[edgeId] % 2 != 0) +
+                                              " carries an odd number of elements");
+                }
                 bool transfiniteUnbalanced = unbalancedTriples.Count > 0 ||
                                              unbalanced.Any(pair => !submapPairFaces.ContainsKey(pair) &&
                                                                     !ringPairFaces.ContainsKey(pair) &&
                                                                     !tubePairFaces.ContainsKey(pair));
-                if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0 && transfiniteUnbalanced &&
-                    (submapped.Count > 0 || rings.Count > 0 || tubes.Count > 0))
+                if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0 && droppedCaps.Count == 0 &&
+                    transfiniteUnbalanced && (submapped.Count > 0 || rings.Count > 0 || tubes.Count > 0 || caps.Count > 0))
                 {
                     foreach (var face in submapped)
                         dropped.Add(face, "its numbers of elements cannot agree with those of the structured faces " +
@@ -6142,8 +6233,11 @@ namespace CaeMesh
                     foreach (var face in tubes)
                         droppedTubes.Add(face, "its numbers of elements cannot agree with those of the structured faces " +
                                                "beside it");
+                    foreach (var face in caps)
+                        droppedCaps.Add(face, "its numbers of elements cannot agree with those of the structured faces " +
+                                              "beside it");
                 }
-                if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0) break;
+                if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0 && droppedCaps.Count == 0) break;
                 foreach (var face in submapped)
                 {
                     if (dropped.TryGetValue(face, out reason)) WriteSubmapFreeMessage(face.FaceId, reason);
@@ -6156,9 +6250,14 @@ namespace CaeMesh
                 {
                     if (droppedTubes.TryGetValue(face, out reason)) WriteTubeFreeMessage(face.FaceId, reason);
                 }
+                foreach (var face in caps)
+                {
+                    if (droppedCaps.TryGetValue(face, out reason)) WriteCapFreeMessage(face.FaceId, reason);
+                }
                 submapped = submapped.Where(face => !dropped.ContainsKey(face)).ToList();
                 rings = rings.Where(face => !droppedRings.ContainsKey(face)).ToList();
                 tubes = tubes.Where(face => !droppedTubes.ContainsKey(face)).ToList();
+                caps = caps.Where(face => !droppedCaps.ContainsKey(face)).ToList();
             }
             if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
                 throw new CaeException(GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
@@ -6169,11 +6268,19 @@ namespace CaeMesh
             _tubeFaces.AddRange(tubes);
             foreach (var face in tubes)
                 _tubeSeamNumOfElements[face.FaceId] = edgeIdCount[face.SeamEdgeId];
+            _capFaces.AddRange(caps);
+            foreach (var face in caps)
+            {
+                _capSeamNumOfElements[face.FaceId] = edgeIdCount[face.SeamEdgeId];
+                _capNumOfElementsRound[face.FaceId] = face.HasRim ? face.RimEdgeIds.Sum(edgeId => edgeIdCount[edgeId]) :
+                                                                    capNumOfElementsRound[face.FaceId];
+            }
             Gmsh.Model.Mesh.Clear();
             HashSet<int> structuredEdgeIds = new HashSet<int>(transfiniteEdgeIds);
             structuredEdgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
             structuredEdgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
             structuredEdgeIds.UnionWith(tubes.SelectMany(face => face.AllEdgeIds));
+            structuredEdgeIds.UnionWith(caps.SelectMany(face => face.AllEdgeIds));
             foreach (var entry in edgeIdCount)
             {
                 if (!structuredEdgeIds.Contains(entry.Key) &&
@@ -6402,6 +6509,10 @@ namespace CaeMesh
         private void WriteTubeFreeMessage(int surfaceId, string reason)
         {
             _writeOutput?.Invoke(NameGmshEntities("Tube mapping: Surface " + surfaceId + " is meshed free - " + reason + "."));
+        }
+        private void WriteCapFreeMessage(int surfaceId, string reason)
+        {
+            _writeOutput?.Invoke(NameGmshEntities("Cap mapping: Surface " + surfaceId + " is meshed free - " + reason + "."));
         }
         private bool IsPolar(TransfiniteFace face)
         {
@@ -7029,6 +7140,11 @@ namespace CaeMesh
                 _gmshData.TubeFaces = RenumberTubeFaces(_gmshData.TubeFaces, netgenVertexIdGmshVertexId,
                                                         netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
             }
+            if (_gmshData.CapFaces != null)
+            {
+                _gmshData.CapFaces = RenumberCapFaces(_gmshData.CapFaces, netgenVertexIdGmshVertexId, netgenEdgeIdGmshEdgeId,
+                                                      netgenFaceIdGmshFaceId);
+            }
             // Defeature
             if (_gmshData.SurfaceIds != null)
             {
@@ -7139,6 +7255,9 @@ namespace CaeMesh
             if (_gmshData.TubeFaces != null)
                 _gmshData.TubeFaces = _gmshData.TubeFaces.Where(face => surfaceIds.Contains(face.FaceId) &&
                                                                         face.AllEdgeIds.All(curveIds.Contains)).ToArray();
+            if (_gmshData.CapFaces != null)
+                _gmshData.CapFaces = _gmshData.CapFaces.Where(face => surfaceIds.Contains(face.FaceId) &&
+                                                                      face.AllEdgeIds.All(curveIds.Contains)).ToArray();
             //
             _writeOutput?.Invoke("Sweep: the compound is symmetric across " + sweepMesh.SymmetryPlanes.Length +
                                  " plane/s - " + keptVolumeIds.Count + " of its " + volumeDimTags.Length + " cells are " +
@@ -7271,6 +7390,27 @@ namespace CaeMesh
                 if (firstVertexIds == null || firstEdgeIds == null || secondVertexIds == null || secondEdgeIds == null) continue;
                 renumbered.Add(new TubeFace(surfaceId, seamEdgeId, firstVertexIds, firstEdgeIds, secondVertexIds,
                                             secondEdgeIds, face.IsPaired));
+            }
+            return renumbered.ToArray();
+        }
+        // A cap face whose surface, vertices or edges gmsh does not have is not on the meshed part
+        private static CapFace[] RenumberCapFaces(CapFace[] capFaces, Dictionary<int, int> netgenVertexIdGmshVertexId,
+                                                  Dictionary<int, int> netgenEdgeIdGmshEdgeId,
+                                                  Dictionary<int, int> netgenFaceIdGmshFaceId)
+        {
+            int surfaceId;
+            int seamEdgeId;
+            List<CapFace> renumbered = new List<CapFace>();
+            foreach (var face in capFaces)
+            {
+                if (!netgenFaceIdGmshFaceId.TryGetValue(face.FaceId, out surfaceId) ||
+                    !netgenEdgeIdGmshEdgeId.TryGetValue(face.SeamEdgeId, out seamEdgeId)) continue;
+                //
+                int[] rimVertexIds = RenumberIds(face.RimVertexNodeIds, netgenVertexIdGmshVertexId);
+                int[] rimEdgeIds = RenumberIds(face.RimEdgeIds, netgenEdgeIdGmshEdgeId);
+                int[] poleVertexIds = RenumberIds(face.PoleVertexNodeIds, netgenVertexIdGmshVertexId);
+                if (rimVertexIds == null || rimEdgeIds == null || poleVertexIds == null) continue;
+                renumbered.Add(new CapFace(surfaceId, seamEdgeId, rimVertexIds, rimEdgeIds, poleVertexIds));
             }
             return renumbered.ToArray();
         }

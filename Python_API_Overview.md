@@ -1119,7 +1119,23 @@ otherwise - so a number set on one rim carries over to the other and numbers tha
 free; the seam keeps its own count or the one set on it. A face with a hole besides its rims, a face closed along two
 seams (a torus) and a face with a degenerate edge (a cone with its apex, a sphere) are no tubes, and a tube whose grid
 would fold or have a quad corner of a scaled Jacobian below 0.2 is meshed free; the output says why ("Tube mapping:
-Surface N is meshed free - reason"). The counts leave room for every
+Surface N is meshed free - reason"). A face of `shell_gmsh` closed along exactly one seam that ends in a pole - the
+apex of a cone, the pole of a sphere - at one end and on one closed rim at the other (a dome, a spherical cap, a cone
+with its apex, a paraboloid, an elliptical or torispherical head, also with its rim split or cut obliquely), or in a
+pole at both ends (a sphere, a spheroid), is meshed as a cap, an O-grid: N elements round, rings of N quads from the
+rim inward, and around each pole a block of a x b quads, 2 (a + b) = N, whose four corners are its only irregular
+nodes; the seam is a line of the grid through the rings and the block to the pole. The rim total is balanced even and
+8 at least with the other structured faces, so a dome on a cylinder carries the count of the cylinder (a pressure
+vessel is structured throughout); a sphere takes N from the element size and its longest circle. The seam keeps the
+number the mesh size asks for unless the blocks would take more than 0.45 of it, then it is raised, or keeps the
+number set on it. A cap is meshed on the nodes of its edges before gmsh meshes the other surfaces, so it does not
+depend on gmsh's own mesh at the pole, which at the apex of a sharp cone folds, splits the edges or fails. A rim set to
+an odd number or to fewer than 8, a seam set too short to leave a ring, and a grid that would fold or have a quad
+corner below 0.1 leave the face to gmsh, meshed free ("Cap mapping: Surface N is meshed free - reason"); the floor is
+half that of the other structured faces because the four quads at the apex of a cone share the angle round it (0.26 at
+a half angle of 15 degrees, 0.2 at 11) and gmsh's free mesh is no better there. A face with a hole besides its rim is
+no cap, and under `algorithm_2d='QuasiStructuredQuad'`, which lays its own quads round a pole, a cap is left to gmsh.
+The counts of a submapped face leave room for every
 hole and a row of elements on each side of it, so a wall thinner than the element size is one element thick, its
 elements along the outer edges shortened at a corner so that the corner element does not fold. Its edges are balanced
 together with the 3-sided and 4-sided faces, the edges
@@ -1151,14 +1167,16 @@ that gmsh's own mesh does not have, and the output says why a face keeps triangl
 M triangles - reason"). A face closed along a seam - a full cylinder, cone, torus or other surface of revolution or
 extrusion, with or without holes - is converted as well: it is cut open along its seams, and a seam does not count in
 the even total, since the face meets it on both sides. While `transfinite_submapped` is on, a face of one seam between
-two closed rims is a tube instead, quads with no irregular node, and only one the tube leaves free is converted. A face
-with a degenerate edge (the pole of a sphere, the apex
-of a cone), or an edge or point inside it is, for now, kept as gmsh meshed it. A face gmsh meshed with quads only has
-its valences evened out and its nodes smoothed in the same way, which is kept only when it leaves no more irregular inner nodes, no fold and no worse corner.
+two closed rims is a tube instead, quads with no irregular node, and a face of one seam ending in a pole a cap, quads
+with the four corners of the block at each pole as its only irregular nodes; only one the tube or the cap leaves free
+is converted. A face with a degenerate edge (the pole of a sphere, the apex of a cone) that is no cap, a face the cap
+leaves free, or a face with an edge or point inside it is, for now, kept as gmsh meshed it. A face gmsh meshed with
+quads only has its valences evened out and its nodes smoothed in the same way, which is kept only when it leaves no
+more irregular inner nodes, no fold and no worse corner.
 Second order elements and the full-quad recombinations work as before; gmsh refuses a full-quad recombination of a
 surface closed along a seam, so such a face fails the meshing under `SimpleFullQuad` and `BlossomFullQuad` unless it is
-a tube, which gmsh leaves unrecombined and the tube grid replaces, on even counts. `tetrahedral_gmsh` takes `AllQuad`
-as `Simple`, and a sweep meshes with it as with `Simple`. A recombined sweep turns its free sources into quads only in
+a tube, which gmsh leaves unrecombined and the grid replaces, or a cap, both on even counts. `tetrahedral_gmsh` takes
+`AllQuad` as `Simple`, and a sweep meshes with it as with `Simple`. A recombined sweep turns its free sources into quads only in
 the same way by default, with no setting, and asks the sweep counts for an even total around each such source at the
 weakest tier, so that a block whose free source becomes quads only is swept into hexahedra only.
 `transfinite_three_sided` of a Gmsh item is `Polar`, `Mapped` (the default for a new item) or `No`: a

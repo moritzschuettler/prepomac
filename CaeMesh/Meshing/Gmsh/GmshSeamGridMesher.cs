@@ -210,6 +210,117 @@ namespace CaeMesh
             return quadNodeTags;
         }
         /// <summary>
+        /// Whether the nodes of a rim, read along its edges from the seam, run round the periodic parameter in order one way
+        /// or the other: the order of the parameter is that of the edges, or its reverse after the node on the seam.
+        /// </summary>
+        internal static bool RunsOnceRound(int[] order)
+        {
+            int n = order.Length;
+            bool forward = true;
+            bool backward = true;
+            for (int i = 1; i < n; i++)
+            {
+                forward &= order[i] == i;
+                backward &= order[i] == n - i;
+            }
+            return forward || backward;
+        }
+        /// <summary>
+        /// The smallest scaled Jacobian of a quad corner in space against the normal of the surface, the quads turned the
+        /// way most corners turn, and the number of quads with a corner that turns the other way or has no area. A corner
+        /// at a singular node, the pole of a cap, where the surface has no normal, is measured against the normal of its
+        /// own quad (GetOwnScaledJacobian).
+        /// </summary>
+        internal static double GetMinScaledJacobian(int surfaceId, IntPtr[] quadNodeTags, Dictionary<IntPtr, double[]> tagXyz,
+                                                    Dictionary<IntPtr, double[]> tagUv, ICollection<IntPtr> singularTags,
+                                                    out int numOfFoldedQuads)
+        {
+            Dictionary<IntPtr, int> tagIndex = new Dictionary<IntPtr, int>();
+            List<double[]> xyz = new List<double[]>();
+            List<double[]> uv = new List<double[]>();
+            int numOfQuads = quadNodeTags.Length / 4;
+            int[][] quads = new int[numOfQuads][];
+            for (int q = 0; q < numOfQuads; q++)
+            {
+                quads[q] = new int[4];
+                for (int c = 0; c < 4; c++)
+                {
+                    IntPtr tag = quadNodeTags[4 * q + c];
+                    int index;
+                    if (!tagIndex.TryGetValue(tag, out index))
+                    {
+                        index = xyz.Count;
+                        tagIndex.Add(tag, index);
+                        xyz.Add(tagXyz[tag]);
+                        uv.Add(tagUv[tag]);
+                    }
+                    quads[q][c] = index;
+                }
+            }
+            double[][] points = xyz.ToArray();
+            double[][] normals = GmshQuadMesher.GetNormals(surfaceId, uv.ToArray());
+            HashSet<int> singular = new HashSet<int>();
+            if (singularTags != null)
+            {
+                int index;
+                foreach (var tag in singularTags)
+                {
+                    if (tagIndex.TryGetValue(tag, out index)) singular.Add(index);
+                }
+            }
+            double sum = 0;
+            foreach (var quad in quads)
+            {
+                for (int c = 0; c < 4; c++)
+                {
+                    if (!singular.Contains(quad[c]))
+                        sum += GmshQuadMesher.GetSpaceScaledJacobian(quad, c, points, normals, 1);
+                }
+            }
+            double orientation = sum < 0 ? -1 : 1;
+            double min = 1;
+            numOfFoldedQuads = 0;
+            foreach (var quad in quads)
+            {
+                bool folded = false;
+                for (int c = 0; c < 4; c++)
+                {
+                    double scaledJacobian = singular.Contains(quad[c]) ? GetOwnScaledJacobian(quad, c, points) :
+                                            GmshQuadMesher.GetSpaceScaledJacobian(quad, c, points, normals, orientation);
+                    folded |= !(scaledJacobian > 0);
+                    min = Math.Min(min, scaledJacobian);
+                }
+                if (folded) numOfFoldedQuads++;
+            }
+            return min;
+        }
+        /// <summary>
+        /// The sine of the angle at corner c of the quad against the normal of the quad by its diagonals, where the
+        /// surface has no normal: the corners round the apex of a cone each lie in a plane of their own, which a mean
+        /// normal would cut at a slant.
+        /// </summary>
+        private static double GetOwnScaledJacobian(int[] quad, int c, double[][] points)
+        {
+            double[] d1 = Subtract(points[quad[2]], points[quad[0]]);
+            double[] d2 = Subtract(points[quad[3]], points[quad[1]]);
+            double[] normal = Cross(d1, d2);
+            double[] a = Subtract(points[quad[(c + 1) % 4]], points[quad[c]]);
+            double[] b = Subtract(points[quad[(c + 3) % 4]], points[quad[c]]);
+            double[] cross = Cross(a, b);
+            double lengths = Math.Sqrt((a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) * (b[0] * b[0] + b[1] * b[1] + b[2] * b[2]) *
+                                       (normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]));
+            if (!(lengths > 0)) return -1;
+            return (cross[0] * normal[0] + cross[1] * normal[1] + cross[2] * normal[2]) / lengths;
+        }
+        private static double[] Cross(double[] a, double[] b)
+        {
+            return new double[] { a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0] };
+        }
+        private static double[] Subtract(double[] a, double[] b)
+        {
+            return new double[] { a[0] - b[0], a[1] - b[1], a[2] - b[2] };
+        }
+        /// <summary>
         /// Replaces what gmsh meshed on the surface by the quads of the grid and its new nodes. The quads turn the way gmsh
         /// turned its own elements against the normal of the surface. Without quads every quad is split into two triangles.
         /// </summary>

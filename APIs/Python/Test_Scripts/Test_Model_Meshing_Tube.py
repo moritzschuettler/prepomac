@@ -26,7 +26,9 @@
 #    the full-quad recombinations make both counts even (gmsh refuses a full-quad recombination of a periodic surface,
 #    so it leaves the tube out of it and the tube is laid on the full counts). The faces that are no tubes are not
 #    detected and are meshed exactly as with transfinite_submapped=False, the meshing before the tubes; the pipe with the
-#    hole is converted to quads only under AllQuad as before.
+#    hole is converted to quads only under AllQuad as before. The cone with its apex and the sphere, closed along a seam
+#    that ends in a pole, are structured caps with the setting on (Test_Model_Meshing_Cap.py): quads only, the four
+#    corners of the block at each pole their only irregular inner nodes, no message.
 #  - Table: per tube and size, gmsh's free mesh under AllQuad - the meshing before the tubes, with
 #    transfinite_submapped=False - against the tube under AllQuad: quads, worst scaled Jacobian in space, irregular inner
 #    nodes and time.
@@ -52,7 +54,7 @@ import time
 import clr
 clr.AddReference('CaeMesh')
 clr.AddReference('System.Drawing')
-from CaeMesh import TubeFaceDetector
+from CaeMesh import CapFaceDetector, TubeFaceDetector
 from System import Array
 from System.Drawing import Bitmap, Brushes, Color, Font, Graphics, Pen, PointF, SolidBrush
 from System.Drawing.Imaging import ImageFormat
@@ -70,6 +72,8 @@ SHELLS = ["cylinder", "cone frustum", "revolved spline", "extruded spline", "elb
           "cone with apex", "sphere", "capped cylinder and cone"]
 TUBES = SHELLS[:10]
 NOT_TUBES = ["pipe with hole", "torus with hole", "cone with apex", "sphere"]
+# Closed along a seam that ends in a pole, they are structured caps
+CAPS = ["cone with apex", "sphere"]
 MULTI = "capped cylinder and cone"
 PAIRED = {"split rims": False}
 # The unrolling of the shapes for the plots: the axis through (dx + x, 0), the radius the angle is scaled by, and the
@@ -462,7 +466,9 @@ def check_tubes(parts, size):
 
 
 def check_not_tubes(parts):
-    """The faces that are no tubes are meshed as before the tubes."""
+    """The faces that are no tubes are meshed as before the tubes, but for the cone with its apex and the sphere, which
+    are caps, structured with the setting on: quads only, the four corners of the block at each pole their only
+    irregular inner nodes."""
     for name in NOT_TUBES:
         part = parts[name]
         check(len(detected_tubes(part)) == 0, "the " + name + " is detected as a tube")
@@ -474,8 +480,18 @@ def check_not_tubes(parts):
             messages = output_messages(part.name)
             print(name + " with " + recombine + ":", face.kinds(), "worst scaled Jacobian",
                   round(min_scaled_jacobian(face), 3), messages)
-            check(face.kinds() == before.kinds() and face.points(face.used_nodes()) == before.points(before.used_nodes()),
-                  "the " + name + " with " + recombine + " is not meshed as before the tubes")
+            if name in CAPS:
+                geometry, geometry_part_ = geometry_part(part)
+                poles = len(list(CapFaceDetector.Detect(geometry_part_))[0].PoleVertexNodeIds)
+                valence = valences(face.elements)
+                irregular = sorted(valence[node] for node in irregular_inner_nodes(face.elements))
+                check(face.kinds()[1] == 0 and irregular == [3] * 4 * poles and len(messages) == 0,
+                      "the " + name + " with " + recombine + " is not meshed as a cap: " + str(face.kinds()) + " " +
+                      str(irregular) + " " + str(messages))
+            else:
+                check(face.kinds() == before.kinds() and
+                      face.points(face.used_nodes()) == before.points(before.used_nodes()),
+                      "the " + name + " with " + recombine + " is not meshed as before the tubes")
             check(not any("Tube mapping:" in message for message in messages), "the " + name + " wrote " + str(messages))
             if name == "pipe with hole" and recombine == "AllQuad":
                 check(face.kinds()[1] == 0 and len(messages) == 0, "the pipe with the hole is not quads only: " +

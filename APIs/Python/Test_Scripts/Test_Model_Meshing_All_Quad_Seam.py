@@ -36,8 +36,9 @@
 #  - Tubes: with transfinite_submapped on, at the element size 5 with AllQuad, the cylinder, the cone, the revolved and
 #    the extruded spline, the bend and the branch of the tee (closed along its seam between its top rim and the curve
 #    it meets the pipe along) are structured tubes - quads only, every rim node in two quads and every inner node in
-#    four, a worst scaled Jacobian of 0.2 at least, no message, the pipe of the tee quads only as well - and every other
-#    face is meshed exactly as with it off.
+#    four, a worst scaled Jacobian of 0.2 at least, no message, the pipe of the tee quads only as well - the sphere,
+#    closed along its seam from pole to pole, is a structured cap (quads only, the four corners of the block at each
+#    pole its only irregular inner nodes, no message), and every other face is meshed exactly as with it off.
 #  The models were made by gmsh's OCC kernel through GmshCommon: lines, arcs, circles and B-splines revolved or
 #  extruded, the holes cut by fragmenting with a cylinder and removing the pieces inside it.
 #  With the environment variable PMX_QUAD_PLOT_DIR set, the meshes are written into that folder as PNG images, the
@@ -539,6 +540,12 @@ def check_tubes(parts):
         if name in TUBES or name == "pipe tee":
             check(tube and triangles == 0 and quality >= FLOOR and len(messages) == 0,
                   "the " + name + " is not meshed with a tube")
+        elif name == "sphere":
+            # A structured cap: a block of quads at each pole, whose four corners are the only irregular inner nodes
+            irregular_valences = [valence[node] for node in irregular_inner_nodes(elements)]
+            check(triangles == 0 and irregular_valences == [3] * 8 and len(messages) == 0,
+                  "the sphere is not meshed with a cap: " + str(face.kinds()) + " " + str(irregular_valences) + " " +
+                  str(messages))
         else:
             check(face.kinds() == before.kinds() and face.points(face.used_nodes()) == before.points(before.used_nodes()),
                   "the " + name + " is not meshed as with the structured faces off")

@@ -170,6 +170,7 @@
     <Compile Include="Meshing\Gmsh\Sweep\SweepCellCandidate.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepPartMaps.cs" />
     <Compile Include="Meshing\Gmsh\GmshSizeGrading.cs" />
+    <Compile Include="Meshing\Gmsh\GmshCapMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshQuadMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshRingMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshSeamGridMesher.cs" />
@@ -177,6 +178,8 @@
     <Compile Include="Meshing\Gmsh\GmshThreeBlockMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockPrism.cs" />
     <Compile Include="Meshing\Gmsh\GmshTubeMesher.cs" />
+    <Compile Include="Meshing\Cap\CapFace.cs" />
+    <Compile Include="Meshing\Cap\CapFaceDetector.cs" />
     <Compile Include="Meshing\MeshTypeEnum.cs" />
     <Compile Include="Meshing\Netgen\NetgenKernelIds.cs" />
     <Compile Include="Meshing\Netgen\NetgenTransfiniteFile.cs" />

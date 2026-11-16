@@ -789,6 +789,7 @@ F 2098.26 System.Double StlFeatureAngleDeg
 F 2098.27 #2148[] SubmapFaces
 F 2098.28 #2149[] RingFaces
 F 2098.29 #2150[] TubeFaces
+F 2098.30 #2151[] CapFaces
 T 2099 class CaeMesh.GmshEdge
 F 2099.0 System.Int32 Id
 F 2099.1 System.Int32[] VertexIds
@@ -1138,6 +1139,12 @@ F 2150.3 System.Int32[] _firstRimEdgeIds
 F 2150.4 System.Int32[] _secondRimVertexNodeIds
 F 2150.5 System.Int32[] _secondRimEdgeIds
 F 2150.6 System.Boolean _isPaired
+T 2151 class CaeMesh.CapFace
+F 2151.0 System.Int32 _faceId
+F 2151.1 System.Int32 _seamEdgeId
+F 2151.2 System.Int32[] _rimVertexNodeIds
+F 2151.3 System.Int32[] _rimEdgeIds
+F 2151.4 System.Int32[] _poleVertexNodeIds
 T 3000 enum CaeModel.AmplitudeTimeSpanEnum
 E 3000.0 member StepTime
 E 3000.1 member TotalTime

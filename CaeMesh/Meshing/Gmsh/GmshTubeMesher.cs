@@ -100,9 +100,9 @@ namespace CaeMesh
                 reason = "the nodes of its rims do not run round the parameter its seam closes";
                 return false;
             }
-            if (!RunsOnceRound(firstOrder) || !RunsOnceRound(secondOrder))
+            if (!GmshSeamGridMesher.RunsOnceRound(firstOrder) || !GmshSeamGridMesher.RunsOnceRound(secondOrder))
             {
-                int edgeId = RunsOnceRound(firstOrder) ? face.SecondRimEdgeIds[0] : face.FirstRimEdgeIds[0];
+                int edgeId = GmshSeamGridMesher.RunsOnceRound(firstOrder) ? face.SecondRimEdgeIds[0] : face.FirstRimEdgeIds[0];
                 reason = "the nodes of the rim of Edge " + edgeId + " do not run once round its seam";
                 return false;
             }
@@ -110,7 +110,8 @@ namespace CaeMesh
             IntPtr[] quadNodeTags = GmshSeamGridMesher.GetQuadNodeTags(grid);
             int numOfQuads = quadNodeTags.Length / 4;
             int numOfFoldedQuads;
-            double minScaledJacobian = GetMinScaledJacobian(surfaceId, quadNodeTags, tagXyz, tagUv, out numOfFoldedQuads);
+            double minScaledJacobian = GmshSeamGridMesher.GetMinScaledJacobian(surfaceId, quadNodeTags, tagXyz, tagUv, null,
+                                                                               out numOfFoldedQuads);
             if (numOfFoldedQuads > 0)
             {
                 reason = numOfFoldedQuads + " of the " + numOfQuads + " quads of its grid fold";
@@ -124,74 +125,6 @@ namespace CaeMesh
             }
             GmshSeamGridMesher.ReplaceSurfaceMesh(surfaceId, quadNodeTags, newTags, newXyz, newUv, tagXyz, quads);
             return true;
-        }
-        /// <summary>
-        /// Whether the nodes of a rim, read along its edges from the seam, run round the periodic parameter in order one way
-        /// or the other: the order of the parameter is that of the edges, or its reverse after the node on the seam.
-        /// </summary>
-        private static bool RunsOnceRound(int[] order)
-        {
-            int n = order.Length;
-            bool forward = true;
-            bool backward = true;
-            for (int i = 1; i < n; i++)
-            {
-                forward &= order[i] == i;
-                backward &= order[i] == n - i;
-            }
-            return forward || backward;
-        }
-        /// <summary>
-        /// The smallest scaled Jacobian of a quad corner in space against the normal of the surface, the quads turned the
-        /// way most corners turn, and the number of quads with a corner that turns the other way or has no area.
-        /// </summary>
-        private static double GetMinScaledJacobian(int surfaceId, IntPtr[] quadNodeTags, Dictionary<IntPtr, double[]> tagXyz,
-                                                   Dictionary<IntPtr, double[]> tagUv, out int numOfFoldedQuads)
-        {
-            Dictionary<IntPtr, int> tagIndex = new Dictionary<IntPtr, int>();
-            List<double[]> xyz = new List<double[]>();
-            List<double[]> uv = new List<double[]>();
-            int numOfQuads = quadNodeTags.Length / 4;
-            int[][] quads = new int[numOfQuads][];
-            for (int q = 0; q < numOfQuads; q++)
-            {
-                quads[q] = new int[4];
-                for (int c = 0; c < 4; c++)
-                {
-                    IntPtr tag = quadNodeTags[4 * q + c];
-                    int index;
-                    if (!tagIndex.TryGetValue(tag, out index))
-                    {
-                        index = xyz.Count;
-                        tagIndex.Add(tag, index);
-                        xyz.Add(tagXyz[tag]);
-                        uv.Add(tagUv[tag]);
-                    }
-                    quads[q][c] = index;
-                }
-            }
-            double[][] points = xyz.ToArray();
-            double[][] normals = GmshQuadMesher.GetNormals(surfaceId, uv.ToArray());
-            double sum = 0;
-            foreach (var quad in quads)
-            {
-                for (int c = 0; c < 4; c++) sum += GmshQuadMesher.GetSpaceScaledJacobian(quad, c, points, normals, 1);
-            }
-            double orientation = sum < 0 ? -1 : 1;
-            double min = 1;
-            numOfFoldedQuads = 0;
-            foreach (var quad in quads)
-            {
-                bool folded = false;
-                for (int c = 0; c < 4; c++)
-                {
-                    double scaledJacobian = GmshQuadMesher.GetSpaceScaledJacobian(quad, c, points, normals, orientation);
-                    folded |= !(scaledJacobian > 0);
-                    min = Math.Min(min, scaledJacobian);
-                }
-                if (folded) numOfFoldedQuads++;
-            }
-            return min;
         }
         private static string ToReason(string message)
         {
