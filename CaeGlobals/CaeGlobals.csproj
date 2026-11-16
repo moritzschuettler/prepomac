@@ -112,9 +112,7 @@
     <Compile Include="Equation\EquationContainer.cs" />
     <Compile Include="DynamicTypeDescriptor\CustomComponentModel.cs" />
     <Compile Include="DynamicTypeDescriptor\DynamicTypeDescriptor.cs" />
-    <Compile Include="DynamicTypeDescriptor\StandardValueEditorUI.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
+    <Compile Include="DynamicTypeDescriptor\StandardValueEditorUI.cs" />
     <Compile Include="DynamicTypeDescriptor\StandardValueEditorUI.designer.cs">
       <DependentUpon>StandardValueEditorUI.cs</DependentUpon>
     </Compile>
