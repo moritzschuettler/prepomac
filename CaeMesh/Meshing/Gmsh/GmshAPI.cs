@@ -5872,10 +5872,13 @@ namespace CaeMesh
         /// with no rim takes the number round GmshCapMesher.GetNumOfElementsRound gives. One the balance cannot keep, or
         /// whose seam set leaves no ring, is meshed free like a tube.
         /// A lens face joins the balance by an even total of its edges and LensFace.MinNumberOfElementsPerSide on each
-        /// of its sides, with the tier of the pairs, and is meshed by GmshLensMesher before gmsh meshes the surfaces;
-        /// one the balance cannot keep is meshed free like a cap. A thin two-sided lens face (GmshLensMesher.IsThin)
-        /// also asks for equal counts on its two sides, at the weakest tier. A lens face the submapping keeps is
-        /// balanced as a submapped face and meshed as a lens face only when its submapped grid is refused.
+        /// of its sides, or LensFace.MinNumberOfElementsInLoop on its loop when it has one corner or none, with the
+        /// tier of the pairs, and is meshed by GmshLensMesher before gmsh meshes the surfaces; one the balance cannot
+        /// keep is meshed free like a cap. A thin two-sided lens face (GmshLensMesher.IsThin) also asks for equal
+        /// counts on its two sides, at the weakest tier. A lens face the submapping keeps is balanced as a submapped
+        /// face and meshed as a lens face only when its submapped grid is refused; dropped by the balance as a
+        /// submapped face, it joins the next balance as a lens face. A lens face with no straight edge is not
+        /// submapped at all.
         /// Under the all-quad recombination every other face, which gmsh meshes free and GmshQuadMesher then turns into
         /// quads only, asks for an even number of elements around its boundary, at the weakest tier, so that it never
         /// changes a number the user set or a structured face. Only the edges of such faces whose count the balance
@@ -5887,6 +5890,12 @@ namespace CaeMesh
         {
             if (transfiniteFaces.Length == 0 && submapFaces.Length == 0 && ringFaces.Length == 0 && tubeFaces.Length == 0 &&
                 capFaces.Length == 0 && lensFaces.Length == 0 && !allQuad) return;
+            // The submapping lays its grid between straight sides joined by corners, sharp or rounded. A lens face with
+            // no straight edge - a disc of arcs, an ellipse, a lens of two arcs - has none, and the counts the
+            // submapping would balance for it are not those of its lens grid, so it is a lens face only
+            HashSet<int> roundLensFaceIds = new HashSet<int>(lensFaces.Where(HasNoStraightEdge)
+                                                                      .Select(face => face.FaceId));
+            submapFaces = submapFaces.Where(face => !roundLensFaceIds.Contains(face.FaceId)).ToArray();
             // A face both submapped and a ring is meshed as one of them
             HashSet<int> submapFaceIds = new HashSet<int>(submapFaces.Select(face => face.FaceId));
             HashSet<int> ringFaceIds = new HashSet<int>();
@@ -6206,7 +6215,10 @@ namespace CaeMesh
                                                                   lenses.SelectMany(face => face.SideEdgeIds).ToList(),
                                                                   LensFace.MinNumberOfElementsPerSide,
                                                                   lenses.Where(face => thinLensFaceIds.Contains(face.FaceId))
-                                                                        .Select(face => face.SideEdgeIds).ToList());
+                                                                        .Select(face => face.SideEdgeIds).ToList(),
+                                                                  lenses.Where(face => face.NumberOfSides != 2)
+                                                                        .Select(face => face.AllEdgeIds).ToList(),
+                                                                  LensFace.MinNumberOfElementsInLoop);
                 //
                 Dictionary<SubmapFace, string> dropped = new Dictionary<SubmapFace, string>();
                 SubmapFace unbalancedFace;
@@ -6347,9 +6359,18 @@ namespace CaeMesh
                 }
                 if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0 && droppedCaps.Count == 0 &&
                     droppedLenses.Count == 0) break;
+                // A dropped submapped face that is a lens face joins the next balance as one
+                LensFace fallbackFace;
                 foreach (var face in submapped)
                 {
-                    if (dropped.TryGetValue(face, out reason)) WriteSubmapFreeMessage(face.FaceId, reason);
+                    if (!dropped.TryGetValue(face, out reason)) continue;
+                    if (_lensFallbackFaces.TryGetValue(face.FaceId, out fallbackFace))
+                    {
+                        _lensFallbackFaces.Remove(face.FaceId);
+                        lenses.Add(fallbackFace);
+                        if (GmshLensMesher.IsThin(fallbackFace, naturalCounts)) thinLensFaceIds.Add(face.FaceId);
+                    }
+                    else WriteSubmapFreeMessage(face.FaceId, reason);
                 }
                 foreach (var face in rings)
                 {
@@ -6629,6 +6650,10 @@ namespace CaeMesh
         private void WriteCapFreeMessage(int surfaceId, string reason)
         {
             _writeOutput?.Invoke(NameGmshEntities("Cap mapping: Surface " + surfaceId + " is meshed free - " + reason + "."));
+        }
+        private static bool HasNoStraightEdge(LensFace face)
+        {
+            return face.AllEdgeIds.All(edgeId => Gmsh.Model.GetType(1, edgeId) != "Line");
         }
         private void WriteLensFreeMessage(int surfaceId, string reason)
         {

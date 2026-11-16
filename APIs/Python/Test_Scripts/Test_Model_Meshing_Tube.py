@@ -36,7 +36,10 @@
 #    with a message; 7 on the seam give 7 layers.
 #  - Second order: the cylinder with Simple is quads of 8 nodes only, a tube.
 #  - The part of three faces: the cylinder and the cone are tubes, their three circles carry the same number of elements,
-#    and the disc is meshed free, quads only under AllQuad and the full-quad recombinations.
+#    and the disc, a face of one closed edge and no corner, is a lens face (Test_Model_Meshing_Lens_Planar): quads
+#    only under every recombination (68 on 26 boundary nodes at the element size 5, meshed free before the lens
+#    faces of no corner: 59 quads and 20 triangles under Simple, 66 and 87 quads under AllQuad and the full-quad
+#    recombinations).
 #  The models were made by gmsh's OCC kernel through GmshCommon: lines, circles and B-splines revolved or extruded, the
 #  oblique end cut by fragmenting with a tilted box, the rims split by fragmenting with points, the holes cut by
 #  fragmenting with a cylinder and removing the pieces inside it.

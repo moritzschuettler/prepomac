@@ -14,14 +14,17 @@ using CaeGlobals;
 namespace CaeMesh
 {
     /// <summary>
-    /// A face of one boundary loop with exactly two corners - a lens, a half disc, a dome cut in half through its pole,
-    /// a wedge of a sphere between two meridians - or with no corner and exactly two vertices, a half sphere between
-    /// two meridians that meet at its poles, meshed by GmshLensMesher. A two-sided face is split by one inner line from
-    /// a node of one side to a node of the other into two three-sided pieces, each three blocks of quads
-    /// (ThreeBlockMapping), so its grid has two inner nodes of three quads; a face with no corner is first split by a
-    /// line between its two vertices into two two-sided faces, four inner nodes of three quads. The loop is stored from
-    /// the first corner, vertex k being where edge k - 1 ends and edge k starts; side 0 runs from corner 0 to corner 1,
-    /// side 1 back to corner 0. A face with no corner has two vertices, two edges and its sides are its edges.
+    /// A face of one boundary loop, meshed by GmshLensMesher: with exactly two corners - a lens, a half disc, a dome
+    /// cut in half through its pole, a wedge of a sphere between two meridians -, with one corner - a teardrop - or
+    /// with no corner - a disc bounded by one closed edge or by several, an ellipse, a stadium, a rounded polygon, a
+    /// half sphere between two meridians that meet at its poles. A two-sided face is split by one inner line from a
+    /// node of one side to a node of the other into two three-sided pieces, each three blocks of quads
+    /// (ThreeBlockMapping), so its grid has two inner nodes of three quads. A face with no corner is first split by a
+    /// line between two nodes of its loop into two two-sided faces, four inner nodes of three quads. A face with one
+    /// corner is cut by a line across the corner into a three-sided piece at the corner and a two-sided rest, three
+    /// inner nodes of three quads. The loop is stored from the first corner, vertex k being where edge k - 1 ends and
+    /// edge k starts; side 0 of a two-sided face runs from corner 0 to corner 1, side 1 back to corner 0. Only a
+    /// two-sided face has sides.
     /// </summary>
     [PmxType(2152)]
     public class LensFace
@@ -36,6 +39,11 @@ namespace CaeMesh
         /// least.
         /// </summary>
         public const int MinNumberOfElementsPerSide = 4;
+        /// <summary>
+        /// The fewest elements on the loop of a face with one corner or none: the first line splits the loop into two
+        /// parts, each a side of a two-sided face or of a piece, which carry MinNumberOfElementsPerSide each.
+        /// </summary>
+        public const int MinNumberOfElementsInLoop = 8;
 
 
         // Properties                                                                                                               
@@ -46,28 +54,30 @@ namespace CaeMesh
         public int[] VertexNodeIds { get { return _vertexNodeIds; } }
         public int[] EdgeIds { get { return _edgeIds; } }
         /// <summary>
-        /// The indices of the corners in the loop, 0 and the index of corner 1; empty for a face with no corner.
+        /// The indices of the corners in the loop: 0 and the index of corner 1, 0 alone for a face with one corner,
+        /// and none for a face with no corner.
         /// </summary>
         public int[] CornerIndices { get { return _cornerIndices; } }
         /// <summary>
-        /// 2, or 0 for a face with no corner.
+        /// The number of corners, 0, 1 or 2; only a face of two has sides.
         /// </summary>
         public int NumberOfSides { get { return _cornerIndices.Length; } }
         public int[] AllEdgeIds { get { return _edgeIds.ToArray(); } }
         /// <summary>
-        /// The loop index of the vertex side k starts at.
+        /// The loop index of the vertex side k of a two-sided face starts at; none for another face.
         /// </summary>
         public int[] SideStartIndices
         {
-            get { return _cornerIndices.Length == 2 ? _cornerIndices.ToArray() : new int[] { 0, 1 }; }
+            get { return _cornerIndices.Length == 2 ? _cornerIndices.ToArray() : new int[0]; }
         }
         /// <summary>
-        /// The edge ids of the two sides, each in the order the side runs.
+        /// The edge ids of the two sides of a two-sided face, each in the order the side runs; none for another face.
         /// </summary>
         public int[][] SideEdgeIds
         {
             get
             {
+                if (_cornerIndices.Length != 2) return new int[0][];
                 int[] starts = SideStartIndices;
                 int n = _edgeIds.Length;
                 int[][] sides = new int[2][];
@@ -94,12 +104,15 @@ namespace CaeMesh
         // Methods                                                                                                                  
         /// <summary>
         /// Why the numbers of elements of the edges cannot give the face its grid, null when they can: the edges carry
-        /// an odd number in all, or a side fewer than MinNumberOfElementsPerSide.
+        /// an odd number in all, a side of a two-sided face fewer than MinNumberOfElementsPerSide, or the loop of
+        /// another face fewer than MinNumberOfElementsInLoop.
         /// </summary>
         public string GetCountReason(Dictionary<int, int> edgeIdCount)
         {
             int total = _edgeIds.Sum(edgeId => edgeIdCount[edgeId]);
             if (total % 2 != 0) return "its edges carry " + total + " elements in all, which must be even";
+            if (NumberOfSides != 2 && total < MinNumberOfElementsInLoop)
+                return "its edges carry " + total + " elements in all, fewer than " + MinNumberOfElementsInLoop;
             foreach (var side in SideEdgeIds)
             {
                 int count = side.Sum(edgeId => edgeIdCount[edgeId]);

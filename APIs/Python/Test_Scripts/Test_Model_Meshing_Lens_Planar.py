@@ -1,36 +1,61 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks the lens faces of planar shapes. Every planar face of one boundary loop with exactly two corners is a lens face
-#on a shell with transfinite_submapped, the default: one inner line splits it into two three-sided pieces of three
-#blocks of quads, two inner nodes of three quads, unless the submapping keeps it. Once the pieces are laid, the nodes
-#inside the face are smoothed together, so that the grid lines run on across the inner line. A thin lens face, whose
-#line would have to carry far more elements than its length asks for because its sides carry different counts (an arc
-#is given more elements than its chord), asks the balance for equal counts on its two sides.
+#Checks the lens faces of planar shapes and of a cap of a sphere. Every face of one boundary loop with two corners, one
+#corner or none is a lens face on a shell with transfinite_submapped, the default. With two corners one inner line
+#splits it into two three-sided pieces of three blocks of quads, two inner nodes of three quads; with no corner a first
+#line across it splits it into two such faces, four inner nodes of three quads; with one corner a line across the
+#corner leaves a three-sided piece at the corner and a two-sided rest, three inner nodes of three quads. A face the
+#submapping keeps is meshed by its submapped grid and laid as a lens face only when that grid is refused; a lens face
+#with no straight edge is not submapped at all. Once the pieces are laid, the nodes inside the face are smoothed
+#together, so that the grid lines run on across the inner lines. A thin lens face, whose line would have to carry far
+#more elements than its length asks for because its sides carry different counts (an arc is given more elements than
+#its chord), asks the balance for equal counts on its two sides.
 #
-#  - lens_planar.brep: one part per shape side by side, at x = 150 i: the tombstones 40 x 20, 20 x 60 and 60 x 10 (a
-#    rectangle closed by a half circle), the circular segments with corners of 60 and of 30 degrees (chord 34.64 and
-#    40), the lenses of two arcs with corners of 120 and 40 degrees, the parabolic arches 60 x 30 and 30 x 80 (chord
-#    and a B-spline of degree 2), the triangle of 15, 15 and 150 degrees, the half disc of r 3, the crescents 12 and 6
-#    thick between two arcs over a chord of 40 (moon 8 and moon 14 by the sagitta of the inner arc), and the half disc
-#    with a kink of 170 degrees in its chord.
-#  - Detection: every shape is a two-sided lens face; the tombstones, the lens of 120, the small half disc, moon 8 and
-#    the kinked half disc are submapped faces as well.
-#  - At the element sizes 5 and 3.5 under Simple and AllQuad every shape is meshed without a message, quads only, no
-#    fold, a worst scaled Jacobian of 0.2 at least measured in space against the normals of the mesh, and two inner
-#    nodes of three quads and no other inner node without four - none where the submapped grid is kept (the tombstone
-#    20 x 60, the lens of 120 at size 5, the small half disc). The thin crescent (moon 14), whose grid folded and was
-#    meshed free with the lens message before the equal counts, is a lens grid now.
-#  - Thin faces: the segment of 30, the obtuse triangle and the lens of 40 carry equal counts on their two sides, and
-#    their shortest element edge is 0.2 of the size at least (before the equal counts: 0.77 and 0.42 at size 5).
+#  - lens_planar.brep: one part per shape side by side, at x = 150 i, in the plane y = 0: the tombstones 40 x 20,
+#    20 x 60 and 60 x 10 (a rectangle closed by a half circle), the circular segments with corners of 60 and of 30
+#    degrees (chord 34.64 and 40), the lenses of two arcs with corners of 120 and 40 degrees, the parabolic arches
+#    60 x 30 and 30 x 80 (chord and a B-spline of degree 2), the triangle of 15, 15 and 150 degrees, the half disc of
+#    r 3, the crescents 12 and 6 thick between two arcs over a chord of 40 (moon 8 and moon 14 by the sagitta of the
+#    inner arc), the half disc with a kink of 170 degrees in its chord; then the faces of no corner - the disc of r 20
+#    (one closed edge), the discs of r 20 of three arcs and of four uneven arcs (30, 140, 80 and 110 degrees), the disc
+#    of r 4, the ellipses 60 x 30 and 80 x 20 and the egg of two half ellipses (four rational B-splines each), the
+#    stadiums 80 x 20 and 45 x 30, the triangle of side 50 and the square of 40 with corners rounded by r 8 and r 15 -
+#    and of one corner - the teardrops of tip angles 30, 60, 90 and 120 degrees (an arc of r 12 or 15 between two
+#    tangent lines) and the half disc of r 20 with one corner rounded by r 5 -, and the cap of the sphere of r 20 cut
+#    off by a plane 6 from its rim, bounded by one closed circle away from the seam and the poles of the sphere.
+#  - Detection: every shape is one lens face of its number of corners; the tombstones, the lens of 120, the small half
+#    disc, moon 8, the kinked half disc, the disc of four arcs, the ellipses, the egg, the stadiums, the rounded square
+#    and the half disc with one fillet are submapped faces as well.
+#  - At the element sizes 5 and 3.5 under Simple, AllQuad, None and SimpleFullQuad every shape is meshed without a
+#    message: quads only, two triangles per quad of Simple under None; no fold, a worst scaled Jacobian of 0.2 at least
+#    measured in space against the normals of the mesh, and the inner nodes of three quads of its kind (2 with two
+#    corners, 3 with one, 4 with none) and no other inner node without four - none where the submapped grid is kept,
+#    with as many quads as before under Simple and AllQuad (the tombstone 20 x 60, the stadiums and the rounded square
+#    at size 5, the small half disc, the stadium 80 x 20 at size 3.5). The full-quad recombination makes the boundary
+#    even. The thin crescent (moon 14), whose grid folded and was meshed free with the lens message before the equal
+#    counts, is a lens grid. The lens of 120, moon 8, the disc of four arcs, the ellipses and the egg have no straight
+#    edge and are lens faces only, on their own counts (the disc of four arcs: 76 quads at size 5, not the 292 it took
+#    on the counts of the submapping). The stadium 45 x 30 and the rounded square at size 3.5 are submapped faces whose
+#    grids are refused and laid as lens faces, on the counts of the submapping. The half disc with one fillet is a
+#    submapped face its counts cannot balance; it is balanced as a lens face instead, without a submapping message.
+#  - Thin faces: the segment of 30, the obtuse triangle and the lens of 40 carry equal counts on their two sides under
+#    Simple and AllQuad, and their shortest element edge is 0.2 of the size at least (before the equal counts: 0.77 and
+#    0.42 at size 5).
 #  - Smoothing: on the tombstones 40 x 20 and 60 x 10 a grid line crossing the inner line (the axis of the shape) bends
-#    there by 9 degrees at most (each piece smoothed on its own: 13.7 to 16.1 degrees).
+#    there by 9 degrees at most under Simple and AllQuad (each piece smoothed on its own: 13.7 to 16.1 degrees).
 #  - Pins: the chord of the segment of 30 set to 12 elements keeps 12, the arc follows it to 12, and the face is a lens
 #    grid without a message; the arcs of the thin crescent set to 13 and 11 elements, counts its grid folds on, keep
-#    them and leave it free with the lens message and no fold.
+#    them and leave it free with the lens message and no fold. The circle of the disc set to 13 elements, an odd total,
+#    and to 6, fewer than 8, leaves it free with the lens message.
+#  - Second order: the disc with Simple is quads of 8 nodes only, four inner nodes of three quads.
+#  - The quasi-structured quad algorithm lays its own quads, so with it the disc is left to gmsh: quads only, without a
+#    lens message.
 #  - Table: per shape at size 5 under AllQuad, the mesh with transfinite_submapped=False (gmsh's free mesh) against the
 #    mesh with it.
-#  The model was made by gmsh's OCC kernel through GmshCommon: lines, circle arcs and B-splines, one plane surface each.
+#  The model was made by gmsh's OCC kernel through GmshCommon: lines, circle arcs and B-splines, one plane surface each,
+#  and the sphere intersected with a box (generator scratchpad/submap/stage20/make_lens_planar.py, run with
+#  PMX_CAP_GENERATOR = scratchpad/submap/stage14/make_cap_models.py for its helpers).
 #  With the environment variable PMX_LENS_PLOT_DIR set, the meshes are written into that folder as PNG images, the
 #  inner nodes without four quads marked red.
 #
@@ -53,18 +78,28 @@ from System.Windows.Forms import Application
 
 PLOT_DIR = os.environ.get("PMX_LENS_PLOT_DIR")
 SIZES = [5.0, 3.5]
-RECOMBINATIONS = ["Simple", "AllQuad"]
+RECOMBINATIONS = ["Simple", "AllQuad", "None", "SimpleFullQuad"]
 SPACING = 150.0
 FLOOR = 0.2
 TRANSFINITE_ANGLE = 135.0
 SHELLS = ["tombstone 40 x 20", "tombstone 20 x 60", "tombstone 60 x 10", "segment 60", "segment 30", "vesica 120",
           "vesica 40", "arch 60 x 30", "arch 30 x 80", "obtuse triangle", "small half disc", "moon 8", "moon 14",
-          "kinked half disc"]
+          "kinked half disc", "disc", "disc of 3 arcs", "disc of 4 arcs", "small disc", "ellipse 60 x 30",
+          "ellipse 80 x 20", "egg", "stadium 80 x 20", "stadium 45 x 30", "rounded triangle", "rounded square",
+          "teardrop 30", "teardrop 60", "teardrop 90", "teardrop 120", "half disc one fillet", "sphere cap"]
+NO_CORNER = ["disc", "disc of 3 arcs", "disc of 4 arcs", "small disc", "ellipse 60 x 30", "ellipse 80 x 20", "egg",
+             "stadium 80 x 20", "stadium 45 x 30", "rounded triangle", "rounded square", "sphere cap"]
+ONE_CORNER = ["teardrop 30", "teardrop 60", "teardrop 90", "teardrop 120", "half disc one fillet"]
+# The inner nodes of three quads of a lens grid by its number of corners
+IRREGULAR = {0: 4, 1: 3, 2: 2}
 SUBMAPPED_LENSES = ["tombstone 40 x 20", "tombstone 20 x 60", "tombstone 60 x 10", "vesica 120", "small half disc",
-                    "moon 8", "kinked half disc"]
-# The shapes and sizes whose submapped grid is kept, with no inner node of three quads
-SUBMAPPED_GRIDS = [("tombstone 20 x 60", 5.0), ("tombstone 20 x 60", 3.5), ("vesica 120", 5.0),
-                   ("small half disc", 5.0), ("small half disc", 3.5)]
+                    "moon 8", "kinked half disc", "disc of 4 arcs", "ellipse 60 x 30", "ellipse 80 x 20", "egg",
+                    "stadium 80 x 20", "stadium 45 x 30", "rounded square", "half disc one fillet"]
+# The shapes and sizes whose submapped grid is kept, with no inner node of three quads, by their quads under Simple and
+# AllQuad
+SUBMAPPED_GRIDS = {("tombstone 20 x 60", 5.0): 56, ("tombstone 20 x 60", 3.5): 126, ("small half disc", 5.0): 8,
+                   ("small half disc", 3.5): 8, ("stadium 80 x 20", 5.0): 64, ("stadium 80 x 20", 3.5): 144,
+                   ("stadium 45 x 30", 5.0): 54, ("rounded square", 5.0): 64}
 THIN = ["segment 30", "obtuse triangle", "vesica 40"]
 SHORTEST_SHARE = 0.2
 # The x of the inner line of the tombstones, from the start of the part
@@ -129,12 +164,12 @@ def edge_ids(part):
     return list(zip([int(i) for i in data.ids], [float(v) for v in data.lengths], [list(c) for c in data.centroids]))
 
 
-def mesh(part, recombine, size, pins=(), submapped=True):
+def mesh(part, recombine, size, pins=(), submapped=True, second_order=False, algorithm_2d=None):
     """Meshes the part by a shell item; pins are (edge id, number of elements). Returns the time it took."""
     items = pmx.model.mesh.setup_items
     items.add_meshing_parameters("PyTest_Lens_Size",
                                  pmx.create.selection_by_ids('geometry', 'parts', 'parts', [part.id]),
-                                 relative_size=False, max_size=size, min_size=size / 10)
+                                 relative_size=False, max_size=size, min_size=size / 10, second_order=second_order)
     names = ["PyTest_Lens_Size"]
     for edge_id, count in pins:
         name = "PyTest_Lens_Pin_" + str(edge_id)
@@ -142,7 +177,11 @@ def mesh(part, recombine, size, pins=(), submapped=True):
                                                                     {part.id: [edge_id]}), number_of_elements=count)
         names.append(name)
     selection = pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [part.id])
-    items.add_shell_gmsh("PyTest_Lens", selection, algorithm_recombine=recombine, transfinite_submapped=submapped)
+    if algorithm_2d is None:
+        items.add_shell_gmsh("PyTest_Lens", selection, algorithm_recombine=recombine, transfinite_submapped=submapped)
+    else:
+        items.add_shell_gmsh("PyTest_Lens", selection, algorithm_2d=algorithm_2d, algorithm_recombine=recombine,
+                             transfinite_submapped=submapped)
     names.append("PyTest_Lens")
     start = time.time()
     try:
@@ -169,10 +208,12 @@ class FaceMesh(object):
         node_counts = [int(n) for n in data.node_counts]
         index = dict((int(element_id), i) for i, element_id in enumerate(data.ids))
         self.elements = []
+        self.node_counts = []
         for element_id in meshed[0].get_element_ids():
             i = index[int(element_id)]
             corners = 4 if node_counts[i] in (4, 8) else 3
             self.elements.append(connectivity[offsets[i]:offsets[i] + corners])
+            self.node_counts.append(node_counts[i])
 
     def kinds(self):
         quads = sum(1 for e in self.elements if len(e) == 4)
@@ -295,13 +336,18 @@ def describe(face):
 
 # Plots ----------------------------------------------------------------------------------------------------------------
 def plot(file_name, title, face):
-    """The elements in the x-z plane of the shapes; quads blue, triangles orange, inner nodes without four quads red."""
+    """The elements seen along the axis of the smallest extent of the part, the x-z plane of the planar shapes; quads
+    blue, triangles orange, inner nodes without four quads red."""
     if not PLOT_DIR:
         return
     if not os.path.isdir(PLOT_DIR):
         os.makedirs(PLOT_DIR)
-    xs = [face.xyz[node][0] for node in face.used_nodes()]
-    ys = [face.xyz[node][2] for node in face.used_nodes()]
+    points = [face.xyz[node] for node in face.used_nodes()]
+    extents = [max(p[k] for p in points) - min(p[k] for p in points) for k in range(3)]
+    axis = extents.index(min(extents))
+    i0, i1 = [k for k in range(3) if k != axis]
+    xs = [face.xyz[node][i0] for node in face.used_nodes()]
+    ys = [face.xyz[node][i1] for node in face.used_nodes()]
     scale = 700.0 / max(max(xs) - min(xs), max(ys) - min(ys))
     width, height = int((max(xs) - min(xs)) * scale + 40), int((max(ys) - min(ys)) * scale + 70)
     bitmap = Bitmap(width, height)
@@ -313,7 +359,7 @@ def plot(file_name, title, face):
 
     def to_image(node):
         p = face.xyz[node]
-        return PointF(float(20 + (p[0] - min(xs)) * scale), float(height - 20 - (p[2] - min(ys)) * scale))
+        return PointF(float(20 + (p[i0] - min(xs)) * scale), float(height - 20 - (p[i1] - min(ys)) * scale))
 
     for element in face.elements:
         polygon = Array[PointF]([to_image(node) for node in element])
@@ -329,16 +375,24 @@ def plot(file_name, title, face):
 
 
 # Checks ---------------------------------------------------------------------------------------------------------------
+def number_of_corners(name):
+    return 0 if name in NO_CORNER else 1 if name in ONE_CORNER else 2
+
+
 def check_detection(parts):
-    """Every shape is a two-sided lens face, and the submapped ones are submapped faces as well."""
+    """Every shape is one lens face of its number of corners, and the submapped ones are submapped faces as well."""
     for name in SHELLS:
         lenses, submapped = detected(parts[name])
-        two = sum(1 for face in lenses if face.NumberOfSides == 2)
+        corners = number_of_corners(name)
+        kind = sum(1 for face in lenses if face.NumberOfSides == corners)
         lens_ids = set(face.FaceId for face in lenses)
         submapped_lenses = sum(1 for face in submapped if face.FaceId in lens_ids)
-        print(name + ": two-sided lens faces", two, "submapped lens faces", submapped_lenses)
-        check(len(lenses) == 1 and two == 1, "the " + name + " is detected as " + str(len(lenses)) + " lens faces, " +
-              str(two) + " two-sided")
+        if corners == 2:
+            print(name + ": two-sided lens faces", kind, "submapped lens faces", submapped_lenses)
+        else:
+            print(name + ": lens faces of " + str(corners) + " corners", kind, "submapped lens faces", submapped_lenses)
+        check(len(lenses) == 1 and kind == 1, "the " + name + " is detected as " + str(len(lenses)) + " lens faces, " +
+              str(kind) + " of " + str(corners) + " corners")
         expected = 1 if name in SUBMAPPED_LENSES else 0
         check(submapped_lenses == expected, "the " + name + " has " + str(submapped_lenses) + " submapped lens faces")
 
@@ -353,8 +407,10 @@ def check_shapes(parts, size):
     for name in SHELLS:
         part = parts[name]
         dx = SPACING * SHELLS.index(name)
-        expected_irregular = 0 if (name, size) in SUBMAPPED_GRIDS else 2
+        submapped_grid = (name, size) in SUBMAPPED_GRIDS
+        expected_irregular = 0 if submapped_grid else IRREGULAR[number_of_corners(name)]
         row = None
+        simple_quads = None
         for recombine in RECOMBINATIONS:
             seconds = mesh(part, recombine, size)
             face = FaceMesh(part.name)
@@ -363,6 +419,14 @@ def check_shapes(parts, size):
             check(len(messages) == 0, title + " wrote: " + str(messages))
             quads, triangles = face.kinds()
             quality = min_scaled_jacobian(face)
+            shortest, longest = face.edge_lengths()
+            if recombine == "None":
+                check(quads == 0 and triangles == 2 * simple_quads and quality > 0, title + " has " +
+                      str(face.kinds()) + ", not two triangles per quad of Simple (" + str(simple_quads) + "), worst " +
+                      "scaled Jacobian " + str(quality))
+                print(title + ":", face.kinds(), "worst scaled Jacobian", round(quality, 3), "edges",
+                      round(shortest, 2), "-", round(longest, 2), "in", round(seconds, 3), "s")
+                continue
             irregular = irregular_inner_nodes(face.elements)
             valence = valences(face.elements)
             check(triangles == 0 and len(irregular) == expected_irregular and
@@ -370,7 +434,18 @@ def check_shapes(parts, size):
                   title + " has " + str(face.kinds()) + " and the irregular inner nodes " +
                   str(sorted(valence[node] for node in irregular)) + ", not " + str(expected_irregular) + " of 3")
             check(quality >= FLOOR, title + " has a corner of the scaled Jacobian " + str(quality))
-            shortest, longest = face.edge_lengths()
+            if recombine == "Simple":
+                simple_quads = quads
+            if submapped_grid and recombine in ("Simple", "AllQuad"):
+                check(quads == SUBMAPPED_GRIDS[(name, size)], title + " has " + str(quads) + " quads, not the " +
+                      str(SUBMAPPED_GRIDS[(name, size)]) + " of its submapped grid")
+            if recombine == "SimpleFullQuad":
+                boundary = boundary_nodes(face.elements)
+                check(len(boundary) % 2 == 0, title + " has an odd boundary of " + str(len(boundary)))
+                print(title + ":", face.kinds(), "irregular", len(irregular), "worst scaled Jacobian",
+                      round(quality, 3), "edges", round(shortest, 2), "-", round(longest, 2), "in", round(seconds, 3),
+                      "s")
+                continue
             words = ""
             if name in THIN:
                 sides = face.side_counts(on_chord)
@@ -431,6 +506,50 @@ def check_pins(parts):
     check(len(messages) == 1 and messages[0].startswith("Lens mapping:") and "is meshed free" in messages[0] and
           quality > 0, "the " + name + " with its arcs set to 13 and 11 must be meshed free with the lens message " +
           "and no fold: " + str(messages) + ", " + str(quality))
+    # The disc of one closed edge set to an odd total and to fewer than 8 elements
+    name = "disc"
+    part = parts[name]
+    circle = edge_ids(part)[0][0]
+    for count, words in ((13, "which must be even"), (6, "fewer than 8")):
+        mesh(part, "Simple", SIZES[0], pins=[(circle, count)])
+        face = FaceMesh(part.name)
+        messages = output_messages(part.name)
+        quality = min_scaled_jacobian(face)
+        irregular = irregular_inner_nodes(face.elements)
+        print(name + " with its circle set to " + str(count) + " elements:", face.kinds(), "irregular",
+              len(irregular), "boundary", len(face.boundary_segments()), messages)
+        check(len(face.boundary_segments()) == count and len(messages) == 1 and
+              messages[0].startswith("Lens mapping:") and "is meshed free" in messages[0] and words in messages[0] and
+              quality > 0, "the " + name + " with its circle set to " + str(count) + " must be meshed free with the " +
+              "lens message and no fold: " + str(messages) + ", " + str(quality))
+        check(face.kinds()[1] > 0 or len(irregular) != 4, "the " + name + " with its circle set to " + str(count) +
+              " is still a lens grid")
+
+
+def check_second_order(parts):
+    part = parts["disc"]
+    mesh(part, "Simple", SIZES[0], second_order=True)
+    face = FaceMesh(part.name)
+    irregular = irregular_inner_nodes(face.elements)
+    check(all(count == 8 for count in face.node_counts) and len(irregular) == 4,
+          "the second order disc has elements of " + str(set(face.node_counts)) + " nodes and " + str(len(irregular)) +
+          " irregular inner nodes")
+    print("disc: second order lens face of", len(face.elements), "quads of 8 nodes")
+
+
+def check_quasi_structured(parts):
+    part = parts["disc"]
+    for recombine in ("Simple", "AllQuad"):
+        mesh(part, recombine, SIZES[0], algorithm_2d="QuasiStructuredQuad")
+        face = FaceMesh(part.name)
+        messages = output_messages(part.name)
+        quads, triangles = face.kinds()
+        print("disc with QuasiStructuredQuad and " + recombine + ":", face.kinds(), "irregular",
+              len(irregular_inner_nodes(face.elements)), messages)
+        check(not any(message.startswith("Lens mapping:") for message in messages), "the disc with " +
+              "QuasiStructuredQuad and " + recombine + " wrote " + str(messages))
+        check(quads > 0 and triangles == 0, "the disc with QuasiStructuredQuad and " + recombine + " has " +
+              str(face.kinds()))
 
 
 def main():
@@ -445,6 +564,8 @@ def main():
     for row in rows:
         print(" | ".join(str(v) for v in row))
     check_pins(parts)
+    check_second_order(parts)
+    check_quasi_structured(parts)
     print("TEST PASSED")
 
 

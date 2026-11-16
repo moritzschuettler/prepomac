@@ -23,13 +23,14 @@
 #    lie within half a node spacing of the 45 degree directions about its centre. The two half circles turned by 30
 #    degrees give the mesh of the two on the axis, up to the spacing of the nodes. The discs, the annulus and the
 #    elliptic hole are not detected: a round outer loop is left free, and an ellipse is not round. The disc of one
-#    closed edge is meshed free without a message, the disc of two half circles, a face with no corner and two
-#    vertices, as a lens face (Test_Model_Meshing_Lens: quads only, four inner nodes of three quads and no other inner
-#    node without four, no message), and the annulus and the elliptic hole, faces of two loops, as rings
-#    (Test_Model_Meshing_Ring) of as many quads as recorded.
+#    closed edge and the disc of two half circles, faces with no corner, are meshed as lens faces
+#    (Test_Model_Meshing_Lens_Planar: quads only, four inner nodes of three quads and no other inner node without four,
+#    no message), and the annulus and the elliptic hole, faces of two loops, as rings (Test_Model_Meshing_Ring) of as
+#    many quads as recorded.
 #  - The slot-shaped plate at the element size 1.5: its half circles carry 20 elements or more, the quad at either end
-#    of a half circle turns by 180 degrees less 180 degrees over that count, below the floor, so the mesher leaves it
-#    free and says so, while the detection, which leaves those corners out, still takes it.
+#    of a half circle turns by 180 degrees less 180 degrees over that count, below the floor, so the mesher refuses its
+#    submapped grid, while the detection, which leaves those corners out, still takes it; a face with no corner, it is
+#    then laid as a lens face on the counts of the submapping, without a message.
 #  - The round hole that leaves walls of 7 mm at the element size 10 keeps a cell between it and the border.
 #  - Pinned counts: 10 elements on the closed edge of the round hole and on a half circle of the slot are not a
 #    multiple of four and leave the face free with a message naming the edge; 6 elements on one half circle of the
@@ -69,8 +70,8 @@ SHEAR = math.tan(math.radians(15))
 SHELLS = ["round hole", "two halves", "turned halves", "four quarters", "off-centre round", "four bolt holes",
           "L with round hole", "slot along", "slot across", "slot plate", "round and rectangle", "sheared round",
           "disc", "annulus", "elliptic hole", "coarse border", "disc of halves"]
-FREE = ["disc"]
-LENSES = ["disc of halves"]
+FREE = []
+LENSES = ["disc", "disc of halves"]
 # The faces no lattice can take that are meshed as rings (Test_Model_Meshing_Ring), by their quads
 RINGS = {"annulus": 78, "elliptic hole": 240}
 SOLIDS = ["plate round", "L bracket", "plate slot", "plate four holes", "round and square"]
@@ -443,11 +444,14 @@ def check_slot_plate_fine(parts):
     mesh(part, max_size=1.5)
     face = FaceMesh(part.name)
     messages = submapping_messages(part.name)
-    print("slot plate at the element size 1.5:", face.kinds(), messages)
+    irregular = irregular_inner_nodes(face.elements)
+    valence = valences(face.elements)
+    print("slot plate at the element size 1.5:", face.kinds(), "irregular", len(irregular), messages)
     check(len(detected_faces(part)) == 1, "the slot plate must be detected")
-    check(is_free(face) and len(messages) == 1 and "is meshed free" in messages[0] and "scaled Jacobian" in messages[0],
-          "the fine slot plate must fall back in the mesher with a message: " + str(messages))
-    plot("round_slot_plate_fine", "slot plate at 1.5: free " + str(face.kinds()), face.elements, face.uv)
+    check("triangle" not in face.kinds() and len(irregular) == 4 and all(valence[node] == 3 for node in irregular) and
+          len(messages) == 0, "the fine slot plate must fall back in the mesher to a lens grid without a message: " +
+          str(face.kinds()) + ", " + str(len(irregular)) + " irregular inner nodes, " + str(messages))
+    plot("round_slot_plate_fine", "slot plate at 1.5: a lens face " + str(face.kinds()), face.elements, face.uv)
 
 
 def check_pins(parts):

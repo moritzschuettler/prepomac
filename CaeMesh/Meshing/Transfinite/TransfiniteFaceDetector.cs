@@ -426,16 +426,30 @@ namespace CaeMesh
         }
         /// <summary>
         /// Orders the edges of a face head to tail into one loop. A face with a hole, an edge inside it, a closed
-        /// edge or a seam has edges that do not make one simple loop, and has none.
+        /// edge or a seam has edges that do not make one simple loop, and has none; with allowClosedEdge a face bounded
+        /// by one closed edge alone has the loop of that edge and its one vertex.
         /// </summary>
         internal static bool GetBoundaryLoop(VisualizationData vis, int[] faceEdgeIds,
                                             Dictionary<int, int[]> edgeIdVertexIds,
-                                            out int[] loopEdgeIds, out int[] loopVertexIds)
+                                            out int[] loopEdgeIds, out int[] loopVertexIds,
+                                            bool allowClosedEdge = false)
         {
             loopEdgeIds = null;
             loopVertexIds = null;
             //
             int[] vertexIds;
+            if (allowClosedEdge && faceEdgeIds.Length == 1)
+            {
+                if (!edgeIdVertexIds.TryGetValue(faceEdgeIds[0], out vertexIds))
+                {
+                    vertexIds = vis.GetVertexNodeIdsForEdgeId(faceEdgeIds[0]);
+                    edgeIdVertexIds.Add(faceEdgeIds[0], vertexIds);
+                }
+                if (vertexIds.Length != 2 || vertexIds[0] != vertexIds[1]) return false;
+                loopEdgeIds = new int[] { faceEdgeIds[0] };
+                loopVertexIds = new int[] { vertexIds[0] };
+                return true;
+            }
             Dictionary<int, List<int>> vertexIdEdgeIds = new Dictionary<int, List<int>>();
             foreach (var edgeId in faceEdgeIds)
             {
@@ -485,7 +499,8 @@ namespace CaeMesh
         /// the vertex, unless the interior angle of the face there, the sum of the angles of its cells at the vertex,
         /// differs from it by more than _maxInteriorAngleDifferenceDeg - a reentrant vertex, whose edges leave it at
         /// 360° less its interior angle, or the apex of a cone or the pole of a sphere, round which the face turns by
-        /// more or less than its edges show - then the interior angle. Null when an edge has no direction.
+        /// more or less than its edges show - then the interior angle. Null when an edge has no direction. A loop of
+        /// one closed edge has the angle between the two ends of that edge at its vertex.
         /// </summary>
         internal static double[] GetLoopAnglesDeg(FeMesh mesh, VisualizationData vis, int faceId, int[] loopEdgeIds,
                                                   int[] loopVertexIds)
@@ -494,7 +509,7 @@ namespace CaeMesh
             double[] anglesDeg = new double[n];
             for (int k = 0; k < n; k++)
             {
-                double[] incoming = GetEdgeTangent(mesh, vis, loopEdgeIds[(k + n - 1) % n], loopVertexIds[k]);
+                double[] incoming = GetEdgeTangent(mesh, vis, loopEdgeIds[(k + n - 1) % n], loopVertexIds[k], n == 1);
                 double[] outgoing = GetEdgeTangent(mesh, vis, loopEdgeIds[k], loopVertexIds[k]);
                 anglesDeg[k] = GetAngleDeg(incoming, outgoing);
                 if (double.IsNaN(anglesDeg[k])) return null;
@@ -518,20 +533,25 @@ namespace CaeMesh
             return angleDeg >= 360 - transfiniteAngleDeg - _cornerAngleToleranceDeg;
         }
         /// <summary>
-        /// The direction an edge leaves one of its vertices in, read off the edge cell at that vertex.
+        /// The direction an edge leaves one of its vertices in, read off the edge cell at that vertex; with last, off
+        /// the last such cell: the other end of a closed edge.
         /// </summary>
-        private static double[] GetEdgeTangent(FeMesh mesh, VisualizationData vis, int edgeId, int vertexNodeId)
+        private static double[] GetEdgeTangent(FeMesh mesh, VisualizationData vis, int edgeId, int vertexNodeId,
+                                               bool last = false)
         {
             double[] vertex = mesh.Nodes[vertexNodeId].Coor;
+            double[] tangent = new double[3];
             foreach (var cellId in vis.EdgeCellIdsByEdge[edgeId])
             {
                 int[] cell = vis.EdgeCells[cellId];
                 double[] other = null;
                 if (cell[0] == vertexNodeId) other = mesh.Nodes[cell[cell.Length - 1]].Coor;
                 else if (cell[cell.Length - 1] == vertexNodeId) other = mesh.Nodes[cell[0]].Coor;
-                if (other != null) return new double[] { other[0] - vertex[0], other[1] - vertex[1], other[2] - vertex[2] };
+                if (other == null) continue;
+                tangent = new double[] { other[0] - vertex[0], other[1] - vertex[1], other[2] - vertex[2] };
+                if (!last) return tangent;
             }
-            return new double[3];
+            return tangent;
         }
         private static double GetAngleDeg(double[] a, double[] b)
         {

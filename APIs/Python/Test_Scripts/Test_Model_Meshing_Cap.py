@@ -37,7 +37,8 @@
 #    (fewer than eight); 9 on the seam give 9 on the seam; 3 leave it free with a message (no ring).
 #  - Second order: the hemisphere with Simple is quads of 8 nodes only, a cap.
 #  - The parts of several faces: every cap and every tube in them structured with one N round on the circles they
-#    share, the disc of the closed cone meshed free, quads only under AllQuad and the full-quad recombinations; the
+#    share, the disc of the closed cone a lens face of no corner (Test_Model_Meshing_Lens_Planar), quads only under
+#    every recombination (meshed free before the lens faces of no corner, with triangles under Simple); the
 #    pressure vessel has no irregular inner node but the eight block corners.
 #  - The faces that are no caps are not detected and are meshed exactly as with transfinite_submapped=False, but for
 #    the half dome, which is a lens face (Test_Model_Meshing_Lens): quads only, two inner nodes of three quads and no

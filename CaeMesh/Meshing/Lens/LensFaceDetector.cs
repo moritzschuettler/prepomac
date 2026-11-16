@@ -15,11 +15,12 @@ namespace CaeMesh
 {
     /// <summary>
     /// Finds the faces of a part that are meshed as lens faces: one boundary loop whose vertices, by the angles of
-    /// TransfiniteFaceDetector.GetLoopAnglesDeg, are exactly two corners (the transfinite angle or sharper) and flat
-    /// joints, or no corner and exactly two vertices. A reentrant vertex leaves the face out. An edge of a length below
-    /// 1E-9 times the square root of the face area, a degenerate edge, is left out first. Such a face is never three-
-    /// or four-sided, a ring, a tube or a cap; the submapping may claim it, which then keeps it. Where the poles of the
-    /// surface lie, and the quality of the grid, are judged by GmshLensMesher on the surface itself.
+    /// TransfiniteFaceDetector.GetLoopAnglesDeg, are two corners (the transfinite angle or sharper), one corner or
+    /// none, and flat joints otherwise; a loop of one closed edge, a disc, has one vertex. A reentrant vertex leaves the
+    /// face out. An edge of a length below 1E-9 times the square root of the face area, a degenerate edge, is left out
+    /// first. Such a face is never three- or four-sided, a ring, a tube or a cap; the submapping may claim it, which
+    /// then keeps it. Where the poles of the surface lie, and the quality of the grid, are judged by GmshLensMesher on
+    /// the surface itself.
     /// </summary>
     public static class LensFaceDetector
     {
@@ -53,12 +54,12 @@ namespace CaeMesh
                                                    .Where(edgeId => vis.EdgeLengths[edgeId] >
                                                                     MaxDegenerateLength * faceSize)
                                                    .ToArray();
-            if (edgeIds.Length < 2) return null;
+            if (edgeIds.Length < 1) return null;
             //
             int[] loopEdgeIds;
             int[] loopVertexIds;
             if (!TransfiniteFaceDetector.GetBoundaryLoop(vis, edgeIds, edgeIdVertexIds, out loopEdgeIds,
-                                                         out loopVertexIds)) return null;
+                                                         out loopVertexIds, true)) return null;
             int n = loopEdgeIds.Length;
             double[] anglesDeg = TransfiniteFaceDetector.GetLoopAnglesDeg(mesh, vis, faceId, loopEdgeIds,
                                                                           loopVertexIds);
@@ -70,9 +71,9 @@ namespace CaeMesh
                 if (TransfiniteFaceDetector.IsReentrant(anglesDeg[k], transfiniteAngleDeg)) return null;
                 if (anglesDeg[k] <= maxCornerAngleDeg) corners.Add(k);
             }
-            if (corners.Count == 0 && n == 2)
+            if (corners.Count == 0)
                 return new LensFace(faceId, loopVertexIds.ToArray(), loopEdgeIds.ToArray(), new int[0]);
-            if (corners.Count != 2) return null;
+            if (corners.Count > 2) return null;
             // The loop from the first corner
             int start = corners[0];
             int[] vertexIds = new int[n];
@@ -82,7 +83,8 @@ namespace CaeMesh
                 vertexIds[k] = loopVertexIds[(start + k) % n];
                 loopEdges[k] = loopEdgeIds[(start + k) % n];
             }
-            return new LensFace(faceId, vertexIds, loopEdges, new int[] { 0, corners[1] - start });
+            int[] cornerIndices = corners.Count == 1 ? new int[] { 0 } : new int[] { 0, corners[1] - start };
+            return new LensFace(faceId, vertexIds, loopEdges, cornerIndices);
         }
     }
 }

@@ -46,6 +46,8 @@ namespace CaeMesh
         private const int NumOfSmoothingSweeps = 50;
         private const int SplitSearchWidth = 3;
         private const int MinPieceSideCount = 2;
+        private const int MaxNumOfLineStarts = 4;
+        private static readonly double[] CornerCutShares = new double[] { 0.25, 0.3, 0.35 };
 
 
         // Properties                                                                                                               
@@ -152,11 +154,237 @@ namespace CaeMesh
             return LaySplit(sideA, sideB, splitA, splitB, numOfLineElements, out reason);
         }
         /// <summary>
-        /// Lays the grid of a face with no corner and two vertices, whose side A runs from vertex 0 to vertex 1 and
-        /// side B back: a line between the two vertices splits it into two two-sided faces, each split as LayTwoSided
-        /// splits one, whose lines meet it at one node.
+        /// Lays the grid of a face with no corner, whose loop runs through the given node ids from its first node back
+        /// to it, by a first line between two nodes of the loop (LayZeroSided). The line runs between two poles of the
+        /// surface among the vertices, the given node ids; with one pole from it to the node opposite it by length;
+        /// otherwise from each of the first MaxNumOfLineStarts vertices and from the node farthest from the centroid of
+        /// the loop to the node opposite each, and the grid that is best in space once smoothed is laid (LayBest).
         /// </summary>
-        public bool LayZeroSided(int[] sideA, int[] sideB, out string reason)
+        public bool LayNoCorner(int[] loop, int[] vertexNodeIds, out string reason)
+        {
+            double[] fractions = GetLengthFractions(loop);
+            List<int> poles = vertexNodeIds.Where(IsPole).Select(nodeId => Array.IndexOf(loop, nodeId)).ToList();
+            List<int[]> lines = new List<int[]>();
+            if (poles.Count >= 2) lines.Add(new int[] { poles[0], poles[1] });
+            else
+            {
+                List<int> starts = new List<int>(poles);
+                if (poles.Count == 0)
+                {
+                    starts.AddRange(vertexNodeIds.Take(MaxNumOfLineStarts)
+                                                 .Select(nodeId => Array.IndexOf(loop, nodeId)));
+                    starts.Add(GetFarthestNode(loop));
+                }
+                foreach (var start in starts)
+                {
+                    int end = GetOppositeNode(fractions, start);
+                    if (end < 0 || lines.Any(line => line.Contains(start) && line.Contains(end))) continue;
+                    lines.Add(new int[] { start, end });
+                }
+            }
+            if (lines.Count == 0)
+            {
+                reason = "no line across it leaves " + LensFace.MinNumberOfElementsPerSide + " elements of its loop " +
+                         "on either side, with " + (loop.Length - 1) + " on its loop";
+                return false;
+            }
+            return LayBest(lines, line => LayLoopSplit(loop, line[0], line[1]), out reason);
+        }
+        /// <summary>
+        /// Lays the grid of a face with one corner, whose loop runs through the given node ids from the corner back to
+        /// it: a cut line from the node P at the share t of the length of the loop from the corner to the node Q at the
+        /// same share from its other end leaves a three-sided piece at the corner - the loop from the corner to P, the
+        /// line, the loop from Q back to the corner - and a two-sided rest, the loop from P to Q and the line back,
+        /// laid as LayTwoSided lays one. Each of the shares CornerCutShares is tried (ChooseCornerCut), and the grid
+        /// that is best in space once smoothed is laid (LayBest).
+        /// </summary>
+        public bool LayOneCorner(int[] loop, out string reason)
+        {
+            double[] fractions = GetLengthFractions(loop);
+            List<int[]> cuts = new List<int[]>();
+            foreach (var share in CornerCutShares)
+            {
+                int[] cut = ChooseCornerCut(loop, fractions, share);
+                if (cut != null && !cuts.Any(other => other.SequenceEqual(cut))) cuts.Add(cut);
+            }
+            if (cuts.Count == 0)
+            {
+                reason = "no line across its corner carries a number of elements that the piece at the corner and " +
+                         "the rest can take, with " + (loop.Length - 1) + " on its loop";
+                return false;
+            }
+            return LayBest(cuts, cut => LayCornerCut(loop, cut), out reason);
+        }
+        /// <summary>
+        /// Lays each candidate by lay, which returns null when it laid it and the reason otherwise, smooths it (Smooth)
+        /// and judges it in space (Judge), and takes the grid back off; then lays again the one with the fewest folded
+        /// quads and, of as few, the best worst scaled Jacobian. The reason is that of the first candidate refused when
+        /// none is laid.
+        /// </summary>
+        private bool LayBest(List<int[]> candidates, Func<int[], string> lay, out string reason)
+        {
+            if (candidates.Count == 1)
+            {
+                reason = lay(candidates[0]);
+                return reason == null;
+            }
+            reason = null;
+            int[] state = GetState();
+            int best = -1;
+            int bestNumOfFoldedQuads = 0;
+            double bestMinScaledJacobian = 0;
+            for (int c = 0; c < candidates.Count; c++)
+            {
+                string candidateReason = lay(candidates[c]);
+                if (candidateReason == null)
+                {
+                    Smooth();
+                    int numOfFoldedQuads;
+                    double minScaledJacobian = Judge(out numOfFoldedQuads);
+                    numOfFoldedQuads = Math.Max(numOfFoldedQuads, _numOfFoldedQuads);
+                    if (best < 0 || numOfFoldedQuads < bestNumOfFoldedQuads ||
+                        (numOfFoldedQuads == bestNumOfFoldedQuads && minScaledJacobian > bestMinScaledJacobian))
+                    {
+                        best = c;
+                        bestNumOfFoldedQuads = numOfFoldedQuads;
+                        bestMinScaledJacobian = minScaledJacobian;
+                    }
+                }
+                else if (reason == null) reason = candidateReason;
+                Restore(state);
+            }
+            if (best < 0) return false;
+            reason = lay(candidates[best]);
+            return reason == null;
+        }
+        // Lays the face of the loop split by a first line between the nodes at the positions start and end of the loop
+        private string LayLoopSplit(int[] loop, int start, int end)
+        {
+            int m = loop.Length - 1;
+            int[] sideA = Enumerable.Range(0, (end - start + m) % m + 1).Select(d => loop[(start + d) % m]).ToArray();
+            int[] sideB = Enumerable.Range(0, (start - end + m) % m + 1).Select(d => loop[(end + d) % m]).ToArray();
+            string reason;
+            return LayZeroSided(sideA, sideB, out reason) ? null : reason;
+        }
+        // Lays the piece at the corner and the rest of a face with one corner, cut by the line from node cut[0] of the
+        // loop to node cut[1] of cut[2] elements
+        private string LayCornerCut(int[] loop, int[] cut)
+        {
+            int p = cut[0];
+            int q = cut[1];
+            int[] line = LayLine(loop[p], loop[q], cut[2]);
+            string reason;
+            int[][] piece = new int[][] { loop.Take(p + 1).ToArray(), line, loop.Skip(q).ToArray() };
+            if (!MapPiece(piece, out reason)) return reason;
+            int[] rest = loop.Skip(p).Take(q - p + 1).ToArray();
+            if (!LayTwoSided(rest, line.Reverse().ToArray(), out reason)) return reason;
+            return null;
+        }
+        /// <summary>
+        /// The cut line across the corner of a face with one corner at the given share of the length of its loop from
+        /// either end, as the positions p and q of its ends in the loop and its number of elements n: the nodes nearest
+        /// the share moved by the fewest positions, within SplitSearchWidth, that leave a three-sided piece at the
+        /// corner valid for three blocks of quads (TransfiniteSideTriple.AreCountsValid, its sides at the corner of
+        /// MinPieceSideCount elements at least) and LensFace.MinNumberOfElementsPerSide elements at least on the line
+        /// and on the loop from p to q; n the valid number nearest the length of the line over the mean of the four
+        /// boundary edges at its ends, as ChooseSplit chooses it. Null when there is none.
+        /// </summary>
+        private int[] ChooseCornerCut(int[] loop, double[] fractions, double share)
+        {
+            int m = loop.Length - 1;
+            int p0 = 1;
+            int q0 = 1;
+            for (int i = 1; i < m; i++)
+            {
+                if (Math.Abs(fractions[i] - share) < Math.Abs(fractions[p0] - share)) p0 = i;
+                if (Math.Abs(fractions[i] - (1 - share)) < Math.Abs(fractions[q0] - (1 - share))) q0 = i;
+            }
+            int[] best = null;
+            int bestChange = 0;
+            double bestScore = 0;
+            for (int p = p0 - SplitSearchWidth; p <= p0 + SplitSearchWidth; p++)
+            {
+                for (int q = q0 - SplitSearchWidth; q <= q0 + SplitSearchWidth; q++)
+                {
+                    if (p < MinPieceSideCount || m - q < MinPieceSideCount ||
+                        q - p < LensFace.MinNumberOfElementsPerSide) continue;
+                    int change = Math.Abs(p - p0) + Math.Abs(q - q0);
+                    if (best != null && change > bestChange) continue;
+                    double meanLength = (GetDistance(loop[p - 1], loop[p]) + GetDistance(loop[p], loop[p + 1]) +
+                                         GetDistance(loop[q - 1], loop[q]) + GetDistance(loop[q], loop[q + 1])) / 4;
+                    double target = Math.Max(1, GetLineLength(loop[p], loop[q]) / meanLength);
+                    int n = -1;
+                    for (int candidate = LensFace.MinNumberOfElementsPerSide; candidate < p + m - q; candidate++)
+                    {
+                        if (!TransfiniteSideTriple.AreCountsValid(new int[] { p, candidate, m - q })) continue;
+                        if (n < 0 || Math.Abs(candidate - target) < Math.Abs(n - target)) n = candidate;
+                    }
+                    if (n < 0) continue;
+                    double score = Math.Abs(n - target) / target;
+                    if (best == null || change < bestChange || score < bestScore)
+                    {
+                        best = new int[] { p, q, n };
+                        bestChange = change;
+                        bestScore = score;
+                    }
+                }
+            }
+            return best;
+        }
+        // The position in the closed loop of the node nearest half the length of the loop from the node at the position
+        // start that leaves LensFace.MinNumberOfElementsPerSide elements on either part of the loop; -1 for none
+        private static int GetOppositeNode(double[] fractions, int start)
+        {
+            int m = fractions.Length - 1;
+            int end = -1;
+            double endDifference = double.MaxValue;
+            for (int d = LensFace.MinNumberOfElementsPerSide; d <= m - LensFace.MinNumberOfElementsPerSide; d++)
+            {
+                int j = (start + d) % m;
+                double share = fractions[j] - fractions[start];
+                if (share < 0) share += 1;
+                if (Math.Abs(share - 0.5) < endDifference)
+                {
+                    end = j;
+                    endDifference = Math.Abs(share - 0.5);
+                }
+            }
+            return end;
+        }
+        // The position in the closed loop of the node farthest in space from the centroid of the nodes of the loop
+        private int GetFarthestNode(int[] loop)
+        {
+            int m = loop.Length - 1;
+            double[] centroid = new double[3];
+            for (int i = 0; i < m; i++)
+            {
+                for (int c = 0; c < 3; c++) centroid[c] += _xyz[loop[i]][c] / m;
+            }
+            int farthest = 0;
+            for (int i = 1; i < m; i++)
+            {
+                if (GmshPoleChart.GetDistance(_xyz[loop[i]], centroid) >
+                    GmshPoleChart.GetDistance(_xyz[loop[farthest]], centroid)) farthest = i;
+            }
+            return farthest;
+        }
+        // The numbers of nodes, of quads and of quads folded in their plane, to which Restore takes the grid back
+        private int[] GetState()
+        {
+            return new int[] { _xyz.Count, _quads.Count, _numOfFoldedQuads };
+        }
+        private void Restore(int[] state)
+        {
+            RemoveNodesFrom(state[0]);
+            _quads.RemoveRange(state[1], _quads.Count - state[1]);
+            _numOfFoldedQuads = state[2];
+        }
+        /// <summary>
+        /// Lays the grid of a face with no corner split by its first line into two parts of its loop, side A from the
+        /// start of the line to its end and side B back: the line splits it into two two-sided faces, each split as
+        /// LayTwoSided splits one, whose lines meet it at one node.
+        /// </summary>
+        private bool LayZeroSided(int[] sideA, int[] sideB, out string reason)
         {
             reason = null;
             int a = sideA.Length - 1;
@@ -205,8 +433,8 @@ namespace CaeMesh
                 }
                 RemoveNodesFrom(mark);
             }
-            reason = "no line between its vertices and from its edges carries a number of elements that the " +
-                     "pieces can take, with " + a + " and " + (sideB.Length - 1) + " on its edges";
+            reason = "no line across it and from its loop to that line carries a number of elements that the " +
+                     "pieces can take, with " + a + " and " + (sideB.Length - 1) + " on the parts of its loop";
             return false;
         }
         /// <summary>

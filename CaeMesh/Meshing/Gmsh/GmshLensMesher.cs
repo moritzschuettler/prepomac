@@ -18,14 +18,16 @@ namespace CaeMesh
     /// <summary>
     /// Meshes a lens face (LensFace) on the nodes of its edges: gmsh supplies the nodes its edges carry, their
     /// parameters on the surface and the evaluation of the surface. A two-sided face is split by one inner line into
-    /// two three-sided pieces of three blocks of quads each, a face with no corner first by a line between its vertices
-    /// (GmshLensGrid); the nodes inside the face are then smoothed together where that leaves the grid no worse
-    /// (GmshLensGrid.Smooth). The face is meshed once gmsh has meshed the edges and before it meshes the surfaces,
-    /// which it then leaves as it is (Mesh.MeshOnlyEmpty); elements already on it are replaced, as when the face is
-    /// the fallback of a submapped face whose grid was refused. Counts the pieces cannot take, a grid that folds or one
-    /// with a quad corner below SubmapFaceDetector.MinScaledJacobian, measured in space against the normal of the
-    /// surface (at a pole against the normal of the quad), leave the face to gmsh. Also lays the three-sided faces with
-    /// a pole of their surface at a corner, mapped in the chart of the pole.
+    /// two three-sided pieces of three blocks of quads each, a face with no corner first by a line between two nodes
+    /// of its loop into two two-sided faces, a face with one corner by a line across the corner into a three-sided
+    /// piece and a two-sided rest (GmshLensGrid); the nodes inside the face are then smoothed together where that
+    /// leaves the grid no worse (GmshLensGrid.Smooth). The face is meshed once gmsh has meshed the edges and before
+    /// it meshes the surfaces, which it then leaves as it is (Mesh.MeshOnlyEmpty); elements already on it are
+    /// replaced, as when the face is the fallback of a submapped face whose grid was refused. Counts the pieces
+    /// cannot take, a grid that folds or one with a quad corner below SubmapFaceDetector.MinScaledJacobian, measured
+    /// in space against the normal of the surface (at a pole against the normal of the quad), leave the face to
+    /// gmsh. Also lays the three-sided faces with a pole of their surface at a corner, mapped in the chart of the
+    /// pole.
     /// </summary>
     public static class GmshLensMesher
     {
@@ -45,19 +47,31 @@ namespace CaeMesh
         {
             reason = null;
             GmshLensGrid grid = new GmshLensGrid(face.FaceId);
+            int n = face.EdgeIds.Length;
             int[] vertexNodeIds;
             int[][] sides;
             try
             {
-                int[] starts = face.SideStartIndices;
-                int n = face.EdgeIds.Length;
-                int[][] sideEdgeIds = face.SideEdgeIds;
-                int[][] sideVertexIds = new int[2][];
-                for (int k = 0; k < 2; k++)
+                int[][] sideEdgeIds;
+                int[][] sideVertexIds;
+                if (face.NumberOfSides == 2)
                 {
-                    int end = k == 0 ? starts[1] : n;
-                    sideVertexIds[k] = Enumerable.Range(starts[k], end - starts[k] + 1)
-                                                 .Select(i => face.VertexNodeIds[i % n]).ToArray();
+                    int[] starts = face.SideStartIndices;
+                    sideEdgeIds = face.SideEdgeIds;
+                    sideVertexIds = new int[2][];
+                    for (int k = 0; k < 2; k++)
+                    {
+                        int end = k == 0 ? starts[1] : n;
+                        sideVertexIds[k] = Enumerable.Range(starts[k], end - starts[k] + 1)
+                                                     .Select(i => face.VertexNodeIds[i % n]).ToArray();
+                    }
+                }
+                else
+                {
+                    // The whole loop as one side from its first vertex, the corner of a face with one, back to it
+                    sideEdgeIds = new int[][] { face.EdgeIds };
+                    sideVertexIds = new int[][] { Enumerable.Range(0, n + 1).Select(i => face.VertexNodeIds[i % n])
+                                                            .ToArray() };
                 }
                 AddLoop(grid, face.FaceId, sideVertexIds, sideEdgeIds, true, out vertexNodeIds, out sides);
                 grid.SetBoundary(vertexNodeIds);
@@ -67,21 +81,33 @@ namespace CaeMesh
                 reason = ToReason(ex.Message);
                 return false;
             }
-            int a = sides[0].Length - 1;
-            int b = sides[1].Length - 1;
-            if ((a + b) % 2 != 0)
+            int total = sides.Sum(side => side.Length - 1);
+            if (total % 2 != 0)
             {
-                reason = "its edges carry " + (a + b) + " elements in all, which must be even";
+                reason = "its edges carry " + total + " elements in all, which must be even";
                 return false;
             }
-            if (Math.Min(a, b) < LensFace.MinNumberOfElementsPerSide)
+            bool laid;
+            if (face.NumberOfSides == 2)
             {
-                reason = "a side carries " + Math.Min(a, b) + " elements, fewer than " +
-                         LensFace.MinNumberOfElementsPerSide;
+                int a = sides[0].Length - 1;
+                int b = sides[1].Length - 1;
+                if (Math.Min(a, b) < LensFace.MinNumberOfElementsPerSide)
+                {
+                    reason = "a side carries " + Math.Min(a, b) + " elements, fewer than " +
+                             LensFace.MinNumberOfElementsPerSide;
+                    return false;
+                }
+                laid = grid.LayTwoSided(sides[0], sides[1], out reason);
+            }
+            else if (total < LensFace.MinNumberOfElementsInLoop)
+            {
+                reason = "its edges carry " + total + " elements in all, fewer than " +
+                         LensFace.MinNumberOfElementsInLoop;
                 return false;
             }
-            bool laid = face.NumberOfSides == 2 ? grid.LayTwoSided(sides[0], sides[1], out reason) :
-                                                  grid.LayZeroSided(sides[0], sides[1], out reason);
+            else if (face.NumberOfSides == 1) laid = grid.LayOneCorner(sides[0], out reason);
+            else laid = grid.LayNoCorner(sides[0], vertexNodeIds, out reason);
             if (!laid) return false;
             grid.Smooth();
             if (!Judge(grid, true, out reason)) return false;

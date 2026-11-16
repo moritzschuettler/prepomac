@@ -4744,8 +4744,8 @@ namespace CaeMesh
             return capFaces.ToArray();
         }
         /// <summary>
-        /// The lens faces of the shells with gmsh topology ids. A face with two corners or none is never one of the
-        /// structured faces found before but a submapped one, which the submapping keeps.
+        /// The lens faces of the shells with gmsh topology ids. A face with two corners, one or none is never one of
+        /// the structured faces found before but a submapped one, which the submapping keeps.
         /// </summary>
         private LensFace[] GetLensFacesForGmsh(string[] partNames, GmshSetupItem gmshSetupItem)
         {
