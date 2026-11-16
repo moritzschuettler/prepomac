@@ -522,6 +522,14 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_set_base_pass_suspended(vtkn_view view, int32_t suspended)
+    {
+        return GuardVtk([&]() {
+            View::FromHandle(view)->SetBasePassSuspended(suspended != 0);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_set_actor_batching(vtkn_view view, int32_t enabled)
     {
         return GuardVtk([&]() {

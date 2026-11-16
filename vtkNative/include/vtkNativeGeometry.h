@@ -357,6 +357,10 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_set_lighting(vtkn_view view, double amb
    of multisampled */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_ambient_occlusion(vtkn_view view, int32_t enabled,
                                                                 double relative_radius, int32_t kernel_size);
+/* While suspended the base layer is drawn without its passes, the ambient occlusion and the depth sorting, whose
+   framebuffers are several times the size of the window and are allocated again at every new size. A window that is
+   being resized is drawn so; a picture ends the suspension */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_base_pass_suspended(vtkn_view view, int32_t suspended);
 /* The actors of vtkn_view_add_actor in the base layer that are not parts and look the same are drawn by one mapper
    (on by default); off draws every actor by itself, for comparing. The counts are the batches and the actors drawn
    by them as of the last render */

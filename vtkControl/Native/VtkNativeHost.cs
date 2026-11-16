@@ -20,6 +20,7 @@ namespace vtkControl.Native
     {
         // Variables
         private VtkNativeView _view;
+        private readonly Timer _resizeSettledTimer;
 
 
         // Events
@@ -36,6 +37,9 @@ namespace vtkControl.Native
         public VtkNativeHost()
         {
             SetStyle(ControlStyles.Opaque | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint, true);
+            _resizeSettledTimer = new Timer();
+            _resizeSettledTimer.Interval = 300;
+            _resizeSettledTimer.Tick += ResizeSettledTimer_Tick;
         }
 
 
@@ -58,6 +62,7 @@ namespace vtkControl.Native
         }
         protected override void OnHandleDestroyed(EventArgs e)
         {
+            _resizeSettledTimer.Stop();
             if (_view != null)
             {
                 _view.Dispose();
@@ -70,9 +75,29 @@ namespace vtkControl.Native
             base.OnResize(e);
             if (_view != null && ClientSize.Width > 0 && ClientSize.Height > 0)
             {
+                // The ambient occlusion and the depth sorting allocate their framebuffers, several times the size of
+                // the window, again at every size, which takes far longer than the render itself; the window is drawn
+                // without them until its size settles
+                _view.SetBasePassSuspended(true);
                 _view.SetSize(ClientSize.Width, ClientSize.Height);
-                _view.Render();
+                _resizeSettledTimer.Stop();
+                _resizeSettledTimer.Start();
+                // A drag raises many resize events; the paint they invalidate is merged into one render of the model
+                Invalidate();
             }
+        }
+        private void ResizeSettledTimer_Tick(object sender, EventArgs e)
+        {
+            _resizeSettledTimer.Stop();
+            if (_view == null) return;
+            //
+            _view.SetBasePassSuspended(false);
+            Invalidate();
+        }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) _resizeSettledTimer.Dispose();
+            base.Dispose(disposing);
         }
         protected override void OnPaint(PaintEventArgs e)
         {

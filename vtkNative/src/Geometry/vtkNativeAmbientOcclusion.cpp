@@ -260,7 +260,7 @@ namespace vtkn
         SsaoPass = nullptr;
         bool depthSorting = HasTranslucentFaces();
         if (depthSorting) MarkPropsForDepthSorting();
-        if (AmbientOcclusion || depthSorting)
+        if ((AmbientOcclusion || depthSorting) && !BasePassSuspended)
         {
             BasePass& basePass = BasePasses[AmbientOcclusion ? 1 : 0][depthSorting ? 1 : 0];
             if (basePass.Pass == nullptr) basePass = CreateBasePass(AmbientOcclusion, depthSorting);
@@ -275,7 +275,7 @@ namespace vtkn
             if (previousPass != nullptr) previousPass->ReleaseGraphicsResources(RenderWindow);
         }
         // vtkSSAOPass clears its own framebuffer only when this flag is set
-        Renderer->SetUseSSAO(AmbientOcclusion);
+        Renderer->SetUseSSAO(SsaoPass != nullptr);
         UpdateAmbientOcclusionRadius();
         ApplySupersampledPixelSizes();
     }
@@ -284,6 +284,7 @@ namespace vtkn
     // once the pass follows the scene
     void View::UpdateBasePassForPicture()
     {
+        BasePassSuspended = false;
         if (RenderWindow->GetNeverRendered()) RenderWindow->Render();
         RenderWindow->MakeCurrent();
         UpdateBasePass();
