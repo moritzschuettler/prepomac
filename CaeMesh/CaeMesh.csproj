@@ -172,9 +172,11 @@
     <Compile Include="Meshing\Gmsh\GmshSizeGrading.cs" />
     <Compile Include="Meshing\Gmsh\GmshQuadMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshRingMesher.cs" />
+    <Compile Include="Meshing\Gmsh\GmshSeamGridMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshSubmapMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockPrism.cs" />
+    <Compile Include="Meshing\Gmsh\GmshTubeMesher.cs" />
     <Compile Include="Meshing\MeshTypeEnum.cs" />
     <Compile Include="Meshing\Netgen\NetgenKernelIds.cs" />
     <Compile Include="Meshing\Netgen\NetgenTransfiniteFile.cs" />
@@ -198,6 +200,8 @@
     <Compile Include="Meshing\Submap\SubmapHolePlacement.cs" />
     <Compile Include="Meshing\Submap\SubmapSeparation.cs" />
     <Compile Include="Meshing\Submap\SubmapMapping.cs" />
+    <Compile Include="Meshing\Tube\TubeFace.cs" />
+    <Compile Include="Meshing\Tube\TubeFaceDetector.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepImprintPairing.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepWallTopology.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepMeshData.cs" />

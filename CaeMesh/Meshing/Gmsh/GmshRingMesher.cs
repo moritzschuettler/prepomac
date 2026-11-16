@@ -114,8 +114,8 @@ namespace CaeMesh
         /// The nodes gmsh meshed around one loop, edge by edge from its vertices, the last node of an edge being the first
         /// of the next and not repeated.
         /// </summary>
-        private static void GetLoopNodes(int surfaceId, int[] vertexIds, int[] edgeIds, out List<IntPtr> tags,
-                                         out List<double[]> xyz)
+        internal static void GetLoopNodes(int surfaceId, int[] vertexIds, int[] edgeIds, out List<IntPtr> tags,
+                                          out List<double[]> xyz)
         {
             tags = new List<IntPtr>();
             xyz = new List<double[]>();

@@ -1109,7 +1109,17 @@ the distance between the loops over the element size, at least one. Where the tw
 other one to one, each pair carries the same number, otherwise only the two loops do; a number of elements set on one
 loop carries over to the other, and numbers that make the two unequal leave the face free. A face that is both a ring
 and submapped is a ring when both the smallest and the mean distance between its loops are below 1.5 times the
-element size, a thin wall or ligament, and submapped otherwise. The counts leave room for every
+element size, a thin wall or ligament, and submapped otherwise. A face of `shell_gmsh` closed along exactly one seam
+between exactly two closed rims - a full cylinder, a cone frustum, a pipe bend, a surface of revolution or extrusion of
+a closed profile, also cut obliquely or with its rims split into several edges - is meshed as a tube, a ring that does
+not lie flat: both rims carry the same number of elements N, the seam M, node i of one rim is joined to node i of the
+other counted from the seam, and the face is N x M quads with no irregular node. The rims are balanced like the loops
+of a ring - edge by edge where their vertices lie at the same shares of the way round from the seam, by their totals
+otherwise - so a number set on one rim carries over to the other and numbers that make them unequal leave the face
+free; the seam keeps its own count or the one set on it. A face with a hole besides its rims, a face closed along two
+seams (a torus) and a face with a degenerate edge (a cone with its apex, a sphere) are no tubes, and a tube whose grid
+would fold or have a quad corner of a scaled Jacobian below 0.2 is meshed free; the output says why ("Tube mapping:
+Surface N is meshed free - reason"). The counts leave room for every
 hole and a row of elements on each side of it, so a wall thinner than the element size is one element thick, its
 elements along the outer edges shortened at a corner so that the corner element does not fold. Its edges are balanced
 together with the 3-sided and 4-sided faces, the edges
@@ -1129,9 +1139,9 @@ when the numbers of elements set on its edges make the grid impossible, and the 
 `algorithm_2d='QuadWild'` a submapped or ring source is left to gmsh.
 `algorithm_recombine` of a Gmsh item is `None`, `Simple`, `Blossom`, `SimpleFullQuad`, `BlossomFullQuad` or `AllQuad`.
 `AllQuad`, for `shell_gmsh`, meshes like `Blossom` - gmsh then gives every edge it meshes itself an even number of
-elements - and then turns every face gmsh meshed free - not transfinite, three-sided, submapped or a ring - into quads
-only on the boundary nodes gmsh placed, at the element size asked for: the triangles left are paired and merged into
-quads, its valences evened out and its nodes smoothed. Only an even number of
+elements - and then turns every face gmsh meshed free - not transfinite, three-sided, submapped, a ring or a tube -
+into quads only on the boundary nodes gmsh placed, at the element size asked for: the triangles left are paired and
+merged into quads, its valences evened out and its nodes smoothed. Only an even number of
 elements around a face allows quads only, so the edges of the free faces are balanced to an even total around each
 face where no number set on an edge or structured face holds them, giving way to everything else; the balance
 measures the edges as gmsh meshes them in the end. A face that still has an odd total keeps one triangle, and one on
@@ -1140,10 +1150,14 @@ conversion would not lower its number of triangles, would fold a quad or have a 
 that gmsh's own mesh does not have, and the output says why a face keeps triangles ("All-quad meshing: Surface N keeps
 M triangles - reason"). A face closed along a seam - a full cylinder, cone, torus or other surface of revolution or
 extrusion, with or without holes - is converted as well: it is cut open along its seams, and a seam does not count in
-the even total, since the face meets it on both sides. A face with a degenerate edge (the pole of a sphere, the apex
+the even total, since the face meets it on both sides. While `transfinite_submapped` is on, a face of one seam between
+two closed rims is a tube instead, quads with no irregular node, and only one the tube leaves free is converted. A face
+with a degenerate edge (the pole of a sphere, the apex
 of a cone), or an edge or point inside it is, for now, kept as gmsh meshed it. A face gmsh meshed with quads only has
 its valences evened out and its nodes smoothed in the same way, which is kept only when it leaves no more irregular inner nodes, no fold and no worse corner.
-Second order elements and the full-quad recombinations work as before; `tetrahedral_gmsh` takes `AllQuad`
+Second order elements and the full-quad recombinations work as before; gmsh refuses a full-quad recombination of a
+surface closed along a seam, so such a face fails the meshing under `SimpleFullQuad` and `BlossomFullQuad` unless it is
+a tube, which gmsh leaves unrecombined and the tube grid replaces, on even counts. `tetrahedral_gmsh` takes `AllQuad`
 as `Simple`, and a sweep meshes with it as with `Simple`. A recombined sweep turns its free sources into quads only in
 the same way by default, with no setting, and asks the sweep counts for an even total around each such source at the
 weakest tier, so that a block whose free source becomes quads only is swept into hexahedra only.

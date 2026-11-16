@@ -636,7 +636,7 @@ namespace CaeMesh
         /// On which side of its first segment from the vertex an edge has the face: 1 on the left, where a cell of the
         /// face runs through the segment in its own direction, -1 on the right, and 0 when no cell of the face holds it.
         /// </summary>
-        private static int GetFaceSide(VisualizationData vis, int faceId, int edgeId, int startNodeId)
+        internal static int GetFaceSide(VisualizationData vis, int faceId, int edgeId, int startNodeId)
         {
             List<int> nodeIds = GetEdgeNodeIds(vis, edgeId, startNodeId);
             if (nodeIds == null || nodeIds.Count < 2) return 0;

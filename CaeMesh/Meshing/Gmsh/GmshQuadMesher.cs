@@ -352,7 +352,7 @@ namespace CaeMesh
         /// Whether the edge named twice around the face is a seam that closes it along one of its parameters, which then
         /// changes by the period from one side of the seam to the other.
         /// </summary>
-        private static bool GetSeamPeriod(int surfaceId, int edgeId, out int direction, out double period)
+        internal static bool GetSeamPeriod(int surfaceId, int edgeId, out int direction, out double period)
         {
             direction = -1;
             period = 0;
@@ -687,7 +687,7 @@ namespace CaeMesh
             }
             return min;
         }
-        private static double[][] GetNormals(int surfaceId, double[][] uv)
+        internal static double[][] GetNormals(int surfaceId, double[][] uv)
         {
             double[] flatUv = new double[2 * uv.Length];
             for (int i = 0; i < uv.Length; i++)
@@ -708,8 +708,8 @@ namespace CaeMesh
         /// The sine of the angle at corner c of the element in space, negative where the corner turns against the normal
         /// of the surface at its node times the orientation; a triangle scaled so that 60 degrees count as 1.
         /// </summary>
-        private static double GetSpaceScaledJacobian(int[] element, int c, double[][] xyz, double[][] normals,
-                                                     double orientation)
+        internal static double GetSpaceScaledJacobian(int[] element, int c, double[][] xyz, double[][] normals,
+                                                      double orientation)
         {
             int n = element.Length;
             double[] p = xyz[element[c]];

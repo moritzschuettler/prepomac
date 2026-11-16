@@ -72,6 +72,8 @@ namespace CaeMesh
         [PmxKey(27)] public SubmapFace[] SubmapFaces;
         // Ring mapping: the faces RingFaceDetector found, by the same ids
         [PmxKey(28)] public RingFace[] RingFaces;
+        // Tube mapping: the faces TubeFaceDetector found on the shells, by the same ids
+        [PmxKey(29)] public TubeFace[] TubeFaces;
 
 
         // Constructors                                                                                                             

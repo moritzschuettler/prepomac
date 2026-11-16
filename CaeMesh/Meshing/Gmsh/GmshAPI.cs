@@ -40,6 +40,10 @@ namespace CaeMesh
         private List<SubmapFace> _submapFaces = new List<SubmapFace>();
         // The ring faces of a shell whose counts are balanced, meshed by RingMapping once gmsh has meshed the surfaces
         private List<RingFace> _ringFaces = new List<RingFace>();
+        // The tube faces of a shell whose counts are balanced, meshed by GmshTubeMesher once gmsh has meshed the surfaces,
+        // and the number of elements of the seam of each
+        private List<TubeFace> _tubeFaces = new List<TubeFace>();
+        private Dictionary<int, int> _tubeSeamNumOfElements = new Dictionary<int, int>();
         // The five-faced transfinite volumes whose three-sided caps are meshed as three blocks of quads, and the
         // volumes by hexahedra between them
         private List<GmshThreeBlockPrism> _threeBlockPrisms = new List<GmshThreeBlockPrism>();
@@ -265,7 +269,8 @@ namespace CaeMesh
                     // A shell is structured on the faces the one definition all meshers follow found
                     if (_isOCC && gsi is ShellGmsh && _gmshData.TransfiniteFaces != null)
                         SetTransfiniteShellFaces(_gmshData.TransfiniteFaces, _gmshData.SubmapFaces ?? new SubmapFace[0],
-                                                 _gmshData.RingFaces ?? new RingFace[0], IsFullQuad(algorithmRecombine),
+                                                 _gmshData.RingFaces ?? new RingFace[0],
+                                                 _gmshData.TubeFaces ?? new TubeFace[0], IsFullQuad(algorithmRecombine),
                                                  algorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad);
                     else if (_isOCC && (gsi.IsTransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
@@ -711,8 +716,19 @@ namespace CaeMesh
         private void ShellGmsh(GmshSetupItem gmshSetupItem, bool preview)
         {
             bool recombine = gmshSetupItem.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None;
-            // Recombine all
-            if (recombine) Gmsh.Option.SetNumber("Mesh.RecombineAll", 1);
+            // Recombine all. gmsh refuses a full-quad recombination of a periodic surface ("Full-quad recombination not
+            // ready yet for periodic surfaces"), so the tubes, whose mesh GmshTubeMesher replaces, are left out of it
+            if (recombine && IsFullQuad(gmshSetupItem.AlgorithmRecombine) && _tubeFaces.Count > 0)
+            {
+                HashSet<int> tubeSurfaceIds = new HashSet<int>(_tubeFaces.Select(face => face.FaceId));
+                Tuple<int, int>[] surfaceDimTags;
+                Gmsh.Model.GetEntities(out surfaceDimTags, 2);
+                foreach (var surfaceDimTag in surfaceDimTags)
+                {
+                    if (!tubeSurfaceIds.Contains(surfaceDimTag.Item2)) Gmsh.Model.Mesh.SetRecombine(2, surfaceDimTag.Item2);
+                }
+            }
+            else if (recombine) Gmsh.Option.SetNumber("Mesh.RecombineAll", 1);
             //
             if (preview) GenerateMesh(2);
             else GenerateMesh(2);
@@ -735,6 +751,12 @@ namespace CaeMesh
             {
                 if (GmshRingMesher.Mesh(face, recombine, out reason)) structuredSurfaceIds.Add(face.FaceId);
                 else WriteRingFreeMessage(face.FaceId, reason);
+            }
+            foreach (var face in _tubeFaces)
+            {
+                if (GmshTubeMesher.Mesh(face, _tubeSeamNumOfElements[face.FaceId], recombine, out reason))
+                    structuredSurfaceIds.Add(face.FaceId);
+                else WriteTubeFreeMessage(face.FaceId, reason);
             }
             // The all-quad recombination turns every face meshed free into quads only
             if (_isOCC && gmshSetupItem.AlgorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad)
@@ -1931,6 +1953,8 @@ namespace CaeMesh
                     _gmshData.SubmapFaces = RenumberSubmapFaces(_gmshData.SubmapFaces, pointIdMap, edgeIdMap, surfaceIdMap);
                 if (_gmshData.RingFaces != null)
                     _gmshData.RingFaces = RenumberRingFaces(_gmshData.RingFaces, pointIdMap, edgeIdMap, surfaceIdMap);
+                if (_gmshData.TubeFaces != null)
+                    _gmshData.TubeFaces = RenumberTubeFaces(_gmshData.TubeFaces, pointIdMap, edgeIdMap, surfaceIdMap);
             }
             // The messages name the entities by the tags they carry now. An error above still names them by the
             // tags they carried before, so the names follow only here
@@ -5733,15 +5757,19 @@ namespace CaeMesh
         /// of a ring that is not paired aim at their shares of the total of its other loop (GetRingTargetCounts). A face
         /// that is both submapped and a ring is a ring when its wall is thin against the maximum element size
         /// (IsThinRing), and submapped otherwise.
+        /// A tube face joins the balance as a ring does, by its two rims or the pairs of their edges, and is meshed by
+        /// GmshTubeMesher once gmsh has meshed it free; its seam carries the layers, whose number is free or the one set
+        /// on it, and is even under a full-quad recombination like the rims.
         /// Under the all-quad recombination every other face, which gmsh meshes free and GmshQuadMesher then turns into
         /// quads only, asks for an even number of elements around its boundary, at the weakest tier, so that it never
         /// changes a number the user set or a structured face. Only the edges of such faces whose count the balance
         /// changed are given that count; the others keep the mesh gmsh lays on them.
         /// </summary>
         private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces, SubmapFace[] submapFaces,
-                                              RingFace[] ringFaces, bool fullQuad, bool allQuad)
+                                              RingFace[] ringFaces, TubeFace[] tubeFaces, bool fullQuad, bool allQuad)
         {
-            if (transfiniteFaces.Length == 0 && submapFaces.Length == 0 && ringFaces.Length == 0 && !allQuad) return;
+            if (transfiniteFaces.Length == 0 && submapFaces.Length == 0 && ringFaces.Length == 0 && tubeFaces.Length == 0 &&
+                !allQuad) return;
             // A face both submapped and a ring is meshed as one of them
             HashSet<int> submapFaceIds = new HashSet<int>(submapFaces.Select(face => face.FaceId));
             HashSet<int> ringFaceIds = new HashSet<int>();
@@ -5779,6 +5807,13 @@ namespace CaeMesh
                     WriteRingFreeMessage(face.FaceId, "it carries an edge inside it");
                 else rings.Add(face);
             }
+            List<TubeFace> tubes = new List<TubeFace>();
+            foreach (var face in tubeFaces)
+            {
+                if (surfaceIdsWithInternalCurves.Contains(face.FaceId))
+                    WriteTubeFreeMessage(face.FaceId, "it carries an edge inside it");
+                else tubes.Add(face);
+            }
             // The edges around every face that may be meshed free, a seam left out, but for one with an edge inside it
             Dictionary<int, int[]> freeFaceLoopEdgeIds = new Dictionary<int, int[]>();
             if (allQuad)
@@ -5794,7 +5829,8 @@ namespace CaeMesh
                     if (loopEdgeIds != null && loopEdgeIds.Length > 0) freeFaceLoopEdgeIds.Add(surfaceDimTag.Item2, loopEdgeIds);
                 }
             }
-            if (faces.Count == 0 && submapped.Count == 0 && rings.Count == 0 && freeFaceLoopEdgeIds.Count == 0) return;
+            if (faces.Count == 0 && submapped.Count == 0 && rings.Count == 0 && tubes.Count == 0 &&
+                freeFaceLoopEdgeIds.Count == 0) return;
             // The numbers of elements the mesh size asks for, which the pinned edges already carry
             GenerateMesh(1);
             IntPtr[] nodeTags;
@@ -5802,6 +5838,7 @@ namespace CaeMesh
             foreach (var edgeId in faces.SelectMany(face => face.SideEdgeIds.SelectMany(side => side))
                                         .Concat(submapped.SelectMany(face => face.AllEdgeIds))
                                         .Concat(rings.SelectMany(face => face.AllEdgeIds))
+                                        .Concat(tubes.SelectMany(face => face.AllEdgeIds))
                                         .Concat(freeFaceLoopEdgeIds.Values.SelectMany(edgeIds => edgeIds)).Distinct())
             {
                 Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
@@ -5880,10 +5917,12 @@ namespace CaeMesh
                 HashSet<int> edgeIds = new HashSet<int>(transfiniteEdgeIds);
                 edgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
                 edgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
+                edgeIds.UnionWith(tubes.SelectMany(face => face.AllEdgeIds));
                 edgeIds.UnionWith(freeFaceLoopEdgeIds.Values.SelectMany(loopEdgeIds => loopEdgeIds));
                 HashSet<int> loopStructuredEdgeIds = new HashSet<int>(transfiniteEdgeIds);
                 loopStructuredEdgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
                 loopStructuredEdgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
+                loopStructuredEdgeIds.UnionWith(tubes.SelectMany(face => face.AllEdgeIds));
                 Dictionary<int, int> targetCounts = new Dictionary<int, int>(naturalCounts);
                 foreach (var edgeId in naturalCounts.Keys)
                 {
@@ -5897,8 +5936,13 @@ namespace CaeMesh
                         edgeIdCount[edgeId] = Math.Max(1, _gmshData.EdgeIdNumElements[edgeId]);
                     else edgeIdCount[edgeId] = targetCounts[edgeId];
                 }
-                // The edges of a ring that is not paired aim at their shares of the total of its other loop
-                foreach (var entry in GetRingTargetCounts(rings, edgeId => edgeIdCount[edgeId]))
+                // The edges of a ring or a tube that is not paired aim at their shares of the total of its other loop
+                IEnumerable<int[][]> unpairedLoops = rings.Where(face => !face.IsPaired)
+                                                          .Select(face => new int[][] { face.OuterEdgeIds, face.InnerEdgeIds })
+                                                          .Concat(tubes.Where(face => !face.IsPaired)
+                                                                       .Select(face => new int[][] { face.FirstRimEdgeIds,
+                                                                                                     face.SecondRimEdgeIds }));
+                foreach (var entry in GetLoopTargetCounts(unpairedLoops, edgeId => edgeIdCount[edgeId]))
                 {
                     if (pinnedEdgeIds.Contains(entry.Key)) continue;
                     targetCounts[entry.Key] = entry.Value;
@@ -5923,9 +5967,19 @@ namespace CaeMesh
                         allPairs.Add(pair);
                     }
                 }
+                Dictionary<TransfiniteSidePair, TubeFace> tubePairFaces = new Dictionary<TransfiniteSidePair, TubeFace>();
+                foreach (var face in tubes)
+                {
+                    foreach (var pair in face.GetSidePairs())
+                    {
+                        tubePairFaces.Add(pair, face);
+                        allPairs.Add(pair);
+                    }
+                }
                 HashSet<int> structuredFaceIds = new HashSet<int>(faces.Select(face => face.FaceId)
                                                                        .Concat(submapped.Select(face => face.FaceId))
-                                                                       .Concat(rings.Select(face => face.FaceId)));
+                                                                       .Concat(rings.Select(face => face.FaceId))
+                                                                       .Concat(tubes.Select(face => face.FaceId)));
                 HashSet<int> freeFaceEdgeIds = new HashSet<int>();
                 Tuple<int, int>[] boundaryDimTags;
                 foreach (var surfaceDimTag in surfaceDimTags)
@@ -5963,7 +6017,8 @@ namespace CaeMesh
                 }
                 if (fullQuad)
                 {
-                    foreach (var edgeId in rings.SelectMany(face => face.AllEdgeIds))
+                    foreach (var edgeId in rings.SelectMany(face => face.AllEdgeIds)
+                                                .Concat(tubes.SelectMany(face => face.AllEdgeIds)))
                     {
                         if (!edgeIdMultiples.ContainsKey(edgeId)) edgeIdMultiples[edgeId] = 2;
                     }
@@ -6052,11 +6107,31 @@ namespace CaeMesh
                                                "edges, and Edge " + face.AllEdgeIds.First(edgeId => edgeIdCount[edgeId] % 2 != 0) +
                                                " carries an odd number of elements");
                 }
+                // A tube likewise, by its rims and its seam
+                Dictionary<TubeFace, string> droppedTubes = new Dictionary<TubeFace, string>();
+                TubeFace unbalancedTube;
+                foreach (var pair in unbalanced)
+                {
+                    if (tubePairFaces.TryGetValue(pair, out unbalancedTube) && !droppedTubes.ContainsKey(unbalancedTube))
+                        droppedTubes.Add(unbalancedTube, unbalancedTube.GetUnequalCountReason(edgeIdCount) ??
+                                                         "the numbers of elements set on its edges leave its rims unequal");
+                }
+                foreach (var face in tubes)
+                {
+                    if (droppedTubes.ContainsKey(face)) continue;
+                    reason = face.GetUnequalCountReason(edgeIdCount);
+                    if (reason != null) droppedTubes.Add(face, reason);
+                    else if (fullQuad && face.AllEdgeIds.Any(edgeId => edgeIdCount[edgeId] % 2 != 0))
+                        droppedTubes.Add(face, "the full-quad recombination meshes it on every second node of its " +
+                                               "edges, and Edge " + face.AllEdgeIds.First(edgeId => edgeIdCount[edgeId] % 2 != 0) +
+                                               " carries an odd number of elements");
+                }
                 bool transfiniteUnbalanced = unbalancedTriples.Count > 0 ||
                                              unbalanced.Any(pair => !submapPairFaces.ContainsKey(pair) &&
-                                                                    !ringPairFaces.ContainsKey(pair));
-                if (dropped.Count == 0 && droppedRings.Count == 0 && transfiniteUnbalanced &&
-                    (submapped.Count > 0 || rings.Count > 0))
+                                                                    !ringPairFaces.ContainsKey(pair) &&
+                                                                    !tubePairFaces.ContainsKey(pair));
+                if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0 && transfiniteUnbalanced &&
+                    (submapped.Count > 0 || rings.Count > 0 || tubes.Count > 0))
                 {
                     foreach (var face in submapped)
                         dropped.Add(face, "its numbers of elements cannot agree with those of the structured faces " +
@@ -6064,8 +6139,11 @@ namespace CaeMesh
                     foreach (var face in rings)
                         droppedRings.Add(face, "its numbers of elements cannot agree with those of the structured faces " +
                                                "beside it");
+                    foreach (var face in tubes)
+                        droppedTubes.Add(face, "its numbers of elements cannot agree with those of the structured faces " +
+                                               "beside it");
                 }
-                if (dropped.Count == 0 && droppedRings.Count == 0) break;
+                if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0) break;
                 foreach (var face in submapped)
                 {
                     if (dropped.TryGetValue(face, out reason)) WriteSubmapFreeMessage(face.FaceId, reason);
@@ -6074,8 +6152,13 @@ namespace CaeMesh
                 {
                     if (droppedRings.TryGetValue(face, out reason)) WriteRingFreeMessage(face.FaceId, reason);
                 }
+                foreach (var face in tubes)
+                {
+                    if (droppedTubes.TryGetValue(face, out reason)) WriteTubeFreeMessage(face.FaceId, reason);
+                }
                 submapped = submapped.Where(face => !dropped.ContainsKey(face)).ToList();
                 rings = rings.Where(face => !droppedRings.ContainsKey(face)).ToList();
+                tubes = tubes.Where(face => !droppedTubes.ContainsKey(face)).ToList();
             }
             if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
                 throw new CaeException(GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
@@ -6083,10 +6166,14 @@ namespace CaeMesh
             //
             _submapFaces.AddRange(submapped);
             _ringFaces.AddRange(rings);
+            _tubeFaces.AddRange(tubes);
+            foreach (var face in tubes)
+                _tubeSeamNumOfElements[face.FaceId] = edgeIdCount[face.SeamEdgeId];
             Gmsh.Model.Mesh.Clear();
             HashSet<int> structuredEdgeIds = new HashSet<int>(transfiniteEdgeIds);
             structuredEdgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
             structuredEdgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
+            structuredEdgeIds.UnionWith(tubes.SelectMany(face => face.AllEdgeIds));
             foreach (var entry in edgeIdCount)
             {
                 if (!structuredEdgeIds.Contains(entry.Key) &&
@@ -6133,14 +6220,23 @@ namespace CaeMesh
         /// </summary>
         private static Dictionary<int, int> GetRingTargetCounts(IEnumerable<RingFace> ringFaces, Func<int, int> getCount)
         {
+            return GetLoopTargetCounts(ringFaces.Where(face => !face.IsPaired)
+                                                .Select(face => new int[][] { face.OuterEdgeIds, face.InnerEdgeIds }),
+                                       getCount);
+        }
+        /// <summary>
+        /// The numbers of elements the balance aims at on the edges of pairs of loops whose totals must be equal, as
+        /// GetRingTargetCounts gives them: the loops of the ring faces and the rims of the tube faces that are not paired.
+        /// </summary>
+        private static Dictionary<int, int> GetLoopTargetCounts(IEnumerable<int[][]> loopPairs, Func<int, int> getCount)
+        {
             Dictionary<int, int> targetCounts = new Dictionary<int, int>();
-            foreach (var face in ringFaces)
+            foreach (var loops in loopPairs)
             {
-                if (face.IsPaired) continue;
-                int outerTotal = face.OuterEdgeIds.Sum(getCount);
-                int innerTotal = face.InnerEdgeIds.Sum(getCount);
+                int outerTotal = loops[0].Sum(getCount);
+                int innerTotal = loops[1].Sum(getCount);
                 if (outerTotal == innerTotal) continue;
-                int[] edgeIds = outerTotal < innerTotal ? face.OuterEdgeIds : face.InnerEdgeIds;
+                int[] edgeIds = outerTotal < innerTotal ? loops[0] : loops[1];
                 double[] lengths = new double[edgeIds.Length];
                 for (int k = 0; k < edgeIds.Length; k++) Gmsh.Model.OCC.GetMass(1, edgeIds[k], out lengths[k]);
                 int[] counts = RingFaceDetector.GetProportionalCounts(lengths, Math.Max(outerTotal, innerTotal));
@@ -6302,6 +6398,10 @@ namespace CaeMesh
         private void WriteRingFreeMessage(int surfaceId, string reason)
         {
             _writeOutput?.Invoke(NameGmshEntities("Ring mapping: Surface " + surfaceId + " is meshed free - " + reason + "."));
+        }
+        private void WriteTubeFreeMessage(int surfaceId, string reason)
+        {
+            _writeOutput?.Invoke(NameGmshEntities("Tube mapping: Surface " + surfaceId + " is meshed free - " + reason + "."));
         }
         private bool IsPolar(TransfiniteFace face)
         {
@@ -6924,6 +7024,11 @@ namespace CaeMesh
                 _gmshData.RingFaces = RenumberRingFaces(_gmshData.RingFaces, netgenVertexIdGmshVertexId,
                                                         netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
             }
+            if (_gmshData.TubeFaces != null)
+            {
+                _gmshData.TubeFaces = RenumberTubeFaces(_gmshData.TubeFaces, netgenVertexIdGmshVertexId,
+                                                        netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
+            }
             // Defeature
             if (_gmshData.SurfaceIds != null)
             {
@@ -7030,6 +7135,9 @@ namespace CaeMesh
                                                                             face.AllEdgeIds.All(curveIds.Contains)).ToArray();
             if (_gmshData.RingFaces != null)
                 _gmshData.RingFaces = _gmshData.RingFaces.Where(face => surfaceIds.Contains(face.FaceId) &&
+                                                                        face.AllEdgeIds.All(curveIds.Contains)).ToArray();
+            if (_gmshData.TubeFaces != null)
+                _gmshData.TubeFaces = _gmshData.TubeFaces.Where(face => surfaceIds.Contains(face.FaceId) &&
                                                                         face.AllEdgeIds.All(curveIds.Contains)).ToArray();
             //
             _writeOutput?.Invoke("Sweep: the compound is symmetric across " + sweepMesh.SymmetryPlanes.Length +
@@ -7140,6 +7248,29 @@ namespace CaeMesh
                 if (outerVertexIds == null || outerEdgeIds == null || innerVertexIds == null || innerEdgeIds == null) continue;
                 renumbered.Add(new RingFace(surfaceId, outerVertexIds, outerEdgeIds, innerVertexIds, innerEdgeIds,
                                             face.IsPaired, face.MinLoopDistance, face.MeanLoopDistance));
+            }
+            return renumbered.ToArray();
+        }
+        // A tube face whose surface, vertices or edges gmsh does not have is not on the meshed part
+        private static TubeFace[] RenumberTubeFaces(TubeFace[] tubeFaces, Dictionary<int, int> netgenVertexIdGmshVertexId,
+                                                    Dictionary<int, int> netgenEdgeIdGmshEdgeId,
+                                                    Dictionary<int, int> netgenFaceIdGmshFaceId)
+        {
+            int surfaceId;
+            int seamEdgeId;
+            List<TubeFace> renumbered = new List<TubeFace>();
+            foreach (var face in tubeFaces)
+            {
+                if (!netgenFaceIdGmshFaceId.TryGetValue(face.FaceId, out surfaceId) ||
+                    !netgenEdgeIdGmshEdgeId.TryGetValue(face.SeamEdgeId, out seamEdgeId)) continue;
+                //
+                int[] firstVertexIds = RenumberIds(face.FirstRimVertexNodeIds, netgenVertexIdGmshVertexId);
+                int[] firstEdgeIds = RenumberIds(face.FirstRimEdgeIds, netgenEdgeIdGmshEdgeId);
+                int[] secondVertexIds = RenumberIds(face.SecondRimVertexNodeIds, netgenVertexIdGmshVertexId);
+                int[] secondEdgeIds = RenumberIds(face.SecondRimEdgeIds, netgenEdgeIdGmshEdgeId);
+                if (firstVertexIds == null || firstEdgeIds == null || secondVertexIds == null || secondEdgeIds == null) continue;
+                renumbered.Add(new TubeFace(surfaceId, seamEdgeId, firstVertexIds, firstEdgeIds, secondVertexIds,
+                                            secondEdgeIds, face.IsPaired));
             }
             return renumbered.ToArray();
         }

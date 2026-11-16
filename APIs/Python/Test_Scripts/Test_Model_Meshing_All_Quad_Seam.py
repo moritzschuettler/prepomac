@@ -4,7 +4,10 @@
 #Checks the all-quad recombination of a Gmsh shell on faces closed along a seam: GmshQuadMesher cuts such a face open
 #along its seams - a node on a seam appears once for every side of it, with the parameters of that side - converts the
 #cut face like any other free face and writes every node gmsh placed back once. The even total around such a face
-#counts every edge once but the seam, which the face meets on both sides.
+#counts every edge once but the seam, which the face meets on both sides. A face of one seam between two closed rims is
+#meshed as a structured tube while transfinite_submapped is on, so the meshings below turn it off
+#(transfinite_submapped=False) and the conversion meets the cylinder, the cone, the splines and the bend as before the
+#tubes; the tubes themselves are checked once with it on.
 #
 #  - all_quad_seam_faces.brep: one part per shape side by side - a cylinder of r 20 and 50 high, a pipe of r 20 and 60
 #    high with a hole of r 6 through its wall at 120 degrees from its seam, the same pipe with the hole across its
@@ -30,6 +33,11 @@
 #    of the odd total 49; 25 on one rim alone is balanced to an even total; 7 elements on the seam change neither
 #    verdict, since the seam does not count.
 #  - Second order: the pipe with the hole with AllQuad is quads of 8 nodes only.
+#  - Tubes: with transfinite_submapped on, at the element size 5 with AllQuad, the cylinder, the cone, the revolved and
+#    the extruded spline, the bend and the branch of the tee (closed along its seam between its top rim and the curve
+#    it meets the pipe along) are structured tubes - quads only, every rim node in two quads and every inner node in
+#    four, a worst scaled Jacobian of 0.2 at least, no message, the pipe of the tee quads only as well - and every other
+#    face is meshed exactly as with it off.
 #  The models were made by gmsh's OCC kernel through GmshCommon: lines, arcs, circles and B-splines revolved or
 #  extruded, the holes cut by fragmenting with a cylinder and removing the pieces inside it.
 #  With the environment variable PMX_QUAD_PLOT_DIR set, the meshes are written into that folder as PNG images, the
@@ -59,6 +67,7 @@ FLOOR = 0.2
 RIM_TOLERANCE = 1E-4
 SHELLS = ["cylinder", "pipe with hole", "hole on seam", "cone frustum", "torus with hole", "revolved spline", "sphere",
           "extruded spline", "pipe tee", "elbow"]
+TUBES = ["cylinder", "cone frustum", "revolved spline", "extruded spline", "elbow"]
 TWO_PI = 2 * math.pi
 # The axis of every shape: the x of the vertical axis through (x, 0) from the start of the part
 AXIS_X = {"cylinder": 20.0, "pipe with hole": 20.0, "hole on seam": 20.0, "cone frustum": 20.0,
@@ -106,8 +115,9 @@ def edges_by_length(part):
     return result
 
 
-def mesh(part, recombine, size, second_order=False, pins=()):
-    """Meshes the part by a shell item; pins are (edge id, number of elements). Returns the time the meshing took."""
+def mesh(part, recombine, size, second_order=False, pins=(), submapped=False):
+    """Meshes the part by a shell item; pins are (edge id, number of elements). Returns the time the meshing took. The
+    structured faces, tubes among them, are off unless submapped is set."""
     items = pmx.model.mesh.setup_items
     items.add_meshing_parameters("PyTest_Seam_Size", pmx.create.selection_by_ids('geometry', 'parts', 'parts',
                                                                                  [part.id]),
@@ -119,7 +129,7 @@ def mesh(part, recombine, size, second_order=False, pins=()):
                                                                     {part.id: [edge_id]}), number_of_elements=count)
         names.append(name)
     items.add_shell_gmsh("PyTest_Seam", pmx.create.selection_by_ids('geometry', 'geometry', 'parts', [part.id]),
-                         algorithm_recombine=recombine)
+                         algorithm_recombine=recombine, transfinite_submapped=submapped)
     names.append("PyTest_Seam")
     start = time.time()
     try:
@@ -501,6 +511,42 @@ def check_second_order(parts):
     print("pipe with hole: AllQuad of second order,", len(face.elements), "quads of 8 nodes")
 
 
+def check_tubes(parts):
+    """With the structured faces on, a face of one seam between two rims is a tube, every other face is converted as
+    with them off."""
+    for i, name in enumerate(SHELLS):
+        part = parts[name]
+        dx = SPACING * i
+        mesh(part, "AllQuad", SIZES[0])
+        before = FaceMesh(part.name)
+        mesh(part, "AllQuad", SIZES[0], submapped=True)
+        face = FaceMesh(part.name)
+        quads, triangles, quality, irregular = describe(face, name, dx)
+        messages = output_messages(part.name)
+        # The branch of the tee, closed along its seam between its top rim and the curve it meets the pipe along, is a
+        # tube of its own
+        elements = face.elements
+        if name == "pipe tee":
+            elements = [e for e in face.elements if on_branch(name, [face.xyz[node] for node in e], dx)]
+        valence = {}
+        for element in elements:
+            for node in element:
+                valence[node] = valence.get(node, 0) + 1
+        tube = all(len(e) == 4 for e in elements) and len(irregular_inner_nodes(elements)) == 0 and \
+            all(valence[node] == 2 for node in boundary_nodes(elements))
+        print(name + " with the structured faces on: tube", tube, "(" + str(len(elements)) + " elements)", quads, "quads",
+              triangles, "triangles, worst scaled Jacobian", round(quality, 3), "irregular", irregular, messages)
+        if name in TUBES or name == "pipe tee":
+            check(tube and triangles == 0 and quality >= FLOOR and len(messages) == 0,
+                  "the " + name + " is not meshed with a tube")
+        else:
+            check(face.kinds() == before.kinds() and face.points(face.used_nodes()) == before.points(before.used_nodes()),
+                  "the " + name + " is not meshed as with the structured faces off")
+        plot("all_quad_seam_tube_" + name.replace(" ", "_"), name + ", structured faces on: " + str(quads) + " quads, " +
+             str(triangles) + " triangles, worst SJ " + str(round(quality, 3)), name, face, dx,
+             seam_angle_of(name, part, dx))
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     parts = parts_by_x(SHELLS)
@@ -514,6 +560,7 @@ def main():
         print(" | ".join(str(v) for v in row))
     check_pins(parts)
     check_second_order(parts)
+    check_tubes(parts)
     print("TEST PASSED")
 
 

@@ -4563,6 +4563,7 @@ namespace CaeMesh
             {
                 gmshData.SubmapFaces = GetSubmapFacesForGmsh(partNames, shellGmsh, gmshData.TransfiniteFaces, null);
                 gmshData.RingFaces = GetRingFacesForGmsh(partNames, gmshData.TransfiniteFaces, null);
+                gmshData.TubeFaces = GetTubeFacesForGmsh(partNames);
             }
             // So are the sources of a sweep
             SweepMesh sweepMesh = gmshData.GmshSetupItems?.OfType<SweepMesh>().FirstOrDefault();
@@ -4688,6 +4689,34 @@ namespace CaeMesh
                 }
             }
             return ringFaces.ToArray();
+        }
+        /// <summary>
+        /// The tube faces of the shells with gmsh topology ids. A face closed along a seam is never one of the structured
+        /// faces found before.
+        /// </summary>
+        private TubeFace[] GetTubeFacesForGmsh(string[] partNames)
+        {
+            List<TubeFace> tubeFaces = new List<TubeFace>();
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                if (part.PartType != PartType.Shell) continue;
+                //
+                foreach (var face in TubeFaceDetector.Detect(this, part))
+                {
+                    int[] firstRimEdgeIds = new int[face.FirstRimEdgeIds.Length];
+                    for (int k = 0; k < firstRimEdgeIds.Length; k++)
+                        firstRimEdgeIds[k] = GmshTopologyId(face.FirstRimEdgeIds[k], part.PartId);
+                    int[] secondRimEdgeIds = new int[face.SecondRimEdgeIds.Length];
+                    for (int k = 0; k < secondRimEdgeIds.Length; k++)
+                        secondRimEdgeIds[k] = GmshTopologyId(face.SecondRimEdgeIds[k], part.PartId);
+                    tubeFaces.Add(new TubeFace(GmshTopologyId(face.FaceId, part.PartId),
+                                               GmshTopologyId(face.SeamEdgeId, part.PartId),
+                                               face.FirstRimVertexNodeIds.ToArray(), firstRimEdgeIds,
+                                               face.SecondRimVertexNodeIds.ToArray(), secondRimEdgeIds, face.IsPaired));
+                }
+            }
+            return tubeFaces.ToArray();
         }
         /// <summary>
         /// Finds the surfaces that two of the given parts have in common - the interfaces between the
@@ -5317,7 +5346,7 @@ namespace CaeMesh
         // Mesh types
         /// <summary>
         /// Which faces of a shell part are meshed by a structured grid, by the one definition all meshers follow, and
-        /// with submapped also the faces SubmapFaceDetector and RingFaceDetector find.
+        /// with submapped also the faces SubmapFaceDetector, RingFaceDetector and TubeFaceDetector find.
         /// </summary>
         public bool[] GetTransfiniteShellFaces(BasePart part, TransfiniteThreeSidedEnum threeSided, bool fourSided,
                                                double transfiniteAngleDeg, bool submapped = false)
@@ -5329,6 +5358,7 @@ namespace CaeMesh
                 foreach (var face in SubmapFaceDetector.Detect(this, part, transfiniteAngleDeg))
                     transfinite[face.FaceId] = true;
                 foreach (var face in RingFaceDetector.Detect(this, part)) transfinite[face.FaceId] = true;
+                foreach (var face in TubeFaceDetector.Detect(this, part)) transfinite[face.FaceId] = true;
             }
             return transfinite;
         }
