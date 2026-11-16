@@ -990,7 +990,6 @@
     </Compile>
     <Compile Include="Forms\FrmMain.Plotting.cs">
       <DependentUpon>FrmMain.cs</DependentUpon>
-      <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\FrmMain.Designer.cs">
       <DependentUpon>FrmMain.cs</DependentUpon>
