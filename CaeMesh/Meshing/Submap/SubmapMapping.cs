@@ -31,7 +31,7 @@ namespace CaeMesh
     /// which the logical coordinates are harmonic over the face instead. The outline is not convex, so neither map is
     /// sure not to fold: the harmonic one bunches its lattice lines at a corner of 270 degrees, the Winslow one much
     /// less. Folded quads are then untangled by moves that raise their worst corner, and the condition energy descent
-    /// of ThreeBlockMapping, run until it settles, evens out the quads without folding one. The quads turn the way the
+    /// of QuadSmoothing, run until it settles, evens out the quads without folding one. The quads turn the way the
     /// outer loop turns.
     /// When the grid still folds but the start did not, the start is relaxed instead by steps that never fold a quad.
     /// The arithmetic is plain and ordered, so that a port gives the same grid.
@@ -41,18 +41,8 @@ namespace CaeMesh
         // Variables                                                                                                                
         private const int MaxNumOfWinslowSweeps = 100;
         private const double WinslowTolerance = 1E-6;
-        private const int MaxNumOfUntangleSweeps = 100;
-        private const int NumOfUntangleStepTrials = 8;
-        private const int MaxNumOfDescentSweeps = 200;
-        private const int NumOfDescentStepTrials = 6;
-        private const double DescentStepFactor = 0.1;
-        private const double DescentMinImprovement = 1E-9;
-        private const int MaxNumOfGuardedSweeps = 500;
-        private const int NumOfGuardedStepTrials = 4;
-        private const double GuardedTolerance = 1E-10;
         private static readonly int[] DirectionI = new int[] { 1, 0, -1, 0 };
         private static readonly int[] DirectionJ = new int[] { 0, 1, 0, -1 };
-        private static readonly int[] CornerOffsets = new int[] { 0, 1, 3 };
 
 
         // Methods                                                                                                                  
@@ -445,25 +435,26 @@ namespace CaeMesh
             int[] cornerStart;
             int[] cornerQuads;
             int[] cornerIndices;
-            GetCorners(quadArray, numOfNodes, numOfBoundaryNodes, out cornerStart, out cornerQuads, out cornerIndices);
+            QuadSmoothing.GetCorners(quadArray, numOfNodes, numOfBoundaryNodes, out cornerStart, out cornerQuads,
+                                     out cornerIndices);
             double orientation = ThreeBlockMapping.GetSignedArea(points, numOfOuterNodes) < 0 ? -1 : 1;
-            int numOfStartFolds = CountFoldedQuads(points, quadArray, orientation);
-            double[][] start = CopyPoints(points);
+            int numOfStartFolds = QuadSmoothing.CountFoldedElements(points, quadArray, orientation);
+            double[][] start = QuadSmoothing.CopyPoints(points);
             ThreeBlockMapping.SolveBarycentricEmbedding(points, neighbours, numOfBoundaryNodes);
             SolveWinslow(points, nodeIds, logical, numOfBoundaryNodes, rowLength);
-            if (CountFoldedQuads(points, quadArray, orientation) > 0)
-                Untangle(points, neighbours, quadArray, cornerStart, cornerQuads, cornerIndices, numOfBoundaryNodes,
-                         orientation);
-            LowerConditionEnergy(points, neighbours, quadArray, cornerStart, cornerQuads, cornerIndices, numOfBoundaryNodes,
-                                 orientation);
-            int numOfFoldedQuads = CountFoldedQuads(points, quadArray, orientation);
+            if (QuadSmoothing.CountFoldedElements(points, quadArray, orientation) > 0)
+                QuadSmoothing.Untangle(points, neighbours, quadArray, cornerStart, cornerQuads, cornerIndices,
+                                       numOfBoundaryNodes, orientation);
+            QuadSmoothing.LowerConditionEnergy(points, neighbours, quadArray, cornerStart, cornerQuads, cornerIndices,
+                                               numOfBoundaryNodes, orientation);
+            int numOfFoldedQuads = QuadSmoothing.CountFoldedElements(points, quadArray, orientation);
             if (numOfFoldedQuads > 0 && numOfStartFolds == 0)
             {
-                RelaxWithoutFolding(start, neighbours, quadArray, numOfBoundaryNodes, orientation);
-                LowerConditionEnergy(start, neighbours, quadArray, cornerStart, cornerQuads, cornerIndices,
-                                     numOfBoundaryNodes, orientation);
+                QuadSmoothing.RelaxWithoutFolding(start, neighbours, quadArray, numOfBoundaryNodes, orientation);
+                QuadSmoothing.LowerConditionEnergy(start, neighbours, quadArray, cornerStart, cornerQuads, cornerIndices,
+                                                   numOfBoundaryNodes, orientation);
                 points = start;
-                numOfFoldedQuads = CountFoldedQuads(points, quadArray, orientation);
+                numOfFoldedQuads = QuadSmoothing.CountFoldedElements(points, quadArray, orientation);
             }
             //
             double[][] innerUv = new double[numOfInnerNodes][];
@@ -487,7 +478,7 @@ namespace CaeMesh
             }
             return new SubmapGrid(edgeDirectionList.ToArray(), edgeCountList.ToArray(), loopNumOfEdges, logical.ToArray(),
                                   innerUv, innerXyz, quadArray, numOfFoldedQuads,
-                                  GetMinScaledJacobian(points, quadArray, orientation));
+                                  QuadSmoothing.GetMinScaledJacobian(points, quadArray, orientation));
         }
         /// <summary>
         /// Places every inner node at the mean of the two lattice lines through it, along i and along j, each a straight
@@ -546,73 +537,6 @@ namespace CaeMesh
         {
             double f = (double)(t - ta) / (tb - ta);
             return new double[] { a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f };
-        }
-        /// <summary>
-        /// Moves the nodes after the boundary ones, in turn and sweep after sweep, towards the mean of their neighbours,
-        /// by the whole way or by a half, a quarter or an eighth of it, whichever first folds none of their quads, until
-        /// no node moves by more than the tolerance; a grid that does not fold stays so.
-        /// </summary>
-        private static void RelaxWithoutFolding(double[][] points, int[][] neighbours, int[][] quads,
-                                                int numOfBoundaryNodes, double orientation)
-        {
-            int numOfNodes = points.Length;
-            int[] quadStart = new int[numOfNodes + 1];
-            foreach (var quad in quads)
-            {
-                for (int c = 0; c < 4; c++) quadStart[quad[c] + 1]++;
-            }
-            for (int n = 0; n < numOfNodes; n++) quadStart[n + 1] += quadStart[n];
-            int[] nodeQuads = new int[quadStart[numOfNodes]];
-            int[] fill = (int[])quadStart.Clone();
-            for (int q = 0; q < quads.Length; q++)
-            {
-                for (int c = 0; c < 4; c++) nodeQuads[fill[quads[q][c]]++] = q;
-            }
-            double minX = double.MaxValue;
-            double maxX = double.MinValue;
-            double minY = double.MaxValue;
-            double maxY = double.MinValue;
-            for (int b = 0; b < numOfBoundaryNodes; b++)
-            {
-                minX = Math.Min(minX, points[b][0]);
-                maxX = Math.Max(maxX, points[b][0]);
-                minY = Math.Min(minY, points[b][1]);
-                maxY = Math.Max(maxY, points[b][1]);
-            }
-            double tolerance = GuardedTolerance * Math.Max(maxX - minX, maxY - minY);
-            //
-            for (int sweep = 0; sweep < MaxNumOfGuardedSweeps; sweep++)
-            {
-                double maxMove = 0;
-                for (int node = numOfBoundaryNodes; node < numOfNodes; node++)
-                {
-                    double[] point = points[node];
-                    double x0 = point[0];
-                    double y0 = point[1];
-                    double meanX = 0;
-                    double meanY = 0;
-                    foreach (var neighbour in neighbours[node])
-                    {
-                        meanX += points[neighbour][0];
-                        meanY += points[neighbour][1];
-                    }
-                    meanX /= neighbours[node].Length;
-                    meanY /= neighbours[node].Length;
-                    double fraction = 1;
-                    for (int trial = 0; trial < NumOfGuardedStepTrials; trial++)
-                    {
-                        point[0] = x0 + (meanX - x0) * fraction;
-                        point[1] = y0 + (meanY - y0) * fraction;
-                        if (!IsAnyQuadFolded(points, quads, nodeQuads, quadStart[node], quadStart[node + 1], orientation))
-                            break;
-                        point[0] = x0;
-                        point[1] = y0;
-                        fraction *= 0.5;
-                    }
-                    maxMove = Math.Max(maxMove, Math.Max(Math.Abs(point[0] - x0), Math.Abs(point[1] - y0)));
-                }
-                if (maxMove <= tolerance) break;
-            }
         }
         /// <summary>
         /// Moves the inner nodes, in turn and sweep after sweep, to where the discrete Winslow equations put them: the
@@ -680,251 +604,6 @@ namespace CaeMesh
                 }
                 if (maxMove <= tolerance) break;
             }
-        }
-        /// <summary>
-        /// Moves the inner nodes of folded quads, in turn and sweep after sweep, by a pattern search that only takes a
-        /// step when it raises the smallest scaled Jacobian of the quad corners the node changes, until no quad folds
-        /// or no node moves.
-        /// </summary>
-        internal static void Untangle(double[][] points, int[][] neighbours, int[][] quads, int[] cornerStart,
-                                     int[] cornerQuads, int[] cornerIndices, int numOfBoundaryNodes, double orientation)
-        {
-            int numOfNodes = points.Length;
-            double[][] directions = GetSearchDirections();
-            //
-            for (int sweep = 0; sweep < MaxNumOfUntangleSweeps; sweep++)
-            {
-                bool folded = false;
-                bool moved = false;
-                for (int node = numOfBoundaryNodes; node < numOfNodes; node++)
-                {
-                    double current = GetMinScaledJacobian(points, quads, cornerStart, cornerQuads, cornerIndices, node,
-                                                          orientation);
-                    if (current > 0) continue;
-                    folded = true;
-                    double[] point = points[node];
-                    double length = 0;
-                    foreach (var neighbour in neighbours[node])
-                    {
-                        double dx = points[neighbour][0] - point[0];
-                        double dy = points[neighbour][1] - point[1];
-                        length += Math.Sqrt(dx * dx + dy * dy);
-                    }
-                    double step = 0.5 * length / neighbours[node].Length;
-                    for (int trial = 0; trial < NumOfUntangleStepTrials; trial++)
-                    {
-                        double x0 = point[0];
-                        double y0 = point[1];
-                        double best = current + 1E-12;
-                        int bestDirection = -1;
-                        for (int d = 0; d < directions.Length; d++)
-                        {
-                            point[0] = x0 + directions[d][0] * step;
-                            point[1] = y0 + directions[d][1] * step;
-                            double q = GetMinScaledJacobian(points, quads, cornerStart, cornerQuads, cornerIndices, node,
-                                                            orientation);
-                            if (q > best)
-                            {
-                                best = q;
-                                bestDirection = d;
-                            }
-                        }
-                        if (bestDirection >= 0)
-                        {
-                            point[0] = x0 + directions[bestDirection][0] * step;
-                            point[1] = y0 + directions[bestDirection][1] * step;
-                            current = best;
-                            moved = true;
-                        }
-                        else
-                        {
-                            point[0] = x0;
-                            point[1] = y0;
-                            step *= 0.5;
-                        }
-                    }
-                }
-                if (!folded || !moved) break;
-            }
-        }
-        /// <summary>
-        /// The condition energy descent of ThreeBlockMapping.LowerConditionEnergy, step for step, but with more sweeps,
-        /// and visiting a node only when it or a node of its quads moved since its last visit; any other visit would
-        /// find the same energies and move nothing, so the sweeps give the same grid, but a sweep over a large grid that
-        /// has settled costs little.
-        /// </summary>
-        internal static void LowerConditionEnergy(double[][] points, int[][] neighbours, int[][] quads, int[] cornerStart,
-                                                 int[] cornerQuads, int[] cornerIndices, int numOfBoundaryNodes,
-                                                 double orientation)
-        {
-            int numOfNodes = points.Length;
-            bool[] changed = new bool[numOfNodes];
-            for (int node = numOfBoundaryNodes; node < numOfNodes; node++) changed[node] = true;
-            double[][] directions = GetSearchDirections();
-            for (int sweep = 0; sweep < MaxNumOfDescentSweeps; sweep++)
-            {
-                bool moved = false;
-                for (int node = numOfBoundaryNodes; node < numOfNodes; node++)
-                {
-                    if (!changed[node]) continue;
-                    changed[node] = false;
-                    if (cornerStart[node] == cornerStart[node + 1]) continue;
-                    double[] point = points[node];
-                    double length = 0;
-                    foreach (var neighbour in neighbours[node])
-                    {
-                        double dx = points[neighbour][0] - point[0];
-                        double dy = points[neighbour][1] - point[1];
-                        length += Math.Sqrt(dx * dx + dy * dy);
-                    }
-                    double step = DescentStepFactor * length / neighbours[node].Length;
-                    double current = ThreeBlockMapping.GetNodeQuality(points, quads, cornerStart, cornerQuads,
-                                                                      cornerIndices, node, orientation);
-                    bool nodeMoved = false;
-                    for (int trial = 0; trial < NumOfDescentStepTrials; trial++)
-                    {
-                        double x0 = point[0];
-                        double y0 = point[1];
-                        double bestQuality = double.IsNegativeInfinity(current) ? double.MinValue :
-                                             current + DescentMinImprovement * Math.Max(1, Math.Abs(current));
-                        int best = -1;
-                        for (int d = 0; d < directions.Length; d++)
-                        {
-                            point[0] = x0 + directions[d][0] * step;
-                            point[1] = y0 + directions[d][1] * step;
-                            double q = ThreeBlockMapping.GetNodeQuality(points, quads, cornerStart, cornerQuads,
-                                                                        cornerIndices, node, orientation);
-                            if (q > bestQuality)
-                            {
-                                bestQuality = q;
-                                best = d;
-                            }
-                        }
-                        if (best >= 0)
-                        {
-                            point[0] = x0 + directions[best][0] * step;
-                            point[1] = y0 + directions[best][1] * step;
-                            current = bestQuality;
-                            nodeMoved = true;
-                        }
-                        else
-                        {
-                            point[0] = x0;
-                            point[1] = y0;
-                            step *= 0.5;
-                        }
-                    }
-                    if (!nodeMoved) continue;
-                    moved = true;
-                    for (int i = cornerStart[node]; i < cornerStart[node + 1]; i++)
-                    {
-                        foreach (var quadNode in quads[cornerQuads[i]]) changed[quadNode] = true;
-                    }
-                }
-                if (!moved) break;
-            }
-        }
-        /// <summary>
-        /// The corners every inner node changes, as quad index and corner index, the nodes after each other in the
-        /// order of ThreeBlockMapping.LowerConditionEnergy.
-        /// </summary>
-        internal static void GetCorners(int[][] quads, int numOfNodes, int numOfBoundaryNodes, out int[] cornerStart,
-                                       out int[] cornerQuads, out int[] cornerIndices)
-        {
-            cornerStart = new int[numOfNodes + 1];
-            foreach (var quad in quads)
-            {
-                for (int c = 0; c < 4; c++)
-                {
-                    for (int o = 0; o < 3; o++)
-                    {
-                        int node = quad[(c + CornerOffsets[o]) % 4];
-                        if (node >= numOfBoundaryNodes) cornerStart[node + 1]++;
-                    }
-                }
-            }
-            for (int n = 0; n < numOfNodes; n++) cornerStart[n + 1] += cornerStart[n];
-            cornerQuads = new int[cornerStart[numOfNodes]];
-            cornerIndices = new int[cornerQuads.Length];
-            int[] fill = (int[])cornerStart.Clone();
-            for (int q = 0; q < quads.Length; q++)
-            {
-                for (int c = 0; c < 4; c++)
-                {
-                    for (int o = 0; o < 3; o++)
-                    {
-                        int node = quads[q][(c + CornerOffsets[o]) % 4];
-                        if (node < numOfBoundaryNodes) continue;
-                        cornerQuads[fill[node]] = q;
-                        cornerIndices[fill[node]] = c;
-                        fill[node]++;
-                    }
-                }
-            }
-        }
-        private static double[][] GetSearchDirections()
-        {
-            double diagonal = Math.Sqrt(0.5);
-            return new double[][]
-            {
-                new double[] { 1, 0 }, new double[] { -1, 0 }, new double[] { 0, 1 }, new double[] { 0, -1 },
-                new double[] { diagonal, diagonal }, new double[] { -diagonal, diagonal },
-                new double[] { diagonal, -diagonal }, new double[] { -diagonal, -diagonal }
-            };
-        }
-        private static double GetMinScaledJacobian(double[][] points, int[][] quads, int[] cornerStart, int[] cornerQuads,
-                                                   int[] cornerIndices, int node, double orientation)
-        {
-            double min = double.MaxValue;
-            for (int i = cornerStart[node]; i < cornerStart[node + 1]; i++)
-                min = Math.Min(min, ThreeBlockMapping.GetScaledJacobian(points, quads[cornerQuads[i]], cornerIndices[i],
-                                                                        orientation));
-            return min;
-        }
-        internal static double GetMinScaledJacobian(double[][] points, int[][] quads, double orientation)
-        {
-            double min = 1;
-            foreach (var quad in quads)
-            {
-                for (int c = 0; c < 4; c++)
-                    min = Math.Min(min, ThreeBlockMapping.GetScaledJacobian(points, quad, c, orientation));
-            }
-            return min;
-        }
-        private static bool IsAnyQuadFolded(double[][] points, int[][] quads, int[] nodeQuads, int start, int end,
-                                            double orientation)
-        {
-            for (int i = start; i < end; i++)
-            {
-                int[] quad = quads[nodeQuads[i]];
-                for (int c = 0; c < 4; c++)
-                {
-                    if (ThreeBlockMapping.GetScaledJacobian(points, quad, c, orientation) <= 0) return true;
-                }
-            }
-            return false;
-        }
-        private static double[][] CopyPoints(double[][] points)
-        {
-            double[][] copy = new double[points.Length][];
-            for (int n = 0; n < points.Length; n++) copy[n] = new double[] { points[n][0], points[n][1] };
-            return copy;
-        }
-        internal static int CountFoldedQuads(double[][] points, int[][] quads, double orientation)
-        {
-            int numOfFoldedQuads = 0;
-            foreach (var quad in quads)
-            {
-                for (int c = 0; c < 4; c++)
-                {
-                    if (ThreeBlockMapping.GetScaledJacobian(points, quad, c, orientation) <= 0)
-                    {
-                        numOfFoldedQuads++;
-                        break;
-                    }
-                }
-            }
-            return numOfFoldedQuads;
         }
     }
 }

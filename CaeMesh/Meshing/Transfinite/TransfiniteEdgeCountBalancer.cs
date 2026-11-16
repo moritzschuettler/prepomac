@@ -66,7 +66,8 @@ namespace CaeMesh
         /// <summary>
         /// The balance with the separations of the submapped faces as well, each a row that keeps two sides of a face
         /// apart in its lattice, with the tier of the pairs; the ones left unkept are returned in
-        /// unbalancedSeparations.
+        /// unbalancedSeparations. Every one of evenSides, the edges around a face meshed free and then turned into quads
+        /// only, is asked for an even total at the weakest tier, which gives way to everything else.
         /// </summary>
         public static List<TransfiniteSidePair> Balance(Dictionary<int, int> edgeIdCount,
                                                         Dictionary<int, int> naturalCounts,
@@ -78,7 +79,8 @@ namespace CaeMesh
                                                         HashSet<int> freeFaceEdgeIds = null,
                                                         Dictionary<int, int> sizedEdgeIdCounts = null,
                                                         Dictionary<int, int> maxSizeCounts = null,
-                                                        Dictionary<int, int> edgeIdMultiples = null)
+                                                        Dictionary<int, int> edgeIdMultiples = null,
+                                                        List<int[]> evenSides = null)
         {
             if (separations == null) separations = new List<SubmapSeparation>();
             int count;
@@ -97,7 +99,7 @@ namespace CaeMesh
             {
                 Dictionary<int, int> balancedCounts = new Dictionary<int, int>(edgeIdCount);
                 if (BalanceBySolve(balancedCounts, naturalCounts, pinnedEdgeIds, edgeIdLowestCount, sizedEdgeIdCounts,
-                                   maxSizeCounts, pairs, triples, separations, edgeIdMultiples, out unbalanced,
+                                   maxSizeCounts, pairs, triples, separations, edgeIdMultiples, evenSides, out unbalanced,
                                    out unbalancedTriples, out unbalancedSeparations) &&
                     unbalanced.Count == 0 && unbalancedTriples.Count == 0 && unbalancedSeparations.Count == 0)
                 {
@@ -107,7 +109,7 @@ namespace CaeMesh
             }
             // The numbers the user set leave no room for the lowest counts, so they give way
             if (!BalanceBySolve(edgeIdCount, naturalCounts, pinnedEdgeIds, new Dictionary<int, int>(), sizedEdgeIdCounts,
-                                maxSizeCounts, pairs, triples, separations, edgeIdMultiples, out unbalanced,
+                                maxSizeCounts, pairs, triples, separations, edgeIdMultiples, evenSides, out unbalanced,
                                 out unbalancedTriples, out unbalancedSeparations))
                 throw new CaeException("lp_solve found no element counts for the structured faces.");
             return unbalanced;
@@ -121,7 +123,7 @@ namespace CaeMesh
                                            Dictionary<int, int> sizedEdgeIdCounts, Dictionary<int, int> maxSizeCounts,
                                            List<TransfiniteSidePair> pairs, List<TransfiniteSideTriple> triples,
                                            List<SubmapSeparation> separations, Dictionary<int, int> edgeIdMultiples,
-                                           out List<TransfiniteSidePair> unbalanced,
+                                           List<int[]> evenSides, out List<TransfiniteSidePair> unbalanced,
                                            out List<TransfiniteSideTriple> unbalancedTriples,
                                            out List<SubmapSeparation> unbalancedSeparations)
         {
@@ -165,6 +167,11 @@ namespace CaeMesh
                     if (edgeIdMultiples.TryGetValue(edgeId, out multiple) && multiple > 1)
                         problem.AddEvenSum("Edge " + edgeId, IntervalRowTierEnum.Hard, new int[] { edgeId }, multiple);
                 }
+            }
+            if (evenSides != null)
+            {
+                for (int i = 0; i < evenSides.Count; i++)
+                    problem.AddEvenSum("Even total " + i, IntervalRowTierEnum.Preferred, evenSides[i]);
             }
             //
             IntervalSolution solution = problem.Solve(false, _timeoutSeconds);

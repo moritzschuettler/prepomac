@@ -1018,7 +1018,7 @@ namespace CaeMesh
                 {
                     if (leftOutNodeIds.Contains(quad[c])) continue;
                     minScaledJacobian = Math.Min(minScaledJacobian,
-                                                 ThreeBlockMapping.GetScaledJacobian(points, quad, c, orientation));
+                                                 QuadSmoothing.GetScaledJacobian(points, quad, c, orientation));
                 }
             }
             return minScaledJacobian;
@@ -1147,7 +1147,7 @@ namespace CaeMesh
                     {
                         if (leftOutNodeIds.Contains(quad[c])) continue;
                         minScaledJacobian = Math.Min(minScaledJacobian,
-                                                     ThreeBlockMapping.GetScaledJacobian(gridPoints, quad, c, orientation));
+                                                     QuadSmoothing.GetScaledJacobian(gridPoints, quad, c, orientation));
                     }
                 }
                 return minScaledJacobian;

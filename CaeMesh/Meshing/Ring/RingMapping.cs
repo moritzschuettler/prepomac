@@ -22,7 +22,7 @@ namespace CaeMesh
     /// between the nodes joined, so that a seam or a vertex that sits elsewhere on one loop does not twist the ring;
     /// ties go to the smallest shift. The nodes of the layers are interpolated linearly along the lines. Only a grid
     /// that folds or has a quad corner below SubmapFaceDetector.MinScaledJacobian is smoothed: its folded quads are
-    /// untangled and the condition energy descent of SubmapMapping evens out the quads without folding one, and the
+    /// untangled and the condition energy descent of QuadSmoothing evens out the quads without folding one, and the
     /// interpolated grid is kept when the smoothed one folds more quads or, folding as many, has a worse corner. The
     /// descent costs a minute on a ring of 16000 quads, and on rings that do not fold it moves the worst corner by a few
     /// hundredths at most, since that corner lies on a loop where the lines meet it.
@@ -142,8 +142,8 @@ namespace CaeMesh
             double orientation = outerArea < 0 ? -1 : 1;
             // A grid that folds or is poor evened out, untangled first where it folds
             int numOfBoundaryNodes = 2 * n;
-            int numOfFoldedQuads = SubmapMapping.CountFoldedQuads(points, quads, orientation);
-            double minScaledJacobian = SubmapMapping.GetMinScaledJacobian(points, quads, orientation);
+            int numOfFoldedQuads = QuadSmoothing.CountFoldedElements(points, quads, orientation);
+            double minScaledJacobian = QuadSmoothing.GetMinScaledJacobian(points, quads, orientation);
             if (numOfInnerNodes > 0 &&
                 (numOfFoldedQuads > 0 || minScaledJacobian < SubmapFaceDetector.MinScaledJacobian))
             {
@@ -153,15 +153,15 @@ namespace CaeMesh
                 int[] cornerStart;
                 int[] cornerQuads;
                 int[] cornerIndices;
-                SubmapMapping.GetCorners(quads, points.Length, numOfBoundaryNodes, out cornerStart, out cornerQuads,
+                QuadSmoothing.GetCorners(quads, points.Length, numOfBoundaryNodes, out cornerStart, out cornerQuads,
                                          out cornerIndices);
                 if (numOfFoldedQuads > 0)
-                    SubmapMapping.Untangle(smoothed, neighbours, quads, cornerStart, cornerQuads, cornerIndices,
+                    QuadSmoothing.Untangle(smoothed, neighbours, quads, cornerStart, cornerQuads, cornerIndices,
                                            numOfBoundaryNodes, orientation);
-                SubmapMapping.LowerConditionEnergy(smoothed, neighbours, quads, cornerStart, cornerQuads, cornerIndices,
+                QuadSmoothing.LowerConditionEnergy(smoothed, neighbours, quads, cornerStart, cornerQuads, cornerIndices,
                                                    numOfBoundaryNodes, orientation);
-                int smoothedFolds = SubmapMapping.CountFoldedQuads(smoothed, quads, orientation);
-                double smoothedQuality = SubmapMapping.GetMinScaledJacobian(smoothed, quads, orientation);
+                int smoothedFolds = QuadSmoothing.CountFoldedElements(smoothed, quads, orientation);
+                double smoothedQuality = QuadSmoothing.GetMinScaledJacobian(smoothed, quads, orientation);
                 if (smoothedFolds < numOfFoldedQuads ||
                     (smoothedFolds == numOfFoldedQuads && smoothedQuality >= minScaledJacobian))
                 {

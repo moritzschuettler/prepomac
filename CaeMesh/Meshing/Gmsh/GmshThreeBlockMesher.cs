@@ -80,6 +80,19 @@ namespace CaeMesh
         internal static IntPtr[] ReplaceSurfaceMesh(int surfaceId, IntPtr[] boundaryNodeTags, double[][] loopUv,
                                                     int[][] gridQuads, double[][] innerUv, double[][] innerXyz, bool quads)
         {
+            // The quads turn as the boundary loop does in the parameter space, and must turn the way gmsh turned its
+            // own elements on the face
+            bool reverse = Math.Sign(GetSignedArea(loopUv)) != GetGmshOrientation(surfaceId);
+            return ReplaceSurfaceElements(surfaceId, boundaryNodeTags, gridQuads, innerUv, innerXyz, reverse, quads);
+        }
+        /// <summary>
+        /// Replaces what gmsh meshed on the surface by quads and triangles whose nodes are the boundary nodes of the given
+        /// tags followed by the inner nodes, which are added; reversed, every element is turned the other way round.
+        /// Without quads every quad is split into two triangles. Returns the gmsh tags of the nodes, by their ids.
+        /// </summary>
+        internal static IntPtr[] ReplaceSurfaceElements(int surfaceId, IntPtr[] boundaryNodeTags, int[][] elements,
+                                                        double[][] innerUv, double[][] innerXyz, bool reverse, bool quads)
+        {
             // The tags of the boundary nodes and the new inner nodes
             int numOfBoundaryNodes = boundaryNodeTags.Length;
             IntPtr[] nodeTags = new IntPtr[numOfBoundaryNodes + innerUv.Length];
@@ -93,14 +106,13 @@ namespace CaeMesh
                 newTags[i] = new IntPtr(++nodeTag);
                 nodeTags[numOfBoundaryNodes + i] = newTags[i];
             }
-            // The quads turn as the boundary loop does in the parameter space, and must turn the way gmsh turned its
-            // own elements on the face
-            bool reverse = Math.Sign(GetSignedArea(loopUv)) != GetGmshOrientation(surfaceId);
-            IntPtr[] quadNodeTags = new IntPtr[4 * gridQuads.Length];
-            for (int q = 0; q < gridQuads.Length; q++)
+            List<IntPtr> quadNodeTags = new List<IntPtr>();
+            List<IntPtr> triangleNodeTags = new List<IntPtr>();
+            foreach (var element in elements)
             {
-                for (int c = 0; c < 4; c++)
-                    quadNodeTags[4 * q + c] = nodeTags[gridQuads[q][reverse ? 3 - c : c]];
+                int n = element.Length;
+                List<IntPtr> elementNodes = n == 4 ? quadNodeTags : triangleNodeTags;
+                for (int c = 0; c < n; c++) elementNodes.Add(nodeTags[element[reverse ? n - 1 - c : c]]);
             }
             //
             Gmsh.Model.Mesh.Clear(new Tuple<int, int>[] { new Tuple<int, int>(2, surfaceId) });
@@ -108,22 +120,40 @@ namespace CaeMesh
                                      innerUv.SelectMany(uv => uv).ToArray());
             Gmsh.Model.Mesh.GetMaxElementTag(out maxTag);
             long elementTag = maxTag.ToInt64();
-            int elementType = (int)GmshElementType.LinearQuadrilateral;
-            IntPtr[] elementNodeTags = quadNodeTags;
             if (!quads)
             {
-                elementType = (int)GmshElementType.LinearTriangle;
-                elementNodeTags = new IntPtr[6 * gridQuads.Length];
-                for (int q = 0; q < gridQuads.Length; q++)
+                int[] corners = new int[] { 0, 1, 2, 0, 2, 3 };
+                List<IntPtr> splitNodeTags = new List<IntPtr>();
+                for (int q = 0; q < quadNodeTags.Count / 4; q++)
                 {
-                    int[] corners = new int[] { 0, 1, 2, 0, 2, 3 };
-                    for (int c = 0; c < 6; c++) elementNodeTags[6 * q + c] = quadNodeTags[4 * q + corners[c]];
+                    for (int c = 0; c < 6; c++) splitNodeTags.Add(quadNodeTags[4 * q + corners[c]]);
                 }
+                splitNodeTags.AddRange(triangleNodeTags);
+                triangleNodeTags = splitNodeTags;
+                quadNodeTags = new List<IntPtr>();
             }
-            IntPtr[] elementTags = new IntPtr[elementNodeTags.Length / (quads ? 4 : 3)];
-            for (int i = 0; i < elementTags.Length; i++) elementTags[i] = new IntPtr(++elementTag);
-            Gmsh.Model.Mesh.AddElements(2, surfaceId, new int[] { elementType },
-                                        new IntPtr[][] { elementTags }, new IntPtr[][] { elementNodeTags });
+            List<int> elementTypes = new List<int>();
+            List<IntPtr[]> elementTagLists = new List<IntPtr[]>();
+            List<IntPtr[]> elementNodeTagLists = new List<IntPtr[]>();
+            if (quadNodeTags.Count > 0)
+            {
+                elementTypes.Add((int)GmshElementType.LinearQuadrilateral);
+                elementNodeTagLists.Add(quadNodeTags.ToArray());
+            }
+            if (triangleNodeTags.Count > 0)
+            {
+                elementTypes.Add((int)GmshElementType.LinearTriangle);
+                elementNodeTagLists.Add(triangleNodeTags.ToArray());
+            }
+            for (int t = 0; t < elementTypes.Count; t++)
+            {
+                int numOfNodes = elementTypes[t] == (int)GmshElementType.LinearQuadrilateral ? 4 : 3;
+                IntPtr[] elementTags = new IntPtr[elementNodeTagLists[t].Length / numOfNodes];
+                for (int i = 0; i < elementTags.Length; i++) elementTags[i] = new IntPtr(++elementTag);
+                elementTagLists.Add(elementTags);
+            }
+            Gmsh.Model.Mesh.AddElements(2, surfaceId, elementTypes.ToArray(), elementTagLists.ToArray(),
+                                        elementNodeTagLists.ToArray());
             return nodeTags;
         }
         /// <summary>

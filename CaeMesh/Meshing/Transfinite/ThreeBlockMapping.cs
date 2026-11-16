@@ -31,9 +31,6 @@ namespace CaeMesh
     {
         // Variables
         private const int MaxNumOfSweeps = 20;
-        private const int NumOfStepTrials = 6;
-        private const double InitialStepFactor = 0.1;
-        private const double MinImprovement = 1E-9;
         private const double SolverTolerance = 1E-13;
 
 
@@ -137,7 +134,7 @@ namespace CaeMesh
             {
                 for (int c = 0; c < 4; c++)
                 {
-                    if (GetScaledJacobian(points, quad, c, orientation) <= 0)
+                    if (QuadSmoothing.GetScaledJacobian(points, quad, c, orientation) <= 0)
                     {
                         numOfFoldedQuads++;
                         break;
@@ -169,7 +166,7 @@ namespace CaeMesh
         internal static double[] GetMetricFrame(double[][][] sideUv, double[][][] sideXyz)
         {
             double[,] m = new double[3, 4];
-            for (int k = 0; k < 3; k++)
+            for (int k = 0; k < sideUv.Length; k++)
             {
                 for (int i = 1; i < sideUv[k].Length; i++)
                 {
@@ -364,144 +361,13 @@ namespace CaeMesh
         private static void LowerConditionEnergy(double[][] points, int[][] neighbours, int[][] quads,
                                                  int numOfBoundaryNodes, double orientation)
         {
-            // The corners every node changes, as quad index and corner index, the nodes after each other
-            int[] cornerStart = new int[points.Length + 1];
-            foreach (var quad in quads)
-            {
-                for (int c = 0; c < 4; c++)
-                {
-                    if (quad[c] >= numOfBoundaryNodes) cornerStart[quad[c] + 1]++;
-                    if (quad[(c + 1) % 4] >= numOfBoundaryNodes) cornerStart[quad[(c + 1) % 4] + 1]++;
-                    if (quad[(c + 3) % 4] >= numOfBoundaryNodes) cornerStart[quad[(c + 3) % 4] + 1]++;
-                }
-            }
-            for (int i = 0; i < points.Length; i++) cornerStart[i + 1] += cornerStart[i];
-            int[] cornerQuads = new int[cornerStart[points.Length]];
-            int[] cornerIndices = new int[cornerQuads.Length];
-            int[] fill = (int[])cornerStart.Clone();
-            for (int q = 0; q < quads.Length; q++)
-            {
-                int[] quad = quads[q];
-                for (int c = 0; c < 4; c++)
-                {
-                    int[] cornerNodes = new int[] { quad[c], quad[(c + 1) % 4], quad[(c + 3) % 4] };
-                    foreach (var node in cornerNodes)
-                    {
-                        if (node < numOfBoundaryNodes) continue;
-                        cornerQuads[fill[node]] = q;
-                        cornerIndices[fill[node]] = c;
-                        fill[node]++;
-                    }
-                }
-            }
-            double diagonal = Math.Sqrt(0.5);
-            double[][] directions = new double[][]
-            {
-                new double[] { 1, 0 }, new double[] { -1, 0 }, new double[] { 0, 1 }, new double[] { 0, -1 },
-                new double[] { diagonal, diagonal }, new double[] { -diagonal, diagonal },
-                new double[] { diagonal, -diagonal }, new double[] { -diagonal, -diagonal }
-            };
-            for (int sweep = 0; sweep < MaxNumOfSweeps; sweep++)
-            {
-                bool moved = false;
-                for (int node = numOfBoundaryNodes; node < points.Length; node++)
-                {
-                    if (cornerStart[node] == cornerStart[node + 1]) continue;
-                    double[] point = points[node];
-                    double length = 0;
-                    foreach (var neighbour in neighbours[node])
-                    {
-                        double dx = points[neighbour][0] - point[0];
-                        double dy = points[neighbour][1] - point[1];
-                        length += Math.Sqrt(dx * dx + dy * dy);
-                    }
-                    double step = InitialStepFactor * length / neighbours[node].Length;
-                    double current = GetNodeQuality(points, quads, cornerStart, cornerQuads, cornerIndices, node,
-                                                    orientation);
-                    for (int trial = 0; trial < NumOfStepTrials; trial++)
-                    {
-                        double x0 = point[0];
-                        double y0 = point[1];
-                        double bestQuality = double.IsNegativeInfinity(current) ? double.MinValue :
-                                             current + MinImprovement * Math.Max(1, Math.Abs(current));
-                        int best = -1;
-                        for (int d = 0; d < directions.Length; d++)
-                        {
-                            point[0] = x0 + directions[d][0] * step;
-                            point[1] = y0 + directions[d][1] * step;
-                            double q = GetNodeQuality(points, quads, cornerStart, cornerQuads, cornerIndices, node,
-                                                      orientation);
-                            if (q > bestQuality)
-                            {
-                                bestQuality = q;
-                                best = d;
-                            }
-                        }
-                        if (best >= 0)
-                        {
-                            point[0] = x0 + directions[best][0] * step;
-                            point[1] = y0 + directions[best][1] * step;
-                            current = bestQuality;
-                            moved = true;
-                        }
-                        else
-                        {
-                            point[0] = x0;
-                            point[1] = y0;
-                            step *= 0.5;
-                        }
-                    }
-                }
-                if (!moved) break;
-            }
-        }
-        /// <summary>
-        /// The sine of the angle at corner c of the quad, negative where the quad turns against the orientation.
-        /// </summary>
-        internal static double GetScaledJacobian(double[][] points, int[] quad, int c, double orientation)
-        {
-            double[] p = points[quad[c]];
-            double[] next = points[quad[(c + 1) % 4]];
-            double[] previous = points[quad[(c + 3) % 4]];
-            double ax = next[0] - p[0];
-            double ay = next[1] - p[1];
-            double bx = previous[0] - p[0];
-            double by = previous[1] - p[1];
-            double lengths = Math.Sqrt((ax * ax + ay * ay) * (bx * bx + by * by));
-            if (!(lengths > 0)) return -1;
-            return orientation * (ax * by - ay * bx) / lengths;
-        }
-        /// <summary>
-        /// The negative condition energy of the corners a node changes, minus infinity when one of them folds.
-        /// </summary>
-        internal static double GetNodeQuality(double[][] points, int[][] quads, int[] cornerStart, int[] cornerQuads,
-                                              int[] cornerIndices, int node, double orientation)
-        {
-            double energy = 0;
-            for (int i = cornerStart[node]; i < cornerStart[node + 1]; i++)
-            {
-                double cornerEnergy = GetConditionEnergy(points, quads[cornerQuads[i]], cornerIndices[i], orientation);
-                if (double.IsPositiveInfinity(cornerEnergy)) return double.NegativeInfinity;
-                energy += cornerEnergy;
-            }
-            return -energy;
-        }
-        /// <summary>
-        /// (|a|^2 + |b|^2) / (2 a x b) of corner c of the quad, infinite where the corner turns against the orientation
-        /// or has no area.
-        /// </summary>
-        private static double GetConditionEnergy(double[][] points, int[] quad, int c, double orientation)
-        {
-            double[] p = points[quad[c]];
-            double[] next = points[quad[(c + 1) % 4]];
-            double[] previous = points[quad[(c + 3) % 4]];
-            double ax = next[0] - p[0];
-            double ay = next[1] - p[1];
-            double bx = previous[0] - p[0];
-            double by = previous[1] - p[1];
-            double cross = orientation * (ax * by - ay * bx);
-            if (!(cross > 0)) return double.PositiveInfinity;
-            return (ax * ax + ay * ay + bx * bx + by * by) / (2 * cross);
+            int[] cornerStart;
+            int[] cornerQuads;
+            int[] cornerIndices;
+            QuadSmoothing.GetCorners(quads, points.Length, numOfBoundaryNodes, out cornerStart, out cornerQuads,
+                                     out cornerIndices);
+            QuadSmoothing.LowerConditionEnergy(points, neighbours, quads, cornerStart, cornerQuads, cornerIndices,
+                                               numOfBoundaryNodes, orientation, MaxNumOfSweeps);
         }
         /// <summary>
         /// The signed area of the boundary loop, the first nodes in loop order.

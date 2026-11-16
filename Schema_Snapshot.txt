@@ -839,6 +839,7 @@ E 2105.0 member Simple
 E 2105.1 member Blossom
 E 2105.2 member SimpleFullQuad
 E 2105.3 member BlossomFullQuad
+E 2105.4 member AllQuad
 T 2106 enum CaeMesh.GmshCommandEnum
 E 2106.0 member Mesh
 E 2106.1 member Defeature

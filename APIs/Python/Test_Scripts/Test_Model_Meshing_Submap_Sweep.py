@@ -20,8 +20,11 @@
 #    hexahedra only, the source of the first block submapped.
 #  - The QuadWild source mesher over the L and a five-sided house profile, swept by one item: QuadWild leaves the L
 #    to gmsh, which keeps its submapped grid, and meshes the house.
-#  - transfinite_submapped=False gives the element and node counts the build before submapped sweep sources gave,
-#    recorded in BEFORE.
+#  - transfinite_submapped=False meshes the sources free, and the free sources are turned into quads only, so the
+#    blocks are hexahedra only, of the element and node counts recorded in BEFORE, but for the U, whose source keeps
+#    two of its triangles with an all-quad message and so two columns of wedges. Before free sources were turned
+#    into quads only, these counts were L (872, 1071), U (992, 1215), T (752, 927), plus (976, 1188), staircase
+#    (1112, 1332), thin L (216, 500) and bent L (1962, 2242), with wedges but in the thin L.
 #  - get_settings reads transfinite_submapped back on the sweep item, and replace_sweep_mesh keeps it.
 #  The model was made by gmsh's OCC kernel through GmshCommon: every profile a plane surface of lines in z = 0 extruded
 #  by 40 mm, the bent L a plane surface in y = 0 revolved a quarter turn about the z axis, the stacks two L extrusions of
@@ -43,12 +46,12 @@ MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 PLOT_DIR = os.environ.get("PMX_SUBMAP_PLOT_DIR")
 MAX_SIZE = 5.0
 HEXAHEDRON = (8, 20)
-# Element and node counts with transfinite_submapped=False, measured with the build before submapped sweep sources,
-# first order elements and the element size 5
+# Element and node counts with transfinite_submapped=False, first order elements and the element size 5, the free
+# sources turned into quads only; the U keeps the two triangles the conversion cannot join
 # The cells of the stacks by stack
 CELLS = {}
-BEFORE = {"L": (872, 1071), "U": (992, 1215), "T": (752, 927), "plus": (976, 1188), "staircase": (1112, 1332),
-          "thin L": (216, 500), "bent L": (1962, 2242)}
+BEFORE = {"L": (720, 1017), "U": (792, 1152), "T": (624, 900), "plus": (800, 1125), "staircase": (968, 1314),
+          "thin L": (216, 500), "bent L": (1638, 2166)}
 
 
 def check(condition, message):
@@ -83,6 +86,15 @@ def submapping_messages(part_name):
     starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
     check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
     return [line[line.index("Submapping:"):] for line in lines[starts[-1]:] if "Submapping:" in line]
+
+
+def all_quad_messages(part_name):
+    """The all-quad lines the last meshing of the part wrote to the output window."""
+    form = [form for form in Application.OpenForms if form.GetType().Name == "FrmMain"][0]
+    lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
+    starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
+    check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
+    return [line[line.index("All-quad meshing:"):] for line in lines[starts[-1]:] if "All-quad meshing:" in line]
 
 
 def edges_at(part, length, z=None):
@@ -416,15 +428,18 @@ def check_off(parts):
         part = parts[name]
         sweep([part], transfinite_submapped=False)
         mesh = SweptMesh([part.name])
-        counts[name] = (len(mesh.elements), len(mesh.xyz), mesh.kinds())
-        # A source of legs one element wide is all quadrilaterals even free
-        check(name == "thin L" or "wedge" in mesh.kinds(),
-              "the " + name + " swept with transfinite_submapped=False looks structured: " + str(mesh.kinds()))
+        # A source meshed free is turned into quads only, so the blocks are hexahedra only, unless the conversion
+        # gives up on the source and says so
+        kept = all_quad_messages(part.name)
+        counts[name] = (len(mesh.elements), len(mesh.xyz), mesh.kinds(), kept)
+        check(list(mesh.kinds().keys()) == ["hexahedron"] or len(kept) == 1,
+              "the " + name + " swept with transfinite_submapped=False is not hexahedra only: " + str(mesh.kinds()))
         if name in BEFORE:
             check((len(mesh.elements), len(mesh.xyz)) == BEFORE[name],
                   "the " + name + " swept with transfinite_submapped=False has " + str(len(mesh.elements)) +
                   " elements and " + str(len(mesh.xyz)) + " nodes, against " + str(BEFORE[name]) + " before")
-    print("transfinite_submapped=False (elements, nodes):", dict((k, v[:2]) for k, v in counts.items()))
+    print("transfinite_submapped=False (elements, nodes):", dict((k, v[:2]) for k, v in counts.items()),
+          "kinds and all-quad messages:", dict((k, v[2:]) for k, v in counts.items()))
     check(len(BEFORE) == 0 or all(name in BEFORE for name in counts), "BEFORE lacks a profile")
 
 
