@@ -15,9 +15,11 @@
 #    At the element size 5 every face but the diamond and the round hole is detected with its holes, each hole turned
 #    into the frame of the outer loop by a multiple of 90 degrees, and meshed as quadrilaterals only with four quads
 #    around every inner node, no folded quad, a worst scaled Jacobian of 0.2 at least and as many quads as recorded.
-#    The diamond hole is turned 45 degrees off the frame of the outer loop and the round hole is no lattice loop: both
-#    faces are not detected and are meshed free without a message. The hole 1 mm from the border keeps one cell
-#    between it and the border, so the wall of 1 mm is one element thick.
+#    The diamond hole is turned 45 degrees off the frame of the outer loop, and the visualization of the round hole
+#    plate is triangulated only in part and shows only the hole, a disc of two half circles to the detection, which
+#    leaves a round loop of one face free (round holes: Test_Model_Meshing_Submap_Round): both faces are not detected
+#    and are meshed free without a message. The hole 1 mm from the border keeps one cell between it and the border,
+#    so the wall of 1 mm is one element thick.
 #  - 8 elements pinned on an edge of the centred hole are carried to the opposite edge of the hole.
 #  - A full-quad recombination meshes the centred and the filleted hole submapped, and second order elements keep the
 #    centred hole submapped.

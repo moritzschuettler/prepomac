@@ -24,6 +24,9 @@ namespace CaeMesh
     /// their distances from the target, ties by i and then by j, until the loops of the face are valid
     /// (SubmapMapping.AreCountsValid) and the hole keeps at least the bound of cells from the outer outline and from
     /// the holes placed before it. The holes are placed one after another in loop order.
+    /// A round hole is a square of a quarter of its nodes on each side, placed as any hole; where its corners go is
+    /// found before, by the lattice positions of its nodes about its centre (GetRoundLoopOrder), the same way in the
+    /// detection and in the meshers, which then pass its nodes in that order.
     /// </summary>
     public static class SubmapHolePlacement
     {
@@ -130,8 +133,9 @@ namespace CaeMesh
         /// <summary>
         /// Whether the holes of a face find a place with the given counts of its edges, as the balance of the counts
         /// sees the face before it is meshed: its nodes laid in equal steps along straight logical edges between its
-        /// vertices, which loopVertexPoints holds as SubmapFace.GetLogicalLoopPoints takes them. True for a face without
-        /// holes; the reason names the edges by their places in all loops one after another.
+        /// vertices, which loopVertexPoints holds as SubmapFace.GetLogicalLoopPoints takes them, and the nodes of a round
+        /// hole evenly spread over its circle and started by GetRoundLoopOrder. True for a face without holes; the reason
+        /// names the edges by their places in all loops one after another.
         /// </summary>
         public static bool TryPlace(SubmapFace face, Dictionary<int, int> edgeIdCount, double[][][] loopVertexPoints,
                                     int bound, out string reason)
@@ -146,7 +150,20 @@ namespace CaeMesh
                 return false;
             }
             double[][][] nodePoints = new double[counts.Length][][];
-            for (int l = 0; l < counts.Length; l++) nodePoints[l] = GetStraightNodePoints(logicalPoints[l], counts[l]);
+            SubmapFace[] loops = face.Loops;
+            int[][] directions = face.LoopLogicalEdgeDirections;
+            for (int l = 0; l < counts.Length; l++)
+            {
+                if (!loops[l].IsRound)
+                {
+                    nodePoints[l] = GetStraightNodePoints(logicalPoints[l], counts[l]);
+                    continue;
+                }
+                double[][] circlePoints = GetCircleNodePoints(logicalPoints[l], 4 * counts[l][0]);
+                int[] order = GetRoundLoopOrder(directions[0], counts[0], nodePoints[0], circlePoints);
+                nodePoints[l] = new double[order.Length][];
+                for (int p = 0; p < order.Length; p++) nodePoints[l][p] = circlePoints[order[p]];
+            }
             int[][] holeOffsets;
             return TryPlace(face.LoopLogicalEdgeDirections, counts, nodePoints, bound, out holeOffsets, out reason);
         }
@@ -169,6 +186,88 @@ namespace CaeMesh
                 }
             }
             return points.ToArray();
+        }
+        /// <summary>
+        /// The 2D coordinates of the given number of nodes evenly spread over the circle of a round hole, clockwise from
+        /// where it reaches furthest along +i; roundLogicalPoints are the logical points of the hole that
+        /// SubmapFace.GetLogicalLoopPoints gives, whose last four span the circle.
+        /// </summary>
+        private static double[][] GetCircleNodePoints(double[][] roundLogicalPoints, int numOfNodes)
+        {
+            double[] east = roundLogicalPoints[4];
+            double[] west = roundLogicalPoints[6];
+            double[] centre = new double[] { 0.5 * (east[0] + west[0]), 0.5 * (east[1] + west[1]) };
+            double radius = 0.5 * (east[0] - west[0]);
+            double[][] points = new double[numOfNodes][];
+            for (int p = 0; p < numOfNodes; p++)
+            {
+                double angle = -2 * Math.PI * p / numOfNodes;
+                points[p] = new double[] { centre[0] + radius * Math.Cos(angle), centre[1] + radius * Math.Sin(angle) };
+            }
+            return points;
+        }
+        /// <summary>
+        /// The order in which the nodes of a round hole make its logical loop, node p of the logical loop being node
+        /// order[p] of loopNodePoints, which holds the 2D coordinates of its nodes as they follow each other around it,
+        /// in either sense. The outer loop gives the lattice: its logical edges run in outerDirections with outerCounts
+        /// elements, through the nodes outerNodePoints, one per element. Every node of the hole and its centre, the mean
+        /// of its nodes, are given their lattice positions by the mean value coordinates interpolation of the lattice
+        /// coordinates of the outer nodes, as the target of a hole is; the logical loop starts at the node whose angle
+        /// about the centre is nearest to 45°, the +i +j corner of the square of the hole, and runs the way that is
+        /// clockwise in the lattice, so that its four logical edges of a quarter of the nodes each run along -j, -i, +j
+        /// and +i. The sense is told by the angles of the nodes, not by their order: the sum of the turns from node to
+        /// node about the centre.
+        /// </summary>
+        public static int[] GetRoundLoopOrder(int[] outerDirections, int[] outerCounts, double[][] outerNodePoints,
+                                              double[][] loopNodePoints)
+        {
+            int[] outerI;
+            int[] outerJ;
+            GetLatticeCoordinates(outerDirections, outerCounts, out outerI, out outerJ);
+            double[][] outerValues = new double[outerI.Length][];
+            for (int p = 0; p < outerValues.Length; p++) outerValues[p] = new double[] { outerI[p], outerJ[p] };
+            int n = loopNodePoints.Length;
+            double[] centre = new double[2];
+            foreach (var point in loopNodePoints)
+            {
+                centre[0] += point[0];
+                centre[1] += point[1];
+            }
+            centre[0] /= n;
+            centre[1] /= n;
+            double[] target = InterpolateMeanValue(outerNodePoints, outerValues, centre);
+            double[] angles = new double[n];
+            for (int p = 0; p < n; p++)
+            {
+                double[] position = InterpolateMeanValue(outerNodePoints, outerValues, loopNodePoints[p]);
+                angles[p] = Math.Atan2(position[1] - target[1], position[0] - target[0]);
+            }
+            double sumOfTurns = 0;
+            int start = 0;
+            double startDeviation = double.MaxValue;
+            for (int p = 0; p < n; p++)
+            {
+                sumOfTurns += GetWrappedAngle(angles[(p + 1) % n] - angles[p]);
+                double deviation = Math.Abs(GetWrappedAngle(angles[p] - 0.25 * Math.PI));
+                if (deviation < startDeviation)
+                {
+                    start = p;
+                    startDeviation = deviation;
+                }
+            }
+            int step = sumOfTurns > 0 ? -1 : 1;
+            int[] order = new int[n];
+            for (int p = 0; p < n; p++) order[p] = ((start + step * p) % n + n) % n;
+            return order;
+        }
+        /// <summary>
+        /// The angle brought into -π to π.
+        /// </summary>
+        private static double GetWrappedAngle(double angle)
+        {
+            while (angle > Math.PI) angle -= 2 * Math.PI;
+            while (angle <= -Math.PI) angle += 2 * Math.PI;
+            return angle;
         }
         /// <summary>
         /// The mean value coordinates interpolation, at the point, of the values given at the vertices of a closed

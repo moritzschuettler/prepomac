@@ -127,7 +127,8 @@ namespace CaeMesh
             return nodeTags;
         }
         /// <summary>
-        /// The nodes of a side, from its first corner to its last, along the chain of its edges.
+        /// The nodes of a side, from its first corner to its last, along the chain of its edges; a closed edge, of one
+        /// vertex, runs along its parameter from that vertex back to it.
         /// </summary>
         internal static void GetSideNodes(int surfaceId, int firstCornerId, int lastCornerId, int[] edgeIds,
                                          out List<IntPtr> tags, out List<double[]> xyz)
@@ -140,6 +141,7 @@ namespace CaeMesh
             {
                 int[] vertexIds;
                 Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                if (vertexIds.Length == 1) vertexIds = new int[] { vertexIds[0], vertexIds[0] };
                 if (vertexIds.Length != 2 || !vertexIds.Contains(vertexId))
                     throw new CaeException("The sides of Surface " + surfaceId + " do not run along Edge " + edgeId + ".");
                 // The interior nodes run along the parameter of the edge, from its first vertex

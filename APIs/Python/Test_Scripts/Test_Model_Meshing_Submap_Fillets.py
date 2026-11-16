@@ -10,11 +10,11 @@
 #    L with an outer corner chamfered 10 x 10, an L with both, a U with both re-entrant corners filleted, a rectangle
 #    with one rounded corner, a rectangle with four rounded corners (r 5), a five-sided house, a slot with half circle
 #    ends, an L with its outer corner rounded by r 15, and the filleted L cut from the wall of a cylinder of radius 50.
-#    At the element size 5 every shape but the slot is classified as expected, quadrilaterals only with four quads
-#    around every inner node, no folded quad and a worst scaled Jacobian of 0.2 at least, as many quads as recorded
-#    and an even number of elements on every fillet. The rectangle with one rounded corner is a 3-sided face, which the
-#    transfinite 3-sided mapping takes first, and is submapped when that is off. The slot is not detected, its half
-#    circles turning 180 degrees, and is meshed free without a message.
+#    At the element size 5 every shape is classified as expected, quadrilaterals only with four quads around every
+#    inner node, no folded quad and a worst scaled Jacobian of 0.2 at least, as many quads as recorded and an even
+#    number of elements on every fillet. The rectangle with one rounded corner is a 3-sided face, which the transfinite
+#    3-sided mapping takes first, and is submapped when that is off. The half circles of the slot turn twice, each a
+#    multiple of four elements (Test_Model_Meshing_Submap_Round).
 #  - The L with its outer corner rounded by r 15 at the element size 2: the quad at the middle of its round turns by
 #    180 degrees less 90 degrees over the elements along the round, below the floor from 8 elements, so the mesher
 #    leaves it free and says so, while the detection, which leaves that corner out, still takes it.
@@ -61,7 +61,7 @@ FILLET_LENGTH = round(math.pi * 5.0 / 2, 3)
 # at the element size 5
 EXPECTED = {"filleted L": ([-1], 0, 80), "chamfered L": ([], 1, 76), "filleted chamfered L": ([-1], 1, 76),
             "filleted U": ([-1, -1], 0, 98), "rounded rectangle": ([1, 1, 1, 1], 0, 140), "house": ([], 1, 96),
-            "round L": ([1], 0, 72), "cylinder L": ([-1], 0, 42)}
+            "round L": ([1], 0, 72), "cylinder L": ([-1], 0, 42), "slot": ([2, 2], 0, 48)}
 # The hexahedra of the swept solids at the element size 5
 EXPECTED_HEXAHEDRA = {"filleted L": 616, "chamfered L": 456, "I section": 532, "house": 576}
 
@@ -287,15 +287,6 @@ def check_classification(name, part):
 def check_shells(parts):
     for name in SHELLS:
         part = parts[name]
-        if name == "slot":
-            check(len(detected_faces(part)) == 0, "the slot must not be detected")
-            mesh(part)
-            face = FaceMesh(part.name, plane_xy)
-            check(is_free(face) and len(submapping_messages(part.name)) == 0,
-                  "the slot must be meshed free without a message: " + str(face.kinds()))
-            print("slot: not detected, free", face.kinds())
-            face.plot("fillets_slot", "Slot: free " + str(face.kinds()))
-            continue
         if name == "one round":
             check(len(detected_faces(part)) == 1, "the rectangle with one rounded corner must be detected")
             mesh(part)

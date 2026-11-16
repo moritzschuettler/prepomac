@@ -25,6 +25,7 @@ namespace CaeMesh
         private readonly int[][] _sides;
         private readonly int _surfaceId;
         private readonly int _bound;
+        private readonly int _multiple;
 
 
         // Properties
@@ -37,11 +38,13 @@ namespace CaeMesh
         /// <summary>The fewest elements an AtLeastSum row lets its side carry, or an AtLeastDifference row its first side
         /// carry more than its second.</summary>
         public int Bound { get { return _bound; } }
+        /// <summary>The number the total of an EvenSum row is a multiple of, 2 unless set.</summary>
+        public int Multiple { get { return _multiple; } }
 
 
         // Constructors
         public IntervalRow(string name, IntervalRowTierEnum tier, IntervalRowKindEnum kind, int[][] sides,
-                           int surfaceId = 0, int bound = 0)
+                           int surfaceId = 0, int bound = 0, int multiple = 2)
         {
             _name = name;
             _tier = tier;
@@ -49,6 +52,7 @@ namespace CaeMesh
             _sides = sides;
             _surfaceId = surfaceId;
             _bound = bound;
+            _multiple = multiple;
         }
 
 
@@ -57,7 +61,7 @@ namespace CaeMesh
         {
             int[] sums = _sides.Select(side => side.Sum(getCount)).ToArray();
             if (_kind == IntervalRowKindEnum.EqualSums) return sums[0] == sums[1];
-            if (_kind == IntervalRowKindEnum.EvenSum) return sums[0] % 2 == 0;
+            if (_kind == IntervalRowKindEnum.EvenSum) return sums[0] % _multiple == 0;
             if (_kind == IntervalRowKindEnum.AtLeastSum) return sums[0] >= _bound;
             if (_kind == IntervalRowKindEnum.AtLeastDifference) return sums[0] - sums[1] >= _bound;
             int total = sums.Sum();
@@ -73,7 +77,8 @@ namespace CaeMesh
                                                                                                 getCount(id))) +
                                                            " = " + side.Sum(getCount))) +
                    (_kind == IntervalRowKindEnum.AtLeastSum ? ", at least " + _bound : "") +
-                   (_kind == IntervalRowKindEnum.AtLeastDifference ? ", the first at least " + _bound + " more" : "");
+                   (_kind == IntervalRowKindEnum.AtLeastDifference ? ", the first at least " + _bound + " more" : "") +
+                   (_kind == IntervalRowKindEnum.EvenSum && _multiple != 2 ? ", a multiple of " + _multiple : "");
         }
     }
 }

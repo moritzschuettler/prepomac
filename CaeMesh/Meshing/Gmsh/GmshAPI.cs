@@ -4537,9 +4537,18 @@ namespace CaeMesh
                 SubmapFace[] loops = face.Loops;
                 for (int l = 0; l < loops.Length; l++)
                 {
-                    // Every hole closes on its own, as the outer loop does
+                    // Every hole closes on its own, as the outer loop does; a round hole has its edges equal and a
+                    // multiple of four around it
                     string loopName = _submapRowPrefix + face.FaceId + (l == 0 ? "" : " hole of Edge " + loops[l].EdgeIds[0]);
                     TransfiniteSidePair[] pairs = loops[l].GetSidePairs();
+                    if (loops[l].IsRound)
+                    {
+                        foreach (var pair in pairs)
+                            problem.AddEqualSums(loopName + " Edge " + pair.SideA[0] + " as Edge " + pair.SideB[0],
+                                                 IntervalRowTierEnum.Structured, pair.SideA, pair.SideB, face.FaceId);
+                        problem.AddEvenSum(loopName + " around", IntervalRowTierEnum.Structured, loops[l].EdgeIds, 4);
+                        continue;
+                    }
                     problem.AddEqualSums(loopName + " along i", IntervalRowTierEnum.Structured, pairs[0].SideA,
                                          pairs[0].SideB, face.FaceId);
                     problem.AddEqualSums(loopName + " along j", IntervalRowTierEnum.Structured, pairs[1].SideA,
@@ -4563,10 +4572,20 @@ namespace CaeMesh
                                                  IntervalRowTierEnum.Structured, separation.TowardsEdgeIds,
                                                  separation.BackEdgeIds, separation.Bound, face.FaceId);
                 }
-                // An edge that turns in its middle is split there into two halves of as many elements
-                foreach (var edgeId in face.AllTurnEdgeIds)
-                    problem.AddEvenSum(_submapRowPrefix + face.FaceId + " Edge " + edgeId + " turning in its middle",
-                                       IntervalRowTierEnum.Structured, new int[] { edgeId });
+                // An edge that turns in its middle is split there into two halves of as many elements, and one that turns
+                // twice into a quarter, a half and a quarter of them
+                foreach (var loop in loops)
+                {
+                    for (int k = 0; k < loop.EdgeIds.Length; k++)
+                    {
+                        int turn = Math.Abs(loop.GetEdgeTurn(k));
+                        if (turn == 0) continue;
+                        problem.AddEvenSum(_submapRowPrefix + face.FaceId + " Edge " + loop.EdgeIds[k] +
+                                           (turn == 1 ? " turning in its middle" : " turning twice"),
+                                           IntervalRowTierEnum.Structured, new int[] { loop.EdgeIds[k] },
+                                           loop.GetEdgeMultiple(k));
+                    }
+                }
             }
             // The parity of the sources: a full-quad recombination halves every edge of a source - an edge between two
             // sources as well, which no wall fixes and which gmsh left at 1 element on sweep_43_1 - and QuadWild needs an
@@ -5517,16 +5536,16 @@ namespace CaeMesh
                 else FreeStructuredSource(face.FaceId, description + ", so it is meshed free. Its edges: " + edges + ".");
             }
             // A submapped source whose counts close no valid outline, leave sides that face each other without the
-            // cells between them or a hole without room or place, or cannot split an edge that turns in its middle, is
+            // cells between them or a hole without room or place, or cannot split an edge that turns or a round hole, is
             // meshed free, whoever set its counts
             string reason;
             foreach (var face in _submapSourceFaces.Values.OrderBy(face => face.FaceId).ToArray())
             {
                 Dictionary<int, int> edgeIdCount = new Dictionary<int, int>();
                 foreach (var edgeId in face.AllEdgeIds) edgeIdCount[edgeId] = sideCount(new int[] { edgeId });
-                int turnEdgeId = face.GetOddTurnEdgeId(edgeIdCount);
+                string indivisibleReason = face.GetIndivisibleCountReason(edgeIdCount);
                 double[][][] loopVertexPoints = face.HasHoles ? GetLoopVertexPoints(face) : null;
-                if (turnEdgeId >= 0) reason = GetOddTurnEdgeReason(turnEdgeId);
+                if (indivisibleReason != null) reason = indivisibleReason;
                 else if (!face.AreCountsValid(edgeIdCount, out reason)) reason = GmshSubmapMesher.NameLoopEdges(face, reason);
                 else
                 {
@@ -5565,7 +5584,9 @@ namespace CaeMesh
         /// valid logical outline, is meshed free and the balance is made again without it. A full-quad recombination
         /// meshes the surface gmsh meshes first on every second node of its edges, so its edges are then given even
         /// numbers of elements. An edge that turns in its middle, as a fillet does, is split at its middle node into two
-        /// halves, so it is always given an even number; one whose number the user set odd leaves its face free. The
+        /// halves, so it is always given an even number; one whose number the user set odd leaves its face free. An edge
+        /// that turns twice, a half circle, is given a multiple of four, and so is the sum around a round hole, whose
+        /// edges are given equal numbers; a number the user set that does not allow it leaves the face free. The
         /// full-quad recombination subdivides its mesh before SubmapMapping replaces it, so the halves need no more.
         /// A face with holes joins by the pairs of every loop, each closing on its own, and by the rows that leave room
         /// for every hole and a cell on each side (SubmapFace.GetRoomRows), with the corner and thin wall rows of a wall
@@ -5698,10 +5719,23 @@ namespace CaeMesh
                     unbalancedTriples = new List<TransfiniteSideTriple>();
                     break;
                 }
-                // Even counts on every edge under a full-quad recombination, and otherwise on the edges that turn in
-                // their middle, which are split there into two halves of as many elements
-                HashSet<int> evenEdgeIds = new HashSet<int>(submapped.SelectMany(face => fullQuad ? face.AllEdgeIds :
-                                                                                         face.AllTurnEdgeIds));
+                // Even counts on every edge under a full-quad recombination, and on the edges that turn in their middle,
+                // which are split there into two halves of as many elements; a multiple of four on an edge that turns
+                // twice and on the edges of a round hole that must add up to one
+                Dictionary<int, int> edgeIdMultiples = new Dictionary<int, int>();
+                foreach (var face in submapped)
+                {
+                    if (fullQuad)
+                    {
+                        foreach (var edgeId in face.AllEdgeIds) edgeIdMultiples[edgeId] = 2;
+                    }
+                    foreach (var entry in face.AllEdgeMultiples)
+                    {
+                        int multiple;
+                        if (!edgeIdMultiples.TryGetValue(entry.Key, out multiple) || multiple < entry.Value)
+                            edgeIdMultiples[entry.Key] = entry.Value;
+                    }
+                }
                 Dictionary<SubmapSeparation, SubmapFace> separationFaces = new Dictionary<SubmapSeparation, SubmapFace>();
                 List<SubmapSeparation> separations = new List<SubmapSeparation>();
                 foreach (var face in submapped)
@@ -5720,16 +5754,17 @@ namespace CaeMesh
                 unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts, pinnedEdgeIds, allPairs,
                                                                   triples, separations, out unbalancedTriples,
                                                                   out unbalancedSeparations, freeFaceEdgeIds,
-                                                                  sizedEdgeIdCounts, maxSizeCounts, evenEdgeIds);
+                                                                  sizedEdgeIdCounts, maxSizeCounts, edgeIdMultiples);
                 //
                 Dictionary<SubmapFace, string> dropped = new Dictionary<SubmapFace, string>();
                 SubmapFace unbalancedFace;
                 // An odd count on an edge that turns in its middle, which only the user sets, also leaves the doubled
-                // sums of its face unequal, and is the reason to name
+                // sums of its face unequal, and is the reason to name, as are a count that is not a multiple of four on
+                // an edge that turns twice and on a round hole, and unequal counts on the edges of a round hole
                 foreach (var face in submapped)
                 {
-                    int turnEdgeId = face.GetOddTurnEdgeId(edgeIdCount);
-                    if (turnEdgeId >= 0) dropped.Add(face, GetOddTurnEdgeReason(turnEdgeId));
+                    string indivisibleReason = face.GetIndivisibleCountReason(edgeIdCount);
+                    if (indivisibleReason != null) dropped.Add(face, indivisibleReason);
                 }
                 foreach (var pair in unbalanced)
                 {
@@ -5848,7 +5883,8 @@ namespace CaeMesh
         }
         /// <summary>
         /// The 2D coordinates of the vertices of every loop of a submapped face, in the plane of the vertices of its outer
-        /// loop by Newell's method, turned so that the outer loop runs counter-clockwise in it.
+        /// loop by Newell's method, turned so that the outer loop runs counter-clockwise in it; of a round hole four
+        /// points on its circle instead, as SubmapFace.GetLogicalLoopPoints takes them.
         /// </summary>
         private static double[][][] GetLoopVertexPoints(SubmapFace face)
         {
@@ -5882,6 +5918,33 @@ namespace CaeMesh
             double[] axis2 = new double[] { normal[1] * axis1[2] - normal[2] * axis1[1],
                                             normal[2] * axis1[0] - normal[0] * axis1[2],
                                             normal[0] * axis1[1] - normal[1] * axis1[0] };
+            // A round hole by four points on its circle: its centre is the centre of mass of its edges and its radius the
+            // length around it over 2π
+            for (int l = 1; l < loops.Length; l++)
+            {
+                if (!loops[l].IsRound) continue;
+                double total = 0;
+                double[] holeCentre = new double[3];
+                foreach (var edgeId in loops[l].EdgeIds)
+                {
+                    double length;
+                    double[] edgeCentre = new double[3];
+                    Gmsh.Model.OCC.GetMass(1, edgeId, out length);
+                    Gmsh.Model.OCC.GetCenterOfMass(1, edgeId, out edgeCentre[0], out edgeCentre[1], out edgeCentre[2]);
+                    total += length;
+                    for (int d = 0; d < 3; d++) holeCentre[d] += length * edgeCentre[d];
+                }
+                if (!(total > 0)) continue;
+                double radius = total / (2 * Math.PI);
+                loopCoors[l] = new double[4][];
+                for (int i = 0; i < 4; i++)
+                {
+                    double[] axis = i % 2 == 0 ? axis1 : axis2;
+                    double sign = i < 2 ? 1 : -1;
+                    loopCoors[l][i] = new double[3];
+                    for (int d = 0; d < 3; d++) loopCoors[l][i][d] = holeCentre[d] / total + sign * radius * axis[d];
+                }
+            }
             double[][][] loopPoints = new double[loops.Length][][];
             for (int l = 0; l < loops.Length; l++)
             {
@@ -5899,10 +5962,6 @@ namespace CaeMesh
         private void WriteSubmapFreeMessage(int surfaceId, string reason)
         {
             _writeOutput?.Invoke(NameGmshEntities("Submapping: Surface " + surfaceId + " is meshed free - " + reason + "."));
-        }
-        private static string GetOddTurnEdgeReason(int edgeId)
-        {
-            return "Edge " + edgeId + " turns a corner in its middle and carries an odd number of elements";
         }
         private bool IsPolar(TransfiniteFace face)
         {
@@ -6713,7 +6772,7 @@ namespace CaeMesh
                 mapped = netgenEdgeIdGmshEdgeId.TryGetValue(loop.EdgeIds[i], out edgeIds[i]);
             if (!mapped) return null;
             return new SubmapFace(surfaceId, vertexIds, edgeIds, loop.EdgeDirections, loop.VertexAnglesDeg, loop.EdgeTurns,
-                                  holes);
+                                  holes, loop.IsRound);
         }
         private static void RenumberSurfaceIds(int[][] surfaceIds, Dictionary<int, int> netgenFaceIdGmshFaceId)
         {

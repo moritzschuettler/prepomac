@@ -4645,7 +4645,7 @@ namespace CaeMesh
             for (int k = 0; k < edgeIds.Length; k++) edgeIds[k] = GmshTopologyId(loop.EdgeIds[k], partId);
             return new SubmapFace(faceId, loop.VertexNodeIds.ToArray(), edgeIds, loop.EdgeDirections.ToArray(),
                                   loop.VertexAnglesDeg.ToArray(), loop.EdgeTurns == null ? null : loop.EdgeTurns.ToArray(),
-                                  holes);
+                                  holes, loop.IsRound);
         }
         /// <summary>
         /// Finds the surfaces that two of the given parts have in common - the interfaces between the

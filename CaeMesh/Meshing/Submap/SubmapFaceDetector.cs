@@ -26,17 +26,20 @@ namespace CaeMesh
     /// whose two vertices each turn by half a corner, are taken. A vertex turns by 180° less its interior angle and
     /// starts from the assignment above; an edge turns by the sum of that over the inner nodes of its polyline and
     /// starts from 0. While the assignments do not add up to four, the feature whose turn is furthest past its
-    /// assignment in the direction needed changes by one step; a feature changes once at most, stays within -1 to 1,
-    /// and may then be off its turn by no more than MaxTurnDeviationDeg, or the face is left free. Features within
-    /// TieToleranceDeg of each other at the cut-off, the two vertices of a chamfer, give alternatives, which are judged
-    /// by their grids. An edge assigned a turn turns in its middle (SubmapFace). A face classified this way needs no
-    /// corner and no six edges: a rounded rectangle and a five-sided house are submapped. A half circle, the end of a
-    /// slot, is off a turn of 90° by more than the limit and is not.
+    /// assignment in the direction needed changes by one step; a vertex changes once at most and stays within -1 to 1,
+    /// an edge may take two steps and stays within -2 to 2, its second step ranked by what is left of its turn after
+    /// the first, so that a half circle, the end of a slot, turns twice. Every feature that changed may then be off its
+    /// turn by no more than MaxTurnDeviationDeg, or the alternative is not valid: an edge of 180° that took one step
+    /// is not. Features within TieToleranceDeg of each other at the cut-off, the two vertices of a chamfer, give
+    /// alternatives, which are judged by their grids. An edge assigned a turn turns in its middle, one assigned two
+    /// turns at a quarter and three quarters of its length (SubmapFace). A face classified this way needs no corner and
+    /// no six edges: a rounded rectangle, a five-sided house and a slot-shaped plate are submapped.
     /// A face that is a height field over the plane of its boundary loop is judged by the grid SubmapMapping lays over
     /// it in that plane, with counts in proportion to the lengths of its edges, and is left free when that grid folds
-    /// or is poor; the meshers judge the grid of the counts they give it again. The corner of the one quad at the middle
-    /// of a convex turn edge is left out of that judgement: its angle depends only on the number of elements along the
-    /// edge, which the proportional counts set far finer than a mesh does.
+    /// or is poor; the meshers judge the grid of the counts they give it again. The corner of the one quad at every
+    /// inner corner of a convex turn edge, its middle or the two of an edge that turns twice, is left out of that
+    /// judgement: its angle, 180° - 90°/n or 180° - 180°/n for n elements along the edge, depends only on the count,
+    /// which the proportional counts set far finer than a mesh does.
     /// A face of several boundary loops is submapped when its holes have corners. Its loops are traversed with the face
     /// on the same side, by the winding of a cell of the face along the first segment of every loop, and the turn of a
     /// loop, the sum of the turns of its vertices and of its edges, tells the outer loop, about +360°, from a hole,
@@ -49,8 +52,13 @@ namespace CaeMesh
     /// angles of the hole and of the outer loop, rounded to a multiple of 90°, is the turn. A difference further than
     /// MaxHoleTurnDeviationDeg from a multiple of 90°, a diamond-shaped hole, and a face that is not a height field
     /// over that plane leave the face free. The face is then judged like a face of one loop, all loops snapped with
-    /// one lattice step that the outer loop sets, the holes placed by SubmapHolePlacement; a round hole, a single
-    /// closed edge or two half circles, is not classified.
+    /// one lattice step that the outer loop sets, the holes placed by SubmapHolePlacement.
+    /// A hole whose loop is a circle is round, which is decided before the rules above: every vertex a side by its
+    /// angle, its edges of the same length within MaxRoundLengthDeviation, and every point of their polylines as far
+    /// from the centre of the circle fitted through them in the plane as its radius within MaxRoundRadiusDeviation.
+    /// A single closed edge, two half circles and four quarters are round; an ellipse is not. A round hole needs no
+    /// directions: in the lattice it is a square whose corners SubmapHolePlacement puts where the lattice wants them.
+    /// An outer loop that is round, a disc or an annulus, leaves the face free.
     /// </summary>
     public static class SubmapFaceDetector
     {
@@ -68,6 +76,14 @@ namespace CaeMesh
         /// How far the frame of a hole may be turned off a multiple of 90° from the frame of the outer loop.
         /// </summary>
         public const double MaxHoleTurnDeviationDeg = 20;
+        /// <summary>
+        /// How much the lengths of the edges of a round hole may differ, relative to the longest.
+        /// </summary>
+        public const double MaxRoundLengthDeviation = 0.01;
+        /// <summary>
+        /// How far a point of a round hole may lie from its circle, relative to its radius.
+        /// </summary>
+        public const double MaxRoundRadiusDeviation = 0.02;
         private const double TieToleranceDeg = 1;
         private const int MaxNumOfAlternatives = 6;
         private const int MaxDeficit = 4;
@@ -138,7 +154,25 @@ namespace CaeMesh
                                                        anglesDeg, null);
                 if (!IsGridPoor(mesh, vis, submapFace)) return submapFace;
             }
+            if (IsRoundLoop(mesh, vis, loopEdgeIds, loopVertexIds, anglesDeg, transfiniteAngleDeg)) return null;
             return DetectFaceByTurns(mesh, vis, faceId, loopVertexIds, loopEdgeIds, anglesDeg, turns);
+        }
+        /// <summary>
+        /// Whether the one loop of a face is round (IsRoundLoop), a disc of half circles or quarters, which is left free.
+        /// </summary>
+        private static bool IsRoundLoop(FeMesh mesh, VisualizationData vis, int[] loopEdgeIds, int[] loopVertexIds,
+                                        double[] anglesDeg, double transfiniteAngleDeg)
+        {
+            List<double[]>[] polylines = new List<double[]>[loopEdgeIds.Length];
+            List<double[]> points = new List<double[]>();
+            for (int k = 0; k < loopEdgeIds.Length; k++)
+            {
+                polylines[k] = TransfiniteFaceDetector.GetEdgePoints(mesh, vis, loopEdgeIds[k], loopVertexIds[k]);
+                if (polylines[k] == null) return false;
+                for (int i = 0; i < polylines[k].Count - 1; i++) points.Add(polylines[k][i]);
+            }
+            double[][] frame = GetPlaneFrame(points);
+            return frame != null && IsRoundLoop(anglesDeg, polylines, frame, transfiniteAngleDeg);
         }
         /// <summary>
         /// Classifies the vertices and the edges of the loop by their turns, starting from the assignments of the
@@ -190,9 +224,11 @@ namespace CaeMesh
         }
         /// <summary>
         /// The assignments of the vertices and the edges of a loop, feature 2k vertex k and feature 2k + 1 edge k, that
-        /// change the assignments of the vertices by their angles by the deficit, one step for each of as many features
-        /// as the deficit counts, the features whose turns are furthest past their assignments in the direction needed;
-        /// features tied at the cut-off give alternatives. Null when too few features may change.
+        /// change the assignments of the vertices by their angles by the deficit, one step at a time, the steps whose
+        /// features have turns furthest past their assignments before the step in the direction needed; a vertex takes
+        /// one step at most and an edge two, the second ranked by the turn left after the first. Steps tied at the
+        /// cut-off give alternatives; an alternative in which a feature that changed is off its turn by more than
+        /// MaxTurnDeviationDeg is left out. Null when too few steps may be taken or no alternative is left.
         /// </summary>
         private static List<int[]> GetChangedAssignments(double[] anglesDeg, double[] edgeTurnsDeg, int[] vertexTurns,
                                                          int deficit)
@@ -208,25 +244,32 @@ namespace CaeMesh
             }
             int step = Math.Sign(deficit);
             int numOfSteps = Math.Abs(deficit);
-            // The features that may change, by how far their turns are past their assignments in the direction needed
-            List<int> candidates = new List<int>();
-            double[] scores = new double[2 * n];
+            // The steps that may be taken, by how far the turns of their features are past their assignments before them
+            // in the direction needed
+            List<int> features = new List<int>();
+            List<double> scores = new List<double>();
             for (int f = 0; f < 2 * n; f++)
             {
-                int changed = assignments[f] + step;
-                if (changed < -1 || changed > 1 || Math.Abs(turnsDeg[f] - 90 * changed) > MaxTurnDeviationDeg) continue;
-                scores[f] = step * (turnsDeg[f] - 90 * assignments[f]);
-                candidates.Add(f);
+                int limit = f % 2 == 0 ? 1 : 2;
+                for (int s = 0; s < limit; s++)
+                {
+                    int changed = assignments[f] + (s + 1) * step;
+                    if (changed < -limit || changed > limit) break;
+                    features.Add(f);
+                    scores.Add(step * (turnsDeg[f] - 90 * (assignments[f] + s * step)));
+                }
             }
-            if (candidates.Count < numOfSteps) return null;
+            if (features.Count < numOfSteps) return null;
+            List<int> candidates = new List<int>();
+            for (int c = 0; c < features.Count; c++) candidates.Add(c);
             candidates.Sort((a, b) => scores[a] != scores[b] ? scores[b].CompareTo(scores[a]) : a.CompareTo(b));
             double cutOff = scores[candidates[numOfSteps - 1]];
             List<int> taken = new List<int>();
             List<int> tied = new List<int>();
-            foreach (var f in candidates)
+            foreach (var c in candidates)
             {
-                if (scores[f] > cutOff + TieToleranceDeg) taken.Add(f);
-                else if (scores[f] >= cutOff - TieToleranceDeg) tied.Add(f);
+                if (scores[c] > cutOff + TieToleranceDeg) taken.Add(c);
+                else if (scores[c] >= cutOff - TieToleranceDeg) tied.Add(c);
             }
             tied.Sort();
             //
@@ -234,17 +277,24 @@ namespace CaeMesh
             foreach (var choice in GetCombinations(tied.Count, numOfSteps - taken.Count, MaxNumOfAlternatives))
             {
                 int[] changedAssignments = (int[])assignments.Clone();
-                foreach (var f in taken) changedAssignments[f] += step;
-                foreach (var i in choice) changedAssignments[tied[i]] += step;
-                alternatives.Add(changedAssignments);
+                foreach (var c in taken) changedAssignments[features[c]] += step;
+                foreach (var i in choice) changedAssignments[features[tied[i]]] += step;
+                bool valid = true;
+                for (int f = 0; f < 2 * n && valid; f++)
+                {
+                    if (changedAssignments[f] != assignments[f] &&
+                        Math.Abs(turnsDeg[f] - 90 * changedAssignments[f]) > MaxTurnDeviationDeg) valid = false;
+                }
+                if (valid) alternatives.Add(changedAssignments);
             }
-            return alternatives;
+            return alternatives.Count > 0 ? alternatives : null;
         }
         /// <summary>
-        /// The face of several boundary loops whose holes have corners, its loops classified by their vertices or by
-        /// their turns, the outer loop first, and the directions of its holes turned into the frame of the outer loop;
-        /// null when a loop cannot be classified, the loops are not one outer loop and its holes, a hole is turned off
-        /// a multiple of 90°, the face is not a height field over the plane of its outer loop, or its grid is poor.
+        /// The face of several boundary loops whose holes have corners or are round, its loops classified as round, by
+        /// their vertices or by their turns, the outer loop first, and the directions of its holes turned into the frame
+        /// of the outer loop; null when a loop cannot be classified, the outer loop is round, the loops are not one outer
+        /// loop and its holes, a hole is turned off a multiple of 90°, the face is not a height field over the plane of
+        /// its outer loop, or its grid is poor.
         /// </summary>
         private static SubmapFace DetectFaceWithHoles(FeMesh mesh, VisualizationData vis, int faceId, int[] faceEdgeIds,
                                                       double transfiniteAngleDeg, Dictionary<int, int[]> edgeIdVertexIds)
@@ -309,14 +359,6 @@ namespace CaeMesh
             {
                 if (l != outer) order[o++] = l;
             }
-            // The classifications of every loop in its own frame, edge 0 along +i
-            List<int[][]>[] assignments = new List<int[][]>[numOfLoops];
-            for (int o = 0; o < numOfLoops; o++)
-            {
-                int l = order[o];
-                assignments[o] = GetLoopAssignments(anglesDeg[l], edgeTurnsDeg[l], o == 0 ? 4 : -4, transfiniteAngleDeg);
-                if (assignments[o].Count == 0) return null;
-            }
             // The plane of the outer loop by Newell's method over the points of its edges
             List<double[]>[][] polylines = new List<double[]>[numOfLoops][];
             for (int o = 0; o < numOfLoops; o++)
@@ -336,6 +378,23 @@ namespace CaeMesh
             }
             double[][] frame = GetPlaneFrame(outerPoints);
             if (frame == null || !TransfiniteFaceDetector.IsHeightFieldOverPlane(mesh, vis, faceId, frame[1])) return null;
+            // The classifications of every loop in its own frame, edge 0 along +i, a round hole before the other rules;
+            // a round outer loop leaves the face free
+            List<int[][]>[] assignments = new List<int[][]>[numOfLoops];
+            bool[] round = new bool[numOfLoops];
+            for (int o = 0; o < numOfLoops; o++)
+            {
+                int l = order[o];
+                round[o] = IsRoundLoop(anglesDeg[l], polylines[o], frame, transfiniteAngleDeg);
+                if (round[o] && o == 0) return null;
+                if (round[o])
+                {
+                    assignments[o] = new List<int[][]> { new int[][] { new int[loopsEdgeIds[l].Length], null } };
+                    continue;
+                }
+                assignments[o] = GetLoopAssignments(anglesDeg[l], edgeTurnsDeg[l], o == 0 ? 4 : -4, transfiniteAngleDeg);
+                if (assignments[o].Count == 0) return null;
+            }
             //
             SubmapFace best = null;
             double bestQuality = double.NegativeInfinity;
@@ -349,6 +408,12 @@ namespace CaeMesh
                 {
                     int l = order[o];
                     int[][] assignment = assignments[o][choice[o]];
+                    if (round[o])
+                    {
+                        holes[o - 1] = new SubmapFace(faceId, loopsVertexIds[l], loopsEdgeIds[l], assignment[0], anglesDeg[l],
+                                                      null, null, true);
+                        continue;
+                    }
                     double angle = GetFrameAngle(polylines[o], assignment[0], assignment[1], frame);
                     double difference = (angle - outerAngle) * 180 / Math.PI;
                     double turn = Math.Round(difference / 90);
@@ -432,9 +497,79 @@ namespace CaeMesh
             return assignments;
         }
         /// <summary>
+        /// Whether a loop is a circle: every vertex a side by its angle, the polylines of its edges of the same length
+        /// within MaxRoundLengthDeviation, and every point of them as far from the centre of the circle fitted through
+        /// them in the plane of the frame as its radius within MaxRoundRadiusDeviation. The circle is the algebraic
+        /// least squares fit, exact for points on a circle however they are spread.
+        /// </summary>
+        private static bool IsRoundLoop(double[] anglesDeg, List<double[]>[] polylines, double[][] frame,
+                                        double transfiniteAngleDeg)
+        {
+            for (int k = 0; k < anglesDeg.Length; k++)
+            {
+                int? turn = GetTurn(anglesDeg[k], transfiniteAngleDeg);
+                if (!turn.HasValue || turn.Value != 0) return false;
+            }
+            double minLength = double.MaxValue;
+            double maxLength = 0;
+            List<double[]> points = new List<double[]>();
+            foreach (var polyline in polylines)
+            {
+                double length;
+                TransfiniteFaceDetector.Resample(polyline, 1, out length);
+                minLength = Math.Min(minLength, length);
+                maxLength = Math.Max(maxLength, length);
+                for (int i = 0; i < polyline.Count - 1; i++) points.Add(ToPlane(frame, polyline[i]));
+            }
+            if (!(maxLength > 0) || maxLength - minLength > MaxRoundLengthDeviation * maxLength || points.Count < 3)
+                return false;
+            // The circle x² + y² + d x + e y + f = 0 through the points taken about their mean
+            double[] mean = new double[2];
+            foreach (var point in points)
+            {
+                mean[0] += point[0] / points.Count;
+                mean[1] += point[1] / points.Count;
+            }
+            double sxx = 0;
+            double sxy = 0;
+            double syy = 0;
+            double sxz = 0;
+            double syz = 0;
+            double sz = 0;
+            foreach (var point in points)
+            {
+                double x = point[0] - mean[0];
+                double y = point[1] - mean[1];
+                double z = x * x + y * y;
+                sxx += x * x;
+                sxy += x * y;
+                syy += y * y;
+                sxz += x * z;
+                syz += y * z;
+                sz += z;
+            }
+            double determinant = sxx * syy - sxy * sxy;
+            if (!(Math.Abs(determinant) > 0)) return false;
+            double d = (-sxz * syy + syz * sxy) / determinant;
+            double e = (-syz * sxx + sxz * sxy) / determinant;
+            double f = -sz / points.Count;
+            double[] centre = new double[] { mean[0] - 0.5 * d, mean[1] - 0.5 * e };
+            double radiusSquared = 0.25 * (d * d + e * e) - f;
+            if (!(radiusSquared > 0)) return false;
+            double radius = Math.Sqrt(radiusSquared);
+            foreach (var point in points)
+            {
+                double distance = Math.Sqrt((point[0] - centre[0]) * (point[0] - centre[0]) +
+                                            (point[1] - centre[1]) * (point[1] - centre[1]));
+                if (Math.Abs(distance - radius) > MaxRoundRadiusDeviation * radius) return false;
+            }
+            return true;
+        }
+        /// <summary>
         /// Orders the edges of a face head to tail into its boundary loops, each starting at the first edge of the face
-        /// not yet in a loop, from the first vertex of that edge. False when a vertex does not join exactly two edges or
-        /// an edge is closed: an edge inside the face, a seam or a round hole of one edge.
+        /// not yet in a loop, from the first vertex of that edge. A closed edge, which starts and ends at its one vertex,
+        /// joins that vertex twice and is a loop of its own, a round hole of one edge. False when a vertex does not join
+        /// exactly two edges or an edge is used twice: an edge inside the face or a seam.
         /// </summary>
         private static bool GetBoundaryLoops(VisualizationData vis, int[] faceEdgeIds, Dictionary<int, int[]> edgeIdVertexIds,
                                              out List<int[]> loopsEdgeIds, out List<int[]> loopsVertexIds)
@@ -450,7 +585,12 @@ namespace CaeMesh
                     vertexIds = vis.GetVertexNodeIdsForEdgeId(edgeId);
                     edgeIdVertexIds.Add(edgeId, vertexIds);
                 }
-                if (vertexIds.Length != 2 || vertexIds[0] == vertexIds[1]) return false;
+                if (vertexIds.Length == 1)
+                {
+                    vertexIds = new int[] { vertexIds[0], vertexIds[0] };
+                    edgeIdVertexIds[edgeId] = vertexIds;
+                }
+                if (vertexIds.Length != 2) return false;
                 //
                 foreach (var vertexId in vertexIds)
                 {
@@ -578,12 +718,15 @@ namespace CaeMesh
                     AddChordAngle(start, end, directions[k], ref sumSin, ref sumCos);
                     continue;
                 }
-                List<double[]> firstHalf;
-                List<double[]> secondHalf;
-                if (!SplitAtHalfLength(polyline, out firstHalf, out secondHalf)) continue;
-                double[] middle = ToPlane(frame, secondHalf[0]);
-                AddChordAngle(start, middle, directions[k], ref sumSin, ref sumCos);
-                AddChordAngle(middle, end, (directions[k] + turn + 4) % 4, ref sumSin, ref sumCos);
+                List<List<double[]>> pieces = SplitPolyline(polyline, GetSplitFractions(turn));
+                if (pieces == null) continue;
+                for (int p = 0; p < pieces.Count; p++)
+                {
+                    double[] pieceStart = p == 0 ? start : ToPlane(frame, pieces[p][0]);
+                    double[] pieceEnd = p == pieces.Count - 1 ? end : ToPlane(frame, pieces[p][pieces[p].Count - 1]);
+                    AddChordAngle(pieceStart, pieceEnd, (directions[k] + p * Math.Sign(turn) + 4) % 4, ref sumSin,
+                                  ref sumCos);
+                }
             }
             if (sumSin == 0 && sumCos == 0) return double.NaN;
             return Math.Atan2(sumSin, sumCos);
@@ -747,9 +890,31 @@ namespace CaeMesh
             return !double.IsNaN(quality) && quality < MinScaledJacobian;
         }
         /// <summary>
+        /// Adds the polylines of the logical edges of an edge with the given turn to the list, split at the fractions of
+        /// GetSplitFractions, and the places of the logical edges that start at an inner corner of a convex turn edge,
+        /// counted from firstEdge, to convexMiddleEdges. False when a turn edge has no length.
+        /// </summary>
+        private static bool AddLogicalPolylines(List<double[]> polyline, int turn, int firstEdge,
+                                                List<List<double[]>> polylineList, List<int> convexMiddleEdges)
+        {
+            if (turn == 0)
+            {
+                polylineList.Add(polyline);
+                return true;
+            }
+            List<List<double[]>> pieces = SplitPolyline(polyline, GetSplitFractions(turn));
+            if (pieces == null) return false;
+            for (int p = 0; p < pieces.Count; p++)
+            {
+                if (p > 0 && turn > 0) convexMiddleEdges.Add(firstEdge + polylineList.Count);
+                polylineList.Add(pieces[p]);
+            }
+            return true;
+        }
+        /// <summary>
         /// The smallest scaled Jacobian of a quad corner of the grid of IsGridPoor, over the logical loop of the face,
-        /// a turn edge split at half its length. The corner at the middle of a convex turn edge is left out. -1 when
-        /// the grid folds or cannot be made, NaN when it is not judged.
+        /// a turn edge split into its logical edges. The corners at the inner corners of a convex turn edge are left
+        /// out. -1 when the grid folds or cannot be made, NaN when it is not judged.
         /// </summary>
         private static double GetGridQuality(FeMesh mesh, VisualizationData vis, SubmapFace face)
         {
@@ -760,16 +925,7 @@ namespace CaeMesh
                 List<double[]> polyline = TransfiniteFaceDetector.GetEdgePoints(mesh, vis, face.EdgeIds[k],
                                                                                 face.VertexNodeIds[k]);
                 if (polyline == null) return double.NaN;
-                if (face.GetEdgeTurn(k) == 0) polylineList.Add(polyline);
-                else
-                {
-                    List<double[]> firstHalf;
-                    List<double[]> secondHalf;
-                    if (!SplitAtHalfLength(polyline, out firstHalf, out secondHalf)) return -1;
-                    polylineList.Add(firstHalf);
-                    if (face.GetEdgeTurn(k) > 0) convexMiddleEdges.Add(polylineList.Count);
-                    polylineList.Add(secondHalf);
-                }
+                if (!AddLogicalPolylines(polyline, face.GetEdgeTurn(k), 0, polylineList, convexMiddleEdges)) return -1;
             }
             int n = polylineList.Count;
             List<double[]>[] polylines = polylineList.ToArray();
@@ -871,7 +1027,9 @@ namespace CaeMesh
         /// The quality of GetGridQuality for a face with holes, in the plane of its outer loop given by its frame, over
         /// the polylines of the edges of every loop. All loops are snapped to one lattice step, set by the outer loop,
         /// which is refined for all of them while a loop does not close or the holes find no place; the holes are placed
-        /// by SubmapHolePlacement on the plane coordinates of the nodes. -1 when the grid folds or cannot be made.
+        /// by SubmapHolePlacement on the plane coordinates of the nodes. A round hole is snapped as the square of four
+        /// equal sides that the length around it gives, and its nodes are laid once its count is known
+        /// (GetRoundLoopNodes). -1 when the grid folds or cannot be made.
         /// </summary>
         private static double GetGridQuality(FeMesh mesh, VisualizationData vis, SubmapFace face,
                                              List<double[]>[][] loopPolylines, double[][] frame)
@@ -886,19 +1044,28 @@ namespace CaeMesh
             {
                 SubmapFace loop = loops[l];
                 List<List<double[]>> polylineList = new List<List<double[]>>();
+                if (loop.IsRound)
+                {
+                    // The polylines of the edges of a round hole, which are split only once the counts are known
+                    polylineList.AddRange(loopPolylines[l]);
+                    lengths[l] = new double[4];
+                    double total = 0;
+                    foreach (var polyline in polylineList)
+                    {
+                        double edgeLength;
+                        TransfiniteFaceDetector.Resample(polyline, 1, out edgeLength);
+                        if (!(edgeLength > 0)) return -1;
+                        total += edgeLength;
+                    }
+                    for (int k = 0; k < 4; k++) lengths[l][k] = 0.25 * total;
+                    logicalPolylines[l] = polylineList.ToArray();
+                    firstEdge += 4;
+                    continue;
+                }
                 for (int k = 0; k < loop.EdgeIds.Length; k++)
                 {
-                    List<double[]> polyline = loopPolylines[l][k];
-                    if (loop.GetEdgeTurn(k) == 0) polylineList.Add(polyline);
-                    else
-                    {
-                        List<double[]> firstHalf;
-                        List<double[]> secondHalf;
-                        if (!SplitAtHalfLength(polyline, out firstHalf, out secondHalf)) return -1;
-                        polylineList.Add(firstHalf);
-                        if (loop.GetEdgeTurn(k) > 0) convexMiddleEdges.Add(firstEdge + polylineList.Count);
-                        polylineList.Add(secondHalf);
-                    }
+                    if (!AddLogicalPolylines(loopPolylines[l][k], loop.GetEdgeTurn(k), firstEdge, polylineList,
+                                             convexMiddleEdges)) return -1;
                 }
                 logicalPolylines[l] = polylineList.ToArray();
                 lengths[l] = new double[polylineList.Count];
@@ -920,11 +1087,18 @@ namespace CaeMesh
                 double[][][][] edgeUv = new double[numOfLoops][][][];
                 double[][][] nodePoints = new double[numOfLoops][][];
                 double length;
-                for (int l = 0; l < numOfLoops; l++)
+                bool divisible = true;
+                for (int l = 0; l < numOfLoops && divisible; l++)
                 {
                     int n = counts[l].Length;
                     edgeXyz[l] = new double[n][][];
                     edgeUv[l] = new double[n][][];
+                    if (loops[l].IsRound)
+                    {
+                        divisible = GetRoundLoopNodes(logicalPolylines[l], counts[l][0], frame, directions[0], counts[0],
+                                                      nodePoints[0], edgeXyz[l], edgeUv[l], out nodePoints[l]);
+                        continue;
+                    }
                     List<double[]> points = new List<double[]>();
                     for (int k = 0; k < n; k++)
                     {
@@ -935,6 +1109,7 @@ namespace CaeMesh
                     }
                     nodePoints[l] = points.ToArray();
                 }
+                if (!divisible) continue;
                 int[][] holeOffsets;
                 string reason;
                 if (!SubmapHolePlacement.TryPlace(directions, counts, nodePoints, 1, out holeOffsets, out reason)) continue;
@@ -980,14 +1155,60 @@ namespace CaeMesh
             return -1;
         }
         /// <summary>
-        /// The polyline split at half its length into two, the point there ending the first and starting the second.
-        /// False when it has no length.
+        /// The nodes of a round hole for the grid of GetGridQuality, edgeCount elements on each of its four logical edges:
+        /// spread evenly over the polylines of its edges, as many on each, in the plane of the frame, and started and
+        /// turned by SubmapHolePlacement.GetRoundLoopOrder in the lattice the outer loop gives. edgeXyz and edgeUv take
+        /// the four logical edges, and nodePoints the plane coordinates of the nodes in logical order. False when its
+        /// edges cannot carry as many elements each.
         /// </summary>
-        private static bool SplitAtHalfLength(List<double[]> polyline, out List<double[]> firstHalf,
-                                              out List<double[]> secondHalf)
+        private static bool GetRoundLoopNodes(List<double[]>[] polylines, int edgeCount, double[][] frame,
+                                              int[] outerDirections, int[] outerCounts, double[][] outerNodePoints,
+                                              double[][][] edgeXyz, double[][][] edgeUv, out double[][] nodePoints)
         {
-            firstHalf = null;
-            secondHalf = null;
+            nodePoints = null;
+            int numOfNodes = 4 * edgeCount;
+            if (numOfNodes % polylines.Length != 0) return false;
+            int numOfEdgeElements = numOfNodes / polylines.Length;
+            List<double[]> ringXyz = new List<double[]>();
+            double length;
+            foreach (var polyline in polylines)
+            {
+                double[][] samples = TransfiniteFaceDetector.Resample(polyline, numOfEdgeElements, out length);
+                if (samples == null) return false;
+                for (int i = 0; i < numOfEdgeElements; i++) ringXyz.Add(samples[i]);
+            }
+            double[][] ringUv = new double[numOfNodes][];
+            for (int p = 0; p < numOfNodes; p++) ringUv[p] = ToPlane(frame, ringXyz[p]);
+            int[] order = SubmapHolePlacement.GetRoundLoopOrder(outerDirections, outerCounts, outerNodePoints, ringUv);
+            nodePoints = new double[numOfNodes][];
+            for (int p = 0; p < numOfNodes; p++) nodePoints[p] = ringUv[order[p]];
+            for (int c = 0; c < 4; c++)
+            {
+                edgeXyz[c] = new double[edgeCount + 1][];
+                edgeUv[c] = new double[edgeCount + 1][];
+                for (int i = 0; i <= edgeCount; i++)
+                {
+                    int node = order[(c * edgeCount + i) % numOfNodes];
+                    edgeXyz[c][i] = ringXyz[node];
+                    edgeUv[c][i] = ringUv[node];
+                }
+            }
+            return true;
+        }
+        /// <summary>
+        /// Where the polyline of an edge with the given turn is split into its logical edges, as fractions of its length:
+        /// at its half for a single turn and at a quarter and three quarters for a double one.
+        /// </summary>
+        private static double[] GetSplitFractions(int turn)
+        {
+            return Math.Abs(turn) == 1 ? new double[] { 0.5 } : new double[] { 0.25, 0.75 };
+        }
+        /// <summary>
+        /// The polyline split at the given fractions of its length, in increasing order, into pieces, the point at a
+        /// fraction ending one piece and starting the next. Null when it has no length.
+        /// </summary>
+        private static List<List<double[]>> SplitPolyline(List<double[]> polyline, double[] fractions)
+        {
             double[] lengths = new double[polyline.Count];
             for (int i = 1; i < polyline.Count; i++)
             {
@@ -996,22 +1217,31 @@ namespace CaeMesh
                 lengths[i] = lengths[i - 1] + Math.Sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) +
                                                         (b[2] - a[2]) * (b[2] - a[2]));
             }
-            double half = 0.5 * lengths[polyline.Count - 1];
-            if (!(half > 0)) return false;
+            double total = lengths[polyline.Count - 1];
+            if (!(total > 0)) return null;
             //
+            List<List<double[]>> pieces = new List<List<double[]>>();
+            List<double[]> piece = new List<double[]> { polyline[0] };
+            int next = 1;
             int segment = 1;
-            while (segment < polyline.Count - 1 && lengths[segment] < half) segment++;
-            double span = lengths[segment] - lengths[segment - 1];
-            double f = span > 0 ? Math.Max(0, Math.Min(1, (half - lengths[segment - 1]) / span)) : 0;
-            double[] p = polyline[segment - 1];
-            double[] q = polyline[segment];
-            double[] middle = new double[] { p[0] + f * (q[0] - p[0]), p[1] + f * (q[1] - p[1]), p[2] + f * (q[2] - p[2]) };
-            firstHalf = new List<double[]>();
-            for (int i = 0; i < segment; i++) firstHalf.Add(polyline[i]);
-            firstHalf.Add(middle);
-            secondHalf = new List<double[]> { middle };
-            for (int i = segment; i < polyline.Count; i++) secondHalf.Add(polyline[i]);
-            return true;
+            foreach (var fraction in fractions)
+            {
+                double target = fraction * total;
+                while (segment < polyline.Count - 1 && lengths[segment] < target) segment++;
+                double span = lengths[segment] - lengths[segment - 1];
+                double f = span > 0 ? Math.Max(0, Math.Min(1, (target - lengths[segment - 1]) / span)) : 0;
+                double[] p = polyline[segment - 1];
+                double[] q = polyline[segment];
+                double[] split = new double[] { p[0] + f * (q[0] - p[0]), p[1] + f * (q[1] - p[1]),
+                                                p[2] + f * (q[2] - p[2]) };
+                for (; next < segment; next++) piece.Add(polyline[next]);
+                piece.Add(split);
+                pieces.Add(piece);
+                piece = new List<double[]> { split };
+            }
+            for (; next < polyline.Count; next++) piece.Add(polyline[next]);
+            pieces.Add(piece);
+            return pieces;
         }
         /// <summary>
         /// The ideal rectilinear outline of a loop whose edge k runs in direction directions[k] and is lengths[k] long:

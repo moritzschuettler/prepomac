@@ -45,8 +45,9 @@ namespace CaeMesh
         /// Returns the pairs left unequal, none when every pair is balanced, and the three-sided faces left without
         /// valid numbers in unbalancedTriples. sizedEdgeIdCounts holds the numbers of elements the element sizes the
         /// user set ask for, which the balance keeps within GetElementSizeCountRange, and maxSizeCounts the fewest
-        /// elements that keep the elements of an edge within the maximum element size. The edges of evenEdgeIds are given
-        /// an even number of elements where the numbers the user set allow it; one they do not is left to the caller.
+        /// elements that keep the elements of an edge within the maximum element size. The edges of edgeIdMultiples are
+        /// given a number of elements that is a multiple of theirs, 2 for an even one, where the numbers the user set
+        /// allow it; one they do not is left to the caller.
         /// </summary>
         public static List<TransfiniteSidePair> Balance(Dictionary<int, int> edgeIdCount,
                                                         Dictionary<int, int> naturalCounts,
@@ -56,11 +57,11 @@ namespace CaeMesh
                                                         HashSet<int> freeFaceEdgeIds = null,
                                                         Dictionary<int, int> sizedEdgeIdCounts = null,
                                                         Dictionary<int, int> maxSizeCounts = null,
-                                                        HashSet<int> evenEdgeIds = null)
+                                                        Dictionary<int, int> edgeIdMultiples = null)
         {
             List<SubmapSeparation> unbalancedSeparations;
             return Balance(edgeIdCount, naturalCounts, pinnedEdgeIds, pairs, triples, null, out unbalancedTriples,
-                           out unbalancedSeparations, freeFaceEdgeIds, sizedEdgeIdCounts, maxSizeCounts, evenEdgeIds);
+                           out unbalancedSeparations, freeFaceEdgeIds, sizedEdgeIdCounts, maxSizeCounts, edgeIdMultiples);
         }
         /// <summary>
         /// The balance with the separations of the submapped faces as well, each a row that keeps two sides of a face
@@ -77,7 +78,7 @@ namespace CaeMesh
                                                         HashSet<int> freeFaceEdgeIds = null,
                                                         Dictionary<int, int> sizedEdgeIdCounts = null,
                                                         Dictionary<int, int> maxSizeCounts = null,
-                                                        HashSet<int> evenEdgeIds = null)
+                                                        Dictionary<int, int> edgeIdMultiples = null)
         {
             if (separations == null) separations = new List<SubmapSeparation>();
             int count;
@@ -96,7 +97,7 @@ namespace CaeMesh
             {
                 Dictionary<int, int> balancedCounts = new Dictionary<int, int>(edgeIdCount);
                 if (BalanceBySolve(balancedCounts, naturalCounts, pinnedEdgeIds, edgeIdLowestCount, sizedEdgeIdCounts,
-                                   maxSizeCounts, pairs, triples, separations, evenEdgeIds, out unbalanced,
+                                   maxSizeCounts, pairs, triples, separations, edgeIdMultiples, out unbalanced,
                                    out unbalancedTriples, out unbalancedSeparations) &&
                     unbalanced.Count == 0 && unbalancedTriples.Count == 0 && unbalancedSeparations.Count == 0)
                 {
@@ -106,7 +107,7 @@ namespace CaeMesh
             }
             // The numbers the user set leave no room for the lowest counts, so they give way
             if (!BalanceBySolve(edgeIdCount, naturalCounts, pinnedEdgeIds, new Dictionary<int, int>(), sizedEdgeIdCounts,
-                                maxSizeCounts, pairs, triples, separations, evenEdgeIds, out unbalanced,
+                                maxSizeCounts, pairs, triples, separations, edgeIdMultiples, out unbalanced,
                                 out unbalancedTriples, out unbalancedSeparations))
                 throw new CaeException("lp_solve found no element counts for the structured faces.");
             return unbalanced;
@@ -119,7 +120,7 @@ namespace CaeMesh
                                            HashSet<int> pinnedEdgeIds, Dictionary<int, int> edgeIdLowestCount,
                                            Dictionary<int, int> sizedEdgeIdCounts, Dictionary<int, int> maxSizeCounts,
                                            List<TransfiniteSidePair> pairs, List<TransfiniteSideTriple> triples,
-                                           List<SubmapSeparation> separations, HashSet<int> evenEdgeIds,
+                                           List<SubmapSeparation> separations, Dictionary<int, int> edgeIdMultiples,
                                            out List<TransfiniteSidePair> unbalanced,
                                            out List<TransfiniteSideTriple> unbalancedTriples,
                                            out List<SubmapSeparation> unbalancedSeparations)
@@ -156,12 +157,13 @@ namespace CaeMesh
                 problem.AddAtLeastDifference("Surface " + separation.FaceId, IntervalRowTierEnum.Hard,
                                              separation.TowardsEdgeIds, separation.BackEdgeIds, separation.Bound,
                                              separation.FaceId);
-            if (evenEdgeIds != null)
+            if (edgeIdMultiples != null)
             {
+                int multiple;
                 foreach (var edgeId in edgeIdCount.Keys)
                 {
-                    if (evenEdgeIds.Contains(edgeId))
-                        problem.AddEvenSum("Edge " + edgeId, IntervalRowTierEnum.Hard, new int[] { edgeId });
+                    if (edgeIdMultiples.TryGetValue(edgeId, out multiple) && multiple > 1)
+                        problem.AddEvenSum("Edge " + edgeId, IntervalRowTierEnum.Hard, new int[] { edgeId }, multiple);
                 }
             }
             //

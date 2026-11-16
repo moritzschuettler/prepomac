@@ -27,6 +27,9 @@
 #    nodes. Mean value coordinates reproduce a linear map inside an L, and the multi-loop AreCountsValid names a hole
 #    that touches the outer loop or another hole, lies outside the outline or inside another hole, turns the wrong way
 #    or does not close, and offsets that do not match the holes.
+#  - A round hole of 16 nodes on a circle, given from four start angles in either sense: SubmapHolePlacement starts its
+#    logical loop at the node nearest 45 degrees about its centre in the lattice and runs it clockwise, and the hole is
+#    placed and mapped as a square of four elements on each side.
 #  - A 100 x 100 cell L is mapped in well under the time bound.
 #  With the environment variable PMX_SUBMAP_PLOT_DIR set, every named case and the worst case of the sweep are
 #  written into that folder as SVG drawings of the outline and the quads.
@@ -844,6 +847,54 @@ def group_holes():
     return worst
 
 
+def group_round():
+    """A round hole of 16 nodes on a circle in a rectangle, given from four start angles in either sense:
+    SubmapHolePlacement.GetRoundLoopOrder starts its logical loop at the node nearest 45 degrees about its centre in the
+    lattice and runs it clockwise, so that its four logical edges of four elements run along -j, -i, +j and +i; the
+    hole is then placed and mapped as any square hole."""
+    plane = Plane()
+    h = 2.5
+    outer = loop_edges(plane, (0.0, 0.0), RECTANGLE, h)
+    outer_counts = [len(edge) - 1 for edge in outer[1]]
+    outer_points = [uv for edge in outer[1] for uv in edge[:-1]]
+    centre = (12.5, 10.0)
+    radius = 4.0
+    n = 16
+    q = n // 4
+    worst = 1.0
+    for start_deg, sense in [(0.0, 1), (30.0, 1), (10.0, -1), (200.0, -1)]:
+        nodes = [[centre[0] + radius * math.cos(math.radians(start_deg + sense * 360.0 * p / n)),
+                  centre[1] + radius * math.sin(math.radians(start_deg + sense * 360.0 * p / n))] for p in range(n)]
+        order = [int(i) for i in SubmapHolePlacement.GetRoundLoopOrder(
+            Array[Int32](outer[0]), Array[Int32](outer_counts),
+            Array[Array[Double]]([Array[Double](p) for p in outer_points]),
+            Array[Array[Double]]([Array[Double](p) for p in nodes]))]
+        angles = [math.degrees(math.atan2(p[1] - centre[1], p[0] - centre[0])) for p in nodes]
+        wrap = lambda a: (a + 180.0) % 360.0 - 180.0
+        nearest = min(range(n), key=lambda p: (abs(wrap(angles[p] - 45.0)), p))
+        check(sorted(order) == list(range(n)) and order[0] == nearest,
+              "round from %g degrees: the logical loop starts at node %d, not at node %d nearest 45 degrees" %
+              (start_deg, order[0], nearest))
+        check(all(wrap(angles[order[(p + 1) % n]] - angles[order[p]]) < 0 for p in range(n)),
+              "round from %g degrees: the logical loop does not run clockwise" % start_deg)
+        hole_edges = [[list(nodes[order[(c * q + i) % n]]) for i in range(q + 1)] for c in range(4)]
+        hole = ([3, 2, 1, 0], hole_edges)
+        result = SubmapHolePlacement.TryPlace(Array[Array[Int32]]([Array[Int32](outer[0]), Array[Int32]([3, 2, 1, 0])]),
+                                              Array[Array[Int32]]([Array[Int32](outer_counts), Array[Int32]([q] * 4)]),
+                                              Array[Array[Array[Double]]]([
+                                                  Array[Array[Double]]([Array[Double](p) for p in outer_points]),
+                                                  Array[Array[Double]]([Array[Double](nodes[o]) for o in order])]),
+                                              1, None, None)
+        check(result[0], "round from %g degrees: no place for the hole (%s)" % (start_deg, result[2]))
+        offsets = [[int(c) for c in o] for o in result[1]]
+        name = "round_from_%d_%s" % (int(start_deg), "ccw" if sense > 0 else "cw")
+        grid, min_sj = check_holes_grid(name, plane, [outer, hole], offsets)
+        worst = min(worst, min_sj)
+        print("%-22s start node %2d at %6.1f degrees  offsets %s  quads %d  min SJ %.3f" %
+              (name, order[0], angles[order[0]], offsets, len(grid.Quads), min_sj))
+    return worst
+
+
 def group_timing():
     plane = Plane()
     sides = shape_l(100, 100, 50, 50)
@@ -869,7 +920,8 @@ def main():
     if PLOT_DIR and not os.path.isdir(PLOT_DIR):
         os.makedirs(PLOT_DIR)
     results = [("uniform", group_uniform()), ("graded and split", group_graded()), ("skewed", group_skewed()),
-               ("curved", group_curved()), ("sweep", group_sweep()), ("holes", group_holes())]
+               ("curved", group_curved()), ("sweep", group_sweep()), ("holes", group_holes()),
+               ("round", group_round())]
     group_refusals()
     group_timing()
     for name, worst in results:

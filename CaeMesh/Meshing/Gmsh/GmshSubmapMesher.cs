@@ -21,9 +21,12 @@ namespace CaeMesh
     /// the surface and the evaluation of the surface, and the elements gmsh meshed on the face are replaced. A grid
     /// that cannot be made, folds or has a quad corner below SubmapFaceDetector.MinScaledJacobian leaves the face as
     /// gmsh meshed it. An edge that turns in its middle is split at its middle node into the two logical edges of the
-    /// face, so it needs an even number of elements. The nodes of the holes of a face are read loop by loop as those
-    /// of its outer loop, and the holes are placed in the lattice by SubmapHolePlacement on the parameters of the nodes;
-    /// a hole for which no place is found leaves the face as gmsh meshed it.
+    /// face, so it needs an even number of elements; one that turns twice at its nodes at a quarter and three quarters
+    /// into three, so it needs a multiple of four. The nodes of the holes of a face are read loop by loop as those of
+    /// its outer loop, and the holes are placed in the lattice by SubmapHolePlacement on the parameters of the nodes;
+    /// a hole for which no place is found leaves the face as gmsh meshed it. The nodes of a round hole are read around
+    /// it and split into its four logical edges from the node SubmapHolePlacement.GetRoundLoopOrder finds, so its edges
+    /// must carry as many elements each and a multiple of four around it.
     /// </summary>
     public static class GmshSubmapMesher
     {
@@ -68,6 +71,23 @@ namespace CaeMesh
                     for (int i = 0; i < loopCounts[l][k]; i++) nodeUv.Add(logicalUv[k][i]);
                 }
                 loopNodeUv[l] = nodeUv.ToArray();
+            }
+            // A round hole starts its logical loop at the node the lattice of the outer loop puts nearest to its +i +j
+            // corner
+            for (int l = 1; l < numOfLoops; l++)
+            {
+                if (!loops[l].IsRound) continue;
+                List<IntPtr>[] roundTags;
+                double[][][] roundXyz;
+                double[][][] roundUv;
+                if (!GetRoundLoopEdgeNodes(loops[l], loopDirections[0], loopCounts[0], loopNodeUv[0], loopTags[l],
+                                           loopXyz[l], loopUv[l], out roundTags, out roundXyz, out roundUv,
+                                           out loopNodeUv[l], out reason)) return false;
+                loopTags[l] = roundTags;
+                loopXyz[l] = roundXyz;
+                loopUv[l] = roundUv;
+                loopCounts[l] = new int[4];
+                for (int k = 0; k < 4; k++) loopCounts[l][k] = loopUv[l][k].Length - 1;
             }
             // The holes are placed in the lattice by where they lie in the parameter space
             int[][] holeOffsets;
@@ -157,10 +177,12 @@ namespace CaeMesh
                 reason = ToReason(ex.Message);
                 return false;
             }
-            // A turn edge is split at its middle node into its two halves
+            // A turn edge is split at its middle node into its two halves, and an edge that turns twice at the nodes at a
+            // quarter and three quarters of it into three pieces
             for (int k = 0; k < numOfEdges; k++)
             {
-                if (loop.GetEdgeTurn(k) == 0)
+                int turn = Math.Abs(loop.GetEdgeTurn(k));
+                if (turn == 0)
                 {
                     logicalTags.Add(edgeTags[k]);
                     logicalXyz.Add(edgeXyz[k]);
@@ -168,19 +190,95 @@ namespace CaeMesh
                     continue;
                 }
                 int count = edgeXyz[k].Length - 1;
-                if (count % 2 != 0)
+                if (turn == 1 && count % 2 != 0)
                 {
                     reason = "Edge " + loop.EdgeIds[k] + " turns a corner in its middle and carries an odd number of " +
                              "elements";
                     return false;
                 }
-                int middle = count / 2;
-                logicalTags.Add(edgeTags[k].GetRange(0, middle + 1));
-                logicalTags.Add(edgeTags[k].GetRange(middle, count - middle + 1));
-                logicalXyz.Add(GetRange(edgeXyz[k], 0, middle + 1));
-                logicalXyz.Add(GetRange(edgeXyz[k], middle, count - middle + 1));
-                logicalUv.Add(GetRange(edgeUv[k], 0, middle + 1));
-                logicalUv.Add(GetRange(edgeUv[k], middle, count - middle + 1));
+                if (turn == 2 && count % 4 != 0)
+                {
+                    reason = "Edge " + loop.EdgeIds[k] + " turns twice and carries " + count + " elements, not a " +
+                             "multiple of four";
+                    return false;
+                }
+                int[] splits = turn == 1 ? new int[] { 0, count / 2, count } :
+                                           new int[] { 0, count / 4, 3 * count / 4, count };
+                for (int p = 0; p < splits.Length - 1; p++)
+                {
+                    int length = splits[p + 1] - splits[p] + 1;
+                    logicalTags.Add(edgeTags[k].GetRange(splits[p], length));
+                    logicalXyz.Add(GetRange(edgeXyz[k], splits[p], length));
+                    logicalUv.Add(GetRange(edgeUv[k], splits[p], length));
+                }
+            }
+            return true;
+        }
+        /// <summary>
+        /// The four logical edges of a round hole from the nodes gmsh meshed on its edges, which must carry as many
+        /// elements each and a multiple of four around it: its nodes in the order SubmapHolePlacement.GetRoundLoopOrder
+        /// finds in the lattice of the outer loop, whose logical edges run in outerDirections with outerCounts elements
+        /// through the nodes of the parameters outerNodeUv, and nodeUv the parameters of its nodes in that order. False,
+        /// with the reason, when the counts do not allow it.
+        /// </summary>
+        private static bool GetRoundLoopEdgeNodes(SubmapFace loop, int[] outerDirections, int[] outerCounts,
+                                                  double[][] outerNodeUv, List<IntPtr>[] edgeTags, double[][][] edgeXyz,
+                                                  double[][][] edgeUv, out List<IntPtr>[] logicalTags,
+                                                  out double[][][] logicalXyz, out double[][][] logicalUv,
+                                                  out double[][] nodeUv, out string reason)
+        {
+            logicalTags = null;
+            logicalXyz = null;
+            logicalUv = null;
+            nodeUv = null;
+            reason = null;
+            List<IntPtr> ringTags = new List<IntPtr>();
+            List<double[]> ringXyz = new List<double[]>();
+            List<double[]> ringUv = new List<double[]>();
+            int firstCount = edgeUv[0].Length - 1;
+            for (int k = 0; k < edgeUv.Length; k++)
+            {
+                int count = edgeUv[k].Length - 1;
+                if (count != firstCount)
+                {
+                    reason = "Edge " + loop.EdgeIds[0] + " and Edge " + loop.EdgeIds[k] + " of a round hole carry " +
+                             firstCount + " and " + count + " elements, which must be equal";
+                    return false;
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    ringTags.Add(edgeTags[k][i]);
+                    ringXyz.Add(edgeXyz[k][i]);
+                    ringUv.Add(edgeUv[k][i]);
+                }
+            }
+            int numOfNodes = ringUv.Count;
+            if (numOfNodes % 4 != 0 || numOfNodes == 0)
+            {
+                reason = "the round hole of Edge " + loop.EdgeIds[0] + " carries " + numOfNodes + " elements around it, " +
+                         "not a multiple of four";
+                return false;
+            }
+            int[] order = SubmapHolePlacement.GetRoundLoopOrder(outerDirections, outerCounts, outerNodeUv,
+                                                                ringUv.ToArray());
+            int edgeCount = numOfNodes / 4;
+            nodeUv = new double[numOfNodes][];
+            for (int p = 0; p < numOfNodes; p++) nodeUv[p] = ringUv[order[p]];
+            logicalTags = new List<IntPtr>[4];
+            logicalXyz = new double[4][][];
+            logicalUv = new double[4][][];
+            for (int c = 0; c < 4; c++)
+            {
+                logicalTags[c] = new List<IntPtr>();
+                logicalXyz[c] = new double[edgeCount + 1][];
+                logicalUv[c] = new double[edgeCount + 1][];
+                for (int i = 0; i <= edgeCount; i++)
+                {
+                    int node = order[(c * edgeCount + i) % numOfNodes];
+                    logicalTags[c].Add(ringTags[node]);
+                    logicalXyz[c][i] = ringXyz[node];
+                    logicalUv[c][i] = ringUv[node];
+                }
             }
             return true;
         }
