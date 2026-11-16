@@ -23,9 +23,10 @@ namespace CaeMesh
     /// turned its own. The result is kept only when it is better: fewer triangles than before - none, one when
     /// the elements around the boundary add up to an odd number, or the few the cleanup found no good way to join - no
     /// folded element, and no corner of a scaled Jacobian below SubmapFaceDetector.MinScaledJacobian or below the worst
-    /// corner gmsh left, whichever is lower, measured in space against the normal of the surface. A face with a seam or
-    /// a degenerate edge, whose parameters do not run evenly over it, or with a node on an edge or a point inside it is
-    /// left as gmsh meshed it.
+    /// corner gmsh left, whichever is lower, measured in space against the normal of the surface. A face gmsh meshed with
+    /// quads only is cleaned as well, for its valences and its corners, and kept only with no fold, no more irregular
+    /// inner nodes and no corner below the worst one gmsh left. A face with a seam or a degenerate edge, whose parameters
+    /// do not run evenly over it, or with a node on an edge or a point inside it is left as gmsh meshed it.
     /// </summary>
     public static class GmshQuadMesher
     {
@@ -61,7 +62,7 @@ namespace CaeMesh
                     if (n == 3) numOfTriangles++;
                 }
             }
-            if (numOfTriangles == 0) return false;
+            bool triangleFree = numOfTriangles == 0;
             // The nodes on the edges of the face, which stay
             int[] edgeIds;
             Gmsh.Model.GetAdjacencies(2, surfaceId, out _, out edgeIds);
@@ -175,7 +176,10 @@ namespace CaeMesh
                 if (reason.StartsWith("The ")) reason = "the " + reason.Substring(4);
                 return false;
             }
-            if (result.NumberOfTriangles >= numOfTriangles)
+            // A face of quads only is kept as gmsh meshed it unless the cleanup leaves no more irregular inner nodes
+            if (triangleFree && (result.NumberOfFoldedElements > 0 ||
+                                 result.NumberOfIrregularNodes > result.NumberOfIrregularNodesBefore)) return false;
+            if (!triangleFree && result.NumberOfTriangles >= numOfTriangles)
             {
                 reason = oddTotal && numOfTriangles == 1 ? oddReason : notJoinedReason;
                 return false;
@@ -186,9 +190,9 @@ namespace CaeMesh
                 return false;
             }
             // The inner nodes the cleanup kept, on the surface
-            int[] newIds = new int[numOfNodes];
+            int[] newIds = new int[result.Points.Length];
             List<double[]> innerUv = new List<double[]>();
-            for (int i = 0; i < numOfNodes; i++)
+            for (int i = 0; i < newIds.Length; i++)
             {
                 if (i < numOfBoundaryNodes) newIds[i] = i;
                 else if (result.IsNodeUsed[i])
@@ -235,8 +239,10 @@ namespace CaeMesh
             }
             double orientation = GetSpaceOrientation(surfaceId, elements, xyz, uv);
             double minScaledJacobian = GetSpaceMinScaledJacobian(surfaceId, newElements, newXyz, newUv, orientation);
-            double floor = Math.Min(SubmapFaceDetector.MinScaledJacobian,
-                                    GetSpaceMinScaledJacobian(surfaceId, elements, xyz, uv, orientation));
+            double gmshMinScaledJacobian = GetSpaceMinScaledJacobian(surfaceId, elements, xyz, uv, orientation);
+            double floor = triangleFree ? gmshMinScaledJacobian :
+                           Math.Min(SubmapFaceDetector.MinScaledJacobian, gmshMinScaledJacobian);
+            if (triangleFree && minScaledJacobian < floor) return false;
             if (minScaledJacobian < floor)
             {
                 reason = "the cleaned mesh would have a corner of the scaled Jacobian " + Math.Round(minScaledJacobian, 3) +

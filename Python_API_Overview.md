@@ -1128,20 +1128,23 @@ of such a source are given up at a price rather than refuse the sweep, also
 when the numbers of elements set on its edges make the grid impossible, and the source is then meshed free; under
 `algorithm_2d='QuadWild'` a submapped or ring source is left to gmsh.
 `algorithm_recombine` of a Gmsh item is `None`, `Simple`, `Blossom`, `SimpleFullQuad`, `BlossomFullQuad` or `AllQuad`.
-`AllQuad`, for `shell_gmsh`, meshes like `Simple` and then turns every face gmsh meshed free - not transfinite,
-three-sided, submapped or a ring - into quads only on the boundary nodes gmsh placed, at the element size asked for:
-its triangles are paired and merged into quads, its valences evened out and its nodes smoothed. Only an even number of
+`AllQuad`, for `shell_gmsh`, meshes like `Blossom` - gmsh then gives every edge it meshes itself an even number of
+elements - and then turns every face gmsh meshed free - not transfinite, three-sided, submapped or a ring - into quads
+only on the boundary nodes gmsh placed, at the element size asked for: the triangles left are paired and merged into
+quads, its valences evened out and its nodes smoothed. Only an even number of
 elements around a face allows quads only, so the edges of the free faces are balanced to an even total around each
-face where no number set on an edge or structured face holds them, giving way to everything else; a face that still
-has an odd total keeps one triangle, and one on which a pair of triangles cannot be joined well keeps that pair. A
-face is kept as gmsh meshed it when the conversion would not lower its number of triangles, would fold a quad or have
-a corner of a scaled Jacobian below 0.2 that gmsh's own mesh does not have, and the output says why a face keeps
-triangles ("All-quad meshing: Surface N keeps M triangles - reason"); a face with a seam, a degenerate edge, or an
-edge or point inside it is, for now, kept as gmsh meshed it as well.
+face where no number set on an edge or structured face holds them, giving way to everything else; the balance
+measures the edges as gmsh meshes them in the end. A face that still has an odd total keeps one triangle, and one on
+which a pair of triangles cannot be joined well keeps that pair. A face is kept as gmsh meshed it when the
+conversion would not lower its number of triangles, would fold a quad or have a corner of a scaled Jacobian below 0.2
+that gmsh's own mesh does not have, and the output says why a face keeps triangles ("All-quad meshing: Surface N keeps
+M triangles - reason"); a face with a seam, a degenerate edge, or an edge or point inside it is, for now, kept as gmsh
+meshed it as well. A face gmsh meshed with quads only has its valences evened out and its nodes smoothed in the same
+way, which is kept only when it leaves no more irregular inner nodes, no fold and no worse corner.
 Second order elements and the full-quad recombinations work as before; `tetrahedral_gmsh` takes `AllQuad`
-as `Simple`, and a sweep meshes with it as with `Simple`. A recombined sweep turns its free sources into quads only in the same way by default, with no
-setting, and asks the sweep counts for an even total around each such source at the weakest tier, so that a block
-whose free source becomes quads only is swept into hexahedra only.
+as `Simple`, and a sweep meshes with it as with `Simple`. A recombined sweep turns its free sources into quads only in
+the same way by default, with no setting, and asks the sweep counts for an even total around each such source at the
+weakest tier, so that a block whose free source becomes quads only is swept into hexahedra only.
 `transfinite_three_sided` of a Gmsh item is `Polar`, `Mapped` (the default for a new item) or `No`: a
 3-sided face with `Polar` is the structured grid gmsh collapses at one corner, with triangles there and arcs around
 it as a revolution about that corner would make, and its two sides meeting there carry one number of elements. The

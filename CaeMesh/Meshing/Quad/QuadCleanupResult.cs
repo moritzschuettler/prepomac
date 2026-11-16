@@ -37,7 +37,10 @@ namespace CaeMesh
         // Properties                                                                                                               
         /// <summary>The quads and the triangles left, of 4 and 3 node ids, turning the way the input turned.</summary>
         public int[][] Elements { get { return _elements; } }
-        /// <summary>The positions of all the nodes of the input, the free ones where the cleanup left them.</summary>
+        /// <summary>
+        /// The positions of all the nodes of the input, the free ones where the cleanup left them, followed by the nodes
+        /// the cleanup added.
+        /// </summary>
         public double[][] Points { get { return _points; } }
         public bool[] IsNodeUsed { get { return _isNodeUsed; } }
         public int NumberOfTrianglesBefore { get { return _numOfTrianglesBefore; } }

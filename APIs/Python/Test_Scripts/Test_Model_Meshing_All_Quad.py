@@ -1,11 +1,12 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks the all-quad recombination of a Gmsh shell: gmsh meshes every face with its simple recombination, the structured
-#faces are handled as with Simple, and every face left free is turned into quads only on the boundary nodes gmsh placed
+#Checks the all-quad recombination of a Gmsh shell: gmsh meshes every face with the base recombination
+#GmshAPI.GetGmshRecombinationAlgorithm chooses (Blossom; the checks hold for Simple as well), the structured faces are
+#handled as with Simple, and every face left free is turned into quads only on the boundary nodes gmsh placed
 #(GmshQuadMesher, QuadCleanup). The number of elements around a free face is balanced to an even total where nothing
-#else holds it, since only an even total allows quads only. A recombined sweep turns its free sources into quads only by
-#default, so that the blocks are swept into hexahedra only.
+#else holds it, since only an even total allows quads only, on the counts gmsh gives the edges in the end. A recombined
+#sweep turns its free sources into quads only by default, so that the blocks are swept into hexahedra only.
 #
 #  - all_quad_faces.brep: one face per part side by side - a disc of r 20, a half disc of r 20, a triangle, a house
 #    whose roof meets its walls at 117 and 127 degrees, a disc of r 20 with a bore of r 8 off the centre by 11.8 mm, a
@@ -14,10 +15,10 @@
 #    50 high with a round hole of r 6 cut through it radially. The half disc and the cylinder patch fall back from the
 #    submapping, the plate with three holes and the thin L are submapped, the others are free.
 #    At the element size 5, without the three-sided mapping so that the triangle is meshed free as well: Simple leaves
-#    triangles on the free faces; AllQuad gives quads only, none folded, a worst scaled Jacobian of 0.2 at least
-#    measured in space, the same boundary nodes as Simple where Simple's total is even, and no all-quad message. The
-#    table of both and the time are printed. Simple meshes every face as recorded, as before the all-quad recombination
-#    existed.
+#    triangles on the free faces; AllQuad gives an even number of elements around every face and quads only, none
+#    folded, a worst scaled Jacobian of 0.2 at least measured in space, the same boundary nodes as Simple where it has
+#    as many elements around the face as Simple, and no all-quad message. The table of both and the time are printed.
+#    Simple meshes every face as recorded, as before the all-quad recombination existed.
 #  - Pinned odd totals: 25 elements on the circle of the disc, and 5 on every edge of the heptagon, leave exactly one
 #    triangle on each and an all-quad message that names the odd total. A number set on one edge of a face whose other
 #    edges are free is balanced to an even total instead.
@@ -289,10 +290,11 @@ def check_shells(parts):
         plot("all_quad_" + name.replace(" ", "_") + "_all_quad", name + ", AllQuad: " + str(quads) + " quads, " +
              str(triangles) + " triangles, worst SJ " + str(round(quality, 3)) + ", irregular " + str(irregular),
              face.elements, plot_points(name, face, dx))
+        check(total % 2 == 0, "the " + name + " has an odd number of elements around it with AllQuad, " + str(total))
         check(triangles == 0, "the " + name + " keeps " + str(triangles) + " triangles with AllQuad")
         check(quality >= FLOOR, "the " + name + " has a corner of the scaled Jacobian " + str(quality))
         check(len(messages) == 0, "the " + name + " wrote: " + str(messages))
-        if simple_total % 2 == 0:
+        if total == simple_total:
             check(face.boundary_points() == simple.boundary_points(), "the " + name + " has other boundary nodes " +
                   "with AllQuad than with Simple")
         rows.append((name, s_quads, s_triangles, round(s_quality, 3), quads, round(quality, 3), s_irregular, irregular,

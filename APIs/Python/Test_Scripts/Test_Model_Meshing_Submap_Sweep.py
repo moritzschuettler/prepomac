@@ -21,10 +21,11 @@
 #  - The QuadWild source mesher over the L and a five-sided house profile, swept by one item: QuadWild leaves the L
 #    to gmsh, which keeps its submapped grid, and meshes the house.
 #  - transfinite_submapped=False meshes the sources free, and the free sources are turned into quads only, so the
-#    blocks are hexahedra only, of the element and node counts recorded in BEFORE, but for the U, whose source keeps
-#    two of its triangles with an all-quad message and so two columns of wedges. Before free sources were turned
-#    into quads only, these counts were L (872, 1071), U (992, 1215), T (752, 927), plus (976, 1188), staircase
-#    (1112, 1332), thin L (216, 500) and bent L (1962, 2242), with wedges but in the thin L.
+#    blocks are hexahedra only, of the element and node counts recorded in BEFORE (the U kept two of its triangles,
+#    with an all-quad message and two columns of wedges, (792, 1152), until the cleanup paired triangles on the
+#    boundary on a second try). Before free sources were turned into quads only, these counts were L (872, 1071),
+#    U (992, 1215), T (752, 927), plus (976, 1188), staircase (1112, 1332), thin L (216, 500) and bent L (1962, 2242),
+#    with wedges but in the thin L.
 #  - get_settings reads transfinite_submapped back on the sweep item, and replace_sweep_mesh keeps it.
 #  The model was made by gmsh's OCC kernel through GmshCommon: every profile a plane surface of lines in z = 0 extruded
 #  by 40 mm, the bent L a plane surface in y = 0 revolved a quarter turn about the z axis, the stacks two L extrusions of
@@ -47,10 +48,10 @@ PLOT_DIR = os.environ.get("PMX_SUBMAP_PLOT_DIR")
 MAX_SIZE = 5.0
 HEXAHEDRON = (8, 20)
 # Element and node counts with transfinite_submapped=False, first order elements and the element size 5, the free
-# sources turned into quads only; the U keeps the two triangles the conversion cannot join
+# sources turned into quads only
 # The cells of the stacks by stack
 CELLS = {}
-BEFORE = {"L": (720, 1017), "U": (792, 1152), "T": (624, 900), "plus": (800, 1125), "staircase": (968, 1314),
+BEFORE = {"L": (720, 1017), "U": (704, 1062), "T": (624, 900), "plus": (800, 1125), "staircase": (968, 1314),
           "thin L": (216, 500), "bent L": (1638, 2166)}
 
 

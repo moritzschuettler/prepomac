@@ -253,7 +253,8 @@ namespace CaeMesh
                     bool recombine = algorithmRecombine != GmshAlgorithmRecombineEnum.None;
                     if (recombine)
                     {
-                        Gmsh.Option.SetNumber("Mesh.RecombinationAlgorithm", GetGmshRecombinationAlgorithm(algorithmRecombine));
+                        Gmsh.Option.SetNumber("Mesh.RecombinationAlgorithm",
+                                              GetGmshRecombinationAlgorithm(algorithmRecombine, gsi));
                         Gmsh.Option.SetNumber("Mesh.RecombineMinimumQuality", gsi.RecombineMinQuality);
                     }
                     // Transfinite
@@ -632,12 +633,18 @@ namespace CaeMesh
                                  .Select(group => group.Select(entry => entry.Key).ToList()).ToList();
         }
         /// <summary>
-        /// The recombination gmsh is set to: the all-quad recombination is gmsh's simple one, whose free faces are
-        /// then converted to quads only.
+        /// The recombination gmsh is set to. The all-quad recombination of a shell is the base its free faces are meshed
+        /// with before they are converted to quads only, gmsh's simple one or Blossom; that of a sweep or a tetrahedral
+        /// mesh is gmsh's simple one.
         /// </summary>
-        private static int GetGmshRecombinationAlgorithm(GmshAlgorithmRecombineEnum algorithmRecombine)
+        private static int GetGmshRecombinationAlgorithm(GmshAlgorithmRecombineEnum algorithmRecombine,
+                                                         GmshSetupItem gmshSetupItem)
         {
-            if (algorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad) return (int)GmshAlgorithmRecombineEnum.Simple;
+            if (algorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad)
+            {
+                GmshAlgorithmRecombineEnum allQuadShellBase = GmshAlgorithmRecombineEnum.Blossom;
+                return (int)(gmshSetupItem is ShellGmsh ? allQuadShellBase : GmshAlgorithmRecombineEnum.Simple);
+            }
             return (int)algorithmRecombine;
         }
         private static bool IsFullQuad(GmshAlgorithmRecombineEnum algorithmRecombine)
@@ -5798,6 +5805,24 @@ namespace CaeMesh
                 Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
                 naturalCounts[edgeId] = Math.Max(1, nodeTags.Length - 1);
             }
+            // A recombination other than the simple one makes gmsh mesh every curve that is not transfinite with an even
+            // count once the surfaces are recombined, which the edges of the free faces are measured with
+            Dictionary<int, int> freeCounts = naturalCounts;
+            if (freeFaceLoopEdgeIds.Count > 0 &&
+                (int)Gmsh.Option.GetNumber("Mesh.RecombinationAlgorithm") != (int)GmshAlgorithmRecombineEnum.Simple)
+            {
+                freeCounts = new Dictionary<int, int>(naturalCounts);
+                double recombineAll = Gmsh.Option.GetNumber("Mesh.RecombineAll");
+                Gmsh.Model.Mesh.Clear();
+                Gmsh.Option.SetNumber("Mesh.RecombineAll", 1);
+                GenerateMesh(1);
+                foreach (var edgeId in freeFaceLoopEdgeIds.Values.SelectMany(edgeIds => edgeIds).Distinct())
+                {
+                    Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
+                    freeCounts[edgeId] = Math.Max(1, nodeTags.Length - 1);
+                }
+                Gmsh.Option.SetNumber("Mesh.RecombineAll", recombineAll);
+            }
             HashSet<int> pinnedEdgeIds = new HashSet<int>();
             int numOfElements;
             foreach (var edgeId in naturalCounts.Keys)
@@ -5854,16 +5879,23 @@ namespace CaeMesh
                 edgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
                 edgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
                 edgeIds.UnionWith(freeFaceLoopEdgeIds.Values.SelectMany(loopEdgeIds => loopEdgeIds));
+                HashSet<int> loopStructuredEdgeIds = new HashSet<int>(transfiniteEdgeIds);
+                loopStructuredEdgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
+                loopStructuredEdgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
+                Dictionary<int, int> targetCounts = new Dictionary<int, int>(naturalCounts);
+                foreach (var edgeId in naturalCounts.Keys)
+                {
+                    if (!loopStructuredEdgeIds.Contains(edgeId)) targetCounts[edgeId] = freeCounts[edgeId];
+                }
                 edgeIdCount = new Dictionary<int, int>();
                 foreach (var edgeId in naturalCounts.Keys)
                 {
                     if (!edgeIds.Contains(edgeId)) continue;
                     if (pinnedEdgeIds.Contains(edgeId))
                         edgeIdCount[edgeId] = Math.Max(1, _gmshData.EdgeIdNumElements[edgeId]);
-                    else edgeIdCount[edgeId] = naturalCounts[edgeId];
+                    else edgeIdCount[edgeId] = targetCounts[edgeId];
                 }
                 // The edges of a ring that is not paired aim at their shares of the total of its other loop
-                Dictionary<int, int> targetCounts = new Dictionary<int, int>(naturalCounts);
                 foreach (var entry in GetRingTargetCounts(rings, edgeId => edgeIdCount[edgeId]))
                 {
                     if (pinnedEdgeIds.Contains(entry.Key)) continue;
@@ -6056,7 +6088,7 @@ namespace CaeMesh
             foreach (var entry in edgeIdCount)
             {
                 if (!structuredEdgeIds.Contains(entry.Key) &&
-                    (pinnedEdgeIds.Contains(entry.Key) || entry.Value == naturalCounts[entry.Key])) continue;
+                    (pinnedEdgeIds.Contains(entry.Key) || entry.Value == freeCounts[entry.Key])) continue;
                 Gmsh.Model.Mesh.SetTransfiniteCurve(entry.Key, entry.Value + 1);
             }
             foreach (var face in faces)

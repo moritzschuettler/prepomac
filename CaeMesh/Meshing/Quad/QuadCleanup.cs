@@ -18,7 +18,7 @@ namespace CaeMesh
     /// Turns the mixed mesh of one face, quads and triangles, into quads only, on the same boundary nodes. The mesh is
     /// given in a plane frame close to isometric, the parameters of the face in the frame of ThreeBlockMapping; every
     /// node on the boundary of the face is fixed and is never moved, removed or joined to another one, and no boundary
-    /// edge changes. No node is added.
+    /// edge changes. A node is added only where two triangles cannot be paired otherwise (see below).
     /// 1. The triangles are paired and every pair becomes a quad. With an even number of boundary segments the number
     /// of triangles is even; with an odd one, one triangle is left. A triangle finds the nearest other triangle by a
     /// breadth-first walk through the quads, across their edges, and one of the two is carried along that path: the
@@ -30,20 +30,28 @@ namespace CaeMesh
     /// greedily: in every round all triangles look for their nearest partner, a triangle with an edge on the boundary
     /// first and then the shortest paths, the smaller triangle id first among equal lengths; a path that crosses one
     /// changed earlier in the round waits for the next round. A triangle on the boundary is not carried, since it would
-    /// leave a corner of 180 degrees on a straight boundary, and two of them are not paired with each other; while one
-    /// is left with another triangle to pair it with, it is moved off the boundary with the two quads beside and above
-    /// it (LiftBoundaryTriangles). A pair is kept when, after its region is smoothed if it must be, no element folds and
-    /// the worst corner of its region is not below the acceptance or below what it was, whichever is lower; otherwise
-    /// it is undone, tried from the other end and, in the wider passes, along the path the walk finds with the edges
-    /// taken the other way round, and the triangle then looks for another partner. The passes accept 0.5 first and
-    /// then the floor, SubmapFaceDetector.MinScaledJacobian, each smoothing one ring of elements around the path and
-    /// then two, and the floor also three.
+    /// leave a corner of 180 degrees on a straight boundary, and two of them are not paired with each other by the walk.
+    /// While a triangle on the boundary is left with another triangle to pair it with, it is moved off the boundary with
+    /// the two quads beside and above it (LiftBoundaryTriangles). A pair is kept when, after its region is smoothed if it
+    /// must be, no element folds and the worst corner of its region is not below the acceptance or below what it was,
+    /// whichever is lower; otherwise it is undone, tried from the other end and, in the wider passes, along the path
+    /// the walk finds with the edges taken the other way round, and the triangle then looks for another partner. The
+    /// passes accept 0.5 first and then the floor, SubmapFaceDetector.MinScaledJacobian, each smoothing one ring of
+    /// elements around the path and then two, and the floor also three.
+    /// When two triangles or more are left, the cleanup starts again from the input with two more ways to pair, and
+    /// that result is taken when it leaves fewer triangles and no fold: two triangles on the boundary with one quad
+    /// between them are paired after the first pass, one carried through the quad to the other, or else, when two
+    /// corners of the hexagon of the three lie on a straight boundary, the hexagon is split into three quads around a
+    /// new node (PairBoundaryTriangles); and a path whose better splits are not kept is tried with every choice of the
+    /// splits, up to MaxNumOfChosenSteps quads. Gmsh's Blossom recombination leaves its few triangles on the boundary,
+    /// where this is what pairs them.
     /// 2. The topology is improved by local operations that lower the sum of |valence - ideal| over the nodes, ideal
     /// being 4 inside and, on the boundary, one more than the number of quads the angle of the boundary asks for (one
     /// for every 90 degrees, at least one): an inner node joined to two quads only, a doublet, is removed and its quads
     /// merged; a quad whose diagonal joins two inner nodes of valence 3 is collapsed along that diagonal when that does
     /// not raise the sum; the edge between two quads is rotated to one of the two other diagonals of their hexagon when
-    /// that lowers the sum. Every operation is kept under the rule of the pairs with the acceptance 0.5.
+    /// that lowers the sum. Every operation is kept under the rule of the pairs with the acceptance 0.5, on a mesh that
+    /// had no triangle the worst corner of the input when that is higher.
     /// 3. The nodes the operations touched, the nodes of elements whose worst corner is below the floor and their
     /// neighbours are smoothed by QuadSmoothing.SmoothRegion, which never lowers the worst corner.
     /// The quality of a corner is its scaled Jacobian, a triangle scaled so that 60 degrees count as 1. The arithmetic
@@ -56,6 +64,7 @@ namespace CaeMesh
         private const int MaxNumOfTopologyPasses = 8;
         private const int NumOfLocalSweeps = 3;
         private const int NumOfFinalSweeps = 8;
+        private const int MaxNumOfChosenSteps = 4;
         private const double GoodQuality = 0.5;
         private readonly double[][] _points;
         private readonly bool[] _fixed;
@@ -63,6 +72,7 @@ namespace CaeMesh
         private readonly int[] _idealValence;
         private readonly double _orientation;
         private readonly double _floor;
+        private readonly bool _extendedPairing;
         private double _acceptance;
         private readonly List<int[]> _elements;
         private readonly List<int>[] _nodeElements;
@@ -72,8 +82,10 @@ namespace CaeMesh
         private readonly List<int> _parents;
         private readonly List<int> _queue;
         private int _stamp;
+        private int _numOfUsedNodes;
         // The operation being tried, which is undone when it is not kept
         private int _numOfElementsAtStart;
+        private int _numOfUsedNodesAtStart;
         private readonly List<int> _removedIds;
         private readonly List<int[]> _removedElements;
         private readonly List<int> _movedNodes;
@@ -86,12 +98,22 @@ namespace CaeMesh
 
 
         // Constructors                                                                                                             
-        private QuadCleanup(double[][] points, int[][] elements, bool[] fixedNodes)
+        private QuadCleanup(double[][] points, int[][] elements, bool[] fixedNodes, bool extendedPairing)
         {
-            int numOfNodes = points.Length;
+            _extendedPairing = extendedPairing;
+            // Room for the nodes the splits of hexagons add, one for every two triangles at most
+            int numOfInputTriangles = 0;
+            foreach (var element in elements)
+            {
+                if (element.Length == 3) numOfInputTriangles++;
+            }
+            _numOfUsedNodes = points.Length;
+            int numOfNodes = points.Length + numOfInputTriangles / 2;
             _points = new double[numOfNodes][];
-            for (int n = 0; n < numOfNodes; n++) _points[n] = new double[] { points[n][0], points[n][1] };
-            _fixed = (bool[])fixedNodes.Clone();
+            for (int n = 0; n < numOfNodes; n++)
+                _points[n] = n < points.Length ? new double[] { points[n][0], points[n][1] } : new double[2];
+            _fixed = new bool[numOfNodes];
+            Array.Copy(fixedNodes, _fixed, fixedNodes.Length);
             _floor = SubmapFaceDetector.MinScaledJacobian;
             _elements = new List<int[]>();
             _nodeElements = new List<int>[numOfNodes];
@@ -131,42 +153,56 @@ namespace CaeMesh
             if (points == null || elements == null || fixedNodes == null || fixedNodes.Length != points.Length)
                 throw new CaeException("The cleanup needs the positions of the nodes, the elements and which nodes are fixed.");
             Stopwatch watch = Stopwatch.StartNew();
-            QuadCleanup cleanup = new QuadCleanup(points, elements, fixedNodes);
-            int numOfTrianglesBefore = cleanup.CountTriangles();
-            double minScaledJacobianBefore = QuadSmoothing.GetMinScaledJacobian(cleanup._points, cleanup.GetElements(),
-                                                                                cleanup._orientation);
-            int numOfIrregularBefore = cleanup.CountIrregularNodes();
+            QuadCleanupResult result = new QuadCleanup(points, elements, fixedNodes, false).Run(watch);
+            // Triangles that could not be paired are tried again from the start with the pairs of triangles on the
+            // boundary and the other choices of the splits, which are kept only when they leave fewer
+            if (result.NumberOfTriangles > 1)
+            {
+                QuadCleanupResult extended = new QuadCleanup(points, elements, fixedNodes, true).Run(watch);
+                if (extended.NumberOfTriangles < result.NumberOfTriangles && extended.NumberOfFoldedElements == 0)
+                    result = extended;
+            }
+            return result;
+        }
+        private QuadCleanupResult Run(Stopwatch watch)
+        {
+            int numOfTrianglesBefore = CountTriangles();
+            double minScaledJacobianBefore = QuadSmoothing.GetMinScaledJacobian(_points, GetElements(), _orientation);
+            int numOfIrregularBefore = CountIrregularNodes();
             //
             if (numOfTrianglesBefore > 1)
             {
                 // The pairs that keep their regions good first, then those down to the floor
-                foreach (var acceptance in new double[] { GoodQuality, cleanup._floor })
+                foreach (var acceptance in new double[] { GoodQuality, _floor })
                 {
-                    cleanup._acceptance = acceptance;
-                    cleanup.PairTriangles(1);
-                    if (cleanup.LiftBoundaryTriangles()) cleanup.PairTriangles(1);
-                    cleanup.PairTriangles(2);
-                    if (acceptance < GoodQuality) cleanup.PairTriangles(3);
+                    _acceptance = acceptance;
+                    PairTriangles(1);
+                    bool changed = _extendedPairing && PairBoundaryTriangles();
+                    if (LiftBoundaryTriangles()) changed = true;
+                    if (changed) PairTriangles(1);
+                    PairTriangles(2);
+                    if (acceptance < GoodQuality) PairTriangles(3);
                 }
             }
-            cleanup._acceptance = GoodQuality;
-            cleanup.ImproveTopology();
-            cleanup.SmoothFinal();
+            // A mesh of quads only keeps its worst corner
+            _acceptance = numOfTrianglesBefore == 0 ? Math.Max(GoodQuality, minScaledJacobianBefore) : GoodQuality;
+            ImproveTopology();
+            SmoothFinal();
             //
-            int[][] result = cleanup.GetElements();
-            bool[] isNodeUsed = new bool[points.Length];
+            int[][] result = GetElements();
+            double[][] resultPoints = new double[_numOfUsedNodes][];
+            Array.Copy(_points, resultPoints, resultPoints.Length);
+            bool[] isNodeUsed = new bool[resultPoints.Length];
             foreach (var element in result)
             {
                 foreach (var node in element) isNodeUsed[node] = true;
             }
-            watch.Stop();
-            return new QuadCleanupResult(result, cleanup._points, isNodeUsed, numOfTrianglesBefore, cleanup.CountTriangles(),
-                                         QuadSmoothing.CountFoldedElements(cleanup._points, result, cleanup._orientation),
+            return new QuadCleanupResult(result, resultPoints, isNodeUsed, numOfTrianglesBefore, CountTriangles(),
+                                         QuadSmoothing.CountFoldedElements(_points, result, _orientation),
                                          minScaledJacobianBefore,
-                                         QuadSmoothing.GetMinScaledJacobian(cleanup._points, result, cleanup._orientation),
-                                         numOfIrregularBefore, cleanup.CountIrregularNodes(), cleanup._numOfPairs,
-                                         cleanup._numOfDoublets, cleanup._numOfCollapses, cleanup._numOfRotations,
-                                         watch.Elapsed.TotalSeconds);
+                                         QuadSmoothing.GetMinScaledJacobian(_points, result, _orientation),
+                                         numOfIrregularBefore, CountIrregularNodes(), _numOfPairs, _numOfDoublets,
+                                         _numOfCollapses, _numOfRotations, watch.Elapsed.TotalSeconds);
         }
         private static long GetEdgeKey(int a, int b)
         {
@@ -337,6 +373,7 @@ namespace CaeMesh
         private void Begin()
         {
             _numOfElementsAtStart = _elements.Count;
+            _numOfUsedNodesAtStart = _numOfUsedNodes;
             _removedIds.Clear();
             _removedElements.Clear();
             _movedNodes.Clear();
@@ -365,6 +402,12 @@ namespace CaeMesh
                 _points[_movedNodes[i]][0] = _oldPositions[i][0];
                 _points[_movedNodes[i]][1] = _oldPositions[i][1];
             }
+            for (int node = _numOfUsedNodesAtStart; node < _numOfUsedNodes; node++)
+            {
+                _points[node][0] = 0;
+                _points[node][1] = 0;
+            }
+            _numOfUsedNodes = _numOfUsedNodesAtStart;
             _removedIds.Clear();
             _removedElements.Clear();
             _movedNodes.Clear();
@@ -533,20 +576,28 @@ namespace CaeMesh
                     int first = path[0];
                     int last = path[path.Count - 1];
                     // The path from either end, and over more rings also the path the walk finds with the edges taken
-                    // the other way round
+                    // the other way round; then the same with every other choice of the splits along a short path
                     bool paired = false;
-                    for (int option = 0; option < (numOfRings > 1 ? 4 : 2) && !paired; option++)
+                    for (int pass = 0; pass < 2 && !paired; pass++)
                     {
-                        List<int> optionPath = option < 2 ? new List<int>(path) : FindPath(first, failedPairs, true);
-                        if (optionPath == null) break;
-                        // The triangle on the boundary stays, the other one moves to it
-                        if ((option % 2 == 1) != IsOnBoundary(optionPath[0])) optionPath.Reverse();
-                        List<int> seedNodes = new List<int>();
-                        foreach (var id in optionPath) seedNodes.AddRange(_elements[id]);
-                        double before = GetRegionQuality(seedNodes, numOfRings);
-                        Begin();
-                        paired = MoveTriangle(optionPath) && Finish(seedNodes, before, numOfRings);
-                        if (!paired) Rollback();
+                        for (int option = 0; option < (numOfRings > 1 ? 4 : 2) && !paired; option++)
+                        {
+                            List<int> optionPath = option < 2 ? new List<int>(path) : FindPath(first, failedPairs, true);
+                            if (optionPath == null) break;
+                            // The triangle on the boundary stays, the other one moves to it
+                            if ((option % 2 == 1) != IsOnBoundary(optionPath[0])) optionPath.Reverse();
+                            List<int> seedNodes = new List<int>();
+                            foreach (var id in optionPath) seedNodes.AddRange(_elements[id]);
+                            double before = GetRegionQuality(seedNodes, numOfRings);
+                            if (pass == 0)
+                            {
+                                Begin();
+                                paired = MoveTriangle(optionPath, -1) && Finish(seedNodes, before, numOfRings);
+                                if (!paired) Rollback();
+                            }
+                            else if (_extendedPairing)
+                                paired = MoveTriangleByChoices(optionPath, seedNodes, before, numOfRings);
+                        }
                     }
                     if (paired) _numOfPairs++;
                     else
@@ -557,6 +608,110 @@ namespace CaeMesh
                 }
                 if (numOfAttempts == 0) break;
             }
+        }
+        /// <summary>
+        /// Pairs two triangles that sit on the boundary by an edge with one quad between them, which the walk leaves
+        /// apart: one of them is carried through the quad to the other, which stays. Around a node of the boundary
+        /// where both meet, the two and the quad become two quads. Returns whether a pair was made.
+        /// </summary>
+        private bool PairBoundaryTriangles()
+        {
+            bool paired = false;
+            for (int id = 0; id < _elements.Count; id++)
+            {
+                if (_elements[id] == null || _elements[id].Length != 3 || !IsOnBoundary(id)) continue;
+                bool done = false;
+                for (int c = 0; c < 3 && !done; c++)
+                {
+                    int[] triangle = _elements[id];
+                    int quadId = GetNeighbour(id, triangle[c], triangle[(c + 1) % 3]);
+                    if (quadId < 0 || _elements[quadId].Length != 4) continue;
+                    for (int q = 0; q < 4 && !done; q++)
+                    {
+                        int[] quad = _elements[quadId];
+                        int otherId = GetNeighbour(quadId, quad[q], quad[(q + 1) % 4]);
+                        if (otherId < 0 || otherId == id || _elements[otherId].Length != 3 || !IsOnBoundary(otherId))
+                            continue;
+                        for (int option = 0; option < 2 && !done; option++)
+                        {
+                            List<int> path = option == 0 ? new List<int> { otherId, quadId, id } :
+                                                           new List<int> { id, quadId, otherId };
+                            List<int> seedNodes = new List<int>();
+                            foreach (var pathId in path) seedNodes.AddRange(_elements[pathId]);
+                            done = MoveTriangleByChoices(path, seedNodes, GetRegionQuality(seedNodes, 1), 1);
+                        }
+                        if (!done) done = SplitHexagon(id, quadId, otherId);
+                    }
+                }
+                if (done)
+                {
+                    _numOfPairs++;
+                    paired = true;
+                }
+            }
+            return paired;
+        }
+        /// <summary>
+        /// Turns two triangles and the quad between them, which together bound a hexagon, into three quads around a new
+        /// node, joined to every second corner of the hexagon: the pair that cannot be merged when two corners of the
+        /// hexagon lie on a straight boundary, each needing an edge inside. Returns whether it was kept.
+        /// </summary>
+        private bool SplitHexagon(int firstId, int quadId, int secondId)
+        {
+            if (_numOfUsedNodes >= _points.Length) return false;
+            // The edges of the three elements that none of the others has, chained into the hexagon
+            Dictionary<int, int> next = new Dictionary<int, int>();
+            HashSet<long> directedEdges = new HashSet<long>();
+            int[] ids = new int[] { firstId, quadId, secondId };
+            foreach (var id in ids)
+            {
+                int[] nodes = _elements[id];
+                for (int c = 0; c < nodes.Length; c++)
+                    directedEdges.Add(((long)nodes[c] << 32) | (uint)nodes[(c + 1) % nodes.Length]);
+            }
+            foreach (var id in ids)
+            {
+                int[] nodes = _elements[id];
+                for (int c = 0; c < nodes.Length; c++)
+                {
+                    int a = nodes[c];
+                    int b = nodes[(c + 1) % nodes.Length];
+                    if (directedEdges.Contains(((long)b << 32) | (uint)a)) continue;
+                    if (next.ContainsKey(a)) return false;
+                    next.Add(a, b);
+                }
+            }
+            if (next.Count != 6) return false;
+            int[] hexagon = new int[6];
+            hexagon[0] = _elements[firstId][0];
+            for (int i = 1; i < 6; i++)
+            {
+                if (!next.TryGetValue(hexagon[i - 1], out hexagon[i])) return false;
+            }
+            if (next[hexagon[5]] != hexagon[0]) return false;
+            double x = 0;
+            double y = 0;
+            foreach (var node in hexagon)
+            {
+                x += _points[node][0] / 6;
+                y += _points[node][1] / 6;
+            }
+            List<int> seedNodes = new List<int>(hexagon);
+            double before = GetRegionQuality(seedNodes, 1);
+            for (int offset = 0; offset < 2; offset++)
+            {
+                Begin();
+                int center = _numOfUsedNodes++;
+                _points[center][0] = x;
+                _points[center][1] = y;
+                foreach (var id in ids) RemoveElement(id);
+                for (int k = offset; k < 6; k += 2)
+                    AddElement(new int[] { center, hexagon[k], hexagon[(k + 1) % 6], hexagon[(k + 2) % 6] });
+                seedNodes.Add(center);
+                if (Finish(seedNodes, before, 1)) return true;
+                seedNodes.Remove(center);
+            }
+            return false;
         }
         /// <summary>
         /// Moves the triangles that sit on the boundary by an edge off it while another triangle is left to pair them
@@ -706,14 +861,15 @@ namespace CaeMesh
             return null;
         }
         /// <summary>
-        /// Carries the first triangle of the path through its quads to the last one and merges the two into a quad.
+        /// Carries the first triangle of the path through its quads to the last one and merges the two into a quad. Bit
+        /// i of the choices is the split taken at step i, -1 for the better split at every step.
         /// </summary>
-        private bool MoveTriangle(List<int> path)
+        private bool MoveTriangle(List<int> path, int choices)
         {
             int triangle = path[0];
             for (int i = 1; i < path.Count - 1; i++)
             {
-                triangle = StepTriangle(triangle, path[i], path[i + 1]);
+                triangle = StepTriangle(triangle, path[i], path[i + 1], choices < 0 ? -1 : (choices >> (i - 1)) & 1);
                 if (triangle < 0) return false;
                 // A long path is kept in shape step by step: the pentagon is smoothed when it is poor
                 int[] newTriangle = _elements[triangle];
@@ -731,10 +887,28 @@ namespace CaeMesh
             return MergeTriangles(triangle, path[path.Count - 1]);
         }
         /// <summary>
-        /// Splits the pentagon of the triangle and the quad next to it into a quad and a triangle at the next element;
-        /// returns the id of the new triangle, -1 when it cannot be made.
+        /// Carries the triangle along a path of at most MaxNumOfChosenSteps quads with every choice of the splits in turn,
+        /// for a path whose better splits were not kept: a split that looks worse at its step may be the one that lets
+        /// the last merge be good. Returns whether a choice was kept.
         /// </summary>
-        private int StepTriangle(int triangleId, int quadId, int nextId)
+        private bool MoveTriangleByChoices(List<int> path, List<int> seedNodes, double before, int numOfRings)
+        {
+            int numOfSteps = path.Count - 2;
+            if (numOfSteps < 1 || numOfSteps > MaxNumOfChosenSteps) return false;
+            for (int choices = 0; choices < 1 << numOfSteps; choices++)
+            {
+                Begin();
+                if (MoveTriangle(path, choices) && Finish(seedNodes, before, numOfRings)) return true;
+                Rollback();
+            }
+            return false;
+        }
+        /// <summary>
+        /// Splits the pentagon of the triangle and the quad next to it into a quad and a triangle at the next element,
+        /// the split of the better worst corner or the given one; returns the id of the new triangle, -1 when it cannot
+        /// be made.
+        /// </summary>
+        private int StepTriangle(int triangleId, int quadId, int nextId, int split)
         {
             bool nextIsTriangle = _elements[nextId].Length == 3;
             int[] triangle = _elements[triangleId];
@@ -783,7 +957,7 @@ namespace CaeMesh
                 qualities[option] = Math.Min(GetMinCorner(nextIsTriangle ? merged : triangles[option]),
                                              GetMinCorner(quads[option]));
             }
-            int best = qualities[1] > qualities[0] ? 1 : 0;
+            int best = split >= 0 ? split : qualities[1] > qualities[0] ? 1 : 0;
             if (double.IsNegativeInfinity(qualities[best])) return -1;
             RemoveElement(triangleId);
             RemoveElement(quadId);
