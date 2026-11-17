@@ -14,7 +14,11 @@
 #    inner node, no folded quad and a worst scaled Jacobian of 0.2 at least, as many quads as recorded and an even
 #    number of elements on every fillet. The rectangle with one rounded corner is a 3-sided face, which the transfinite
 #    3-sided mapping takes first, and is submapped when that is off. The half circles of the slot turn twice, each a
-#    multiple of four elements (Test_Model_Meshing_Submap_Round).
+#    multiple of four elements (Test_Model_Meshing_Submap_Round). The slot and the rounded rectangle are lens faces as
+#    well (one loop, no corner), meshed as the kind whose grid laid on the face alone is better: the slot is a lens
+#    grid, four inner nodes of three quads and a worst scaled Jacobian of 0.5 at least (its submapped grid had 0.383);
+#    the rounded rectangle keeps its submapped grid, also under AllQuad at the sizes 3.5 and 2.5, where that grid has
+#    0.383 and its lens grid, better in its worst corner, stretches elements to twice the size across it.
 #  - The L with its outer corner rounded by r 15 at the element size 2: the quad at the middle of its round turns by
 #    180 degrees less 90 degrees over the elements along the round, below the floor from 8 elements, so the mesher
 #    leaves it free and says so, while the detection, which leaves that corner out, still takes it.
@@ -61,7 +65,12 @@ FILLET_LENGTH = round(math.pi * 5.0 / 2, 3)
 # at the element size 5
 EXPECTED = {"filleted L": ([-1], 0, 80), "chamfered L": ([], 1, 76), "filleted chamfered L": ([-1], 1, 76),
             "filleted U": ([-1, -1], 0, 98), "rounded rectangle": ([1, 1, 1, 1], 0, 140), "house": ([], 1, 96),
-            "round L": ([1], 0, 72), "cylinder L": ([-1], 0, 42), "slot": ([2, 2], 0, 48)}
+            "round L": ([1], 0, 72), "cylinder L": ([-1], 0, 42), "slot": ([2, 2], 0, 74)}
+# The shapes meshed as lens faces, a lens grid of four inner nodes of three quads, and the worst corner it reaches
+LENS_GRIDS = ["slot"]
+MIN_LENS_SCALED_JACOBIAN = 0.5
+# The sizes under AllQuad at which the rounded rectangle keeps its submapped grid as well
+ROUNDED_RECTANGLE_SIZES = [3.5, 2.5]
 # The hexahedra of the swept solids at the element size 5
 EXPECTED_HEXAHEDRA = {"filleted L": 616, "chamfered L": 456, "I section": 532, "house": 576}
 
@@ -258,6 +267,24 @@ def check_submapped(face, name):
     return quality
 
 
+def check_lens_grid(face, name):
+    """Quadrilaterals only, four inner nodes of three quads and every other one of four, no quad corner below the worst
+    corner of a chosen lens grid."""
+    kinds = face.kinds()
+    check(list(kinds.keys()) == ["quadrilateral"], name + " must be quadrilaterals only: " + str(kinds))
+    valence = {}
+    for quad in face.elements:
+        for node in quad:
+            valence[node] = valence.get(node, 0) + 1
+    irregular = face.irregular_inner_nodes()
+    check(len(irregular) == 4 and all(valence[node] == 3 for node in irregular),
+          name + " is not a lens grid: inner nodes without four quads of " + str([valence[n] for n in irregular]))
+    quality = face.min_scaled_jacobian()
+    check(quality is not None and quality >= MIN_LENS_SCALED_JACOBIAN,
+          name + " has a quad corner of the scaled Jacobian " + str(quality))
+    return quality
+
+
 def is_free(face):
     return "triangle" in face.kinds() or len(face.irregular_inner_nodes()) > 0
 
@@ -307,19 +334,38 @@ def check_shells(parts):
         turns, sides = check_classification(name, part)
         mesh(part)
         face = FaceMesh(part.name, unrolled if name == "cylinder L" else plane_xy)
-        quality = check_submapped(face, "the " + name)
+        kind = "lens grid" if name in LENS_GRIDS else "submapped"
+        if name in LENS_GRIDS:
+            quality = check_lens_grid(face, "the " + name)
+        else:
+            quality = check_submapped(face, "the " + name)
         messages = submapping_messages(part.name)
-        check(len(messages) == 0, "the submapped " + name + " wrote: " + str(messages))
+        check(len(messages) == 0, "the " + kind + " " + name + " wrote: " + str(messages))
         check(len(face.elements) == EXPECTED[name][2], "the " + name + " has " + str(len(face.elements)) +
               " quads instead of " + str(EXPECTED[name][2]))
         fillets = [edge_count(g) for length, edges in edges_by_length(part).items()
                    if abs(length - FILLET_LENGTH) < 1E-2 for e, g in edges]
         check(all(count % 2 == 0 for count in fillets), "a fillet of the " + name + " carries an odd count: " +
               str(fillets))
-        print(name + ": edge turns", turns, "sides at 135 degrees", sides, "submapped", face.kinds(), "fillets",
+        print(name + ": edge turns", turns, "sides at 135 degrees", sides, kind, face.kinds(), "fillets",
               fillets, "worst scaled Jacobian", round(quality, 3))
         face.plot("fillets_" + name.replace(" ", "_"), name + ": " + str(len(face.elements)) + " quads, worst scaled " +
                   "Jacobian " + str(round(quality, 3)))
+
+
+def check_rounded_rectangle_sizes(parts):
+    """The rectangle with small fillets keeps its submapped grid at finer sizes, where its lens grid stretches."""
+    name = "rounded rectangle"
+    part = parts[name]
+    for size in ROUNDED_RECTANGLE_SIZES:
+        mesh(part, recombine="AllQuad", max_size=size)
+        face = FaceMesh(part.name, plane_xy)
+        title = "the " + name + " under AllQuad at the size " + str(size)
+        quality = check_submapped(face, title)
+        messages = submapping_messages(part.name)
+        check(len(messages) == 0, title + " wrote: " + str(messages))
+        print(name + " under AllQuad at the size " + str(size) + ": submapped", face.kinds(), "worst scaled Jacobian",
+              round(quality, 3))
 
 
 def check_round_fallback(parts):
@@ -485,6 +531,7 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     parts = parts_by_x(SHELLS)
     check_shells(parts)
+    check_rounded_rectangle_sizes(parts)
     check_round_fallback(parts)
     check_pinned_fillet(parts)
     check_variants(parts)

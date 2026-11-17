@@ -12,8 +12,9 @@
 #    whose roof meets its walls at 117 and 127 degrees, a disc of r 20 with a bore of r 8 off the centre by 11.8 mm, a
 #    square plate of 60 with a square hole of the diagonal 8 turned by 45 degrees, a plate of 80 x 50 with holes of r 4,
 #    6 and 9, an irregular heptagon, an L whose legs are 2 mm wide and 30 long, and a quarter of a cylinder of r 40 and
-#    50 high with a round hole of r 6 cut through it radially. The half disc falls back from the submapping to a lens
-#    face, two three-sided pieces of three blocks of quads, the disc, a face with no corner, is a lens face of four
+#    50 high with a round hole of r 6 cut through it radially. The half disc, submapped as well, is a lens face on its
+#    own counts, its submapped grid refused, two three-sided pieces of three blocks of quads, the disc, a face with no
+#    corner, is a lens face of four
 #    such pieces (both quads only with Simple as well), and the cylinder patch falls back to a free mesh, the plate with
 #    three holes and the thin L are submapped, the others are free.
 #    At the element size 5, without the three-sided mapping so that the triangle is meshed free as well: Simple leaves
@@ -58,9 +59,10 @@ SHELLS = ["disc", "half disc", "triangle", "house", "eccentric annulus", "plate 
           "heptagon", "thin L", "cylinder patch"]
 SOLIDS = SHELLS[:8]
 # Simple at the element size 5: quads and triangles, as before the all-quad recombination existed; the half disc is a
-# lens face since the lens faces exist (33 quads and 12 triangles before), the disc since the lens faces of no corner
-# exist (58 quads and 16 triangles before)
-EXPECTED_SIMPLE = {"disc": (68, 0), "half disc": (46, 0), "triangle": (56, 23), "house": (61, 10),
+# lens face since the lens faces exist (33 quads and 12 triangles before; 46 quads on the counts of the submapping until
+# a lens face that is submapped as well was balanced as the kind it is meshed as), the disc since the lens faces of no
+# corner exist (58 quads and 16 triangles before)
+EXPECTED_SIMPLE = {"disc": (68, 0), "half disc": (43, 0), "triangle": (56, 23), "house": (61, 10),
                    "eccentric annulus": (58, 14), "plate with diamond": (165, 54), "three holes": (133, 0),
                    "heptagon": (97, 31), "thin L": (17, 0), "cylinder patch": (152, 46)}
 CYLINDER_RADIUS = 40.0

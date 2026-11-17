@@ -17,8 +17,11 @@
 #    sheared by 15 degrees with a round hole, a disc, an annulus, a rectangle with an elliptic hole of one closed edge,
 #    a rectangle with a round hole of r 13 that leaves walls of 7 mm, and a disc of two half circles.
 #    At the element size 5 every face but the discs, the annulus and the elliptic hole is detected with its round holes
-#    and its edges that turn twice, and is meshed as quadrilaterals only with four quads around every inner node, no
-#    folded quad, a worst scaled Jacobian of 0.2 at least and as many quads as recorded. Every round hole carries a
+#    and its edges that turn twice, and every one but the slot-shaped plate is meshed as quadrilaterals only with four
+#    quads around every inner node, no folded quad, a worst scaled Jacobian of 0.2 at least and as many quads as
+#    recorded. The slot-shaped plate, a face with no corner, is a lens face as well; its submapped grid has a worst
+#    corner of 0.383 and its lens grid a better one, so it is a lens grid on its own counts (four inner nodes of three
+#    quads, 0.5 at least, as many quads as recorded, no message). Every round hole carries a
 #    multiple of four elements, as many on each edge, and its four corner nodes, the boundary nodes of three quads,
 #    lie within half a node spacing of the 45 degree directions about its centre. The two half circles turned by 30
 #    degrees give the mesh of the two on the axis, up to the spacing of the nodes. The discs, the annulus and the
@@ -28,9 +31,9 @@
 #    no message), and the annulus and the elliptic hole, faces of two loops, as rings (Test_Model_Meshing_Ring) of as
 #    many quads as recorded.
 #  - The slot-shaped plate at the element size 1.5: its half circles carry 20 elements or more, the quad at either end
-#    of a half circle turns by 180 degrees less 180 degrees over that count, below the floor, so the mesher refuses its
-#    submapped grid, while the detection, which leaves those corners out, still takes it; a face with no corner, it is
-#    then laid as a lens face on the counts of the submapping, without a message.
+#    of a half circle turns by 180 degrees less 180 degrees over that count, below the floor, so its submapped grid is
+#    refused, while the detection, which leaves those corners out, still takes it; it is a lens grid, without a
+#    message.
 #  - The round hole that leaves walls of 7 mm at the element size 10 keeps a cell between it and the border.
 #  - Pinned counts: 10 elements on the closed edge of the round hole and on a half circle of the slot are not a
 #    multiple of four and leave the face free with a message naming the edge; 6 elements on one half circle of the
@@ -72,6 +75,8 @@ SHELLS = ["round hole", "two halves", "turned halves", "four quarters", "off-cen
           "disc", "annulus", "elliptic hole", "coarse border", "disc of halves"]
 FREE = []
 LENSES = ["disc", "disc of halves"]
+# The faces detected as submapped that are lens faces as well and whose lens grid is the better one, by their quads
+SUBMAPPED_LENSES = {"slot plate": 74}
 # The faces no lattice can take that are meshed as rings (Test_Model_Meshing_Ring), by their quads
 RINGS = {"annulus": 78, "elliptic hole": 240}
 SOLIDS = ["plate round", "L bracket", "plate slot", "plate four holes", "round and square"]
@@ -86,7 +91,7 @@ ROUND_HOLES = {"round hole": [(30, 20, 10)], "two halves": [(30, 20, 10)], "turn
 EXPECTED = {"round hole": (1, 1, [], 80), "two halves": (1, 1, [], 80), "turned halves": (1, 1, [], 80),
             "four quarters": (1, 1, [], 80), "off-centre round": (1, 1, [], 87), "four bolt holes": (4, 4, [], 156),
             "L with round hole": (1, 1, [], 72), "slot along": (1, 0, [-2, -2], 110),
-            "slot across": (1, 0, [-2, -2], 148), "slot plate": (0, 0, [2, 2], 48),
+            "slot across": (1, 0, [-2, -2], 148),
             "round and rectangle": (2, 1, [], 148), "sheared round": (1, 1, [], 99), "coarse border": (1, 1, [], 36)}
 # The hexahedra of the swept solids at the element size 5
 EXPECTED_HEXAHEDRA = {"plate round": 480, "L bracket": 480, "plate slot": 588, "plate four holes": 936,
@@ -378,6 +383,23 @@ def check_shells(parts):
             print(name + ": not detected, free", face.kinds())
             plot("round_" + name.replace(" ", "_"), name + ": free " + str(face.kinds()), face.elements, face.uv)
             continue
+        if name in SUBMAPPED_LENSES:
+            check(len(faces) == 1, "the " + name + " must be detected as submapped: " + str(len(faces)) + " faces")
+            mesh(part)
+            face = FaceMesh(part.name)
+            irregular = irregular_inner_nodes(face.elements)
+            valence = valences(face.elements)
+            quality = min_scaled_jacobian(face.elements, face.uv)
+            check("triangle" not in face.kinds() and len(irregular) == 4 and
+                  all(valence[node] == 3 for node in irregular) and len(submapping_messages(part.name)) == 0 and
+                  quality >= 0.5 and len(face.elements) == SUBMAPPED_LENSES[name],
+                  "the " + name + " must be meshed as a lens grid of " + str(SUBMAPPED_LENSES[name]) + " quads " +
+                  "without a message: " + str(face.kinds()) + ", " + str(len(irregular)) + " irregular inner " +
+                  "nodes, worst scaled Jacobian " + str(quality))
+            print(name + ": detected, a lens grid", face.kinds(), "worst scaled Jacobian", round(quality, 3))
+            plot("round_" + name.replace(" ", "_"), name + ": a lens grid " + str(face.kinds()), face.elements,
+                 face.uv)
+            continue
         if name in LENSES:
             check(len(faces) == 0, "the " + name + " must not be detected")
             mesh(part)
@@ -449,7 +471,7 @@ def check_slot_plate_fine(parts):
     print("slot plate at the element size 1.5:", face.kinds(), "irregular", len(irregular), messages)
     check(len(detected_faces(part)) == 1, "the slot plate must be detected")
     check("triangle" not in face.kinds() and len(irregular) == 4 and all(valence[node] == 3 for node in irregular) and
-          len(messages) == 0, "the fine slot plate must fall back in the mesher to a lens grid without a message: " +
+          len(messages) == 0, "the fine slot plate must be a lens grid without a message: " +
           str(face.kinds()) + ", " + str(len(irregular)) + " irregular inner nodes, " + str(messages))
     plot("round_slot_plate_fine", "slot plate at 1.5: a lens face " + str(face.kinds()), face.elements, face.uv)
 

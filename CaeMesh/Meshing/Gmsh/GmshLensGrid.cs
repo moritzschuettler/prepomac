@@ -727,6 +727,19 @@ namespace CaeMesh
             GmshSeamGridMesher.ReplaceSurfaceMesh(_surfaceId, quadNodeTags, newTags, newXyz, newUv, tagXyz, quads);
         }
         /// <summary>
+        /// The length in space of the longest edge of a quad.
+        /// </summary>
+        public double GetLongestEdgeLength()
+        {
+            double longest = 0;
+            foreach (var quad in _quads)
+            {
+                for (int c = 0; c < 4; c++)
+                    longest = Math.Max(longest, GmshPoleChart.GetDistance(_xyz[quad[c]], _xyz[quad[(c + 1) % 4]]));
+            }
+            return longest;
+        }
+        /// <summary>
         /// The worst scaled Jacobian of a quad corner in space, at a pole against the normal of its own quad, and the
         /// number of quads with a corner that turns the other way.
         /// </summary>

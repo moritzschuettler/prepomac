@@ -45,8 +45,34 @@ namespace CaeMesh
         /// </summary>
         public static bool Mesh(LensFace face, bool quads, out string reason)
         {
+            GmshLensGrid grid;
+            double minScaledJacobian;
+            if (!Lay(face, out grid, out minScaledJacobian, out reason)) return false;
+            grid.Write(quads);
+            return true;
+        }
+        /// <summary>
+        /// Whether the grid of the face, which carries gmsh ids and whose edges gmsh has meshed, would be kept, and its
+        /// worst scaled Jacobian of a quad corner in space and the length of its longest element edge. Nothing is
+        /// written into the surface.
+        /// </summary>
+        public static bool Evaluate(LensFace face, out double minScaledJacobian, out double longestEdgeLength,
+                                    out string reason)
+        {
+            GmshLensGrid grid;
+            longestEdgeLength = double.NaN;
+            if (!Lay(face, out grid, out minScaledJacobian, out reason)) return false;
+            longestEdgeLength = grid.GetLongestEdgeLength();
+            return true;
+        }
+        /// <summary>
+        /// Lays and judges the grid of the face. False, with the reason, when the face is left to gmsh.
+        /// </summary>
+        private static bool Lay(LensFace face, out GmshLensGrid grid, out double minScaledJacobian, out string reason)
+        {
             reason = null;
-            GmshLensGrid grid = new GmshLensGrid(face.FaceId);
+            minScaledJacobian = double.NaN;
+            grid = new GmshLensGrid(face.FaceId);
             int n = face.EdgeIds.Length;
             int[] vertexNodeIds;
             int[][] sides;
@@ -110,9 +136,7 @@ namespace CaeMesh
             else laid = grid.LayNoCorner(sides[0], vertexNodeIds, out reason);
             if (!laid) return false;
             grid.Smooth();
-            if (!Judge(grid, true, out reason)) return false;
-            grid.Write(quads);
-            return true;
+            return Judge(grid, true, out minScaledJacobian, out reason);
         }
         /// <summary>
         /// Whether the two-sided face, which carries gmsh ids and whose edges gmsh has meshed, is thin: the fewest
@@ -220,7 +244,8 @@ namespace CaeMesh
                 return false;
             }
             if (!grid.MapPiece(sides, out reason)) return false;
-            if (!Judge(grid, false, out reason)) return false;
+            double minScaledJacobian;
+            if (!Judge(grid, false, out minScaledJacobian, out reason)) return false;
             grid.Write(quads);
             return true;
         }
@@ -270,13 +295,13 @@ namespace CaeMesh
         }
         /// <summary>
         /// Whether the grid is kept: no quad folds in its chart or in space, and with the floor no quad corner lies
-        /// below SubmapFaceDetector.MinScaledJacobian.
+        /// below SubmapFaceDetector.MinScaledJacobian. Also the worst scaled Jacobian of a quad corner in space.
         /// </summary>
-        private static bool Judge(GmshLensGrid grid, bool floor, out string reason)
+        private static bool Judge(GmshLensGrid grid, bool floor, out double minScaledJacobian, out string reason)
         {
             reason = null;
             int numOfFoldedQuads;
-            double minScaledJacobian = grid.Judge(out numOfFoldedQuads);
+            minScaledJacobian = grid.Judge(out numOfFoldedQuads);
             numOfFoldedQuads = Math.Max(numOfFoldedQuads, grid.NumberOfFoldedQuads);
             if (numOfFoldedQuads > 0)
             {

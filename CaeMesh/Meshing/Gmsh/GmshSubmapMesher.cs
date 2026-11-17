@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using CaeGlobals;
 using GmshCommon;
@@ -43,14 +44,132 @@ namespace CaeMesh
         /// </summary>
         public static bool Mesh(SubmapFace face, bool quads, out string reason)
         {
+            SubmapGrid grid;
+            List<IntPtr>[][] loopTags;
+            double[][][][] loopXyz;
+            double[][][][] loopUv;
+            if (!Map(face, out grid, out loopTags, out loopXyz, out loopUv, out reason)) return false;
+            // The tags of the boundary nodes of all loops in loop order, and the parameters of the outer loop, which
+            // tell the way the grid turns
+            IntPtr[] boundaryNodeTags = new IntPtr[grid.NumberOfBoundaryNodes];
+            double[][] outerUv = new double[grid.NumberOfOuterBoundaryNodes][];
+            int edge = 0;
+            for (int l = 0; l < loopTags.Length; l++)
+            {
+                for (int k = 0; k < loopTags[l].Length; k++, edge++)
+                {
+                    for (int i = 0; i < grid.EdgeCounts[edge]; i++)
+                    {
+                        int nodeId = grid.GetBoundaryNodeId(edge, i);
+                        boundaryNodeTags[nodeId] = loopTags[l][k][i];
+                        if (l == 0) outerUv[nodeId] = loopUv[l][k][i];
+                    }
+                }
+            }
+            GmshThreeBlockMesher.ReplaceSurfaceMesh(face.FaceId, boundaryNodeTags, outerUv, grid.Quads, grid.InnerUv,
+                                                    grid.InnerXyz, quads);
+            return true;
+        }
+        /// <summary>
+        /// Whether the grid of the face, which carries gmsh ids and whose edges gmsh has meshed, would be kept, and its
+        /// worst scaled Jacobian of a quad corner in space against the normal of the surface, at a pole against the
+        /// normal of its own quad, as GmshLensMesher judges a lens grid. Nothing is written into the surface.
+        /// </summary>
+        public static bool Evaluate(SubmapFace face, out double minScaledJacobian, out string reason)
+        {
+            minScaledJacobian = double.NaN;
+            SubmapGrid grid;
+            List<IntPtr>[][] loopTags;
+            double[][][][] loopXyz;
+            double[][][][] loopUv;
+            if (!Map(face, out grid, out loopTags, out loopXyz, out loopUv, out reason)) return false;
+            // The inner nodes are keyed by negative tags, which no node of gmsh carries
+            IntPtr[] nodeTags = new IntPtr[grid.NumberOfBoundaryNodes + grid.InnerUv.Length];
+            Dictionary<IntPtr, double[]> tagXyz = new Dictionary<IntPtr, double[]>();
+            Dictionary<IntPtr, double[]> tagUv = new Dictionary<IntPtr, double[]>();
+            List<double[]> cornerXyz = new List<double[]>();
+            int edge = 0;
+            for (int l = 0; l < loopTags.Length; l++)
+            {
+                for (int k = 0; k < loopTags[l].Length; k++, edge++)
+                {
+                    cornerXyz.Add(loopXyz[l][k][0]);
+                    for (int i = 0; i < grid.EdgeCounts[edge]; i++)
+                    {
+                        int nodeId = grid.GetBoundaryNodeId(edge, i);
+                        nodeTags[nodeId] = loopTags[l][k][i];
+                        tagXyz[nodeTags[nodeId]] = loopXyz[l][k][i];
+                        tagUv[nodeTags[nodeId]] = loopUv[l][k][i];
+                    }
+                }
+            }
+            for (int n = 0; n < grid.InnerUv.Length; n++)
+            {
+                IntPtr tag = new IntPtr(-1 - n);
+                nodeTags[grid.NumberOfBoundaryNodes + n] = tag;
+                tagXyz[tag] = grid.InnerXyz[n];
+                tagUv[tag] = grid.InnerUv[n];
+            }
+            IntPtr[] quadNodeTags = grid.Quads.SelectMany(quad => quad.Select(nodeId => nodeTags[nodeId])).ToArray();
+            int numOfFoldedQuads;
+            minScaledJacobian = GmshSeamGridMesher.GetMinScaledJacobian(face.FaceId, quadNodeTags, tagXyz, tagUv,
+                                                                        GetPoleTags(face.FaceId, loopTags, cornerXyz),
+                                                                        out numOfFoldedQuads);
+            if (numOfFoldedQuads > 0)
+            {
+                reason = numOfFoldedQuads + " of the " + grid.Quads.Length + " quads of its grid fold in space";
+                return false;
+            }
+            return true;
+        }
+        /// <summary>
+        /// The tags of the nodes at the start of the logical edges, cornerXyz, that are poles of the surface.
+        /// </summary>
+        private static HashSet<IntPtr> GetPoleTags(int surfaceId, List<IntPtr>[][] loopTags, List<double[]> cornerXyz)
+        {
+            HashSet<IntPtr> poleTags = new HashSet<IntPtr>();
+            double[] low = new double[] { double.MaxValue, double.MaxValue, double.MaxValue };
+            double[] high = new double[] { double.MinValue, double.MinValue, double.MinValue };
+            foreach (var point in cornerXyz)
+            {
+                for (int c = 0; c < 3; c++)
+                {
+                    low[c] = Math.Min(low[c], point[c]);
+                    high[c] = Math.Max(high[c], point[c]);
+                }
+            }
+            double size = GmshPoleChart.GetDistance(low, high);
+            int p;
+            double poleV;
+            double farV;
+            int corner = 0;
+            for (int l = 0; l < loopTags.Length; l++)
+            {
+                for (int k = 0; k < loopTags[l].Length; k++, corner++)
+                {
+                    if (GmshPoleChart.FindPole(surfaceId, cornerXyz[corner], size, out p, out poleV, out farV))
+                        poleTags.Add(loopTags[l][k][0]);
+                }
+            }
+            return poleTags;
+        }
+        /// <summary>
+        /// The grid of the face on the nodes gmsh meshed on its edges, with the tags, coordinates and parameters of the
+        /// nodes of its logical edges loop by loop. False, with the reason, when the grid cannot be made, folds or has
+        /// a quad corner below SubmapFaceDetector.MinScaledJacobian.
+        /// </summary>
+        private static bool Map(SubmapFace face, out SubmapGrid grid, out List<IntPtr>[][] loopTags,
+                                out double[][][][] loopXyz, out double[][][][] loopUv, out string reason)
+        {
             reason = null;
+            grid = null;
             int surfaceId = face.FaceId;
             SubmapFace[] loops = face.Loops;
             int numOfLoops = loops.Length;
             int[][] loopDirections = face.LoopLogicalEdgeDirections;
-            List<IntPtr>[][] loopTags = new List<IntPtr>[numOfLoops][];
-            double[][][][] loopXyz = new double[numOfLoops][][][];
-            double[][][][] loopUv = new double[numOfLoops][][][];
+            loopTags = new List<IntPtr>[numOfLoops][];
+            loopXyz = new double[numOfLoops][][][];
+            loopUv = new double[numOfLoops][][][];
             double[][][] loopNodeUv = new double[numOfLoops][][];
             int[][] loopCounts = new int[numOfLoops][];
             for (int l = 0; l < numOfLoops; l++)
@@ -96,7 +215,6 @@ namespace CaeMesh
                 reason = NameLoopEdges(face, reason);
                 return false;
             }
-            SubmapGrid grid;
             try
             {
                 grid = SubmapMapping.Map(loopDirections, loopUv, loopXyz, holeOffsets, uv =>
@@ -122,25 +240,6 @@ namespace CaeMesh
                          ", below " + SubmapFaceDetector.MinScaledJacobian;
                 return false;
             }
-            // The tags of the boundary nodes of all loops in loop order, and the parameters of the outer loop, which
-            // tell the way the grid turns
-            IntPtr[] boundaryNodeTags = new IntPtr[grid.NumberOfBoundaryNodes];
-            double[][] outerUv = new double[grid.NumberOfOuterBoundaryNodes][];
-            int edge = 0;
-            for (int l = 0; l < numOfLoops; l++)
-            {
-                for (int k = 0; k < loopTags[l].Length; k++, edge++)
-                {
-                    for (int i = 0; i < grid.EdgeCounts[edge]; i++)
-                    {
-                        int nodeId = grid.GetBoundaryNodeId(edge, i);
-                        boundaryNodeTags[nodeId] = loopTags[l][k][i];
-                        if (l == 0) outerUv[nodeId] = loopUv[l][k][i];
-                    }
-                }
-            }
-            GmshThreeBlockMesher.ReplaceSurfaceMesh(surfaceId, boundaryNodeTags, outerUv, grid.Quads, grid.InnerUv,
-                                                    grid.InnerXyz, quads);
             return true;
         }
         /// <summary>

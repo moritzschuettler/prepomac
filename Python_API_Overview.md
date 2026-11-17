@@ -1159,11 +1159,16 @@ grid lines run on smoothly across the line; the smoothed grid is kept only when 
 two poles is not smoothed. A lens face is meshed on the nodes of its edges before
 gmsh meshes the other surfaces, like a cap; numbers set on its edges that leave an odd sum, a side below 4 or a loop of
 one corner or none below 8, and a grid that would fold or have a quad corner below 0.2, leave it to gmsh, meshed free
-("Lens mapping: Surface N is meshed free - reason"). A lens face that is submapped (a planar half disc, a stadium, a
-rounded square) is meshed as a submapped face and, only when its submapped grid is refused, as a lens face, on the
-counts of the submapping, which can be finer than the element size asks; one whose counts the submapping cannot
-balance (a half disc with one corner rounded) is balanced as a lens face instead, without the submapping message. A
-lens face with no straight edge (a disc of arcs, an ellipse, a lens of two arcs) is never submapped.
+("Lens mapping: Surface N is meshed free - reason"). A lens face that is submapped as well (a planar half disc, a
+stadium, a rounded rectangle) is meshed as the kind whose grid, laid on the face alone on the counts that kind asks
+for, is better: it keeps its submapped grid when the worst quad corner of that grid has a scaled Jacobian of 0.5 at
+least, and otherwise takes its lens grid when that one is better in its worst corner and stretches no element beyond
+1.5 times the maximum element size (so a stadium is a lens face at every size, while a rectangle with small fillets
+stays submapped). A submapped grid refused on the face alone makes it a lens face, and one refused on the counts the
+balance gives it sends the face once more into the balance as a lens face; refused at the meshing all the same, it is
+laid as a lens face on the counts of the submapping. One whose counts the submapping cannot balance (a half disc with
+one corner rounded) is balanced as a lens face instead, without the submapping message. A lens face with no straight
+edge (a disc of arcs, an ellipse, a lens of two arcs) is never submapped.
 Under `algorithm_2d='QuasiStructuredQuad'` a lens face is left to gmsh.
 The corners of the 3-sided, 4-sided and lens faces are judged by the angle between their edges at a vertex, unless the
 interior angle of the face there differs from it by more than 30 degrees - the apex of a cone, round which the face

@@ -5,9 +5,10 @@
 #corner or none is a lens face on a shell with transfinite_submapped, the default. With two corners one inner line
 #splits it into two three-sided pieces of three blocks of quads, two inner nodes of three quads; with no corner a first
 #line across it splits it into two such faces, four inner nodes of three quads; with one corner a line across the
-#corner leaves a three-sided piece at the corner and a two-sided rest, three inner nodes of three quads. A face the
-#submapping keeps is meshed by its submapped grid and laid as a lens face only when that grid is refused; a lens face
-#with no straight edge is not submapped at all. Once the pieces are laid, the nodes inside the face are smoothed
+#corner leaves a three-sided piece at the corner and a two-sided rest, three inner nodes of three quads. A lens face
+#with no straight edge is not submapped at all. A face the submapping keeps as well is meshed as the kind whose grid,
+#laid on the face alone on the counts that kind asks for, is better: submapped when its worst corner is 0.5 at least,
+#otherwise the better of the two. Once the pieces are laid, the nodes inside the face are smoothed
 #together, so that the grid lines run on across the inner lines. A thin lens face, whose line would have to carry far
 #more elements than its length asks for because its sides carry different counts (an arc is given more elements than
 #its chord), asks the balance for equal counts on its two sides.
@@ -30,15 +31,17 @@
 #  - At the element sizes 5 and 3.5 under Simple, AllQuad, None and SimpleFullQuad every shape is meshed without a
 #    message: quads only, two triangles per quad of Simple under None; no fold, a worst scaled Jacobian of 0.2 at least
 #    measured in space against the normals of the mesh, and the inner nodes of three quads of its kind (2 with two
-#    corners, 3 with one, 4 with none) and no other inner node without four - none where the submapped grid is kept,
-#    with as many quads as before under Simple and AllQuad (the tombstone 20 x 60, the stadiums and the rounded square
-#    at size 5, the small half disc, the stadium 80 x 20 at size 3.5). The full-quad recombination makes the boundary
-#    even. The thin crescent (moon 14), whose grid folded and was meshed free with the lens message before the equal
-#    counts, is a lens grid. The lens of 120, moon 8, the disc of four arcs, the ellipses and the egg have no straight
-#    edge and are lens faces only, on their own counts (the disc of four arcs: 76 quads at size 5, not the 292 it took
-#    on the counts of the submapping). The stadium 45 x 30 and the rounded square at size 3.5 are submapped faces whose
-#    grids are refused and laid as lens faces, on the counts of the submapping. The half disc with one fillet is a
-#    submapped face its counts cannot balance; it is balanced as a lens face instead, without a submapping message.
+#    corners, 3 with one, 4 with none) and no other inner node without four. The full-quad recombination makes the
+#    boundary even. The thin crescent (moon 14), whose grid folded and was meshed free with the lens message before the
+#    equal counts, is a lens grid. The lens of 120, moon 8, the disc of four arcs, the ellipses and the egg have no
+#    straight edge and are lens faces only, on their own counts (the disc of four arcs: 76 quads at size 5, not the 292
+#    it took on the counts of the submapping). The half disc with one fillet is a submapped face its counts cannot
+#    balance; it is balanced as a lens face instead, without a submapping message.
+#  - Submapped or lens: no submapped grid of a submapped shape here reaches a worst corner of 0.5 (the tombstone
+#    20 x 60, the stadium 80 x 20 and the small half disc kept one of 0.383 at size 5, the stadium 45 x 30 and the
+#    rounded square 0.259), and its lens grid is better, so every shape is a lens grid on its own counts. The
+#    tombstone 20 x 60, the small half disc, the stadiums and the rounded square are checked under AllQuad at the
+#    sizes 5, 3.5 and 2.5: a lens grid of their kind at every size, no message, a worst corner of 0.5 at least.
 #  - Thin faces: the segment of 30, the obtuse triangle and the lens of 40 carry equal counts on their two sides under
 #    Simple and AllQuad, and their shortest element edge is 0.2 of the size at least (before the equal counts: 0.77 and
 #    0.42 at size 5).
@@ -95,11 +98,11 @@ IRREGULAR = {0: 4, 1: 3, 2: 2}
 SUBMAPPED_LENSES = ["tombstone 40 x 20", "tombstone 20 x 60", "tombstone 60 x 10", "vesica 120", "small half disc",
                     "moon 8", "kinked half disc", "disc of 4 arcs", "ellipse 60 x 30", "ellipse 80 x 20", "egg",
                     "stadium 80 x 20", "stadium 45 x 30", "rounded square", "half disc one fillet"]
-# The shapes and sizes whose submapped grid is kept, with no inner node of three quads, by their quads under Simple and
-# AllQuad
-SUBMAPPED_GRIDS = {("tombstone 20 x 60", 5.0): 56, ("tombstone 20 x 60", 3.5): 126, ("small half disc", 5.0): 8,
-                   ("small half disc", 3.5): 8, ("stadium 80 x 20", 5.0): 64, ("stadium 80 x 20", 3.5): 144,
-                   ("stadium 45 x 30", 5.0): 54, ("rounded square", 5.0): 64}
+# The submapped shapes whose submapped grid was kept at some size before the kind was chosen by the better grid, the
+# sizes they keep one kind at, and the worst corner their lens grid reaches at least
+SAME_KIND = ["tombstone 20 x 60", "small half disc", "stadium 80 x 20", "stadium 45 x 30", "rounded square"]
+SAME_KIND_SIZES = [5.0, 3.5, 2.5]
+MIN_CHOSEN_LENS = 0.5
 THIN = ["segment 30", "obtuse triangle", "vesica 40"]
 SHORTEST_SHARE = 0.2
 # The x of the inner line of the tombstones, from the start of the part
@@ -407,8 +410,7 @@ def check_shapes(parts, size):
     for name in SHELLS:
         part = parts[name]
         dx = SPACING * SHELLS.index(name)
-        submapped_grid = (name, size) in SUBMAPPED_GRIDS
-        expected_irregular = 0 if submapped_grid else IRREGULAR[number_of_corners(name)]
+        expected_irregular = IRREGULAR[number_of_corners(name)]
         row = None
         simple_quads = None
         for recombine in RECOMBINATIONS:
@@ -436,9 +438,6 @@ def check_shapes(parts, size):
             check(quality >= FLOOR, title + " has a corner of the scaled Jacobian " + str(quality))
             if recombine == "Simple":
                 simple_quads = quads
-            if submapped_grid and recombine in ("Simple", "AllQuad"):
-                check(quads == SUBMAPPED_GRIDS[(name, size)], title + " has " + str(quads) + " quads, not the " +
-                      str(SUBMAPPED_GRIDS[(name, size)]) + " of its submapped grid")
             if recombine == "SimpleFullQuad":
                 boundary = boundary_nodes(face.elements)
                 check(len(boundary) % 2 == 0, title + " has an odd boundary of " + str(len(boundary)))
@@ -468,6 +467,31 @@ def check_shapes(parts, size):
             before = describe(FaceMesh(part.name))
             rows.append((name,) + tuple(round(v, 3) if isinstance(v, float) else v for v in before + row))
     return rows
+
+
+def check_same_kind(parts):
+    """The submapped shapes whose submapped grid was kept at some sizes and refused at others are lens grids at every
+    size, better than their submapped grids."""
+    for name in SAME_KIND:
+        part = parts[name]
+        expected_irregular = IRREGULAR[number_of_corners(name)]
+        for size in SAME_KIND_SIZES:
+            seconds = mesh(part, "AllQuad", size)
+            face = FaceMesh(part.name)
+            messages = output_messages(part.name)
+            irregular = irregular_inner_nodes(face.elements)
+            valence = valences(face.elements)
+            quality = min_scaled_jacobian(face)
+            title = name + " at size " + str(size) + " with AllQuad"
+            print(title + ":", face.kinds(), "irregular", len(irregular), "worst scaled Jacobian", round(quality, 3),
+                  "in", round(seconds, 3), "s")
+            check(len(messages) == 0, title + " wrote: " + str(messages))
+            check(face.kinds()[1] == 0 and len(irregular) == expected_irregular and
+                  all(valence[node] == 3 for node in irregular),
+                  title + " is not a lens grid: " + str(face.kinds()) + " and the irregular inner nodes " +
+                  str(sorted(valence[node] for node in irregular)))
+            check(quality >= MIN_CHOSEN_LENS, title + " has a corner of the scaled Jacobian " + str(quality) +
+                  ", below " + str(MIN_CHOSEN_LENS))
 
 
 def check_pins(parts):
@@ -563,6 +587,7 @@ def main():
           "quads | triangles | worst SJ | irregular | shortest | longest")
     for row in rows:
         print(" | ".join(str(v) for v in row))
+    check_same_kind(parts)
     check_pins(parts)
     check_second_order(parts)
     check_quasi_structured(parts)

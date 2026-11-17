@@ -54,6 +54,11 @@ namespace CaeMesh
         // surface
         private List<LensFace> _lensFaces = new List<LensFace>();
         private Dictionary<int, LensFace> _lensFallbackFaces = new Dictionary<int, LensFace>();
+        // A face both submapped and a lens face keeps its submapped grid when the worst corner of it is this good
+        private const double _minKeptSubmapLensScaledJacobian = 0.5;
+        // and takes its lens grid in place of a poorer one only when no element of it is longer than this times the
+        // maximum element size: the lens grid of a rectangle with small fillets stretches its elements across it
+        private const double _maxChosenLensEdgeSizeFactor = 1.5;
         // The five-faced transfinite volumes whose three-sided caps are meshed as three blocks of quads, and the
         // volumes by hexahedra between them
         private List<GmshThreeBlockPrism> _threeBlockPrisms = new List<GmshThreeBlockPrism>();
@@ -5875,10 +5880,11 @@ namespace CaeMesh
         /// of its sides, or LensFace.MinNumberOfElementsInLoop on its loop when it has one corner or none, with the
         /// tier of the pairs, and is meshed by GmshLensMesher before gmsh meshes the surfaces; one the balance cannot
         /// keep is meshed free like a cap. A thin two-sided lens face (GmshLensMesher.IsThin) also asks for equal
-        /// counts on its two sides, at the weakest tier. A lens face the submapping keeps is balanced as a submapped
-        /// face and meshed as a lens face only when its submapped grid is refused; dropped by the balance as a
-        /// submapped face, it joins the next balance as a lens face. A lens face with no straight edge is not
-        /// submapped at all.
+        /// counts on its two sides, at the weakest tier. A lens face with no straight edge is not submapped at all. A
+        /// lens face the submapping also keeps joins the balance as the kind whose grid, laid on the face alone, is
+        /// the better one (IsBetterAsLensFace). One that stays submapped and whose grid the balanced counts refuse
+        /// joins one more balance as a lens face, as does one dropped by the balance as a submapped face; a submapped
+        /// grid refused at the meshing all the same is replaced by a lens grid on the counts it has.
         /// Under the all-quad recombination every other face, which gmsh meshes free and GmshQuadMesher then turns into
         /// quads only, asks for an even number of elements around its boundary, at the weakest tier, so that it never
         /// changes a number the user set or a structured face. Only the edges of such faces whose count the balance
@@ -6056,6 +6062,24 @@ namespace CaeMesh
                 }
                 return length;
             };
+            // A face both submapped and a lens face is meshed as the kind whose grid, laid on the face alone, is the
+            // better one. The edges of the trials are meshed again, so whether a submapped lens face is thin is judged
+            // on the mesh before them
+            HashSet<int> thinFallbackFaceIds =
+                new HashSet<int>(_lensFallbackFaces.Values.Where(face => GmshLensMesher.IsThin(face, naturalCounts))
+                                                          .Select(face => face.FaceId));
+            HashSet<int> trialEdgeIds = new HashSet<int>();
+            foreach (var face in submapped.Where(face => _lensFallbackFaces.ContainsKey(face.FaceId)).ToArray())
+            {
+                LensFace lensFace = _lensFallbackFaces[face.FaceId];
+                if (!IsBetterAsLensFace(face, lensFace, thinFallbackFaceIds.Contains(face.FaceId), naturalCounts,
+                                        pinnedEdgeIds, maxSizeCounts, fullQuad, getEdgeLength, trialEdgeIds)) continue;
+                _lensFallbackFaces.Remove(face.FaceId);
+                submapped.Remove(face);
+                lenses.Add(lensFace);
+                if (thinFallbackFaceIds.Contains(face.FaceId)) thinLensFaceIds.Add(face.FaceId);
+            }
+            bool refusedSubmapLensFacesRebalanced = false;
             // A hole needs room in the lattice for itself and a cell on each side, which its place then keeps; the full
             // counts are what SubmapMapping lays the grid on, under a full-quad recombination as well
             Dictionary<SubmapFace, double[][][]> faceLoopVertexPoints = new Dictionary<SubmapFace, double[][][]>();
@@ -6358,7 +6382,25 @@ namespace CaeMesh
                                                 "faces beside it");
                 }
                 if (dropped.Count == 0 && droppedRings.Count == 0 && droppedTubes.Count == 0 && droppedCaps.Count == 0 &&
-                    droppedLenses.Count == 0) break;
+                    droppedLenses.Count == 0)
+                {
+                    // A submapped face that is a lens face and whose grid the balanced counts refuse joins one more
+                    // balance as a lens face, which the submapping's counts would otherwise be laid on
+                    if (refusedSubmapLensFacesRebalanced) break;
+                    refusedSubmapLensFacesRebalanced = true;
+                    List<SubmapFace> refusedFaces =
+                        submapped.Where(face => _lensFallbackFaces.ContainsKey(face.FaceId) &&
+                                                !IsSubmapGridKept(face, edgeIdCount, trialEdgeIds)).ToList();
+                    if (refusedFaces.Count == 0) break;
+                    foreach (var face in refusedFaces)
+                    {
+                        lenses.Add(_lensFallbackFaces[face.FaceId]);
+                        _lensFallbackFaces.Remove(face.FaceId);
+                        if (thinFallbackFaceIds.Contains(face.FaceId)) thinLensFaceIds.Add(face.FaceId);
+                    }
+                    submapped = submapped.Where(face => !refusedFaces.Contains(face)).ToList();
+                    continue;
+                }
                 // A dropped submapped face that is a lens face joins the next balance as one
                 LensFace fallbackFace;
                 foreach (var face in submapped)
@@ -6368,7 +6410,7 @@ namespace CaeMesh
                     {
                         _lensFallbackFaces.Remove(face.FaceId);
                         lenses.Add(fallbackFace);
-                        if (GmshLensMesher.IsThin(fallbackFace, naturalCounts)) thinLensFaceIds.Add(face.FaceId);
+                        if (thinFallbackFaceIds.Contains(face.FaceId)) thinLensFaceIds.Add(face.FaceId);
                     }
                     else WriteSubmapFreeMessage(face.FaceId, reason);
                 }
@@ -6412,6 +6454,7 @@ namespace CaeMesh
             }
             _lensFaces.AddRange(lenses);
             Gmsh.Model.Mesh.Clear();
+            RestoreTrialEdges(trialEdgeIds);
             HashSet<int> structuredEdgeIds = new HashSet<int>(transfiniteEdgeIds);
             structuredEdgeIds.UnionWith(submapped.SelectMany(face => face.AllEdgeIds));
             structuredEdgeIds.UnionWith(rings.SelectMany(face => face.AllEdgeIds));
@@ -6436,6 +6479,193 @@ namespace CaeMesh
                 }
                 else Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
                 _transfiniteSurfaceIds.Add(face.FaceId);
+            }
+        }
+        /// <summary>
+        /// Whether a face both submapped and a lens face is meshed as a lens face, by a trial on the face alone: its
+        /// submapped grid is laid on the counts the submapping asks for the face balanced alone, and when these cannot
+        /// be balanced or the grid is refused it is a lens face; when the worst corner of the grid in space is
+        /// _minKeptSubmapLensScaledJacobian at least it stays submapped; otherwise its lens grid is laid on the counts
+        /// a lens face asks for alone, and it is a lens face when that grid is kept with a better worst corner and no
+        /// element edge longer than _maxChosenLensEdgeSizeFactor times the maximum element size. The edges are meshed
+        /// again for each trial, and gathered in trialEdgeIds.
+        /// </summary>
+        private bool IsBetterAsLensFace(SubmapFace submapFace, LensFace lensFace, bool thin,
+                                        Dictionary<int, int> naturalCounts, HashSet<int> pinnedEdgeIds,
+                                        Dictionary<int, int> maxSizeCounts, bool fullQuad,
+                                        Func<int, double> getEdgeLength, HashSet<int> trialEdgeIds)
+        {
+            Dictionary<int, int> submapCounts = GetSubmapTrialCounts(submapFace, naturalCounts, pinnedEdgeIds,
+                                                                     maxSizeCounts, fullQuad, getEdgeLength);
+            if (submapCounts == null) return true;
+            MeshTrialEdges(submapCounts, trialEdgeIds);
+            double submapMinScaledJacobian;
+            string reason;
+            if (!GmshSubmapMesher.Evaluate(submapFace, out submapMinScaledJacobian, out reason)) return true;
+            if (submapMinScaledJacobian >= _minKeptSubmapLensScaledJacobian) return false;
+            Dictionary<int, int> lensCounts = GetLensTrialCounts(lensFace, thin, naturalCounts, pinnedEdgeIds,
+                                                                 maxSizeCounts, fullQuad);
+            if (lensCounts == null) return false;
+            MeshTrialEdges(lensCounts, trialEdgeIds);
+            double lensMinScaledJacobian;
+            double lensLongestEdgeLength;
+            if (!GmshLensMesher.Evaluate(lensFace, out lensMinScaledJacobian, out lensLongestEdgeLength, out reason))
+                return false;
+            double maxSize = GetMaxElementSize();
+            if (maxSize > 0 && lensLongestEdgeLength > _maxChosenLensEdgeSizeFactor * maxSize) return false;
+            return lensMinScaledJacobian > submapMinScaledJacobian;
+        }
+        /// <summary>
+        /// Whether the submapped grid of the face is kept on the given counts of its edges, which are meshed again with
+        /// them and gathered in trialEdgeIds.
+        /// </summary>
+        private bool IsSubmapGridKept(SubmapFace face, Dictionary<int, int> edgeIdCount, HashSet<int> trialEdgeIds)
+        {
+            MeshTrialEdges(face.AllEdgeIds.Distinct().ToDictionary(edgeId => edgeId, edgeId => edgeIdCount[edgeId]),
+                           trialEdgeIds);
+            double minScaledJacobian;
+            string reason;
+            return GmshSubmapMesher.Evaluate(face, out minScaledJacobian, out reason);
+        }
+        /// <summary>
+        /// The counts the edges of the submapped face are balanced to alone, or null when its rows cannot be kept.
+        /// </summary>
+        private Dictionary<int, int> GetSubmapTrialCounts(SubmapFace face, Dictionary<int, int> naturalCounts,
+                                                          HashSet<int> pinnedEdgeIds,
+                                                          Dictionary<int, int> maxSizeCounts, bool fullQuad,
+                                                          Func<int, double> getEdgeLength)
+        {
+            if (face.HasHoles) return null;
+            Dictionary<int, int> edgeIdCount = GetTrialStartCounts(face.AllEdgeIds, naturalCounts, pinnedEdgeIds);
+            Dictionary<int, int> edgeIdMultiples = new Dictionary<int, int>();
+            if (fullQuad)
+            {
+                foreach (var edgeId in face.AllEdgeIds) edgeIdMultiples[edgeId] = 2;
+            }
+            foreach (var entry in face.AllEdgeMultiples)
+            {
+                int multiple;
+                if (!edgeIdMultiples.TryGetValue(entry.Key, out multiple) || multiple < entry.Value)
+                    edgeIdMultiples[entry.Key] = entry.Value;
+            }
+            List<SubmapSeparation> separations = face.GetSeparations(face.EdgeIds.Select(getEdgeLength).ToArray(),
+                                                                     fullQuad ? 2 : 1);
+            List<TransfiniteSidePair> unbalanced;
+            List<TransfiniteSideTriple> unbalancedTriples;
+            List<SubmapSeparation> unbalancedSeparations;
+            try
+            {
+                unbalanced = TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts, pinnedEdgeIds,
+                                                                  face.GetAllSidePairs(),
+                                                                  new List<TransfiniteSideTriple>(), separations,
+                                                                  out unbalancedTriples, out unbalancedSeparations,
+                                                                  null, GetSizedTrialCounts(edgeIdCount), maxSizeCounts,
+                                                                  edgeIdMultiples);
+            }
+            catch (CaeException)
+            {
+                return null;
+            }
+            string reason;
+            if (unbalanced.Count > 0 || unbalancedSeparations.Count > 0 ||
+                face.GetIndivisibleCountReason(edgeIdCount) != null || !face.AreCountsValid(edgeIdCount, out reason) ||
+                (fullQuad && edgeIdCount.Values.Any(count => count % 2 != 0))) return null;
+            return edgeIdCount;
+        }
+        /// <summary>
+        /// The counts the edges of the lens face are balanced to alone, or null when its rows cannot be kept.
+        /// </summary>
+        private Dictionary<int, int> GetLensTrialCounts(LensFace face, bool thin, Dictionary<int, int> naturalCounts,
+                                                        HashSet<int> pinnedEdgeIds, Dictionary<int, int> maxSizeCounts,
+                                                        bool fullQuad)
+        {
+            Dictionary<int, int> edgeIdCount = GetTrialStartCounts(face.AllEdgeIds, naturalCounts, pinnedEdgeIds);
+            Dictionary<int, int> edgeIdMultiples = new Dictionary<int, int>();
+            if (fullQuad)
+            {
+                foreach (var edgeId in face.AllEdgeIds) edgeIdMultiples[edgeId] = 2;
+            }
+            List<int[]> loops = new List<int[]> { face.AllEdgeIds };
+            List<TransfiniteSideTriple> unbalancedTriples;
+            List<SubmapSeparation> unbalancedSeparations;
+            try
+            {
+                TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts, pinnedEdgeIds,
+                                                     new List<TransfiniteSidePair>(), new List<TransfiniteSideTriple>(),
+                                                     null, out unbalancedTriples, out unbalancedSeparations, null,
+                                                     GetSizedTrialCounts(edgeIdCount), maxSizeCounts, edgeIdMultiples,
+                                                     null, null, 0, loops, face.SideEdgeIds.ToList(),
+                                                     LensFace.MinNumberOfElementsPerSide,
+                                                     thin ? new List<int[][]> { face.SideEdgeIds } : null,
+                                                     face.NumberOfSides != 2 ? loops : null,
+                                                     LensFace.MinNumberOfElementsInLoop);
+            }
+            catch (CaeException)
+            {
+                return null;
+            }
+            if (face.GetCountReason(edgeIdCount) != null ||
+                (fullQuad && edgeIdCount.Values.Any(count => count % 2 != 0))) return null;
+            return edgeIdCount;
+        }
+        private Dictionary<int, int> GetTrialStartCounts(int[] edgeIds, Dictionary<int, int> naturalCounts,
+                                                         HashSet<int> pinnedEdgeIds)
+        {
+            Dictionary<int, int> edgeIdCount = new Dictionary<int, int>();
+            foreach (var edgeId in edgeIds.Distinct())
+            {
+                if (pinnedEdgeIds.Contains(edgeId))
+                    edgeIdCount[edgeId] = Math.Max(1, _gmshData.EdgeIdNumElements[edgeId]);
+                else edgeIdCount[edgeId] = naturalCounts[edgeId];
+            }
+            return edgeIdCount;
+        }
+        private Dictionary<int, int> GetSizedTrialCounts(Dictionary<int, int> edgeIdCount)
+        {
+            return _sizedEdgeIdNumElements.Where(entry => edgeIdCount.ContainsKey(entry.Key))
+                                          .ToDictionary(entry => entry.Key, entry => entry.Value);
+        }
+        /// <summary>
+        /// Meshes the edges whose 1D mesh carries another count than the given one again with that count, gmsh leaving
+        /// the other edges as they are, and gathers them in trialEdgeIds, whose constraints RestoreTrialEdges restores.
+        /// </summary>
+        private void MeshTrialEdges(Dictionary<int, int> edgeIdCount, HashSet<int> trialEdgeIds)
+        {
+            IntPtr[] nodeTags;
+            List<int> changedEdgeIds = new List<int>();
+            foreach (var entry in edgeIdCount.OrderBy(entry => entry.Key))
+            {
+                Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, entry.Key, true, false);
+                if (nodeTags.Length - 1 != entry.Value) changedEdgeIds.Add(entry.Key);
+            }
+            if (changedEdgeIds.Count == 0) return;
+            Gmsh.Model.Mesh.Clear(changedEdgeIds.Select(edgeId => new Tuple<int, int>(1, edgeId)).ToArray());
+            foreach (var edgeId in changedEdgeIds)
+            {
+                Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, edgeIdCount[edgeId] + 1);
+                trialEdgeIds.Add(edgeId);
+            }
+            Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 1);
+            try
+            {
+                GenerateMesh(1);
+            }
+            finally
+            {
+                Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 0);
+            }
+        }
+        /// <summary>
+        /// Gives the edges meshed for the trials back the constraints they had: the count set on them, or none.
+        /// </summary>
+        private void RestoreTrialEdges(HashSet<int> trialEdgeIds)
+        {
+            int numOfElements;
+            foreach (var edgeId in trialEdgeIds.OrderBy(edgeId => edgeId))
+            {
+                if (_gmshData.EdgeIdNumElements.TryGetValue(edgeId, out numOfElements))
+                    Gmsh.Model.Mesh.SetTransfiniteCurve(edgeId, numOfElements + 1);
+                else Gmsh.Model.Mesh.RemoveConstraints(new Tuple<int, int>[] { new Tuple<int, int>(1, edgeId) });
             }
         }
         /// <summary>
