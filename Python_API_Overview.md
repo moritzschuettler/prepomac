@@ -1211,10 +1211,14 @@ convex fillet of 8 or more elements or at the ends of a convex half circle of 16
 the output says why; the meshing never fails for it.
 A sweep submaps only its source surfaces, of the blocks swept between two ends, by the rules of its structured
 sources, a source with holes as well, whose inner walls are swept like the outer ones, and meshes a ring source - a
-pipe, a tube, a flange - as a ring by the same choice: the rows that tie the counts
+pipe, a tube, a flange - as a ring by the same choice, and a plane source of one loop with two corners, one or none -
+a disc, an ellipse, a half disc, a teardrop, a stadium - as a lens face, chosen against the submapping as on a shell
+(one with no straight edge is never submapped): the rows that tie the counts
 of such a source are given up at a price rather than refuse the sweep, also
-when the numbers of elements set on its edges make the grid impossible, and the source is then meshed free; under
-`algorithm_2d='QuadWild'` a submapped or ring source is left to gmsh.
+when the numbers of elements set on its edges make the grid impossible, and the source is then meshed free with a
+message, as is one whose grid would fold or have a quad corner below 0.2; under
+`algorithm_2d='QuadWild'` a submapped, ring or lens source is left to gmsh. A source of a revolved block, a curved
+source and, under `algorithm_2d='QuasiStructuredQuad'`, a lens source are not structured this way.
 `algorithm_recombine` of a Gmsh item is `None`, `Simple`, `Blossom`, `SimpleFullQuad`, `BlossomFullQuad` or `AllQuad`.
 `AllQuad`, for `shell_gmsh`, meshes like `Blossom` - gmsh then gives every edge it meshes itself an even number of
 elements - and then turns every face gmsh meshed free - not transfinite, three-sided, submapped, a ring or a tube -
@@ -1233,10 +1237,9 @@ two closed rims is a tube instead, quads with no irregular node, and a face of o
 with the four corners of the block at each pole as its only irregular nodes, and a face of one loop with two corners,
 one or none - a disc, a teardrop - a lens face; only one the tube, the cap or the lens face leaves free is converted.
 A face with a degenerate edge (the pole of a sphere, the apex of a cone) that is no cap, lens, 3- or 4-sided face, a
-face the cap or the lens face leaves free, or a face with an edge or point inside it is, for now, kept as gmsh meshed it. A
-face gmsh meshed with
-quads only has its valences evened out and its nodes smoothed in the same way, which is kept only when it leaves no
-more irregular inner nodes, no fold and no worse corner.
+face the cap or the lens face leaves free, or a face with an edge or point inside it is, for now, kept as gmsh meshed
+it. A face gmsh meshed with quads only has its valences evened out and its nodes smoothed in the same way, which is
+kept only when it leaves no more irregular inner nodes, no fold and no worse corner.
 Second order elements and the full-quad recombinations work as before; gmsh refuses a full-quad recombination of a
 surface closed along a seam, so such a face fails the meshing under `SimpleFullQuad` and `BlossomFullQuad` unless it is
 a tube, which gmsh leaves unrecombined and the grid replaces, or a cap, both on even counts; gmsh also refuses it on
