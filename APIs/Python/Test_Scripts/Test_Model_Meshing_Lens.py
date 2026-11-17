@@ -9,7 +9,9 @@
 #with a pole of the surface inside it is split there. A piece with a pole at a corner, and a three-sided face with a pole
 #at a corner, are mapped in the pole chart (conformal, regular at the pole) and in the parameters of the surface, the
 #better grid kept. The angle at a vertex is the interior angle of the face where it differs from the angle of its edges
-#by more than 30 degrees: the apex of a cone has its developed angle, a reentrant vertex leaves the face unstructured.
+#by more than 30 degrees: the apex of a cone has its developed angle. A reentrant vertex leaves the face unstructured,
+#but for a reentrant pole, at which the face is split into pieces of about a right angle (see also
+#Test_Model_Meshing_Pole_Faces).
 #
 #  - lens_faces.brep: one part per shape side by side, r 20 unless said - the hemisphere revolved by 180, 90, 60, 120,
 #    30 and 270 degrees (dome 180 ...: a pole inside a side of the half dome, a three-sided face for 90 to 30, a
@@ -22,15 +24,14 @@
 #    long) revolved by 180 and by 90 degrees, and the cone of 45 degrees revolved by 180 closed by the half disc.
 #  - At the element sizes 5 and 3.5 and the recombinations None, Simple, AllQuad and SimpleFullQuad every shape is meshed
 #    without a message: quads only (two triangles per quad without recombination), the number of inner nodes of three
-#    quads of its kind (1 three-sided, 2 two-sided, 4 zero-sided, their sum for the parts) and no other inner node
-#    without four, no fold, a worst scaled Jacobian of the quads of 0.2 at least measured in space against the normals
-#    of the mesh - a corner at a pole against the normal of its element; the triangles without recombination only
-#    unfolded; the full-quad recombination makes the counts even.
+#    quads of its kind (1 three-sided, 2 two-sided, 4 zero-sided, 3 for the dome of 270 degrees, split at its pole into
+#    three pieces, their sum for the parts) and no other inner node without four, no fold, a worst scaled Jacobian of
+#    the quads of 0.2 at least measured in space against the normals of the mesh - a corner at a pole against the
+#    normal of its element; the triangles without recombination only unfolded; the full-quad recombination makes the
+#    counts even. (The dome of 270 degrees was meshed free before, and a full-quad recombination of it failed in gmsh:
+#    "Full-quad recombination not ready yet for periodic surfaces".)
 #  - Table: per shape at size 5 under AllQuad, the mesh with transfinite_submapped=False (gmsh's free mesh of a lens
 #    face; the three-sided faces are structured either way) against the mesh with it.
-#  - The dome of 270 degrees is no structured face: meshed free under None, Simple and AllQuad, without a lens message
-#    and without a folded element. (A full-quad recombination of it fails in gmsh, as before: "Full-quad recombination
-#    not ready yet for periodic surfaces".)
 #  - Pins on the half dome: its edges set to an odd total, and its rim to 3 elements, leave it free with a message.
 #  - Second order: the half dome with Simple is quads of 8 nodes only, two inner nodes of three quads.
 #  - The quasi-structured quad algorithm lays its own quads round a pole, so with it a lens face is left to gmsh: the
@@ -72,8 +73,10 @@ KINDS = {"dome 180": (0, 1, 0), "dome 90": (1, 0, 0), "dome 60": (1, 0, 0), "dom
          "cone 45 half": (1, 0, 0), "cone 15 half": (1, 0, 0), "cone 45 quarter": (1, 0, 0), "cone 45 270": (0, 1, 0),
          "paraboloid half": (0, 1, 0), "half disc": (0, 1, 0), "quarter sphere": (0, 2, 0), "half sphere": (0, 2, 0),
          "elliptical head half": (0, 1, 0), "half vessel": (0, 2, 0), "quarter vessel": (2, 0, 0),
-         "closed half cone": (1, 1, 0)}
+         "closed half cone": (1, 1, 0), "dome 270": (0, 1, 0)}
 SUBMAPPED_LENSES = {"half disc": 1, "cone 45 270": 1, "closed half cone": 1}
+# By shape: the inner nodes of three quads of a lens face split at a reentrant pole, one per piece
+REENTRANT_IRREGULAR = {"dome 270": 3}
 
 
 def check(condition, message):
@@ -331,13 +334,15 @@ def plot(file_name, title, face):
 
 # Checks ---------------------------------------------------------------------------------------------------------------
 def expected_irregular(name):
+    if name in REENTRANT_IRREGULAR:
+        return REENTRANT_IRREGULAR[name]
     three, two, zero = KINDS[name]
     return three + 2 * two + 4 * zero
 
 
 def check_detection(parts):
     """Every shape is detected as its kind: three-sided, two-sided or zero-sided lens faces, the submapped ones among
-    them; the dome of 270 degrees as none."""
+    them; the dome of 270 degrees as a two-sided lens face with its pole reentrant."""
     for name in SHELLS:
         transfinite, lenses, submapped = detected(parts[name])
         three = sum(1 for face in transfinite if face.NumberOfSides == 3)
@@ -357,8 +362,6 @@ def check_detection(parts):
 def check_shapes(parts, size):
     rows = []
     for name in SHELLS:
-        if name == "dome 270":
-            continue
         part = parts[name]
         dx = SPACING * SHELLS.index(name)
         pole_points = poles(part, dx)
@@ -398,22 +401,6 @@ def check_shapes(parts, size):
             before = describe(face, pole_points)
             rows.append((name,) + tuple(round(v, 3) if isinstance(v, float) else v for v in before + row))
     return rows
-
-
-def check_free(parts):
-    """The dome of 270 degrees, whose pole is reentrant, is meshed free without a lens message or a folded element."""
-    part = parts["dome 270"]
-    pole_points = poles(part, SPACING * SHELLS.index("dome 270"))
-    for recombine in ("None", "Simple", "AllQuad"):
-        mesh(part, recombine, SIZES[0])
-        face = FaceMesh(part.name)
-        messages = output_messages(part.name)
-        quality = min_scaled_jacobian(face, pole_points)
-        print("dome 270 with " + recombine + ":", face.kinds(), "irregular", len(irregular_inner_nodes(face.elements)),
-              "worst scaled Jacobian", round(quality, 3), messages)
-        check(not any(message.startswith("Lens mapping:") for message in messages),
-              "the dome 270 with " + recombine + " wrote " + str(messages))
-        check(quality > 0, "the dome 270 with " + recombine + " has a folded element: " + str(quality))
 
 
 def half_dome_edges(part):
@@ -479,7 +466,6 @@ def main():
           "quads | triangles | worst SJ | irregular | shortest | longest")
     for row in rows:
         print(" | ".join(str(v) for v in row))
-    check_free(parts)
     check_pins(parts)
     check_second_order(parts)
     check_quasi_structured(parts)

@@ -21,8 +21,9 @@ namespace CaeMesh
     /// the other edges must form exactly one closed loop through the other vertex of the seam, the rim, which starts at
     /// that vertex. A face with a hole besides its rim has a second loop, a torus or a face with two rims has no pole,
     /// and a face with a degenerate edge but no seam - a half dome, a sphere octant - has no edge with a free end, so
-    /// none of them matches. That the seam closes the surface and ends in its poles, and the quality of the grid, are
-    /// judged by GmshCapMesher on the surface itself.
+    /// none of them matches. Nor does a face of a plane, a cylinder or a surface of extrusion, which has no pole: an
+    /// edge of it with a free end lies inside it, as the edge of a baffle does on a wall. That the seam closes the
+    /// surface and ends in its poles, and the quality of the grid, are judged by GmshCapMesher on the surface itself.
     /// </summary>
     public static class CapFaceDetector
     {
@@ -49,6 +50,8 @@ namespace CaeMesh
         private static CapFace DetectFace(VisualizationData vis, int faceId, Dictionary<int, int[]> edgeIdVertexIds)
         {
             if (faceId >= vis.CellIdsByFace.Length || vis.FaceEdgeIds[faceId] == null) return null;
+            if (vis.FaceTypes != null && faceId < vis.FaceTypes.Length && !CanHavePole(vis.FaceTypes[faceId]))
+                return null;
             double faceSize = Math.Sqrt(Math.Max(0, vis.FaceAreas[faceId]));
             if (!(faceSize > 0)) return null;
             int[] edgeIds = vis.FaceEdgeIds[faceId].Distinct()
@@ -96,6 +99,15 @@ namespace CaeMesh
                 rimVertices[k] = loopsVertexIds[0][(start + k) % n];
             }
             return new CapFace(faceId, seamEdgeId, rimVertices, rimEdges, new int[] { seamVertexIds[1] });
+        }
+        /// <summary>
+        /// Whether a surface of the type can degenerate into a pole: a plane, a cylinder and a surface of extrusion
+        /// cannot, so an edge of a face of theirs with a free end is an edge inside the face, not a seam.
+        /// </summary>
+        internal static bool CanHavePole(GeomFaceType faceType)
+        {
+            return faceType != GeomFaceType.Plane && faceType != GeomFaceType.Cylinder &&
+                   faceType != GeomFaceType.SurfaceOfExtrusion;
         }
     }
 }

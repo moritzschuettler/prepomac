@@ -321,6 +321,14 @@ namespace CaeMesh
             return new double[] { radius * Math.Cos(phi), radius * Math.Sin(phi) };
         }
         /// <summary>
+        /// The angle round the pole of the chart point of the parameters of a point of the face, from the middle of its
+        /// angular range, without the turn of a full circle where the face reaches round the pole further than half.
+        /// </summary>
+        public double GetAngle(double[] uv)
+        {
+            return _kappa * (UnwrapU(uv[_p]) - _middleU);
+        }
+        /// <summary>
         /// The parameters of a chart point, the angular one within the bounds of the surface where it is periodic.
         /// </summary>
         public double[] ToUv(double[] point)

@@ -22,9 +22,11 @@ namespace CaeMesh
     /// (ThreeBlockMapping), so its grid has two inner nodes of three quads. A face with no corner is first split by a
     /// line between two nodes of its loop into two two-sided faces, four inner nodes of three quads. A face with one
     /// corner is cut by a line across the corner into a three-sided piece at the corner and a two-sided rest, three
-    /// inner nodes of three quads. The loop is stored from the first corner, vertex k being where edge k - 1 ends and
-    /// edge k starts; side 0 of a two-sided face runs from corner 0 to corner 1, side 1 back to corner 0. Only a
-    /// two-sided face has sides.
+    /// inner nodes of three quads. A face whose surface can have a pole may also have one reentrant vertex - a dome or
+    /// a cone sector of more than 225 degrees with its pole - and then two corners or more: when the vertex is a pole
+    /// of the surface it is split there by lines from the pole into pieces of about a right angle at it. The loop is
+    /// stored from the first corner, vertex k being where edge k - 1 ends and edge k starts; side 0 of a two-sided face
+    /// runs from corner 0 to corner 1, side 1 back to corner 0. Only a two-sided face has sides.
     /// </summary>
     [PmxType(2152)]
     public class LensFace
@@ -34,6 +36,7 @@ namespace CaeMesh
         [PmxKey(1)] private int[] _vertexNodeIds;
         [PmxKey(2)] private int[] _edgeIds;
         [PmxKey(3)] private int[] _cornerIndices;
+        [PmxKey(4)] private int[] _reentrantIndices;
         /// <summary>
         /// The fewest elements on a side: each piece of a side is a side of three blocks of quads and carries two at
         /// least.
@@ -59,7 +62,11 @@ namespace CaeMesh
         /// </summary>
         public int[] CornerIndices { get { return _cornerIndices; } }
         /// <summary>
-        /// The number of corners, 0, 1 or 2; only a face of two has sides.
+        /// The indices in the loop of the reentrant vertex, one at most; none for most faces.
+        /// </summary>
+        public int[] ReentrantIndices { get { return _reentrantIndices ?? new int[0]; } }
+        /// <summary>
+        /// The number of corners, 0, 1 or 2, or more with a reentrant vertex; only a face of two has sides.
         /// </summary>
         public int NumberOfSides { get { return _cornerIndices.Length; } }
         public int[] AllEdgeIds { get { return _edgeIds.ToArray(); } }
@@ -92,12 +99,13 @@ namespace CaeMesh
 
 
         // Constructor                                                                                                              
-        public LensFace(int faceId, int[] vertexNodeIds, int[] edgeIds, int[] cornerIndices)
+        public LensFace(int faceId, int[] vertexNodeIds, int[] edgeIds, int[] cornerIndices, int[] reentrantIndices)
         {
             _faceId = faceId;
             _vertexNodeIds = vertexNodeIds;
             _edgeIds = edgeIds;
             _cornerIndices = cornerIndices;
+            _reentrantIndices = reentrantIndices;
         }
 
 

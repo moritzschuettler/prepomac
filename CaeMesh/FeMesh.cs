@@ -4628,7 +4628,8 @@ namespace CaeMesh
                 BasePart part = _parts[partName];
                 if (faceTopologyIds == null && part.PartType != PartType.Shell) continue;
                 //
-                foreach (var face in SubmapFaceDetector.Detect(this, part, gmshSetupItem.TransfiniteAngleDeg))
+                foreach (var face in SubmapFaceDetector.Detect(this, part, gmshSetupItem.TransfiniteAngleDeg,
+                                                               faceTopologyIds == null))
                 {
                     int faceId = GmshTopologyId(face.FaceId, part.PartId);
                     if (transfiniteFaceIds.Contains(faceId)) continue;
@@ -4760,7 +4761,7 @@ namespace CaeMesh
                     int[] edgeIds = new int[face.EdgeIds.Length];
                     for (int k = 0; k < edgeIds.Length; k++) edgeIds[k] = GmshTopologyId(face.EdgeIds[k], part.PartId);
                     lensFaces.Add(new LensFace(GmshTopologyId(face.FaceId, part.PartId), face.VertexNodeIds.ToArray(),
-                                               edgeIds, face.CornerIndices.ToArray()));
+                                               edgeIds, face.CornerIndices.ToArray(), face.ReentrantIndices.ToArray()));
                 }
             }
             return lensFaces.ToArray();

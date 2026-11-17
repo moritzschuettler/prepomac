@@ -26,8 +26,9 @@ namespace CaeMesh
     /// replaced, as when the face is the fallback of a submapped face whose grid was refused. Counts the pieces
     /// cannot take, a grid that folds or one with a quad corner below SubmapFaceDetector.MinScaledJacobian, measured
     /// in space against the normal of the surface (at a pole against the normal of the quad), leave the face to
-    /// gmsh. Also lays the three-sided faces with a pole of their surface at a corner, mapped in the chart of the
-    /// pole.
+    /// gmsh. A face with a reentrant pole is split at the pole into pieces of about a right angle
+    /// (GmshLensGrid.LayPoleFan). Also lays the three- and four-sided faces with a pole of their surface at a corner,
+    /// mapped in the chart of the pole and in the parameters of the surface, the better kept.
     /// </summary>
     public static class GmshLensMesher
     {
@@ -35,6 +36,8 @@ namespace CaeMesh
         private const int MinNumberOfLineElements = 2;
         // A lens face is thin when its line must carry more elements than this times the number its length asks for
         private const double ThinLineFactor = 1.25;
+        // The pieces round a reentrant pole take their counts from the lines between them, which can stretch them
+        private const double MaxFanEdgeSizeFactor = 2;
 
 
         // Methods                                                                                                                  
@@ -74,13 +77,14 @@ namespace CaeMesh
             minScaledJacobian = double.NaN;
             grid = new GmshLensGrid(face.FaceId);
             int n = face.EdgeIds.Length;
+            bool fan = face.ReentrantIndices.Length > 0;
             int[] vertexNodeIds;
             int[][] sides;
             try
             {
                 int[][] sideEdgeIds;
                 int[][] sideVertexIds;
-                if (face.NumberOfSides == 2)
+                if (face.NumberOfSides == 2 && !fan)
                 {
                     int[] starts = face.SideStartIndices;
                     sideEdgeIds = face.SideEdgeIds;
@@ -114,7 +118,12 @@ namespace CaeMesh
                 return false;
             }
             bool laid;
-            if (face.NumberOfSides == 2)
+            if (fan)
+            {
+                HashSet<int> cornerNodeIds = new HashSet<int>(face.CornerIndices.Select(k => vertexNodeIds[k]));
+                laid = grid.LayPoleFan(sides[0], vertexNodeIds[face.ReentrantIndices[0]], cornerNodeIds, out reason);
+            }
+            else if (face.NumberOfSides == 2)
             {
                 int a = sides[0].Length - 1;
                 int b = sides[1].Length - 1;
@@ -136,7 +145,18 @@ namespace CaeMesh
             else laid = grid.LayNoCorner(sides[0], vertexNodeIds, out reason);
             if (!laid) return false;
             grid.Smooth();
-            return Judge(grid, true, out minScaledJacobian, out reason);
+            if (!Judge(grid, true, out minScaledJacobian, out reason)) return false;
+            if (!fan) return true;
+            double maxSize = Gmsh.Option.GetNumber("Mesh.MeshSizeMax");
+            double longestEdgeLength = grid.GetLongestEdgeLength();
+            if (maxSize > 0 && longestEdgeLength > MaxFanEdgeSizeFactor * maxSize)
+            {
+                reason = "the pieces round its pole would carry an element edge of the length " +
+                         Math.Round(longestEdgeLength, 3) + ", more than " + MaxFanEdgeSizeFactor +
+                         " times the element size";
+                return false;
+            }
+            return true;
         }
         /// <summary>
         /// Whether the two-sided face, which carries gmsh ids and whose edges gmsh has meshed, is thin: the fewest
@@ -150,7 +170,7 @@ namespace CaeMesh
         /// </summary>
         public static bool IsThin(LensFace face, Dictionary<int, int> edgeIdCount)
         {
-            if (face.NumberOfSides != 2) return false;
+            if (face.NumberOfSides != 2 || face.ReentrantIndices.Length > 0) return false;
             int[] starts = face.SideStartIndices;
             int[][] sideEdgeIds = face.SideEdgeIds;
             int[] counts = new int[2];
@@ -191,15 +211,28 @@ namespace CaeMesh
             return numOfLineElements > ThinLineFactor * Math.Max(MinNumberOfLineElements, width / meanLength);
         }
         /// <summary>
-        /// Whether a corner of the three-sided face, which carries gmsh ids, is a pole of its surface.
+        /// Whether a corner of the three- or four-sided face, which carries gmsh ids, is a pole of its surface.
         /// </summary>
         public static bool HasPoleCorner(TransfiniteFace face)
         {
+            return IsAnyPole(face.FaceId, face.CornerNodeIds);
+        }
+        /// <summary>
+        /// Whether the reentrant vertex of the lens face, which carries gmsh ids, is a pole of its surface; false for
+        /// a face with none.
+        /// </summary>
+        public static bool HasReentrantPole(LensFace face)
+        {
+            return face.ReentrantIndices.Length > 0 &&
+                   IsAnyPole(face.FaceId, face.ReentrantIndices.Select(k => face.VertexNodeIds[k]));
+        }
+        private static bool IsAnyPole(int surfaceId, IEnumerable<int> vertexIds)
+        {
             double minX, minY, minZ, maxX, maxY, maxZ;
-            Gmsh.Model.GetBoundingBox(2, face.FaceId, out minX, out minY, out minZ, out maxX, out maxY, out maxZ);
+            Gmsh.Model.GetBoundingBox(2, surfaceId, out minX, out minY, out minZ, out maxX, out maxY, out maxZ);
             double size = GmshPoleChart.GetDistance(new double[] { minX, minY, minZ },
                                                     new double[] { maxX, maxY, maxZ });
-            foreach (var vertexId in face.CornerNodeIds)
+            foreach (var vertexId in vertexIds)
             {
                 double[] coor;
                 Gmsh.Model.GetValue(0, vertexId, new double[0], out coor);
@@ -208,26 +241,29 @@ namespace CaeMesh
                 double poleV;
                 double farV;
                 double[] point = new double[] { coor[0], coor[1], coor[2] };
-                if (GmshPoleChart.FindPole(face.FaceId, point, size, out p, out poleV, out farV)) return true;
+                if (GmshPoleChart.FindPole(surfaceId, point, size, out p, out poleV, out farV)) return true;
             }
             return false;
         }
         /// <summary>
-        /// Meshes a three-sided face with a pole of its surface at a corner by three blocks of quads mapped in the
-        /// chart of the pole, on the nodes of its edges. False, with the reason, when the grid folds and the face is
-        /// left to gmsh.
+        /// Meshes a three- or four-sided face with a pole of its surface at a corner, on the nodes of its edges: three
+        /// blocks of quads or one block, mapped in the chart of the pole and in the parameters of the surface, the
+        /// better grid kept (GmshLensGrid.MapPiece); the inner nodes of a four-sided face are then smoothed together
+        /// (GmshLensGrid.Smooth). False, with the reason, when the grid folds or has a quad corner below
+        /// SubmapFaceDetector.MinScaledJacobian, as every structured face of a shell, and the face is left to gmsh.
         /// </summary>
-        public static bool MeshThreeSided(TransfiniteFace face, bool quads, out string reason)
+        public static bool MeshPoleCornerFace(TransfiniteFace face, bool quads, out string reason)
         {
             reason = null;
             GmshLensGrid grid = new GmshLensGrid(face.FaceId);
+            int numOfSides = face.NumberOfSides;
             int[] cornerNodeIds;
             int[][] sides;
             try
             {
-                int[][] sideVertexIds = new int[3][];
-                for (int k = 0; k < 3; k++)
-                    sideVertexIds[k] = new int[] { face.CornerNodeIds[k], face.CornerNodeIds[(k + 1) % 3] };
+                int[][] sideVertexIds = new int[numOfSides][];
+                for (int k = 0; k < numOfSides; k++)
+                    sideVertexIds[k] = new int[] { face.CornerNodeIds[k], face.CornerNodeIds[(k + 1) % numOfSides] };
                 AddLoop(grid, face.FaceId, sideVertexIds, face.SideEdgeIds, false, out cornerNodeIds, out sides);
                 grid.SetBoundary(cornerNodeIds);
             }
@@ -237,15 +273,21 @@ namespace CaeMesh
                 return false;
             }
             int[] sideCounts = sides.Select(side => side.Length - 1).ToArray();
-            if (!TransfiniteSideTriple.AreCountsValid(sideCounts))
+            if (numOfSides == 3 && !TransfiniteSideTriple.AreCountsValid(sideCounts))
             {
                 reason = "its sides carry " + string.Join(", ", sideCounts) + " elements, which three blocks of " +
                          "quads cannot fill";
                 return false;
             }
+            if (numOfSides == 4 && (sideCounts[0] != sideCounts[2] || sideCounts[1] != sideCounts[3]))
+            {
+                reason = "its sides carry " + string.Join(", ", sideCounts) + " elements, unequal on opposite sides";
+                return false;
+            }
             if (!grid.MapPiece(sides, out reason)) return false;
+            if (numOfSides == 4) grid.Smooth();
             double minScaledJacobian;
-            if (!Judge(grid, false, out minScaledJacobian, out reason)) return false;
+            if (!Judge(grid, true, out minScaledJacobian, out reason)) return false;
             grid.Write(quads);
             return true;
         }
@@ -316,7 +358,7 @@ namespace CaeMesh
             }
             return true;
         }
-        private static string ToReason(string message)
+        internal static string ToReason(string message)
         {
             message = message.Trim().TrimEnd('.');
             if (message.StartsWith("The ")) message = "the " + message.Substring(4);

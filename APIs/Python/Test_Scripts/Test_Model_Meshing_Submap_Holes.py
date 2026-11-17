@@ -18,7 +18,9 @@
 #    The diamond hole is turned 45 degrees off the frame of the outer loop, and the visualization of the round hole
 #    plate is triangulated only in part and shows only the hole, a disc of two half circles to the detection, which
 #    leaves a round loop of one face free (round holes: Test_Model_Meshing_Submap_Round): both faces are not detected.
-#    The round hole plate is meshed free without a message, and the diamond hole, a face of two loops, as a ring
+#    The round hole plate is meshed free without a submapping message (the disc the detection sees is a lens face,
+#    left free with the message that gmsh bounds its surface by other edges), and the diamond hole, a face of two
+#    loops, as a ring
 #    (Test_Model_Meshing_Ring) of as many quads as recorded. The hole 1 mm from the border keeps one cell between it
 #    and the border, so the wall of 1 mm is one element thick.
 #  - 8 elements pinned on an edge of the centred hole are carried to the opposite edge of the hole.
@@ -59,10 +61,11 @@ FREE = ["round hole"]
 # The faces no lattice can take that are meshed as rings (Test_Model_Meshing_Ring), by their quads
 RINGS = {"diamond hole": 336}
 SOLIDS = ["tube", "thin tube", "box section", "L with hole", "filleted tube"]
-# By shape: the number of holes, the direction in the frame of the outer loop the first edge of every hole runs in, the
-# turns of the edges of the holes that turn in their middle, and the quads at the element size 5
+# By shape: the number of holes, the direction in the frame of the outer loop the first edge of every hole runs in, a
+# hole started at its vertex lowest in x, then y, then z, the turns of the edges of the holes that turn in their middle,
+# and the quads at the element size 5
 EXPECTED = {"centred hole": (1, [1], [], 72), "off-centre hole": (1, [1], [], 88), "two holes": (2, [1, 1], [], 96),
-            "L-shaped hole": (1, [1], [], 124), "filleted hole": (1, [2], [-1, -1, -1, -1], 45),
+            "L-shaped hole": (1, [1], [], 124), "filleted hole": (1, [1], [-1, -1, -1, -1], 45),
             "L with hole": (1, [1], [], 68), "U with hole": (1, [1], [], 82), "sheared": (1, [1], [], 73),
             "mirrored L with hole": (1, [1], [], 68), "thin border": (1, [1], [], 80)}
 # The hexahedra of the swept solids at the element size 5

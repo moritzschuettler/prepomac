@@ -35,6 +35,9 @@ namespace CaeMesh
         private HashSet<int> _transfiniteSurfaceIds = new HashSet<int>();
         // The three-sided faces of a shell meshed as three blocks of quads once gmsh has meshed the surfaces
         private List<TransfiniteFace> _threeBlockFaces = new List<TransfiniteFace>();
+        // The four-sided faces of a shell with a pole of their surface at a corner, meshed by GmshLensMesher before
+        // gmsh meshes the surfaces
+        private List<TransfiniteFace> _poleFourSidedFaces = new List<TransfiniteFace>();
         // The submapped faces of a shell whose counts are balanced, meshed by SubmapMapping once gmsh has meshed the
         // surfaces
         private List<SubmapFace> _submapFaces = new List<SubmapFace>();
@@ -100,6 +103,9 @@ namespace CaeMesh
         private Dictionary<int, int> _gmshPointIdTopologyId = new Dictionary<int, int>();
         private Dictionary<int, int> _gmshCurveIdTopologyId = new Dictionary<int, int>();
         private Dictionary<int, int> _gmshSurfaceIdTopologyId = new Dictionary<int, int>();
+        // A face of the model with an edge or a point inside it is the surface of gmsh round whose edges lie some of
+        // its vertices only, and whose area is its own within this share of it
+        private const double _embeddedFaceAreaTolerance = 0.01;
         private HashSet<int> _scaffoldEdgeIds;
         private bool _isOCC;
         private string _error;
@@ -294,7 +300,8 @@ namespace CaeMesh
                                                  quasiStructured ? new LensFace[0] :
                                                                    _gmshData.LensFaces ?? new LensFace[0],
                                                  IsFullQuad(algorithmRecombine),
-                                                 algorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad);
+                                                 algorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad,
+                                                 !quasiStructured);
                     else if (_isOCC && (gsi.IsTransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
                         SetTransfiniteSurfaces(gsi.IsTransfiniteThreeSided, gsi.TransfiniteFourSided, transfiniteVolume,
@@ -745,13 +752,14 @@ namespace CaeMesh
             // first, on the meshed edges, and gmsh then meshes only the surfaces that are still empty. A cap whose grid
             // is refused is among them, meshed free as any other face
             HashSet<int> laidSurfaceIds = new HashSet<int>();
-            // So are the lens faces and the three-sided faces with a pole at a corner, but for the quasi-structured
-            // quad algorithm, which meshes the edges again; it gets the three-sided faces to mesh, which are replaced
-            // after it
+            // So are the lens faces and the three- and four-sided faces with a pole at a corner, but for the
+            // quasi-structured quad algorithm, which meshes the edges again; it gets the three-sided faces to mesh,
+            // which are replaced after it, and the four-sided ones as transfinite surfaces
             bool quasiStructured = GetAlgorithmMesh2D(gmshSetupItem) == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad;
             HashSet<int> poleThreeBlockSurfaceIds =
                 new HashSet<int>(_threeBlockFaces.Where(GmshLensMesher.HasPoleCorner).Select(face => face.FaceId));
-            if (_capFaces.Count > 0 || _lensFaces.Count > 0 || (poleThreeBlockSurfaceIds.Count > 0 && !quasiStructured))
+            if (_capFaces.Count > 0 || _lensFaces.Count > 0 || _poleFourSidedFaces.Count > 0 ||
+                (poleThreeBlockSurfaceIds.Count > 0 && !quasiStructured))
             {
                 GenerateMesh(1);
                 foreach (var face in _capFaces)
@@ -766,25 +774,32 @@ namespace CaeMesh
                     if (GmshLensMesher.Mesh(face, recombine, out reason)) laidSurfaceIds.Add(face.FaceId);
                     else WriteLensFreeMessage(face.FaceId, reason);
                 }
-                foreach (var face in _threeBlockFaces)
+                foreach (var face in _threeBlockFaces.Where(face => !quasiStructured &&
+                                                                    poleThreeBlockSurfaceIds.Contains(face.FaceId))
+                                                     .Concat(_poleFourSidedFaces))
                 {
-                    if (quasiStructured || !poleThreeBlockSurfaceIds.Contains(face.FaceId)) continue;
-                    if (GmshLensMesher.MeshThreeSided(face, recombine, out reason)) laidSurfaceIds.Add(face.FaceId);
-                    else WriteThreeSidedFreeMessage(face.FaceId, reason);
+                    if (GmshLensMesher.MeshPoleCornerFace(face, recombine, out reason)) laidSurfaceIds.Add(face.FaceId);
+                    else WriteTransfiniteFreeMessage(face.FaceId, reason);
                 }
             }
             // Recombine all. gmsh refuses a full-quad recombination of a periodic surface ("Full-quad recombination not
             // ready yet for periodic surfaces"), so the tubes, whose mesh GmshTubeMesher replaces, and the caps whose grid
-            // was refused are left out of it, and so are the lens faces and the three-sided faces with a pole on a
-            // periodic surface, a sphere or a cone, whose grid was refused or that wait for the grid of their submapped
-            // face to be refused
+            // was refused are left out of it, and so are the lens faces and the three- and four-sided faces with a pole
+            // on a periodic surface, a sphere or a cone, whose grid was refused or that wait for the grid of their
+            // submapped face to be refused, and the three-sided, submapped and ring faces on a periodic surface - a
+            // cylinder -, whose grid replaces gmsh's mesh after it
             HashSet<int> unrecombinedSurfaceIds = new HashSet<int>();
             if (IsFullQuad(gmshSetupItem.AlgorithmRecombine))
             {
                 unrecombinedSurfaceIds.UnionWith(_tubeFaces.Select(face => face.FaceId));
                 unrecombinedSurfaceIds.UnionWith(_capFaces.Select(face => face.FaceId));
                 unrecombinedSurfaceIds.UnionWith(_lensFaces.Select(face => face.FaceId).Concat(_lensFallbackFaces.Keys)
-                                                           .Concat(poleThreeBlockSurfaceIds).Where(IsPeriodicSurface));
+                                                           .Concat(poleThreeBlockSurfaceIds)
+                                                           .Concat(_poleFourSidedFaces.Select(face => face.FaceId))
+                                                           .Concat(_threeBlockFaces.Select(face => face.FaceId))
+                                                           .Concat(_submapFaces.Select(face => face.FaceId))
+                                                           .Concat(_ringFaces.Select(face => face.FaceId))
+                                                           .Where(IsPeriodicSurface));
             }
             if (recombine && unrecombinedSurfaceIds.Count > 0)
             {
@@ -809,18 +824,18 @@ namespace CaeMesh
                 if (laidSurfaceIds.Count > 0) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 0);
             }
             // The three-sided faces become three blocks of quads around one inner node, split into triangles where the
-            // surfaces are not recombined
+            // surfaces are not recombined, each left as gmsh meshed it when its grid folds or is poor, on the counts
+            // balanced for it
             HashSet<int> structuredSurfaceIds = new HashSet<int>(_transfiniteSurfaceIds);
             foreach (var face in _threeBlockFaces)
             {
-                if (!poleThreeBlockSurfaceIds.Contains(face.FaceId)) GmshThreeBlockMesher.Mesh(face, recombine);
+                bool laid;
+                if (!poleThreeBlockSurfaceIds.Contains(face.FaceId))
+                    laid = GmshThreeBlockMesher.Mesh(face, recombine, out reason);
                 else if (!quasiStructured) continue;
-                else if (!GmshLensMesher.MeshThreeSided(face, recombine, out reason))
-                {
-                    WriteThreeSidedFreeMessage(face.FaceId, reason);
-                    continue;
-                }
-                structuredSurfaceIds.Add(face.FaceId);
+                else laid = GmshLensMesher.MeshPoleCornerFace(face, recombine, out reason);
+                if (laid) structuredSurfaceIds.Add(face.FaceId);
+                else WriteTransfiniteFreeMessage(face.FaceId, reason);
             }
             // The submapped faces likewise, each left as gmsh meshed it when its grid folds or is poor, or meshed as a
             // lens face when it is one
@@ -5846,7 +5861,9 @@ namespace CaeMesh
         /// meshed as three blocks of quads around one inner node, which needs an even sum on its sides and no side with
         /// as many elements as the other two; gmsh meshes it free first and the blocks replace that mesh. A polar one
         /// is the grid gmsh collapses at one corner, which needs the two sides meeting there to carry the same number
-        /// of elements.
+        /// of elements. A four-sided face with a pole of its surface at a corner is laid by GmshLensMesher before gmsh
+        /// meshes the surfaces, unless layPoleCornerFaces is false (the quasi-structured quad algorithm), and is no
+        /// transfinite surface of gmsh's then; one whose grid is refused is meshed free with a message.
         /// A submapped face joins the balance by its two pairs of sides, the edges along +i against those along -i and
         /// the edges along +j against those along -j, and by its separations, which keep the sides that face each other
         /// across it apart in its lattice, and is meshed by SubmapMapping once gmsh has meshed it free. It
@@ -5884,7 +5901,8 @@ namespace CaeMesh
         /// lens face the submapping also keeps joins the balance as the kind whose grid, laid on the face alone, is
         /// the better one (IsBetterAsLensFace). One that stays submapped and whose grid the balanced counts refuse
         /// joins one more balance as a lens face, as does one dropped by the balance as a submapped face; a submapped
-        /// grid refused at the meshing all the same is replaced by a lens grid on the counts it has.
+        /// grid refused at the meshing all the same is replaced by a lens grid on the counts it has. A lens face with a
+        /// reentrant vertex that is no pole of its surface is no lens face and is left out without a message.
         /// Under the all-quad recombination every other face, which gmsh meshes free and GmshQuadMesher then turns into
         /// quads only, asks for an even number of elements around its boundary, at the weakest tier, so that it never
         /// changes a number the user set or a structured face. Only the edges of such faces whose count the balance
@@ -5892,10 +5910,15 @@ namespace CaeMesh
         /// </summary>
         private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces, SubmapFace[] submapFaces,
                                               RingFace[] ringFaces, TubeFace[] tubeFaces, CapFace[] capFaces,
-                                              LensFace[] lensFaces, bool fullQuad, bool allQuad)
+                                              LensFace[] lensFaces, bool fullQuad, bool allQuad,
+                                              bool layPoleCornerFaces)
         {
             if (transfiniteFaces.Length == 0 && submapFaces.Length == 0 && ringFaces.Length == 0 && tubeFaces.Length == 0 &&
                 capFaces.Length == 0 && lensFaces.Length == 0 && !allQuad) return;
+            // A lens face with a reentrant vertex is split at it only when it is a pole of the surface; a reentrant
+            // corner elsewhere leaves the face to gmsh, as it is no lens face
+            lensFaces = lensFaces.Where(face => face.ReentrantIndices.Length == 0 ||
+                                               GmshLensMesher.HasReentrantPole(face)).ToArray();
             // The submapping lays its grid between straight sides joined by corners, sharp or rounded. A lens face with
             // no straight edge - a disc of arcs, an ellipse, a lens of two arcs - has none, and the counts the
             // submapping would balance for it are not those of its lens grid, so it is a lens face only
@@ -6477,6 +6500,11 @@ namespace CaeMesh
                     _threeBlockFaces.Add(face);
                     continue;
                 }
+                else if (layPoleCornerFaces && GmshLensMesher.HasPoleCorner(face))
+                {
+                    _poleFourSidedFaces.Add(face);
+                    continue;
+                }
                 else Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
                 _transfiniteSurfaceIds.Add(face.FaceId);
             }
@@ -6890,10 +6918,29 @@ namespace CaeMesh
             _writeOutput?.Invoke(NameGmshEntities("Lens mapping: Surface " + surfaceId + " is meshed free - " + reason +
                                                   "."));
         }
-        private void WriteThreeSidedFreeMessage(int surfaceId, string reason)
+        private void WriteTransfiniteFreeMessage(int surfaceId, string reason)
         {
             _writeOutput?.Invoke(NameGmshEntities("Transfinite: Surface " + surfaceId + " is meshed free - " + reason +
                                                   "."));
+        }
+        /// <summary>
+        /// Writes that each structured face of the given faces, by their topology ids, that the renumbering left out -
+        /// its surface not found in gmsh, or not by all its edges and vertices - is meshed free, once per face over all
+        /// calls with the same set of written faces. The face is named by its topology id, as gmsh has no id for it.
+        /// </summary>
+        private void WriteUnmappedFaceMessages(string mapping, int[] faceIds, IEnumerable<int> renumberedSurfaceIds,
+                                               Dictionary<int, int> netgenFaceIdGmshFaceId, HashSet<int> writtenFaceIds)
+        {
+            HashSet<int> renumbered = new HashSet<int>(renumberedSurfaceIds);
+            int surfaceId;
+            foreach (var faceId in faceIds)
+            {
+                if (netgenFaceIdGmshFaceId.TryGetValue(faceId, out surfaceId) && renumbered.Contains(surfaceId))
+                    continue;
+                if (!writtenFaceIds.Add(faceId)) continue;
+                _writeOutput?.Invoke(mapping + ": " + GetTopologyName("Surface", faceId) + " is meshed free - the " +
+                                     "surface gmsh meshes is bounded by other edges than the part shows for it.");
+            }
         }
         private bool IsPolar(TransfiniteFace face)
         {
@@ -7500,36 +7547,66 @@ namespace CaeMesh
                 }
                 _gmshData.FaceIdNodes = faceIdNodes;
             }
-            // Transfinite faces
+            // Transfinite faces. A structured face of a shell that gmsh does not have as the part shows it - its
+            // surface, one of its edges or one of its vertices not found - is meshed free, and says so
+            ShellGmsh shellGmsh = _gmshData.GmshSetupItems?.OfType<ShellGmsh>().FirstOrDefault();
+            bool laidFirst = shellGmsh != null &&
+                             GetAlgorithmMesh2D(shellGmsh) != GmshAlgorithmMesh2DEnum.QuasiStructuredQuad;
+            HashSet<int> unmappedFaceIds = new HashSet<int>();
             if (_gmshData.TransfiniteFaces != null)
             {
+                int[] faceIds = _gmshData.TransfiniteFaces.Select(face => face.FaceId).ToArray();
                 _gmshData.TransfiniteFaces = RenumberTransfiniteFaces(_gmshData.TransfiniteFaces, netgenVertexIdGmshVertexId,
                                                                       netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
+                if (shellGmsh != null)
+                    WriteUnmappedFaceMessages("Transfinite", faceIds,
+                                              _gmshData.TransfiniteFaces.Select(face => face.FaceId),
+                                              netgenFaceIdGmshFaceId, unmappedFaceIds);
             }
             if (_gmshData.SubmapFaces != null)
             {
+                int[] faceIds = _gmshData.SubmapFaces.Select(face => face.FaceId).ToArray();
                 _gmshData.SubmapFaces = RenumberSubmapFaces(_gmshData.SubmapFaces, netgenVertexIdGmshVertexId,
                                                             netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
+                if (shellGmsh != null)
+                    WriteUnmappedFaceMessages("Submapping", faceIds, _gmshData.SubmapFaces.Select(face => face.FaceId),
+                                              netgenFaceIdGmshFaceId, unmappedFaceIds);
             }
             if (_gmshData.RingFaces != null)
             {
+                int[] faceIds = _gmshData.RingFaces.Select(face => face.FaceId).ToArray();
                 _gmshData.RingFaces = RenumberRingFaces(_gmshData.RingFaces, netgenVertexIdGmshVertexId,
                                                         netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
+                if (shellGmsh != null)
+                    WriteUnmappedFaceMessages("Ring mapping", faceIds, _gmshData.RingFaces.Select(face => face.FaceId),
+                                              netgenFaceIdGmshFaceId, unmappedFaceIds);
             }
             if (_gmshData.TubeFaces != null)
             {
+                int[] faceIds = _gmshData.TubeFaces.Select(face => face.FaceId).ToArray();
                 _gmshData.TubeFaces = RenumberTubeFaces(_gmshData.TubeFaces, netgenVertexIdGmshVertexId,
                                                         netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
+                if (shellGmsh != null)
+                    WriteUnmappedFaceMessages("Tube mapping", faceIds, _gmshData.TubeFaces.Select(face => face.FaceId),
+                                              netgenFaceIdGmshFaceId, unmappedFaceIds);
             }
             if (_gmshData.CapFaces != null)
             {
+                int[] faceIds = _gmshData.CapFaces.Select(face => face.FaceId).ToArray();
                 _gmshData.CapFaces = RenumberCapFaces(_gmshData.CapFaces, netgenVertexIdGmshVertexId, netgenEdgeIdGmshEdgeId,
                                                       netgenFaceIdGmshFaceId);
+                if (laidFirst)
+                    WriteUnmappedFaceMessages("Cap mapping", faceIds, _gmshData.CapFaces.Select(face => face.FaceId),
+                                              netgenFaceIdGmshFaceId, unmappedFaceIds);
             }
             if (_gmshData.LensFaces != null)
             {
+                int[] faceIds = _gmshData.LensFaces.Select(face => face.FaceId).ToArray();
                 _gmshData.LensFaces = RenumberLensFaces(_gmshData.LensFaces, netgenVertexIdGmshVertexId,
                                                         netgenEdgeIdGmshEdgeId, netgenFaceIdGmshFaceId);
+                if (laidFirst)
+                    WriteUnmappedFaceMessages("Lens mapping", faceIds, _gmshData.LensFaces.Select(face => face.FaceId),
+                                              netgenFaceIdGmshFaceId, unmappedFaceIds);
             }
             // Defeature
             if (_gmshData.SurfaceIds != null)
@@ -7818,7 +7895,8 @@ namespace CaeMesh
                 int[] vertexIds = RenumberIds(face.VertexNodeIds, netgenVertexIdGmshVertexId);
                 int[] edgeIds = RenumberIds(face.EdgeIds, netgenEdgeIdGmshEdgeId);
                 if (vertexIds == null || edgeIds == null) continue;
-                renumbered.Add(new LensFace(surfaceId, vertexIds, edgeIds, face.CornerIndices.ToArray()));
+                renumbered.Add(new LensFace(surfaceId, vertexIds, edgeIds, face.CornerIndices.ToArray(),
+                                            face.ReentrantIndices.ToArray()));
             }
             return renumbered.ToArray();
         }
@@ -8183,6 +8261,41 @@ namespace CaeMesh
                     }
                 }
             }
+            // The OCC import embeds an edge or a point inside a face in its surface, and gmsh does not count it among
+            // the edges round the surface: a face left over is the surface of its area, not yet taken, whose vertices
+            // are some of its own, the nearest by location
+            HashSet<int> takenGmshFaceIds = new HashSet<int>(netgenFaceIdGmshFaceId.Values);
+            foreach (var entry in _gmshData.FaceVertexNodeIdsFaceId)
+            {
+                HashSet<int> netgenVertexIds = new HashSet<int>(entry.Key);
+                foreach (var faceDataEntry in entry.Value)
+                {
+                    if (netgenFaceIdGmshFaceId.ContainsKey(faceDataEntry.Id)) continue;
+                    xyz = new Vec3D(faceDataEntry.Location);
+                    double areaTolerance = _embeddedFaceAreaTolerance * Math.Abs(faceDataEntry.Size);
+                    double minDistance = double.MaxValue;
+                    gmshFaceId = -1;
+                    foreach (var gmshEntry in gmshFaceVertexNodeIdsFaceId)
+                    {
+                        if (gmshEntry.Key.Length >= entry.Key.Length || !gmshEntry.Key.All(netgenVertexIds.Contains))
+                            continue;
+                        foreach (var idLocation in gmshEntry.Value)
+                        {
+                            if (takenGmshFaceIds.Contains(idLocation.Id) ||
+                                !(Math.Abs(idLocation.Size - faceDataEntry.Size) <= areaTolerance)) continue;
+                            d2 = (new Vec3D(idLocation.Location) - xyz).Len2;
+                            if (d2 < minDistance)
+                            {
+                                minDistance = d2;
+                                gmshFaceId = idLocation.Id;
+                            }
+                        }
+                    }
+                    if (gmshFaceId < 0) continue;
+                    netgenFaceIdGmshFaceId[faceDataEntry.Id] = gmshFaceId;
+                    takenGmshFaceIds.Add(gmshFaceId);
+                }
+            }
             return netgenFaceIdGmshFaceId;
         }
         private void Synchronize()
@@ -8244,13 +8357,20 @@ namespace CaeMesh
                 int topologyId;
                 if (!map.TryGetValue(gmshId, out topologyId)) return match.Value;
                 //
-                string partName = null;
-                int partId = FeMesh.GetPartIdFromGmshTopologyId(topologyId);
-                if (_gmshData.PartIdPartName != null) _gmshData.PartIdPartName.TryGetValue(partId, out partName);
-                if (partName == null) partName = "part " + partId;
-                //
-                return word + " " + (FeMesh.GetItemIdFromGmshTopologyId(topologyId) + 1) + " of " + partName;
+                return GetTopologyName(word, topologyId);
             });
+        }
+        /// <summary>
+        /// The name the interface gives the entity of the topology id: the word, its one-based id and its part.
+        /// </summary>
+        private string GetTopologyName(string word, int topologyId)
+        {
+            string partName = null;
+            int partId = FeMesh.GetPartIdFromGmshTopologyId(topologyId);
+            if (_gmshData.PartIdPartName != null) _gmshData.PartIdPartName.TryGetValue(partId, out partName);
+            if (partName == null) partName = "part " + partId;
+            //
+            return word + " " + (FeMesh.GetItemIdFromGmshTopologyId(topologyId) + 1) + " of " + partName;
         }
         private static Dictionary<int, int> InvertRenumbering(Dictionary<int, int> topologyIdGmshId)
         {

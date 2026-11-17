@@ -48,6 +48,8 @@ namespace CaeMesh
         private const int MinPieceSideCount = 2;
         private const int MaxNumOfLineStarts = 4;
         private static readonly double[] CornerCutShares = new double[] { 0.25, 0.3, 0.35 };
+        private const double FanLineAngleDeg = 90;
+        private const int MinNumOfFanPieces = 3;
 
 
         // Properties                                                                                                               
@@ -214,6 +216,191 @@ namespace CaeMesh
                 return false;
             }
             return LayBest(cuts, cut => LayCornerCut(loop, cut), out reason);
+        }
+        /// <summary>
+        /// Lays the grid of a face with a reentrant vertex at a pole of its surface, whose loop runs through the given
+        /// node ids from its first node back to it: the angle at the pole is split by FanLineAngleDeg into k pieces,
+        /// three at least, and lines of the surface parameters run from the pole to the boundary nodes nearest the
+        /// angles that split it evenly in the chart of the pole (ChooseFanLines). Each piece - the pole, the ends of
+        /// its lines and the corners of the face between them - is three- or four-sided and is mapped as one by
+        /// MapPiece, so the pole carries one quad per piece.
+        /// </summary>
+        public bool LayPoleFan(int[] loop, int poleNodeId, HashSet<int> cornerNodeIds, out string reason)
+        {
+            reason = null;
+            int m = loop.Length - 1;
+            int start = Array.IndexOf(loop, poleNodeId);
+            GmshPoleChart chart;
+            if (start < 0 || start == m || !_poleCharts.TryGetValue(poleNodeId, out chart))
+            {
+                reason = "its reentrant vertex is no pole of its surface";
+                return false;
+            }
+            int[] fan = Enumerable.Range(0, m + 1).Select(d => loop[(start + d) % m]).ToArray();
+            double[] angles = fan.Select(nodeId => nodeId == poleNodeId ? double.NaN : chart.GetAngle(_uv[nodeId]))
+                                 .ToArray();
+            double first = angles[1];
+            double poleAngle = angles[m - 1] - first;
+            int numOfPieces = Math.Max(MinNumOfFanPieces, (int)Math.Round(Math.Abs(poleAngle) * 180 / Math.PI /
+                                                                          FanLineAngleDeg,
+                                                                          MidpointRounding.AwayFromZero));
+            bool[] corners = fan.Select(nodeId => cornerNodeIds.Contains(nodeId)).ToArray();
+            int[][] lines;
+            if (!ChooseFanLines(fan, angles, corners, first, poleAngle, numOfPieces, out lines))
+            {
+                reason = "no lines from its pole into " + numOfPieces + " pieces of about " +
+                         Math.Round(Math.Abs(poleAngle) * 180 / Math.PI / numOfPieces) + " degrees carry numbers of " +
+                         "elements the pieces can take, with " + m + " on its loop";
+                return false;
+            }
+            int[][] lineNodeIds = lines.Select(line => LayLine(poleNodeId, fan[line[0]], line[1])).ToArray();
+            for (int j = 0; j < numOfPieces; j++)
+            {
+                List<int> piece = new List<int>();
+                int from = j == 0 ? 0 : lines[j - 1][0];
+                int to = j == numOfPieces - 1 ? m : lines[j][0];
+                if (j > 0) piece.AddRange(lineNodeIds[j - 1].Take(lineNodeIds[j - 1].Length - 1));
+                piece.AddRange(fan.Skip(from).Take(to - from));
+                if (j < numOfPieces - 1) piece.AddRange(lineNodeIds[j].Reverse().Take(lineNodeIds[j].Length - 1));
+                piece.Add(poleNodeId);
+                HashSet<int> pieceCorners = new HashSet<int>(cornerNodeIds);
+                pieceCorners.Add(poleNodeId);
+                if (j > 0) pieceCorners.Add(fan[from]);
+                if (j < numOfPieces - 1) pieceCorners.Add(fan[to]);
+                int[][] sides = SplitAtCorners(piece, pieceCorners);
+                if (sides.Length != 3 && sides.Length != 4)
+                {
+                    reason = "a piece between the lines from its pole has " + sides.Length + " corners";
+                    return false;
+                }
+                if (!MapPiece(sides, out reason)) return false;
+            }
+            return true;
+        }
+        /// <summary>
+        /// The lines of a face split at its pole, fan[0], into numOfPieces pieces: line i, of 1 to numOfPieces - 1,
+        /// as the position in the loop of the node it ends at and its number of elements. Each end lies within
+        /// SplitSearchWidth of the node whose angle round the pole is nearest the share i / numOfPieces of the angle at
+        /// the pole, no corner of the face; each piece must be three-sided and valid for three blocks of quads, or
+        /// four-sided with equal opposite sides, its sides of the loop of MinPieceSideCount elements at least. Of the
+        /// valid choices the one is taken whose lines carry the numbers nearest their lengths over the mean of the
+        /// boundary edges at their ends and end nearest their angles, by a dynamic program along the lines.
+        /// </summary>
+        private bool ChooseFanLines(int[] fan, double[] angles, bool[] corners, double first, double poleAngle,
+                                    int numOfPieces, out int[][] lines)
+        {
+            lines = null;
+            int m = fan.Length - 1;
+            int poleNodeId = fan[0];
+            double poleEdgeLength = (GetDistance(fan[0], fan[1]) + GetDistance(fan[m - 1], fan[m])) / 2;
+            // The candidates of every line: the position of its end and its number of elements, with their cost
+            List<int[]>[] candidates = new List<int[]>[numOfPieces + 1];
+            List<double>[] costs = new List<double>[numOfPieces + 1];
+            candidates[0] = new List<int[]> { new int[] { 0, 0 } };
+            costs[0] = new List<double> { 0 };
+            candidates[numOfPieces] = new List<int[]> { new int[] { m, 0 } };
+            costs[numOfPieces] = new List<double> { 0 };
+            for (int i = 1; i < numOfPieces; i++)
+            {
+                candidates[i] = new List<int[]>();
+                costs[i] = new List<double>();
+                double target = first + poleAngle * i / numOfPieces;
+                int nearest = 1;
+                for (int p = 2; p < m; p++)
+                {
+                    if (Math.Abs(angles[p] - target) < Math.Abs(angles[nearest] - target)) nearest = p;
+                }
+                int last = Math.Min(m - 1, nearest + SplitSearchWidth);
+                for (int p = Math.Max(1, nearest - SplitSearchWidth); p <= last; p++)
+                {
+                    if (corners[p]) continue;
+                    double meanLength = (GetDistance(fan[p - 1], fan[p]) + GetDistance(fan[p], fan[p + 1]) +
+                                         2 * poleEdgeLength) / 4;
+                    double length = Math.Max(1, GetLineLength(poleNodeId, fan[p]) / meanLength);
+                    double angleCost = Math.Abs(angles[p] - target) / Math.Abs(poleAngle / numOfPieces);
+                    for (int n = MinPieceSideCount; n <= 2 * (int)Math.Ceiling(length) + MinPieceSideCount; n++)
+                    {
+                        candidates[i].Add(new int[] { p, n });
+                        costs[i].Add(Math.Abs(n - length) / length + angleCost);
+                    }
+                }
+            }
+            // The cheapest valid chain of candidates
+            double[][] best = new double[numOfPieces + 1][];
+            int[][] previous = new int[numOfPieces + 1][];
+            for (int i = 0; i <= numOfPieces; i++)
+            {
+                best[i] = Enumerable.Repeat(double.MaxValue, candidates[i].Count).ToArray();
+                previous[i] = Enumerable.Repeat(-1, candidates[i].Count).ToArray();
+            }
+            best[0][0] = 0;
+            for (int i = 1; i <= numOfPieces; i++)
+            {
+                for (int c = 0; c < candidates[i].Count; c++)
+                {
+                    for (int b = 0; b < candidates[i - 1].Count; b++)
+                    {
+                        if (best[i - 1][b] == double.MaxValue) continue;
+                        int[] from = candidates[i - 1][b];
+                        int[] to = candidates[i][c];
+                        if (from[0] >= to[0] || !IsFanPieceValid(corners, from, to, i == 1, i == numOfPieces))
+                            continue;
+                        double cost = best[i - 1][b] + costs[i][c];
+                        if (cost < best[i][c])
+                        {
+                            best[i][c] = cost;
+                            previous[i][c] = b;
+                        }
+                    }
+                }
+            }
+            if (best[numOfPieces][0] == double.MaxValue) return false;
+            lines = new int[numOfPieces - 1][];
+            int index = previous[numOfPieces][0];
+            for (int i = numOfPieces - 1; i >= 1; i--)
+            {
+                lines[i - 1] = candidates[i][index];
+                index = previous[i][index];
+            }
+            return true;
+        }
+        /// <summary>
+        /// Whether the piece of a face split at its pole between the line from[0] of from[1] elements, the loop from
+        /// there to the end of the line to, and that line back to the pole is three-sided and valid for three blocks
+        /// of quads, or four-sided with equal opposite sides; the first piece starts with the loop at the pole, the
+        /// last ends with it.
+        /// </summary>
+        private static bool IsFanPieceValid(bool[] corners, int[] from, int[] to, bool firstPiece, bool lastPiece)
+        {
+            List<int> sideCounts = new List<int>();
+            if (!firstPiece) sideCounts.Add(from[1]);
+            int sideStart = from[0];
+            for (int p = from[0] + 1; p <= to[0]; p++)
+            {
+                if (p < to[0] && !corners[p]) continue;
+                sideCounts.Add(p - sideStart);
+                sideStart = p;
+            }
+            if (!lastPiece) sideCounts.Add(to[1]);
+            if (sideCounts.Any(count => count < MinPieceSideCount)) return false;
+            if (sideCounts.Count == 3) return TransfiniteSideTriple.AreCountsValid(sideCounts.ToArray());
+            if (sideCounts.Count == 4) return sideCounts[0] == sideCounts[2] && sideCounts[1] == sideCounts[3];
+            return false;
+        }
+        // The sides of a closed loop of node ids, its last node its first, from the first corner on, each from one of
+        // the given corners to the next
+        private static int[][] SplitAtCorners(List<int> loop, HashSet<int> cornerNodeIds)
+        {
+            int m = loop.Count - 1;
+            List<int> cornerPositions = Enumerable.Range(0, m).Where(p => cornerNodeIds.Contains(loop[p])).ToList();
+            int[][] sides = new int[cornerPositions.Count][];
+            for (int c = 0; c < cornerPositions.Count; c++)
+            {
+                int a = cornerPositions[c];
+                int b = c + 1 < cornerPositions.Count ? cornerPositions[c + 1] : cornerPositions[0] + m;
+                sides[c] = Enumerable.Range(a, b - a + 1).Select(p => loop[p % m]).ToArray();
+            }
+            return sides;
         }
         /// <summary>
         /// Lays each candidate by lay, which returns null when it laid it and the reason otherwise, smooths it (Smooth)
@@ -438,17 +625,18 @@ namespace CaeMesh
             return false;
         }
         /// <summary>
-        /// Lays a three-sided piece by ThreeBlockMapping; side k of it runs through the given node ids from corner k to
-        /// corner k + 1. A piece with a pole at a corner is mapped in the chart of the pole and in the parameters of
-        /// the surface, where the pole is the whole side of the piece at the bound of a parameter and is placed at the
-        /// start, the middle and the end of it (GetPoleParameters), and the best grid in space is kept (IsBetter): the
-        /// chart is far better at the apex of a cone, the parameters at times round the pole of a sphere.
+        /// Lays a three-sided piece by ThreeBlockMapping, or a four-sided one by FourSidedMapping; side k of it runs
+        /// through the given node ids from corner k to corner k + 1. A piece with a pole at a corner is mapped in the
+        /// chart of the pole and in the parameters of the surface, where the pole is the whole side of the piece at the
+        /// bound of a parameter and is placed at the start, the middle and the end of it (GetPoleParameters), and the
+        /// best grid in space is kept (IsBetter): the chart is far better at the apex of a cone, the parameters at
+        /// times round the pole of a sphere.
         /// </summary>
         public bool MapPiece(int[][] sides, out string reason)
         {
             GmshPoleChart chart = null;
             int poleId = -1;
-            for (int k = 0; k < 3 && chart == null; k++)
+            for (int k = 0; k < sides.Length && chart == null; k++)
             {
                 if (_poleCharts.TryGetValue(sides[k][0], out chart)) poleId = sides[k][0];
             }
@@ -508,22 +696,24 @@ namespace CaeMesh
                 if (nodeId == poleId && poleUv != null) return poleUv;
                 return Unwrap(_uv[nodeId], reference);
             };
-            double[][][] sideUv = new double[3][][];
-            double[][][] sideXyz = new double[3][][];
-            for (int k = 0; k < 3; k++)
+            double[][][] sideUv = new double[sides.Length][][];
+            double[][][] sideXyz = new double[sides.Length][][];
+            for (int k = 0; k < sides.Length; k++)
             {
                 sideUv[k] = sides[k].Select(getPoint).ToArray();
                 sideXyz[k] = sides[k].Select(nodeId => _xyz[nodeId]).ToArray();
             }
+            Func<double[], double[]> evaluate = points =>
+            {
+                if (chart != null) return chart.GetValues(points);
+                double[] coor;
+                Gmsh.Model.GetValue(2, _surfaceId, points, out coor);
+                return coor;
+            };
             try
             {
-                grid = ThreeBlockMapping.Map(sideUv, sideXyz, points =>
-                {
-                    if (chart != null) return chart.GetValues(points);
-                    double[] coor;
-                    Gmsh.Model.GetValue(2, _surfaceId, points, out coor);
-                    return coor;
-                });
+                if (sides.Length == 4) grid = FourSidedMapping.Map(sideUv, sideXyz, evaluate);
+                else grid = ThreeBlockMapping.Map(sideUv, sideXyz, evaluate);
             }
             catch (CaeException ex)
             {
@@ -617,7 +807,7 @@ namespace CaeMesh
         private static int[] GetGridNodeIds(int[][] sides, ThreeBlockGrid grid)
         {
             int[] nodeIds = Enumerable.Repeat(-1, grid.NumberOfBoundaryNodes + grid.InnerUv.Length).ToArray();
-            for (int k = 0; k < 3; k++)
+            for (int k = 0; k < sides.Length; k++)
             {
                 for (int i = 0; i < sides[k].Length - 1; i++) nodeIds[grid.GetBoundaryNodeId(k, i)] = sides[k][i];
             }

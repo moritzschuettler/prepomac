@@ -59,6 +59,13 @@ namespace CaeMesh
     /// A single closed edge, two half circles and four quarters are round; an ellipse is not. A round hole needs no
     /// directions: in the lattice it is a square whose corners SubmapHolePlacement puts where the lattice wants them.
     /// An outer loop that is round, a disc or an annulus, leaves the face free.
+    /// Where the edges of a face start its loops and which way they run them changes nothing on a shell (Detect with
+    /// anyLoopStart): a face of one loop starts it at its vertex lowest in x, then y, then z (GetFirstVertexIndex) and
+    /// runs it along the lower of the two edges there (TurnLoop), so that the alternatives and their ties come in one
+    /// order, and judges its grid from there, and where that grid is poor from every vertex of the loop in turn, the
+    /// best start kept (GetBestStartFace): the lattice of the proportional counts is snapped from the start of the
+    /// loop. The loops of a face with holes run with the face on their left, each from its lowest vertex, the holes in
+    /// the order of those vertices.
     /// </summary>
     public static class SubmapFaceDetector
     {
@@ -85,6 +92,9 @@ namespace CaeMesh
         /// </summary>
         public const double MaxRoundRadiusDeviation = 0.02;
         private const double TieToleranceDeg = 1;
+        // Grids of qualities within this of each other are taken as equally good, and the first is kept: the same
+        // shape elsewhere differs in the last digits
+        private const double QualityTieTolerance = 1E-6;
         private const int MaxNumOfAlternatives = 6;
         private const int MaxDeficit = 4;
         private const int NumOfOutlineDivisions = 64;
@@ -96,6 +106,17 @@ namespace CaeMesh
         // Methods                                                                                                                  
         public static SubmapFace[] Detect(FeMesh mesh, BasePart part, double transfiniteAngleDeg)
         {
+            return Detect(mesh, part, transfiniteAngleDeg, true);
+        }
+        /// <summary>
+        /// With anyLoopStart, as the shells are detected, what is found does not depend on where the loops of a face
+        /// start or which way they run (TurnLoop), and a face of one loop whose grid is poor from its first vertex is
+        /// judged from every vertex of its loop, the best kept; without it, as the sources of a sweep are detected,
+        /// every loop runs from
+        /// where the edges of the face start it.
+        /// </summary>
+        public static SubmapFace[] Detect(FeMesh mesh, BasePart part, double transfiniteAngleDeg, bool anyLoopStart)
+        {
             VisualizationData vis = part.Visualization;
             if (vis == null || vis.FaceCount == 0 || vis.FaceEdgeIds == null || vis.CellIdsByFace == null)
                 return new SubmapFace[0];
@@ -104,7 +125,7 @@ namespace CaeMesh
             List<SubmapFace> submapFaces = new List<SubmapFace>();
             for (int i = 0; i < vis.FaceCount; i++)
             {
-                SubmapFace submapFace = DetectFace(mesh, vis, i, transfiniteAngleDeg, edgeIdVertexIds);
+                SubmapFace submapFace = DetectFace(mesh, vis, i, transfiniteAngleDeg, edgeIdVertexIds, anyLoopStart);
                 if (submapFace != null) submapFaces.Add(submapFace);
             }
             return submapFaces.ToArray();
@@ -123,7 +144,7 @@ namespace CaeMesh
             return null;
         }
         private static SubmapFace DetectFace(FeMesh mesh, VisualizationData vis, int faceId, double transfiniteAngleDeg,
-                                             Dictionary<int, int[]> edgeIdVertexIds)
+                                             Dictionary<int, int[]> edgeIdVertexIds, bool anyLoopStart)
         {
             int[] faceEdgeIds = vis.FaceEdgeIds[faceId];
             if (faceEdgeIds == null || faceEdgeIds.Length < 2 || faceId >= vis.CellIdsByFace.Length) return null;
@@ -132,7 +153,10 @@ namespace CaeMesh
             int[] loopVertexIds;
             if (!TransfiniteFaceDetector.GetBoundaryLoop(vis, faceEdgeIds, edgeIdVertexIds, out loopEdgeIds,
                                                          out loopVertexIds))
-                return DetectFaceWithHoles(mesh, vis, faceId, faceEdgeIds, transfiniteAngleDeg, edgeIdVertexIds);
+                return DetectFaceWithHoles(mesh, vis, faceId, faceEdgeIds, transfiniteAngleDeg, edgeIdVertexIds,
+                                           anyLoopStart);
+            if (anyLoopStart)
+                TurnLoop(mesh, vis, GetFirstVertexIndex(mesh, loopVertexIds), ref loopEdgeIds, ref loopVertexIds);
             //
             int n = loopEdgeIds.Length;
             double[] anglesDeg = GetInteriorAnglesDeg(mesh, vis, faceId, loopVertexIds);
@@ -150,12 +174,140 @@ namespace CaeMesh
             }
             if (n >= 6 && numOfEnds - numOfCorners == 4 && numOfCorners > 0)
             {
-                SubmapFace submapFace = new SubmapFace(faceId, loopVertexIds, loopEdgeIds, GetDirections(turns, null),
-                                                       anglesDeg, null);
-                if (!IsGridPoor(mesh, vis, submapFace)) return submapFace;
+                double quality;
+                SubmapFace submapFace = GetBestStartFace(mesh, vis, faceId, loopVertexIds, loopEdgeIds, anglesDeg,
+                                                         turns, null, anyLoopStart, out quality);
+                if (!(quality < MinScaledJacobian)) return submapFace;
             }
             if (IsRoundLoop(mesh, vis, loopEdgeIds, loopVertexIds, anglesDeg, transfiniteAngleDeg)) return null;
-            return DetectFaceByTurns(mesh, vis, faceId, loopVertexIds, loopEdgeIds, anglesDeg, turns);
+            return DetectFaceByTurns(mesh, vis, faceId, loopVertexIds, loopEdgeIds, anglesDeg, turns, anyLoopStart);
+        }
+        /// <summary>
+        /// The face of one loop whose vertices and edges turn as given, judged by the quality of its grid
+        /// (GetGridQuality) from the given start, and when that grid is poor with the loop started at every vertex in
+        /// turn, the start of the best kept: the lattice the counts in proportion to the lengths are snapped to, and so
+        /// the grid, depends on where the loop starts. Without anyLoopStart only the given start. The quality is NaN
+        /// when no start is judged; the face is then the one of the given start.
+        /// </summary>
+        private static SubmapFace GetBestStartFace(FeMesh mesh, VisualizationData vis, int faceId, int[] loopVertexIds,
+                                                   int[] loopEdgeIds, double[] anglesDeg, int[] vertexTurns,
+                                                   int[] edgeTurns, bool anyLoopStart, out double quality)
+        {
+            SubmapFace best = null;
+            quality = double.NaN;
+            SubmapFace notJudged = null;
+            int numOfStarts = anyLoopStart ? loopEdgeIds.Length : 1;
+            for (int start = 0; start < numOfStarts; start++)
+            {
+                int[] startEdgeTurns = edgeTurns == null ? null : Rotate(edgeTurns, start);
+                SubmapFace face = new SubmapFace(faceId, Rotate(loopVertexIds, start), Rotate(loopEdgeIds, start),
+                                                 GetDirections(Rotate(vertexTurns, start), startEdgeTurns),
+                                                 Rotate(anglesDeg, start), startEdgeTurns);
+                double startQuality = GetGridQuality(mesh, vis, face);
+                if (double.IsNaN(startQuality))
+                {
+                    if (notJudged == null) notJudged = face;
+                }
+                else if (best == null || startQuality > quality + QualityTieTolerance)
+                {
+                    best = face;
+                    quality = startQuality;
+                }
+                if (start == 0 && !(quality < MinScaledJacobian)) break;
+            }
+            return best ?? notJudged;
+        }
+        /// <summary>
+        /// The loop started at the vertex of the given index and run along the one of the two edges at that vertex
+        /// whose middle is the lower by IsLower, so that where the edges of the face start the loop and which way they
+        /// run it do not matter. A loop of one closed edge is left as it is.
+        /// </summary>
+        internal static void TurnLoop(FeMesh mesh, VisualizationData vis, int start, ref int[] loopEdgeIds,
+                                      ref int[] loopVertexIds)
+        {
+            int n = loopEdgeIds.Length;
+            loopEdgeIds = Rotate(loopEdgeIds, start);
+            loopVertexIds = Rotate(loopVertexIds, start);
+            if (n < 2) return;
+            //
+            double[] first = GetEdgeMiddle(mesh, vis, loopEdgeIds[0], loopVertexIds[0]);
+            double[] last = GetEdgeMiddle(mesh, vis, loopEdgeIds[n - 1], loopVertexIds[n - 1]);
+            if (first == null || last == null) return;
+            double[] low = new double[] { Math.Min(first[0], last[0]), Math.Min(first[1], last[1]),
+                                          Math.Min(first[2], last[2]) };
+            double[] high = new double[] { Math.Max(first[0], last[0]), Math.Max(first[1], last[1]),
+                                           Math.Max(first[2], last[2]) };
+            double tolerance = 1E-9 * Math.Sqrt((high[0] - low[0]) * (high[0] - low[0]) +
+                                                (high[1] - low[1]) * (high[1] - low[1]) +
+                                                (high[2] - low[2]) * (high[2] - low[2]));
+            if (!IsLower(last, first, tolerance)) return;
+            // The other way round from the same vertex: the edges in reverse order, each vertex where its edge starts
+            int[] edgeIds = new int[n];
+            int[] vertexIds = new int[n];
+            for (int k = 0; k < n; k++)
+            {
+                edgeIds[k] = loopEdgeIds[n - 1 - k];
+                vertexIds[k] = loopVertexIds[(n - k) % n];
+            }
+            loopEdgeIds = edgeIds;
+            loopVertexIds = vertexIds;
+        }
+        /// <summary>
+        /// The point halfway along an edge by its length, null when its points do not chain from the vertex.
+        /// </summary>
+        private static double[] GetEdgeMiddle(FeMesh mesh, VisualizationData vis, int edgeId, int startNodeId)
+        {
+            List<double[]> polyline = TransfiniteFaceDetector.GetEdgePoints(mesh, vis, edgeId, startNodeId);
+            if (polyline == null || polyline.Count < 2) return null;
+            double length;
+            double[][] samples = TransfiniteFaceDetector.Resample(polyline, 2, out length);
+            return samples == null ? null : samples[1];
+        }
+        /// <summary>
+        /// The vertex a loop is started at whatever vertex its edges start it at: the lowest in x, then in y, then in
+        /// z, coordinates within 1E-9 of the extent of the loop taken as equal.
+        /// </summary>
+        internal static int GetFirstVertexIndex(FeMesh mesh, int[] vertexIds)
+        {
+            double[] low = new double[] { double.MaxValue, double.MaxValue, double.MaxValue };
+            double[] high = new double[] { double.MinValue, double.MinValue, double.MinValue };
+            foreach (var vertexId in vertexIds)
+            {
+                double[] coor = mesh.Nodes[vertexId].Coor;
+                for (int d = 0; d < 3; d++)
+                {
+                    low[d] = Math.Min(low[d], coor[d]);
+                    high[d] = Math.Max(high[d], coor[d]);
+                }
+            }
+            double tolerance = 1E-9 * Math.Sqrt((high[0] - low[0]) * (high[0] - low[0]) +
+                                                (high[1] - low[1]) * (high[1] - low[1]) +
+                                                (high[2] - low[2]) * (high[2] - low[2]));
+            int first = 0;
+            for (int k = 1; k < vertexIds.Length; k++)
+            {
+                if (IsLower(mesh.Nodes[vertexIds[k]].Coor, mesh.Nodes[vertexIds[first]].Coor, tolerance)) first = k;
+            }
+            return first;
+        }
+        private static bool IsLower(double[] a, double[] b, double tolerance)
+        {
+            for (int d = 0; d < 3; d++)
+            {
+                if (a[d] < b[d] - tolerance) return true;
+                if (a[d] > b[d] + tolerance) return false;
+            }
+            return false;
+        }
+        /// <summary>
+        /// The values from the given start round to the one before it.
+        /// </summary>
+        private static T[] Rotate<T>(T[] values, int start)
+        {
+            int n = values.Length;
+            T[] rotated = new T[n];
+            for (int k = 0; k < n; k++) rotated[k] = values[(start + k) % n];
+            return rotated;
         }
         /// <summary>
         /// Whether the one loop of a face is round (IsRoundLoop), a disc of half circles or quarters, which is left free.
@@ -180,7 +332,8 @@ namespace CaeMesh
         /// already do, and when the grid of the best one is poor.
         /// </summary>
         private static SubmapFace DetectFaceByTurns(FeMesh mesh, VisualizationData vis, int faceId, int[] loopVertexIds,
-                                                    int[] loopEdgeIds, double[] anglesDeg, int[] vertexTurns)
+                                                    int[] loopEdgeIds, double[] anglesDeg, int[] vertexTurns,
+                                                    bool anyLoopStart)
         {
             int n = loopEdgeIds.Length;
             int deficit = 4;
@@ -206,14 +359,14 @@ namespace CaeMesh
                     if (edgeTurns[k] != 0) hasTurnEdges = true;
                 }
                 if (!hasTurnEdges) edgeTurns = null;
-                SubmapFace face = new SubmapFace(faceId, loopVertexIds, loopEdgeIds, GetDirections(changedVertexTurns, edgeTurns),
-                                                 anglesDeg, edgeTurns);
-                double quality = GetGridQuality(mesh, vis, face);
+                double quality;
+                SubmapFace face = GetBestStartFace(mesh, vis, faceId, loopVertexIds, loopEdgeIds, anglesDeg,
+                                                   changedVertexTurns, edgeTurns, anyLoopStart, out quality);
                 if (double.IsNaN(quality))
                 {
                     if (firstNotJudged == null) firstNotJudged = face;
                 }
-                else if (quality > bestQuality)
+                else if (quality > bestQuality + (anyLoopStart ? QualityTieTolerance : 0))
                 {
                     best = face;
                     bestQuality = quality;
@@ -297,7 +450,8 @@ namespace CaeMesh
         /// its outer loop, or its grid is poor.
         /// </summary>
         private static SubmapFace DetectFaceWithHoles(FeMesh mesh, VisualizationData vis, int faceId, int[] faceEdgeIds,
-                                                      double transfiniteAngleDeg, Dictionary<int, int[]> edgeIdVertexIds)
+                                                      double transfiniteAngleDeg,
+                                                      Dictionary<int, int[]> edgeIdVertexIds, bool anyLoopStart)
         {
             List<int[]> loopsEdgeIds;
             List<int[]> loopsVertexIds;
@@ -320,6 +474,31 @@ namespace CaeMesh
                 }
                 loopsEdgeIds[l] = edgeIds;
                 loopsVertexIds[l] = vertexIds;
+            }
+            // Every loop from its first vertex, and the loops by their first vertices
+            if (anyLoopStart)
+            {
+                for (int l = 0; l < numOfLoops; l++)
+                {
+                    int start = GetFirstVertexIndex(mesh, loopsVertexIds[l]);
+                    loopsEdgeIds[l] = Rotate(loopsEdgeIds[l], start);
+                    loopsVertexIds[l] = Rotate(loopsVertexIds[l], start);
+                }
+                List<int> firstVertexIds = new List<int>();
+                foreach (var vertexIds in loopsVertexIds) firstVertexIds.Add(vertexIds[0]);
+                List<int[]> sortedEdgeIds = new List<int[]>();
+                List<int[]> sortedVertexIds = new List<int[]>();
+                while (firstVertexIds.Count > 0)
+                {
+                    int first = GetFirstVertexIndex(mesh, firstVertexIds.ToArray());
+                    sortedEdgeIds.Add(loopsEdgeIds[first]);
+                    sortedVertexIds.Add(loopsVertexIds[first]);
+                    firstVertexIds.RemoveAt(first);
+                    loopsEdgeIds.RemoveAt(first);
+                    loopsVertexIds.RemoveAt(first);
+                }
+                loopsEdgeIds = sortedEdgeIds;
+                loopsVertexIds = sortedVertexIds;
             }
             // The angles and the turns of every loop, the outer loop turning by about +360° and a hole by about -360°
             Dictionary<int, int> vertexIdIndex = new Dictionary<int, int>();
@@ -879,17 +1058,6 @@ namespace CaeMesh
             return nodeIds;
         }
         /// <summary>
-        /// Whether the grid SubmapMapping lays over the face, in the plane of its boundary loop and with counts in
-        /// proportion to the lengths of its edges, folds or has a quad corner below MinScaledJacobian, or whether no
-        /// counts in proportion to the lengths give a valid outline. A face that turns back over the plane is not
-        /// judged, as the grid in the plane would not be the one on the surface.
-        /// </summary>
-        private static bool IsGridPoor(FeMesh mesh, VisualizationData vis, SubmapFace face)
-        {
-            double quality = GetGridQuality(mesh, vis, face);
-            return !double.IsNaN(quality) && quality < MinScaledJacobian;
-        }
-        /// <summary>
         /// Adds the polylines of the logical edges of an edge with the given turn to the list, split at the fractions of
         /// GetSplitFractions, and the places of the logical edges that start at an inner corner of a convex turn edge,
         /// counted from firstEdge, to convexMiddleEdges. False when a turn edge has no length.
@@ -912,9 +1080,12 @@ namespace CaeMesh
             return true;
         }
         /// <summary>
-        /// The smallest scaled Jacobian of a quad corner of the grid of IsGridPoor, over the logical loop of the face,
-        /// a turn edge split into its logical edges. The corners at the inner corners of a convex turn edge are left
-        /// out. -1 when the grid folds or cannot be made, NaN when it is not judged.
+        /// The smallest scaled Jacobian of a quad corner of the grid SubmapMapping lays over the face, in the plane of
+        /// its boundary loop and with counts in proportion to the lengths of its edges, over the logical loop of the
+        /// face, a turn edge split into its logical edges. The corners at the inner corners of a convex turn edge are
+        /// left out. -1 when the grid folds or no counts in proportion to the lengths give a valid outline, NaN when it
+        /// is not judged: a face that turns back over the plane, as the grid in the plane would not be the one on the
+        /// surface.
         /// </summary>
         private static double GetGridQuality(FeMesh mesh, VisualizationData vis, SubmapFace face)
         {

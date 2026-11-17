@@ -1151,6 +1151,7 @@ F 2152.0 System.Int32 _faceId
 F 2152.1 System.Int32[] _vertexNodeIds
 F 2152.2 System.Int32[] _edgeIds
 F 2152.3 System.Int32[] _cornerIndices
+F 2152.4 System.Int32[] _reentrantIndices
 T 3000 enum CaeModel.AmplitudeTimeSpanEnum
 E 3000.0 member StepTime
 E 3000.1 member TotalTime

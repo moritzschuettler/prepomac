@@ -192,6 +192,7 @@
     <Compile Include="Meshing\Transfinite\TransfiniteFace.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteFaceDetector.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteSidePair.cs" />
+    <Compile Include="Meshing\Transfinite\FourSidedMapping.cs" />
     <Compile Include="Meshing\Transfinite\ThreeBlockGrid.cs" />
     <Compile Include="Meshing\Transfinite\ThreeBlockMapping.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteSideTriple.cs" />

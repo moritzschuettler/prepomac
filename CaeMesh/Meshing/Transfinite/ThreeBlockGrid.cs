@@ -8,13 +8,15 @@
 // Contributors:
 
 using System;
+using System.Linq;
 
 namespace CaeMesh
 {
     /// <summary>
-    /// The three blocks of quads ThreeBlockMapping lays over a three-sided face. The nodes are numbered along the
-    /// boundary loop first, node i of side k being GetBoundaryNodeId(k, i), and then the inner nodes, inner node n
-    /// being NumberOfBoundaryNodes + n. The quads turn the way the boundary loop turns in the parameter space.
+    /// The three blocks of quads ThreeBlockMapping lays over a three-sided face, or the one block FourSidedMapping
+    /// lays over a four-sided face. The nodes are numbered along the boundary loop first, node i of side k being
+    /// GetBoundaryNodeId(k, i), and then the inner nodes, inner node n being NumberOfBoundaryNodes + n. The quads turn
+    /// the way the boundary loop turns in the parameter space.
     /// </summary>
     public class ThreeBlockGrid
     {
@@ -31,7 +33,7 @@ namespace CaeMesh
         /// The number of elements on every side.
         /// </summary>
         public int[] SideCounts { get { return _sideCounts; } }
-        public int NumberOfBoundaryNodes { get { return _sideCounts[0] + _sideCounts[1] + _sideCounts[2]; } }
+        public int NumberOfBoundaryNodes { get { return _sideCounts.Sum(); } }
         public double[][] InnerUv { get { return _innerUv; } }
         public double[][] InnerXyz { get { return _innerXyz; } }
         /// <summary>
@@ -63,7 +65,7 @@ namespace CaeMesh
         /// </summary>
         public int GetBoundaryNodeId(int k, int i)
         {
-            if (i == _sideCounts[k]) return k == 2 ? 0 : GetBoundaryNodeId(k + 1, 0);
+            if (i == _sideCounts[k]) return k == _sideCounts.Length - 1 ? 0 : GetBoundaryNodeId(k + 1, 0);
             int id = i;
             for (int side = 0; side < k; side++) id += _sideCounts[side];
             return id;
@@ -75,12 +77,12 @@ namespace CaeMesh
         {
             k = 0;
             i = nodeId;
-            while (k < 3 && i >= _sideCounts[k])
+            while (k < _sideCounts.Length && i >= _sideCounts[k])
             {
                 i -= _sideCounts[k];
                 k++;
             }
-            return k < 3;
+            return k < _sideCounts.Length;
         }
     }
 }

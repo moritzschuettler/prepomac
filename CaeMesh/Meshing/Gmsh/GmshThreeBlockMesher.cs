@@ -20,11 +20,16 @@ namespace CaeMesh
     /// Meshes a three-sided face by ThreeBlockMapping, the structured mapping every mesher shares: gmsh supplies the
     /// nodes its edges carry, their parameters on the surface and the evaluation of the surface. The face is meshed
     /// by gmsh first, onto the nodes of its edges, and its elements are then replaced and turned the way gmsh turned
-    /// its own. A grid that folds is refused.
+    /// its own. A grid that folds is refused; on a shell the grid must also pass the gate of the other structured
+    /// faces, judged in space, or the face is left as gmsh meshed it.
     /// </summary>
     public static class GmshThreeBlockMesher
     {
-        // Methods
+        // Variables                                                                                                                
+        private const double SharpCornerShare = 0.5;
+
+
+        // Methods                                                                                                                  
         /// <summary>
         /// The face carries gmsh ids: its surface, its corner points and the curves of its sides. Without quads, as for a
         /// surface that is not recombined, every quad is split into two triangles.
@@ -40,9 +45,124 @@ namespace CaeMesh
         public static IntPtr[] Mesh(TransfiniteFace face, bool quads, out ThreeBlockGrid grid)
         {
             int surfaceId = face.FaceId;
-            // The nodes of every side from its corner to the next one
-            List<IntPtr>[] sideTags = new List<IntPtr>[3];
-            List<double[]>[] sideXyz = new List<double[]>[3];
+            List<IntPtr>[] sideTags;
+            List<double[]>[] sideXyz;
+            double[][][] sideUv;
+            grid = Map(face, out sideTags, out sideXyz, out sideUv);
+            if (grid.NumberOfFoldedQuads > 0)
+                throw new CaeException("The three blocks of quads on Surface " + surfaceId + " fold: " +
+                                       grid.NumberOfFoldedQuads + " of its " + grid.Quads.Length +
+                                       " quads are inverted.");
+            return Replace(surfaceId, grid, sideTags, sideUv, quads);
+        }
+        /// <summary>
+        /// Meshes the face of a shell as Mesh does when its grid passes the gate of the other structured faces: no quad
+        /// folds in the parameters of the surface or in space, and no quad corner in space, against the normal of the
+        /// surface, lies below SubmapFaceDetector.MinScaledJacobian. False, with the reason, when the face is left as
+        /// gmsh meshed it.
+        /// </summary>
+        public static bool Mesh(TransfiniteFace face, bool quads, out string reason)
+        {
+            reason = null;
+            int surfaceId = face.FaceId;
+            List<IntPtr>[] sideTags;
+            List<double[]>[] sideXyz;
+            double[][][] sideUv;
+            ThreeBlockGrid grid;
+            try
+            {
+                grid = Map(face, out sideTags, out sideXyz, out sideUv);
+            }
+            catch (CaeException ex)
+            {
+                reason = GmshLensMesher.ToReason(ex.Message);
+                return false;
+            }
+            if (grid.NumberOfFoldedQuads > 0)
+            {
+                reason = grid.NumberOfFoldedQuads + " of the " + grid.Quads.Length + " quads of its grid fold";
+                return false;
+            }
+            // The inner nodes are keyed by negative tags, which no node of gmsh carries
+            IntPtr[] nodeTags = new IntPtr[grid.NumberOfBoundaryNodes + grid.InnerUv.Length];
+            Dictionary<IntPtr, double[]> tagXyz = new Dictionary<IntPtr, double[]>();
+            Dictionary<IntPtr, double[]> tagUv = new Dictionary<IntPtr, double[]>();
+            for (int k = 0; k < 3; k++)
+            {
+                for (int i = 0; i < sideTags[k].Count - 1; i++)
+                {
+                    int nodeId = grid.GetBoundaryNodeId(k, i);
+                    nodeTags[nodeId] = sideTags[k][i];
+                    tagXyz[nodeTags[nodeId]] = sideXyz[k][i];
+                    tagUv[nodeTags[nodeId]] = sideUv[k][i];
+                }
+            }
+            for (int n = 0; n < grid.InnerUv.Length; n++)
+            {
+                IntPtr tag = new IntPtr(-1 - n);
+                nodeTags[grid.NumberOfBoundaryNodes + n] = tag;
+                tagXyz[tag] = grid.InnerXyz[n];
+                tagUv[tag] = grid.InnerUv[n];
+            }
+            IntPtr[] quadNodeTags = grid.Quads.SelectMany(quad => quad.Select(nodeId => nodeTags[nodeId])).ToArray();
+            int numOfFoldedQuads;
+            double minScaledJacobian = GmshSeamGridMesher.GetMinScaledJacobian(surfaceId, quadNodeTags, tagXyz, tagUv,
+                                                                               null, out numOfFoldedQuads);
+            if (numOfFoldedQuads > 0)
+            {
+                reason = numOfFoldedQuads + " of the " + grid.Quads.Length + " quads of its grid fold in space";
+                return false;
+            }
+            double minAllowedScaledJacobian = GetMinAllowedScaledJacobian(sideXyz);
+            if (minScaledJacobian < minAllowedScaledJacobian)
+            {
+                reason = "its grid has a quad corner of the scaled Jacobian " + Math.Round(minScaledJacobian, 3) +
+                         ", below " + Math.Round(minAllowedScaledJacobian, 3);
+                return false;
+            }
+            Replace(surfaceId, grid, sideTags, sideUv, quads);
+            return true;
+        }
+        /// <summary>
+        /// The floor of the other structured faces, lowered for a face with a sharp corner: the quad in that corner
+        /// cannot be better than the sine of its angle, and a free mesh is no better there and keeps triangles, so the
+        /// grid is asked for SharpCornerShare of what the corner allows.
+        /// </summary>
+        private static double GetMinAllowedScaledJacobian(List<double[]>[] sideXyz)
+        {
+            double minAllowedScaledJacobian = SubmapFaceDetector.MinScaledJacobian;
+            for (int k = 0; k < 3; k++)
+            {
+                List<double[]> previousSide = sideXyz[(k + 2) % 3];
+                double[] corner = sideXyz[k][0];
+                double[] next = sideXyz[k][1];
+                double[] previous = previousSide[previousSide.Count - 2];
+                double dot = 0;
+                double nextLength2 = 0;
+                double previousLength2 = 0;
+                for (int i = 0; i < 3; i++)
+                {
+                    dot += (next[i] - corner[i]) * (previous[i] - corner[i]);
+                    nextLength2 += (next[i] - corner[i]) * (next[i] - corner[i]);
+                    previousLength2 += (previous[i] - corner[i]) * (previous[i] - corner[i]);
+                }
+                if (dot <= 0 || nextLength2 == 0 || previousLength2 == 0) continue;
+                double cosine = Math.Min(1, dot / Math.Sqrt(nextLength2 * previousLength2));
+                minAllowedScaledJacobian = Math.Min(minAllowedScaledJacobian,
+                                                    SharpCornerShare * Math.Sqrt(1 - cosine * cosine));
+            }
+            return minAllowedScaledJacobian;
+        }
+        /// <summary>
+        /// The grid of the face on the nodes of its edges, and the tags, coordinates and parameters of the nodes of
+        /// every side from its corner to the next one.
+        /// </summary>
+        private static ThreeBlockGrid Map(TransfiniteFace face, out List<IntPtr>[] sideTags,
+                                          out List<double[]>[] sideXyz, out double[][][] sideUv)
+        {
+            int surfaceId = face.FaceId;
+            sideTags = new List<IntPtr>[3];
+            sideXyz = new List<double[]>[3];
             for (int k = 0; k < 3; k++)
                 GetSideNodes(surfaceId, face.CornerNodeIds[k], face.CornerNodeIds[(k + 1) % 3], face.SideEdgeIds[k],
                              out sideTags[k], out sideXyz[k]);
@@ -50,20 +170,23 @@ namespace CaeMesh
             if (!TransfiniteSideTriple.AreCountsValid(sideCounts))
                 throw new CaeException("The sides of Surface " + surfaceId + " carry " + string.Join(", ", sideCounts) +
                                        " elements, which three blocks of quads cannot fill.");
-            double[][][] sideUv = new double[3][][];
+            sideUv = new double[3][][];
             for (int k = 0; k < 3; k++) sideUv[k] = GetParametricCoordinates(surfaceId, sideXyz[k]);
             //
-            grid = ThreeBlockMapping.Map(sideUv, sideXyz.Select(xyz => xyz.ToArray()).ToArray(), uv =>
+            return ThreeBlockMapping.Map(sideUv, sideXyz.Select(xyz => xyz.ToArray()).ToArray(), uv =>
             {
                 double[] coor;
                 Gmsh.Model.GetValue(2, surfaceId, uv, out coor);
                 return coor;
             });
-            if (grid.NumberOfFoldedQuads > 0)
-                throw new CaeException("The three blocks of quads on Surface " + surfaceId + " fold: " +
-                                       grid.NumberOfFoldedQuads + " of its " + grid.Quads.Length +
-                                       " quads are inverted.");
-            // The tags of the boundary nodes
+        }
+        /// <summary>
+        /// Replaces what gmsh meshed on the surface by the grid, and returns the gmsh tags of the nodes of the grid.
+        /// </summary>
+        private static IntPtr[] Replace(int surfaceId, ThreeBlockGrid grid, List<IntPtr>[] sideTags,
+                                        double[][][] sideUv, bool quads)
+        {
+            int[] sideCounts = sideTags.Select(tags => tags.Count - 1).ToArray();
             IntPtr[] boundaryNodeTags = new IntPtr[grid.NumberOfBoundaryNodes];
             for (int k = 0; k < 3; k++)
             {
