@@ -205,7 +205,8 @@ namespace APIs.Python
                    "shear. It is evaluated from the in-plane stresses in the ply axes with the composite strength " +
                    "of the ply material; a node without one reads NaN. The criterion is MaxStress, TsaiHill, TsaiWu " +
                    "or Hashin. MAX_FAILURE_INDEX is the largest index of all layers of a shell element and " +
-                   "CRITICAL_LAYER the layer it is reached in. quantity Stress takes the stresses of a stress field " +
+                   "CRITICAL_LAYER the layer it is reached in; MIN_RESERVE_FACTOR is the smallest reserve factor " +
+                   "of all layers of a shell element. quantity Stress takes the stresses of a stress field " +
                    "and PlaneStressFromStrain the plane stresses of the in-plane strains of a strain field. The " +
                    "result must have been opened with its model. This does not modify the result.",
                    Arguments = "name: str, field_name: str, criterion: str, quantity: str = 'Stress'",

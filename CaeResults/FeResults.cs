@@ -4911,8 +4911,8 @@ namespace CaeResults
             if (axes == null) return null;
             //
             int count = axes[0].Length;
-            float[][] values = new float[5][];
-            for (int i = 0; i < 5; i++)
+            float[][] values = new float[6][];
+            for (int i = 0; i < values.Length; i++)
             {
                 values[i] = new float[count];
                 for (int j = 0; j < count; j++) values[i][j] = float.NaN;
@@ -4938,19 +4938,24 @@ namespace CaeResults
                 values[1][resultNodeId] = (float)reserveFactor;
                 values[2][resultNodeId] = mode;
             }
-            SetMaxFailureIndexOverLayers(values[0], values[3], values[4]);
+            SetExtremesOverLayers(values[0], values[1], values[3], values[4], values[5]);
             return values;
         }
         // The largest failure index of all layers of a shell element, at the nodes of every one of its layers, and the
-        // layer it is reached in; a node takes the largest of the shell elements around it
-        private void SetMaxFailureIndexOverLayers(float[] failureIndices, float[] maxFailureIndices, float[] criticalLayers)
+        // layer it is reached in, and the smallest reserve factor of all its layers; a node takes the most critical of
+        // the shell elements around it
+        private void SetExtremesOverLayers(float[] failureIndices, float[] reserveFactors, float[] maxFailureIndices,
+                                           float[] criticalLayers, float[] minReserveFactors)
         {
             Dictionary<int, float> shellMaxIndices = new Dictionary<int, float>();
             Dictionary<int, int> shellCriticalLayers = new Dictionary<int, int>();
+            Dictionary<int, float> shellMinReserveFactors = new Dictionary<int, float>();
             FeElement element;
             int resultNodeId;
             float index;
+            float reserveFactor;
             float shellMaxIndex;
+            float shellMinReserveFactor;
             foreach (var entry in _shellResultData.Elements)
             {
                 if (!_mesh.Elements.TryGetValue(entry.Key, out element)) continue;
@@ -4959,13 +4964,17 @@ namespace CaeResults
                 {
                     if (!TryGetResultNodeId(nodeId, out resultNodeId)) continue;
                     index = failureIndices[resultNodeId];
-                    if (float.IsNaN(index)) continue;
-                    //
-                    if (!shellMaxIndices.TryGetValue(entry.Value.ShellElementId, out shellMaxIndex) || index > shellMaxIndex)
+                    if (!float.IsNaN(index) &&
+                        (!shellMaxIndices.TryGetValue(entry.Value.ShellElementId, out shellMaxIndex) || index > shellMaxIndex))
                     {
                         shellMaxIndices[entry.Value.ShellElementId] = index;
                         shellCriticalLayers[entry.Value.ShellElementId] = entry.Value.LayerNumber;
                     }
+                    reserveFactor = reserveFactors[resultNodeId];
+                    if (!float.IsNaN(reserveFactor) &&
+                        (!shellMinReserveFactors.TryGetValue(entry.Value.ShellElementId, out shellMinReserveFactor) ||
+                         reserveFactor < shellMinReserveFactor))
+                        shellMinReserveFactors[entry.Value.ShellElementId] = reserveFactor;
                 }
             }
             //
@@ -4975,12 +4984,16 @@ namespace CaeResults
                 //
                 foreach (ShellResultElement layer in entry.Value)
                 {
-                    if (!shellMaxIndices.TryGetValue(layer.ShellElementId, out shellMaxIndex)) continue;
-                    if (float.IsNaN(maxFailureIndices[resultNodeId]) || shellMaxIndex > maxFailureIndices[resultNodeId])
+                    if (shellMaxIndices.TryGetValue(layer.ShellElementId, out shellMaxIndex) &&
+                        (float.IsNaN(maxFailureIndices[resultNodeId]) || shellMaxIndex > maxFailureIndices[resultNodeId]))
                     {
                         maxFailureIndices[resultNodeId] = shellMaxIndex;
                         criticalLayers[resultNodeId] = shellCriticalLayers[layer.ShellElementId];
                     }
+                    if (shellMinReserveFactors.TryGetValue(layer.ShellElementId, out shellMinReserveFactor) &&
+                        (float.IsNaN(minReserveFactors[resultNodeId]) ||
+                         shellMinReserveFactor < minReserveFactors[resultNodeId]))
+                        minReserveFactors[resultNodeId] = shellMinReserveFactor;
                 }
             }
         }

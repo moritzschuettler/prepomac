@@ -37,6 +37,7 @@ namespace CaeResults
         public const string ComponentMode = "MODE";
         public const string ComponentMaxFailureIndex = "MAX_FAILURE_INDEX";
         public const string ComponentCriticalLayer = "CRITICAL_LAYER";
+        public const string ComponentMinReserveFactor = "MIN_RESERVE_FACTOR";
         private string _fieldName;
         private CompositeFailureCriterionEnum _criterion;
         [OptionalField]
@@ -67,7 +68,7 @@ namespace CaeResults
         public override string[] GetComponentNames()
         {
             return new string[] { ComponentFailureIndex, ComponentReserveFactor, ComponentMode, ComponentMaxFailureIndex,
-                                  ComponentCriticalLayer };
+                                  ComponentCriticalLayer, ComponentMinReserveFactor };
         }
     }
 }

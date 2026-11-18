@@ -285,6 +285,15 @@ def main():
               value(PREFIX + "MS", "CRITICAL_LAYER", n) in (2, 3),
               "the largest index over the layers at node %d must come from a 90 degree ply" % n)
     check(abs(max(layer_max) - plate_max) < 1e-6, "the largest index over the layers must be the largest of the plate")
+    # The smallest reserve factor over the layers, which for Tsai-Wu is not the inverse of the largest index
+    plate_min = min(value(PREFIX + "TW", "RESERVE_FACTOR", n) for k in (1, 2, 3, 4) for n in layers[k])
+    layer_min = []
+    for n in layers[1]:
+        layer_min.append(value(PREFIX + "TW", "MIN_RESERVE_FACTOR", n))
+        check(layer_min[-1] <= value(PREFIX + "TW", "RESERVE_FACTOR", n) + 1e-6,
+              "the smallest reserve factor over the layers at node %d exceeds the one of its layer" % n)
+    check(abs(min(layer_min) - plate_min) < 1e-6 * plate_min,
+          "the smallest reserve factor over the layers must be the smallest of the plate")
     # A ply without a composite strength reads NaN
     cylinder_part, cylinder = nodes_of("CYLINDER")
     elements = result.mesh.elements.get_data()
