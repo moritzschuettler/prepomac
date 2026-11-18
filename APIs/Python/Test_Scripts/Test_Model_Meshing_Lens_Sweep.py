@@ -30,8 +30,7 @@
 #    recombination on the elliptic cylinder, the half cylinder and the teardrop (lens grids of their kind); the
 #    quasi-structured quad algorithm on the cylinder (no lens source, hexahedra only, no lens message) and
 #    transfinite_submapped=False on the cylinder (meshed free, more irregular inner nodes).
-#  The model was made by gmsh's OCC kernel through GmshCommon (generator make_lens_sweep.py in the scratch folder of
-#  the stage of the lens sweep sources).
+#  The model was made by gmsh's OCC kernel through GmshCommon (generator Models/Generators/Make_Lens_Sweep.py).
 #
 #  PrePoMax.com -f lens_sweep.brep -u MM_TON_S_C --script Test_Model_Meshing_Lens_Sweep.py -g No -x Yes -w <dir>
 #

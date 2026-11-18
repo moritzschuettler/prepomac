@@ -25,8 +25,7 @@
 #    loop moved the lattice the proportional counts of the detection were snapped to, decided between tied
 #    alternatives and laid the lens grid from another vertex.
 #  The model was made by gmsh's OCC kernel through GmshCommon: lines and circle arcs, one plane surface each (generator
-#  scratchpad/submap/stage23/make_loop_start.py, run with PMX_CAP_GENERATOR = scratchpad/submap/stage14/
-#  make_cap_models.py for its helpers).
+#  Models/Generators/Make_Submap_Loop_Start.py).
 #
 #  PrePoMax.com -f submap_loop_start.brep -u MM_TON_S_C --script Test_Model_Meshing_Submap_Loop_Start.py -g No -x Yes -w <dir>
 #

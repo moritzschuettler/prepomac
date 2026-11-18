@@ -10,7 +10,7 @@
 #Below 5 degrees, a split plate and the user's rectangular frame scaled by 1/11 can align. Fixed split vertices
 #or a shared edge beside a free face can prevent alignment and leave the whole mesh unchanged. A second frame
 #has a wall a third of the default element size. The GmshCommon generator is
-#codex35/followup4/make_split_side4.py, extending codex35/followup3/make_split_side3.py.
+#Models/Generators/Make_Side_Spacing.py.
 #
 #  PrePoMax.com -f side_spacing.brep -u MM_TON_S_C --script Test_Model_Meshing_Side_Spacing.py -g No -x Yes -w <dir>
 #

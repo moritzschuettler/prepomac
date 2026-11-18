@@ -33,10 +33,9 @@
 #    into full quads, so a structured face of a cylinder is left out of that recombination and laid after it).
 #  - The twins give the same quads, triangles, irregular inner nodes and worst scaled Jacobian within 1E-3 as the
 #    faces across the seam.
-#  The model was made by gmsh's OCC kernel through GmshCommon (generator scratchpad/submap/stage25/make_pole_models.py,
-#  run with PMX_CAP_GENERATOR = stage14/make_cap_models.py). With the environment variable PMX_WRAPPED_PLOT_DIR set,
-#  the meshes under QuadDominant are written into that folder as PNG images, each part seen along the axis of its
-#  smallest extent, the inner nodes without four quads red.
+#  The model was made by gmsh's OCC kernel through GmshCommon (generator Models/Generators/Make_Pole_Faces.py). With
+#  the environment variable PMX_WRAPPED_PLOT_DIR set, the meshes under QuadDominant are written into that folder as PNG
+#  images, each part seen along the axis of its smallest extent, the inner nodes without four quads red.
 #
 #  PrePoMax.com -f wrapped_faces.brep -u MM_TON_S_C --script Test_Model_Meshing_Wrapped_Range.py -g No -x Yes -w <dir>
 #

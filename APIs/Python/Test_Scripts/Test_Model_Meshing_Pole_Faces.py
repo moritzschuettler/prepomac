@@ -40,9 +40,9 @@
 #  - Table: per shape at size 5 under QuadDominant, the mesh with transfinite_submapped=False against the mesh with it;
 #    the four-sided faces are structured either way.
 #  The model was made by gmsh's OCC kernel through GmshCommon: arcs, lines and B-splines revolved, intersected with
-#  boxes (generator scratchpad/submap/stage25/make_pole_models.py, run with PMX_CAP_GENERATOR =
-#  stage14/make_cap_models.py). With the environment variable PMX_POLE_PLOT_DIR set, the meshes are written into that
-#  folder as PNG images, each part seen along the axis of its smallest extent, the inner nodes without four quads red.
+#  boxes (generator Models/Generators/Make_Pole_Faces.py). With the environment variable PMX_POLE_PLOT_DIR set, the
+#  meshes are written into that folder as PNG images, each part seen along the axis of its smallest extent, the inner
+#  nodes without four quads red.
 #
 #  PrePoMax.com -f pole_faces.brep -u MM_TON_S_C --script Test_Model_Meshing_Pole_Faces.py -g No -x Yes -w <dir>
 #

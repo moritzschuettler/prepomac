@@ -57,8 +57,7 @@
 #  - Table: per shape at size 5 under QuadDominant, the mesh with transfinite_submapped=False (gmsh's free mesh) against
 #    the mesh with it.
 #  The model was made by gmsh's OCC kernel through GmshCommon: lines, circle arcs and B-splines, one plane surface each,
-#  and the sphere intersected with a box (generator scratchpad/submap/stage20/make_lens_planar.py, run with
-#  PMX_CAP_GENERATOR = scratchpad/submap/stage14/make_cap_models.py for its helpers).
+#  and the sphere intersected with a box (generator Models/Generators/Make_Lens_Planar.py).
 #  With the environment variable PMX_LENS_PLOT_DIR set, the meshes are written into that folder as PNG images, the
 #  inner nodes without four quads marked red.
 #

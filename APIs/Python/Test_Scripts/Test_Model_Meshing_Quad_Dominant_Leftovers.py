@@ -9,7 +9,7 @@
 #others.
 #
 #  - quad_dominant_leftovers.brep: faces cut out of the corpus models, one group per part side by side, 100 apart along
-#    x (generator make_quad_dominant_leftovers.py of the stage 27 scratch folder): the square of gmsh's example simple3
+#    x (generator Models/Generators/Make_Quad_Dominant_Leftovers.py): the square of gmsh's example simple3
 #    cut by an ellipse (a face with a corner of 50 degrees that kept two triangles, a lens face laid before gmsh beside
 #    it), two slivers of a B-spline blend with corners of 4 degrees (t20_data.step), a part each, and the boundary of
 #    gmsh's example baffles, two boxes whose faces x = 0, y = 1 and y = 0 carry a curve inside them, ending inside the
