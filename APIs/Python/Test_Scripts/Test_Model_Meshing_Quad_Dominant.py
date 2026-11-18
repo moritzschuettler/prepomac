@@ -1,14 +1,14 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks the all-quad recombination of a Gmsh shell: gmsh meshes every face with the base recombination
+#Checks the quad-dominant recombination of a Gmsh shell: gmsh meshes every face with the base recombination
 #GmshAPI.GetGmshRecombinationAlgorithm chooses (Blossom; the checks hold for Simple as well), the structured faces are
 #handled as with Simple, and every face left free is turned into quads only on the boundary nodes gmsh placed
 #(GmshQuadMesher, QuadCleanup). The number of elements around a free face is balanced to an even total where nothing
 #else holds it, since only an even total allows quads only, on the counts gmsh gives the edges in the end. A recombined
 #sweep turns its free sources into quads only by default, so that the blocks are swept into hexahedra only.
 #
-#  - all_quad_faces.brep: one face per part side by side - a disc of r 20, a half disc of r 20, a triangle, a house
+#  - quad_dominant_faces.brep: one face per part side by side - a disc of r 20, a half disc of r 20, a triangle, a house
 #    whose roof meets its walls at 117 and 127 degrees, a disc of r 20 with a bore of r 8 off the centre by 11.8 mm, a
 #    square plate of 60 with a square hole of the diagonal 8 turned by 45 degrees, a plate of 80 x 50 with holes of r 4,
 #    6 and 9, an irregular heptagon, an L whose legs are 2 mm wide and 30 long, and a quarter of a cylinder of r 40 and
@@ -18,23 +18,23 @@
 #    such pieces (both quads only with Simple as well), and the cylinder patch falls back to a free mesh, the plate with
 #    three holes and the thin L are submapped, the others are free.
 #    At the element size 5, without the three-sided mapping so that the triangle is meshed free as well: Simple leaves
-#    triangles on the free faces; AllQuad gives an even number of elements around every face and quads only, none
+#    triangles on the free faces; QuadDominant gives an even number of elements around every face and quads only, none
 #    folded, a worst scaled Jacobian of 0.2 at least measured in space, the same boundary nodes as Simple where it has
-#    as many elements around the face as Simple, and no all-quad message. The table of both and the time are printed.
-#    Simple meshes every face as recorded, as before the all-quad recombination existed, but for the half disc and
-#    the disc, which are lens faces.
+#    as many elements around the face as Simple, and no quad-dominant message. The table of both and the time are
+#    printed. Simple meshes every face as recorded, as before the quad-dominant recombination existed, but for the half
+#    disc and the disc, which are lens faces.
 #  - Pinned odd totals: 25 elements on the circle of the disc, which leave it no lens grid, and 5 on every edge of the
-#    heptagon, leave exactly one triangle on each and an all-quad message that names the odd total. A number set on one
-#    edge of a face whose other edges are free is balanced to an even total instead.
-#  - Second order: the house with AllQuad is quads of 8 nodes only.
-#  - all_quad_sweep.brep: the first eight profiles extruded by 20 mm and swept from their ends in z = 0 with the default
-#    recombination: hexahedra only, the hexahedra a multiple of the source quads.
+#    heptagon, leave exactly one triangle on each and a quad-dominant message that names the odd total. A number set on
+#    one edge of a face whose other edges are free is balanced to an even total instead.
+#  - Second order: the house with QuadDominant is quads of 8 nodes only.
+#  - quad_dominant_sweep.brep: the first eight profiles extruded by 20 mm and swept from their ends in z = 0 with the
+#    default recombination: hexahedra only, the hexahedra a multiple of the source quads.
 #  The models were made by gmsh's OCC kernel through GmshCommon: plane surfaces of lines, circle arcs and closed circles
 #  in z = 0, the solids extruded by 20 mm, the cylinder patch revolved from a line and fragmented by a radial cylinder.
 #  With the environment variable PMX_QUAD_PLOT_DIR set, the meshes are written into that folder as PNG images, Simple
-#  before AllQuad.
+#  before QuadDominant.
 #
-#  PrePoMax.com -f all_quad_faces.brep -u MM_TON_S_C --script Test_Model_Meshing_All_Quad.py -g No -x Yes -w <dir>
+#  PrePoMax.com -f quad_dominant_faces.brep -u MM_TON_S_C --script Test_Model_Meshing_Quad_Dominant.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
 
@@ -58,10 +58,10 @@ FLOOR = 0.2
 SHELLS = ["disc", "half disc", "triangle", "house", "eccentric annulus", "plate with diamond", "three holes",
           "heptagon", "thin L", "cylinder patch"]
 SOLIDS = SHELLS[:8]
-# Simple at the element size 5: quads and triangles, as before the all-quad recombination existed; the half disc is a
-# lens face since the lens faces exist (33 quads and 12 triangles before; 46 quads on the counts of the submapping until
-# a lens face that is submapped as well was balanced as the kind it is meshed as), the disc since the lens faces of no
-# corner exist (58 quads and 16 triangles before)
+# Simple at the element size 5: quads and triangles, as before the quad-dominant recombination existed; the half disc is
+# a lens face since the lens faces exist (33 quads and 12 triangles before; 46 quads on the counts of the submapping
+# until a lens face that is submapped as well was balanced as the kind it is meshed as), the disc since the lens faces
+# of no corner exist (58 quads and 16 triangles before)
 EXPECTED_SIMPLE = {"disc": (68, 0), "half disc": (43, 0), "triangle": (56, 23), "house": (61, 10),
                    "eccentric annulus": (58, 14), "plate with diamond": (165, 54), "three holes": (133, 0),
                    "heptagon": (97, 31), "thin L": (17, 0), "cylinder patch": (152, 46)}
@@ -87,21 +87,21 @@ def parts_by_x(names, known=()):
 
 
 def output_messages(part_name):
-    """The all-quad, ring mapping and submapping lines the last meshing of the part wrote to the output window."""
+    """The quad-dominant, ring mapping and submapping lines the last meshing of the part wrote to the output window."""
     form = [form for form in Application.OpenForms if form.GetType().Name == "FrmMain"][0]
     lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
     starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
     check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
     result = []
     for line in lines[starts[-1]:]:
-        for marker in ("All-quad meshing:", "Ring mapping:", "Submapping:"):
+        for marker in ("Quad-dominant meshing:", "Ring mapping:", "Submapping:"):
             if marker in line:
                 result.append(line[line.index(marker):])
     return result
 
 
-def all_quad_messages(part_name):
-    return [m for m in output_messages(part_name) if m.startswith("All-quad meshing:")]
+def quad_dominant_messages(part_name):
+    return [m for m in output_messages(part_name) if m.startswith("Quad-dominant meshing:")]
 
 
 def edges_by_length(part):
@@ -282,32 +282,34 @@ def check_shells(parts):
         if name in EXPECTED_SIMPLE:
             check((s_quads, s_triangles) == EXPECTED_SIMPLE[name], "Simple meshes the " + name + " with " +
                   str((s_quads, s_triangles)) + " instead of " + str(EXPECTED_SIMPLE[name]))
-        plot("all_quad_" + name.replace(" ", "_") + "_simple", name + ", Simple: " + str(s_quads) + " quads, " +
+        plot("quad_dominant_" + name.replace(" ", "_") + "_simple", name + ", Simple: " + str(s_quads) + " quads, " +
              str(s_triangles) + " triangles, worst SJ " + str(round(s_quality, 3)), simple.elements,
              plot_points(name, simple, dx))
-        # All-quad
-        seconds = mesh(part, "AllQuad")
+        # Quad-dominant
+        seconds = mesh(part, "QuadDominant")
         face = FaceMesh(part.name)
-        messages = all_quad_messages(part.name)
+        messages = quad_dominant_messages(part.name)
         quads, triangles, quality, irregular = describe(face, name, dx)
         total = len(boundary_edges(face.elements))
-        print(name + ": AllQuad", quads, "quads", triangles, "triangles, boundary total", total,
+        print(name + ": QuadDominant", quads, "quads", triangles, "triangles, boundary total", total,
               "worst scaled Jacobian", round(quality, 3), "irregular", irregular, "in", round(seconds, 3), "s (Simple",
               round(simple_seconds, 3), "s), messages", output_messages(part.name))
-        plot("all_quad_" + name.replace(" ", "_") + "_all_quad", name + ", AllQuad: " + str(quads) + " quads, " +
+        plot("quad_dominant_" + name.replace(" ", "_") + "_quad_dominant",
+             name + ", QuadDominant: " + str(quads) + " quads, " +
              str(triangles) + " triangles, worst SJ " + str(round(quality, 3)) + ", irregular " + str(irregular),
              face.elements, plot_points(name, face, dx))
-        check(total % 2 == 0, "the " + name + " has an odd number of elements around it with AllQuad, " + str(total))
-        check(triangles == 0, "the " + name + " keeps " + str(triangles) + " triangles with AllQuad")
+        check(total % 2 == 0,
+              "the " + name + " has an odd number of elements around it with QuadDominant, " + str(total))
+        check(triangles == 0, "the " + name + " keeps " + str(triangles) + " triangles with QuadDominant")
         check(quality >= FLOOR, "the " + name + " has a corner of the scaled Jacobian " + str(quality))
         check(len(messages) == 0, "the " + name + " wrote: " + str(messages))
         if total == simple_total:
             check(face.boundary_points() == simple.boundary_points(), "the " + name + " has other boundary nodes " +
-                  "with AllQuad than with Simple")
+                  "with QuadDominant than with Simple")
         rows.append((name, s_quads, s_triangles, round(s_quality, 3), quads, round(quality, 3), s_irregular, irregular,
                      round(seconds, 2)))
-    print("face | Simple quads | Simple triangles | Simple worst SJ | AllQuad quads | AllQuad worst SJ | "
-          "irregular Simple | irregular AllQuad | AllQuad time s")
+    print("face | Simple quads | Simple triangles | Simple worst SJ | QuadDominant quads | QuadDominant worst SJ | "
+          "irregular Simple | irregular QuadDominant | QuadDominant time s")
     for row in rows:
         print(" | ".join(str(v) for v in row))
 
@@ -317,17 +319,17 @@ def check_pinned_odd(parts):
              ("heptagon", lambda edges: [(edge_id, 5) for ids in edges.values() for edge_id in ids])]
     # 7 elements on the smallest hole of the plate with three holes: the free edges are balanced to an even total
     part = parts["three holes"]
-    mesh(part, "AllQuad", pins=[(edges_by_length(part)[round(2 * math.pi * 4, 3)][0], 7)])
+    mesh(part, "QuadDominant", pins=[(edges_by_length(part)[round(2 * math.pi * 4, 3)][0], 7)])
     face = FaceMesh(part.name)
     print("three holes with 7 elements on its smallest hole: boundary total", len(boundary_edges(face.elements)),
-          face.kinds(), all_quad_messages(part.name))
-    check(face.kinds()[1] == 0 and len(all_quad_messages(part.name)) == 0,
+          face.kinds(), quad_dominant_messages(part.name))
+    check(face.kinds()[1] == 0 and len(quad_dominant_messages(part.name)) == 0,
           "the three holes with 7 elements on a hole is not quads only")
     for name, pins in cases:
         part = parts[name]
-        mesh(part, "AllQuad", pins=pins(edges_by_length(part)))
+        mesh(part, "QuadDominant", pins=pins(edges_by_length(part)))
         face = FaceMesh(part.name)
-        messages = all_quad_messages(part.name)
+        messages = quad_dominant_messages(part.name)
         quads, triangles = face.kinds()
         total = len(boundary_edges(face.elements))
         print(name + " with an odd total of", total, ":", quads, "quads,", triangles, "triangle,", messages)
@@ -337,17 +339,18 @@ def check_pinned_odd(parts):
               "odd number, " + str(total) in messages[0],
               "the " + name + " with an odd total wrote " + str(messages))
         dx = SPACING * SHELLS.index(name)
-        plot("all_quad_" + name.replace(" ", "_") + "_odd", name + ", odd total " + str(total) + ": " + str(quads) +
+        plot("quad_dominant_" + name.replace(" ", "_") + "_odd",
+             name + ", odd total " + str(total) + ": " + str(quads) +
              " quads, 1 triangle", face.elements, plot_points(name, face, dx))
 
 
 def check_second_order(parts):
     part = parts["house"]
-    mesh(part, "AllQuad", second_order=True)
+    mesh(part, "QuadDominant", second_order=True)
     face = FaceMesh(part.name)
     check(all(count == 8 for count in face.node_counts), "the second order house has elements of other than 8 nodes: " +
           str(set(face.node_counts)))
-    print("house: AllQuad of second order,", len(face.elements), "quads of 8 nodes")
+    print("house: QuadDominant of second order,", len(face.elements), "quads of 8 nodes")
 
 
 # Sweep ----------------------------------------------------------------------------------------------------------------
@@ -393,7 +396,7 @@ class SweptMesh(object):
 
 def check_sweeps():
     known = set(part.name for part in pmx.model.geometry.parts)
-    pmx.import_file(os.path.join(MODELS, "all_quad_sweep.brep"))
+    pmx.import_file(os.path.join(MODELS, "quad_dominant_sweep.brep"))
     parts = parts_by_x(SOLIDS, known)
     items = pmx.model.mesh.setup_items
     for i, name in enumerate(SOLIDS):
@@ -422,7 +425,8 @@ def check_sweeps():
         print("swept " + name + ":", kinds, "source", len(source), "faces in", round(seconds, 2), "s, messages",
               messages)
         uv = dict((node, (swept.xyz[node][0], swept.xyz[node][1])) for f in source for node in f)
-        plot("all_quad_source_" + name.replace(" ", "_"), "Source of the swept " + name + ": " + str(kinds), source, uv)
+        plot("quad_dominant_source_" + name.replace(" ", "_"), "Source of the swept " + name + ": " + str(kinds),
+             source, uv)
         check(list(kinds.keys()) == ["hexahedron"], "the swept " + name + " must be hexahedra only: " + str(kinds))
         check(len(source) > 0 and len(swept.elements) % len(source) == 0,
               "the hexahedra of the " + name + " are not a multiple of its " + str(len(source)) + " source quads")

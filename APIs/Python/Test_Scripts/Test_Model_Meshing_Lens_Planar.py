@@ -28,7 +28,7 @@
 #  - Detection: every shape is one lens face of its number of corners; the tombstones, the lens of 120, the small half
 #    disc, moon 8, the kinked half disc, the disc of four arcs, the ellipses, the egg, the stadiums, the rounded square
 #    and the half disc with one fillet are submapped faces as well.
-#  - At the element sizes 5 and 3.5 under Simple, AllQuad, None and SimpleFullQuad every shape is meshed without a
+#  - At the element sizes 5 and 3.5 under Simple, QuadDominant, None and SimpleFullQuad every shape is meshed without a
 #    message: quads only, two triangles per quad of Simple under None; no fold, a worst scaled Jacobian of 0.2 at least
 #    measured in space against the normals of the mesh, and the inner nodes of three quads of its kind (2 with two
 #    corners, 3 with one, 4 with none) and no other inner node without four. The full-quad recombination makes the
@@ -40,13 +40,13 @@
 #  - Submapped or lens: no submapped grid of a submapped shape here reaches a worst corner of 0.5 (the tombstone
 #    20 x 60, the stadium 80 x 20 and the small half disc kept one of 0.383 at size 5, the stadium 45 x 30 and the
 #    rounded square 0.259), and its lens grid is better, so every shape is a lens grid on its own counts. The
-#    tombstone 20 x 60, the small half disc, the stadiums and the rounded square are checked under AllQuad at the
+#    tombstone 20 x 60, the small half disc, the stadiums and the rounded square are checked under QuadDominant at the
 #    sizes 5, 3.5 and 2.5: a lens grid of their kind at every size, no message, a worst corner of 0.5 at least.
 #  - Thin faces: the segment of 30, the obtuse triangle and the lens of 40 carry equal counts on their two sides under
-#    Simple and AllQuad, and their shortest element edge is 0.2 of the size at least (before the equal counts: 0.77 and
-#    0.42 at size 5).
+#    Simple and QuadDominant, and their shortest element edge is 0.2 of the size at least (before the equal counts: 0.77
+#    and 0.42 at size 5).
 #  - Smoothing: on the tombstones 40 x 20 and 60 x 10 a grid line crossing the inner line (the axis of the shape) bends
-#    there by 9 degrees at most under Simple and AllQuad (each piece smoothed on its own: 13.7 to 16.1 degrees).
+#    there by 9 degrees at most under Simple and QuadDominant (each piece smoothed on its own: 13.7 to 16.1 degrees).
 #  - Pins: the chord of the segment of 30 set to 12 elements keeps 12, the arc follows it to 12, and the face is a lens
 #    grid without a message; the arcs of the thin crescent set to 13 and 11 elements, counts its grid folds on, keep
 #    them and leave it free with the lens message and no fold. The circle of the disc set to 13 elements, an odd total,
@@ -54,8 +54,8 @@
 #  - Second order: the disc with Simple is quads of 8 nodes only, four inner nodes of three quads.
 #  - The quasi-structured quad algorithm lays its own quads, so with it the disc is left to gmsh: quads only, without a
 #    lens message.
-#  - Table: per shape at size 5 under AllQuad, the mesh with transfinite_submapped=False (gmsh's free mesh) against the
-#    mesh with it.
+#  - Table: per shape at size 5 under QuadDominant, the mesh with transfinite_submapped=False (gmsh's free mesh) against
+#    the mesh with it.
 #  The model was made by gmsh's OCC kernel through GmshCommon: lines, circle arcs and B-splines, one plane surface each,
 #  and the sphere intersected with a box (generator scratchpad/submap/stage20/make_lens_planar.py, run with
 #  PMX_CAP_GENERATOR = scratchpad/submap/stage14/make_cap_models.py for its helpers).
@@ -81,7 +81,7 @@ from System.Windows.Forms import Application
 
 PLOT_DIR = os.environ.get("PMX_LENS_PLOT_DIR")
 SIZES = [5.0, 3.5]
-RECOMBINATIONS = ["Simple", "AllQuad", "None", "SimpleFullQuad"]
+RECOMBINATIONS = ["Simple", "QuadDominant", "None", "SimpleFullQuad"]
 SPACING = 150.0
 FLOOR = 0.2
 TRANSFINITE_ANGLE = 135.0
@@ -148,14 +148,15 @@ def detected(part):
 
 
 def output_messages(part_name):
-    """The lens, transfinite, submapping and all-quad lines the last meshing of the part wrote to the output window."""
+    """The lens, transfinite, submapping and quad-dominant lines the last meshing of the part wrote to the output
+    window."""
     form = main_form()
     lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
     starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
     check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
     result = []
     for line in lines[starts[-1]:]:
-        for marker in ("Lens mapping:", "Transfinite:", "Submapping:", "All-quad meshing:"):
+        for marker in ("Lens mapping:", "Transfinite:", "Submapping:", "Quad-dominant meshing:"):
             if marker in line:
                 result.append(line[line.index(marker):])
     return result
@@ -458,12 +459,12 @@ def check_shapes(parts, size):
                 words += " axis bend " + str(round(bend, 2))
             print(title + ":", face.kinds(), "irregular", len(irregular), "worst scaled Jacobian", round(quality, 3),
                   "edges", round(shortest, 2), "-", str(round(longest, 2)) + words, "in", round(seconds, 3), "s")
-            if recombine == "AllQuad":
+            if recombine == "QuadDominant":
                 row = describe(face)
                 plot("lens_planar_" + name.replace(" ", "_") + "_" + str(size).replace(".", "_"), title + ": " +
                      str(quads) + " quads, worst SJ " + str(round(quality, 3)), face)
         if size == SIZES[0]:
-            mesh(part, "AllQuad", size, submapped=False)
+            mesh(part, "QuadDominant", size, submapped=False)
             before = describe(FaceMesh(part.name))
             rows.append((name,) + tuple(round(v, 3) if isinstance(v, float) else v for v in before + row))
     return rows
@@ -476,13 +477,13 @@ def check_same_kind(parts):
         part = parts[name]
         expected_irregular = IRREGULAR[number_of_corners(name)]
         for size in SAME_KIND_SIZES:
-            seconds = mesh(part, "AllQuad", size)
+            seconds = mesh(part, "QuadDominant", size)
             face = FaceMesh(part.name)
             messages = output_messages(part.name)
             irregular = irregular_inner_nodes(face.elements)
             valence = valences(face.elements)
             quality = min_scaled_jacobian(face)
-            title = name + " at size " + str(size) + " with AllQuad"
+            title = name + " at size " + str(size) + " with QuadDominant"
             print(title + ":", face.kinds(), "irregular", len(irregular), "worst scaled Jacobian", round(quality, 3),
                   "in", round(seconds, 3), "s")
             check(len(messages) == 0, title + " wrote: " + str(messages))
@@ -500,7 +501,7 @@ def check_pins(parts):
     name = "segment 30"
     part = parts[name]
     chord = min(edge_ids(part), key=lambda edge: abs(edge[2][2]))[0]
-    mesh(part, "AllQuad", SIZES[0], pins=[(chord, 12)])
+    mesh(part, "QuadDominant", SIZES[0], pins=[(chord, 12)])
     face = FaceMesh(part.name)
     messages = output_messages(part.name)
     sides = face.side_counts(on_chord)
@@ -515,7 +516,7 @@ def check_pins(parts):
     part = parts[name]
     dx = SPACING * SHELLS.index(name)
     arcs = sorted(edge_ids(part), key=lambda edge: edge[1])
-    mesh(part, "AllQuad", SIZES[0], pins=[(arcs[1][0], 13), (arcs[0][0], 11)])
+    mesh(part, "QuadDominant", SIZES[0], pins=[(arcs[1][0], 13), (arcs[0][0], 11)])
     face = FaceMesh(part.name)
     messages = output_messages(part.name)
 
@@ -563,7 +564,7 @@ def check_second_order(parts):
 
 def check_quasi_structured(parts):
     part = parts["disc"]
-    for recombine in ("Simple", "AllQuad"):
+    for recombine in ("Simple", "QuadDominant"):
         mesh(part, recombine, SIZES[0], algorithm_2d="QuasiStructuredQuad")
         face = FaceMesh(part.name)
         messages = output_messages(part.name)

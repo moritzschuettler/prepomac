@@ -98,10 +98,8 @@ namespace CaeMesh
 
         // Methods                                                                                                                  
         /// <summary>
-        /// Whether the wall between the loops is thin against the element size, so that the face is meshed as a ring
-        /// rather than by the lattice it may also have: both the smallest and the mean distance between its loops below
-        /// RingFaceDetector.ThinWallFactor times the element size. The smallest distance alone would take a plate whose
-        /// hole is near one border only, where the ring squeezes all its layers into the thin wall.
+        /// Whether both the smallest and mean distances between the loops are below RingFaceDetector.ThinWallFactor
+        /// times the element size. A shell with a sharp-cornered lattice keeps that lattice even with a thin wall.
         /// </summary>
         public bool IsThinWall(double elementSize)
         {

@@ -22,7 +22,7 @@
 #    to gmsh, which keeps its submapped grid, and meshes the house.
 #  - transfinite_submapped=False meshes the sources free, and the free sources are turned into quads only, so the
 #    blocks are hexahedra only, of the element and node counts recorded in BEFORE (the U kept two of its triangles,
-#    with an all-quad message and two columns of wedges, (792, 1152), until the cleanup paired triangles on the
+#    with a quad-dominant message and two columns of wedges, (792, 1152), until the cleanup paired triangles on the
 #    boundary on a second try). Before free sources were turned into quads only, these counts were L (872, 1071),
 #    U (992, 1215), T (752, 927), plus (976, 1188), staircase (1112, 1332), thin L (216, 500) and bent L (1962, 2242),
 #    with wedges but in the thin L.
@@ -89,13 +89,14 @@ def submapping_messages(part_name):
     return [line[line.index("Submapping:"):] for line in lines[starts[-1]:] if "Submapping:" in line]
 
 
-def all_quad_messages(part_name):
-    """The all-quad lines the last meshing of the part wrote to the output window."""
+def quad_dominant_messages(part_name):
+    """The quad-dominant lines the last meshing of the part wrote to the output window."""
     form = [form for form in Application.OpenForms if form.GetType().Name == "FrmMain"][0]
     lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
     starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
     check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
-    return [line[line.index("All-quad meshing:"):] for line in lines[starts[-1]:] if "All-quad meshing:" in line]
+    return [line[line.index("Quad-dominant meshing:"):] for line in lines[starts[-1]:]
+            if "Quad-dominant meshing:" in line]
 
 
 def edges_at(part, length, z=None):
@@ -431,7 +432,7 @@ def check_off(parts):
         mesh = SweptMesh([part.name])
         # A source meshed free is turned into quads only, so the blocks are hexahedra only, unless the conversion
         # gives up on the source and says so
-        kept = all_quad_messages(part.name)
+        kept = quad_dominant_messages(part.name)
         counts[name] = (len(mesh.elements), len(mesh.xyz), mesh.kinds(), kept)
         check(list(mesh.kinds().keys()) == ["hexahedron"] or len(kept) == 1,
               "the " + name + " swept with transfinite_submapped=False is not hexahedra only: " + str(mesh.kinds()))
@@ -440,7 +441,7 @@ def check_off(parts):
                   "the " + name + " swept with transfinite_submapped=False has " + str(len(mesh.elements)) +
                   " elements and " + str(len(mesh.xyz)) + " nodes, against " + str(BEFORE[name]) + " before")
     print("transfinite_submapped=False (elements, nodes):", dict((k, v[:2]) for k, v in counts.items()),
-          "kinds and all-quad messages:", dict((k, v[2:]) for k, v in counts.items()))
+          "kinds and quad-dominant messages:", dict((k, v[2:]) for k, v in counts.items()))
     check(len(BEFORE) == 0 or all(name in BEFORE for name in counts), "BEFORE lacks a profile")
 
 

@@ -19,6 +19,14 @@
 #    turns the way the input turned and the elements cover the area of the input.
 #  - Determinism: the same input twice gives the same elements and positions, to the last bit.
 #  - Timing: a disc of about 10,000 elements is cleaned in under the time bound; the time is reported.
+#  - Leftovers of the corpus (Models/quad_cleanup_leftovers.txt): the inputs the cleanup was given on eight faces of the
+#    CAD corpus where it kept triangles before its last passes - two triangles on a straight boundary with a common
+#    apex, B-spline slivers with corners of 2 and 3 degrees, a curved triangle between two disks and a line, a strip
+#    one element wide, a corner of 50 degrees, a coarse face with a corner of 28 degrees and a blend sliver projected
+#    on its mean plane: quads only - but on the slivers of 3 and 4 degrees, which keep a pair, since the split that
+#    would join it narrows their elements below what the triangles had - no fold, and a worst scaled Jacobian not
+#    below the lower of the input's and what the sharpest corner of the boundary allows (half its sine below 90
+#    degrees, 0.2 at most).
 #  With the environment variable PMX_QUAD_PLOT_DIR set, the planted grid, the odd square, the timing disc and the worst
 #  cases of the fuzz are written into that folder as PNG images before and after the cleanup.
 #
@@ -28,6 +36,7 @@
 import math
 import os
 import random
+import sys
 import time
 import clr
 clr.AddReference('CaeMesh')
@@ -39,6 +48,7 @@ from System import Array, Boolean, Double, Int32
 from System.Drawing import Bitmap, Brushes, Color, Font, Graphics, Pen, PointF, SolidBrush
 from System.Drawing.Imaging import ImageFormat
 
+MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 PLOT_DIR = os.environ.get("PMX_QUAD_PLOT_DIR")
 FLOOR = 0.2
 TIME_BOUND = 5.0
@@ -322,7 +332,7 @@ def fuzz_case(rng):
 def check_fuzz():
     rng = random.Random(20261115)
     num_of_even = 0
-    num_of_even_all_quad = 0
+    num_of_even_quad_dominant = 0
     num_of_odd = 0
     num_of_odd_one = 0
     worst_case = (2.0, None)
@@ -344,14 +354,14 @@ def check_fuzz():
             num_of_odd_one += 1 if cleaned.triangles == 1 else 0
         else:
             num_of_even += 1
-            num_of_even_all_quad += 1 if cleaned.triangles == 0 else 0
+            num_of_even_quad_dominant += 1 if cleaned.triangles == 0 else 0
         if cleaned.triangles > (1 if odd else 0):
             fewest_quads.append((case, cleaned.triangles))
             plot_both("cleanup_fuzz_" + str(case) + "_left", cleaned, worst)
         worst_overall = min(worst_overall, worst)
         if cleaned.triangles <= (1 if odd else 0) and worst < worst_case[0]:
             worst_case = (worst, case, cleaned)
-    print("fuzz of", NUM_OF_FUZZ_CASES, "faces,", total_triangles, "triangles before:", num_of_even_all_quad, "of",
+    print("fuzz of", NUM_OF_FUZZ_CASES, "faces,", total_triangles, "triangles before:", num_of_even_quad_dominant, "of",
           num_of_even, "even totals end with quads only,", num_of_odd_one, "of", num_of_odd,
           "odd totals with exactly one triangle; worst scaled Jacobian", round(worst_overall, 3),
           "of a converted face", round(worst_case[0], 3), "(case " + str(worst_case[1]) + "); cleanup time",
@@ -359,8 +369,9 @@ def check_fuzz():
     print("   faces left with more triangles:", fewest_quads)
     if worst_case[1] is not None:
         plot_both("cleanup_fuzz_worst_" + str(worst_case[1]), worst_case[2], worst_case[0])
-    check(num_of_even_all_quad + num_of_odd_one >= 0.95 * NUM_OF_FUZZ_CASES,
-          "only " + str(num_of_even_all_quad + num_of_odd_one) + " of the fuzz faces ended with the fewest triangles")
+    check(num_of_even_quad_dominant + num_of_odd_one >= 0.95 * NUM_OF_FUZZ_CASES,
+          "only " + str(num_of_even_quad_dominant + num_of_odd_one) +
+          " of the fuzz faces ended with the fewest triangles")
 
 
 def check_odd():
@@ -407,11 +418,72 @@ def check_timing():
           " triangles")
 
 
+def read_leftovers():
+    """The faces of the data file: a line F with the name, S with the number of fixed nodes, P with a position and E
+    with the nodes of an element."""
+    faces = []
+    with open(os.path.join(MODELS, "quad_cleanup_leftovers.txt")) as f:
+        for line in f:
+            parts = line.split()
+            if not parts: continue
+            if parts[0] == "F": faces.append({"name": " ".join(parts[1:]), "points": [], "elements": []})
+            elif parts[0] == "S": faces[-1]["fixed"] = int(parts[2])
+            elif parts[0] == "P": faces[-1]["points"].append([float(parts[1]), float(parts[2])])
+            elif parts[0] == "E": faces[-1]["elements"].append([int(n) for n in parts[1:]])
+    return faces
+
+
+def corner_floor(points, elements, orientation):
+    """Half the sine of the sharpest corner of the boundary below 90 degrees, FLOOR at most."""
+    edges = boundary_edges(elements)
+    outgoing = {}
+    incoming = {}
+    for element in elements:
+        for c in range(len(element)):
+            a, b = element[c], element[(c + 1) % len(element)]
+            if tuple(sorted((a, b))) in edges:
+                outgoing.setdefault(a, []).append(b)
+                incoming.setdefault(b, []).append(a)
+    floor = FLOOR
+    for node, nexts in outgoing.items():
+        if len(nexts) != 1 or len(incoming.get(node, [])) != 1: continue
+        p, a, b = points[node], points[nexts[0]], points[incoming[node][0]]
+        e1, e2 = (a[0] - p[0], a[1] - p[1]), (b[0] - p[0], b[1] - p[1])
+        angle = math.atan2(orientation * (e1[0] * e2[1] - e1[1] * e2[0]), e1[0] * e2[0] + e1[1] * e2[1])
+        if 0 < angle < 0.5 * math.pi: floor = min(floor, 0.5 * math.sin(angle))
+    return floor
+
+
+# The leftovers that keep a pair, as the shape guard of the passes that add nodes refuses the split that would
+# join it: in the corners of 3 and 4 degrees it would leave a quad with an edge of 0.03 against 0.8 or narrower
+# elements than the triangles had
+LEFTOVER_TRIANGLES = {"geo_slicer.brep_005_S23": 2, "component8.step_000_S2": 2}
+
+
+def check_leftovers():
+    for face in read_leftovers():
+        points, elements = face["points"], face["elements"]
+        fixed = [i < face["fixed"] for i in range(len(points))]
+        name = face["name"].split()[0]
+        cleaned = Cleaned(points, elements, fixed)
+        worst = validate(name, cleaned, LEFTOVER_TRIANGLES.get(name, 0))
+        orientation = 1.0 if sum(signed_area(points, e) for e in elements) > 0 else -1.0
+        floor = min(corner_floor(points, elements, orientation), min_scaled_jacobian(points, elements, orientation))
+        print("%-40s %4d elements, %3d triangles -> %d, worst scaled Jacobian %.3f -> %.3f (floor %.3f), regions %d, "
+              "split paths %d, %.2f s" % (name, len(elements), cleaned.result.NumberOfTrianglesBefore,
+                                         cleaned.triangles, cleaned.result.MinScaledJacobianBefore, worst, floor,
+                                         cleaned.result.NumberOfRemeshedRegions, cleaned.result.NumberOfSplitPaths,
+                                         cleaned.result.Seconds))
+        plot_both("cleanup_leftover_" + name, cleaned, worst)
+        check(worst >= floor - 1E-9, name + ": the worst scaled Jacobian " + str(worst) + " is below " + str(floor))
+
+
 def main():
     check_planted()
     check_odd()
     check_determinism()
     check_timing()
+    check_leftovers()
     check_fuzz()
     print("TEST PASSED")
 

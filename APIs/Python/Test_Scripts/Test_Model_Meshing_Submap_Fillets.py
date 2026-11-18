@@ -17,8 +17,8 @@
 #    multiple of four elements (Test_Model_Meshing_Submap_Round). The slot and the rounded rectangle are lens faces as
 #    well (one loop, no corner), meshed as the kind whose grid laid on the face alone is better: the slot is a lens
 #    grid, four inner nodes of three quads and a worst scaled Jacobian of 0.5 at least (its submapped grid had 0.383);
-#    the rounded rectangle keeps its submapped grid, also under AllQuad at the sizes 3.5 and 2.5, where that grid has
-#    0.383 and its lens grid, better in its worst corner, stretches elements to twice the size across it.
+#    the rounded rectangle keeps its submapped grid, also under QuadDominant at the sizes 3.5 and 2.5, where that grid
+#    has 0.383 and its lens grid, better in its worst corner, stretches elements to twice the size across it.
 #  - The L with its outer corner rounded by r 15 at the element size 2: the quad at the middle of its round turns by
 #    180 degrees less 90 degrees over the elements along the round, below the floor from 8 elements, so the mesher
 #    leaves it free and says so, while the detection, which leaves that corner out, still takes it.
@@ -69,7 +69,7 @@ EXPECTED = {"filleted L": ([-1], 0, 80), "chamfered L": ([], 1, 76), "filleted c
 # The shapes meshed as lens faces, a lens grid of four inner nodes of three quads, and the worst corner it reaches
 LENS_GRIDS = ["slot"]
 MIN_LENS_SCALED_JACOBIAN = 0.5
-# The sizes under AllQuad at which the rounded rectangle keeps its submapped grid as well
+# The sizes under QuadDominant at which the rounded rectangle keeps its submapped grid as well
 ROUNDED_RECTANGLE_SIZES = [3.5, 2.5]
 # The hexahedra of the swept solids at the element size 5
 EXPECTED_HEXAHEDRA = {"filleted L": 616, "chamfered L": 456, "I section": 532, "house": 576}
@@ -358,13 +358,14 @@ def check_rounded_rectangle_sizes(parts):
     name = "rounded rectangle"
     part = parts[name]
     for size in ROUNDED_RECTANGLE_SIZES:
-        mesh(part, recombine="AllQuad", max_size=size)
+        mesh(part, recombine="QuadDominant", max_size=size)
         face = FaceMesh(part.name, plane_xy)
-        title = "the " + name + " under AllQuad at the size " + str(size)
+        title = "the " + name + " under QuadDominant at the size " + str(size)
         quality = check_submapped(face, title)
         messages = submapping_messages(part.name)
         check(len(messages) == 0, title + " wrote: " + str(messages))
-        print(name + " under AllQuad at the size " + str(size) + ": submapped", face.kinds(), "worst scaled Jacobian",
+        print(name + " under QuadDominant at the size " + str(size) + ": submapped", face.kinds(),
+              "worst scaled Jacobian",
               round(quality, 3))
 
 

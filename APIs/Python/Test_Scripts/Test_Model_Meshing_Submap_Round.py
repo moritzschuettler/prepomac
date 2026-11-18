@@ -35,6 +35,7 @@
 #    refused, while the detection, which leaves those corners out, still takes it; it is a lens grid, without a
 #    message.
 #  - The round hole that leaves walls of 7 mm at the element size 10 keeps a cell between it and the border.
+#    The centred round-hole plate keeps its baseline nodes and elements.
 #  - Pinned counts: 10 elements on the closed edge of the round hole and on a half circle of the slot are not a
 #    multiple of four and leave the face free with a message naming the edge; 6 elements on one half circle of the
 #    round hole are carried to the other, 3 on a quarter to the other three.
@@ -52,6 +53,7 @@
 #
 #Expected process exit code 0.
 
+import hashlib
 import math
 import os
 import sys
@@ -635,6 +637,12 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     parts = parts_by_x(SHELLS)
     faces = check_shells(parts)
+    face = faces["round hole"]
+    nodes = sorted(tuple(float(c).hex() for c in p) for p in face.xyz.values())
+    connectivity = sorted(tuple(sorted(tuple(face.xyz[n]) for n in e)) for e in face.elements)
+    fingerprint = hashlib.sha256(repr((nodes, connectivity)).encode("ascii")).hexdigest()
+    check(fingerprint == "70954bcb8499bf795ca5c0d34c4843d5a2e64dc6340f122db22138a2f7ee3706",
+          "the submapped plate with a round hole changed from its baseline mesh")
     check_turned(parts, faces)
     check_coarse_border(parts["coarse border"], faces["coarse border"])
     check_slot_plate_fine(parts)

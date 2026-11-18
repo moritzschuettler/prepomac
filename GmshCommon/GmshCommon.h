@@ -614,6 +614,23 @@ namespace GmshCommon {
                     if ((int)nodeTags_native.size() > 0)
                         Marshal::Copy(IntPtr(nodeTags_native.data()), nodeTags, 0, (int)nodeTags_native.size());
                 }
+                static void GetCurveNodes(int tag,
+                    [System::Runtime::InteropServices::Out] array<IntPtr>^% nodeTags,
+                    [System::Runtime::InteropServices::Out] array<double>^% coord,
+                    [System::Runtime::InteropServices::Out] array<double>^% parameters)
+                {
+                    std::vector<size_t> nativeTags;
+                    std::vector<double> nativeCoord, nativeParameters;
+                    gmsh::model::mesh::getNodes(nativeTags, nativeCoord, nativeParameters, 1, tag, false, true);
+
+                    nodeTags = gcnew array<IntPtr>((int)nativeTags.size());
+                    coord = gcnew array<double>((int)nativeCoord.size());
+                    parameters = gcnew array<double>((int)nativeParameters.size());
+                    if (nodeTags->Length > 0) Marshal::Copy(IntPtr(nativeTags.data()), nodeTags, 0, nodeTags->Length);
+                    if (coord->Length > 0) Marshal::Copy(IntPtr(nativeCoord.data()), coord, 0, coord->Length);
+                    if (parameters->Length > 0)
+                        Marshal::Copy(IntPtr(nativeParameters.data()), parameters, 0, parameters->Length);
+                }
                 static void GetElement(IntPtr elementTag, int elementType,
                     [System::Runtime::InteropServices::Out] array<IntPtr>^% nodeTags,
                     [System::Runtime::InteropServices::Out] int% dim,

@@ -17,7 +17,7 @@
 #    50 x 30 with two adjacent corners chamfered by 8 (submapped, its two chamfers tied among six alternatives).
 #  - Detection: the five variants of a shape are all submapped or all not, with the same logical directions from the
 #    same vertex, and the same lens faces, from the same vertex.
-#  - Meshing at the element sizes 5 and 3.5 under Simple and AllQuad: the five variants of a shape give the same
+#  - Meshing at the element sizes 5 and 3.5 under Simple and QuadDominant: the five variants of a shape give the same
 #    numbers of quads and triangles, the same inner nodes without four quads, the same worst scaled Jacobian, measured
 #    in space against the normals of the mesh, within 1E-6, and the same messages. Before this check the detection
 #    of the half disc differed between its variants, the L with the inner fillet and the half disc (a lens grid) were
@@ -40,7 +40,7 @@ from System.Reflection import BindingFlags
 from System.Windows.Forms import Application
 
 SIZES = [5.0, 3.5]
-RECOMBINATIONS = ["Simple", "AllQuad"]
+RECOMBINATIONS = ["Simple", "QuadDominant"]
 SPACING = 150.0
 TRANSFINITE_ANGLE = 135.0
 SHAPES = ["half disc one fillet", "L inner fillet", "rounded rectangle", "L outer fillet", "tombstone",
@@ -100,14 +100,15 @@ def detection(part, dx):
 
 
 def output_messages(part_name):
-    """The structured and all-quad lines the last meshing of the part wrote to the output window, without the part."""
+    """The structured and quad-dominant lines the last meshing of the part wrote to the output window, without the
+    part."""
     form = main_form()
     lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
     starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
     check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
     result = []
     for line in lines[starts[-1]:]:
-        for marker in ("Lens mapping:", "Transfinite:", "Submapping:", "All-quad meshing:"):
+        for marker in ("Lens mapping:", "Transfinite:", "Submapping:", "Quad-dominant meshing:"):
             if marker in line:
                 result.append(line[line.index(marker):].replace(" of " + part_name, ""))
     return result

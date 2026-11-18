@@ -20,7 +20,7 @@
 #    hemispheres of r 20 closing a cylinder 40 long), the cone of r 20 and 40 high closed by a disc, the cone frustum
 #    from r 10 to r 20 with the hemisphere of r 20 on it, and a torispherical head (a crown of r 40 on a knuckle of r 8);
 #    and a needle, a cone of r 10 with a half angle of 11 degrees.
-#    At the element sizes 5 and 3.5 and the recombinations None, Simple, Blossom, AllQuad, SimpleFullQuad and
+#    At the element sizes 5 and 3.5 and the recombinations None, Simple, Blossom, QuadDominant, SimpleFullQuad and
 #    BlossomFullQuad every cap is detected and meshed as a cap: quads only (two triangles per quad without
 #    recombination), exactly N x L + a x b per pole on the recorded counts, exactly four inner nodes of three quads per
 #    pole and no other inner node without four, every rim node in two quads, every node gmsh placed on the rim and the
@@ -30,9 +30,9 @@
 #    recombination only unfolded, since on the sharp cone they are as narrow as 0.12 - and no message; the full-quad
 #    recombinations make the counts even (the cap is meshed on the nodes of its edges before gmsh meshes the other
 #    surfaces, so no recombination reaches it, and is laid on the full counts).
-#  - Table: per cap and size, gmsh's free mesh under AllQuad - the meshing before the caps, with
-#    transfinite_submapped=False - against the cap under AllQuad: quads, triangles, worst scaled Jacobian, irregular
-#    inner nodes, the smallest and the largest element edge and the time.
+#  - Table: per cap and size, gmsh's free mesh under QuadDominant - the meshing before the caps, with
+#    transfinite_submapped=False - against the cap under QuadDominant: quads, triangles, worst scaled Jacobian,
+#    irregular inner nodes, the smallest and the largest element edge and the time.
 #  - Pins on the hemisphere: 30 elements on the rim give 30 round; 25 leave it free with a message (odd), and so do 6
 #    (fewer than eight); 9 on the seam give 9 on the seam; 3 leave it free with a message (no ring).
 #  - Second order: the hemisphere with Simple is quads of 8 nodes only, a cap.
@@ -45,8 +45,8 @@
 #    other inner node without four, no message.
 #  - The needle: gmsh itself cannot be relied on at the apex of a sharp cone (meshed free it has folded elements, splits
 #    the edges of the face or fails), which is why a cap is meshed before gmsh meshes the surfaces and is kept down to a
-#    worst scaled Jacobian of 0.1, half the floor of the other structured faces. At both sizes with Simple, AllQuad and
-#    SimpleFullQuad the needle is a cap, quads only, of 0.1 at least and without a message.
+#    worst scaled Jacobian of 0.1, half the floor of the other structured faces. At both sizes with Simple, QuadDominant
+#    and SimpleFullQuad the needle is a cap, quads only, of 0.1 at least and without a message.
 #  - The quasi-structured quad algorithm lays its own quads round a pole, on edges it meshes coarser and refines, so
 #    with it a cap is left to gmsh: the hemisphere is meshed, quads only, without a cap message.
 #  The models were made by gmsh's OCC kernel through GmshCommon: arcs, lines and B-splines revolved, the oblique end
@@ -75,7 +75,7 @@ from System.Windows.Forms import Application
 
 PLOT_DIR = os.environ.get("PMX_CAP_PLOT_DIR")
 SIZES = [5.0, 3.5]
-RECOMBINATIONS = ["None", "Simple", "Blossom", "AllQuad", "SimpleFullQuad", "BlossomFullQuad"]
+RECOMBINATIONS = ["None", "Simple", "Blossom", "QuadDominant", "SimpleFullQuad", "BlossomFullQuad"]
 SPACING = 150.0
 FLOOR = 0.2
 CAP_FLOOR = 0.1
@@ -136,14 +136,15 @@ def detected_tubes(part):
 
 
 def output_messages(part_name):
-    """The cap, tube, ring, submapping and all-quad lines the last meshing of the part wrote to the output window."""
+    """The cap, tube, ring, submapping and quad-dominant lines the last meshing of the part wrote to the output
+    window."""
     form = main_form()
     lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
     starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
     check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
     result = []
     for line in lines[starts[-1]:]:
-        for marker in ("Cap mapping:", "Tube mapping:", "Ring mapping:", "Submapping:", "All-quad meshing:"):
+        for marker in ("Cap mapping:", "Tube mapping:", "Ring mapping:", "Submapping:", "Quad-dominant meshing:"):
             if marker in line:
                 result.append(line[line.index(marker):])
     return result
@@ -519,7 +520,7 @@ def check_caps(parts, size):
                 check(n % 2 == 0 and m % 2 == 0, title + " has an odd count, " + str(n) + " and " + str(m))
             else:
                 counts.add((n, m))
-            if recombine == "AllQuad":
+            if recombine == "QuadDominant":
                 cap_row = describe(face, cap.poles) + (seconds,)
                 plot("cap_" + name.replace(" ", "_") + "_" + str(size).replace(".", "_"), title + ": " + str(n) +
                      " round, " + str(m) + " on the seam, worst SJ " + str(round(quality, 3)), face, cap, dx)
@@ -528,11 +529,12 @@ def check_caps(parts, size):
         check(expected is None or counts == set([expected]), "the " + name + " at size " + str(size) + " is " +
               str(counts) + ", not " + str(expected))
         # The meshing before the caps
-        seconds = mesh(part, "AllQuad", size, submapped=False)
+        seconds = mesh(part, "QuadDominant", size, submapped=False)
         face = FaceMesh(part.name)
         before = describe(face, cap.poles)
         plot("cap_" + name.replace(" ", "_") + "_" + str(size).replace(".", "_") + "_before", name + " at size " +
-             str(size) + " before, AllQuad: " + str(before[0]) + " quads, " + str(before[1]) + " triangles, worst SJ " +
+             str(size) + " before, QuadDominant: " + str(before[0]) + " quads, " + str(before[1]) +
+             " triangles, worst SJ " +
              str(round(before[2], 3)) + ", irregular " + str(before[3]), face, cap, dx)
         rows.append((name, size) + tuple(round(v, 3) if isinstance(v, float) else v for v in before + (seconds,)) +
                     tuple(round(v, 3) if isinstance(v, float) else v for v in cap_row))
@@ -544,7 +546,7 @@ def check_not_caps(parts):
     for name in NOT_CAPS:
         part = parts[name]
         check(len(detected_caps(part)) == 0, "the " + name + " is detected as a cap")
-        for recombine in ("Simple", "AllQuad"):
+        for recombine in ("Simple", "QuadDominant"):
             mesh(part, recombine, SIZES[0], submapped=False)
             before = FaceMesh(part.name)
             before_messages = output_messages(part.name)
@@ -586,7 +588,7 @@ def check_pins(parts):
         check(face.kinds()[1] > 0 or len(irregular_inner_nodes(face.elements)) != 4, "the hemisphere with " + str(count) +
               " elements on its rim is still a cap")
     # 9 on the seam give 9; 3 leave no ring
-    mesh(part, "AllQuad", SIZES[0], pins=[(cap.seam, 9)])
+    mesh(part, "QuadDominant", SIZES[0], pins=[(cap.seam, 9)])
     face = FaceMesh(part.name)
     n, m, quality = check_cap_mesh(face, cap, "the hemisphere with 9 elements on its seam")
     check(m == 9 and len(output_messages(part.name)) == 0, "9 elements on the seam give " + str(m))
@@ -628,7 +630,7 @@ def check_multi_face(parts):
               " caps and " + str(len(tubes)) + " tubes")
         geometry_ids = face_geometry_ids(part)
         structured = set([cap.face_id for cap in caps] + [tube.face_id for tube in tubes])
-        for recombine in ("Simple", "AllQuad", "SimpleFullQuad", "BlossomFullQuad"):
+        for recombine in ("Simple", "QuadDominant", "SimpleFullQuad", "BlossomFullQuad"):
             mesh(part, recombine, SIZES[0])
             messages = output_messages(part.name)
             check(len(messages) == 0, "the " + name + " with " + recombine + " wrote " + str(messages))
@@ -677,7 +679,7 @@ def check_needle(parts):
     check(len(faces) == 1, "the needle cone is detected as " + str(len(faces)) + " caps")
     cap = Cap(part, faces[0])
     for size in SIZES:
-        for recombine in ("Simple", "AllQuad", "SimpleFullQuad"):
+        for recombine in ("Simple", "QuadDominant", "SimpleFullQuad"):
             mesh(part, recombine, size)
             face = FaceMesh(part.name)
             messages = output_messages(part.name)
@@ -686,7 +688,7 @@ def check_needle(parts):
             n, m, quality = check_cap_mesh(face, cap, title, floor=CAP_FLOOR)
             print(title + ": a cap of", n, "round,", m, "on the seam,", face.kinds(), "worst scaled Jacobian",
                   round(quality, 3))
-            if recombine == "AllQuad":
+            if recombine == "QuadDominant":
                 plot("cap_needle_cone_" + str(size).replace(".", "_"), title + ": " + str(n) + " round, " + str(m) +
                      " on the seam, worst SJ " + str(round(quality, 3)), face, cap, dx)
 
@@ -695,7 +697,7 @@ def check_quasi_structured(parts):
     """With the quasi-structured quad algorithm a cap is left to gmsh."""
     part = parts["hemisphere"]
     cap = Cap(part, detected_caps(part)[0])
-    for recombine in ("Simple", "AllQuad"):
+    for recombine in ("Simple", "QuadDominant"):
         mesh(part, recombine, SIZES[0], algorithm_2d="QuasiStructuredQuad")
         face = FaceMesh(part.name)
         messages = output_messages(part.name)

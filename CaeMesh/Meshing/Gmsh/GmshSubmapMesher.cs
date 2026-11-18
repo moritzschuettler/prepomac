@@ -44,11 +44,15 @@ namespace CaeMesh
         /// </summary>
         public static bool Mesh(SubmapFace face, bool quads, out string reason)
         {
+            return Mesh(face, quads, out reason, false);
+        }
+        internal static bool Mesh(SubmapFace face, bool quads, out string reason, bool keepOrthogonal)
+        {
             SubmapGrid grid;
             List<IntPtr>[][] loopTags;
             double[][][][] loopXyz;
             double[][][][] loopUv;
-            if (!Map(face, out grid, out loopTags, out loopXyz, out loopUv, out reason)) return false;
+            if (!Map(face, keepOrthogonal, out grid, out loopTags, out loopXyz, out loopUv, out reason)) return false;
             // The tags of the boundary nodes of all loops in loop order, and the parameters of the outer loop, which
             // tell the way the grid turns
             IntPtr[] boundaryNodeTags = new IntPtr[grid.NumberOfBoundaryNodes];
@@ -77,12 +81,17 @@ namespace CaeMesh
         /// </summary>
         public static bool Evaluate(SubmapFace face, out double minScaledJacobian, out string reason)
         {
+            return Evaluate(face, out minScaledJacobian, out reason, false);
+        }
+        internal static bool Evaluate(SubmapFace face, out double minScaledJacobian, out string reason,
+                                      bool keepOrthogonal)
+        {
             minScaledJacobian = double.NaN;
             SubmapGrid grid;
             List<IntPtr>[][] loopTags;
             double[][][][] loopXyz;
             double[][][][] loopUv;
-            if (!Map(face, out grid, out loopTags, out loopXyz, out loopUv, out reason)) return false;
+            if (!Map(face, keepOrthogonal, out grid, out loopTags, out loopXyz, out loopUv, out reason)) return false;
             // The inner nodes are keyed by negative tags, which no node of gmsh carries
             IntPtr[] nodeTags = new IntPtr[grid.NumberOfBoundaryNodes + grid.InnerUv.Length];
             Dictionary<IntPtr, double[]> tagXyz = new Dictionary<IntPtr, double[]>();
@@ -158,8 +167,9 @@ namespace CaeMesh
         /// nodes of its logical edges loop by loop. False, with the reason, when the grid cannot be made, folds or has
         /// a quad corner below SubmapFaceDetector.MinScaledJacobian.
         /// </summary>
-        private static bool Map(SubmapFace face, out SubmapGrid grid, out List<IntPtr>[][] loopTags,
-                                out double[][][][] loopXyz, out double[][][][] loopUv, out string reason)
+        private static bool Map(SubmapFace face, bool keepOrthogonal, out SubmapGrid grid,
+                                out List<IntPtr>[][] loopTags, out double[][][][] loopXyz,
+                                out double[][][][] loopUv, out string reason)
         {
             reason = null;
             grid = null;
@@ -215,6 +225,8 @@ namespace CaeMesh
                 reason = NameLoopEdges(face, reason);
                 return false;
             }
+            keepOrthogonal = keepOrthogonal && loops.All(loop => !loop.IsRound) &&
+                             Gmsh.Model.GetType(2, surfaceId) == "Plane";
             try
             {
                 grid = SubmapMapping.Map(loopDirections, loopUv, loopXyz, holeOffsets, uv =>
@@ -222,7 +234,7 @@ namespace CaeMesh
                     double[] coor;
                     Gmsh.Model.GetValue(2, surfaceId, uv, out coor);
                     return coor;
-                });
+                }, keepOrthogonal);
             }
             catch (CaeException ex)
             {

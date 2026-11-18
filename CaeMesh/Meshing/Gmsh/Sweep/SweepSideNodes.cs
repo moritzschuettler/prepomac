@@ -32,15 +32,22 @@ namespace CaeMesh.Sweep
         private double[][] _edgeSampleParameters;
         private double[][] _edgeSampleLengths;
         private double _length;
+        private int _startVertexId;
+        private int _endVertexId;
         private List<IntPtr> _nodeTags;                 // IntPtr.Zero for the vertices of the chain
         private List<int> _nodeEdgeIndices;             // -1 for the vertices of the chain
         private List<double> _nodeFractions;
         private double[] _startPoint;
         private double[] _endPoint;
+        private List<double[]> _shellPoints;
+        private List<double> _shellParameters;
 
 
         // Properties
         public int NumOfNodes { get { return _nodeTags.Count; } }
+        internal double Length { get { return _length; } }
+        internal int StartVertexId { get { return _startVertexId; } }
+        internal int EndVertexId { get { return _endVertexId; } }
         public double[] StartPoint { get { return _startPoint; } }
         public double[] EndPoint { get { return _endPoint; } }
 
@@ -55,6 +62,14 @@ namespace CaeMesh.Sweep
         /// two distinct ends each.
         /// </summary>
         public static SweepSideNodes Create(int[] edgeIds)
+        {
+            return Create(edgeIds, false);
+        }
+        internal static SweepSideNodes CreateForShellEdge(int edgeId)
+        {
+            return Create(new int[] { edgeId }, true);
+        }
+        private static SweepSideNodes Create(int[] edgeIds, bool batchSamples)
         {
             int[] vertexIds;
             Dictionary<int, int[]> edgeIdVertexIds = new Dictionary<int, int[]>();
@@ -84,6 +99,11 @@ namespace CaeMesh.Sweep
             side._nodeTags = new List<IntPtr>();
             side._nodeEdgeIndices = new List<int>();
             List<double> nodeLengths = new List<double>();
+            if (batchSamples)
+            {
+                side._shellPoints = new List<double[]>();
+                side._shellParameters = new List<double>();
+            }
             //
             double[] vertex;
             double[] start;
@@ -94,7 +114,8 @@ namespace CaeMesh.Sweep
             double[] parameters;
             IntPtr[] tags;
             HashSet<int> usedEdgeIds = new HashSet<int>();
-            int currentVertexId = endVertexIds[0];
+            int currentVertexId = batchSamples ? Math.Min(endVertexIds[0], endVertexIds[1]) : endVertexIds[0];
+            side._startVertexId = currentVertexId;
             double offset = 0;
             for (int i = 0; i < numOfEdges; i++)
             {
@@ -108,18 +129,37 @@ namespace CaeMesh.Sweep
                 Gmsh.Model.GetValue(0, currentVertexId, new double[0], out vertex);
                 bool reversed = GetDistance(vertex, start) > GetDistance(vertex, end);
                 // The length along the edge as a function of its parameter
-                double[] sampleParameters = new double[_numOfSamples + 1];
-                double[] sampleLengths = new double[_numOfSamples + 1];
-                double[] previous = null;
-                double[] point;
-                for (int s = 0; s <= _numOfSamples; s++)
+                int numOfSamples = batchSamples && Gmsh.Model.GetType(1, edgeId) == "Line" ? 1 : _numOfSamples;
+                double[] sampleParameters = new double[numOfSamples + 1];
+                double[] sampleLengths = new double[numOfSamples + 1];
+                for (int s = 0; s <= numOfSamples; s++)
+                    sampleParameters[s] = min[0] + (max[0] - min[0]) * s / numOfSamples;
+                if (batchSamples)
                 {
-                    sampleParameters[s] = min[0] + (max[0] - min[0]) * s / _numOfSamples;
-                    Gmsh.Model.GetValue(1, edgeId, new double[] { sampleParameters[s] }, out point);
-                    if (previous != null) sampleLengths[s] = sampleLengths[s - 1] + GetDistance(previous, point);
-                    previous = point;
+                    double[] points;
+                    Gmsh.Model.GetValue(1, edgeId, sampleParameters, out points);
+                    if (points.Length != 3 * sampleParameters.Length) return null;
+                    for (int s = 1; s <= numOfSamples; s++)
+                    {
+                        int p = 3 * s;
+                        double dx = points[p] - points[p - 3];
+                        double dy = points[p + 1] - points[p - 2];
+                        double dz = points[p + 2] - points[p - 1];
+                        sampleLengths[s] = sampleLengths[s - 1] + Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                    }
                 }
-                double edgeLength = sampleLengths[_numOfSamples];
+                else
+                {
+                    double[] previous = null;
+                    double[] point;
+                    for (int s = 0; s <= numOfSamples; s++)
+                    {
+                        Gmsh.Model.GetValue(1, edgeId, new double[] { sampleParameters[s] }, out point);
+                        if (previous != null) sampleLengths[s] = sampleLengths[s - 1] + GetDistance(previous, point);
+                        previous = point;
+                    }
+                }
+                double edgeLength = sampleLengths[numOfSamples];
                 if (edgeLength <= 0) return null;
                 //
                 side._edgeIds[i] = edgeId;
@@ -134,12 +174,21 @@ namespace CaeMesh.Sweep
                     side._nodeTags.Add(IntPtr.Zero);
                     side._nodeEdgeIndices.Add(-1);
                     nodeLengths.Add(0);
+                    if (batchSamples)
+                    {
+                        side._shellPoints.Add(side._startPoint);
+                        side._shellParameters.Add(double.NaN);
+                    }
                 }
                 // The interior nodes of the edge in the order the chain walks them
-                Gmsh.Model.Mesh.GetNodes(out tags, out coor, 1, edgeId, false, false);
+                double[] originalParameters = null;
+                if (batchSamples)
+                    Gmsh.Model.Mesh.GetCurveNodes(edgeId, out tags, out coor, out originalParameters);
+                else Gmsh.Model.Mesh.GetNodes(out tags, out coor, 1, edgeId, false, false);
                 parameters = new double[0];
                 if (tags.Length > 0) Gmsh.Model.GetParametrization(1, edgeId, coor, out parameters);
                 if (parameters.Length != tags.Length) return null;
+                if (batchSamples && originalParameters.Length != tags.Length) return null;
                 double[] alongLengths = parameters.Select(p => GetLength(sampleParameters, sampleLengths, p)).ToArray();
                 if (reversed) alongLengths = alongLengths.Select(length => edgeLength - length).ToArray();
                 foreach (var j in Enumerable.Range(0, tags.Length).OrderBy(j => alongLengths[j]))
@@ -147,16 +196,27 @@ namespace CaeMesh.Sweep
                     side._nodeTags.Add(tags[j]);
                     side._nodeEdgeIndices.Add(i);
                     nodeLengths.Add(offset + alongLengths[j]);
+                    if (batchSamples)
+                    {
+                        side._shellPoints.Add(new double[] { coor[3 * j], coor[3 * j + 1], coor[3 * j + 2] });
+                        side._shellParameters.Add(originalParameters[j]);
+                    }
                 }
                 offset += edgeLength;
                 side._nodeTags.Add(IntPtr.Zero);
                 side._nodeEdgeIndices.Add(-1);
                 nodeLengths.Add(offset);
+                if (batchSamples)
+                {
+                    side._shellPoints.Add(reversed ? start : end);
+                    side._shellParameters.Add(double.NaN);
+                }
                 //
                 currentVertexId = edgeIdVertexIds[edgeId][0] == currentVertexId ? edgeIdVertexIds[edgeId][1]
                                                                                  : edgeIdVertexIds[edgeId][0];
                 if (i == numOfEdges - 1) side._endPoint = reversed ? start : end;
             }
+            side._endVertexId = currentVertexId;
             side._length = offset;
             side._nodeFractions = nodeLengths.Select(length => length / offset).ToList();
             return side;
@@ -196,10 +256,31 @@ namespace CaeMesh.Sweep
             double length = fraction * _length - _edgeOffsets[edgeIndex];
             if (_edgeReversed[edgeIndex]) length = _edgeLengths[edgeIndex] - length;
             double parameter = GetParameter(_edgeSampleParameters[edgeIndex], _edgeSampleLengths[edgeIndex], length);
-            double[] point;
-            Gmsh.Model.GetValue(1, _edgeIds[edgeIndex], new double[] { parameter }, out point);
-            Gmsh.Model.Mesh.SetNode(_nodeTags[nodeIndex], point, new double[] { parameter });
+            double[] parameters = new double[] { parameter };
+            Gmsh.Model.GetValue(1, _edgeIds[edgeIndex], parameters, out double[] point);
+            if (point.Length != 3) throw new InvalidOperationException("A curve point must have three coordinates.");
+            Gmsh.Model.Mesh.SetNode(_nodeTags[nodeIndex], point, parameters);
             _nodeFractions[nodeIndex] = fraction;
+        }
+        internal double[] GetShellPoint(int nodeIndex)
+        {
+            return _shellPoints[nodeIndex];
+        }
+        internal double[] EvaluateShellPoint(double fraction, out double parameter)
+        {
+            double length = (_edgeReversed[0] ? 1 - fraction : fraction) * _edgeLengths[0];
+            parameter = GetParameter(_edgeSampleParameters[0], _edgeSampleLengths[0], length);
+            Gmsh.Model.GetValue(1, _edgeIds[0], new double[] { parameter }, out double[] point);
+            if (point.Length != 3) throw new InvalidOperationException("A curve point must have three coordinates.");
+            return point;
+        }
+        internal void SetShellPoint(int nodeIndex, double[] point, double parameter)
+        {
+            Gmsh.Model.Mesh.SetNode(_nodeTags[nodeIndex], point, new double[] { parameter });
+        }
+        internal void RestoreShellPoint(int nodeIndex)
+        {
+            SetShellPoint(nodeIndex, _shellPoints[nodeIndex], _shellParameters[nodeIndex]);
         }
         private static double GetLength(double[] sampleParameters, double[] sampleLengths, double parameter)
         {

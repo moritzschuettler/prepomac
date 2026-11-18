@@ -12,7 +12,8 @@ namespace CaeMesh
     /// <summary>
     /// The mesh QuadCleanup made of a face and what it did. The nodes keep the ids of the input: Points holds every node,
     /// moved or not, and IsNodeUsed tells the nodes the elements still use; an inner node is removed by a doublet or a
-    /// collapse, never added.
+    /// collapse; the nodes the cleanup adds, to split a hexagon or a path of elements or inside a re-meshed region,
+    /// follow the nodes of the input.
     /// </summary>
     public class QuadCleanupResult
     {
@@ -31,6 +32,8 @@ namespace CaeMesh
         private readonly int _numOfDoublets;
         private readonly int _numOfCollapses;
         private readonly int _numOfRotations;
+        private readonly int _numOfRemeshedRegions;
+        private readonly int _numOfSplitPaths;
         private readonly double _seconds;
 
 
@@ -59,6 +62,10 @@ namespace CaeMesh
         public int NumberOfDoublets { get { return _numOfDoublets; } }
         public int NumberOfCollapses { get { return _numOfCollapses; } }
         public int NumberOfRotations { get { return _numOfRotations; } }
+        /// <summary>The pairs of triangles whose region was meshed again with quads only, in the last passes.</summary>
+        public int NumberOfRemeshedRegions { get { return _numOfRemeshedRegions; } }
+        /// <summary>The pairs of triangles turned into quads by splitting the path of elements between them.</summary>
+        public int NumberOfSplitPaths { get { return _numOfSplitPaths; } }
         public double Seconds { get { return _seconds; } }
 
 
@@ -66,7 +73,8 @@ namespace CaeMesh
         public QuadCleanupResult(int[][] elements, double[][] points, bool[] isNodeUsed, int numOfTrianglesBefore,
                                  int numOfTriangles, int numOfFoldedElements, double minScaledJacobianBefore,
                                  double minScaledJacobian, int numOfIrregularNodesBefore, int numOfIrregularNodes,
-                                 int numOfPairs, int numOfDoublets, int numOfCollapses, int numOfRotations, double seconds)
+                                 int numOfPairs, int numOfDoublets, int numOfCollapses, int numOfRotations,
+                                 int numOfRemeshedRegions, int numOfSplitPaths, double seconds)
         {
             _elements = elements;
             _points = points;
@@ -82,6 +90,8 @@ namespace CaeMesh
             _numOfDoublets = numOfDoublets;
             _numOfCollapses = numOfCollapses;
             _numOfRotations = numOfRotations;
+            _numOfRemeshedRegions = numOfRemeshedRegions;
+            _numOfSplitPaths = numOfSplitPaths;
             _seconds = seconds;
         }
     }

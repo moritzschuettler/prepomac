@@ -22,21 +22,21 @@
 #    by 90 and cut by the plane y = 8 (four-sided with a pole corner). Then the twins with the seam at an edge (an arc
 #    of three points): the patch with the hole, the patch, the dome 90 cut, the oblique cut, the corner cut out and the
 #    ring.
-#  - At the element sizes 5 and 3.5 under None, Simple, AllQuad and SimpleFullQuad: the kind the detection finds, the
-#    number of inner nodes without four quads of that kind under Simple, AllQuad and SimpleFullQuad (0 four-sided,
-#    submapped and ring, 1 three-sided, 2 lens of two corners, 4 lens of none, 3 reentrant pole), quads only, two
-#    triangles per quad under None, a worst scaled Jacobian of 0.5 at least measured in space against the normals of
-#    the mesh (a corner at a pole against the normal of its element), no message; the area of the mesh within 3 % of
-#    the area of the face and every node within 0.5 of the box of the geometry, so no node lies on the other side of
-#    the surface. The patch with the hole, and its twin, write the submapping message and are meshed free, no fold;
+#  - At the element sizes 5 and 3.5 under None, Simple, QuadDominant and SimpleFullQuad: the kind the detection finds,
+#    the number of inner nodes without four quads of that kind under Simple, QuadDominant and SimpleFullQuad (0
+#    four-sided, submapped and ring, 1 three-sided, 2 lens of two corners, 4 lens of none, 3 reentrant pole), quads
+#    only, two triangles per quad under None, a worst scaled Jacobian of 0.5 at least measured in space against the
+#    normals of the mesh (a corner at a pole against the normal of its element), no message; the area of the mesh within
+#    3 % of the area of the face and every node within 0.5 of the box of the geometry, so no node lies on the other side
+#    of the surface. The patch with the hole, and its twin, write the submapping message and are meshed free, no fold;
 #    under the full-quad recombination their free mesh keeps triangles (gmsh recombines no face of a periodic surface
 #    into full quads, so a structured face of a cylinder is left out of that recombination and laid after it).
 #  - The twins give the same quads, triangles, irregular inner nodes and worst scaled Jacobian within 1E-3 as the
 #    faces across the seam.
 #  The model was made by gmsh's OCC kernel through GmshCommon (generator scratchpad/submap/stage25/make_pole_models.py,
 #  run with PMX_CAP_GENERATOR = stage14/make_cap_models.py). With the environment variable PMX_WRAPPED_PLOT_DIR set,
-#  the meshes under AllQuad are written into that folder as PNG images, each part seen along the axis of its smallest
-#  extent, the inner nodes without four quads red.
+#  the meshes under QuadDominant are written into that folder as PNG images, each part seen along the axis of its
+#  smallest extent, the inner nodes without four quads red.
 #
 #  PrePoMax.com -f wrapped_faces.brep -u MM_TON_S_C --script Test_Model_Meshing_Wrapped_Range.py -g No -x Yes -w <dir>
 #
@@ -57,7 +57,7 @@ from System.Windows.Forms import Application
 
 PLOT_DIR = os.environ.get("PMX_WRAPPED_PLOT_DIR")
 SIZES = [5.0, 3.5]
-RECOMBINATIONS = ["None", "Simple", "AllQuad", "SimpleFullQuad"]
+RECOMBINATIONS = ["None", "Simple", "QuadDominant", "SimpleFullQuad"]
 SPACING = 150.0
 GOOD = 0.5
 TRANSFINITE_ANGLE = 135.0
@@ -146,7 +146,7 @@ def poles(part, dx):
 
 
 def output_messages(part_name):
-    """The structured-face and all-quad lines the last meshing of the part wrote to the output window."""
+    """The structured-face and quad-dominant lines the last meshing of the part wrote to the output window."""
     form = main_form()
     lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
     starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
@@ -154,7 +154,7 @@ def output_messages(part_name):
     result = []
     for line in lines[starts[-1]:]:
         for marker in ("Lens mapping:", "Transfinite:", "Submapping:", "Ring mapping:", "Cap mapping:",
-                       "Tube mapping:", "All-quad meshing:"):
+                       "Tube mapping:", "Quad-dominant meshing:"):
             if marker in line:
                 result.append(line[line.index(marker):])
     return result
@@ -381,7 +381,7 @@ def check_shapes(parts, size):
                           " and the irregular inner nodes " + str(sorted(valence[node] for node in irregular)) +
                           ", not " + str(irregular_count) + " of 3")
                     check(quality >= GOOD, title + " has a corner of the scaled Jacobian " + str(quality))
-            if recombine == "AllQuad":
+            if recombine == "QuadDominant":
                 plot("wrapped_" + name.replace(" ", "_") + "_" + str(size).replace(".", "_"), title + ": " +
                      str(quads) + " quads, worst SJ " + str(round(quality, 3)), face)
             results[(name, recombine)] = (quads, triangles, len(irregular), quality)

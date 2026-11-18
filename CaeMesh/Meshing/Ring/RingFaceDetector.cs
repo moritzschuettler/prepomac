@@ -29,14 +29,13 @@ namespace CaeMesh
     /// That keeps out an L with a small hole and a bore far off the centre of a disc. A face whose inner loop is shorter
     /// than MinLengthRatio of its outer loop is left free as well. The face keeps the smallest
     /// distance between the polylines of its loops and the mean distance between the nodes that grid joins. A face may be
-    /// a SubmapFace as well; the mesher chooses between the two (RingFace.IsThinWall).
+    /// a SubmapFace as well. A shell keeps the lattice of sharp-cornered loops even when the wall is thin.
     /// </summary>
     public static class RingFaceDetector
     {
         // Variables                                                                                                                
         /// <summary>
-        /// A face that is both a ring and a submapped face is meshed as a ring when the smallest and the mean distance
-        /// between its loops are below this many times the element size, and by its lattice otherwise.
+        /// The smallest and mean loop distances of a thin ring are below this multiple of the element size.
         /// </summary>
         public const double ThinWallFactor = 1.5;
         /// <summary>

@@ -23,21 +23,22 @@
 #  - Detection: the four-sided faces are transfinite faces of four corners, the reentrant ones lens faces with one
 #    reentrant vertex, the square cut a cap. The cone of 15 degrees cut is none: the transfinite interpolation of its
 #    sides in space folds.
-#  - At the element sizes 5 and 3.5 under None, Simple, AllQuad and SimpleFullQuad without a message: quads only, two
-#    triangles per quad without recombination; no fold; the four-sided faces no irregular inner node and a worst
+#  - At the element sizes 5 and 3.5 under None, Simple, QuadDominant and SimpleFullQuad without a message: quads only,
+#    two triangles per quad without recombination; no fold; the four-sided faces no irregular inner node and a worst
 #    scaled Jacobian of 0.5 at least, measured in space against the normals of the mesh, a corner at a pole against the
 #    normal of its element; the reentrant faces three inner nodes of three quads, the pole in three quads, a worst
 #    scaled Jacobian of 0.5 at least; the cap four inner nodes of three quads; the full-quad recombination makes the
 #    boundary even. The dome of 270 cut is either a lens grid (worst 0.2 at least) or left free with the lens message;
 #    its four-sided pieces carry lines of the counts of the sides they face. The cone of 15 degrees cut is meshed free
-#    without a message under None, Simple and AllQuad (gmsh refuses a full-quad recombination of a free face of a cone).
+#    without a message under None, Simple and QuadDominant (gmsh refuses a full-quad recombination of a free face of a
+#    cone).
 #  - Pins: the dome of 270 degrees with its rim set to 13 and its meridians to 6 elements, an odd total, is left free
 #    with the lens message.
 #  - Second order: the dome of 270 degrees and the dome 90 cut with Simple are quads of 8 nodes only.
 #  - The quasi-structured quad algorithm: the dome of 270 degrees is left to it (no lens message, quads only) and the
 #    dome 90 cut is a transfinite surface of gmsh's, as before.
-#  - Table: per shape at size 5 under AllQuad, the mesh with transfinite_submapped=False against the mesh with it; the
-#    four-sided faces are structured either way.
+#  - Table: per shape at size 5 under QuadDominant, the mesh with transfinite_submapped=False against the mesh with it;
+#    the four-sided faces are structured either way.
 #  The model was made by gmsh's OCC kernel through GmshCommon: arcs, lines and B-splines revolved, intersected with
 #  boxes (generator scratchpad/submap/stage25/make_pole_models.py, run with PMX_CAP_GENERATOR =
 #  stage14/make_cap_models.py). With the environment variable PMX_POLE_PLOT_DIR set, the meshes are written into that
@@ -62,7 +63,7 @@ from System.Windows.Forms import Application
 
 PLOT_DIR = os.environ.get("PMX_POLE_PLOT_DIR")
 SIZES = [5.0, 3.5]
-RECOMBINATIONS = ["None", "Simple", "AllQuad", "SimpleFullQuad"]
+RECOMBINATIONS = ["None", "Simple", "QuadDominant", "SimpleFullQuad"]
 SPACING = 150.0
 FLOOR = 0.2
 GOOD = 0.5
@@ -117,14 +118,14 @@ def poles(part, dx):
 
 
 def output_messages(part_name):
-    """The lens, transfinite, cap and all-quad lines the last meshing of the part wrote to the output window."""
+    """The lens, transfinite, cap and quad-dominant lines the last meshing of the part wrote to the output window."""
     form = main_form()
     lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
     starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
     check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
     result = []
     for line in lines[starts[-1]:]:
-        for marker in ("Lens mapping:", "Transfinite:", "Submapping:", "Cap mapping:", "All-quad meshing:"):
+        for marker in ("Lens mapping:", "Transfinite:", "Submapping:", "Cap mapping:", "Quad-dominant meshing:"):
             if marker in line:
                 result.append(line[line.index(marker):])
     return result
@@ -394,13 +395,13 @@ def check_shapes(parts, size):
             if name == "cone 15 half cut" and recombine == "SimpleFullQuad":
                 continue
             face, quality = check_shape(part, name, size, recombine, pole_points)
-            if recombine == "AllQuad":
+            if recombine == "QuadDominant":
                 row = describe(face, pole_points)
                 plot("pole_" + name.replace(" ", "_") + "_" + str(size).replace(".", "_"), name + " at size " +
-                     str(size) + " with AllQuad: " + str(face.kinds()[0]) + " quads, worst SJ " +
+                     str(size) + " with QuadDominant: " + str(face.kinds()[0]) + " quads, worst SJ " +
                      str(round(quality, 3)), face)
         if size == SIZES[0]:
-            mesh(part, "AllQuad", size, submapped=False)
+            mesh(part, "QuadDominant", size, submapped=False)
             before = describe(FaceMesh(part.name), pole_points)
             rows.append((name,) + tuple(round(v, 3) if isinstance(v, float) else v for v in before + row))
     return rows
@@ -440,7 +441,7 @@ def check_second_order(parts):
 
 def check_quasi_structured(parts):
     for name in ("dome 270", "dome 90 cut"):
-        mesh(parts[name], "AllQuad", SIZES[0], algorithm_2d="QuasiStructuredQuad")
+        mesh(parts[name], "QuadDominant", SIZES[0], algorithm_2d="QuasiStructuredQuad")
         face = FaceMesh(parts[name].name)
         messages = output_messages(parts[name].name)
         quads, triangles = face.kinds()

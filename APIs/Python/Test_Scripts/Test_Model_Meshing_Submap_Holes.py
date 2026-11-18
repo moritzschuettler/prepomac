@@ -23,6 +23,7 @@
 #    loops, as a ring
 #    (Test_Model_Meshing_Ring) of as many quads as recorded. The hole 1 mm from the border keeps one cell between it
 #    and the border, so the wall of 1 mm is one element thick.
+#  - The off-centre hole at size 5 and the two-hole plate at size 5.7 have right-angled lattices after matching.
 #  - 8 elements pinned on an edge of the centred hole are carried to the opposite edge of the hole.
 #  - A full-quad recombination meshes the centred and the filleted hole submapped, and second order elements keep the
 #    centred hole submapped.
@@ -334,6 +335,23 @@ def check_shells(parts):
     return results
 
 
+def check_matched_holes(parts, faces):
+    limit = math.cos(math.radians(0.5))
+    face = faces["off-centre hole"]
+    quality = min_scaled_jacobian(face.elements, face.uv)
+    check(quality >= limit, "the off-centre hole leaves a skewed corner")
+    print("off-centre hole: worst deviation from 90 degrees", math.degrees(math.acos(min(1.0, quality))))
+
+    part = parts["two holes"]
+    mesh(part, max_size=5.7)
+    face = FaceMesh(part.name)
+    quality = check_submapped(face, "the two-hole plate at size 5.7")
+    check(len(face.elements) == 88 and quality >= limit and not submapping_messages(part.name),
+          "the two-hole plate at size 5.7 did not keep its 88 right-angled quads")
+    print("two holes at size 5.7: 88 quads, worst deviation from 90 degrees",
+          math.degrees(math.acos(min(1.0, quality))))
+
+
 def check_thin_border(face):
     """The 1 mm wall between the hole and the left border is one element thick: the quads along the hole that reach
     the border end on the hole, 1 mm from it."""
@@ -482,6 +500,7 @@ def main():
     check(pmx.model.is_open(), "a model must be open")
     parts = parts_by_x(SHELLS)
     faces = check_shells(parts)
+    check_matched_holes(parts, faces)
     check_thin_border(faces["thin border"])
     check_pinned_hole_edge(parts)
     check_variants(parts)

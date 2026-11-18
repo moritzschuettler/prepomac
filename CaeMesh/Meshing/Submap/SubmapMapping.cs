@@ -33,7 +33,9 @@ namespace CaeMesh
     /// less. Folded quads are then untangled by moves that raise their worst corner, and the condition energy descent
     /// of QuadSmoothing, run until it settles, evens out the quads without folding one. The quads turn the way the
     /// outer loop turns.
-    /// When the grid still folds but the start did not, the start is relaxed instead by steps that never fold a quad.
+    /// When the grid still folds but the start did not, the start is relaxed by steps that never fold a quad.
+    /// On request a lattice whose boundary nodes already lie on straight perpendicular lines takes its inner nodes at
+    /// the crossings of those lines and is not smoothed, so that it keeps its right angles under uneven spacing.
     /// The arithmetic is plain and ordered, so that a port gives the same grid.
     /// </summary>
     public static class SubmapMapping
@@ -41,6 +43,8 @@ namespace CaeMesh
         // Variables                                                                                                                
         private const int MaxNumOfWinslowSweeps = 100;
         private const double WinslowTolerance = 1E-6;
+        private const double AlignedCoordinateTolerance = 1E-7;
+        private const double MinAlignedGridQuality = 0.999999;
         private static readonly int[] DirectionI = new int[] { 1, 0, -1, 0 };
         private static readonly int[] DirectionJ = new int[] { 0, 1, 0, -1 };
 
@@ -279,6 +283,11 @@ namespace CaeMesh
         public static SubmapGrid Map(int[][] loopDirections, double[][][][] loopUv, double[][][][] loopXyz,
                                      int[][] holeOffsets, Func<double[], double[]> evaluate)
         {
+            return Map(loopDirections, loopUv, loopXyz, holeOffsets, evaluate, false);
+        }
+        internal static SubmapGrid Map(int[][] loopDirections, double[][][][] loopUv, double[][][][] loopXyz,
+                                       int[][] holeOffsets, Func<double[], double[]> evaluate, bool keepOrthogonal)
+        {
             int numOfLoops = loopDirections == null ? 0 : loopDirections.Length;
             if (numOfLoops == 0 || loopUv == null || loopXyz == null || loopUv.Length != numOfLoops ||
                 loopXyz.Length != numOfLoops)
@@ -429,32 +438,39 @@ namespace CaeMesh
             double[][] points = new double[numOfNodes][];
             for (int b = 0; b < numOfBoundaryNodes; b++) points[b] = ThreeBlockMapping.ToFrame(w, boundaryUv[b]);
             //
-            SetLatticeLinePoints(points, nodeIds, logical, numOfBoundaryNodes, rowLength, height);
-            int[][] neighbours = ThreeBlockMapping.GetNeighbours(numOfNodes, quads);
             int[][] quadArray = quads.ToArray();
-            int[] cornerStart;
-            int[] cornerQuads;
-            int[] cornerIndices;
-            QuadSmoothing.GetCorners(quadArray, numOfNodes, numOfBoundaryNodes, out cornerStart, out cornerQuads,
-                                     out cornerIndices);
             double orientation = ThreeBlockMapping.GetSignedArea(points, numOfOuterNodes) < 0 ? -1 : 1;
-            int numOfStartFolds = QuadSmoothing.CountFoldedElements(points, quadArray, orientation);
-            double[][] start = QuadSmoothing.CopyPoints(points);
-            ThreeBlockMapping.SolveBarycentricEmbedding(points, neighbours, numOfBoundaryNodes);
-            SolveWinslow(points, nodeIds, logical, numOfBoundaryNodes, rowLength);
-            if (QuadSmoothing.CountFoldedElements(points, quadArray, orientation) > 0)
-                QuadSmoothing.Untangle(points, neighbours, quadArray, cornerStart, cornerQuads, cornerIndices,
-                                       numOfBoundaryNodes, orientation);
-            QuadSmoothing.LowerConditionEnergy(points, neighbours, quadArray, cornerStart, cornerQuads, cornerIndices,
-                                               numOfBoundaryNodes, orientation);
-            int numOfFoldedQuads = QuadSmoothing.CountFoldedElements(points, quadArray, orientation);
-            if (numOfFoldedQuads > 0 && numOfStartFolds == 0)
+            int numOfFoldedQuads = 0;
+            bool aligned = keepOrthogonal && TrySetOrthogonalPoints(points, boundaryI, boundaryJ, nextNodeIds,
+                                                                     logical, width, height) &&
+                           QuadSmoothing.GetMinScaledJacobian(points, quadArray, orientation) >= MinAlignedGridQuality;
+            if (!aligned)
             {
-                QuadSmoothing.RelaxWithoutFolding(start, neighbours, quadArray, numOfBoundaryNodes, orientation);
-                QuadSmoothing.LowerConditionEnergy(start, neighbours, quadArray, cornerStart, cornerQuads, cornerIndices,
-                                                   numOfBoundaryNodes, orientation);
-                points = start;
+                SetLatticeLinePoints(points, nodeIds, logical, numOfBoundaryNodes, rowLength, height);
+                int[][] neighbours = ThreeBlockMapping.GetNeighbours(numOfNodes, quads);
+                int[] cornerStart;
+                int[] cornerQuads;
+                int[] cornerIndices;
+                QuadSmoothing.GetCorners(quadArray, numOfNodes, numOfBoundaryNodes, out cornerStart, out cornerQuads,
+                                         out cornerIndices);
+                int numOfStartFolds = QuadSmoothing.CountFoldedElements(points, quadArray, orientation);
+                double[][] start = QuadSmoothing.CopyPoints(points);
+                ThreeBlockMapping.SolveBarycentricEmbedding(points, neighbours, numOfBoundaryNodes);
+                SolveWinslow(points, nodeIds, logical, numOfBoundaryNodes, rowLength);
+                if (QuadSmoothing.CountFoldedElements(points, quadArray, orientation) > 0)
+                    QuadSmoothing.Untangle(points, neighbours, quadArray, cornerStart, cornerQuads, cornerIndices,
+                                           numOfBoundaryNodes, orientation);
+                QuadSmoothing.LowerConditionEnergy(points, neighbours, quadArray, cornerStart, cornerQuads,
+                                                   cornerIndices, numOfBoundaryNodes, orientation);
                 numOfFoldedQuads = QuadSmoothing.CountFoldedElements(points, quadArray, orientation);
+                if (numOfFoldedQuads > 0 && numOfStartFolds == 0)
+                {
+                    QuadSmoothing.RelaxWithoutFolding(start, neighbours, quadArray, numOfBoundaryNodes, orientation);
+                    QuadSmoothing.LowerConditionEnergy(start, neighbours, quadArray, cornerStart, cornerQuads,
+                                                       cornerIndices, numOfBoundaryNodes, orientation);
+                    points = start;
+                    numOfFoldedQuads = QuadSmoothing.CountFoldedElements(points, quadArray, orientation);
+                }
             }
             //
             double[][] innerUv = new double[numOfInnerNodes][];
@@ -479,6 +495,56 @@ namespace CaeMesh
             return new SubmapGrid(edgeDirectionList.ToArray(), edgeCountList.ToArray(), loopNumOfEdges, logical.ToArray(),
                                   innerUv, innerXyz, quadArray, numOfFoldedQuads,
                                   QuadSmoothing.GetMinScaledJacobian(points, quadArray, orientation));
+        }
+        /// <summary>
+        /// Places the inner nodes at the crossings of the lattice lines when the boundary nodes of every line i share one
+        /// coordinate along the first lattice direction and those of every line j one across it, within
+        /// AlignedCoordinateTolerance of the size of the face. False when a boundary node is off its lines.
+        /// </summary>
+        private static bool TrySetOrthogonalPoints(double[][] points, int[] boundaryI, int[] boundaryJ,
+                                                   int[] nextNodeIds, List<int[]> logical, int width, int height)
+        {
+            int numOfBoundaryNodes = boundaryI.Length;
+            int b = 0;
+            while (b < numOfBoundaryNodes && boundaryI[b] == boundaryI[nextNodeIds[b]]) b++;
+            if (b == numOfBoundaryNodes) return false;
+            double[] origin = points[b];
+            double[] next = points[nextNodeIds[b]];
+            double dx = next[0] - origin[0];
+            double dy = next[1] - origin[1];
+            double length = Math.Sqrt(dx * dx + dy * dy);
+            if (!(length > 0)) return false;
+            dx /= length;
+            dy /= length;
+            //
+            double size = 0;
+            for (b = 0; b < numOfBoundaryNodes; b++)
+                size = Math.Max(size, Math.Abs(points[b][0] - origin[0]) + Math.Abs(points[b][1] - origin[1]));
+            double tolerance = AlignedCoordinateTolerance * size;
+            double[] x = new double[width + 1];
+            double[] y = new double[height + 1];
+            for (int i = 0; i < x.Length; i++) x[i] = double.NaN;
+            for (int j = 0; j < y.Length; j++) y[j] = double.NaN;
+            for (b = 0; b < numOfBoundaryNodes; b++)
+            {
+                double px = points[b][0] - origin[0];
+                double py = points[b][1] - origin[1];
+                double xi = dx * px + dy * py;
+                double yj = dx * py - dy * px;
+                int i = boundaryI[b];
+                int j = boundaryJ[b];
+                if (double.IsNaN(x[i])) x[i] = xi;
+                if (double.IsNaN(y[j])) y[j] = yj;
+                if (Math.Abs(x[i] - xi) > tolerance || Math.Abs(y[j] - yj) > tolerance) return false;
+            }
+            for (int n = numOfBoundaryNodes; n < points.Length; n++)
+            {
+                double xi = x[logical[n][0]];
+                double yj = y[logical[n][1]];
+                if (double.IsNaN(xi) || double.IsNaN(yj)) return false;
+                points[n] = new double[] { origin[0] + dx * xi - dy * yj, origin[1] + dy * xi + dx * yj };
+            }
+            return true;
         }
         /// <summary>
         /// Places every inner node at the mean of the two lattice lines through it, along i and along j, each a straight

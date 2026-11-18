@@ -17,21 +17,32 @@ using GmshCommon;
 namespace CaeMesh
 {
     /// <summary>
-    /// Turns the quads and triangles gmsh meshed free on a face into quads only by QuadCleanup, on the nodes gmsh placed
-    /// on the edges of the face: the elements and nodes of the face are read from gmsh, with their parameters on the
-    /// surface, the cleanup works in the frame of ThreeBlockMapping that is close to isometric over the boundary of the
-    /// face, the inner nodes are evaluated on the surface and the elements of the face are replaced, turning the way gmsh
-    /// turned its own. The result is kept only when it is better: fewer triangles than before - none, one when
+    /// Turns the quads and triangles gmsh meshed free on a face into quads only by QuadCleanup, on the nodes gmsh
+    /// placed on the edges of the face: the elements and nodes of the face are read from gmsh, with their parameters on
+    /// the surface, the cleanup works in the frame of ThreeBlockMapping that is close to isometric over the boundary of
+    /// the face, the inner nodes are evaluated on the surface and the elements of the face are replaced, turning the
+    /// way gmsh turned its own. The result is kept only when it is better: fewer triangles than before - none, one when
     /// the elements around the boundary add up to an odd number, or the few the cleanup found no good way to join - no
-    /// folded element, and no corner of a scaled Jacobian below SubmapFaceDetector.MinScaledJacobian or below the worst
-    /// corner gmsh left, whichever is lower, measured in space against the normal of the surface. A face gmsh meshed with
-    /// quads only is cleaned as well, for its valences and its corners, and kept only with no fold, no more irregular
-    /// inner nodes and no corner below the worst one gmsh left. A face of a periodic surface closed along one seam or two
-    /// - a cylinder, a cone, a torus, a surface of revolution or extrusion - is cut open along them first (CutAlongSeams):
-    /// a node on a seam is then a fixed node once for each side of the seam, with the parameters of that side, and is
-    /// written back as the one node gmsh placed; the result is not kept when an element would then use a node twice or
-    /// two elements the same nodes. A face with a degenerate edge, whose parameters do not run evenly over it, or with a
-    /// node on an edge or a point inside it is left as gmsh meshed it.
+    /// folded element, and no corner of a scaled Jacobian below SubmapFaceDetector.MinScaledJacobian, below what the
+    /// sharpest corner of the boundary allows (half its sine, for a corner below 90 degrees in space) or below the
+    /// worst corner gmsh left, whichever is lowest, measured in space against the normal of the surface. Parameters
+    /// that fold gmsh's own mesh in the frame, as those of a sliver of a blend that squeeze its corner, give way to the
+    /// projection on the mean plane of the face when that folds none of its elements; the inner nodes are then placed
+    /// at the points of the surface nearest to the plane. A face gmsh meshed with quads only is cleaned as well, for
+    /// its valences and its corners, and kept only with no fold, no more irregular inner nodes and no corner below the
+    /// worst one gmsh left. A face of a periodic surface closed along one seam or two - a cylinder, a cone, a torus, a
+    /// surface of revolution or extrusion - is cut open along them first (CutAlongSeams): a node on a seam is then a
+    /// fixed node once for each side of the seam, with the parameters of that side, and is written back as the one node
+    /// gmsh placed; the result is not kept when an element would then use a node twice or two elements the same nodes.
+    /// A face that carries curves or points inside it is cut open along the curves (CutAlongEmbeddedEdges) the same
+    /// way, its nodes on them fixed, so that the cleanup neither moves nor crosses them. A face with a degenerate edge,
+    /// a pole, that gmsh left triangles on is cleaned in the projection on its mean plane, or in the conformal chart
+    /// round the pole (GmshPoleChart) when the projection folds an element, a seam of it then being a curve inside it,
+    /// and its corners at the pole measured against the mean normal of its elements there; it is left as gmsh meshed it
+    /// when both fold, and so is one gmsh meshed with quads only. Such a face has no even total in the balance. A
+    /// cleaned mesh of the last passes of the cleanup, which add nodes, is kept only when its worst element shape in
+    /// space is not below 0.2 or below gmsh's, whichever is lower. A face whose parameters do not run evenly over it,
+    /// or with a curve inside it and a seam, is left as gmsh meshed it.
     /// </summary>
     public static class GmshQuadMesher
     {
@@ -39,6 +50,9 @@ namespace CaeMesh
         private static readonly double TriangleScale = 2 / Math.Sqrt(3);
         private const double MaxDegenerateLength = 1E-9;
         private const double SeamTolerance = 1E-6;
+        private const double SharpCornerShare = 0.5;
+        private const double ShapeFloor = 0.2;
+        internal const string OddTotalReason = "the elements around its boundary add up to an odd number";
 
 
         // Methods                                                                                                                  
@@ -86,15 +100,12 @@ namespace CaeMesh
                     return false;
                 }
             }
+            // A degenerate edge, a pole, is one node of the boundary in space but a line in the parameters, so such a
+            // face is cleaned in the projection on its mean plane, where a seam is no cut but a curve inside the face
             double faceSize = GetFaceSize(surfaceId);
-            foreach (var edgeId in uniqueEdgeIds)
-            {
-                if (IsDegenerateEdge(edgeId, faceSize))
-                {
-                    reason = "Edge " + edgeId + " of it is degenerate";
-                    return false;
-                }
-            }
+            int degenerateEdgeId = uniqueEdgeIds.FirstOrDefault(edgeId => IsDegenerateEdge(edgeId, faceSize));
+            bool poled = degenerateEdgeId != 0;
+            if (poled && triangleFree) return false;
             HashSet<IntPtr> boundaryTags = new HashSet<IntPtr>();
             HashSet<IntPtr> rimTags = new HashSet<IntPtr>();
             IntPtr[] tags;
@@ -114,7 +125,22 @@ namespace CaeMesh
             Dictionary<IntPtr, double[]> tagXyz = new Dictionary<IntPtr, double[]>();
             for (int i = 0; i < tags.Length; i++)
                 tagXyz[tags[i]] = new double[] { coor[3 * i], coor[3 * i + 1], coor[3 * i + 2] };
-            // The boundary nodes first and then the inner ones, each in the order the elements meet them
+            // The nodes on an edge or a point inside the face stay as well
+            HashSet<IntPtr> fixedTags = new HashSet<IntPtr>(boundaryTags);
+            foreach (var element in gmshElements)
+            {
+                foreach (var tag in element)
+                {
+                    if (!boundaryTags.Contains(tag) && !innerTags.Contains(tag)) fixedTags.Add(tag);
+                }
+            }
+            bool embedded = fixedTags.Count > boundaryTags.Count || poled && seamEdgeIds.Count > 0;
+            if (embedded && !poled && seamEdgeIds.Count > 0)
+            {
+                reason = "it carries an edge or a point inside it and is closed along a seam";
+                return false;
+            }
+            // The fixed nodes first and then the inner ones, each in the order the elements meet them
             List<IntPtr> nodeTags = new List<IntPtr>();
             Dictionary<IntPtr, int> tagIndex = new Dictionary<IntPtr, int>();
             for (int pass = 0; pass < 2; pass++)
@@ -124,22 +150,27 @@ namespace CaeMesh
                     foreach (var tag in element)
                     {
                         if (tagIndex.ContainsKey(tag)) continue;
-                        bool isBoundary = boundaryTags.Contains(tag);
-                        if (!isBoundary && !innerTags.Contains(tag))
-                        {
-                            reason = "it carries an edge or a point inside it";
-                            return false;
-                        }
-                        if (isBoundary != (pass == 0)) continue;
+                        if (fixedTags.Contains(tag) != (pass == 0)) continue;
                         tagIndex.Add(tag, nodeTags.Count);
                         nodeTags.Add(tag);
                     }
                 }
                 if (pass == 0 && nodeTags.Count == 0) return false;
             }
+            if (embedded)
+            {
+                // The nodes on curves and points inside the face are not among the nodes of the surface
+                Gmsh.Model.Mesh.GetNodes(out tags, out coor, -1, -1, false, false);
+                for (int i = 0; i < tags.Length; i++)
+                {
+                    if (fixedTags.Contains(tags[i]) && !tagXyz.ContainsKey(tags[i]))
+                        tagXyz[tags[i]] = new double[] { coor[3 * i], coor[3 * i + 1], coor[3 * i + 2] };
+                }
+            }
             int numOfNodes = nodeTags.Count;
             int numOfBoundaryNodes = 0;
-            while (numOfBoundaryNodes < numOfNodes && boundaryTags.Contains(nodeTags[numOfBoundaryNodes])) numOfBoundaryNodes++;
+            while (numOfBoundaryNodes < numOfNodes && fixedTags.Contains(nodeTags[numOfBoundaryNodes]))
+                numOfBoundaryNodes++;
             double[][] xyz = new double[numOfNodes][];
             double[] flatXyz = new double[3 * numOfNodes];
             for (int i = 0; i < numOfNodes; i++)
@@ -164,9 +195,17 @@ namespace CaeMesh
             double[][] uv = new double[numOfNodes][];
             for (int i = 0; i < numOfNodes; i++) uv[i] = new double[] { flatUv[2 * i], flatUv[2 * i + 1] };
             int numOfBoundarySegments = GetBoundarySegments(elements).Count;
+            // A face with curves inside it is cut open along them, each side of a curve a boundary of its own
+            if (embedded)
+            {
+                HashSet<long> embeddedEdges = GetEmbeddedEdges(uniqueEdgeIds, elements, tagIndex);
+                if (poled) embeddedEdges.UnionWith(GetCurveEdges(seamEdgeIds, tagIndex));
+                CutAlongEmbeddedEdges(embeddedEdges, ref numOfBoundaryNodes, nodeTags, ref xyz, ref uv, elements);
+                numOfNodes = nodeTags.Count;
+            }
             // A face closed along seams is cut open along them: a node on a seam appears once for every side of it the
             // elements around it lie on, with the parameters of that side, so that the face becomes a plane region
-            bool cut = seamEdgeIds.Count > 0;
+            bool cut = seamEdgeIds.Count > 0 && !poled;
             if (cut)
             {
                 List<int> cutNodeIds;
@@ -194,21 +233,102 @@ namespace CaeMesh
             double[] w = GetFrame(segmentUv, segmentXyz);
             double[][] points = new double[numOfNodes][];
             for (int i = 0; i < numOfNodes; i++) points[i] = ThreeBlockMapping.ToFrame(w, uv[i]);
+            // Parameters that fold gmsh's own mesh, as those of a sliver of a blend whose corner they squeeze, give way
+            // to the projection on the mean plane of the face when that folds none of its elements
+            double[][] plane = null;
+            if (!cut && (poled || CountFoldedElements(points, elements) > 0))
+            {
+                double[][] projected = GetProjectedPoints(xyz, elements, out plane);
+                if (projected != null && CountFoldedElements(projected, elements) == 0) points = projected;
+                else plane = null;
+            }
+            // A pole face the projection folds, a cap reaching beyond its equator, takes the conformal chart round the
+            // pole
+            GmshPoleChart chart = null;
+            if (poled && plane == null)
+            {
+                chart = GetPoleChart(surfaceId, degenerateEdgeId, nodeTags, xyz, uv, numOfBoundaryNodes, faceSize);
+                double[][] charted = chart == null ? null : uv.Select(chart.ToChart).ToArray();
+                if (charted != null && CountFoldedElements(charted, elements) == 0) points = charted;
+                else
+                {
+                    reason = "Edge " + degenerateEdgeId + " of it is degenerate and neither its projection on its " +
+                             "mean plane nor its chart round the pole keep its elements unfolded";
+                    return false;
+                }
+            }
             if (!AreAreasOfOneSign(points, elements))
             {
                 reason = "its parameters do not run evenly over it";
                 return false;
             }
             bool oddTotal = numOfBoundarySegments % 2 == 1;
-            string oddReason = "the elements around its boundary add up to an odd number, " + numOfBoundarySegments;
-            string notJoinedReason = "the cleanup found no good way to join them into quads";
+            string oddReason = OddTotalReason + ", " + numOfBoundarySegments;
+            if (poled) oddReason += ", which the balance does not make even around a face with a degenerate edge";
             //
             bool[] fixedNodes = new bool[numOfNodes];
             for (int i = 0; i < numOfBoundaryNodes; i++) fixedNodes[i] = true;
+            // The pole is no corner of the face, whatever angle its edges make in space
+            HashSet<int> poleNodes = new HashSet<int>();
+            if (poled)
+            {
+                Gmsh.Model.Mesh.GetNodes(out tags, out coor, 1, degenerateEdgeId, true, false);
+                HashSet<IntPtr> poleTags = new HashSet<IntPtr>(tags);
+                for (int i = 0; i < numOfBoundaryNodes; i++)
+                {
+                    if (poleTags.Contains(nodeTags[i])) poleNodes.Add(i);
+                }
+            }
+            // A cleaned mesh that is not kept in space is tried again in the projection on the mean plane of the face,
+            // and last as the cleanup made it before its last passes, which keeps the triangles they would have joined
+            double[][] framePoints = points;
+            double[][] framePlane = plane;
+            string firstReason = null;
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                if (attempt > 0 && triangleFree) break;
+                if (attempt == 1)
+                {
+                    if (cut || framePlane != null || chart != null) continue;
+                    points = GetProjectedPoints(xyz, elements, out plane);
+                    if (points == null || CountFoldedElements(points, elements) > 0 ||
+                        !AreAreasOfOneSign(points, elements))
+                        continue;
+                }
+                else if (attempt == 2)
+                {
+                    points = framePoints;
+                    plane = framePlane;
+                }
+                if (TryClean(surfaceId, points, plane, chart, w, attempt < 2, fixedNodes, elements, xyz, uv, nodeTags,
+                             numOfBoundaryNodes, segments, cut, embedded, triangleFree, numOfTriangles, rimTags,
+                             gmshElements, poleNodes, oddTotal ? oddReason : null, out numOfTriangles, out reason))
+                    return true;
+                if (firstReason == null) firstReason = reason ?? "";
+            }
+            reason = string.IsNullOrEmpty(firstReason) ? null : firstReason;
+            return false;
+        }
+        /// <summary>
+        /// Cleans the elements of the face given in the plane frame, in the projection plane when plane is not null,
+        /// with the last passes of the cleanup or without them, and replaces the elements of the face when the result
+        /// is kept. Returns whether it was kept; numOfTriangles is then the number of triangles the face keeps, and
+        /// reason why.
+        /// </summary>
+        private static bool TryClean(int surfaceId, double[][] points, double[][] plane, GmshPoleChart chart,
+                                     double[] w, bool lastPasses, bool[] fixedNodes, int[][] elements, double[][] xyz,
+                                     double[][] uv, List<IntPtr> nodeTags, int numOfBoundaryNodes, List<int[]> segments,
+                                     bool cut, bool embedded, bool triangleFree, int numOfGmshTriangles,
+                                     HashSet<IntPtr> rimTags, List<IntPtr[]> gmshElements, HashSet<int> poleNodes,
+                                     string oddReason, out int numOfTriangles, out string reason)
+        {
+            numOfTriangles = numOfGmshTriangles;
+            reason = null;
+            string notJoinedReason = "the cleanup found no good way to join them into quads";
             QuadCleanupResult result;
             try
             {
-                result = QuadCleanup.Clean(points, elements, fixedNodes);
+                result = QuadCleanup.Clean(points, elements, fixedNodes, lastPasses);
             }
             catch (CaeException ex)
             {
@@ -220,9 +340,9 @@ namespace CaeMesh
             // nodes on a seam, inner nodes of the face, are counted once it is joined again
             if (triangleFree && (result.NumberOfFoldedElements > 0 ||
                                  !cut && result.NumberOfIrregularNodes > result.NumberOfIrregularNodesBefore)) return false;
-            if (!triangleFree && result.NumberOfTriangles >= numOfTriangles)
+            if (!triangleFree && result.NumberOfTriangles >= numOfGmshTriangles)
             {
-                reason = oddTotal && numOfTriangles == 1 ? oddReason : notJoinedReason;
+                reason = oddReason != null && numOfGmshTriangles == 1 ? oddReason : notJoinedReason;
                 return false;
             }
             if (result.NumberOfFoldedElements > 0)
@@ -239,9 +359,15 @@ namespace CaeMesh
                 else if (result.IsNodeUsed[i])
                 {
                     newIds[i] = numOfBoundaryNodes + innerUv.Count;
-                    innerUv.Add(ThreeBlockMapping.FromFrame(w, result.Points[i]));
+                    innerUv.Add(chart != null ? chart.ToUv(result.Points[i]) :
+                                plane == null ? ThreeBlockMapping.FromFrame(w, result.Points[i]) : null);
                 }
                 else newIds[i] = -1;
+            }
+            if (plane != null && !SetPlaneParameters(surfaceId, plane, result, numOfBoundaryNodes, innerUv))
+            {
+                reason = "its inner nodes could not be placed on its surface";
+                return false;
             }
             double[] innerFlatUv = new double[2 * innerUv.Count];
             for (int i = 0; i < innerUv.Count; i++)
@@ -265,13 +391,15 @@ namespace CaeMesh
                 newElements[e] = new int[result.Elements[e].Length];
                 for (int c = 0; c < newElements[e].Length; c++) newElements[e][c] = newIds[result.Elements[e][c]];
             }
-            if (cut)
+            if (cut || embedded)
             {
-                reason = GetSeamJoinReason(newElements, nodeTags, numOfBoundaryNodes);
+                reason = GetSeamJoinReason(newElements, nodeTags, numOfBoundaryNodes,
+                                           cut ? "a seam" : "an edge inside it");
                 if (reason != null) return false;
-                if (triangleFree && CountIrregularInnerNodes(GetNodeKeys(newElements, nodeTags, numOfBoundaryNodes), rimTags) >
-                                    CountIrregularInnerNodes(gmshElements.Select(element => element.Select(tag => tag.ToInt64())
-                                                                                                   .ToArray()), rimTags))
+                if (cut && triangleFree &&
+                    CountIrregularInnerNodes(GetNodeKeys(newElements, nodeTags, numOfBoundaryNodes), rimTags) >
+                    CountIrregularInnerNodes(gmshElements.Select(element => element.Select(tag => tag.ToInt64())
+                                                                                   .ToArray()), rimTags))
                     return false;
             }
             // The quality in space, against the normal of the surface, turned the way gmsh's elements turn
@@ -288,10 +416,13 @@ namespace CaeMesh
                 newUv[numOfBoundaryNodes + i] = innerUv[i];
             }
             double orientation = GetSpaceOrientation(surfaceId, elements, xyz, uv);
-            double minScaledJacobian = GetSpaceMinScaledJacobian(surfaceId, newElements, newXyz, newUv, orientation);
-            double gmshMinScaledJacobian = GetSpaceMinScaledJacobian(surfaceId, elements, xyz, uv, orientation);
+            double minScaledJacobian = GetSpaceMinScaledJacobian(surfaceId, newElements, newXyz, newUv, orientation,
+                                                                 poleNodes);
+            double gmshMinScaledJacobian = GetSpaceMinScaledJacobian(surfaceId, elements, xyz, uv, orientation,
+                                                                     poleNodes);
             double floor = triangleFree ? gmshMinScaledJacobian :
-                           Math.Min(SubmapFaceDetector.MinScaledJacobian, gmshMinScaledJacobian);
+                           Math.Min(GetCornerFloor(surfaceId, segments, xyz, uv, orientation, poleNodes),
+                                    gmshMinScaledJacobian);
             if (triangleFree && minScaledJacobian < floor) return false;
             if (minScaledJacobian < floor)
             {
@@ -299,12 +430,27 @@ namespace CaeMesh
                          ", below " + Math.Round(floor, 3);
                 return false;
             }
+            // The last passes add nodes, which may halve elements that are narrow already: their shape is held to
+            // gmsh's
+            if (lastPasses)
+            {
+                double minShape = GetSpaceMinShape(surfaceId, newElements, newXyz, newUv, orientation, poleNodes);
+                double shapeFloor = Math.Min(ShapeFloor,
+                                             GetSpaceMinShape(surfaceId, elements, xyz, uv, orientation, poleNodes));
+                if (minShape < shapeFloor)
+                {
+                    reason = "the cleaned mesh would have an element of the shape " + Math.Round(minShape, 3) +
+                             ", below " + Math.Round(shapeFloor, 3);
+                    return false;
+                }
+            }
             IntPtr[] boundaryNodeTags = new IntPtr[numOfBoundaryNodes];
             for (int i = 0; i < numOfBoundaryNodes; i++) boundaryNodeTags[i] = nodeTags[i];
             GmshThreeBlockMesher.ReplaceSurfaceElements(surfaceId, boundaryNodeTags, newElements, innerUv.ToArray(),
                                                         innerXyz, false, true);
             numOfTriangles = result.NumberOfTriangles;
-            reason = numOfTriangles == 0 ? null : oddTotal && numOfTriangles == 1 ? oddReason : notJoinedReason;
+            reason = numOfTriangles == 0 ? null :
+                     oddReason != null && numOfTriangles == 1 ? oddReason : notJoinedReason;
             return true;
         }
         /// <summary>
@@ -506,6 +652,216 @@ namespace CaeMesh
             return true;
         }
         /// <summary>
+        /// The edges of the mesh of the face, by the ids of their nodes, that lie on a curve inside it: the segments of
+        /// a curve that does not bound the face and whose every segment is an edge of the mesh.
+        /// </summary>
+        private static HashSet<long> GetEmbeddedEdges(List<int> boundaryEdgeIds, int[][] elements,
+                                                      Dictionary<IntPtr, int> tagIndex)
+        {
+            HashSet<long> meshEdges = new HashSet<long>();
+            foreach (var element in elements)
+            {
+                for (int c = 0; c < element.Length; c++)
+                    meshEdges.Add(GetEdgeKey(element[c], element[(c + 1) % element.Length]));
+            }
+            HashSet<long> embeddedEdges = new HashSet<long>();
+            Tuple<int, int>[] curveDimTags;
+            Gmsh.Model.GetEntities(out curveDimTags, 1);
+            foreach (var curveDimTag in curveDimTags)
+            {
+                if (boundaryEdgeIds.Contains(curveDimTag.Item2)) continue;
+                int[] elementTypes;
+                IntPtr[][] elementTags;
+                IntPtr[][] elementNodeTags;
+                Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out elementNodeTags, 1,
+                                            curveDimTag.Item2);
+                List<long> segments = new List<long>();
+                bool inside = elementTypes.Length > 0;
+                for (int t = 0; t < elementTypes.Length && inside; t++)
+                {
+                    if (elementTypes[t] != (int)GmshElementType.LinearBeam)
+                    {
+                        inside = false;
+                        break;
+                    }
+                    for (int e = 0; e < elementTags[t].Length && inside; e++)
+                    {
+                        int a = -1;
+                        int b = -1;
+                        inside = tagIndex.TryGetValue(elementNodeTags[t][2 * e], out a) &&
+                                 tagIndex.TryGetValue(elementNodeTags[t][2 * e + 1], out b) &&
+                                 meshEdges.Contains(GetEdgeKey(a, b));
+                        if (inside) segments.Add(GetEdgeKey(a, b));
+                    }
+                }
+                if (inside) embeddedEdges.UnionWith(segments);
+            }
+            return embeddedEdges;
+        }
+        /// <summary>
+        /// The chart of the face round the pole at its degenerate edge, over the parameters of its other fixed nodes;
+        /// null when the pole is not one of its surface.
+        /// </summary>
+        private static GmshPoleChart GetPoleChart(int surfaceId, int degenerateEdgeId, List<IntPtr> nodeTags,
+                                                  double[][] xyz, double[][] uv, int numOfFixedNodes, double faceSize)
+        {
+            IntPtr[] tags;
+            Gmsh.Model.Mesh.GetNodes(out tags, out _, 1, degenerateEdgeId, true, false);
+            HashSet<IntPtr> poleTags = new HashSet<IntPtr>(tags);
+            int pole = nodeTags.FindIndex(poleTags.Contains);
+            if (pole < 0) return null;
+            int p;
+            double poleV;
+            double farV;
+            if (!GmshPoleChart.FindPole(surfaceId, xyz[pole], faceSize, out p, out poleV, out farV)) return null;
+            List<double[]> faceUv = new List<double[]>();
+            for (int i = 0; i < numOfFixedNodes; i++)
+            {
+                if (!poleTags.Contains(nodeTags[i])) faceUv.Add(uv[i]);
+            }
+            return new GmshPoleChart(surfaceId, xyz[pole], p, poleV, farV, faceUv);
+        }
+        /// <summary>
+        /// The edges of the mesh, by the ids of their nodes, on the given curves.
+        /// </summary>
+        private static HashSet<long> GetCurveEdges(List<int> curveIds, Dictionary<IntPtr, int> tagIndex)
+        {
+            HashSet<long> edges = new HashSet<long>();
+            foreach (var curveId in curveIds)
+            {
+                int[] elementTypes;
+                IntPtr[][] elementTags;
+                IntPtr[][] elementNodeTags;
+                Gmsh.Model.Mesh.GetElements(out elementTypes, out elementTags, out elementNodeTags, 1, curveId);
+                for (int t = 0; t < elementTypes.Length; t++)
+                {
+                    if (elementTypes[t] != (int)GmshElementType.LinearBeam) continue;
+                    for (int e = 0; e < elementTags[t].Length; e++)
+                    {
+                        int a;
+                        int b;
+                        if (tagIndex.TryGetValue(elementNodeTags[t][2 * e], out a) &&
+                            tagIndex.TryGetValue(elementNodeTags[t][2 * e + 1], out b)) edges.Add(GetEdgeKey(a, b));
+                    }
+                }
+            }
+            return edges;
+        }
+        /// <summary>
+        /// Cuts the mesh of a face open along the edges on curves inside it, so that the cleanup keeps them as the
+        /// boundary they are: a node on such an edge appears once for every fan of elements around it that the edges
+        /// separate, each copy a fixed node, so that a node at the free end of a curve or on a point inside the face
+        /// stays one node. The copies follow the fixed nodes, before the inner ones, and are written back as the one
+        /// node gmsh placed.
+        /// </summary>
+        private static void CutAlongEmbeddedEdges(HashSet<long> embeddedEdges, ref int numOfFixedNodes,
+                                                  List<IntPtr> nodeTags, ref double[][] xyz, ref double[][] uv,
+                                                  int[][] elements)
+        {
+            Dictionary<long, List<int>> edgeElements = new Dictionary<long, List<int>>();
+            SortedDictionary<int, List<int>> nodeElements = new SortedDictionary<int, List<int>>();
+            HashSet<int> cutNodes = new HashSet<int>();
+            foreach (var key in embeddedEdges)
+            {
+                cutNodes.Add((int)(key >> 32));
+                cutNodes.Add((int)(key & 0xFFFFFFFF));
+            }
+            for (int e = 0; e < elements.Length; e++)
+            {
+                int[] element = elements[e];
+                for (int c = 0; c < element.Length; c++)
+                {
+                    long key = GetEdgeKey(element[c], element[(c + 1) % element.Length]);
+                    List<int> ids;
+                    if (!edgeElements.TryGetValue(key, out ids)) edgeElements.Add(key, ids = new List<int>());
+                    ids.Add(e);
+                    if (!cutNodes.Contains(element[c])) continue;
+                    if (!nodeElements.TryGetValue(element[c], out ids))
+                        nodeElements.Add(element[c], ids = new List<int>());
+                    ids.Add(e);
+                }
+            }
+            // The fans around every node on an edge inside, the elements joined across the edges that are not cut
+            List<int> copyOf = new List<int>();
+            Dictionary<long, int> cornerCopies = new Dictionary<long, int>();
+            foreach (var entry in nodeElements)
+            {
+                int node = entry.Key;
+                List<int> fan = entry.Value;
+                int[] parent = new int[fan.Count];
+                for (int i = 0; i < parent.Length; i++) parent[i] = i;
+                for (int i = 0; i < fan.Count; i++)
+                {
+                    int[] element = elements[fan[i]];
+                    int c = Array.IndexOf(element, node);
+                    foreach (var other in new int[] { element[(c + 1) % element.Length],
+                                                      element[(c + element.Length - 1) % element.Length] })
+                    {
+                        long key = GetEdgeKey(node, other);
+                        if (embeddedEdges.Contains(key)) continue;
+                        foreach (var e in edgeElements[key])
+                        {
+                            int j = fan.IndexOf(e);
+                            if (j < 0 || j == i) continue;
+                            int rootI = GetRoot(parent, i);
+                            int rootJ = GetRoot(parent, j);
+                            if (rootI != rootJ) parent[Math.Max(rootI, rootJ)] = Math.Min(rootI, rootJ);
+                        }
+                    }
+                }
+                Dictionary<int, int> rootCopies = new Dictionary<int, int>();
+                for (int i = 0; i < fan.Count; i++)
+                {
+                    int root = GetRoot(parent, i);
+                    int copy;
+                    if (!rootCopies.TryGetValue(root, out copy))
+                    {
+                        copy = rootCopies.Count == 0 ? -1 : copyOf.Count;
+                        if (copy >= 0) copyOf.Add(node);
+                        rootCopies.Add(root, copy);
+                    }
+                    if (copy >= 0) cornerCopies.Add(((long)fan[i] << 32) | (uint)node, copy);
+                }
+            }
+            if (copyOf.Count == 0) return;
+            // The copies after the fixed nodes, the inner nodes after them
+            int numOfCopies = copyOf.Count;
+            int numOfNodes = nodeTags.Count;
+            List<IntPtr> cutNodeTags = nodeTags.GetRange(0, numOfFixedNodes);
+            List<double[]> cutXyz = xyz.Take(numOfFixedNodes).ToList();
+            List<double[]> cutUv = uv.Take(numOfFixedNodes).ToList();
+            foreach (var node in copyOf)
+            {
+                cutNodeTags.Add(nodeTags[node]);
+                cutXyz.Add(xyz[node]);
+                cutUv.Add(new double[] { uv[node][0], uv[node][1] });
+            }
+            cutNodeTags.AddRange(nodeTags.GetRange(numOfFixedNodes, numOfNodes - numOfFixedNodes));
+            cutXyz.AddRange(xyz.Skip(numOfFixedNodes));
+            cutUv.AddRange(uv.Skip(numOfFixedNodes));
+            for (int e = 0; e < elements.Length; e++)
+            {
+                for (int c = 0; c < elements[e].Length; c++)
+                {
+                    int node = elements[e][c];
+                    int copy;
+                    if (cornerCopies.TryGetValue(((long)e << 32) | (uint)node, out copy))
+                        elements[e][c] = numOfFixedNodes + copy;
+                    else if (node >= numOfFixedNodes) elements[e][c] = node + numOfCopies;
+                }
+            }
+            nodeTags.Clear();
+            nodeTags.AddRange(cutNodeTags);
+            xyz = cutXyz.ToArray();
+            uv = cutUv.ToArray();
+            numOfFixedNodes += numOfCopies;
+        }
+        private static int GetRoot(int[] parent, int i)
+        {
+            while (parent[i] != i) i = parent[i] = parent[parent[i]];
+            return i;
+        }
+        /// <summary>
         /// The parameters of the centre of the element on the surface, within the bounds of the face along the closed
         /// parameters; null when it could not be placed.
         /// </summary>
@@ -533,10 +889,11 @@ namespace CaeMesh
             return start + wrapped;
         }
         /// <summary>
-        /// Why the elements of a face cut along its seams cannot be written with each node on a seam once: an element
-        /// that would use a node twice, or two elements of the same nodes; null when they can.
+        /// Why the elements of a face cut along its seams or the curves inside it cannot be written with each node on a
+        /// cut once: an element that would use a node twice, or two elements of the same nodes; null when they can.
         /// </summary>
-        private static string GetSeamJoinReason(int[][] elements, List<IntPtr> nodeTags, int numOfBoundaryNodes)
+        private static string GetSeamJoinReason(int[][] elements, List<IntPtr> nodeTags, int numOfBoundaryNodes,
+                                                string cutName)
         {
             HashSet<string> keys = new HashSet<string>();
             foreach (var element in GetNodeKeys(elements, nodeTags, numOfBoundaryNodes))
@@ -545,7 +902,8 @@ namespace CaeMesh
                 Array.Sort(nodes);
                 for (int c = 1; c < nodes.Length; c++)
                 {
-                    if (nodes[c] == nodes[c - 1]) return "the cleanup would join the two sides of a seam in one element";
+                    if (nodes[c] == nodes[c - 1])
+                        return "the cleanup would join the two sides of " + cutName + " in one element";
                 }
                 if (!keys.Add(string.Join(" ", nodes))) return "the cleanup would make two elements of the same nodes";
             }
@@ -612,6 +970,134 @@ namespace CaeMesh
             return new double[] { Math.Sqrt(gu), 0, Math.Sqrt(gv) };
         }
         /// <summary>
+        /// The floor of the scaled Jacobian a face with triangles is held to: SubmapFaceDetector.MinScaledJacobian, or
+        /// what the sharpest corner of its boundary allows a quad in it when that is lower, SharpCornerShare times the
+        /// sine of a corner below 90 degrees in space, measured between the boundary segments at the node against the
+        /// normal of the surface.
+        /// </summary>
+        private static double GetCornerFloor(int surfaceId, List<int[]> segments, double[][] xyz, double[][] uv,
+                                             double orientation, HashSet<int> poleNodes)
+        {
+            double floor = SubmapFaceDetector.MinScaledJacobian;
+            Dictionary<int, int> next = new Dictionary<int, int>();
+            Dictionary<int, int> previous = new Dictionary<int, int>();
+            HashSet<int> branchNodes = new HashSet<int>();
+            foreach (var segment in segments)
+            {
+                if (next.ContainsKey(segment[0])) branchNodes.Add(segment[0]);
+                else next.Add(segment[0], segment[1]);
+                if (previous.ContainsKey(segment[1])) branchNodes.Add(segment[1]);
+                else previous.Add(segment[1], segment[0]);
+            }
+            List<int> nodes = next.Keys.Where(node => previous.ContainsKey(node) && !branchNodes.Contains(node) &&
+                                                       !poleNodes.Contains(node))
+                                       .OrderBy(node => node).ToList();
+            if (nodes.Count == 0) return floor;
+            double[][] normals = GetNormals(surfaceId, nodes.Select(node => uv[node]).ToArray());
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                double[] p = xyz[nodes[i]];
+                double[] a = new double[3];
+                double[] b = new double[3];
+                for (int d = 0; d < 3; d++)
+                {
+                    a[d] = xyz[next[nodes[i]]][d] - p[d];
+                    b[d] = xyz[previous[nodes[i]]][d] - p[d];
+                }
+                double[] normal = normals[i];
+                double cross = (a[1] * b[2] - a[2] * b[1]) * normal[0] + (a[2] * b[0] - a[0] * b[2]) * normal[1] +
+                               (a[0] * b[1] - a[1] * b[0]) * normal[2];
+                double angle = Math.Atan2(orientation * cross, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]);
+                if (angle > 0 && angle < 0.5 * Math.PI) floor = Math.Min(floor, SharpCornerShare * Math.Sin(angle));
+            }
+            return floor;
+        }
+        /// <summary>
+        /// The elements with a corner that folds or has no area, against the way most of the area turns.
+        /// </summary>
+        private static int CountFoldedElements(double[][] points, int[][] elements)
+        {
+            double area = 0;
+            foreach (var element in elements)
+            {
+                for (int c = 0; c < element.Length; c++)
+                {
+                    double[] p = points[element[c]];
+                    double[] q = points[element[(c + 1) % element.Length]];
+                    area += p[0] * q[1] - q[0] * p[1];
+                }
+            }
+            return QuadSmoothing.CountFoldedElements(points, elements, area < 0 ? -1 : 1);
+        }
+        /// <summary>
+        /// The nodes projected on the plane through their centre normal to the mean normal of the elements, and the
+        /// plane as its origin and two axes; null when the elements have no mean normal.
+        /// </summary>
+        private static double[][] GetProjectedPoints(double[][] xyz, int[][] elements, out double[][] plane)
+        {
+            plane = null;
+            double[] normal = new double[3];
+            foreach (var element in elements)
+            {
+                double[] a = xyz[element[0]];
+                double[] b = xyz[element[1]];
+                double[] c = xyz[element[2]];
+                double[] d = element.Length == 4 ? xyz[element[3]] : a;
+                double[] first = new double[] { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
+                double[] second = new double[] { d[0] - b[0], d[1] - b[1], d[2] - b[2] };
+                if (element.Length == 3) second = new double[] { a[0] - b[0], a[1] - b[1], a[2] - b[2] };
+                normal[0] += first[1] * second[2] - first[2] * second[1];
+                normal[1] += first[2] * second[0] - first[0] * second[2];
+                normal[2] += first[0] * second[1] - first[1] * second[0];
+            }
+            double length = Math.Sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+            if (!(length > 0)) return null;
+            for (int k = 0; k < 3; k++) normal[k] /= length;
+            double[] axisU = Math.Abs(normal[0]) < 0.9 ? new double[] { 1, 0, 0 } : new double[] { 0, 1, 0 };
+            double along = axisU[0] * normal[0] + axisU[1] * normal[1] + axisU[2] * normal[2];
+            for (int k = 0; k < 3; k++) axisU[k] -= along * normal[k];
+            length = Math.Sqrt(axisU[0] * axisU[0] + axisU[1] * axisU[1] + axisU[2] * axisU[2]);
+            for (int k = 0; k < 3; k++) axisU[k] /= length;
+            double[] axisV = new double[] { normal[1] * axisU[2] - normal[2] * axisU[1],
+                                            normal[2] * axisU[0] - normal[0] * axisU[2],
+                                            normal[0] * axisU[1] - normal[1] * axisU[0] };
+            double[] origin = new double[3];
+            foreach (var p in xyz)
+            {
+                for (int k = 0; k < 3; k++) origin[k] += p[k] / xyz.Length;
+            }
+            double[][] points = new double[xyz.Length][];
+            for (int i = 0; i < xyz.Length; i++)
+            {
+                double[] r = new double[] { xyz[i][0] - origin[0], xyz[i][1] - origin[1], xyz[i][2] - origin[2] };
+                points[i] = new double[] { r[0] * axisU[0] + r[1] * axisU[1] + r[2] * axisU[2],
+                                           r[0] * axisV[0] + r[1] * axisV[1] + r[2] * axisV[2] };
+            }
+            plane = new double[][] { origin, axisU, axisV };
+            return points;
+        }
+        /// <summary>
+        /// The parameters of the inner nodes the cleanup placed in the projection plane, at the points of the surface
+        /// nearest to them; false when they could not be found.
+        /// </summary>
+        private static bool SetPlaneParameters(int surfaceId, double[][] plane, QuadCleanupResult result,
+                                               int numOfBoundaryNodes, List<double[]> innerUv)
+        {
+            List<double> flatXyz = new List<double>();
+            for (int i = numOfBoundaryNodes; i < result.Points.Length; i++)
+            {
+                if (!result.IsNodeUsed[i]) continue;
+                for (int k = 0; k < 3; k++)
+                    flatXyz.Add(plane[0][k] + result.Points[i][0] * plane[1][k] + result.Points[i][1] * plane[2][k]);
+            }
+            if (flatXyz.Count == 0) return true;
+            double[] flatUv;
+            Gmsh.Model.GetParametrization(2, surfaceId, flatXyz.ToArray(), out flatUv);
+            if (flatUv == null || flatUv.Length != 2 * innerUv.Count) return false;
+            for (int i = 0; i < innerUv.Count; i++) innerUv[i] = new double[] { flatUv[2 * i], flatUv[2 * i + 1] };
+            return true;
+        }
+        /// <summary>
         /// The edges of the mesh that only one element has, in the order of the elements.
         /// </summary>
         private static List<int[]> GetBoundarySegments(int[][] elements)
@@ -676,9 +1162,10 @@ namespace CaeMesh
             return sum < 0 ? -1 : 1;
         }
         private static double GetSpaceMinScaledJacobian(int surfaceId, int[][] elements, double[][] xyz, double[][] uv,
-                                                        double orientation)
+                                                        double orientation, HashSet<int> poleNodes = null)
         {
             double[][] normals = GetNormals(surfaceId, uv);
+            SetPoleNormals(normals, elements, xyz, poleNodes, orientation);
             double min = 1;
             foreach (var element in elements)
             {
@@ -686,6 +1173,71 @@ namespace CaeMesh
                     min = Math.Min(min, GetSpaceScaledJacobian(element, c, xyz, normals, orientation));
             }
             return min;
+        }
+        /// <summary>
+        /// The worst shape of the elements in space: the scaled Jacobian of a corner times 2 |a| |b| / (|a|^2 + |b|^2),
+        /// a and b the edges at the corner, as QuadCleanup.GetMinShape measures it in the plane.
+        /// </summary>
+        private static double GetSpaceMinShape(int surfaceId, int[][] elements, double[][] xyz, double[][] uv,
+                                               double orientation, HashSet<int> poleNodes)
+        {
+            double[][] normals = GetNormals(surfaceId, uv);
+            SetPoleNormals(normals, elements, xyz, poleNodes, orientation);
+            double min = 1;
+            foreach (var element in elements)
+            {
+                int n = element.Length;
+                for (int c = 0; c < n; c++)
+                {
+                    double aLength2 = 0;
+                    double bLength2 = 0;
+                    for (int d = 0; d < 3; d++)
+                    {
+                        double a = xyz[element[(c + 1) % n]][d] - xyz[element[c]][d];
+                        double b = xyz[element[(c + n - 1) % n]][d] - xyz[element[c]][d];
+                        aLength2 += a * a;
+                        bLength2 += b * b;
+                    }
+                    double factor = aLength2 + bLength2 > 0 ?
+                                    2 * Math.Sqrt(aLength2 * bLength2) / (aLength2 + bLength2) : 0;
+                    min = Math.Min(min, GetSpaceScaledJacobian(element, c, xyz, normals, orientation) * factor);
+                }
+            }
+            return min;
+        }
+        /// <summary>
+        /// The normal at a pole, where that of the surface is not defined (the apex of a cone), as the mean of the
+        /// normals of the corners of the elements there, turned so that the orientation measures them as they turn.
+        /// </summary>
+        private static void SetPoleNormals(double[][] normals, int[][] elements, double[][] xyz, HashSet<int> poleNodes,
+                                           double orientation)
+        {
+            if (poleNodes == null || poleNodes.Count == 0) return;
+            Dictionary<int, double[]> sums = new Dictionary<int, double[]>();
+            foreach (var element in elements)
+            {
+                int n = element.Length;
+                for (int c = 0; c < n; c++)
+                {
+                    if (!poleNodes.Contains(element[c])) continue;
+                    double[] p = xyz[element[c]];
+                    double[] a = xyz[element[(c + 1) % n]];
+                    double[] b = xyz[element[(c + n - 1) % n]];
+                    double[] cross = new double[] { (a[1] - p[1]) * (b[2] - p[2]) - (a[2] - p[2]) * (b[1] - p[1]),
+                                                    (a[2] - p[2]) * (b[0] - p[0]) - (a[0] - p[0]) * (b[2] - p[2]),
+                                                    (a[0] - p[0]) * (b[1] - p[1]) - (a[1] - p[1]) * (b[0] - p[0]) };
+                    double length = Math.Sqrt(cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]);
+                    if (!(length > 0)) continue;
+                    double[] sum;
+                    if (!sums.TryGetValue(element[c], out sum)) sums.Add(element[c], sum = new double[3]);
+                    for (int d = 0; d < 3; d++) sum[d] += cross[d] / length;
+                }
+            }
+            foreach (var entry in sums)
+            {
+                double length = Math.Sqrt(entry.Value.Sum(v => v * v));
+                if (length > 0) normals[entry.Key] = entry.Value.Select(v => orientation * v / length).ToArray();
+            }
         }
         internal static double[][] GetNormals(int surfaceId, double[][] uv)
         {

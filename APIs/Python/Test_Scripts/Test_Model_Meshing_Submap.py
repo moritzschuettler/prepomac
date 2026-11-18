@@ -17,11 +17,11 @@
 #    for raises the outer sides instead: the balance keeps the sides that face each other a cell apart.
 #  - submap_thin.brep: faces thinner than the element size, one part each, the balance keeping them apart where the
 #    counts the mesh size asks for would close them up: a U with a web of 2 mm, also with a full-quad recombination, a
-#    face with a step of 1 mm, and an L with legs of 2 mm at an element size below twice their thickness. At the
-#    element size 5 that L folds at its corner, its legs one cell thick, and the mesher leaves it free and says so;
-#    so does a U beside a flange pinned far from the proportions of its edges, the flange staying structured. An L
-#    whose bottom side winds back over itself is not submapped at all, its provisional grid folding, while one with a
-#    low bump in its bottom side is.
+#    face with a step of 1 mm, and an L with legs of 2 mm. At size 5, spacing gives this L 23 right-angled quads. The U
+#    beside a flange pinned to 30 elements on its bottom and 2 on its notch bottom keeps 254 quads. At 50 and 2,
+#    the U still closes a valid lattice outline, but the mesher leaves it free and reports a poor corner. The flange
+#    stays structured with both sets of pins. An L whose bottom side winds back over itself is rejected in detection
+#    because its provisional grid folds. The L with a low bump in its bottom side is submapped.
 #  - Second order elements mesh the L and the U structured; a full-quad recombination and the quasi-structured quad
 #    algorithm mesh them structured or free, but never fail.
 #  - submap_folded.brep: an L-shaped plate with a flange of 20 mm up along two of its outer edges, the three faces
@@ -584,27 +584,14 @@ def check_thin_faces(parts):
     face.plot("thin_L_leg", "L with legs of 2 mm, element size 3: " + str(len(face.elements)) + " quads")
 
 
-def check_mesher_fallback(parts):
-    """Counts that close a valid outline but whose grid folds or is poor leave the face as gmsh meshed it."""
-    part = parts["thin L leg"]
-    detected, flags = detected_faces(part)
-    check(detected == [0], "the thin L must be detected as submapped: " + str(detected))
-    mesh(part)
-    face = FaceMesh(part.name, plane_xy)
-    messages = submapping_messages(part.name)
-    print("thin L leg at the element size 5:", face.kinds(), messages)
-    check(len(messages) == 1 and "is meshed free" in messages[0] and "fold" in messages[0],
-          "the thin L must be meshed free by the mesher with a message that its grid folds: " + str(messages))
-    check("triangle" in face.kinds() or len(face.irregular_inner_nodes()) > 0,
-          "the thin L was not left as gmsh meshed it: " + str(face.kinds()))
-    face.plot("fallback_mesher_thin_L", "L with legs of 2 mm, element size 5: its grid folds, meshed free")
-    # Beside a flange, pinned far from the proportions of its edges
-    part = parts["U with flange"]
+def mesh_pinned_u(part, bottom_count):
     lengths = edges_by_length(part)
+    check(len(lengths[60.0]) == 2 and len(lengths[30.0]) == 1, "the U and flange have unexpected edges")
+    counts = ((60.0, bottom_count), (30.0, 2))
     items = pmx.model.mesh.setup_items
     pins = []
-    for length, count in ((60.0, 30), (30.0, 2)):
-        for edge_id, geometry_id in lengths[length]:
+    for length, count in counts:
+        for edge_id, _ in lengths[length]:
             name = "PyTest_Submap_Pin_" + str(edge_id)
             items.add_local_mesh_size(name, edge_selection(part, edge_id), number_of_elements=count)
             pins.append(name)
@@ -612,22 +599,56 @@ def check_mesher_fallback(parts):
         mesh(part)
     finally:
         items.remove(pins)
+    for length, count in counts:
+        check(all(edge_count(g) == count for _, g in lengths[length]),
+              "the U and flange did not retain the %d elements pinned on edges of %g mm" % (count, length))
     u = FaceMesh(part.name, plane_xy, keep=lambda xyz: abs(xyz[2]) < 1E-6)
     flange = FaceMesh(part.name, lambda xyz: (xyz[0], xyz[2]), keep=lambda xyz: abs(xyz[1]) < 1E-6)
+    return u, flange, submapping_messages(part.name)
+
+
+def check_mesher_fallback(parts):
+    """Matching untangles the thin L and pinned U. A poor grid still falls back to the native free mesh."""
+    tolerance = 1E-3
+    part = parts["thin L leg"]
+    detected, _ = detected_faces(part)
+    check(detected == [0], "the thin L must be detected as submapped: " + str(detected))
+    mesh(part)
+    face = FaceMesh(part.name, plane_xy)
     messages = submapping_messages(part.name)
-    print("U pinned 30 on its bottom and 2 on its notch bottom, beside a flange:", u.kinds(), messages,
-          "flange", flange.kinds())
+    _, quality = check_submapped(face, "the matched thin L at the element size 5")
+    check(len(face.elements) == 23 and abs(quality - 1.0) < tolerance and not messages,
+          "the matched thin L has an unexpected grid: " + str((face.kinds(), quality, messages)))
+    print("thin L at the element size 5:", face.kinds(), "worst scaled Jacobian", quality, messages)
+    face.plot("matched_thin_L", "L with legs of 2 mm, element size 5: 23 structured quads")
+
+    part = parts["U with flange"]
+    detected, _ = detected_faces(part)
+    check(detected == [0], "the U beside the flange must be detected as submapped: " + str(detected))
+    u, flange, messages = mesh_pinned_u(part, 30)
+    _, quality = check_submapped(u, "the matched U with 30 elements on its bottom and 2 on its notch bottom")
+    _, flange_quality = check_submapped(flange, "the flange beside the matched U")
+    check(len(u.elements) == 254 and abs(quality - 0.314705) < tolerance and not messages,
+          "the matched U did not retain its 254-quad grid: " + str((u.kinds(), quality, messages)))
+    check(len(flange.elements) == 180 and abs(flange_quality - 1.0) < tolerance,
+          "the flange beside the matched U did not retain its 180 right-angled quads")
+    print("U pinned 30 / 2:", u.kinds(), "worst scaled Jacobian", quality, messages,
+          "flange", flange.kinds(), "worst scaled Jacobian", flange_quality)
+    FaceMesh(part.name, oblique).plot("matched_U_flange", "U pinned 30 / 2: U and flange structured")
+
+    u, flange, messages = mesh_pinned_u(part, 50)
+    steps, area = u.lattice()
+    check(steps == [50, 20, 50, 20] and area == 532, "the U pinned 50 / 2 did not close its 532-cell outline")
     check(len(messages) == 1 and "is meshed free" in messages[0] and
-          ("fold" in messages[0] or "scaled Jacobian" in messages[0]),
-          "the pinned U must be meshed free by the mesher with a message that says why: " + str(messages))
-    check("triangle" in u.kinds() or len(u.irregular_inner_nodes()) > 0,
-          "the pinned U was not left as gmsh meshed it: " + str(u.kinds()))
-    check(list(flange.kinds().keys()) == ["quadrilateral"] and len(flange.irregular_inner_nodes()) == 0,
-          "the flange beside the U must stay a structured grid: " + str(flange.kinds()))
-    check(sorted(edge_count(g) for e, g in lengths[60.0]) == [30, 30],
-          "both edges of the flange along the U must carry the 30 pinned elements")
-    whole = FaceMesh(part.name, oblique)
-    whole.plot("fallback_mesher_U_flange", "U pinned 30 / 2 beside a flange: U meshed free, flange structured")
+          "its grid has a quad corner of the scaled Jacobian" in messages[0] and "below" in messages[0],
+          "the U pinned 50 / 2 must fall back in the mesher for a poor grid corner: " + str(messages))
+    check(u.kinds() == {"triangle": 96, "quadrilateral": 123},
+          "the U pinned 50 / 2 did not retain the free mesh: " + str(u.kinds()))
+    _, flange_quality = check_submapped(flange, "the flange beside the free U")
+    check(len(flange.elements) == 450 and abs(flange_quality - 1.0) < tolerance,
+          "the flange beside the free U did not retain its 450 right-angled quads")
+    print("U pinned 50 / 2:", u.kinds(), messages, "flange", flange.kinds())
+    FaceMesh(part.name, oblique).plot("fallback_mesher_U_flange", "U pinned 50 / 2: U meshed free, flange structured")
 
 
 def check_detection_rejection(parts):

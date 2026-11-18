@@ -1,50 +1,50 @@
 #PrePoMax Python Script
 #The PrePoMax object is available as 'pmx'
 #
-#Checks the all-quad recombination of a Gmsh shell on faces closed along a seam: GmshQuadMesher cuts such a face open
-#along its seams - a node on a seam appears once for every side of it, with the parameters of that side - converts the
-#cut face like any other free face and writes every node gmsh placed back once. The even total around such a face
+#Checks the quad-dominant recombination of a Gmsh shell on faces closed along a seam: GmshQuadMesher cuts such a face
+#open along its seams - a node on a seam appears once for every side of it, with the parameters of that side - converts
+#the cut face like any other free face and writes every node gmsh placed back once. The even total around such a face
 #counts every edge once but the seam, which the face meets on both sides. A face of one seam between two closed rims is
 #meshed as a structured tube while transfinite_submapped is on, so the meshings below turn it off
 #(transfinite_submapped=False) and the conversion meets the cylinder, the cone, the splines and the bend as before the
 #tubes; the tubes themselves are checked once with it on.
 #
-#  - all_quad_seam_faces.brep: one part per shape side by side - a cylinder of r 20 and 50 high, a pipe of r 20 and 60
-#    high with a hole of r 6 through its wall at 120 degrees from its seam, the same pipe with the hole across its
+#  - quad_dominant_seam_faces.brep: one part per shape side by side - a cylinder of r 20 and 50 high, a pipe of r 20 and
+#    60 high with a hole of r 6 through its wall at 120 degrees from its seam, the same pipe with the hole across its
 #    seam, a cone frustum of r 20 to 10 over 40, a torus of r 25 and 8 closed along both seams with a hole of r 4
 #    across one of them, a B-spline profile of radii between 14 and 26 revolved, a sphere of r 20, a closed periodic
 #    B-spline whose parameter runs from 3 to 11 (so the seam is not at the start 0) extruded by 40, a tee of two pipes
 #    of r 15 and 8 fused (one part of two faces) and a pipe bend of 90 degrees (a quarter of the torus, closed along
 #    one curved seam). A full torus is not in it: gmsh cannot mesh a face closed along two seams without any other
 #    edge ("Impossible to mesh periodic surface").
-#    At the element sizes 5 and 3.5, against gmsh's own meshes under Simple and Blossom (the base of AllQuad): every
-#    face but the sphere ends with quads only, an even number of elements around it, no fold, a worst scaled Jacobian
-#    of 0.2 at least measured in space against the normal of its surface, every boundary node on an edge around the
-#    face, as many nodes on the seams as Blossom has where the totals agree, every node once (no two nodes at one point,
-#    so the seam is not torn open), no element with a node twice and no all-quad message. The boundary nodes are not
-#    compared with Blossom's one by one: the balance meshes the curves once before the mesh, and gmsh then lays some of
-#    them a little differently (the hole across the seam by up to 0.6 mm at the same counts). The sphere, whose poles
-#    are degenerate edges, keeps the mesh gmsh gave it under Blossom (and its message, should that mesh have
+#    At the element sizes 5 and 3.5, against gmsh's own meshes under Simple and Blossom (the base of QuadDominant):
+#    every face but the sphere ends with quads only, an even number of elements around it, no fold, a worst scaled
+#    Jacobian of 0.2 at least measured in space against the normal of its surface, every boundary node on an edge around
+#    the face, as many nodes on the seams as Blossom has where the totals agree, every node once (no two nodes at one
+#    point, so the seam is not torn open), no element with a node twice and no quad-dominant message. The boundary nodes
+#    are not compared with Blossom's one by one: the balance meshes the curves once before the mesh, and gmsh then lays
+#    some of them a little differently (the hole across the seam by up to 0.6 mm at the same counts). The sphere, whose
+#    poles are degenerate edges, keeps the mesh gmsh gave it under Blossom (and its message, should that mesh have
 #    triangles). The table of the three and the time are printed; Blossom is a run of its own, so its worst corner is
-#    not always the one of the mesh AllQuad starts from.
+#    not always the one of the mesh QuadDominant starts from.
 #  A sweep source closed along a seam does not occur: the seam has no side surface, and the sweep refuses such a source
 #  ("The sweep side surfaces around the source surface/s ... do not form a closed loop").
-#  - Pinned counts on the cylinder: 25 and 24 elements on its rims leave exactly one triangle and the all-quad message
-#    of the odd total 49; 25 on one rim alone is balanced to an even total; 7 elements on the seam change neither
-#    verdict, since the seam does not count.
-#  - Second order: the pipe with the hole with AllQuad is quads of 8 nodes only.
-#  - Tubes: with transfinite_submapped on, at the element size 5 with AllQuad, the cylinder, the cone, the revolved and
-#    the extruded spline, the bend and the branch of the tee (closed along its seam between its top rim and the curve
-#    it meets the pipe along) are structured tubes - quads only, every rim node in two quads and every inner node in
-#    four, a worst scaled Jacobian of 0.2 at least, no message, the pipe of the tee quads only as well - the sphere,
+#  - Pinned counts on the cylinder: 25 and 24 elements on its rims leave exactly one triangle and the quad-dominant
+#    message of the odd total 49; 25 on one rim alone is balanced to an even total; 7 elements on the seam change
+#    neither verdict, since the seam does not count.
+#  - Second order: the pipe with the hole with QuadDominant is quads of 8 nodes only.
+#  - Tubes: with transfinite_submapped on, at the element size 5 with QuadDominant, the cylinder, the cone, the revolved
+#    and the extruded spline, the bend and the branch of the tee (closed along its seam between its top rim and the
+#    curve it meets the pipe along) are structured tubes - quads only, every rim node in two quads and every inner node
+#    in four, a worst scaled Jacobian of 0.2 at least, no message, the pipe of the tee quads only as well - the sphere,
 #    closed along its seam from pole to pole, is a structured cap (quads only, the four corners of the block at each
 #    pole its only irregular inner nodes, no message), and every other face is meshed exactly as with it off.
 #  The models were made by gmsh's OCC kernel through GmshCommon: lines, arcs, circles and B-splines revolved or
 #  extruded, the holes cut by fragmenting with a cylinder and removing the pieces inside it.
 #  With the environment variable PMX_QUAD_PLOT_DIR set, the meshes are written into that folder as PNG images, the
-#  faces unrolled in their parameters with the seams drawn red, Simple, Blossom and AllQuad.
+#  faces unrolled in their parameters with the seams drawn red, Simple, Blossom and QuadDominant.
 #
-#  PrePoMax.com -f all_quad_seam_faces.brep -u MM_TON_S_C --script Test_Model_Meshing_All_Quad_Seam.py -g No -x Yes -w <dir>
+#  PrePoMax.com -f quad_dominant_seam_faces.brep -u MM_TON_S_C --script Test_Model_Meshing_Quad_Dominant_Seam.py -g No -x Yes -w <dir>
 #
 #Expected process exit code 0.
 
@@ -100,12 +100,13 @@ def parts_by_x(names, known=()):
 
 
 def output_messages(part_name):
-    """The all-quad lines the last meshing of the part wrote to the output window."""
+    """The quad-dominant lines the last meshing of the part wrote to the output window."""
     form = [form for form in Application.OpenForms if form.GetType().Name == "FrmMain"][0]
     lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
     starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
     check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
-    return [line[line.index("All-quad meshing:"):] for line in lines[starts[-1]:] if "All-quad meshing:" in line]
+    return [line[line.index("Quad-dominant meshing:"):] for line in lines[starts[-1]:]
+            if "Quad-dominant meshing:" in line]
 
 
 def edges_by_length(part):
@@ -428,7 +429,7 @@ def check_shells(parts, size):
         seam_angle = seam_angle_of(name, part, dx)
         tag = name.replace(" ", "_") + "_" + str(size).replace(".", "_")
         meshes = {}
-        for recombine in ("Simple", "Blossom", "AllQuad"):
+        for recombine in ("Simple", "Blossom", "QuadDominant"):
             seconds = mesh(part, recombine, size)
             face = FaceMesh(part.name)
             quads, triangles, quality, irregular = describe(face, name, dx)
@@ -437,32 +438,33 @@ def check_shells(parts, size):
             print(name + " at size " + str(size) + ": " + recombine, quads, "quads", triangles, "triangles, boundary total",
                   len(boundary_edges(face.elements)), "worst scaled Jacobian", round(quality, 3), "irregular", irregular,
                   "in", round(seconds, 3), "s, messages", messages)
-            plot("all_quad_seam_" + tag + "_" + recombine.lower(), name + ", size " + str(size) + ", " + recombine +
+            plot("quad_dominant_seam_" + tag + "_" + recombine.lower(),
+                 name + ", size " + str(size) + ", " + recombine +
                  ": " + str(quads) + " quads, " + str(triangles) + " triangles, worst SJ " + str(round(quality, 3)) +
                  ", irregular " + str(irregular), name, face, dx, seam_angle)
-        face, quads, triangles, quality, irregular, seconds, messages = meshes["AllQuad"]
+        face, quads, triangles, quality, irregular, seconds, messages = meshes["QuadDominant"]
         blossom = meshes["Blossom"][0]
         total = len(boundary_edges(face.elements))
         points = face.points(face.used_nodes())
-        check(len(points) == len(set(points)), "the " + name + " has two nodes at one point with AllQuad")
+        check(len(points) == len(set(points)), "the " + name + " has two nodes at one point with QuadDominant")
         check(all(len(set(element)) == len(element) for element in face.elements),
-              "the " + name + " has an element with a node twice with AllQuad")
+              "the " + name + " has an element with a node twice with QuadDominant")
         if name == "sphere":
             check(face.kinds() == blossom.kinds() and points == blossom.points(blossom.used_nodes()),
                   "the sphere does not keep the mesh gmsh gave it")
             check(triangles == 0 or (len(messages) == 1 and "degenerate" in messages[0]),
                   "the sphere wrote: " + str(messages))
         else:
-            check(total % 2 == 0, "the " + name + " has an odd number of elements around it with AllQuad, " + str(total))
-            check(triangles == 0, "the " + name + " keeps " + str(triangles) + " triangles with AllQuad")
+            check(total % 2 == 0, "the " + name + " has an odd number of elements around it with QuadDominant, " + str(total))
+            check(triangles == 0, "the " + name + " keeps " + str(triangles) + " triangles with QuadDominant")
             check(quality >= FLOOR, "the " + name + " has a corner of the scaled Jacobian " + str(quality))
             check(len(messages) == 0, "the " + name + " wrote: " + str(messages))
             off = [face.xyz[node] for node in boundary_nodes(face.elements) if not on_rim(name, face.xyz[node], dx)]
-            check(len(off) == 0, "the " + name + " has boundary nodes off its edges with AllQuad: " + str(off[:3]))
+            check(len(off) == 0, "the " + name + " has boundary nodes off its edges with QuadDominant: " + str(off[:3]))
             if total == len(boundary_edges(blossom.elements)):
                 seams = len(seam_nodes(name, face, dx, seam_angle))
                 blossom_seams = len(seam_nodes(name, blossom, dx, seam_angle))
-                check(seams == blossom_seams, "the " + name + " has " + str(seams) + " nodes on its seams with AllQuad " +
+                check(seams == blossom_seams, "the " + name + " has " + str(seams) + " nodes on its seams with QuadDominant " +
                       "and " + str(blossom_seams) + " with Blossom")
         simple = meshes["Simple"]
         rows.append((name, size, simple[1], simple[2], round(simple[3], 3), simple[4], meshes["Blossom"][1],
@@ -482,7 +484,7 @@ def check_pins(parts):
              ("25 on one rim", [(rims[0], 25)], None),
              ("7 on the seam", [(seam, 7)], None)]
     for title, pins, odd_total in cases:
-        mesh(part, "AllQuad", SIZES[0], pins=pins)
+        mesh(part, "QuadDominant", SIZES[0], pins=pins)
         face = FaceMesh(part.name)
         messages = output_messages(part.name)
         quads, triangles = face.kinds()
@@ -499,17 +501,18 @@ def check_pins(parts):
                   " triangles around " + str(total) + " elements")
             check(len(messages) == 1 and "keeps 1 triangle - " in messages[0] and "odd number, " + str(total) in
                   messages[0], "the cylinder with " + title + " wrote " + str(messages))
-        plot("all_quad_seam_cylinder_pins_" + str(cases.index((title, pins, odd_total))), "cylinder, " + title + ": " +
+        plot("quad_dominant_seam_cylinder_pins_" + str(cases.index((title, pins, odd_total))),
+             "cylinder, " + title + ": " +
              str(quads) + " quads, " + str(triangles) + " triangles", "cylinder", face, 0.0, 0.0)
 
 
 def check_second_order(parts):
     part = parts["pipe with hole"]
-    mesh(part, "AllQuad", SIZES[0], second_order=True)
+    mesh(part, "QuadDominant", SIZES[0], second_order=True)
     face = FaceMesh(part.name)
     check(all(count == 8 for count in face.node_counts), "the second order pipe has elements of other than 8 nodes: " +
           str(set(face.node_counts)))
-    print("pipe with hole: AllQuad of second order,", len(face.elements), "quads of 8 nodes")
+    print("pipe with hole: QuadDominant of second order,", len(face.elements), "quads of 8 nodes")
 
 
 def check_tubes(parts):
@@ -518,9 +521,9 @@ def check_tubes(parts):
     for i, name in enumerate(SHELLS):
         part = parts[name]
         dx = SPACING * i
-        mesh(part, "AllQuad", SIZES[0])
+        mesh(part, "QuadDominant", SIZES[0])
         before = FaceMesh(part.name)
-        mesh(part, "AllQuad", SIZES[0], submapped=True)
+        mesh(part, "QuadDominant", SIZES[0], submapped=True)
         face = FaceMesh(part.name)
         quads, triangles, quality, irregular = describe(face, name, dx)
         messages = output_messages(part.name)
@@ -549,7 +552,7 @@ def check_tubes(parts):
         else:
             check(face.kinds() == before.kinds() and face.points(face.used_nodes()) == before.points(before.used_nodes()),
                   "the " + name + " is not meshed as with the structured faces off")
-        plot("all_quad_seam_tube_" + name.replace(" ", "_"), name + ", structured faces on: " + str(quads) + " quads, " +
+        plot("quad_dominant_seam_tube_" + name.replace(" ", "_"), name + ", structured faces on: " + str(quads) + " quads, " +
              str(triangles) + " triangles, worst SJ " + str(round(quality, 3)), name, face, dx,
              seam_angle_of(name, part, dx))
 
@@ -561,8 +564,8 @@ def main():
     for size in SIZES:
         rows.extend(check_shells(parts, size))
     print("face | size | Simple quads | Simple triangles | Simple worst SJ | Simple irregular | Blossom quads | "
-          "Blossom triangles | Blossom worst SJ | Blossom irregular | AllQuad quads | AllQuad triangles | "
-          "AllQuad worst SJ | AllQuad irregular | AllQuad time s")
+          "Blossom triangles | Blossom worst SJ | Blossom irregular | QuadDominant quads | QuadDominant triangles | "
+          "QuadDominant worst SJ | QuadDominant irregular | QuadDominant time s")
     for row in rows:
         print(" | ".join(str(v) for v in row))
     check_pins(parts)

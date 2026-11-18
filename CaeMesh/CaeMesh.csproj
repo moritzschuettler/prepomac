@@ -177,6 +177,13 @@
     <Compile Include="Meshing\Gmsh\GmshQuadMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshRingMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshSeamGridMesher.cs" />
+    <Compile Include="Meshing\Gmsh\GmshShellGridQuality.cs" />
+    <Compile Include="Meshing\Gmsh\GmshShellSideSpacing.cs" />
+    <Compile Include="Meshing\Gmsh\GmshShellSpacingEdge.cs" />
+    <Compile Include="Meshing\Gmsh\GmshShellSpacingNode.cs" />
+    <Compile Include="Meshing\Gmsh\GmshShellSpacingPatch.cs" />
+    <Compile Include="Meshing\Gmsh\GmshShellSubmapSpacing.cs" />
+    <Compile Include="Meshing\Gmsh\GmshShellSpacingSide.cs" />
     <Compile Include="Meshing\Gmsh\GmshSubmapMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshThreeBlockPrism.cs" />

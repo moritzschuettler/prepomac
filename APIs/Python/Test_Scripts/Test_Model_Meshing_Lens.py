@@ -22,7 +22,7 @@
 #    sphere cut by planes through its axis to a quarter and to a half (two faces each, split at the seam of the sphere),
 #    the 2:1 elliptical head revolved by 180; parts of several faces: the pressure vessel (two domes on a cylinder 40
 #    long) revolved by 180 and by 90 degrees, and the cone of 45 degrees revolved by 180 closed by the half disc.
-#  - At the element sizes 5 and 3.5 and the recombinations None, Simple, AllQuad and SimpleFullQuad every shape is meshed
+#  - At the element sizes 5 and 3.5 and the recombinations None, Simple, QuadDominant and SimpleFullQuad every shape is meshed
 #    without a message: quads only (two triangles per quad without recombination), the number of inner nodes of three
 #    quads of its kind (1 three-sided, 2 two-sided, 4 zero-sided, 3 for the dome of 270 degrees, split at its pole into
 #    three pieces, their sum for the parts) and no other inner node without four, no fold, a worst scaled Jacobian of
@@ -30,8 +30,8 @@
 #    normal of its element; the triangles without recombination only unfolded; the full-quad recombination makes the
 #    counts even. (The dome of 270 degrees was meshed free before, and a full-quad recombination of it failed in gmsh:
 #    "Full-quad recombination not ready yet for periodic surfaces".)
-#  - Table: per shape at size 5 under AllQuad, the mesh with transfinite_submapped=False (gmsh's free mesh of a lens
-#    face; the three-sided faces are structured either way) against the mesh with it.
+#  - Table: per shape at size 5 under QuadDominant, the mesh with transfinite_submapped=False (gmsh's free mesh of a
+#    lens face; the three-sided faces are structured either way) against the mesh with it.
 #  - Pins on the half dome: its edges set to an odd total, and its rim to 3 elements, leave it free with a message.
 #  - Second order: the half dome with Simple is quads of 8 nodes only, two inner nodes of three quads.
 #  - The quasi-structured quad algorithm lays its own quads round a pole, so with it a lens face is left to gmsh: the
@@ -60,7 +60,7 @@ from System.Windows.Forms import Application
 
 PLOT_DIR = os.environ.get("PMX_LENS_PLOT_DIR")
 SIZES = [5.0, 3.5]
-RECOMBINATIONS = ["None", "Simple", "AllQuad", "SimpleFullQuad"]
+RECOMBINATIONS = ["None", "Simple", "QuadDominant", "SimpleFullQuad"]
 SPACING = 150.0
 FLOOR = 0.2
 TRANSFINITE_ANGLE = 135.0
@@ -121,7 +121,7 @@ def poles(part, dx):
 
 
 def output_messages(part_name):
-    """The lens, transfinite, submapping, cap and all-quad lines the last meshing of the part wrote to the output
+    """The lens, transfinite, submapping, cap and quad-dominant lines the last meshing of the part wrote to the output
     window."""
     form = main_form()
     lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
@@ -129,7 +129,7 @@ def output_messages(part_name):
     check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
     result = []
     for line in lines[starts[-1]:]:
-        for marker in ("Lens mapping:", "Transfinite:", "Submapping:", "Cap mapping:", "All-quad meshing:"):
+        for marker in ("Lens mapping:", "Transfinite:", "Submapping:", "Cap mapping:", "Quad-dominant meshing:"):
             if marker in line:
                 result.append(line[line.index(marker):])
     return result
@@ -391,12 +391,12 @@ def check_shapes(parts, size):
                 check(len(boundary) % 2 == 0, title + " has an odd boundary of " + str(len(boundary)))
             print(title + ":", face.kinds(), "irregular", len(irregular_inner_nodes(face.elements)),
                   "worst scaled Jacobian", round(quality, 3), "in", round(seconds, 3), "s")
-            if recombine == "AllQuad":
+            if recombine == "QuadDominant":
                 row = describe(face, pole_points)
                 plot("lens_" + name.replace(" ", "_") + "_" + str(size).replace(".", "_"), title + ": " +
                      str(quads) + " quads, worst SJ " + str(round(quality, 3)), face)
         if size == SIZES[0]:
-            mesh(part, "AllQuad", size, submapped=False)
+            mesh(part, "QuadDominant", size, submapped=False)
             face = FaceMesh(part.name)
             before = describe(face, pole_points)
             rows.append((name,) + tuple(round(v, 3) if isinstance(v, float) else v for v in before + row))
@@ -442,7 +442,7 @@ def check_second_order(parts):
 
 def check_quasi_structured(parts):
     part = parts["dome 180"]
-    for recombine in ("Simple", "AllQuad"):
+    for recombine in ("Simple", "QuadDominant"):
         mesh(part, recombine, SIZES[0], algorithm_2d="QuasiStructuredQuad")
         face = FaceMesh(part.name)
         messages = output_messages(part.name)

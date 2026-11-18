@@ -4,9 +4,8 @@
 #Checks the ring mapping: a face of exactly two boundary loops that run roughly parallel is meshed as a structured ring,
 #both loops carrying the same number of nodes, node i of one joined to node i of the other, with layers of quads between
 #them. The edges of a ring pair up when the loops have as many and they face each other one to one; each pair then
-#carries as many elements, otherwise only the two loops do. A face that is a ring and submapped as well is meshed as a
-#ring when its wall is thin - the smallest distance between its loops below 1.5 times the element size - and by its
-#lattice otherwise.
+#carries as many elements, otherwise only the two loops do. A shell that is also submapped keeps a sharp-cornered
+#lattice even with a thin wall. Other such shells use their ring when both loop distances are below 1.5 element sizes.
 #
 #  - ring_faces.brep: plane faces side by side, one part each - an annulus of r 20 and r 10 of two closed edges, the
 #    same of half circles, the annulus whose inner seam is turned by 40 degrees against the outer one, a thin washer of
@@ -20,12 +19,12 @@
 #    with as many layers and quads as recorded, no folded quad and a worst scaled Jacobian of 0.2 at least, and writes
 #    no message; a lattice has a boundary node in one quad. The annulus far off the centre, whose ring grid has a quad
 #    corner below the floor, is no ring and is meshed free, and so is the plate with the small turned hole, whose
-#    inner loop is shorter than a quarter of the outer one. The thin tube meshed as a ring keeps the counts of its outer
-#    edges, which its lattice refined at the corners of the hole.
+#    inner loop is shorter than a quarter of the outer one. The sharp thin tube keeps a right-angled lattice with
+#    one cell across its walls. The thin tube with radii keeps its ring and its baseline mesh.
 #  - Pinned counts: 30 elements on the outer edge of the annulus are carried to the inner one; 20 and 24 on the two
 #    leave it free with a message.
-#  - A full-quad recombination meshes the annulus, the thin tube and the tube with radii as rings, and second order
-#    elements keep the annulus a ring.
+#  - A full-quad recombination keeps the lattice of the sharp thin tube and the rings of the two curved shapes.
+#    Second order elements keep the annulus a ring.
 #  - ring_sweep.brep: a pipe of r 20 and r 12, a thin pipe of r 20 and r 18, the tube with radii and a square flange of
 #    60 with a bore of r 28, extruded by 30 mm and swept from their ends in z = 0: hexahedra only, the source a ring,
 #    the hexahedra a multiple of its quads, as many as recorded.
@@ -37,6 +36,7 @@
 #
 #Expected process exit code 0.
 
+import hashlib
 import math
 import os
 import sys
@@ -67,7 +67,7 @@ EXPECTED = {"annulus": (True, False, "ring", 3, 78),
             "eccentric": (True, False, "ring", 4, 104),
             "very eccentric": (None, False, "free", 0, 0),
             "tube with radii": (True, True, "ring", 1, 52),
-            "thin tube": (True, True, "ring", 1, 40),
+            "thin tube": (True, True, "lattice", 0, 56),
             "thick tube": (True, True, "lattice", 0, 64),
             "plate large bore": (False, True, "ring", 2, 96),
             "plate small bore": (None, True, "lattice", 0, 135),
@@ -327,18 +327,25 @@ def check_shells(parts):
                                                          str(round(quality, 3)))
         if name in PLOTTED or mapping == "free":
             plot("ring_" + name.replace(" ", "_"), title, face.elements, face.uv)
+        if name == "tube with radii":
+            nodes = sorted(tuple(float(c).hex() for c in p) for p in face.xyz.values())
+            connectivity = sorted(tuple(sorted(tuple(face.xyz[n]) for n in e)) for e in face.elements)
+            fingerprint = hashlib.sha256(repr((nodes, connectivity)).encode("ascii")).hexdigest()
+            check(fingerprint == "caa4a5b650570a7ee809e7b0ca9b9c6b9ac17d959d4798d8624b541b2e86e0c4",
+                  "the thin rounded ring changed from its baseline mesh")
         results[name] = face
     return results
 
 
-def check_thin_tube(parts):
-    """The thin tube meshed as a ring keeps the natural counts of its outer edges: 12 along the long side of 60."""
+def check_thin_tube(parts, faces):
     part = parts["thin tube"]
     edges = edges_by_length(part)
-    counts = dict((length, [edge_nodes(g) - 1 for _, g in edges[length]]) for length in (60.0, 40.0, 56.0, 36.0))
-    print("thin tube as a ring: elements on the edges by length", counts)
-    check(counts[60.0] == [12, 12] and counts[56.0] == [12, 12] and counts[40.0] == [8, 8] and counts[36.0] == [8, 8],
-          "the thin tube does not carry the natural counts on its edges: " + str(counts))
+    counts = {length: [edge_nodes(g) - 1 for _, g in edges[length]] for length in (60.0, 40.0, 56.0, 36.0)}
+    expected = {60.0: [18, 18], 40.0: [12, 12], 56.0: [16, 16], 36.0: [10, 10]}
+    check(counts == expected, "the thin tube does not have one lattice cell across each wall: " + str(counts))
+    check(min_scaled_jacobian(faces["thin tube"].elements, faces["thin tube"].uv) > math.cos(math.radians(0.5)),
+          "the sharp thin tube has a skewed corner")
+    print("thin tube as a lattice: elements on the edges by length", counts)
 
 
 def check_pins(parts):
@@ -373,9 +380,17 @@ def check_variants(parts):
         mesh(part, recombine="SimpleFullQuad")
         face = FaceMesh(part.name)
         messages = mapping_messages(part.name)
-        layers, quality = check_ring(face, "the " + name + " with the full-quad recombination")
+        if name == "thin tube":
+            check(mapping_of(face.elements) == ("lattice", 0) and len(face.elements) == 56,
+                  "the full-quad thin tube did not keep its 56-quad lattice")
+            quality = min_scaled_jacobian(face.elements, face.uv)
+            check(quality > math.cos(math.radians(0.5)), "the full-quad thin tube has a skewed corner")
+            mapping = "lattice"
+        else:
+            layers, quality = check_ring(face, "the " + name + " with the full-quad recombination")
+            mapping = "a ring of %d layers" % layers
         check(len(messages) == 0, "the full-quad " + name + " wrote: " + str(messages))
-        print(name + " with the full-quad recombination: a ring of", layers, "layers,", len(face.elements),
+        print(name + " with the full-quad recombination:", mapping, len(face.elements),
               "quads, worst scaled Jacobian", round(quality, 3))
         plot("ring_" + name.replace(" ", "_") + "_full_quad", name + ", full-quad: " + str(len(face.elements)) +
              " quads", face.elements, face.uv)
@@ -484,8 +499,8 @@ def check_sweeps():
 def main():
     check(pmx.model.is_open(), "a model must be open")
     parts = parts_by_x(SHELLS)
-    check_shells(parts)
-    check_thin_tube(parts)
+    faces = check_shells(parts)
+    check_thin_tube(parts, faces)
     check_pins(parts)
     check_variants(parts)
     check_sweeps()

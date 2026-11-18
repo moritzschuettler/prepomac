@@ -17,7 +17,7 @@
 #    60 high with a hole of r 6 through its wall, the torus of r 25 and 8 closed along both seams with a hole of r 4, a
 #    cone of r 20 with its apex, and a sphere of r 20; and one part of three faces: a disc of r 20 closing a cylinder of
 #    r 20 from z 0 to 40, which the cone frustum from r 20 at z 40 to r 10 at z 70 continues.
-#    At the element sizes 5 and 3.5 and the recombinations None, Simple, Blossom, AllQuad, SimpleFullQuad and
+#    At the element sizes 5 and 3.5 and the recombinations None, Simple, Blossom, QuadDominant, SimpleFullQuad and
 #    BlossomFullQuad every tube is detected and meshed as a tube: quads only (two triangles per quad without
 #    recombination), N on each rim, M + 1 nodes on the seam, N x M quads, every inner node in four quads and every rim
 #    node in two, no fold, a worst scaled Jacobian of 0.2 at least measured in space against the normals of the mesh,
@@ -26,11 +26,11 @@
 #    the full-quad recombinations make both counts even (gmsh refuses a full-quad recombination of a periodic surface,
 #    so it leaves the tube out of it and the tube is laid on the full counts). The faces that are no tubes are not
 #    detected and are meshed exactly as with transfinite_submapped=False, the meshing before the tubes; the pipe with the
-#    hole is converted to quads only under AllQuad as before. The cone with its apex and the sphere, closed along a seam
-#    that ends in a pole, are structured caps with the setting on (Test_Model_Meshing_Cap.py): quads only, the four
+#    hole is converted to quads only under QuadDominant as before. The cone with its apex and the sphere, closed along a
+#    seam that ends in a pole, are structured caps with the setting on (Test_Model_Meshing_Cap.py): quads only, the four
 #    corners of the block at each pole their only irregular inner nodes, no message.
-#  - Table: per tube and size, gmsh's free mesh under AllQuad - the meshing before the tubes, with
-#    transfinite_submapped=False - against the tube under AllQuad: quads, worst scaled Jacobian in space, irregular inner
+#  - Table: per tube and size, gmsh's free mesh under QuadDominant - the meshing before the tubes, with
+#    transfinite_submapped=False - against the tube under QuadDominant: quads, worst scaled Jacobian in space, irregular inner
 #    nodes and time.
 #  - Pinned counts on the cylinder: 30 elements on one rim are carried to the other; 20 and 24 on the two leave it free
 #    with a message; 7 on the seam give 7 layers.
@@ -38,7 +38,7 @@
 #  - The part of three faces: the cylinder and the cone are tubes, their three circles carry the same number of elements,
 #    and the disc, a face of one closed edge and no corner, is a lens face (Test_Model_Meshing_Lens_Planar): quads
 #    only under every recombination (68 on 26 boundary nodes at the element size 5, meshed free before the lens
-#    faces of no corner: 59 quads and 20 triangles under Simple, 66 and 87 quads under AllQuad and the full-quad
+#    faces of no corner: 59 quads and 20 triangles under Simple, 66 and 87 quads under QuadDominant and the full-quad
 #    recombinations).
 #  The models were made by gmsh's OCC kernel through GmshCommon: lines, circles and B-splines revolved or extruded, the
 #  oblique end cut by fragmenting with a tilted box, the rims split by fragmenting with points, the holes cut by
@@ -66,7 +66,7 @@ from System.Windows.Forms import Application
 
 PLOT_DIR = os.environ.get("PMX_TUBE_PLOT_DIR")
 SIZES = [5.0, 3.5]
-RECOMBINATIONS = ["None", "Simple", "Blossom", "AllQuad", "SimpleFullQuad", "BlossomFullQuad"]
+RECOMBINATIONS = ["None", "Simple", "Blossom", "QuadDominant", "SimpleFullQuad", "BlossomFullQuad"]
 SPACING = 150.0
 FLOOR = 0.2
 TWO_PI = 2 * math.pi
@@ -127,14 +127,14 @@ def detected_tubes(part):
 
 
 def output_messages(part_name):
-    """The tube, ring, submapping and all-quad lines the last meshing of the part wrote to the output window."""
+    """The tube, ring, submapping and quad-dominant lines the last meshing of the part wrote to the output window."""
     form = main_form()
     lines = list(form.GetType().GetField("_outputLines", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(form))
     starts = [i for i, line in enumerate(lines) if line.rstrip().endswith("Create mesh: " + part_name)]
     check(len(starts) > 0, "the output window does not show the meshing of " + part_name)
     result = []
     for line in lines[starts[-1]:]:
-        for marker in ("Tube mapping:", "Ring mapping:", "Submapping:", "All-quad meshing:"):
+        for marker in ("Tube mapping:", "Ring mapping:", "Submapping:", "Quad-dominant meshing:"):
             if marker in line:
                 result.append(line[line.index(marker):])
     return result
@@ -447,21 +447,21 @@ def check_tubes(parts, size):
                 check(n % 2 == 0 and m % 2 == 0, title + " has an odd count, " + str(n) + " x " + str(m))
             else:
                 counts.add((n, m))
-            if recombine == "AllQuad":
+            if recombine == "QuadDominant":
                 tube_row = (face.kinds()[0], quality, len(irregular_inner_nodes(face.elements)), seconds)
                 plot("tube_" + name.replace(" ", "_") + "_" + str(size).replace(".", "_"), title + ": " + str(n) +
                      " x " + str(m) + ", worst SJ " + str(round(quality, 3)), name, face, dx)
-        # Simple, Blossom and AllQuad lay the tube on the same counts
+        # Simple, Blossom and QuadDominant lay the tube on the same counts
         check(len(counts) == 1, "the " + name + " at size " + str(size) + " has different counts: " + str(counts))
         expected = EXPECTED.get((name, size))
         check(expected is None or counts == set([expected]), "the " + name + " at size " + str(size) + " is " +
               str(counts) + ", not " + str(expected))
         # The meshing before the tubes
-        seconds = mesh(part, "AllQuad", size, submapped=False)
+        seconds = mesh(part, "QuadDominant", size, submapped=False)
         face = FaceMesh(part.name)
         before = describe(face)
         plot("tube_" + name.replace(" ", "_") + "_" + str(size).replace(".", "_") + "_before", name + " at size " +
-             str(size) + " before, AllQuad: " + str(before[0]) + " quads, worst SJ " + str(round(before[2], 3)) +
+             str(size) + " before, QuadDominant: " + str(before[0]) + " quads, worst SJ " + str(round(before[2], 3)) +
              ", irregular " + str(before[3]), name, face, dx)
         rows.append((name, size, before[0], before[1], round(before[2], 3), before[3], round(seconds, 2), tube_row[0],
                      round(tube_row[1], 3), tube_row[2], round(tube_row[3], 2)))
@@ -475,7 +475,7 @@ def check_not_tubes(parts):
     for name in NOT_TUBES:
         part = parts[name]
         check(len(detected_tubes(part)) == 0, "the " + name + " is detected as a tube")
-        for recombine in ("Simple", "AllQuad"):
+        for recombine in ("Simple", "QuadDominant"):
             mesh(part, recombine, SIZES[0], submapped=False)
             before = FaceMesh(part.name)
             mesh(part, recombine, SIZES[0])
@@ -496,7 +496,7 @@ def check_not_tubes(parts):
                       face.points(face.used_nodes()) == before.points(before.used_nodes()),
                       "the " + name + " with " + recombine + " is not meshed as before the tubes")
             check(not any("Tube mapping:" in message for message in messages), "the " + name + " wrote " + str(messages))
-            if name == "pipe with hole" and recombine == "AllQuad":
+            if name == "pipe with hole" and recombine == "QuadDominant":
                 check(face.kinds()[1] == 0 and len(messages) == 0, "the pipe with the hole is not quads only: " +
                       str(face.kinds()) + " " + str(messages))
 
@@ -523,7 +523,7 @@ def check_pins(parts):
     check(face.kinds()[1] > 0 or len(irregular_inner_nodes(face.elements)) > 0, "the cylinder with 20 and 24 elements " +
           "is still a tube")
     # 7 on the seam give 7 layers
-    mesh(part, "AllQuad", SIZES[0], pins=[(tube.seam, 7)])
+    mesh(part, "QuadDominant", SIZES[0], pins=[(tube.seam, 7)])
     face = FaceMesh(part.name)
     n, m, quality = check_tube_mesh(face, tube, "the cylinder with 7 elements on its seam")
     check(m == 7 and len(output_messages(part.name)) == 0, "7 elements on the seam give " + str(m) + " layers")
@@ -555,7 +555,7 @@ def check_multi_face(parts):
     face_types = dict(zip([int(i) for i in faces.ids], [str(t) for t in faces.types]))
     disc = [face_id for face_id, kind in face_types.items() if kind == "Plane"]
     check(len(disc) == 1, "the " + MULTI + " has no disc")
-    for recombine in ("Simple", "AllQuad", "SimpleFullQuad", "BlossomFullQuad"):
+    for recombine in ("Simple", "QuadDominant", "SimpleFullQuad", "BlossomFullQuad"):
         mesh(part, recombine, SIZES[0])
         messages = output_messages(part.name)
         circles = set()
@@ -573,7 +573,7 @@ def check_multi_face(parts):
               str(sorted(circles)) + " and " + str(len(disc_nodes)) + " elements")
         check(len(messages) == 0, "the " + MULTI + " with " + recombine + " wrote " + str(messages))
         if recombine != "Simple":
-            check(disc_face.kinds()[1] == 0, "the disc keeps triangles with AllQuad")
+            check(disc_face.kinds()[1] == 0, "the disc keeps triangles with QuadDominant")
 
 
 def main():

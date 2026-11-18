@@ -33,6 +33,7 @@ namespace CaeMesh
         private List<SweepBlock> _sweepBlocks;
         private HashSet<int> _freeMeshedSurfaceIds = new HashSet<int>();
         private HashSet<int> _transfiniteSurfaceIds = new HashSet<int>();
+        private List<TransfiniteFace> _shellSpacingFaces;
         // The three-sided faces of a shell meshed as three blocks of quads once gmsh has meshed the surfaces
         private List<TransfiniteFace> _threeBlockFaces = new List<TransfiniteFace>();
         // The four-sided faces of a shell with a pole of their surface at a corner, meshed by GmshLensMesher before
@@ -57,6 +58,7 @@ namespace CaeMesh
         // surface
         private List<LensFace> _lensFaces = new List<LensFace>();
         private Dictionary<int, LensFace> _lensFallbackFaces = new Dictionary<int, LensFace>();
+        private Dictionary<int, string> _quadDominantOddTotalReasons = new Dictionary<int, string>();
         // A face both submapped and a lens face keeps its submapped grid when the worst corner of it is this good
         private const double _minKeptSubmapLensScaledJacobian = 0.5;
         // and takes its lens grid in place of a poorer one only when no element of it is longer than this times the
@@ -309,7 +311,7 @@ namespace CaeMesh
                                                  quasiStructured ? new LensFace[0] :
                                                                    _gmshData.LensFaces ?? new LensFace[0],
                                                  IsFullQuad(algorithmRecombine),
-                                                 algorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad,
+                                                 algorithmRecombine == GmshAlgorithmRecombineEnum.QuadDominant,
                                                  !quasiStructured);
                     else if (_isOCC && (gsi.IsTransfiniteThreeSided || gsi.TransfiniteFourSided || sweepMesh))
                         //Gmsh.Mesh.SetTransfiniteAutomatic(gsi.TransfiniteAngleRad, recombine);
@@ -677,17 +679,17 @@ namespace CaeMesh
                                  .Select(group => group.Select(entry => entry.Key).ToList()).ToList();
         }
         /// <summary>
-        /// The recombination gmsh is set to. The all-quad recombination of a shell is the base its free faces are meshed
+        /// The recombination gmsh is set to. The quad-dominant recombination of a shell is the base its free faces are meshed
         /// with before they are converted to quads only, gmsh's simple one or Blossom; that of a sweep or a tetrahedral
         /// mesh is gmsh's simple one.
         /// </summary>
         private static int GetGmshRecombinationAlgorithm(GmshAlgorithmRecombineEnum algorithmRecombine,
                                                          GmshSetupItem gmshSetupItem)
         {
-            if (algorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad)
+            if (algorithmRecombine == GmshAlgorithmRecombineEnum.QuadDominant)
             {
-                GmshAlgorithmRecombineEnum allQuadShellBase = GmshAlgorithmRecombineEnum.Blossom;
-                return (int)(gmshSetupItem is ShellGmsh ? allQuadShellBase : GmshAlgorithmRecombineEnum.Simple);
+                GmshAlgorithmRecombineEnum quadDominantShellBase = GmshAlgorithmRecombineEnum.Blossom;
+                return (int)(gmshSetupItem is ShellGmsh ? quadDominantShellBase : GmshAlgorithmRecombineEnum.Simple);
             }
             return (int)algorithmRecombine;
         }
@@ -767,14 +769,90 @@ namespace CaeMesh
             bool quasiStructured = GetAlgorithmMesh2D(gmshSetupItem) == GmshAlgorithmMesh2DEnum.QuasiStructuredQuad;
             HashSet<int> poleThreeBlockSurfaceIds =
                 new HashSet<int>(_threeBlockFaces.Where(GmshLensMesher.HasPoleCorner).Select(face => face.FaceId));
-            if (_capFaces.Count > 0 || _lensFaces.Count > 0 || _poleFourSidedFaces.Count > 0 ||
-                (poleThreeBlockSurfaceIds.Count > 0 && !quasiStructured))
+            bool meshEdgesFirst = _capFaces.Count > 0 || _lensFaces.Count > 0 || _poleFourSidedFaces.Count > 0 ||
+                                  (poleThreeBlockSurfaceIds.Count > 0 && !quasiStructured);
+            if (meshEdgesFirst)
             {
+                // Under the quad-dominant recombination the edges keep the counts its balance measured them with, which
+                // gmsh gives a curve that is not transfinite only once the surfaces are recombined
+                double recombineAll = Gmsh.Option.GetNumber("Mesh.RecombineAll");
+                if (gmshSetupItem.AlgorithmRecombine == GmshAlgorithmRecombineEnum.QuadDominant)
+                    Gmsh.Option.SetNumber("Mesh.RecombineAll", 1);
                 GenerateMesh(1);
+                Gmsh.Option.SetNumber("Mesh.RecombineAll", recombineAll);
+            }
+            // Recombine all. gmsh refuses a full-quad recombination of a periodic surface ("Full-quad recombination not
+            // ready yet for periodic surfaces"), so the tubes, whose mesh GmshTubeMesher replaces, and the caps whose grid
+            // was refused are left out of it, and so are the lens faces and the three- and four-sided faces with a pole
+            // on a periodic surface, a sphere or a cone, whose grid was refused or that wait for the grid of their
+            // submapped face to be refused, and the three-sided, submapped and ring faces on a periodic surface - a
+            // cylinder -, whose grid replaces gmsh's mesh after it
+            HashSet<int> unrecombinedSurfaceIds = new HashSet<int>();
+            bool fullQuad = IsFullQuad(gmshSetupItem.AlgorithmRecombine);
+            if (fullQuad)
+            {
+                unrecombinedSurfaceIds.UnionWith(_tubeFaces.Select(face => face.FaceId));
+                unrecombinedSurfaceIds.UnionWith(_capFaces.Select(face => face.FaceId));
+                unrecombinedSurfaceIds.UnionWith(_lensFaces.Select(face => face.FaceId).Concat(_lensFallbackFaces.Keys)
+                                                           .Concat(poleThreeBlockSurfaceIds)
+                                                           .Concat(_poleFourSidedFaces.Select(face => face.FaceId))
+                                                           .Concat(_threeBlockFaces.Select(face => face.FaceId))
+                                                           .Concat(_submapFaces.Select(face => face.FaceId))
+                                                           .Concat(_ringFaces.Select(face => face.FaceId))
+                                                           .Where(IsPeriodicSurface));
+            }
+            if (recombine) SetShellRecombination(unrecombinedSurfaceIds);
+            //
+            bool movedEdgeNodes = false;
+            List<GmshShellGridQuality> trialGrids = new List<GmshShellGridQuality>();
+            bool switchToFaceRecombination = false;
+            SubmapFace[] spacingSubmaps = _submapFaces.Where(face => !face.Loops.Any(loop => loop.IsRound) &&
+                                                                    !_lensFallbackFaces.ContainsKey(face.FaceId))
+                                                     .ToArray();
+            if (_shellSpacingFaces != null || spacingSubmaps.Length > 0)
+            {
+                Action meshEdges = meshEdgesFirst ? (Action)null : () => GenerateMesh(1);
+                IEnumerable<TransfiniteFace> spacingFaces =
+                    (_shellSpacingFaces ?? new List<TransfiniteFace>()).Where(face => face.NumberOfSides == 4 &&
+                                                                 _transfiniteSurfaceIds.Contains(face.FaceId));
+                if (quasiStructured) spacingFaces = spacingFaces.Where(face => !GmshLensMesher.HasPoleCorner(face));
+                HashSet<int> fixedSurfaceIds = new HashSet<int>(_capFaces.Select(face => face.FaceId)
+                    .Concat(_lensFaces.Select(face => face.FaceId)).Concat(_lensFallbackFaces.Keys)
+                    .Concat(_poleFourSidedFaces.Select(face => face.FaceId))
+                    .Concat(_threeBlockFaces.Select(face => face.FaceId))
+                    .Concat(_submapFaces.Select(face => face.FaceId))
+                    .Concat(_ringFaces.Select(face => face.FaceId))
+                    .Concat(_tubeFaces.Select(face => face.FaceId)));
+                Func<int, double> getSurfaceArea = surfaceId =>
+                {
+                    double area = 0;
+                    if (_isOCC) Gmsh.Model.OCC.GetMass(2, surfaceId, out area);
+                    return area;
+                };
+                movedEdgeNodes = GmshShellSideSpacing.Match(spacingFaces, spacingSubmaps, _transfiniteSurfaceIds,
+                                                           fixedSurfaceIds, getSurfaceArea, meshEdges, recombine, grid =>
+                {
+                    trialGrids.Add(grid);
+                    int surfaceId = grid.FaceId;
+                    Gmsh.Model.Mesh.RemoveConstraints(new[] { Tuple.Create(2, surfaceId) });
+                    _transfiniteSurfaceIds.Remove(surfaceId);
+                    if (fullQuad)
+                    {
+                        // The native full-quad algorithm can halve the fixed boundary mesh of a free face.
+                        switchToFaceRecombination |= unrecombinedSurfaceIds.Count == 0;
+                        unrecombinedSurfaceIds.Add(surfaceId);
+                    }
+                    else if (recombine && !unrecombinedSurfaceIds.Contains(surfaceId))
+                        Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
+                });
+                if (switchToFaceRecombination) SetShellRecombination(unrecombinedSurfaceIds);
+            }
+            if (meshEdgesFirst)
+            {
                 foreach (var face in _capFaces)
                 {
-                    if (GmshCapMesher.Mesh(face, _capSeamNumOfElements[face.FaceId], _capNumOfElementsRound[face.FaceId],
-                                           recombine, out reason))
+                    if (GmshCapMesher.Mesh(face, _capSeamNumOfElements[face.FaceId],
+                                           _capNumOfElementsRound[face.FaceId], recombine, out reason))
                         laidSurfaceIds.Add(face.FaceId);
                     else WriteCapFreeMessage(face.FaceId, reason);
                 }
@@ -791,46 +869,17 @@ namespace CaeMesh
                     else WriteTransfiniteFreeMessage(face.FaceId, reason);
                 }
             }
-            // Recombine all. gmsh refuses a full-quad recombination of a periodic surface ("Full-quad recombination not
-            // ready yet for periodic surfaces"), so the tubes, whose mesh GmshTubeMesher replaces, and the caps whose grid
-            // was refused are left out of it, and so are the lens faces and the three- and four-sided faces with a pole
-            // on a periodic surface, a sphere or a cone, whose grid was refused or that wait for the grid of their
-            // submapped face to be refused, and the three-sided, submapped and ring faces on a periodic surface - a
-            // cylinder -, whose grid replaces gmsh's mesh after it
-            HashSet<int> unrecombinedSurfaceIds = new HashSet<int>();
-            if (IsFullQuad(gmshSetupItem.AlgorithmRecombine))
-            {
-                unrecombinedSurfaceIds.UnionWith(_tubeFaces.Select(face => face.FaceId));
-                unrecombinedSurfaceIds.UnionWith(_capFaces.Select(face => face.FaceId));
-                unrecombinedSurfaceIds.UnionWith(_lensFaces.Select(face => face.FaceId).Concat(_lensFallbackFaces.Keys)
-                                                           .Concat(poleThreeBlockSurfaceIds)
-                                                           .Concat(_poleFourSidedFaces.Select(face => face.FaceId))
-                                                           .Concat(_threeBlockFaces.Select(face => face.FaceId))
-                                                           .Concat(_submapFaces.Select(face => face.FaceId))
-                                                           .Concat(_ringFaces.Select(face => face.FaceId))
-                                                           .Where(IsPeriodicSurface));
-            }
-            if (recombine && unrecombinedSurfaceIds.Count > 0)
-            {
-                Tuple<int, int>[] surfaceDimTags;
-                Gmsh.Model.GetEntities(out surfaceDimTags, 2);
-                foreach (var surfaceDimTag in surfaceDimTags)
-                {
-                    if (!unrecombinedSurfaceIds.Contains(surfaceDimTag.Item2))
-                        Gmsh.Model.Mesh.SetRecombine(2, surfaceDimTag.Item2);
-                }
-            }
-            else if (recombine) Gmsh.Option.SetNumber("Mesh.RecombineAll", 1);
             //
+            bool keepExistingMesh = movedEdgeNodes || laidSurfaceIds.Count > 0 || trialGrids.Count > 0;
             try
             {
-                if (laidSurfaceIds.Count > 0) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 1);
+                if (keepExistingMesh) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 1);
                 if (preview) GenerateMesh(2);
                 else GenerateMesh(2);
             }
             finally
             {
-                if (laidSurfaceIds.Count > 0) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 0);
+                if (keepExistingMesh) Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 0);
             }
             // The three-sided faces become three blocks of quads around one inner node, split into triangles where the
             // surfaces are not recombined, each left as gmsh meshed it when its grid folds or is poor, on the counts
@@ -852,7 +901,9 @@ namespace CaeMesh
             string lensReason = null;
             foreach (var face in _submapFaces)
             {
-                if (GmshSubmapMesher.Mesh(face, recombine, out reason)) structuredSurfaceIds.Add(face.FaceId);
+                bool keepOrthogonal = !_lensFallbackFaces.ContainsKey(face.FaceId);
+                if (GmshSubmapMesher.Mesh(face, recombine, out reason, keepOrthogonal))
+                    structuredSurfaceIds.Add(face.FaceId);
                 else if (_lensFallbackFaces.TryGetValue(face.FaceId, out lensFace) &&
                          GmshLensMesher.Mesh(lensFace, recombine, out lensReason))
                     structuredSurfaceIds.Add(face.FaceId);
@@ -874,19 +925,57 @@ namespace CaeMesh
                 else WriteTubeFreeMessage(face.FaceId, reason);
             }
             structuredSurfaceIds.UnionWith(laidSurfaceIds);
-            // The all-quad recombination turns every face meshed free into quads only
-            if (_isOCC && gmshSetupItem.AlgorithmRecombine == GmshAlgorithmRecombineEnum.AllQuad)
+            Dictionary<int, string> trialQuadMessages = null;
+            // The quad-dominant recombination turns every face meshed free into quads but where they would be worse
+            if (_isOCC && gmshSetupItem.AlgorithmRecombine == GmshAlgorithmRecombineEnum.QuadDominant)
             {
                 Tuple<int, int>[] surfaceDimTags;
                 Gmsh.Model.GetEntities(out surfaceDimTags, 2);
-                MeshAllQuadSurfaces(surfaceDimTags.Select(dimTag => dimTag.Item2)
-                                                  .Where(surfaceId => !structuredSurfaceIds.Contains(surfaceId)));
+                if (trialGrids.Count > 0) trialQuadMessages = trialGrids.ToDictionary(grid => grid.FaceId,
+                                                                                      grid => (string)null);
+                MeshQuadDominantSurfaces(surfaceDimTags.Select(dimTag => dimTag.Item2)
+                                                       .Where(surfaceId => !structuredSurfaceIds.Contains(surfaceId)),
+                                         trialQuadMessages);
+            }
+            else if (fullQuad && trialGrids.Count > 0)
+            {
+                MeshQuadDominantSurfaces(trialGrids.Select(grid => grid.FaceId),
+                                         trialGrids.ToDictionary(grid => grid.FaceId, grid => (string)null));
             }
             // Optimize first order
             if (gmshSetupItem.OptimizeFirstOrderShell != GmshOptimizeFirstOrderShellEnum.None)
             {
                 Tuple<int, int>[] dimTags = new Tuple<int, int>[0];
                 Gmsh.Model.Mesh.Optimize(gmshSetupItem.OptimizeFirstOrderShell.ToString(), false, 10, dimTags);
+            }
+            //
+            foreach (GmshShellGridQuality grid in trialGrids)
+            {
+                string lean = "the numbers of elements on its sides lean its grid by " +
+                              Math.Round(grid.LeanDegrees) + " degrees";
+                if (grid.TryRestore(fullQuad))
+                    _writeOutput?.Invoke(NameGmshEntities("Transfinite: Surface " + grid.FaceId + " is meshed with " +
+                                                          "its grid - " + lean +
+                                                          " and the free mesh is no better."));
+                else
+                {
+                    WriteTransfiniteFreeMessage(grid.FaceId, lean);
+                    if (trialQuadMessages != null && trialQuadMessages[grid.FaceId] != null)
+                        _writeOutput?.Invoke(trialQuadMessages[grid.FaceId]);
+                }
+            }
+        }
+        private static void SetShellRecombination(HashSet<int> unrecombinedSurfaceIds)
+        {
+            bool recombineAll = unrecombinedSurfaceIds.Count == 0;
+            Gmsh.Option.SetNumber("Mesh.RecombineAll", recombineAll ? 1 : 0);
+            if (recombineAll) return;
+            //
+            Gmsh.Model.GetEntities(out Tuple<int, int>[] surfaceDimTags, 2);
+            foreach (var surfaceDimTag in surfaceDimTags)
+            {
+                if (!unrecombinedSurfaceIds.Contains(surfaceDimTag.Item2))
+                    Gmsh.Model.Mesh.SetRecombine(2, surfaceDimTag.Item2);
             }
         }
         private void TetrahedralGmsh(GmshSetupItem gmshSetupItem, bool preview)
@@ -2929,9 +3018,9 @@ namespace CaeMesh
             if (_isOCC && sourceRecombine != GmshAlgorithmRecombineEnum.None && !IsFullQuad(sourceRecombine))
             {
                 HashSet<int> blockWallSurfaceIds = new HashSet<int>(blocks.SelectMany(block => block.WallSurfaceIds));
-                MeshAllQuadSurfaces(blocks.SelectMany(block => block.SourceSurfaceIds).Distinct().OrderBy(id => id)
-                                          .Where(surfaceId => IsFreeSource(surfaceId, blockWallSurfaceIds,
-                                                                           targetSurfaceIds)));
+                MeshQuadDominantSurfaces(blocks.SelectMany(block => block.SourceSurfaceIds).Distinct().OrderBy(id => id)
+                                               .Where(surfaceId => IsFreeSource(surfaceId, blockWallSurfaceIds,
+                                                                                targetSurfaceIds)));
             }
             // Remove the volumes and the target surface meshes. A target shared with the next block is
             // rebuilt by the sweep of this block and read back as the source of the next one.
@@ -3882,40 +3971,49 @@ namespace CaeMesh
                     MatchSideSpacing(directionSides[0], directionSides[1], false, edgeIdNumOfUses, fixedEdgeIds);
             }
         }
+        /// <summary>
+        /// Whether the second side is the first one moved - both ends moved the same way - and whether it runs the
+        /// way the first does. Only a wall whose one side is the other moved has a grid whose lines can all run
+        /// straight across. A tapering wall, whose one end leans along a chamfer while the other stands upright, has
+        /// none, and the even spacing gmsh gives its sides was measured to sweep better than one that follows the
+        /// fractions of the other side.
+        /// </summary>
+        internal static bool IsTranslatedSide(double[] firstStart, double[] firstEnd, double[] secondStart,
+                                              double[] secondEnd, out bool sameDirection)
+        {
+            double along = 0;
+            double reversed = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                double d1 = firstEnd[i] - firstStart[i];
+                double d2 = secondEnd[i] - secondStart[i];
+                along += Math.Pow(d1 - d2, 2);
+                reversed += Math.Pow(d1 + d2, 2);
+            }
+            sameDirection = along <= reversed;
+            double[] startOffset = new double[3];
+            double[] endOffset = new double[3];
+            for (int i = 0; i < 3; i++)
+            {
+                startOffset[i] = (sameDirection ? secondStart[i] : secondEnd[i]) - firstStart[i];
+                endOffset[i] = (sameDirection ? secondEnd[i] : secondStart[i]) - firstEnd[i];
+            }
+            double sideLength = Math.Min(GetDistance(firstStart, firstEnd),
+                                         GetDistance(secondStart, secondEnd));
+            return !(GetDistance(startOffset, endOffset) > _sideTranslationTolerance * sideLength);
+        }
         private static void MatchSideSpacing(int[] edgeIds1, int[] edgeIds2, bool firstIsSource,
                                              Dictionary<int, int> edgeIdNumOfUses, HashSet<int> fixedEdgeIds)
         {
-            Func<int, bool> isMovable = id => edgeIdNumOfUses[id] == 1 && (fixedEdgeIds == null || !fixedEdgeIds.Contains(id));
+            Func<int, bool> isMovable = id => edgeIdNumOfUses[id] == 1 &&
+                                            (fixedEdgeIds == null || !fixedEdgeIds.Contains(id));
             if (!edgeIds1.Concat(edgeIds2).Any(isMovable)) return;
             SweepSideNodes side1 = SweepSideNodes.Create(edgeIds1);
             SweepSideNodes side2 = SweepSideNodes.Create(edgeIds2);
             if (side1 == null || side2 == null || side1.NumOfNodes != side2.NumOfNodes) return;
             int numOfNodes = side1.NumOfNodes;
-            // Whether the second side runs the way the first does
-            double along = 0;
-            double reversed = 0;
-            for (int i = 0; i < 3; i++)
-            {
-                double d1 = side1.EndPoint[i] - side1.StartPoint[i];
-                double d2 = side2.EndPoint[i] - side2.StartPoint[i];
-                along += Math.Pow(d1 - d2, 2);
-                reversed += Math.Pow(d1 + d2, 2);
-            }
-            bool sameDirection = along <= reversed;
-            // Only a wall whose one side is the other moved - both ends moved the same way - has a grid whose lines
-            // can all run straight across. A tapering wall, whose one end leans along a chamfer while the other
-            // stands upright, has none, and the even spacing gmsh gives its sides was measured to sweep better than
-            // one that follows the fractions of the other side
-            double[] startOffset = new double[3];
-            double[] endOffset = new double[3];
-            for (int i = 0; i < 3; i++)
-            {
-                startOffset[i] = (sameDirection ? side2.StartPoint[i] : side2.EndPoint[i]) - side1.StartPoint[i];
-                endOffset[i] = (sameDirection ? side2.EndPoint[i] : side2.StartPoint[i]) - side1.EndPoint[i];
-            }
-            double sideLength = Math.Min(GetDistance(side1.StartPoint, side1.EndPoint),
-                                         GetDistance(side2.StartPoint, side2.EndPoint));
-            if (GetDistance(startOffset, endOffset) > _sideTranslationTolerance * sideLength) return;
+            if (!IsTranslatedSide(side1.StartPoint, side1.EndPoint, side2.StartPoint, side2.EndPoint,
+                                  out bool sameDirection)) return;
             Func<int, int> partner = k => sameDirection ? k : numOfNodes - 1 - k;
             Func<int, double> fraction2 = k => sameDirection ? side2.GetFraction(partner(k))
                                                               : 1 - side2.GetFraction(partner(k));
@@ -4876,7 +4974,8 @@ namespace CaeMesh
                     int[] loopEdgeIds = GmshQuadMesher.GetParityEdgeIds(surfaceId, edgeIds.Select(id => Math.Abs(id)).ToArray());
                     if (loopEdgeIds == null || loopEdgeIds.Length == 0 ||
                         !loopEdgeIds.All(problem.EdgeIdTarget.ContainsKey)) continue;
-                    problem.AddEvenSum("All-quad Surface " + surfaceId, IntervalRowTierEnum.Preferred, loopEdgeIds);
+                    problem.AddEvenSum("Quad-dominant Surface " + surfaceId, IntervalRowTierEnum.Preferred,
+                                       loopEdgeIds);
                 }
             }
             // The parity of the sources: a full-quad recombination halves every edge of a source - an edge between two
@@ -5805,8 +5904,7 @@ namespace CaeMesh
                            new HashSet<int>());
         }
         /// <summary>
-        /// Whether the wall of a ring face is thin against the maximum element size (RingFace.IsThinWall), so that the
-        /// face is meshed as a ring rather than by its lattice.
+        /// Whether the wall of a ring face is thin against the maximum element size (RingFace.IsThinWall).
         /// </summary>
         private static bool IsThinRing(RingFace face)
         {
@@ -6039,8 +6137,8 @@ namespace CaeMesh
         /// A ring face joins the balance by the pairs of edges that face each other, or by its two loops, and is meshed by
         /// RingMapping once gmsh has meshed it free; one the balance cannot keep is meshed free in the same way. The edges
         /// of a ring that is not paired aim at their shares of the total of its other loop (GetRingTargetCounts). A face
-        /// that is both submapped and a ring is a ring when its wall is thin against the maximum element size
-        /// (IsThinRing), and submapped otherwise.
+        /// that is both submapped and a ring keeps its lattice if all loops have sharp corners. Other such faces
+        /// use the ring when the wall is thin against the maximum element size (IsThinRing).
         /// A tube face joins the balance as a ring does, by its two rims or the pairs of their edges, and is meshed by
         /// GmshTubeMesher once gmsh has meshed it free; its seam carries the layers, whose number is free or the one set
         /// on it, and is even under a full-quad recombination like the rims.
@@ -6059,18 +6157,18 @@ namespace CaeMesh
         /// joins one more balance as a lens face, as does one dropped by the balance as a submapped face; a submapped
         /// grid refused at the meshing all the same is replaced by a lens grid on the counts it has. A lens face with a
         /// reentrant vertex that is no pole of its surface is no lens face and is left out without a message.
-        /// Under the all-quad recombination every other face, which gmsh meshes free and GmshQuadMesher then turns into
-        /// quads only, asks for an even number of elements around its boundary, at the weakest tier, so that it never
-        /// changes a number the user set or a structured face. Only the edges of such faces whose count the balance
-        /// changed are given that count; the others keep the mesh gmsh lays on them.
+        /// Under the quad-dominant recombination every other face, which gmsh meshes free and GmshQuadMesher then turns
+        /// into quads only, asks for an even number of elements around its boundary, at the weakest tier, so that it
+        /// never changes a number the user set or a structured face. Only the edges of such faces whose count the
+        /// balance changed are given that count; the others keep the mesh gmsh lays on them.
         /// </summary>
         private void SetTransfiniteShellFaces(TransfiniteFace[] transfiniteFaces, SubmapFace[] submapFaces,
                                               RingFace[] ringFaces, TubeFace[] tubeFaces, CapFace[] capFaces,
-                                              LensFace[] lensFaces, bool fullQuad, bool allQuad,
+                                              LensFace[] lensFaces, bool fullQuad, bool quadDominant,
                                               bool layPoleCornerFaces)
         {
             if (transfiniteFaces.Length == 0 && submapFaces.Length == 0 && ringFaces.Length == 0 && tubeFaces.Length == 0 &&
-                capFaces.Length == 0 && lensFaces.Length == 0 && !allQuad) return;
+                capFaces.Length == 0 && lensFaces.Length == 0 && !quadDominant) return;
             // A lens face with a reentrant vertex is split at it only when it is a pole of the surface; a reentrant
             // corner elsewhere leaves the face to gmsh, as it is no lens face
             lensFaces = lensFaces.Where(face => face.ReentrantIndices.Length == 0 ||
@@ -6083,10 +6181,14 @@ namespace CaeMesh
             submapFaces = submapFaces.Where(face => !roundLensFaceIds.Contains(face.FaceId)).ToArray();
             // A face both submapped and a ring is meshed as one of them
             HashSet<int> submapFaceIds = new HashSet<int>(submapFaces.Select(face => face.FaceId));
+            HashSet<int> sharpSubmapIds = new HashSet<int>(submapFaces.Where(face => face.AllTurnEdgeIds.Length == 0 &&
+                                                                                 face.Loops.All(loop => !loop.IsRound))
+                                                                      .Select(face => face.FaceId));
             HashSet<int> ringFaceIds = new HashSet<int>();
             foreach (var face in ringFaces)
             {
-                if (!submapFaceIds.Contains(face.FaceId) || IsThinRing(face)) ringFaceIds.Add(face.FaceId);
+                if (!submapFaceIds.Contains(face.FaceId) || (!sharpSubmapIds.Contains(face.FaceId) && IsThinRing(face)))
+                    ringFaceIds.Add(face.FaceId);
             }
             ringFaces = ringFaces.Where(face => ringFaceIds.Contains(face.FaceId)).ToArray();
             submapFaces = submapFaces.Where(face => !ringFaceIds.Contains(face.FaceId)).ToArray();
@@ -6143,14 +6245,14 @@ namespace CaeMesh
                     WriteLensFreeMessage(face.FaceId, "it carries an edge inside it");
                 else lenses.Add(face);
             }
-            // The edges around every face that may be meshed free, a seam left out, but for one with an edge inside it
+            // The edges around every face that may be meshed free, a seam left out; an edge inside a face is not among
+            // them, as the face meets it from both sides
             Dictionary<int, int[]> freeFaceLoopEdgeIds = new Dictionary<int, int[]>();
-            if (allQuad)
+            if (quadDominant)
             {
                 Tuple<int, int>[] loopDimTags;
                 foreach (var surfaceDimTag in surfaceDimTags)
                 {
-                    if (surfaceIdsWithInternalCurves.Contains(surfaceDimTag.Item2)) continue;
                     Gmsh.Model.GetBoundary(new Tuple<int, int>[] { surfaceDimTag }, out loopDimTags, false, false, false);
                     int[] loopEdgeIds = GmshQuadMesher.GetParityEdgeIds(surfaceDimTag.Item2,
                                                                         loopDimTags.Select(dimTag => Math.Abs(dimTag.Item2))
@@ -6618,6 +6720,27 @@ namespace CaeMesh
             if (unbalanced.Count > 0 || unbalancedTriples.Count > 0)
                 throw new CaeException(GetUnbalancedSidesMessage(unbalanced, unbalancedTriples, edgeIdCount,
                                                                  pinnedEdgeIds, null, sizedEdgeIdCounts));
+            // What keeps the total around a face meshed free odd, for the message of the quad-dominant conversion
+            HashSet<int> finalStructuredFaceIds = new HashSet<int>(faces.Select(face => face.FaceId)
+                                                                        .Concat(submapped.Select(face => face.FaceId))
+                                                                        .Concat(rings.Select(face => face.FaceId))
+                                                                        .Concat(tubes.Select(face => face.FaceId))
+                                                                        .Concat(caps.Select(face => face.FaceId))
+                                                                        .Concat(lenses.Select(face => face.FaceId)));
+            foreach (var entry in freeFaceLoopEdgeIds.OrderBy(entry => entry.Key))
+            {
+                if (finalStructuredFaceIds.Contains(entry.Key)) continue;
+                int total = 0;
+                foreach (var edgeId in entry.Value)
+                {
+                    int edgeCount;
+                    total += edgeIdCount.TryGetValue(edgeId, out edgeCount) ? edgeCount : freeCounts[edgeId];
+                }
+                if (total % 2 != 0)
+                    _quadDominantOddTotalReasons[entry.Key] = GetOddTotalReason(entry.Key, freeFaceLoopEdgeIds,
+                                                                                pinnedEdgeIds,
+                                                                                finalStructuredFaceIds);
+            }
             //
             _submapFaces.AddRange(submapped);
             _ringFaces.AddRange(rings);
@@ -6661,7 +6784,13 @@ namespace CaeMesh
                     _poleFourSidedFaces.Add(face);
                     continue;
                 }
-                else Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
+                else
+                {
+                    Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
+                    if (_shellSpacingFaces == null &&
+                        (face.SideEdgeIds.Any(side => side.Length > 1) || _submapFaces.Count > 0))
+                        _shellSpacingFaces = faces;
+                }
                 _transfiniteSurfaceIds.Add(face.FaceId);
             }
         }
@@ -7013,10 +7142,55 @@ namespace CaeMesh
             return loopPoints;
         }
         /// <summary>
+        /// Why the balance left an odd total around a face meshed free, as the end of the message that names the total:
+        /// the numbers of elements set on its edges and the structured faces beside it hold every edge of it, or the
+        /// faces meshed free beside it share all of its edges that could change, so that no count of those makes every
+        /// one of them even, or else the lowest numbers of elements the element size allows on its edges.
+        /// </summary>
+        private static string GetOddTotalReason(int surfaceId, Dictionary<int, int[]> freeFaceLoopEdgeIds,
+                                                HashSet<int> pinnedEdgeIds, HashSet<int> structuredFaceIds)
+        {
+            int[] loopEdgeIds = freeFaceLoopEdgeIds[surfaceId];
+            Dictionary<int, List<int>> edgeSurfaceIds = new Dictionary<int, List<int>>();
+            foreach (var edgeId in loopEdgeIds)
+            {
+                int[] faceIds;
+                Gmsh.Model.GetAdjacencies(1, edgeId, out faceIds, out _);
+                edgeSurfaceIds[edgeId] = faceIds.Where(id => id != surfaceId).Distinct().OrderBy(id => id).ToList();
+            }
+            List<int> structuredIds = loopEdgeIds.SelectMany(edgeId => edgeSurfaceIds[edgeId])
+                                                 .Where(structuredFaceIds.Contains).Distinct().OrderBy(id => id)
+                                                 .ToList();
+            int[] freeEdgeIds = loopEdgeIds.Where(edgeId => !pinnedEdgeIds.Contains(edgeId) &&
+                                                            !edgeSurfaceIds[edgeId].Any(structuredFaceIds.Contains))
+                                           .ToArray();
+            if (freeEdgeIds.Length == 0)
+            {
+                if (structuredIds.Count == 0) return "which the numbers of elements set on its edges fix";
+                return "which " + (loopEdgeIds.Any(pinnedEdgeIds.Contains) ?
+                                   "the numbers of elements set on its edges and " :
+                                                                              "") +
+                       "the structured faces beside it, " + JoinSurfaceNames(structuredIds) + ", fix";
+            }
+            List<int> freeIds = freeEdgeIds.SelectMany(edgeId => edgeSurfaceIds[edgeId]).Distinct().OrderBy(id => id)
+                                           .ToList();
+            if (freeEdgeIds.All(edgeId => edgeSurfaceIds[edgeId].Count > 0))
+                return "which the even totals of the faces beside it, " + JoinSurfaceNames(freeIds) +
+                       ", sharing every edge of it that could change, leave";
+            return "which the balance keeps for the numbers of elements the element size asks for on its edges";
+        }
+        private static string JoinSurfaceNames(List<int> surfaceIds)
+        {
+            List<string> names = surfaceIds.Select(id => "Surface " + id).ToList();
+            if (names.Count == 1) return names[0];
+            return string.Join(", ", names.Take(names.Count - 1)) + " and " + names[names.Count - 1];
+        }
+        /// <summary>
         /// Turns the quads and triangles gmsh meshed free on each surface into quads only (GmshQuadMesher), and writes why
         /// a surface keeps triangles.
         /// </summary>
-        private void MeshAllQuadSurfaces(IEnumerable<int> surfaceIds)
+        private void MeshQuadDominantSurfaces(IEnumerable<int> surfaceIds,
+                                              Dictionary<int, string> deferredMessages = null)
         {
             foreach (var surfaceId in surfaceIds)
             {
@@ -7032,10 +7206,17 @@ namespace CaeMesh
                     reason = ex.Message.Trim().TrimEnd('.');
                 }
                 if (numOfTriangles == 0 || reason == null) continue;
-                _writeOutput?.Invoke(NameGmshEntities("All-quad meshing: Surface " + surfaceId + " keeps " +
-                                                      (numOfTriangles < 0 ? "its triangles" : numOfTriangles +
-                                                       (numOfTriangles == 1 ? " triangle" : " triangles")) +
-                                                      " - " + reason + "."));
+                string oddTotalReason;
+                if (numOfTriangles == 1 && reason.StartsWith(GmshQuadMesher.OddTotalReason) &&
+                    _quadDominantOddTotalReasons.TryGetValue(surfaceId, out oddTotalReason))
+                    reason += ", " + oddTotalReason;
+                string message = NameGmshEntities("Quad-dominant meshing: Surface " + surfaceId + " keeps " +
+                                                  (numOfTriangles < 0 ? "its triangles" : numOfTriangles +
+                                                   (numOfTriangles == 1 ? " triangle" : " triangles")) +
+                                                  " - " + reason + ".");
+                if (deferredMessages != null && deferredMessages.ContainsKey(surfaceId))
+                    deferredMessages[surfaceId] = message;
+                else _writeOutput?.Invoke(message);
             }
         }
         /// <summary>
