@@ -4941,9 +4941,9 @@ namespace CaeResults
             SetExtremesOverLayers(values[0], values[1], values[3], values[4], values[5]);
             return values;
         }
-        // The largest failure index of all layers of a shell element, at the nodes of every one of its layers, and the
-        // layer it is reached in, and the smallest reserve factor of all its layers; a node takes the most critical of
-        // the shell elements around it
+        // The largest failure index and the smallest reserve factor of all layers of a shell element, at the nodes of
+        // every one of its layers, and the layer the smallest reserve factor is reached in, which is the layer that
+        // fails first; a node takes the most critical of the shell elements around it
         private void SetExtremesOverLayers(float[] failureIndices, float[] reserveFactors, float[] maxFailureIndices,
                                            float[] criticalLayers, float[] minReserveFactors)
         {
@@ -4966,15 +4966,15 @@ namespace CaeResults
                     index = failureIndices[resultNodeId];
                     if (!float.IsNaN(index) &&
                         (!shellMaxIndices.TryGetValue(entry.Value.ShellElementId, out shellMaxIndex) || index > shellMaxIndex))
-                    {
                         shellMaxIndices[entry.Value.ShellElementId] = index;
-                        shellCriticalLayers[entry.Value.ShellElementId] = entry.Value.LayerNumber;
-                    }
                     reserveFactor = reserveFactors[resultNodeId];
                     if (!float.IsNaN(reserveFactor) &&
                         (!shellMinReserveFactors.TryGetValue(entry.Value.ShellElementId, out shellMinReserveFactor) ||
                          reserveFactor < shellMinReserveFactor))
+                    {
                         shellMinReserveFactors[entry.Value.ShellElementId] = reserveFactor;
+                        shellCriticalLayers[entry.Value.ShellElementId] = entry.Value.LayerNumber;
+                    }
                 }
             }
             //
@@ -4986,14 +4986,14 @@ namespace CaeResults
                 {
                     if (shellMaxIndices.TryGetValue(layer.ShellElementId, out shellMaxIndex) &&
                         (float.IsNaN(maxFailureIndices[resultNodeId]) || shellMaxIndex > maxFailureIndices[resultNodeId]))
-                    {
                         maxFailureIndices[resultNodeId] = shellMaxIndex;
-                        criticalLayers[resultNodeId] = shellCriticalLayers[layer.ShellElementId];
-                    }
                     if (shellMinReserveFactors.TryGetValue(layer.ShellElementId, out shellMinReserveFactor) &&
                         (float.IsNaN(minReserveFactors[resultNodeId]) ||
                          shellMinReserveFactor < minReserveFactors[resultNodeId]))
+                    {
                         minReserveFactors[resultNodeId] = shellMinReserveFactor;
+                        criticalLayers[resultNodeId] = shellCriticalLayers[layer.ShellElementId];
+                    }
                 }
             }
         }

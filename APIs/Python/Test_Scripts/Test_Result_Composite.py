@@ -288,10 +288,16 @@ def main():
     # The smallest reserve factor over the layers, which for Tsai-Wu is not the inverse of the largest index
     plate_min = min(value(PREFIX + "TW", "RESERVE_FACTOR", n) for k in (1, 2, 3, 4) for n in layers[k])
     layer_min = []
+    layer_reserves = {k: {n: value(PREFIX + "TW", "RESERVE_FACTOR", n) for n in layers[k]} for k in (1, 2, 3, 4)}
     for n in layers[1]:
         layer_min.append(value(PREFIX + "TW", "MIN_RESERVE_FACTOR", n))
         check(layer_min[-1] <= value(PREFIX + "TW", "RESERVE_FACTOR", n) + 1e-6,
               "the smallest reserve factor over the layers at node %d exceeds the one of its layer" % n)
+        # The critical layer is the one that fails first, the one of the smallest reserve factor
+        critical = int(value(PREFIX + "TW", "CRITICAL_LAYER", n))
+        check(critical in layer_reserves and
+              min(layer_reserves[critical].values()) <= layer_min[-1] * (1 + 1e-6),
+              "the critical layer %d at node %d does not hold the smallest reserve factor" % (critical, n))
     check(abs(min(layer_min) - plate_min) < 1e-6 * plate_min,
           "the smallest reserve factor over the layers must be the smallest of the plate")
     # A ply without a composite strength reads NaN
