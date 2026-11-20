@@ -48,6 +48,7 @@ namespace PrePoMax.Forms
                 else if (clone is ShellEdgeLoad sel) _viewLoad = new ViewShellEdgeLoad(sel);
                 else if (clone is GravityLoad gl) _viewLoad = new ViewGravityLoad(gl);
                 else if (clone is CentrifLoad cfl) _viewLoad = new ViewCentrifLoad(cfl);
+                else if (clone is BodyForce bfl) _viewLoad = new ViewBodyForce(bfl);
                 else if (clone is PreTensionLoad ptl) _viewLoad = new ViewPreTensionLoad(ptl);
                 // Thermal
                 else if (clone is CFlux cf) _viewLoad = new ViewCFlux(cf);
@@ -198,6 +199,7 @@ namespace PrePoMax.Forms
                 }
                 else if (itemTag is ViewGravityLoad vgl) _viewLoad = vgl;
                 else if (itemTag is ViewCentrifLoad vcfl) _viewLoad = vcfl;
+                else if (itemTag is ViewBodyForce vbfl) _viewLoad = vbfl;
                 else if (itemTag is ViewPreTensionLoad vprl) _viewLoad = vprl;
                 // Thermal
                 else if (itemTag is ViewCFlux vcf) _viewLoad = vcf;
@@ -352,6 +354,11 @@ namespace PrePoMax.Forms
                     throw new CaeException("At least one axis direction component must not be equal to 0.");
                 if (cfl.RotationalSpeed2 == 0)
                     throw new CaeException("Rotational speed must not be equal to 0.");
+            }
+            else if (FELoad is BodyForce bfl)
+            {
+                if (bfl.Magnitude.Value == 0)
+                    throw new CaeException("At least one body force component must not be equal to 0.");
             }
             else if (FELoad is PreTensionLoad ptl)
             {
@@ -659,6 +666,20 @@ namespace PrePoMax.Forms
                     //
                     vcfl.PopulateDropDownLists(partNames, elementSetNames, massSectionNames, amplitudeNames);
                 }
+                else if (_viewLoad is ViewBodyForce vbfl)
+                {
+                    selectedId = lvTypes.FindItemWithText("Body Force").Index;
+                    // Check for deleted regions
+                    if (vbfl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vbfl.RegionType == RegionTypeEnum.PartName.ToFriendlyString())
+                        CheckMissingValueRef(ref partNames, vbfl.PartName, s => { vbfl.PartName = s; });
+                    else if (vbfl.RegionType == RegionTypeEnum.ElementSetName.ToFriendlyString())
+                        CheckMissingValueRef(ref elementSetNames, vbfl.ElementSetName, s => { vbfl.ElementSetName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    vbfl.PopulateDropDownLists(partNames, elementSetNames, distributionNames, amplitudeNames,
+                                               coordinateSystemNames);
+                }
                 else if (_viewLoad is ViewPreTensionLoad vptl)
                 {
                     selectedId = lvTypes.FindItemWithText("Pre-tension").Index;
@@ -907,6 +928,20 @@ namespace PrePoMax.Forms
                 item.Tag = vcfl;
                 lvTypes.Items.Add(item);
             }
+            // Body force -  part, element sets
+            name = "Body Force";
+            loadName = GetLoadName(name);
+            item = new ListViewItem(name);
+            BodyForce bodyForce = new BodyForce(loadName, "", RegionTypeEnum.Selection, 0, 0, 0, twoD, complex, 0);
+            if (step.IsLoadSupported(bodyForce))
+            {
+                ViewBodyForce vbfl = new ViewBodyForce(bodyForce);
+                vbfl.PopulateDropDownLists(partNames, elementSetNames, distributionNames, amplitudeNames,
+                                           coordinateSystemNames);
+                vbfl.Color = color;
+                item.Tag = vbfl;
+                lvTypes.Items.Add(item);
+            }
             // Pre-tension load
             name = "Pre-tension";
             loadName = GetLoadName(name);
@@ -1026,6 +1061,7 @@ namespace PrePoMax.Forms
                          load is ShellEdgeLoad ||
                          load is GravityLoad ||
                          load is CentrifLoad ||
+                         load is BodyForce ||
                          load is PreTensionLoad ||
                          // Thermal
                          load is CFlux ||
@@ -1124,6 +1160,7 @@ namespace PrePoMax.Forms
                 else if (FELoad is ShellEdgeLoad) _controller.SetSelectItemToSurface();
                 else if (FELoad is GravityLoad) _controller.SetSelectItemToPart();
                 else if (FELoad is CentrifLoad) _controller.SetSelectItemToPart();
+                else if (FELoad is BodyForce) _controller.SetSelectItemToPart();
                 else if (FELoad is PreTensionLoad) _controller.SetSelectItemToSurface();
                 // Thermal
                 else if (FELoad is CFlux) _controller.SetSelectItemToNode();
@@ -1162,6 +1199,7 @@ namespace PrePoMax.Forms
                         FELoad is ShellEdgeLoad ||
                         FELoad is GravityLoad ||
                         FELoad is CentrifLoad ||
+                        FELoad is BodyForce ||
                         FELoad is PreTensionLoad ||
                         FELoad is CFlux ||
                         FELoad is DFlux ||

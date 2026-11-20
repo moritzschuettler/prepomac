@@ -27,6 +27,7 @@ namespace APIs.Python.Model
             { typeof(ShellEdgeLoad), "shell_edge_load" },
             { typeof(GravityLoad), "gravity" },
             { typeof(CentrifLoad), "centrifugal" },
+            { typeof(BodyForce), "body_force" },
             { typeof(PreTensionLoad), "pre_tension" },
             { typeof(CFlux), "concentrated_flux" },
             { typeof(DFlux), "surface_flux" },
@@ -115,6 +116,7 @@ namespace APIs.Python.Model
                 else ModelItemValueReader.AddArguments(names, "p1", "p2", "p3");
                 ModelItemValueReader.AddArguments(names, "distribution_name");
             }
+            else if (load is BodyForce) ModelItemValueReader.AddArguments(names, "f1", "f2", "f3", "distribution_name");
             else if (load is CentrifLoad)
             {
                 names.Add("axis_point", new string[] { "x", "y", "z" });
@@ -154,11 +156,11 @@ namespace APIs.Python.Model
         {
             return load.Complex && !(load is PreTensionLoad);
         }
-        // The solver input transforms only the nodes of a concentrated force and of a surface traction into a
-        // coordinate system, and the dialog offers one for those two only
+        // The solver input orients only a concentrated force, a surface traction and a body force in a coordinate
+        // system, and the dialog offers one for those three only
         internal static bool TakesCoordinateSystem(Load load)
         {
-            return load is CLoad || load is STLoad;
+            return load is CLoad || load is STLoad || load is BodyForce;
         }
         private static Dictionary<string, object> GetValues(Load load)
         {

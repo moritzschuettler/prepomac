@@ -115,6 +115,7 @@ namespace CaeResults
         public const string Distance = "DISTANCE";                      // vector
         public const string Imported = "IMPORTED";                      // scalar
         public const string ForcePerArea = "FORCE_PER_AREA";            // vector
+        public const string ForcePerVolume = "FORCE_PER_VOLUME";        // vector
         public const string Pressure = "PRESSURE";                      // scalar
         // Preview
         public const string PrescribedDisp = "PRESCRIBED_DISP";         // vector

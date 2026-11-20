@@ -2055,6 +2055,10 @@ namespace CaeResults
                         unitConverter = new StringPressureConverter();
                         unitAbbreviation = _unitSystem.PressureUnitAbbreviation;
                         break;
+                    case FOFieldNames.ForcePerVolume:
+                        unitConverter = new StringForcePerVolumeConverter();
+                        unitAbbreviation = _unitSystem.ForceUnitAbbreviation + "/" + _unitSystem.VolumeUnitAbbreviation;
+                        break;
                     // Preview
                     case FOFieldNames.PrescribedDisp:
                         unitConverter = new StringLengthConverter();

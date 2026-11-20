@@ -1215,6 +1215,13 @@ namespace CaeModel
                         (cf.RegionType == RegionTypeEnum.Selection && _mesh.GetPartNamesFromPartIds(cf.CreationIds) != null &&
                         _mesh.GetPartNamesFromPartIds(cf.CreationIds).Length == cf.CreationIds.Length);
             }
+            else if (load is BodyForce bfl)
+            {
+                valid = (bfl.RegionType == RegionTypeEnum.PartName && _mesh.Parts.ContainsValidKey(bfl.RegionName)) ||
+                        (bfl.RegionType == RegionTypeEnum.ElementSetName && _mesh.ElementSets.ContainsValidKey(bfl.RegionName)) ||
+                        (bfl.RegionType == RegionTypeEnum.Selection && _mesh.GetPartNamesFromPartIds(bfl.CreationIds) != null &&
+                        _mesh.GetPartNamesFromPartIds(bfl.CreationIds).Length == bfl.CreationIds.Length);
+            }
             else if (load is PreTensionLoad ptl)
             {
                 valid = (_mesh.Surfaces.TryGetValue(ptl.SurfaceName, out s) && s.Valid && s.Type == FeSurfaceType.Element);
@@ -8974,6 +8981,12 @@ namespace CaeModel
 
 
         // 3D - 2D                                                                                  
+        private bool IsLoadSurfaceValid(Load load, string surfaceName)
+        {
+            FeSurface surface;
+            return surfaceName != null && _mesh.Surfaces.TryGetValue(surfaceName, out surface) && surface.Valid &&
+                   (!load.TwoD || IsShellEdgeSurface(surface));
+        }
         private bool IsShellEdgeSurface(FeSurface surface)
         {
             if (surface.ElementFaces == null || surface.ElementFaces.Count == 0) return false;
@@ -8981,12 +8994,6 @@ namespace CaeModel
             FeElementSet elementSet;
             foreach (var entry in surface.ElementFaces)
             {
-        private bool IsLoadSurfaceValid(Load load, string surfaceName)
-        {
-            FeSurface surface;
-            return surfaceName != null && _mesh.Surfaces.TryGetValue(surfaceName, out surface) && surface.Valid &&
-                   (!load.TwoD || IsShellEdgeSurface(surface));
-        }
                 if (entry.Key == FeFaceName.S1 || entry.Key == FeFaceName.S2) return false;
                 if (!_mesh.ElementSets.TryGetValue(entry.Value, out elementSet)) return false;
                 foreach (var elementId in elementSet.Labels)

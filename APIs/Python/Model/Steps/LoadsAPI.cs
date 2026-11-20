@@ -429,6 +429,53 @@ namespace APIs.Python.Model
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }
 
+        [PythonAPI("Adds a body force using command history: a force per unit volume written as *Dload BX, BY " +
+                   "and BZ. At least one of f1, f2 and f3 must be nonzero, and a two dimensional model refuses a " +
+                   "nonzero f3. With a distribution, the distribution is evaluated at the element centroids and " +
+                   "multiplies the components, a scalar one all three and a vector one each its own. In a " +
+                   "cylindrical coordinate system the components are radial, tangential and axial. The selection " +
+                   "target is parts, as the dialog picks them.",
+                   Arguments = "name: str, region: Selection or Region, f1: float = None, f2: float = None, " +
+                               "f3: float = None, distribution_name: str = None, and the shared load arguments",
+                   Returns = "Load",
+                   Example = "step.loads.add_body_force('Magnet_force', part_selection, f1=2e-3, " +
+                             "coordinate_system_name='Cylindrical')")]
+        public LoadAPI add_body_force(object name, object region, object f1 = null, object f2 = null,
+                                      object f3 = null, object distribution_name = null,
+                                      object amplitude_name = null, object coordinate_system_name = null,
+                                      object phase_deg = null, object color = null)
+        {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
+            BodyForce load = new BodyForce(nameText, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
+            _service.ApplyRegion(load, region, PartTargets, ElementRegionTargets);
+            if (distribution_name != null)
+                load.DistributionName = _service.ResolveDistributionName(distribution_name);
+            LoadFactory.ApplyBodyForce(load, f1, f2, f3);
+            //
+            return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
+        }
+
+        [PythonAPI("Replaces an existing body force using command history.",
+                   Arguments = "old_name: str, name: str = None, and the arguments of add_body_force",
+                   Returns = "Load")]
+        public LoadAPI replace_body_force(object old_name, object name = null, object region = null,
+                                          object f1 = null, object f2 = null, object f3 = null,
+                                          object distribution_name = null, object amplitude_name = null,
+                                          object coordinate_system_name = null, object phase_deg = null,
+                                          object color = null)
+        {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            BodyForce load = _service.CloneForReplace<BodyForce>(StepName, oldName, "body_force");
+            if (region != null) _service.ApplyRegion(load, region, PartTargets, ElementRegionTargets);
+            if (distribution_name != null)
+                load.DistributionName = _service.ResolveDistributionName(distribution_name);
+            LoadFactory.ApplyBodyForce(load, f1, f2, f3);
+            //
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
+        }
+
         [PythonAPI("Adds a pre-tension load using command history. The direction is the surface normal " +
                    "unless a non-zero one is given; auto_direction=True, the default, cannot be combined with a " +
                    "direction, " +

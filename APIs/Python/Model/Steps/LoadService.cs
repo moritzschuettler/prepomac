@@ -42,7 +42,8 @@ namespace APIs.Python.Model
                 string storedName = ResolveCoordinateSystemName(coordinateSystemName);
                 if (storedName != CoordinateSystem.DefaultCoordinateSystemName && !LoadAPI.TakesCoordinateSystem(load))
                     throw new PythonAPIException("The argument 'coordinate_system_name' applies only to a " +
-                                                 "concentrated_force or a surface_traction load; the solver input " +
+                                                 "concentrated_force, a surface_traction or a body_force load; the " +
+                                                 "solver input " +
                                                  "applies a " + LoadAPI.GetItemType(load) + " load in the global " +
                                                  "coordinate system. Leave it out here.");
                 load.CoordinateSystemName = storedName;
@@ -60,7 +61,6 @@ namespace APIs.Python.Model
             }
             if (color != null) load.Color = PythonColorConverter.ToColor(color, "color");
         }
-        public void Add(string stepName, Load load)
         // The solver input gives a 2D element no front or back face, so a 2D surface load takes element edges only,
         // as the dialog limits its picks to them and offers only the surfaces made of them
         public void ApplyLoadRegion(Load load, object region, string target)
@@ -96,6 +96,7 @@ namespace APIs.Python.Model
             return "In a two dimensional model a " + LoadAPI.GetItemType(load) + " load acts on element edges " +
                    "only, because the solver input gives a two dimensional element no front or back face.";
         }
+        public void Add(string stepName, Load load)
         {
             // The step silently refuses an unsupported type, so the check is done before the command
             Step step = StepService.ResolveStep(stepName);
@@ -176,6 +177,8 @@ namespace APIs.Python.Model
                 return "The shell edge load magnitude must not be equal to 0. Give a nonzero 'magnitude'.";
             if (load is GravityLoad gravity && gravity.Magnitude.Value == 0)
                 return "At least one gravity load component must not be equal to 0. Give a nonzero 'f1', 'f2' or 'f3'.";
+            if (load is BodyForce bodyForce && bodyForce.Magnitude.Value == 0)
+                return "At least one body force component must not be equal to 0. Give a nonzero 'f1', 'f2' or 'f3'.";
             if (load is CentrifLoad centrifugal)
             {
                 if (centrifugal.N1.Value == 0 && centrifugal.N2.Value == 0 && centrifugal.N3.Value == 0)

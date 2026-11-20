@@ -2382,7 +2382,7 @@ command, naming the step type.
 ### `Loads`
 
 Reached as `step.loads`. It shares the collection verbs. Every `region` argument is a `Selection` or
-a `Region`; the selection target follows the load type. A gravity, a centrifugal and a body flux load
+a `Region`; the selection target follows the load type. A gravity, a centrifugal, a body force and a body flux load
 pick parts, as their dialog does, because the selection becomes an element set made of the picked parts;
 named, their region is an `ElementSetName` or a `PartName` region.
 
@@ -2397,6 +2397,7 @@ named, their region is an `ElementSetName` or a `PartName` region.
 | `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A shell edge load. |
 | `add_gravity(name, region, f1=None, f2=None, f3=None, ...)` | parts | A gravity load. |
 | `add_centrifugal(name, region, axis_point=None, axis_direction=None, rotational_speed=None, ...)` | parts | A centrifugal load. The `rotational_speed` is in rad/s. The defaults of `axis_direction` and `rotational_speed` are zero, so a model that is not axisymmetric needs the direction, and every model the speed. |
+| `add_body_force(name, region, f1=None, f2=None, f3=None, distribution_name=None, ...)` | parts | A force per unit volume, written as `*Dload` `BX`, `BY` and `BZ`. A distribution is evaluated at the element centroids and multiplies the components; in a cylindrical `coordinate_system_name` the components are radial, tangential and axial. |
 | `add_pre_tension(name, region, magnitude, direction=None, tension_type=None, ..., auto_direction=None)` | surfaces | A pre-tension load. `tension_type` is `Force` or `Displacement`. |
 | `add_concentrated_flux(name, region, magnitude, add_flux=None, ...)` | nodes | A concentrated flux. |
 | `add_surface_flux(name, region, magnitude, ...)` | surfaces | A surface flux. |
@@ -2424,9 +2425,9 @@ The details the model imposes:
   `p1`-`p3` the force per area. The solver is given the group that matches the distribution: the
   force components without a distribution, the force per area components with one. The other group is
   refused, checked against the distribution the load carries after the call.
-- **A coordinate system belongs to a concentrated force or a surface traction.** The solver input
-  transforms only their nodes, and the dialog offers one only for them, so any other load refuses a
-  `coordinate_system_name` other than `Global`.
+- **A coordinate system belongs to a concentrated force, a surface traction or a body force.** The
+  solver input orients only their components, and the dialog offers one only for them, so any other load
+  refuses a `coordinate_system_name` other than `Global`.
 - **A phase belongs to a complex load.** Only a steady state dynamics step makes its loads complex, so
   `phase_deg` is refused in any other step and by a thermal or pre-tension load, and is read back only
   where it is taken. A phase is at least 0 and below 360 degrees: the load would wrap any other value
@@ -2435,7 +2436,6 @@ The details the model imposes:
   `p3`, `m1` and `m2` of a moment, and the third component of a hydrostatic point or direction. An
   axisymmetric model turns a centrifugal load about its y axis, so there `axis_point` must be `[0, 0, 0]`
   and `axis_direction` `[0, 1, 0]` when given. A negative `rotational_speed` is refused.
-- **A load acts.** The dialog refuses on OK a load that would do nothing, and so does the API, in the
 - **A surface load of a two dimensional model acts on element edges.** The solver input gives a 2D
   element no front or back face, so, as the dialog does, a `surfaces` selection of a pressure, hydrostatic
   or imported pressure, surface traction, surface flux, film or radiation load is limited to element
@@ -2443,6 +2443,7 @@ The details the model imposes:
   elements themselves, such as a `Geometry` box over an edge, is refused naming the picks that take
   edges: `selection_by_pick` with `select_by` `'Edge'`, `'GeometryEdge'` or `'Geometry'`. A load already on
   element faces is marked invalid.
+- **A load acts.** The dialog refuses on OK a load that would do nothing, and so does the API, in the
   dialog's words and naming the arguments, judged on the load an add or a replace ends with and on the
   value an expression evaluates to: a concentrated force, a moment, a gravity load or the component group
   a surface traction writes with every component 0, a pressure, a shell edge load or a pre-tension
@@ -2469,7 +2470,7 @@ An **imported pressure** is read from its results file on every model check, so 
 | Member | Description |
 | --- | --- |
 | `name`, `step_name` | The load name and the step it belongs to. |
-| `item_type` | The load type, named after the `add_*` method that makes it without `add_`: `concentrated_force`, `moment`, `pressure`, `hydrostatic_pressure`, `imported_pressure`, `surface_traction`, `shell_edge_load`, `gravity`, `centrifugal`, `pre_tension`, `concentrated_flux`, `surface_flux`, `body_flux`, `film_heat_transfer` or `radiation_heat_transfer`. |
+| `item_type` | The load type, named after the `add_*` method that makes it without `add_`: `concentrated_force`, `moment`, `pressure`, `hydrostatic_pressure`, `imported_pressure`, `surface_traction`, `shell_edge_load`, `gravity`, `centrifugal`, `body_force`, `pre_tension`, `concentrated_flux`, `surface_flux`, `body_flux`, `film_heat_transfer` or `radiation_heat_transfer`. |
 | `active`, `visible` | Item state. |
 | `valid` | False when the region, distribution, amplitude, coordinate system or an equation the load refers to no longer resolves, or the load does not fit the model space; the model tree marks it invalid. |
 | `region_type`, `region_name` | The region the load is applied to. |

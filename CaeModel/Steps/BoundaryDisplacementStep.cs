@@ -70,6 +70,7 @@ namespace CaeModel
                 loadType == typeof(ShellEdgeLoad) ||
                 loadType == typeof(GravityLoad) ||
                 loadType == typeof(CentrifLoad) ||
+                loadType == typeof(BodyForce) ||
                 loadType == typeof(PreTensionLoad) ||
                 loadType == typeof(CFlux) ||
                 loadType == typeof(DFlux) ||

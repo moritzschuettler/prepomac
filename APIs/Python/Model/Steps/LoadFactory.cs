@@ -120,6 +120,12 @@ namespace APIs.Python.Model
             SetEquation(load.F2, f2, "f2");
             SetInPlaneEquation(load, load.F3, f3, "f3");
         }
+        public static void ApplyBodyForce(BodyForce load, object f1, object f2, object f3)
+        {
+            SetEquation(load.F1, f1, "f1");
+            SetEquation(load.F2, f2, "f2");
+            SetInPlaneEquation(load, load.F3, f3, "f3");
+        }
         // An axisymmetric model turns about its y axis, which the load stores whatever it is given
         public static void ApplyCentrifugal(CentrifLoad load, object axisPoint, object axisDirection,
                                             object rotationalSpeed)

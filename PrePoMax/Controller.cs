@@ -19388,6 +19388,10 @@ namespace PrePoMax
                 {
                     results = ist.GetPreview(_model, stepName + "_" + loadName, _model.UnitSystem);
                 }
+                else if (load is BodyForce bf)
+                {
+                    results = bf.GetPreview(_model, stepName + "_" + loadName, _model.UnitSystem);
+                }
                 else throw new CaeException("It is not possible to preview this load type.");
                 //
                 SetResults(results);
@@ -19459,7 +19463,7 @@ namespace PrePoMax
                     load.RegionType = RegionTypeEnum.NodeSetName;
                 }
                 // Element set from parts
-                else if (load is GravityLoad || load is CentrifLoad || load is BodyFlux)
+                else if (load is GravityLoad || load is CentrifLoad || load is BodyFlux || load is BodyForce)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.ElementSets, load.Name);
                     FeElementSet elementSet = new FeElementSet(name, load.CreationIds, true);
@@ -19504,7 +19508,7 @@ namespace PrePoMax
             {
                 if (load is CLoad || load is MomentLoad || load is CFlux)
                     RemoveNodeSets(new string[] { load.RegionName }, false);
-                else if (load is GravityLoad || load is CentrifLoad || load is BodyFlux)
+                else if (load is GravityLoad || load is CentrifLoad || load is BodyFlux || load is BodyForce)
                     RemoveElementSets(new string[] { load.RegionName }, false);
                 else if (load is DLoad || load is HydrostaticPressure || load is ImportedPressure || load is STLoad ||
                          load is ImportedSTLoad || load is ShellEdgeLoad || load is PreTensionLoad ||
@@ -27938,6 +27942,8 @@ namespace PrePoMax
                     DrawGravityLoad(prefixName, gLoad, color, symbolSize, nodeSymbolSize, layer, onlyVisible);
                 else if (load is CentrifLoad cfLoad)
                     DrawCentrifLoad(prefixName, cfLoad, color, symbolSize, nodeSymbolSize, layer, onlyVisible);
+                else if (load is BodyForce bForce)
+                    DrawBodyForceLoad(prefixName, bForce, color, symbolSize, layer, onlyVisible);
                 else if (load is PreTensionLoad ptLoad)
                     DrawPreTensionLoad(prefixName, ptLoad, color, symbolSize, nodeSymbolSize, layer, onlyVisible);
                 // Thermal
@@ -28328,6 +28334,67 @@ namespace PrePoMax
                 //
                 if (nodeSet.Labels.Length > 0)
                     DrawBodyFluxSymbol(prefixName, bFlux, nodeSet.CenterOfGravity, color, symbolSize, symbolLayer);
+            }
+        }
+        public void DrawBodyForceLoad(string prefixName, BodyForce bForce, Color color, int symbolSize,
+                                      vtkRendererLayer layer, bool onlyVisible)
+        {
+            int count = 0;
+            vtkRendererLayer symbolLayer = layer == vtkRendererLayer.Selection ? layer : vtkRendererLayer.Overlay;
+            //
+            bool countOnly = layer != vtkRendererLayer.Selection;
+            FeElementSet elementSet;
+            //
+            if (bForce.RegionType == RegionTypeEnum.PartName)
+                count += HighlightModelParts(new string[] { bForce.RegionName }, onlyVisible, countOnly);
+            else if (bForce.RegionType == RegionTypeEnum.ElementSetName)
+            {
+                if (!_model.Mesh.ElementSets.TryGetValue(bForce.RegionName, out elementSet)) return;
+                count += HighlightElementSet(elementSet.Name, true, onlyVisible, countOnly);
+            }
+            else throw new NotSupportedException();
+            //
+            if (count > 0) DrawBodyForceSymbols(prefixName, bForce, color, symbolSize, symbolLayer, onlyVisible);
+        }
+        public void DrawBodyForceSymbols(string prefixName, BodyForce bForce, Color color, int symbolSize,
+                                         vtkRendererLayer layer, bool onlyVisible)
+        {
+            int[] elementIds = _model.GetElementIdsOfRegion(bForce);
+            double[][] centroids = new double[elementIds.Length][];
+            for (int i = 0; i < elementIds.Length; i++)
+                centroids[i] = _model.Mesh.Elements[elementIds[i]].GetCG(_model.Mesh.Nodes, out _);
+            //
+            bool[] visible = null;
+            if (onlyVisible)
+            {
+                HashSet<int> visibleElementIds = new HashSet<int>(_model.Mesh.GetVisibleElementIds());
+                visible = new bool[elementIds.Length];
+                for (int i = 0; i < elementIds.Length; i++) visible[i] = visibleElementIds.Contains(elementIds[i]);
+            }
+            int[] sampleIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(centroids, 6, visible);
+            double[][] sampleCoor = new double[sampleIds.Length][];
+            for (int i = 0; i < sampleIds.Length; i++) sampleCoor[i] = centroids[sampleIds[i]];
+            //
+            double[][] forces = bForce.GetOrientedForcesPerVolumeForPoints(_model, sampleCoor, out _);
+            List<double[]> symbolCoor = new List<double[]>();
+            List<double[]> symbolNormals = new List<double[]>();
+            for (int i = 0; i < forces.Length; i++)
+            {
+                if (forces[i][0] == 0 && forces[i][1] == 0 && forces[i][2] == 0) continue;
+                symbolCoor.Add(sampleCoor[i]);
+                symbolNormals.Add(forces[i]);
+            }
+            //
+            if (symbolCoor.Count > 0)
+            {
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = prefixName;
+                data.Color = color;
+                data.Layer = layer;
+                data.Geometry.Nodes.Coor = symbolCoor.ToArray();
+                data.Geometry.Nodes.Normals = symbolNormals.ToArray();
+                ApplyLighting(data);
+                _form.AddOrientedArrowsActor(data, symbolSize);
             }
         }
         public void DrawFilmHeatTransferLoad(string prefixName, FilmHeatTransfer fhtLoad, Color color, int symbolSize,
