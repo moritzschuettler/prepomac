@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace PrePoMax.PropertyViews
 {
-    [Serializable]
+    [PmxType(10400)]
     public class ViewFriction : ViewSurfaceInteractionProperty
     {
         // Variables                                                                                                                
-        private CaeModel.Friction _friction;
+        [PmxKey(0)] private CaeModel.Friction _friction;
 
 
         // Properties                                                                                                               

@@ -19,11 +19,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10385)]
     public class ViewPointMassSection : ViewSection
     {
         // Variables                                                                                                                
-        private PointMassSection _massSection;
+        [PmxKey(0)] private PointMassSection _massSection;
         
 
         // Properties                                                                                                               

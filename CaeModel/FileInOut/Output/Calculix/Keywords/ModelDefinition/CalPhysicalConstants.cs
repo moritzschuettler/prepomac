@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3072)]
     internal class CalPhysicalConstants : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ModelProperties _modelProperties;
+        [PmxKey(0)] private ModelProperties _modelProperties;
 
 
         // Properties                                                                                                               

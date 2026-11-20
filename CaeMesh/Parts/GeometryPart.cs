@@ -16,17 +16,17 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2137)]
     public class GeometryPart : BasePart
     {
         // Variables                                                                                                                
-        private MeshingParameters _meshingParameters;
-        private List<Enum> _elementTypeEnums;
-        private int[] _freeEdgeCellIds;
-        private int[] _errorEdgeCellIds;
-        private int[] _freeNodeIds;
-        private int[] _errorNodeIds;
-        private string _cadFileData;
+        [PmxKey(0)] private MeshingParameters _meshingParameters;
+        [PmxKey(1)] private List<Enum> _elementTypeEnums;
+        [PmxKey(2)] private int[] _freeEdgeCellIds;
+        [PmxKey(3)] private int[] _errorEdgeCellIds;
+        [PmxKey(4)] private int[] _freeNodeIds;
+        [PmxKey(5)] private int[] _errorNodeIds;
+        [PmxKey(6)] private string _cadFileData;
         //
         // Derived from the geometry and recomputed from it, so they are not saved
         [NonSerialized]

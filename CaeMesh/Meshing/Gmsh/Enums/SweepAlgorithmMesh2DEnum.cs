@@ -9,6 +9,7 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -16,7 +17,7 @@ namespace CaeMesh
     /// The 2D meshing algorithms of a sweep: the gmsh ones, with their gmsh numbers, and QuadWild, which meshes the
     /// source surfaces while gmsh meshes the rest.
     /// </summary>
-    [Serializable]
+    [PmxType(2112)]
     public enum SweepAlgorithmMesh2DEnum
     {
         [StandardValue("MeshAdapt", DisplayName = "MeshAdapt")]

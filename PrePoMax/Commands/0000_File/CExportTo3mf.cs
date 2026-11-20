@@ -15,11 +15,11 @@ using System;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10023)]
     class CExportTo3mf : PreprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
-        private Export3mfFileProperties _export3mfFileProperties;
+        [PmxKey(0)] private Export3mfFileProperties _export3mfFileProperties;
 
 
         // Properties                                                                                                               

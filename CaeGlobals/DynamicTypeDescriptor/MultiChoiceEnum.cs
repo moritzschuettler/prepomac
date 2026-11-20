@@ -13,10 +13,11 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace DynamicTypeDescriptor
 {
-    [Serializable]
+    [PmxType(1018)]
     [Editor(typeof(StandardValueEditor), typeof(System.Drawing.Design.UITypeEditor))]
     [Flags]
     public enum MultiChoiceEnum

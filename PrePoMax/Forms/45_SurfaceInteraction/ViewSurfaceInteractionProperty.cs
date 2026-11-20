@@ -14,14 +14,15 @@ using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10403)]
     public abstract class ViewSurfaceInteractionProperty
     {
         // Variables                                                                                                                
-        private DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties                                                                                                               

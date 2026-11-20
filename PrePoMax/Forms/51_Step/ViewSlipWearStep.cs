@@ -18,11 +18,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10432)]
     public class ViewSlipWearStep : ViewStaticStep
     {
         // Variables                                                                                                                
-        private CaeModel.SlipWearStep _slipWearStep;
+        [PmxKey(0)] private CaeModel.SlipWearStep _slipWearStep;
 
 
         // Properties                                                                                                               

@@ -17,12 +17,12 @@ using DynamicTypeDescriptor;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2089)]
     public class GeometrySelection : NamedClass
     {
         // Variables                                                                                                                
-        private int[] _geometryIds;
-        private Selection _creationData;
+        [PmxKey(0)] private int[] _geometryIds;
+        [PmxKey(1)] private Selection _creationData;
         
 
         // Properties                                                                                                               

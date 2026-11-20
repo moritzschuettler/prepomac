@@ -18,11 +18,11 @@ using DynamicTypeDescriptor;
 
 namespace UserControls
 {
-    [Serializable]
+    [PmxType(6220)]
     public class ViewSolidSection : ViewSection
     {
         // Variables                                                                                                                
-        private CaeModel.SolidSection _solidSection;
+        [PmxKey(0)] private CaeModel.SolidSection _solidSection;
 
 
         // Properties                                                                                                               

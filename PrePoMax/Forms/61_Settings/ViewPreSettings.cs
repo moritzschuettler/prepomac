@@ -19,12 +19,12 @@ using System.Drawing;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
+    [PmxType(10489)]
     public class ViewPreSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private PreSettings _preSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private PreSettings _preSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

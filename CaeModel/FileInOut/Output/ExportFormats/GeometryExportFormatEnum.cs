@@ -8,10 +8,11 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace FileInOut.Output
 {
-    [Serializable]
+    [PmxType(3165)]
     public enum GeometryExportFormatEnum
     {
         Step,

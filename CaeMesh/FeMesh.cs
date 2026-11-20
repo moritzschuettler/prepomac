@@ -36,8 +36,8 @@ using static GmshCommon.Gmsh;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public class FeMesh : ISerializable
+    [PmxType(2077)]
+    public class FeMesh
     {
         // Variables                                                                                                                
         private static int _partDigits = 10000;
@@ -51,17 +51,17 @@ namespace CaeMesh
         [NonSerialized] private DisassemblyExplodedViewCache _disassemblyExplodedViewCache;
         [NonSerialized] private MeshVisibilityCache _visibilityCache;
         //
-        private MeshRepresentation _meshRepresentation;                             //ISerializable
-        private OrderedDictionary<string, MeshSetupItem> _meshSetupItems;           //ISerializable
-        private OrderedDictionary<string, BasePart> _parts;                         //ISerializable
-        private OrderedDictionary<string, FeNodeSet> _nodeSets;                     //ISerializable
-        private OrderedDictionary<string, FeElementSet> _elementSets;               //ISerializable
-        private OrderedDictionary<string, FeSurface> _surfaces;                     //ISerializable
-        private OrderedDictionary<string, FeReferencePoint> _referencePoints;       //ISerializable
-        private OrderedDictionary<string, CoordinateSystem> _coordinateSystems;     //ISerializable
-        private int _maxNodeId;                                                     //ISerializable
-        private int _maxElementId;                                                  //ISerializable
-        private BoundingBox _boundingBox;                                           //ISerializable
+        [PmxKey(0)] private MeshRepresentation _meshRepresentation;                             //ISerializable
+        [PmxKey(1)] private OrderedDictionary<string, MeshSetupItem> _meshSetupItems;           //ISerializable
+        [PmxKey(2)] private OrderedDictionary<string, BasePart> _parts;                         //ISerializable
+        [PmxKey(3)] private OrderedDictionary<string, FeNodeSet> _nodeSets;                     //ISerializable
+        [PmxKey(4)] private OrderedDictionary<string, FeElementSet> _elementSets;               //ISerializable
+        [PmxKey(5)] private OrderedDictionary<string, FeSurface> _surfaces;                     //ISerializable
+        [PmxKey(6)] private OrderedDictionary<string, FeReferencePoint> _referencePoints;       //ISerializable
+        [PmxKey(7)] private OrderedDictionary<string, CoordinateSystem> _coordinateSystems;     //ISerializable
+        [PmxKey(8)] private int _maxNodeId;                                                     //ISerializable
+        [PmxKey(9)] private int _maxElementId;                                                  //ISerializable
+        [PmxKey(10)] private BoundingBox _boundingBox;                                           //ISerializable
 
 
         // Properties                                                                                                               
@@ -12843,22 +12843,6 @@ namespace CaeMesh
             {
                 return null;
             }
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_meshRepresentation", _meshRepresentation, typeof(MeshRepresentation));
-            info.AddValue("_meshSetupItems", _meshSetupItems, typeof(OrderedDictionary<string, MeshSetupItem>));
-            info.AddValue("_parts", _parts, typeof(OrderedDictionary<string, BasePart>));
-            info.AddValue("_nodeSets", _nodeSets, typeof(OrderedDictionary<string, FeNodeSet>));
-            info.AddValue("_elementSets", _elementSets, typeof(OrderedDictionary<string, FeElementSet>));
-            info.AddValue("_surfaces", _surfaces, typeof(OrderedDictionary<string, FeSurface>));
-            info.AddValue("_referencePoints", _referencePoints, typeof(OrderedDictionary<string, FeReferencePoint>));
-            info.AddValue("_coordinateSystems", _coordinateSystems, typeof(OrderedDictionary<string, CoordinateSystem>));
-            info.AddValue("_maxNodeId", _maxNodeId, typeof(int));
-            info.AddValue("_maxElementId", _maxElementId, typeof(int));
-            info.AddValue("_boundingBox", _boundingBox, typeof(BoundingBox));
         }
     }
 }

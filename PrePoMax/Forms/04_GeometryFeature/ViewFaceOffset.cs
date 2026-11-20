@@ -19,14 +19,14 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10322)]
     public class ViewFaceOffset : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
         public const string RegionSelectionName = "RegionSelection";
         //
-        private FaceOffset _faceOffset;
-        private DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] private FaceOffset _faceOffset;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties                                                                                                               

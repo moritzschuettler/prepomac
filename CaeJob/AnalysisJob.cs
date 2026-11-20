@@ -26,7 +26,7 @@ using System.Runtime.InteropServices;
 
 namespace CaeJob
 {
-    [Serializable]
+    [PmxType(6000)]
     public enum JobStatus
     {
         None,
@@ -39,7 +39,7 @@ namespace CaeJob
         FailedWithResults,
     }
     //
-    [Serializable]
+    [PmxType(6001)]
     public enum FEMSolverEnum
     {
         Calculix,
@@ -47,28 +47,28 @@ namespace CaeJob
         FEMaster
     }
     //
-    [Serializable]
-    public class AnalysisJob : NamedClass, ISerializable
+    [PmxType(6002)]
+    public class AnalysisJob : NamedClass
     {
         // Variables                                                                                                                        
-        protected string _workDirectory;                                // ISerializable
-        protected string _executable;                                   // ISerializable
-        protected string _argument;                                     // ISerializable
-        protected bool _compatibilityMode;                              // ISerializable
-        protected JobStatus _jobStatus;                                 // ISerializable
-        protected int _numCPUs;                                         // ISerializable
-        protected List<EnvironmentVariable> _environmentVariables;      // ISerializable
-        protected long _datFileLength;                                  // ISerializable
-        protected string _datFileContents;                              // ISerializable
-        protected long _statusFileLength;                               // ISerializable
-        protected string _statusFileContents;                           // ISerializable
-        protected long _convergenceFileLength;                          // ISerializable
-        protected string _convergenceFileContents;                      // ISerializable
-        protected DateTime _endTime;                                    // ISerializable
-        protected FEMSolverEnum _femSolver;                             // ISerializable
-        protected bool _onlyCheckModel;                                 // ISerializable
-        protected bool _executableOverridden;                           // ISerializable
-        protected bool _workDirectoryOverridden;                       // ISerializable
+        [PmxKey(0)] protected string _workDirectory;                                // ISerializable
+        [PmxKey(1)] protected string _executable;                                   // ISerializable
+        [PmxKey(2)] protected string _argument;                                     // ISerializable
+        [PmxKey(3)] protected bool _compatibilityMode;                              // ISerializable
+        [PmxKey(4)] protected JobStatus _jobStatus;                                 // ISerializable
+        [PmxKey(5)] protected int _numCPUs;                                         // ISerializable
+        [PmxKey(6)] protected List<EnvironmentVariable> _environmentVariables;      // ISerializable
+        [PmxKey(7)] protected long _datFileLength;                                  // ISerializable
+        [PmxKey(8)] protected string _datFileContents;                              // ISerializable
+        [PmxKey(9)] protected long _statusFileLength;                               // ISerializable
+        [PmxKey(10)] protected string _statusFileContents;                           // ISerializable
+        [PmxKey(11)] protected long _convergenceFileLength;                          // ISerializable
+        [PmxKey(12)] protected string _convergenceFileContents;                      // ISerializable
+        [PmxKey(13)] protected DateTime _endTime;                                    // ISerializable
+        [PmxKey(14)] protected FEMSolverEnum _femSolver;                             // ISerializable
+        [PmxKey(15)] protected bool _onlyCheckModel;                                 // ISerializable
+        [PmxKey(16)] protected bool _executableOverridden;                           // ISerializable
+        [PmxKey(17)] protected bool _workDirectoryOverridden;                       // ISerializable
         //
         [NonSerialized] protected Stopwatch _watch;
         [NonSerialized] private Process _exe;
@@ -91,8 +91,8 @@ namespace CaeJob
 
         [NonSerialized] private int _runTimeoutMilliseconds;
         [NonSerialized] private Stopwatch _runTimeoutWatch;
-        private bool _numCPUsOverridden;
-        private bool _environmentVariablesOverridden;
+        [PmxKey(18)] private bool _numCPUsOverridden;
+        [PmxKey(19)] private bool _environmentVariablesOverridden;
 
 
         // Properties                                                                                                               
@@ -198,10 +198,10 @@ namespace CaeJob
 
 
         // Callback                                                                                                                 
-        public Action<string, JobStatus> JobStatusChanged;
-        public Action<AnalysisJob> PreRun;
-        public Action<AnalysisJob> PostRun;
-        public Action<AnalysisJob> LastRunCompleted;
+        [PmxKey(20)] public Action<string, JobStatus> JobStatusChanged;
+        [PmxKey(21)] public Action<AnalysisJob> PreRun;
+        [PmxKey(22)] public Action<AnalysisJob> PostRun;
+        [PmxKey(23)] public Action<AnalysisJob> LastRunCompleted;
 
 
         // Constructor                                                                                                              
@@ -1006,32 +1006,6 @@ namespace CaeJob
             else throw new NotSupportedException();
             //
             return argument;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_workDirectory", _workDirectory, typeof(string));
-            info.AddValue("_executable", _executable, typeof(string));
-            info.AddValue("_argument", _argument, typeof(string));
-            info.AddValue("_compatibilityMode", _compatibilityMode, typeof(bool));
-            info.AddValue("_jobStatus", _jobStatus, typeof(JobStatus));
-            info.AddValue("_numCPUs", _numCPUs, typeof(int));
-            info.AddValue("_environmentVariables", _environmentVariables, typeof(List<EnvironmentVariable>));
-            info.AddValue("_datFileLength", _datFileLength, typeof(long));
-            info.AddValue("_datFileContents", _datFileContents, typeof(string));
-            info.AddValue("_statusFileLength", _statusFileLength, typeof(long));
-            info.AddValue("_statusFileContents", _statusFileContents, typeof(string));
-            info.AddValue("_convergenceFileLength", _convergenceFileLength, typeof(long));
-            info.AddValue("_convergenceFileContents", _convergenceFileContents, typeof(string));
-            info.AddValue("_endTime", _endTime, typeof(DateTime));
-            info.AddValue("_femSolver", _femSolver, typeof(FEMSolverEnum));
-            info.AddValue("_onlyCheckModel", _onlyCheckModel, typeof(bool));
-            info.AddValue("_numCPUsOverridden", _numCPUsOverridden, typeof(bool));
-            info.AddValue("_environmentVariablesOverridden", _environmentVariablesOverridden, typeof(bool));
-            info.AddValue("_executableOverridden", _executableOverridden, typeof(bool));
-            info.AddValue("_workDirectoryOverridden", _workDirectoryOverridden, typeof(bool));
         }
     }
 }

@@ -15,7 +15,6 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Reflection;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.ComponentModel;
 using DynamicTypeDescriptor;
 using System.Linq.Expressions;
@@ -24,7 +23,6 @@ using static System.ComponentModel.Design.ObjectSelectorEditor;
 
 namespace CaeGlobals
 {
-    [Serializable]
     public static class MessageBoxes
     {
         // MessageBox

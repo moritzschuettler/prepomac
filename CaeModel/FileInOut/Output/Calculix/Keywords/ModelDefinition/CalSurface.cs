@@ -14,15 +14,16 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3075)]
     internal class CalSurface : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected FeSurface _surface;
-        protected bool _twoD;
+        [PmxKey(0)] protected FeSurface _surface;
+        [PmxKey(1)] protected bool _twoD;
 
 
         // Properties                                                                                                               

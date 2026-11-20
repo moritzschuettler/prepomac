@@ -16,12 +16,12 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10000)]
     public abstract class AnnotationBase : NamedClass
     {
         // Variables                                                                                                                
-        protected int[] _partIds;
-        protected string _overriddenText;
+        [PmxKey(0)] protected int[] _partIds;
+        [PmxKey(1)] protected string _overriddenText;
         //
         [NonSerialized] public static Controller Controller;
 

@@ -20,7 +20,7 @@ using System.Windows.Forms.VisualStyles;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2146)]
     public class VisualizationData
     {
         // vertex
@@ -29,21 +29,21 @@ namespace CaeMesh
         // surface  - can be arbitrary combination of cells
 
         // Variables                                                                                                                
-        protected int[][] _cells;
-        protected int[] _cellIds;
-        protected int[][] _cellIdsByFace;        // could be hashSet<> but serialization could be bad
-        protected double[] _faceAreas;
-        protected GeomFaceType[] _faceTypes;
-        protected int[][] _faceEdgeIds;
-        protected int[][][] _cellIdCellIdEdgeNodeIds;
-        protected int[][] _cellNeighboursOverCellEdge;
-        protected int[][] _edgeCells;
-        protected int[][] _edgeCellIdsByEdge;
-        protected double[] _edgeLengths;
-        protected GeomCurveType[] _edgeTypes;
-        protected int[] _faceKernelIds;
-        protected int[] _edgeKernelIds;
-        protected int[] _vertexNodeIds;
+        [PmxKey(0)] protected int[][] _cells;
+        [PmxKey(1)] protected int[] _cellIds;
+        [PmxKey(2)] protected int[][] _cellIdsByFace;        // could be hashSet<> but serialization could be bad
+        [PmxKey(3)] protected double[] _faceAreas;
+        [PmxKey(4)] protected GeomFaceType[] _faceTypes;
+        [PmxKey(5)] protected int[][] _faceEdgeIds;
+        [PmxKey(6)] protected int[][][] _cellIdCellIdEdgeNodeIds;
+        [PmxKey(7)] protected int[][] _cellNeighboursOverCellEdge;
+        [PmxKey(8)] protected int[][] _edgeCells;
+        [PmxKey(9)] protected int[][] _edgeCellIdsByEdge;
+        [PmxKey(10)] protected double[] _edgeLengths;
+        [PmxKey(11)] protected GeomCurveType[] _edgeTypes;
+        [PmxKey(12)] protected int[] _faceKernelIds;
+        [PmxKey(13)] protected int[] _edgeKernelIds;
+        [PmxKey(14)] protected int[] _vertexNodeIds;
 
 
         // Properties                                                                                                               

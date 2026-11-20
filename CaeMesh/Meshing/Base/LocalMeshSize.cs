@@ -18,7 +18,7 @@ using DynamicTypeDescriptor;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2090)]
     public enum LocalMeshSizeTypeEnum
     {
         [StandardValue("ElementSize", DisplayName = "Element size")]
@@ -28,13 +28,13 @@ namespace CaeMesh
         NumberOfElements,
     }
 
-    [Serializable]
-    public class LocalMeshSize : MeshSetupItem, ISerializable
+    [PmxType(2091)]
+    public class LocalMeshSize : MeshSetupItem
     {
         // Variables
-        private LocalMeshSizeTypeEnum _type;    //ISerializable
-        private double _meshSize;               //ISerializable
-        private int _numOfElements;             //ISerializable
+        [PmxKey(0)] private LocalMeshSizeTypeEnum _type;    //ISerializable
+        [PmxKey(1)] private double _meshSize;               //ISerializable
+        [PmxKey(2)] private int _numOfElements;             //ISerializable
 
 
         // Properties
@@ -127,15 +127,6 @@ namespace CaeMesh
         public LocalMeshSize DeepCopy()
         {
             return new LocalMeshSize(this);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_type", _type, typeof(LocalMeshSizeTypeEnum));
-            info.AddValue("_meshSize", _meshSize, typeof(double));
-            info.AddValue("_numOfElements", _numOfElements, typeof(int));
         }
     }
 }

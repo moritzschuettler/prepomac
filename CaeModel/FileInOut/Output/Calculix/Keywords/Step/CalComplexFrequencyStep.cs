@@ -17,11 +17,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3115)]
     internal class CalComplexFrequencyStep : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ComplexFrequencyStep _step;
+        [PmxKey(0)] private ComplexFrequencyStep _step;
 
 
         // Properties                                                                                                               

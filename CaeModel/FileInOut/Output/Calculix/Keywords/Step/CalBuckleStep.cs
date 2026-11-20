@@ -18,16 +18,16 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3114)]
     internal class CalBuckleStep : CalStep
     {
         // Variables                                                                                                                
-        private BuckleStep _step;
+        [PmxKey(0)] private BuckleStep _step;
 
 
         // Properties                                                                                                               
         public double Accuracy { get { return _step.Accuracy; } set { _step.Accuracy = value; } }
-        public bool OutputAccuracy;
+        [PmxKey(1)] public bool OutputAccuracy;
 
 
         // Constructor                                                                                                              

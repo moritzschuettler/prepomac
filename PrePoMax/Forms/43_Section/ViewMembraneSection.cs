@@ -18,11 +18,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10384)]
     public class ViewMembraneSection : ViewSection
     {
         // Variables                                                                                                                
-        protected CaeModel.MembraneSection _membraneSection;
+        [PmxKey(0)] protected CaeModel.MembraneSection _membraneSection;
 
 
         // Properties                                                                                                               

@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -27,7 +28,7 @@ namespace CaeMesh
     QuadQuasiStructured
     UntangleMeshGeometry
     */
-    [Serializable]
+    [PmxType(2109)]
     public enum GmshOptimizeFirstOrderSolidEnum
     {
         [StandardValue("None", DisplayName = "None")]

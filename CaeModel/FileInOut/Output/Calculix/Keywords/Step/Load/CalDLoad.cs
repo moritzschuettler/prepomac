@@ -19,13 +19,13 @@ using System.Diagnostics;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3150)]
     internal class CalDLoad : CalLoad
     {
         // Variables                                                                                                                
-        protected DLoad _load;
-        protected FeSurface _surface;
-        protected ComplexLoadTypeEnum _complexLoadType;
+        [PmxKey(0)] protected DLoad _load;
+        [PmxKey(1)] protected FeSurface _surface;
+        [PmxKey(2)] protected ComplexLoadTypeEnum _complexLoadType;
 
 
         // Properties                                                                                                               

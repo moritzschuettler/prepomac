@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10060)]
     class CFindEdgesByAngleForGeometryParts : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private double _edgeAngle;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private double _edgeAngle;
 
 
         // Constructor                                                                                                              

@@ -20,11 +20,11 @@ using CaeResults;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10288)]
     class CExportResultHistoryOutput : PostprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
-        private HistoryResultSetExporter _historyResultSetExporter;
+        [PmxKey(0)] private HistoryResultSetExporter _historyResultSetExporter;
 
 
         // Properties                                                                                                               

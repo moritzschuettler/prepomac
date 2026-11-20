@@ -22,11 +22,11 @@ using PrePoMax.Forms;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10224)]
     class CAddDeafaultJob : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _defaultName;
+        [PmxKey(0)] private string _defaultName;
 
         // Constructor                                                                                                              
         public CAddDeafaultJob()

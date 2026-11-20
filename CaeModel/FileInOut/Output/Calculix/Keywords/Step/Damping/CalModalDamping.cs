@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3136)]
     internal class CalModalDamping : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ModalDamping _modalDamping;
+        [PmxKey(0)] private ModalDamping _modalDamping;
 
 
         // Properties                                                                                                               

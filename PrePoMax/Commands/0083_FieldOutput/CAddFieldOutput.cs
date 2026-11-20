@@ -19,12 +19,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10186)]
     class CAddFieldOutput : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private FieldOutput _fieldOutput;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private FieldOutput _fieldOutput;
 
 
         // Constructor                                                                                                              

@@ -17,13 +17,13 @@ using CaeGlobals;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10368)]
     public class MaterialLibraryItem : NamedClass
     {
         // Variables                                                                                                                
-        private bool _expanded;
-        private List<MaterialLibraryItem> _items;
-        private CaeModel.Material _tag;
+        [PmxKey(0)] private bool _expanded;
+        [PmxKey(1)] private List<MaterialLibraryItem> _items;
+        [PmxKey(2)] private CaeModel.Material _tag;
 
 
         // Properties                                                                                                               

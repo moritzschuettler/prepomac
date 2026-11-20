@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3105)]
     internal class CalFriction : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Friction _friction;
+        [PmxKey(0)] private Friction _friction;
 
 
         // Properties                                                                                                               

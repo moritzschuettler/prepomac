@@ -19,34 +19,34 @@ using GmshCommon;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public class SweepMesh : GmshSetupItem, ISerializable
+    [PmxType(2120)]
+    public class SweepMesh : GmshSetupItem
     {
         // Variables                                                                                                                
-        private SweepSourceTypeEnum _sourceType;                        // ISerializable
-        private int _numberOfGlobalSmoothSteps;                         // ISerializable
-        private bool _keepImprintEdges;                                 // ISerializable
-        private int[][] _blockSourceSurfaceIds;                         // ISerializable
-        private int[][] _blockSideSurfaceIds;                           // ISerializable
-        private int[][] _blockTargetSurfaceIds;                         // ISerializable
-        private int[][][] _layerGroupEdgeIds;                           // ISerializable
-        private double[][] _blockArrowStarts;                           // ISerializable
-        private double[][] _blockArrowDirections;                       // ISerializable
-        private double[][] _blockRevolveAxes;                           // ISerializable
-        private SweepSourceMesherEnum _sourceMesher;                    // ISerializable
-        private double _quadWildAlpha;                                  // ISerializable
-        private QuadWildFlowProfileEnum _quadWildFlowProfile;           // ISerializable
-        private bool _quadWildSmooth;                                   // ISerializable
-        private bool _quadWildFallbackToGmsh;                           // ISerializable
-        private SweepSymmetryEnum _symmetry;                            // ISerializable
-        private double[][] _symmetryPlanes;                             // ISerializable
-        private int[][] _symmetryPartIds;                               // ISerializable
-        private string[] _symmetryLocalMeshSizeNames;                   // ISerializable
-        private int[][] _symmetryLocalMeshSizeIds;                      // ISerializable
-        private string[] _symmetryNotUsedReasons;                       // ISerializable
-        private int[] _symmetryNotUsedPartIds;                          // ISerializable
-        private string[] _unsweptCellReasons;                           // ISerializable
-        private int[] _unsweptCellPartIds;                              // ISerializable
+        [PmxKey(0)] private SweepSourceTypeEnum _sourceType;                        // ISerializable
+        [PmxKey(1)] private int _numberOfGlobalSmoothSteps;                         // ISerializable
+        [PmxKey(2)] private bool _keepImprintEdges;                                 // ISerializable
+        [PmxKey(3)] private int[][] _blockSourceSurfaceIds;                         // ISerializable
+        [PmxKey(4)] private int[][] _blockSideSurfaceIds;                           // ISerializable
+        [PmxKey(5)] private int[][] _blockTargetSurfaceIds;                         // ISerializable
+        [PmxKey(6)] private int[][][] _layerGroupEdgeIds;                           // ISerializable
+        [PmxKey(7)] private double[][] _blockArrowStarts;                           // ISerializable
+        [PmxKey(8)] private double[][] _blockArrowDirections;                       // ISerializable
+        [PmxKey(9)] private double[][] _blockRevolveAxes;                           // ISerializable
+        [PmxKey(10)] private SweepSourceMesherEnum _sourceMesher;                    // ISerializable
+        [PmxKey(11)] private double _quadWildAlpha;                                  // ISerializable
+        [PmxKey(12)] private QuadWildFlowProfileEnum _quadWildFlowProfile;           // ISerializable
+        [PmxKey(13)] private bool _quadWildSmooth;                                   // ISerializable
+        [PmxKey(14)] private bool _quadWildFallbackToGmsh;                           // ISerializable
+        [PmxKey(15)] private SweepSymmetryEnum _symmetry;                            // ISerializable
+        [PmxKey(16)] private double[][] _symmetryPlanes;                             // ISerializable
+        [PmxKey(17)] private int[][] _symmetryPartIds;                               // ISerializable
+        [PmxKey(18)] private string[] _symmetryLocalMeshSizeNames;                   // ISerializable
+        [PmxKey(19)] private int[][] _symmetryLocalMeshSizeIds;                      // ISerializable
+        [PmxKey(20)] private string[] _symmetryNotUsedReasons;                       // ISerializable
+        [PmxKey(21)] private int[] _symmetryNotUsedPartIds;                          // ISerializable
+        [PmxKey(22)] private string[] _unsweptCellReasons;                           // ISerializable
+        [PmxKey(23)] private int[] _unsweptCellPartIds;                              // ISerializable
 
 
         // Properties                                                                                                               
@@ -465,36 +465,6 @@ namespace CaeMesh
             double[][] copy = new double[blockCoors.Length][];
             for (int i = 0; i < blockCoors.Length; i++) copy[i] = blockCoors[i]?.ToArray();
             return copy;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_sourceType", _sourceType, typeof(SweepSourceTypeEnum));
-            info.AddValue("_numberOfGlobalSmoothSteps", _numberOfGlobalSmoothSteps, typeof(int));
-            info.AddValue("_keepImprintEdges", _keepImprintEdges, typeof(bool));
-            info.AddValue("_blockSourceSurfaceIds", _blockSourceSurfaceIds, typeof(int[][]));
-            info.AddValue("_blockSideSurfaceIds", _blockSideSurfaceIds, typeof(int[][]));
-            info.AddValue("_blockTargetSurfaceIds", _blockTargetSurfaceIds, typeof(int[][]));
-            info.AddValue("_layerGroupEdgeIds", _layerGroupEdgeIds, typeof(int[][][]));
-            info.AddValue("_blockArrowStarts", _blockArrowStarts, typeof(double[][]));
-            info.AddValue("_blockArrowDirections", _blockArrowDirections, typeof(double[][]));
-            info.AddValue("_blockRevolveAxes", _blockRevolveAxes, typeof(double[][]));
-            info.AddValue("_sourceMesher", _sourceMesher, typeof(SweepSourceMesherEnum));
-            info.AddValue("_quadWildAlpha", _quadWildAlpha, typeof(double));
-            info.AddValue("_quadWildFlowProfile", _quadWildFlowProfile, typeof(QuadWildFlowProfileEnum));
-            info.AddValue("_quadWildSmooth", _quadWildSmooth, typeof(bool));
-            info.AddValue("_quadWildFallbackToGmsh", _quadWildFallbackToGmsh, typeof(bool));
-            info.AddValue("_symmetry", _symmetry, typeof(SweepSymmetryEnum));
-            info.AddValue("_symmetryPlanes", _symmetryPlanes, typeof(double[][]));
-            info.AddValue("_symmetryPartIds", _symmetryPartIds, typeof(int[][]));
-            info.AddValue("_symmetryLocalMeshSizeNames", _symmetryLocalMeshSizeNames, typeof(string[]));
-            info.AddValue("_symmetryLocalMeshSizeIds", _symmetryLocalMeshSizeIds, typeof(int[][]));
-            info.AddValue("_symmetryNotUsedReasons", _symmetryNotUsedReasons, typeof(string[]));
-            info.AddValue("_symmetryNotUsedPartIds", _symmetryNotUsedPartIds, typeof(int[]));
-            info.AddValue("_unsweptCellReasons", _unsweptCellReasons, typeof(string[]));
-            info.AddValue("_unsweptCellPartIds", _unsweptCellPartIds, typeof(int[]));
         }
     }
 }

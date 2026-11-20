@@ -19,25 +19,25 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3162)]
     internal enum  ModelChangeTypeEnum
     {
         ContactPair,
         Element
     }
-    [Serializable]
+    [PmxType(3163)]
     internal enum ModelChangeParameterEnum
     {
         Add,
         Remove
     }
-    [Serializable]
+    [PmxType(3164)]
     internal class CalModelChange : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ModelChangeTypeEnum _modelChangeType;
-        private ModelChangeParameterEnum _modelChangeParameter;
-        private string _elementSetName;
+        [PmxKey(0)] private ModelChangeTypeEnum _modelChangeType;
+        [PmxKey(1)] private ModelChangeParameterEnum _modelChangeParameter;
+        [PmxKey(2)] private string _elementSetName;
 
 
         // Properties                                                                                                               

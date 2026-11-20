@@ -22,22 +22,22 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10349)]
     public class MirrorParameters
     {
         // Variables                                                                                                                      
-        private DynamicCustomTypeDescriptor _dctd = null;
-        private PointSelectionMethodEnum _mirrorPointSelectionMethod;
-        private PointSelectionMethodEnum _startPointSelectionMethod;
-        private PointSelectionMethodEnum _endPointSelectionMethod;
-        private ItemSetData _mirrorPointItemSetData;
-        private ItemSetData _startPointItemSetData;
-        private ItemSetData _endPointItemSetData;
-        private double[] _mirrorPoint;
-        private double[] _startPoint;
-        private double[] _endPoint;
-        private bool _mirrorOnly;
-        private bool _twoD;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(1)] private PointSelectionMethodEnum _mirrorPointSelectionMethod;
+        [PmxKey(2)] private PointSelectionMethodEnum _startPointSelectionMethod;
+        [PmxKey(3)] private PointSelectionMethodEnum _endPointSelectionMethod;
+        [PmxKey(4)] private ItemSetData _mirrorPointItemSetData;
+        [PmxKey(5)] private ItemSetData _startPointItemSetData;
+        [PmxKey(6)] private ItemSetData _endPointItemSetData;
+        [PmxKey(7)] private double[] _mirrorPoint;
+        [PmxKey(8)] private double[] _startPoint;
+        [PmxKey(9)] private double[] _endPoint;
+        [PmxKey(10)] private bool _mirrorOnly;
+        [PmxKey(11)] private bool _twoD;
 
 
         // Properties                                                                                                               

@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10234)]
     class CHideResultParts : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
+        [PmxKey(0)] private string[] _partNames;
 
 
         // Constructor                                                                                                              

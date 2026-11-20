@@ -19,12 +19,12 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10356)]
     public class ViewFeSurface : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
-        private FeSurface _surface;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private FeSurface _surface;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

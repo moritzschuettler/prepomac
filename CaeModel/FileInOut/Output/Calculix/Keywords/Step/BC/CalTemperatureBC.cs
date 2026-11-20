@@ -18,13 +18,13 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3113)]
     internal class CalTemperatureBC : CalBC
     {
         // Variables                                                                                                                
-        private string _nodeSetNameOfSurface;
-        private TemperatureBC _temperatureBC;
-        private TemperatureBC[] _temperatureBCs;
+        [PmxKey(0)] private string _nodeSetNameOfSurface;
+        [PmxKey(1)] private TemperatureBC _temperatureBC;
+        [PmxKey(2)] private TemperatureBC[] _temperatureBCs;
 
 
         // Properties                                                                                                               

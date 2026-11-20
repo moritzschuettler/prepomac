@@ -14,10 +14,11 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3051)]
     internal class AbqContactPrint : CalContactPrint
     {
         // Variables                                                                                                                

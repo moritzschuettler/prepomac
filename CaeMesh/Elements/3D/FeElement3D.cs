@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2017)]
     public abstract class FeElement3D : FeElement
     {
         // Variables                                                                                                                

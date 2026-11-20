@@ -21,13 +21,13 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class InitialVelocity : InitialCondition, IPreviewable, ISerializable
+    [PmxType(3284)]
+    public class InitialVelocity : InitialCondition, IPreviewable
     {
         // Variables                                                                                                                
-        private double _v1;
-        private double _v2;
-        private double _v3;
+        [PmxKey(0)] private double _v1;
+        [PmxKey(1)] private double _v2;
+        [PmxKey(2)] private double _v3;
 
 
         // Properties                                                                                                               
@@ -84,6 +84,22 @@ namespace CaeModel
         }
 
         // Methods                                                                                                                  
+        public InitialTranslationalVelocity ToInitialTranslationalVelocity()
+        {
+            InitialTranslationalVelocity initialTranslationalVelocity = new InitialTranslationalVelocity(this);
+            if (CreationData != null)
+            {
+                initialTranslationalVelocity.RegionType = RegionTypeEnum.Selection;
+                initialTranslationalVelocity.CreationData = CreationData;
+                foreach (var node in CreationData.Nodes)
+                {
+                    if (node is SelectionNodeMouse snm) snm.SelectBy = vtkSelectBy.GeometryPart;
+                }
+                CreationData.SelectItem = vtkSelectItem.Geometry;
+                initialTranslationalVelocity.CreationIds = CreationIds;
+            }
+            return initialTranslationalVelocity;
+        }
         public FeResults GetPreview(FeMesh targetMesh, string resultName, UnitSystem unitSystem)
         {
             PartExchangeData allData = new PartExchangeData();
@@ -151,16 +167,6 @@ namespace CaeModel
         public FeResults GetPreview(FeModel model, string resultName, UnitSystem unitSystem)
         {
             return GetPreview(model.Mesh, resultName, unitSystem);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_v1", _v1, typeof(double));
-            info.AddValue("_v2", _v2, typeof(double));
-            info.AddValue("_v3", _v3, typeof(double));
         }
     }
 }

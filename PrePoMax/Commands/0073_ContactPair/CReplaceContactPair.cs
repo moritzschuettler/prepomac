@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10158)]
     class CReplaceContactPair : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldContactPairName;
-        private ContactPair _newContactPair;
+        [PmxKey(0)] private string _oldContactPairName;
+        [PmxKey(1)] private ContactPair _newContactPair;
 
 
         // Constructor                                                                                                              

@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10136)]
     class CAddSection : PreprocessCommand
     {
         // Variables                                                                                                                
-        private Section _section;
+        [PmxKey(0)] private Section _section;
 
 
         // Constructor                                                                                                              

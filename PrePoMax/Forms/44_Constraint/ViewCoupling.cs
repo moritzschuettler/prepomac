@@ -18,7 +18,7 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10389)]
     public enum CouplingTypeEnum
     {
         [StandardValue("Kinematic", "Kinematic", Description =
@@ -29,13 +29,13 @@ namespace PrePoMax
         Distributing
     }
 
-    [Serializable]
+    [PmxType(10390)]
     public class ViewCoupling : ViewConstraint
     {
         // Variables                                                                                                                
-        private CaeModel.KinematicCoupling _kinematicCoupling;
-        private CaeModel.DistributingCoupling _distributingCoupling;
-        private CaeModel.Coupling _coupling;
+        [PmxKey(0)] private CaeModel.KinematicCoupling _kinematicCoupling;
+        [PmxKey(1)] private CaeModel.DistributingCoupling _distributingCoupling;
+        [PmxKey(2)] private CaeModel.Coupling _coupling;
 
 
         // Properties                                                                                                               

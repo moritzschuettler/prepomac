@@ -18,13 +18,13 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3157)]
     internal class CalShellEdgeLoad : CalLoad
     {
         // Variables                                                                                                                
-        protected ShellEdgeLoad _load;
-        protected FeSurface _surface;
-        protected ComplexLoadTypeEnum _complexLoadType;
+        [PmxKey(0)] protected ShellEdgeLoad _load;
+        [PmxKey(1)] protected FeSurface _surface;
+        [PmxKey(2)] protected ComplexLoadTypeEnum _complexLoadType;
 
 
         // Properties                                                                                                               

@@ -13,17 +13,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10340)]
     class KeywordAtNode
     {
-        public CalculixKeyword Keyword;
-        public string Data;
-        public int NumOfLines;
-        public int[] GeneratedIndices;
-        public string OriginalSignature;
-        public CalculixKeywordOverride KeywordOverride;
+        [PmxKey(0)] public CalculixKeyword Keyword;
+        [PmxKey(1)] public string Data;
+        [PmxKey(2)] public int NumOfLines;
+        [PmxKey(3)] public int[] GeneratedIndices;
+        [PmxKey(4)] public string OriginalSignature;
+        [PmxKey(5)] public CalculixKeywordOverride KeywordOverride;
     }
 }

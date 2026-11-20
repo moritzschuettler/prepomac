@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10401)]
     public class ViewGapConductance : ViewSurfaceInteractionProperty
     {
         // Variables                                                                                                                
-        private CaeModel.GapConductance _gapConductance;
-        private List<GapConductanceDataPoint> _points;
+        [PmxKey(0)] private CaeModel.GapConductance _gapConductance;
+        [PmxKey(1)] private List<GapConductanceDataPoint> _points;
 
 
         // Properties                                                                                                               

@@ -21,11 +21,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10397)]
     public class ViewTie : ViewConstraint
     {
         // Variables                                                                                                                        
-        private Tie _tie;
+        [PmxKey(0)] private Tie _tie;
 
 
         // Properties                                                                                                                      

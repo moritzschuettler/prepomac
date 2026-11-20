@@ -21,12 +21,12 @@ using CaeResults;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10517)]
     public class ViewSymmetry : ViewTransformation
     {
         // Variables                                                                                                                      
-        private Symmetry _symmetry;
-        private PointSelectionMethodEnum _symmetryPointSelectionMethod;
+        [PmxKey(0)] private Symmetry _symmetry;
+        [PmxKey(1)] private PointSelectionMethodEnum _symmetryPointSelectionMethod;
 
 
         // Properties                                                                                                               

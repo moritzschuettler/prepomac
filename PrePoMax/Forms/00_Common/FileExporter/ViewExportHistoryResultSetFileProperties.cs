@@ -26,12 +26,12 @@ using CaeMesh;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10309)]
     public class ViewExportHistoryResultSetFileProperties : ViewExportFileProperties
     {
         // Variables                                                                                                                
-        private MultiChoiceContainer _historyOutputNamesContainer;
-        private string[] _allHistoryOutputNames;
+        [PmxKey(0)] private MultiChoiceContainer _historyOutputNamesContainer;
+        [PmxKey(1)] private string[] _allHistoryOutputNames;
 
 
         // Properties                                                                                                               

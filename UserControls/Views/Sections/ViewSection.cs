@@ -18,12 +18,12 @@ using DynamicTypeDescriptor;
 
 namespace UserControls
 {
-    [Serializable]
+    [PmxType(6219)]
     public class ViewSection
     {
         // Variables                                                                                                                
-        private CaeModel.Section _section;
-        protected DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private CaeModel.Section _section;
+        [PmxKey(1)] protected DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

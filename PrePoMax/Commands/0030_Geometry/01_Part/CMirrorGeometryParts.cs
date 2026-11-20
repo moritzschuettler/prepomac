@@ -21,14 +21,14 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10043)]
     class CMirrorGeometryParts : PreprocessCommand
     {
         // Variables
-        private string[] _partNames;
-        private double[] _mirrorPoint;
-        private double[] _mirrorDirection;
-        private bool _copy;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private double[] _mirrorPoint;
+        [PmxKey(2)] private double[] _mirrorDirection;
+        [PmxKey(3)] private bool _copy;
 
 
         // Constructor

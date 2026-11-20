@@ -14,16 +14,17 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3047)]
     internal class AbqFixedBC : CalBC
     {
         // Variables                                                                                                                
-        private FixedBC _fixedBC;
-        private Dictionary<string, CalReferencePoint> _referencePoints;
-        private string _nodeSetNameOfSurface;
+        [PmxKey(0)] private FixedBC _fixedBC;
+        [PmxKey(1)] private Dictionary<string, CalReferencePoint> _referencePoints;
+        [PmxKey(2)] private string _nodeSetNameOfSurface;
 
 
         // Properties                                                                                                               

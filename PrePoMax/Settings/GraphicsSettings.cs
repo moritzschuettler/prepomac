@@ -21,7 +21,7 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10530)]
     public enum BackgroundType
     {
         [StandardValue("White", Description = "White color background.")]
@@ -34,33 +34,33 @@ namespace PrePoMax
         Gradient,
     }
 
-    [Serializable]
+    [PmxType(10531)]
     public class GraphicsSettings : ISettings
     {
         // Variables                                                                                                                
-        private BackgroundType _backgroundType;
-        private Color _topColor;
-        private Color _bottomColor;
-        private bool _coorSysVisibility;
-        private bool _scaleWidgetVisibility;
-        private bool _widgetHighlightEnabled;
-        private double _ambientComponent;
-        private double _diffuseComponent;
-        private bool _pointSmoothing;
-        private bool _lineSmoothing;
-        private bool _linearDeflectionRelative;
-        private double _linearDeflection;
-        private double _angularDeflectionDeg;
+        [PmxKey(0)] private BackgroundType _backgroundType;
+        [PmxKey(1)] private Color _topColor;
+        [PmxKey(2)] private Color _bottomColor;
+        [PmxKey(3)] private bool _coorSysVisibility;
+        [PmxKey(4)] private bool _scaleWidgetVisibility;
+        [PmxKey(5)] private bool _widgetHighlightEnabled;
+        [PmxKey(6)] private double _ambientComponent;
+        [PmxKey(7)] private double _diffuseComponent;
+        [PmxKey(8)] private bool _pointSmoothing;
+        [PmxKey(9)] private bool _lineSmoothing;
+        [PmxKey(10)] private bool _linearDeflectionRelative;
+        [PmxKey(11)] private double _linearDeflection;
+        [PmxKey(12)] private double _angularDeflectionDeg;
         // The choice of the ActiViz (VTK 5.8) view, which settings files of the builds that had it still carry; it is
         // read and never used
-        [OptionalField]
+        [PmxKey(13)] [OptionalField]
         private bool _activizView;
         // Older settings files have no ambient occlusion, which reads as off
-        [OptionalField]
+        [PmxKey(14)] [OptionalField]
         private bool _ambientOcclusion;
-        [OptionalField]
+        [PmxKey(15)] [OptionalField]
         private double _ambientOcclusionRadius;
-        [OptionalField]
+        [PmxKey(16)] [OptionalField]
         private int _ambientOcclusionKernelSize;
 
 

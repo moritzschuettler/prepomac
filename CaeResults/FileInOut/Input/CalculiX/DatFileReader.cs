@@ -23,7 +23,6 @@ using System.Xml.Linq;
 
 namespace CaeResults
 {
-    [Serializable]
     public static class DatFileReader
     {
         private static readonly string[] _spaceSplitter = new string[] { " " };

@@ -21,15 +21,15 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10031)]
     class CRenamePost : PostprocessCommand
     {
         // Variables                                                                                                                
-        private Type _itemType;
-        private string _itemName;
-        private string _newName;
-        private string _stepName;
-        private ViewGeometryModelResults _view;
+        [PmxKey(0)] private Type _itemType;
+        [PmxKey(1)] private string _itemName;
+        [PmxKey(2)] private string _newName;
+        [PmxKey(3)] private string _stepName;
+        [PmxKey(4)] private ViewGeometryModelResults _view;
 
 
         // Variables                                                                                                                

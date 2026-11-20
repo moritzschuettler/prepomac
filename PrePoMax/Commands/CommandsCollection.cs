@@ -23,7 +23,7 @@ using FileInOut.Output.Calculix;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10266)]
     public enum RegenerateTypeEnum
     {
         All,
@@ -32,7 +32,7 @@ namespace PrePoMax.Commands
         PostProcess
     }
 
-    [Serializable]
+    [PmxType(10267)]
     public class CommandsCollection
     {
         private enum KeywordOverrideStatus
@@ -52,18 +52,19 @@ namespace PrePoMax.Commands
         }
         
         // Variables                                                                                                                
-        private int _currPositionIndex;
-        private Controller _controller;
-        private List<Command> _commands;
-        private string _historyFileNameBin;
-        private ViewGeometryModelResults _previousView;
-        private List<string> _errors;
-        private bool _postprocessingDeclined;
+        [PmxKey(0)] private int _currPositionIndex;
+        [NonSerialized] private Controller _controller;
+        [PmxKey(1)] private List<Command> _commands;
+        [PmxKey(2)] private string _historyFileNameBin;
+        [PmxKey(3)] private ViewGeometryModelResults _previousView;
+        [PmxKey(4)] private List<string> _errors;
+        [PmxKey(5)] private bool _postprocessingDeclined;
         [NonSerialized] private int _commandRecordingSuppressionCount;
         [NonSerialized] private int _numOfCommandsExecutedWithoutRecording;
         [NonSerialized] private int _historyReplayCount;
         [NonSerialized] private string _commandBlockReason;
         [NonSerialized] private bool _isAddingExistingCommands;
+        [NonSerialized] private PmxJournal _journal;
         // Per session, so that a caller can tell what happened during its call by comparing two readings. A history
         // that is replaced is a new collection, which is why neither counter belongs to one
         private static long _lastSequenceNumber = 0;
@@ -107,7 +108,7 @@ namespace PrePoMax.Commands
 
 
         // Events                                                                                                                   
-        public event Action<string, string> EnableDisableUndoRedo;
+        [field: NonSerialized] public event Action<string, string> EnableDisableUndoRedo;
 
 
         // Constructor                                                                                                              
@@ -1082,29 +1083,154 @@ namespace PrePoMax.Commands
         {
             if (!_controller.BatchRegenerationMode && _commands.Count > 1)
             {
-                // Use other file
-                WriteToFile(_commands, _historyFileNameBin);
+                // The journal appends the commands recorded since its last write
+                if (_journal == null || _journal.FileName != _historyFileNameBin) _journal = new PmxJournal(_historyFileNameBin);
+                _journal.Write(_commands);
             }
         }
         public static void WriteToFile(List<Command> commands, string fileName)
         {
-            // Use other file
-            string fileNameCopy = Tools.GetNonExistentRandomFileName(Path.GetDirectoryName(fileName), "pmh");
-            commands.DumpToFile(fileNameCopy);
-            //
-            File.Copy(fileNameCopy, fileName, true);
-            File.Delete(fileNameCopy);
+            PmxJournal.WriteAll(fileName, commands);
         }
         // Read
         public void ReadFromFile(string fileName)
         {
-            ReadFromFile(fileName, out _commands);
+            string[] warnings;
+            ReadFromFile(fileName, out _commands, out warnings);
             _currPositionIndex = _commands.Count - 1;
             OnHistoryReplaced();
+            foreach (var warning in warnings) WriteOutput?.Invoke("Warning: " + warning);
         }
         public static void ReadFromFile(string fileName, out List<Command> commands)
         {
-            commands = Tools.LoadDumpFromFile<List<Command>>(fileName);
+            string[] warnings;
+            ReadFromFile(fileName, out commands, out warnings);
+        }
+        // A history journal, or the history file of a version before the journal
+        public static void ReadFromFile(string fileName, out List<Command> commands, out string[] warnings)
+        {
+            if (PmxJournal.IsJournal(fileName))
+            {
+                bool isComplete;
+                commands = new List<Command>();
+                foreach (var item in PmxJournal.Read(fileName, out isComplete)) commands.Add((Command)item);
+                warnings = new string[0];
+            }
+            else
+            {
+                ObjectSerializer.TakeLegacyReadReport();
+                commands = Tools.LoadDumpFromFile<List<Command>>(fileName);
+                //
+                List<string> allWarnings = new List<string>();
+                List<Command> changedCommands;
+                foreach (var command in GetCommandsOfRemovedTypes(commands, ObjectSerializer.TakeLegacyReadReport(),
+                                                                  allWarnings, out changedCommands))
+                {
+                    commands.Remove(command);
+                }
+                warnings = allWarnings.ToArray();
+            }
+        }
+        // A history an older version wrote can hold commands that need an object of a type that no longer exists, which was
+        // read as null. Such a command and the load commands that name only the loads those commands made cannot run, so
+        // they are removed and the rest of the history replays
+        public string[] RemoveCommandsOfRemovedTypes(LegacyReadReport report)
+        {
+            List<string> warnings = new List<string>();
+            List<Command> changedCommands;
+            List<Command> removedCommands = GetCommandsOfRemovedTypes(_commands, report, warnings, out changedCommands);
+            foreach (var command in changedCommands) InvalidateSaveCommands(_commands.IndexOf(command));
+            foreach (var command in removedCommands) RemoveCommand(command);
+            return warnings.ToArray();
+        }
+        private static List<Command> GetCommandsOfRemovedTypes(List<Command> commands, LegacyReadReport report,
+                                                               List<string> warnings, out List<Command> changedCommands)
+        {
+            List<Command> removedCommands = new List<Command>();
+            changedCommands = new List<Command>();
+            if (report == null || !report.HasDroppedObjects) return removedCommands;
+            //
+            // A history can also name a numbered sibling of a dropped load that none of its commands made (tmp_massLoad.pmx
+            // removes Mass_Under_Gravity-1 and holds only Mass_Under_Gravity-2), so such a name counts as dropped too
+            // unless a kept command made it
+            HashSet<string> droppedLoadKeys = new HashSet<string>();
+            HashSet<string> droppedLoadStemKeys = new HashSet<string>();
+            HashSet<string> keptLoadKeys = new HashSet<string>();
+            List<string> loadNames;
+            string key;
+            foreach (var command in commands)
+            {
+                if (report.HeldDroppedObject(command))
+                {
+                    string stepName = command is ILoadNamesCommand lnc ? lnc.StepName :
+                                      command is CAddLoad al ? al.StepName : null;
+                    if (stepName != null)
+                    {
+                        foreach (var name in report.GetDroppedItemNames(command))
+                        {
+                            if (name == null) continue;
+                            droppedLoadKeys.Add(GetLoadKey(stepName, name));
+                            droppedLoadStemKeys.Add(GetLoadKey(stepName, GetNumberedNameStem(name)));
+                        }
+                    }
+                    removedCommands.Add(command);
+                    warnings.Add("The history command " + command.Name + " was removed since it needs an item whose type " +
+                                 "no longer exists.");
+                }
+                else if (command is CAddLoad addLoad)
+                {
+                    key = GetLoadKey(addLoad.StepName, addLoad.LoadName);
+                    droppedLoadKeys.Remove(key);
+                    keptLoadKeys.Add(key);
+                }
+                else if (command is ILoadNamesCommand loadNamesCommand && loadNamesCommand.LoadNames != null)
+                {
+                    loadNames = new List<string>();
+                    foreach (var name in loadNamesCommand.LoadNames)
+                    {
+                        key = GetLoadKey(loadNamesCommand.StepName, name);
+                        if (droppedLoadKeys.Contains(key)) continue;
+                        if (!keptLoadKeys.Contains(key) &&
+                            droppedLoadStemKeys.Contains(GetLoadKey(loadNamesCommand.StepName, GetNumberedNameStem(name))))
+                            continue;
+                        loadNames.Add(name);
+                    }
+                    //
+                    if (loadNames.Count == 0)
+                    {
+                        removedCommands.Add(command);
+                        warnings.Add("The history command " + command.Name + " was removed since its loads were not read.");
+                    }
+                    else
+                    {
+                        if (loadNames.Count < loadNamesCommand.LoadNames.Length)
+                        {
+                            loadNamesCommand.LoadNames = loadNames.ToArray();
+                            changedCommands.Add(command);
+                            warnings.Add("The loads that were not read were removed from the history command " +
+                                         command.Name + ".");
+                        }
+                        if (command is CReplaceLoad replaceLoad)
+                        {
+                            key = GetLoadKey(replaceLoad.StepName, replaceLoad.NewLoadName);
+                            droppedLoadKeys.Remove(key);
+                            keptLoadKeys.Add(key);
+                        }
+                    }
+                }
+            }
+            return removedCommands;
+        }
+        private static string GetNumberedNameStem(string name)
+        {
+            int index = name.Length;
+            while (index > 0 && char.IsDigit(name[index - 1])) index--;
+            if (index < name.Length && index > 0 && name[index - 1] == '-') return name.Substring(0, index - 1);
+            return name;
+        }
+        private static string GetLoadKey(string stepName, string loadName)
+        {
+            return stepName + "\n" + loadName;
         }
         // History files
         public string GetHistoryFileNameBin()

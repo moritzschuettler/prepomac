@@ -16,15 +16,15 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10013)]
     public class ExplodedViewsCollection
     {
         // Variables                                                                                                                
         [NonSerialized] private Controller _controller;
-        private ExplodedViewParameters _geometryExplodedViewParameters;
-        private ExplodedViewParameters _modelExplodedViewParameters;
-        private Dictionary<string, ExplodedViewParameters> _resultNameExplodedViewParameters;
-        private ExplodedViewParameters _lastUsedParameters;
+        [PmxKey(0)] private ExplodedViewParameters _geometryExplodedViewParameters;
+        [PmxKey(1)] private ExplodedViewParameters _modelExplodedViewParameters;
+        [PmxKey(2)] private Dictionary<string, ExplodedViewParameters> _resultNameExplodedViewParameters;
+        [PmxKey(3)] private ExplodedViewParameters _lastUsedParameters;
 
 
         // Properties                                                                                                               

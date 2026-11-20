@@ -18,7 +18,6 @@ using CaeGlobals;
 
 namespace FileInOut.Input
 {
-    [Serializable]
     public static class NetgenVolFileReader
     {
         // Methods                                                                                                                  

@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3146)]
     internal class CalCentrifLoad : CalLoad
     {
         // Variables                                                                                                                
-        private CentrifLoad _load;
-        private ComplexLoadTypeEnum _complexLoadType;
+        [PmxKey(0)] private CentrifLoad _load;
+        [PmxKey(1)] private ComplexLoadTypeEnum _complexLoadType;
 
 
         // Properties                                                                                                               

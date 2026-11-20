@@ -22,13 +22,13 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10028)]
     public class CSaveToPmx : SaveCommand, IFileCommand
     {
         // Variables                                                                                                                
-        private string _fileName;
-        private byte[] _hash;
-        [OptionalField] private bool _resultsSaved;
+        [PmxKey(0)] private string _fileName;
+        [PmxKey(1)] private byte[] _hash;
+        [PmxKey(2)] [OptionalField] private bool _resultsSaved;
 
 
         // Properties

@@ -14,12 +14,12 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3091)]
     internal class CalElasticLamina : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ElasticLamina _elasticLamina;
-        private bool _temperatureDependent;
+        [PmxKey(0)] private ElasticLamina _elasticLamina;
+        [PmxKey(1)] private bool _temperatureDependent;
 
 
         // Properties                                                                                                               

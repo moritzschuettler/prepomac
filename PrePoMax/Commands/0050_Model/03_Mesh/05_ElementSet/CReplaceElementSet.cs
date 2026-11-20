@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10108)]
     class CReplaceElementSet : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldElementSetName;
-        private FeElementSet _newElementSet;
+        [PmxKey(0)] private string _oldElementSetName;
+        [PmxKey(1)] private FeElementSet _newElementSet;
 
         // Constructor                                                                                                              
         public CReplaceElementSet(string oldElementSetName, FeElementSet newElementSet)

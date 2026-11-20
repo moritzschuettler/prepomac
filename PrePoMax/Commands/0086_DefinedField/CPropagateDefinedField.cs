@@ -19,12 +19,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10208)]
     class CPropagateDefinedField : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string _definedFieldName;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string _definedFieldName;
 
 
         // Constructor                                                                                                              

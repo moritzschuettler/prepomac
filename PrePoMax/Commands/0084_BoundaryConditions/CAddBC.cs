@@ -19,12 +19,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10191)]
     class CAddBC : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private BoundaryCondition _boundaryCondition;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private BoundaryCondition _boundaryCondition;
 
 
         // Constructor                                                                                                              

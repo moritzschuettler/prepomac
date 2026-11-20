@@ -19,12 +19,12 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10355)]
     public class ViewElementSet
     {
         // Variables                                                                                                                
-        private FeElementSet _elementSet;
-        private DynamicCustomTypeDescriptor _dctd = null;           // needed for sorting properties
+        [PmxKey(0)] private FeElementSet _elementSet;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;           // needed for sorting properties
 
 
         // Properties                                                                                                               

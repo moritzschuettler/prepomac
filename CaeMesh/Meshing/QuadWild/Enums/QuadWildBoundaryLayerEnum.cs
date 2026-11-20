@@ -9,10 +9,11 @@
 
 using DynamicTypeDescriptor;
 using System;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2126)]
     public enum QuadWildBoundaryLayerEnum
     {
         [StandardValue("None", DisplayName = "None")]

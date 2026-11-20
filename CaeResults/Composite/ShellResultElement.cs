@@ -8,21 +8,22 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace CaeResults
 {
     // The shell data of one result element: an expanded shell element or a layer of an expanded composite shell
-    [Serializable]
+    [PmxType(5003)]
     public class ShellResultElement
     {
         // Variables
-        private int _shellElementId;
-        private string _sectionName;
-        private int _layerNumber;
-        private string _materialName;
-        private double[] _axis1;
-        private double[] _axis2;
-        private double[] _normal;
+        [PmxKey(0)] private int _shellElementId;
+        [PmxKey(1)] private string _sectionName;
+        [PmxKey(2)] private int _layerNumber;
+        [PmxKey(3)] private string _materialName;
+        [PmxKey(4)] private double[] _axis1;
+        [PmxKey(5)] private double[] _axis2;
+        [PmxKey(6)] private double[] _normal;
 
 
         // Properties

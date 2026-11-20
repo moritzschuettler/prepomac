@@ -21,13 +21,13 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10277)]
     class CActivateDeactivateMultilpe : PreprocessCommand
     {
         // Variables                                                                                                                
-        private NamedClass[] _items;
-        private bool _activate;
-        private string[] _stepNames;
+        [PmxKey(0)] private NamedClass[] _items;
+        [PmxKey(1)] private bool _activate;
+        [PmxKey(2)] private string[] _stepNames;
 
 
         // Constructor                                                                                                              

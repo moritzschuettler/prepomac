@@ -12,15 +12,16 @@ using System;
 using System.Runtime.Serialization;
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
-    class CCreateBoundaryLayer : PreprocessCommand, ISerializable
+    [PmxType(10078)]
+    class CCreateBoundaryLayer : PreprocessCommand
     {
         // Variables
-        private GeometrySelection _geometrySelection;   //ISerializable
-        private double _thickness;                      //ISerializable
+        [PmxKey(0)] private GeometrySelection _geometrySelection;   //ISerializable
+        [PmxKey(1)] private double _thickness;                      //ISerializable
 
 
         // Constructor
@@ -68,13 +69,6 @@ namespace PrePoMax.Commands
         public override string GetCommandString()
         {
             return base.GetCommandString() + "Thickness: " + _thickness.ToString();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            info.AddValue("_geometrySelection", _geometrySelection, typeof(GeometrySelection));
-            info.AddValue("_thickness", _thickness, typeof(double));
         }
     }
 }

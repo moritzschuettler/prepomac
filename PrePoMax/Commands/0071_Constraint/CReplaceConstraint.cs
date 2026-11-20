@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10145)]
     class CReplaceConstraint : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldConstraintName;
-        private Constraint _newConstraint;
+        [PmxKey(0)] private string _oldConstraintName;
+        [PmxKey(1)] private Constraint _newConstraint;
 
         // Constructor                                                                                                              
         public CReplaceConstraint(string oldConstraintName, Constraint newConstraint)

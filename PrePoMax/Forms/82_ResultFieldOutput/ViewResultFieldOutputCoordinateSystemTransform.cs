@@ -20,7 +20,7 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10500)]
     public class ViewResultFieldOutputCoordinateSystemTransform : ViewResultFieldOutput
     {
         // Variables                                                                                                                

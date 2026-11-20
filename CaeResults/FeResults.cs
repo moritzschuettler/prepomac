@@ -37,8 +37,8 @@ using static CaeGlobals.Geometry2;
 
 namespace CaeResults
 {
-    [Serializable]
-    public class FeResults : ISerializable
+    [PmxType(5008)]
+    public class FeResults
     {
         // Variables                                                                                                                
         [NonSerialized]
@@ -142,19 +142,20 @@ namespace CaeResults
                            FOComponentNames.ME12, FOComponentNames.ME23, FOComponentNames.ME13 }
         };
         //
-        private string _hashName;
-        private string _fileName;
-        private FeMesh _mesh;
-        private OrderedDictionary<string, ResultFieldOutput> _resultFieldOutputs;
-        private ShellResultData _shellResultData;
-        private OrderedDictionary<string, ResultHistoryOutput> _resultHistoryOutputs;
+        [PmxKey(0)] private string _hashName;
+        [PmxKey(1)] private string _fileName;
+        [PmxKey(2)] private FeMesh _mesh;
+        [PmxKey(3)] private OrderedDictionary<string, ResultFieldOutput> _resultFieldOutputs;
+        [PmxKey(4)] private ShellResultData _shellResultData;
+        [PmxKey(5)] private OrderedDictionary<string, ResultHistoryOutput> _resultHistoryOutputs;
         [NonSerialized]
         private HistoryResults _history;
-        private DateTime _dateTime;
-        private UnitSystem _unitSystem;
-        private string _deformationFieldOutputName;
-        private ComplexResultTypeEnum _complexResultType;
-        private float _complexAngleDeg;
+        [PmxKey(6)] private DateTime _dateTime;
+        [PmxKey(7)] private UnitSystem _unitSystem;
+        [PmxKey(8)] private string _deformationFieldOutputName;
+        [PmxKey(9)] private ComplexResultTypeEnum _complexResultType;
+        [PmxKey(10)] private float _complexAngleDeg;
+        [PmxKey(11)]
         private string _modelSpace;                             // null for a results file whose heading does not name it
 
 
@@ -293,28 +294,11 @@ namespace CaeResults
             //
             return rhofi;
         }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_hashName", _hashName, typeof(string));
-            info.AddValue("_fileName", _fileName, typeof(string));
-            info.AddValue("_mesh", _mesh, typeof(FeMesh));
-            info.AddValue("_resultFieldOutputs", _resultFieldOutputs, typeof(OrderedDictionary<string, ResultFieldOutput>));
-            info.AddValue("_resultHistoryOutputs", _resultHistoryOutputs, typeof(OrderedDictionary<string, ResultHistoryOutput>));
-            //info.AddValue("_history", _history, typeof(HistoryResults)); - not needed - Compatibility for version v2.3.5
-            info.AddValue("_dateTime", _dateTime, typeof(DateTime));
-            info.AddValue("_unitSystem", _unitSystem, typeof(UnitSystem));
-            info.AddValue("_deformationFieldOutputName", _deformationFieldOutputName, typeof(string));
-            info.AddValue("_complexResultType", _complexResultType, typeof(ComplexResultTypeEnum));
-            info.AddValue("_complexAngleDeg", _complexAngleDeg, typeof(float));
-            info.AddValue("_modelSpace", _modelSpace, typeof(string));
-            info.AddValue("_shellResultData", _shellResultData, typeof(ShellResultData));
-        }
 
 
         // Static methods                                                                                                           
-        public static void WriteToFileStream(FeResults results, FileStream fileStream, CompressionLevel compressionLevel)
+        public static void WriteToFileStream(FeResults results, Stream fileStream, CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (results == null)
             {
@@ -349,7 +333,8 @@ namespace CaeResults
                     bw.Flush();
                     bw.BaseStream.Position = 0;
                     // Compress the writer
-                    byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                    byte[] compressedData = compressBlocks ? Tools.Compress(bw.BaseStream, compressionLevel) :
+                                                            ((MemoryStream)bw.BaseStream).ToArray();
                     // Write the length of the compressed data
                     Tools.WriteIntToFileStream(fileStream, compressedData.Length);
                     // Write the compressed data
@@ -386,7 +371,8 @@ namespace CaeResults
                             bw.Flush();
                             bw.BaseStream.Position = 0;
                             // Compress the writer
-                            byte[] compressedData = Tools.Compress(bw.BaseStream, compressionLevel);
+                            byte[] compressedData = compressBlocks ? Tools.Compress(bw.BaseStream, compressionLevel) :
+                                                                    ((MemoryStream)bw.BaseStream).ToArray();
                             // Write the length of the compressed data
                             Tools.WriteIntToFileStream(fileStream, compressedData.Length);
                             // Write the compressed data
@@ -411,11 +397,11 @@ namespace CaeResults
                     // Write the history state
                     Tools.WriteIntToFileStream(fileStream, 1);
                     //
-                    HistoryResults.WriteToFileStream(results._history, fileStream, compressionLevel);
+                    HistoryResults.WriteToFileStream(results._history, fileStream, compressionLevel, compressBlocks);
                 }
             }
         }
-        public static void ReadFromFileStream(FeResults results, FileStream fileStream, int version)
+        public static void ReadFromFileStream(FeResults results, Stream fileStream, int version, bool blocksCompressed = true)
         {
             int numItems;
             int numOfBytes;
@@ -433,7 +419,7 @@ namespace CaeResults
                 fileStream.Read(compressedData, 0, compressedData.Length);
                 //
                 using (MemoryStream memoryStream = new MemoryStream(compressedData))
-                using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                using (BinaryReader br = new BinaryReader(blocksCompressed ? Tools.Decompress(memoryStream) : memoryStream))
                 {
                     FeMesh.ReadFromBinaryReader(results.Mesh, br, version);
                     //
@@ -461,7 +447,7 @@ namespace CaeResults
                         fileStream.Read(compressedData, 0, compressedData.Length);
                         //
                         using (MemoryStream memoryStream = new MemoryStream(compressedData))
-                        using (BinaryReader br = new BinaryReader(Tools.Decompress(memoryStream)))
+                        using (BinaryReader br = new BinaryReader(blocksCompressed ? Tools.Decompress(memoryStream) : memoryStream))
                         {
                             try
                             {
@@ -496,7 +482,7 @@ namespace CaeResults
                     exists = Tools.ReadIntFromFileStream(fileStream);
                     if (exists == 1)
                     {
-                        results._history = HistoryResults.ReadFromFileStream(fileStream, version);
+                        results._history = HistoryResults.ReadFromFileStream(fileStream, version, blocksCompressed);
                     }
                 }
             }

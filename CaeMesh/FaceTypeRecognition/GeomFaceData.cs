@@ -9,6 +9,7 @@
 
 using System;
 using System.Globalization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -16,21 +17,21 @@ namespace CaeMesh
     /// The result of the mesh based recognition of a visualization face.
     /// Besides the face type it also contains the parameters of the recognized analytic surface.
     /// </summary>
-    [Serializable]
+    [PmxType(2064)]
     public class GeomFaceData
     {
         // Variables
-        private GeomFaceType _type;
-        private double[] _point;
-        private double[] _axis;
-        private double _radius;
-        private double _minorRadius;
-        private double _halfAngleDeg;
-        private bool _convex;
-        private double _residual;
-        private double _size;
-        private int _cellCount;
-        private int _nodeCount;
+        [PmxKey(0)] private GeomFaceType _type;
+        [PmxKey(1)] private double[] _point;
+        [PmxKey(2)] private double[] _axis;
+        [PmxKey(3)] private double _radius;
+        [PmxKey(4)] private double _minorRadius;
+        [PmxKey(5)] private double _halfAngleDeg;
+        [PmxKey(6)] private bool _convex;
+        [PmxKey(7)] private double _residual;
+        [PmxKey(8)] private double _size;
+        [PmxKey(9)] private int _cellCount;
+        [PmxKey(10)] private int _nodeCount;
 
 
         // Properties

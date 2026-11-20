@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10100)]
     class CAddNodeSet : PreprocessCommand
     {
         // Variables                                                                                                                
-        private FeNodeSet _nodeSet;
+        [PmxKey(0)] private FeNodeSet _nodeSet;
 
 
         // Constructor                                                                                                              

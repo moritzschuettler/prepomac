@@ -17,11 +17,11 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class MassSectionData : SectionData, ISerializable
+    [PmxType(3200)]
+    public class MassSectionData : SectionData
     {
         // Variables                                                                                                                
-        private double _mass;               //ISerializable
+        [PmxKey(0)] private double _mass;               //ISerializable
 
 
         // Properties                                                                                                               
@@ -51,16 +51,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-        
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_mass", _mass, typeof(double));
-        }
     }
 }

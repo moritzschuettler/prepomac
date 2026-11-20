@@ -20,12 +20,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10177)]
     class CMoveSteps : PreprocessCommand
     {
         // Variables
-        private string[] _stepNames;
-        private int _targetIndex;
+        [PmxKey(0)] private string[] _stepNames;
+        [PmxKey(1)] private int _targetIndex;
 
 
         // Constructor

@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10398)]
     public class GapConductanceDataPoint : TempDataPoint
     {
         // Variables                                                                                                                
-        private double _conductance;
-        private double _pressure;
+        [PmxKey(0)] private double _conductance;
+        [PmxKey(1)] private double _pressure;
 
 
         // Properties                                                                                                               

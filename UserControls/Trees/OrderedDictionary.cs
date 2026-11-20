@@ -25,6 +25,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
+using CaeGlobals;
 
 namespace UserControls
 {
@@ -41,12 +42,12 @@ namespace UserControls
     /// <typeparam name="TKey">The types of the keys in the dictionary.</typeparam>
     /// <typeparam name="TValue">The type of values in the dictionary.</typeparam>
     /// 
-    [Serializable]
+    [PmxType(6218)]
     internal class OrderedDictionary<TKey, TValue> : IDictionary<TKey, TValue>
     {
 
-        private List<TKey> list;
-        private Dictionary<TKey, TValue> dictionary;
+        [PmxKey(0)] private List<TKey> list;
+        [PmxKey(1)] private Dictionary<TKey, TValue> dictionary;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OrderedDictionary{TKey, TValue}"/> class.

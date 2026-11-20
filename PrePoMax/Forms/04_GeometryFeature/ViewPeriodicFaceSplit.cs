@@ -19,12 +19,12 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10325)]
     public class ViewPeriodicFaceSplit : UserControls.IMissingPropertyValues
     {
         // Variables
-        private PeriodicFaceSplit _periodicFaceSplit;
-        private DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] private PeriodicFaceSplit _periodicFaceSplit;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties

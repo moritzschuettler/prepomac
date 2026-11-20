@@ -17,11 +17,11 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class SpecificHeat : MaterialProperty, ISerializable
+    [PmxType(3185)]
+    public class SpecificHeat : MaterialProperty
     {
         // Variables                                                                                                                
-        private EquationContainer[][] _specificHeatTemp;        //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _specificHeatTemp;        //ISerializable
 
 
         // Properties                                                                                                               
@@ -59,6 +59,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetSpecificHeatTemp(_specificHeatTemp, false);
+        }
         private void SetSpecificHeatTemp(double[][] value, bool checkEquation = true)
         {
             _specificHeatTemp = new EquationContainer[value.Length][];
@@ -90,14 +95,6 @@ namespace CaeModel
                 _specificHeatTemp[i][0].CheckEquation();
                 _specificHeatTemp[i][1].CheckEquation();
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_specificHeatTemp", _specificHeatTemp, typeof(EquationContainer[][]));
         }
     }
 }

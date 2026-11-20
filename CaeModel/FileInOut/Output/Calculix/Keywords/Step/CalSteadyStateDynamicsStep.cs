@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3128)]
     internal class CalSteadyStateDynamicsStep : CalStep
     {
         // Variables                                                                                                                
-        private SteadyStateDynamicsStep _step;
-        private bool _cyclicSymmetry;
+        [PmxKey(0)] private SteadyStateDynamicsStep _step;
+        [PmxKey(1)] private bool _cyclicSymmetry;
 
 
         // Properties                                                                                                               

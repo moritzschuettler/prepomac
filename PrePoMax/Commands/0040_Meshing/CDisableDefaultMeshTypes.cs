@@ -9,6 +9,7 @@
 
 using System;
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
@@ -25,7 +26,7 @@ namespace PrePoMax.Commands
     /// Removing this command from the command history is what asks an older model to be meshed the way this
     /// version meshes it.
     /// </summary>
-    [Serializable]
+    [PmxType(10073)]
     class CDisableDefaultMeshTypes : PreprocessCommand
     {
         // Constructor

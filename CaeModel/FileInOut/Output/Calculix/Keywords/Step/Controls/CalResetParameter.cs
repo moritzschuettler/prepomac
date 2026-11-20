@@ -14,14 +14,15 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3133)]
     internal class CalResetParameter : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ResetStepControlParameter _parameter;
+        [PmxKey(0)] private ResetStepControlParameter _parameter;
 
 
         // Properties                                                                                                               

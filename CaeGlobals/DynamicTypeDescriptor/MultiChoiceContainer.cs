@@ -13,16 +13,17 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace DynamicTypeDescriptor
 {
-    [Serializable]
+    [PmxType(1017)]
     public class MultiChoiceContainer
     {
         // Variables                                                                                                                
-        private MultiChoiceEnum _multiChoice;
-        Dictionary<MultiChoiceEnum, string[]> _enumData;
-        Dictionary<MultiChoiceEnum, string> _enumNames;
+        [PmxKey(0)] private MultiChoiceEnum _multiChoice;
+        [PmxKey(1)] Dictionary<MultiChoiceEnum, string[]> _enumData;
+        [PmxKey(2)] Dictionary<MultiChoiceEnum, string> _enumNames;
 
 
         // Properties                                                                                                               

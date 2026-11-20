@@ -16,12 +16,12 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10382)]
     public class ViewCompositeShellSection : ViewSection
     {
         // Variables                                                                                                                
-        private CompositeShellSection _compositeShellSection;
-        private List<CompositeLayerDataPoint> _layers;
+        [PmxKey(0)] private CompositeShellSection _compositeShellSection;
+        [PmxKey(1)] private List<CompositeLayerDataPoint> _layers;
 
 
         // Properties

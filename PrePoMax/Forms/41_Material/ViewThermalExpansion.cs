@@ -19,12 +19,12 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-   [Serializable]
+   [PmxType(10379)]
     public class ViewThermalExpansion : ViewMaterialProperty
     {
         // Variables                                                                                                                
-        private List<ThermalExpansionDataPoint> _points;
-        private EquationContainer _zeroTemperature;
+        [PmxKey(0)] private List<ThermalExpansionDataPoint> _points;
+        [PmxKey(1)] private EquationContainer _zeroTemperature;
 
 
         // Properties                                                                                                               

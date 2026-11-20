@@ -19,12 +19,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10168)]
     class CReplaceAmplitude : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldAmplitudeName;
-        private Amplitude _newAmplitude;
+        [PmxKey(0)] private string _oldAmplitudeName;
+        [PmxKey(1)] private Amplitude _newAmplitude;
 
 
         // Constructor                                                                                                              

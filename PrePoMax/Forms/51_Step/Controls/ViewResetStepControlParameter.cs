@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace PrePoMax.PropertyViews
 {
-    [Serializable]
+    [PmxType(10421)]
     public class ViewResetStepControlParameter : ViewStepControlParameter
     {
         // Variables                                                                                                                
-        private CaeModel.ResetStepControlParameter _parameter;
+        [PmxKey(0)] private CaeModel.ResetStepControlParameter _parameter;
 
 
         // Properties                                                                                                               

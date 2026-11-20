@@ -14,14 +14,15 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3108)]
     internal class CalSurfaceInteraction : CalculixKeyword
     {
         // Variables                                                                                                                
-        private SurfaceInteraction _surfaceInteraction;
+        [PmxKey(0)] private SurfaceInteraction _surfaceInteraction;
 
 
         // Properties                                                                                                               

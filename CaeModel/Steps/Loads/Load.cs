@@ -19,23 +19,23 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public abstract class Load : NamedClass, IMultiRegion, IContainsEquations, ISerializable
+    [PmxType(3264)]
+    public abstract class Load : NamedClass, IMultiRegion, IContainsEquations
     {
         // Variables                                                                                                                
-        private int[] _creationIds;                                 //ISerializable
-        private Selection _creationData;                            //ISerializable
-        protected bool _twoD;                                       //ISerializable
-        protected string _amplitudeName;                            //ISerializable
-        protected string _coordinateSystemName;                     //ISerializable
-        protected bool _complex;                                    //ISerializable
-        protected EquationContainer _phaseDeg;                      //ISerializable
-        protected Color _color;                                     //ISerializable
+        [PmxKey(0)] private int[] _creationIds;                                 //ISerializable
+        [PmxKey(1)] private Selection _creationData;                            //ISerializable
+        [PmxKey(2)] protected bool _twoD;                                       //ISerializable
+        [PmxKey(3)] protected string _amplitudeName;                            //ISerializable
+        [PmxKey(4)] protected string _coordinateSystemName;                     //ISerializable
+        [PmxKey(5)] protected bool _complex;                                    //ISerializable
+        [PmxKey(6)] protected EquationContainer _phaseDeg;                      //ISerializable
+        [PmxKey(7)] protected Color _color;                                     //ISerializable
 
 
         // Properties                                                                                                               
-        public virtual string RegionName { get; set; }
-        public virtual RegionTypeEnum RegionType { get; set; }
+        [field: PmxKey(8)] public virtual string RegionName { get; set; }
+        [field: PmxKey(9)] public virtual RegionTypeEnum RegionType { get; set; }
         public int[] CreationIds { get { return _creationIds; } set { _creationIds = value; } }
         public Selection CreationData { get { return _creationData; } set { _creationData = value; } }
         public bool TwoD { get { return _twoD; } }
@@ -147,6 +147,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetPhaseDeg(_phaseDeg, false);
+        }
         private void SetPhaseDeg(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _phaseDeg, value, CheckAngle, checkEquation);
@@ -188,21 +193,6 @@ namespace CaeModel
                 return true;
             }
             catch (Exception ex) { return false; }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_twoD", _twoD, typeof(bool));
-            info.AddValue("_amplitudeName", _amplitudeName, typeof(string));
-            info.AddValue("_coordinateSystemName", _coordinateSystemName, typeof(string));
-            info.AddValue("_complex", _complex, typeof(bool));
-            info.AddValue("_phaseDeg", _phaseDeg, typeof(EquationContainer));
-            info.AddValue("_color", _color, typeof(Color));
         }
     }
 }

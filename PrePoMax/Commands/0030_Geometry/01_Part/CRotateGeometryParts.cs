@@ -21,15 +21,15 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10048)]
     class CRotateGeometryParts : PreprocessCommand
     {
         // Variables
-        private string[] _partNames;
-        private double[] _rotateCenter;
-        private double[] _rotateAxis;
-        private double _rotateAngle;
-        private int _numberOfCopies;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private double[] _rotateCenter;
+        [PmxKey(2)] private double[] _rotateAxis;
+        [PmxKey(3)] private double _rotateAngle;
+        [PmxKey(4)] private int _numberOfCopies;
 
 
         // Constructor

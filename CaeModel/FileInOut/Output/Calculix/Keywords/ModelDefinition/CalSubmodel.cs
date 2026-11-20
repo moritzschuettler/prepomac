@@ -16,12 +16,12 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3074)]
     internal class CalSubmodel : CalculixKeyword
     {
         // Variables                                                                                                                
-        string _globalResultsFileName;
-        string[] _nodeSetNames;
+        [PmxKey(0)] string _globalResultsFileName;
+        [PmxKey(1)] string[] _nodeSetNames;
 
 
         // Properties                                                                                                               

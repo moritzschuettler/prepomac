@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3094)]
     internal class CalSlipWear : CalculixKeyword
     {
         // Variables                                                                                                                
-        private SlipWear _slipWear;
-        private bool _temperatureDependent;
+        [PmxKey(0)] private SlipWear _slipWear;
+        [PmxKey(1)] private bool _temperatureDependent;
 
 
         // Properties                                                                                                               

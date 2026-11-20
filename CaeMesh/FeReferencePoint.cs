@@ -19,7 +19,7 @@ using System.Drawing;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2079)]
     public enum FeReferencePointCreatedFrom
     {
         [StandardValue("Coordinates", Description = "Coordinates", DisplayName = "Coordinates")]
@@ -36,30 +36,30 @@ namespace CaeMesh
         BoundingBoxCenter
     }
     //
-    [Serializable]
-    public class FeReferencePoint : NamedClass, IMultiRegion, ISerializable, IContainsEquations
+    [PmxType(2080)]
+    public class FeReferencePoint : NamedClass, IMultiRegion, IContainsEquations
     {
         // Variables                                                                                                                
         public const string RefName = "_Ref_";
         public const string RotName = "_Rot_";
-        private EquationContainer _x;                           //ISerializable
-        private EquationContainer _y;                           //ISerializable
-        private EquationContainer _z;                           //ISerializable
-        private FeReferencePointCreatedFrom _createdFrom;       //ISerializable
-        private string _regionName;                 // new      //ISerializable
-        private RegionTypeEnum _regionType;         // new      //ISerializable
-        private int[] _creationIds;                             //ISerializable
-        private Selection _creationData;                        //ISerializable
-        private int _createdFromRefNodeId1;                     //ISerializable
-        private int _createdFromRefNodeId2;                     //ISerializable
-        private string _refNodeSetName;                         //ISerializable
-        private FeReferencePointMotion _motion;                 //ISerializable
-        private string _rotNodeSetName;                         //ISerializable
-        private int _refNodeId;                                 //ISerializable
-        private int _rotNodeId;                                 //ISerializable
-        private bool _nameVisible;                             //ISerializable
-        private bool _twoD;                                     //ISerializable
-        private Color _color;                                   //ISerializable
+        [PmxKey(0)] private EquationContainer _x;                           //ISerializable
+        [PmxKey(1)] private EquationContainer _y;                           //ISerializable
+        [PmxKey(2)] private EquationContainer _z;                           //ISerializable
+        [PmxKey(3)] private FeReferencePointCreatedFrom _createdFrom;       //ISerializable
+        [PmxKey(4)] private string _regionName;                 // new      //ISerializable
+        [PmxKey(5)] private RegionTypeEnum _regionType;         // new      //ISerializable
+        [PmxKey(6)] private int[] _creationIds;                             //ISerializable
+        [PmxKey(7)] private Selection _creationData;                        //ISerializable
+        [PmxKey(8)] private int _createdFromRefNodeId1;                     //ISerializable
+        [PmxKey(9)] private int _createdFromRefNodeId2;                     //ISerializable
+        [PmxKey(10)] private string _refNodeSetName;                         //ISerializable
+        [PmxKey(11)] private FeReferencePointMotion _motion;                 //ISerializable
+        [PmxKey(12)] private string _rotNodeSetName;                         //ISerializable
+        [PmxKey(13)] private int _refNodeId;                                 //ISerializable
+        [PmxKey(14)] private int _rotNodeId;                                 //ISerializable
+        [PmxKey(15)] private bool _nameVisible;                             //ISerializable
+        [PmxKey(16)] private bool _twoD;                                     //ISerializable
+        [PmxKey(17)] private Color _color;                                   //ISerializable
 
 
         // Properties                                                                                                               
@@ -213,6 +213,13 @@ namespace CaeMesh
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetX(_x, false);
+            SetY(_y, false);
+            SetZ(_z, false);
+        }
         private void SetX(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _x, value, null, checkEquation);
@@ -291,32 +298,6 @@ namespace CaeMesh
             _x.SetEquationFromValue((boundingBox[0][0] + boundingBox[0][1]) / 2);
             _y.SetEquationFromValue((boundingBox[1][0] + boundingBox[1][1]) / 2);
             _z.SetEquationFromValue((boundingBox[2][0] + boundingBox[2][1]) / 2);
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_x", _x, typeof(EquationContainer));
-            info.AddValue("_y", _y, typeof(EquationContainer));
-            info.AddValue("_z", _z, typeof(EquationContainer));
-            info.AddValue("_createdFrom", _createdFrom, typeof(FeReferencePointCreatedFrom));
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_createdFromRefNodeId1", _createdFromRefNodeId1, typeof(int));
-            info.AddValue("_createdFromRefNodeId2", _createdFromRefNodeId2, typeof(int));
-            info.AddValue("_refNodeSetName", _refNodeSetName, typeof(string));
-            info.AddValue("_motion", _motion, typeof(FeReferencePointMotion));
-            info.AddValue("_rotNodeSetName", _rotNodeSetName, typeof(string));
-            info.AddValue("_refNodeId", _refNodeId, typeof(int));
-            info.AddValue("_rotNodeId", _rotNodeId, typeof(int));
-            info.AddValue("_nameVisible", _nameVisible, typeof(bool));
-            info.AddValue("_twoD", _twoD, typeof(bool));
-            info.AddValue("_color", _color, typeof(Color));
         }
     }
 }

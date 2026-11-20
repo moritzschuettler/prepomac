@@ -19,13 +19,13 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10185)]
     class CReplaceHistoryOutput : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string _oldHistoryOutputName;
-        private HistoryOutput _newHistoryOutput;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string _oldHistoryOutputName;
+        [PmxKey(2)] private HistoryOutput _newHistoryOutput;
 
 
         // Constructor                                                                                                              

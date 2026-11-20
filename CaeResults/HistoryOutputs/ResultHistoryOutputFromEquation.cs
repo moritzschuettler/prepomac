@@ -18,16 +18,16 @@ using System.Threading.Tasks;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5048)]
     public class ResultHistoryOutputFromEquation : ResultHistoryOutput
     {
         // Variables                                                                                                                
         public static string EquationSeparator = ".";
         public static string FieldName = "EQUATION";
         public static string ComponentName = "VALUE";
-        private string _equation;
-        private string _unit;
-        private string[] _parentNames;
+        [PmxKey(0)] private string _equation;
+        [PmxKey(1)] private string _unit;
+        [PmxKey(2)] private string[] _parentNames;
 
 
         // Properties                                                                                                               

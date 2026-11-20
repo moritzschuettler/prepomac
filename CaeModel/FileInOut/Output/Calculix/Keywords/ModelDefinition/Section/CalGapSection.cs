@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3099)]
     internal class CalGapSection : CalculixKeyword
     {
         // Variables                                                                                                                
-        private GapSectionData _gapSectionData;
+        [PmxKey(0)] private GapSectionData _gapSectionData;
 
 
         // Properties                                                                                                               

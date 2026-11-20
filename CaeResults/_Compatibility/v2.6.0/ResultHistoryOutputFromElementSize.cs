@@ -22,7 +22,7 @@ namespace CaeResults
     // The From Element Size history output was replaced by the From Integration history output using the
     // Geometry integral result. It can no longer be created, but existing definitions are still read and
     // evaluated, and they can still be edited.
-    [Serializable]
+    [PmxType(5065)]
     public enum ElementSizeTypeEnum
     {
         Area,
@@ -30,13 +30,13 @@ namespace CaeResults
     }
 
 
-    [Serializable]
+    [PmxType(5066)]
     public class ResultHistoryOutputFromElementSize : ResultHistoryOutput
     {
         // Variables                                                                                                                
-        private string _deformationVariableName;
-        private string[] _parentNames;
-        private ElementSizeTypeEnum _elementSizeType;
+        [PmxKey(0)] private string _deformationVariableName;
+        [PmxKey(1)] private string[] _parentNames;
+        [PmxKey(2)] private ElementSizeTypeEnum _elementSizeType;
 
 
         // Properties                                                                                                               

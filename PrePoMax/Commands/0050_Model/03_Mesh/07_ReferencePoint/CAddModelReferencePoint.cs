@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10113)]
     class CAddModelReferencePoint : PreprocessCommand
     {
         // Variables                                                                                                                
-        private FeReferencePoint _referencePoint;
+        [PmxKey(0)] private FeReferencePoint _referencePoint;
 
 
         // Constructor                                                                                                              

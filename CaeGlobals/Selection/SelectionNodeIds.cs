@@ -16,14 +16,14 @@ using System.Runtime.Serialization;
 
 namespace CaeGlobals
 {
-    [Serializable]
-    public class SelectionNodeIds : SelectionNode, ISerializable
+    [PmxType(1027)]
+    public class SelectionNodeIds : SelectionNode
     {
         // Variables                                                                                                                
-        private bool _selectAll;                                //ISerializable
-        private int[] _itemIds;                                 //ISerializable
-        private bool _isGeometryBased;                          //ISerializable
-        private GeometrySelectModeEnum _geometrySelectMode;     //ISerializable
+        [PmxKey(0)] private bool _selectAll;                                //ISerializable
+        [PmxKey(1)] private int[] _itemIds;                                 //ISerializable
+        [PmxKey(2)] private bool _isGeometryBased;                          //ISerializable
+        [PmxKey(3)] private GeometrySelectModeEnum _geometrySelectMode;     //ISerializable
 
 
         // Properties                                                                                                               
@@ -110,17 +110,6 @@ namespace CaeGlobals
                 }
             }
             return false;
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_selectAll", _selectAll, typeof(bool));
-            info.AddValue("_itemIds", _itemIds, typeof(int[]));
-            info.AddValue("_isGeometryBased", _isGeometryBased, typeof(bool));
-            info.AddValue("_geometrySelectMode", _geometrySelectMode, typeof(GeometrySelectModeEnum));
         }
     }
 }

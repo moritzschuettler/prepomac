@@ -19,11 +19,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10393)]
     public class ViewPointSpring : ViewConstraint
     {
         // Variables
-        private PointSpring _pointSpring;
+        [PmxKey(0)] private PointSpring _pointSpring;
 
 
         // Properties

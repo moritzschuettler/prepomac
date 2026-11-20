@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10166)]
     class CDuplicateAmplitudes : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _amplitudeNames;
+        [PmxKey(0)] private string[] _amplitudeNames;
 
 
         // Constructor                                                                                                              

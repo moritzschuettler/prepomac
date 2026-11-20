@@ -18,15 +18,15 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10391)]
     public class ViewCyclicSymmetry : ViewTie
     {
         // Variables                                                                                                                
-        private CyclicSymmetry _cyclicSymmetry;
-        private ItemSetData _axisPointItemSetData;
-        private string _affectedSelectionHidden;
-        private Dictionary<RegionTypeEnum, string> _affectedRegionTypePropertyNamePairs;
-        private Dictionary<string, RegionTypeEnum> _affectedRegionNameRegionTypePairs;
+        [PmxKey(0)] private CyclicSymmetry _cyclicSymmetry;
+        [PmxKey(1)] private ItemSetData _axisPointItemSetData;
+        [PmxKey(2)] private string _affectedSelectionHidden;
+        [PmxKey(3)] private Dictionary<RegionTypeEnum, string> _affectedRegionTypePropertyNamePairs;
+        [PmxKey(4)] private Dictionary<string, RegionTypeEnum> _affectedRegionNameRegionTypePairs;
 
 
         // Properties                                                                                                               

@@ -19,18 +19,18 @@ using CaeJob;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3217)]
     public class FieldStepControlParameter : StepControlParameter
     {
         // Variables                                                                                                                
-        private double _rna;
-        private double _cna;
-        private double _q0a;
-        private double _qua;
-        private double _rpa;
-        private double _ea;
-        private double _cea;
-        private double _rla;
+        [PmxKey(0)] private double _rna;
+        [PmxKey(1)] private double _cna;
+        [PmxKey(2)] private double _q0a;
+        [PmxKey(3)] private double _qua;
+        [PmxKey(4)] private double _rpa;
+        [PmxKey(5)] private double _ea;
+        [PmxKey(6)] private double _cea;
+        [PmxKey(7)] private double _rla;
 
 
         // Properties                                                                                                               

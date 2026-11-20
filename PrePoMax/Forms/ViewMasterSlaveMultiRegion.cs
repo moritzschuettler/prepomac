@@ -18,16 +18,16 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10520)]
     public class ViewMasterSlaveMultiRegion : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
-        private IMasterSlaveMultiRegion _region;
-        private Dictionary<RegionTypeEnum, string> _masterRegionTypePropertyNamePairs;
-        private Dictionary<string, RegionTypeEnum> _masterRegionNameRegionTypePairs;
-        private Dictionary<RegionTypeEnum, string> _slaveRegionTypePropertyNamePairs;
-        private Dictionary<string, RegionTypeEnum> _slaveRegionNameRegionTypePairs;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private IMasterSlaveMultiRegion _region;
+        [PmxKey(1)] private Dictionary<RegionTypeEnum, string> _masterRegionTypePropertyNamePairs;
+        [PmxKey(2)] private Dictionary<string, RegionTypeEnum> _masterRegionNameRegionTypePairs;
+        [PmxKey(3)] private Dictionary<RegionTypeEnum, string> _slaveRegionTypePropertyNamePairs;
+        [PmxKey(4)] private Dictionary<string, RegionTypeEnum> _slaveRegionNameRegionTypePairs;
+        [PmxKey(5)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

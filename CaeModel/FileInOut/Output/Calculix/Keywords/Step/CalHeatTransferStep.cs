@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3120)]
     internal class CalHeatTransferStep : CalStep
     {
         // Variables                                                                                                                
-        private HeatTransferStep _step;
+        [PmxKey(0)] private HeatTransferStep _step;
 
 
         // Properties                                                                                                               

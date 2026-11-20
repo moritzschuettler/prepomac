@@ -17,20 +17,20 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10543)]
     public class SolverSettings : ISettings
     {
         // Variables
-        private string _workDirectory;
-        private bool _usePmxFolderAsWorkDirectory;
-        private int _numCPUs;
-        private string _calculixExe;
-        private SolverTypeEnum _calculixDefaultSolverType;
-        private List<EnvironmentVariable> _environmentVariables;
-        private ConvertPyramidsToEnum _convertPyramidsTo;
-        private bool _binaryResultsFile;
-        private string _abaqusExe;
-        private string _femasterExe;
+        [PmxKey(0)] private string _workDirectory;
+        [PmxKey(1)] private bool _usePmxFolderAsWorkDirectory;
+        [PmxKey(2)] private int _numCPUs;
+        [PmxKey(3)] private string _calculixExe;
+        [PmxKey(4)] private SolverTypeEnum _calculixDefaultSolverType;
+        [PmxKey(5)] private List<EnvironmentVariable> _environmentVariables;
+        [PmxKey(6)] private ConvertPyramidsToEnum _convertPyramidsTo;
+        [PmxKey(7)] private bool _binaryResultsFile;
+        [PmxKey(8)] private string _abaqusExe;
+        [PmxKey(9)] private string _femasterExe;
         public static string NonEnglishDirectoryWarning = "The selected work directory path contains non-English characters. " +
                                                           "Some program features might not work as expected.";
 

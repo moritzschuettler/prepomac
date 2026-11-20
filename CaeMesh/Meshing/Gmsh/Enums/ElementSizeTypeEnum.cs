@@ -13,10 +13,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2102)]
     public enum ElementSizeTypeEnum
     {
         [StandardValue("ScaleFactor", DisplayName = "Scale factor")]

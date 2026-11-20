@@ -13,12 +13,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
-    [Serializable]
-    public class InitialStep : Step, ISerializable
+    [PmxType(3253)]
+    public class InitialStep : Step
     {
         // Variables                                                                                                                
 
@@ -54,12 +55,6 @@ namespace CaeModel
         public override bool IsDefinedFieldSupported(DefinedField definedField)
         {
             return true;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
         }
     }
 }

@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10042)]
     class CHideGeometryParts : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
+        [PmxKey(0)] private string[] _partNames;
 
 
         // Constructor                                                                                                              

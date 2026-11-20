@@ -21,11 +21,11 @@ using CaeJob;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10431)]
     public class ViewModalDynamics : ViewStep
     {
         // Variables                                                                                                                
-        private ModalDynamicsStep _modalStep;
+        [PmxKey(0)] private ModalDynamicsStep _modalStep;
 
 
         // Properties                                                                                                               

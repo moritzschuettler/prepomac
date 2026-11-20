@@ -19,7 +19,7 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10323)]
     public abstract class ViewGeometryFeature : UserControls.IMissingPropertyValues
     {
         // Variables
@@ -27,7 +27,7 @@ namespace PrePoMax.Forms
         public const string SplitterSelectionName = "SplitterSelection";
         public const string DirectionSelectionName = "DirectionSelection";
         //
-        protected DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] protected DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties

@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10138)]
     class CRemoveSections : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _sectionNames;
+        [PmxKey(0)] private string[] _sectionNames;
 
 
         // Constructor                                                                                                              

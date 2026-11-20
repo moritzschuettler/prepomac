@@ -19,11 +19,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3134)]
     internal class CalTimeIncrementationParameter : CalculixKeyword
     {
         // Variables                                                                                                                
-        private TimeIncrementationStepControlParameter _parameter;
+        [PmxKey(0)] private TimeIncrementationStepControlParameter _parameter;
 
 
         // Properties                                                                                                               

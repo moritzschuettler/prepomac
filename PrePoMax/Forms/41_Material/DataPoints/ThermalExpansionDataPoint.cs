@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10367)]
     public class ThermalExpansionDataPoint : TempDataPoint
     {
         // Variables                                                                                                                
-        private EquationContainer _thermalExpansion;
+        [PmxKey(0)] private EquationContainer _thermalExpansion;
 
 
         // Properties                                                                                                               

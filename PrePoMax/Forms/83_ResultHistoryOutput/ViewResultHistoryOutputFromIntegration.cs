@@ -21,16 +21,16 @@ using System.Threading.Tasks;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10511)]
     public class ViewResultHistoryOutputFromIntegration : ViewResultHistoryOutput
     {
         // Variables                                                                                                                
-        private ResultHistoryOutputFromIntegration _historyOutput;
-        private string[] _elementSetNames;
-        private string[] _surfaceNames;
-        private MultiChoiceContainer _componentContainer;
-        private Dictionary<string, string[]> _filedNameComponentNames;
-        private IntegrationScaleType _defaultCrossSection;
+        [PmxKey(0)] private ResultHistoryOutputFromIntegration _historyOutput;
+        [PmxKey(1)] private string[] _elementSetNames;
+        [PmxKey(2)] private string[] _surfaceNames;
+        [PmxKey(3)] private MultiChoiceContainer _componentContainer;
+        [PmxKey(4)] private Dictionary<string, string[]> _filedNameComponentNames;
+        [PmxKey(5)] private IntegrationScaleType _defaultCrossSection;
 
 
         // Properties                                                                                                               

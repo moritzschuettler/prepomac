@@ -19,11 +19,11 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10328)]
     public class ViewSplitByLineTwoPoints : ViewGeometryFeature
     {
         // Variables
-        private SplitByLineTwoPoints _splitByLineTwoPoints;
+        [PmxKey(0)] private SplitByLineTwoPoints _splitByLineTwoPoints;
 
 
         // Properties

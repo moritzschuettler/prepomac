@@ -19,11 +19,11 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-   [Serializable]
+   [PmxType(10370)]
     public class ViewDensity : ViewMaterialProperty
     {
         // Variables                                                                                                                
-        private List<DensityDataPoint> _points;
+        [PmxKey(0)] private List<DensityDataPoint> _points;
 
 
         // Properties                                                                                                               

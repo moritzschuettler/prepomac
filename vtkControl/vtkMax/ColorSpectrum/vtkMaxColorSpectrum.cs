@@ -16,24 +16,24 @@ using CaeGlobals;
 
 namespace vtkControl
 {
-    [Serializable]
+    [PmxType(6107)]
     public class vtkMaxColorSpectrum
     {
         public const int SmoothNumberOfColors = 256;
 
         // Variables                                                                                                                
-        private vtkColorSpectrumMode _mode;
-        private vtkColorSpectrumType _type;
-        private vtkColorSpectrumMinMaxType _minMaxType;
-        private double _minUserValue;
-        private double _maxUserValue;
-        private System.Drawing.Color _minColor;
-        private System.Drawing.Color _maxColor;
-        private bool _minColorVisible;
-        private bool _maxColorVisible;
-        private int _numberOfColors;
-        private bool _reverseColors;
-        private double _colorBrightness;
+        [PmxKey(0)] private vtkColorSpectrumMode _mode;
+        [PmxKey(1)] private vtkColorSpectrumType _type;
+        [PmxKey(2)] private vtkColorSpectrumMinMaxType _minMaxType;
+        [PmxKey(3)] private double _minUserValue;
+        [PmxKey(4)] private double _maxUserValue;
+        [PmxKey(5)] private System.Drawing.Color _minColor;
+        [PmxKey(6)] private System.Drawing.Color _maxColor;
+        [PmxKey(7)] private bool _minColorVisible;
+        [PmxKey(8)] private bool _maxColorVisible;
+        [PmxKey(9)] private int _numberOfColors;
+        [PmxKey(10)] private bool _reverseColors;
+        [PmxKey(11)] private double _colorBrightness;
 
 
         // Properties                                                                                                               

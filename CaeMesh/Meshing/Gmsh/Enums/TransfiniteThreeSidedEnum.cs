@@ -9,6 +9,7 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -16,7 +17,7 @@ namespace CaeMesh
     /// How a 3-sided face is structured. Polar collapses one corner of a grid, with triangles at that corner and arcs
     /// around it, as a revolution about it would; Mapped is three blocks of quads around one inner node.
     /// </summary>
-    [Serializable]
+    [PmxType(2116)]
     public enum TransfiniteThreeSidedEnum
     {
         [StandardValue("Polar", DisplayName = "Polar")]

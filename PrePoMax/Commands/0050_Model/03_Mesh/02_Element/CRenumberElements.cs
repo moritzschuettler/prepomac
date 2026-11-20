@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10087)]
     class CRenumberElements : PreprocessCommand
     {
         // Variables                                                                                                                
-        private int _startElementId;
+        [PmxKey(0)] private int _startElementId;
 
 
         // Constructor                                                                                                              

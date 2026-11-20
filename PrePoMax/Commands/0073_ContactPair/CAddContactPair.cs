@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10152)]
     class CAddContactPair : PreprocessCommand
     {
         // Variables                                                                                                                
-        private ContactPair _contactPair;
-        private bool _update;
+        [PmxKey(0)] private ContactPair _contactPair;
+        [PmxKey(1)] private bool _update;
 
 
         // Constructor                                                                                                              

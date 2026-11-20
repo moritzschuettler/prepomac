@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10116)]
     class CRemoveModelReferencePoints : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _referencePointNames;
+        [PmxKey(0)] private string[] _referencePointNames;
 
 
         // Constructor                                                                                                              

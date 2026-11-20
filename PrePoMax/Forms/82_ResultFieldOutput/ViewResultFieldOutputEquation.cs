@@ -19,7 +19,7 @@ using CaeResults;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10502)]
     public class ViewResultFieldOutputEquation : ViewResultFieldOutput
     {
         // Variables                                                                                                                

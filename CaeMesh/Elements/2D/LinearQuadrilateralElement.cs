@@ -12,10 +12,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2013)]
     public class LinearQuadrilateralElement : FeElement2D
     {
         // Variables                                                                                                                

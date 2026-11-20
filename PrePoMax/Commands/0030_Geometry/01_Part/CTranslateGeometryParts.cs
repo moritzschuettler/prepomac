@@ -21,13 +21,13 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10053)]
     class CTranslateGeometryParts : PreprocessCommand
     {
         // Variables
-        private string[] _partNames;
-        private double[] _translateVector;
-        private int _numberOfCopies;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private double[] _translateVector;
+        [PmxKey(2)] private int _numberOfCopies;
 
 
         // Constructor

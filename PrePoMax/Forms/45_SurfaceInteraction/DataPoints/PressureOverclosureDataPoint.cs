@@ -14,15 +14,16 @@ using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10399)]
     public class PressureOverclosureDataPoint
     {
         // Variables                                                                                                                
-        private double _pressure;
-        private double _overclosure;
+        [PmxKey(0)] private double _pressure;
+        [PmxKey(1)] private double _overclosure;
 
 
         // Properties                                                                                                               

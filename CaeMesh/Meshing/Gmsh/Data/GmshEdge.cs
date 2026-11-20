@@ -10,16 +10,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2099)]
     public class GmshEdge : IComparable<GmshEdge>
     {
-        public int Id;
-        public int[] VertexIds;
-        public HashSet<int> SurfaceIds;
-        public double Length;
+        [PmxKey(0)] public int Id;
+        [PmxKey(1)] public int[] VertexIds;
+        [PmxKey(2)] public HashSet<int> SurfaceIds;
+        [PmxKey(3)] public double Length;
         //
         public GmshEdge(int id, int[] vertexIds, int surfaceId, double length)
         {

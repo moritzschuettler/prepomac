@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10249)]
     class CAddResultCoordinateSystem : PostprocessCommand
     {
         // Variables                                                                                                                
-        private CoordinateSystem _coordinateSystem;
+        [PmxKey(0)] private CoordinateSystem _coordinateSystem;
 
 
         // Constructor                                                                                                              

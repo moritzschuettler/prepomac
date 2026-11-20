@@ -11,7 +11,7 @@ using System;
 
 namespace CaeGlobals
 {
-    [Serializable]
+    [PmxType(1031)]
     /// <summary>
     /// A high performance string splitter
     /// </summary>
@@ -29,7 +29,7 @@ namespace CaeGlobals
         /// <summary>
         /// The string buffer container
         /// </summary>
-        public string[] buffer;
+        [PmxKey(0)] public string[] buffer;
 
         /// <summary>
         /// Get the results of the last split call

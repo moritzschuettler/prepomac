@@ -15,16 +15,16 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class DistributingCoupling : Coupling, ISerializable // ISerializable must be here
+    [PmxType(3007)]
+    public class DistributingCoupling : Coupling // ISerializable must be here
     {
         // Variables                                                                                                                
-        private bool _u1;                           //ISerializable
-        private bool _u2;                           //ISerializable
-        private bool _u3;                           //ISerializable
-        private bool _ur1;                          //ISerializable
-        private bool _ur2;                          //ISerializable
-        private bool _ur3;                          //ISerializable
+        [PmxKey(0)] private bool _u1;                           //ISerializable
+        [PmxKey(1)] private bool _u2;                           //ISerializable
+        [PmxKey(2)] private bool _u3;                           //ISerializable
+        [PmxKey(3)] private bool _ur1;                          //ISerializable
+        [PmxKey(4)] private bool _ur2;                          //ISerializable
+        [PmxKey(5)] private bool _ur3;                          //ISerializable
 
 
         // Properties                                                                                                               
@@ -86,20 +86,6 @@ namespace CaeModel
             if (_ur2) directions.Add(5);
             if (_ur3) directions.Add(6);
             return directions.ToArray();
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_u1", _u1, typeof(bool));
-            info.AddValue("_u2", _u2, typeof(bool));
-            info.AddValue("_u3", _u3, typeof(bool));
-            info.AddValue("_ur1", _ur1, typeof(bool));
-            info.AddValue("_ur2", _ur2, typeof(bool));
-            info.AddValue("_ur3", _ur3, typeof(bool));
         }
     }
 }

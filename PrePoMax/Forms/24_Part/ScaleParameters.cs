@@ -21,17 +21,17 @@ using System.Drawing.Design;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10351)]
     public class ScaleParameters
     {
         // Variables                                                                                                                      
-        private DynamicCustomTypeDescriptor _dctd = null;
-        private PointSelectionMethodEnum _scaleCenterSelectionMethod;
-        private ItemSetData _scaleCenterItemSetData;
-        private double[] _scaleCenter;
-        private double[] _scaleFactors;
-        private bool _scaleOnly;
-        private bool _twoD;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(1)] private PointSelectionMethodEnum _scaleCenterSelectionMethod;
+        [PmxKey(2)] private ItemSetData _scaleCenterItemSetData;
+        [PmxKey(3)] private double[] _scaleCenter;
+        [PmxKey(4)] private double[] _scaleFactors;
+        [PmxKey(5)] private bool _scaleOnly;
+        [PmxKey(6)] private bool _twoD;
 
 
         // Properties                                                                                                               

@@ -18,11 +18,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10425)]
     public class ViewBuckleStep : ViewStep
     {
         // Variables                                                                                                                
-        private CaeModel.BuckleStep _buckleStep;
+        [PmxKey(0)] private CaeModel.BuckleStep _buckleStep;
 
 
         // Properties                                                                                                               

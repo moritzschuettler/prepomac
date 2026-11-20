@@ -22,13 +22,13 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10072)]
     class CCreateMesh : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _partName;
-        [OptionalField] private string[] _partNames;
-        [OptionalField] private string[] _successfulPartNames;
+        [PmxKey(0)] private string _partName;
+        [PmxKey(1)] [OptionalField] private string[] _partNames;
+        [PmxKey(2)] [OptionalField] private string[] _successfulPartNames;
         [NonSerialized] private TimeSpan _historySerializationTime;
 
 

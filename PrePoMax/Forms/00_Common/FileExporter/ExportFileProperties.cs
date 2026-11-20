@@ -25,12 +25,12 @@ using System.Windows.Forms.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10305)]
     public class ExportFileProperties
     {
         // Variables                                                                                                                
-        private string _fileName;
-        private string _filter;
+        [PmxKey(0)] private string _fileName;
+        [PmxKey(1)] private string _filter;
 
 
         // Properties                                                                                                               

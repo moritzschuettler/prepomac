@@ -18,12 +18,12 @@ using System.Threading.Tasks;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public abstract class MeshSetupItem : NamedClass, ISerializable
+    [PmxType(2093)]
+    public abstract class MeshSetupItem : NamedClass
     {
         // Variables                                                                                                                
-        protected int[] _creationIds;               //ISerializable
-        protected Selection _creationData;          //ISerializable
+        [PmxKey(0)] protected int[] _creationIds;               //ISerializable
+        [PmxKey(1)] protected Selection _creationData;          //ISerializable
 
 
         // Properties                                                                                                               
@@ -76,14 +76,6 @@ namespace CaeMesh
             //
             _creationIds = meshSetupItem.CreationIds?.ToArray();
             _creationData = meshSetupItem.CreationData?.DeepCopy(true, false);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
         }
 
     }

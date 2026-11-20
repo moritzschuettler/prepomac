@@ -13,16 +13,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
-    [Serializable]
-    public class BuckleStep : Step, ISerializable
+    [PmxType(3214)]
+    public class BuckleStep : Step
     {
         // Variables                                                                                                                
-        private int _numOfBucklingFactors;      //ISerializable
-        private double _accuracy;               //ISerializable
+        [PmxKey(0)] private int _numOfBucklingFactors;      //ISerializable
+        [PmxKey(1)] private double _accuracy;               //ISerializable
 
 
         // Properties                                                                                                               
@@ -122,15 +123,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return false;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_numOfBucklingFactors", _numOfBucklingFactors, typeof(int));
-            info.AddValue("_accuracy", _accuracy, typeof(double));
         }
     }
 }

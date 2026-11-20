@@ -310,6 +310,7 @@
     <Compile Include="Commands\00_Base\ICommandAsynchronous.cs" />
     <Compile Include="Commands\00_Base\IExportFileCommand.cs" />
     <Compile Include="Commands\00_Base\IFileCommand.cs" />
+    <Compile Include="Commands\00_Base\ILoadNamesCommand.cs" />
     <Compile Include="Commands\00_Base\IFileDependentCommand.cs" />
     <Compile Include="Commands\00_Base\IImportFileCommand.cs" />
     <Compile Include="Commands\00_Base\SaveCommand.cs" />
@@ -470,6 +471,7 @@
     <Compile Include="Commands\_Compatibility\v2.1.0\CReplaceReferencePoint.cs" />
     <Compile Include="Commands\_Compatibility\v2.1.0\CShowReferencePoints.cs" />
     <Compile Include="Commands\_Compatibility\v2.2.0\CDeleteStlPartFacesCommand.cs" />
+    <Compile Include="PmxDocument.cs" />
     <Compile Include="Controller.cs" />
     <Compile Include="Controller.HistoryOutputTables.cs" />
     <Compile Include="Enums\ShowItemIdsEnum.cs" />
@@ -1329,6 +1331,10 @@
       <Project>{bca7c65b-cc0b-48ca-b852-49255bd3851d}</Project>
       <Name>CaeResults</Name>
     </ProjectReference>
+    <ProjectReference Include="..\PrePoMax.LegacyImport\PrePoMax.LegacyImport.csproj">
+      <Project>{5a398a3e-3f33-4fe4-b383-f4494938b452}</Project>
+      <Name>PrePoMax.LegacyImport</Name>
+    </ProjectReference>
     <ProjectReference Include="..\UserControls\UserControls.csproj">
       <Project>{74ea83fb-2743-49ee-85a8-5b42cbce19b3}</Project>
       <Name>UserControls</Name>
@@ -1473,6 +1479,8 @@
       <MoveToLibFolder Include="$(OutputPath)*.dll ; $(OutputPath)*.pdb ; $(OutputPath)*.xml" />
     </ItemGroup>
     <Move SourceFiles="@(MoveToLibFolder)" DestinationFolder="$(OutputPath)lib" OverwriteReadOnlyFiles="true" />
+    <!-- No stored type or field may change its meaning - see PmxTool\SchemaSnapshot.cs -->
+    <Exec Command="&quot;$(TargetDir)lib\PmxTool.exe&quot; schema --check &quot;$(SolutionDir)Schema_Snapshot.txt&quot;" />
   </Target>
   <PropertyGroup>
     <PostBuildEvent>del *.dll.config
@@ -1534,11 +1542,17 @@ IF NOT EXIST "$(TargetDir)Help\Python\" mkdir "$(TargetDir)Help\Python\"
 copy "$(SolutionDir)AgentSkill\prepomax\SKILL.md" "$(TargetDir)Help\Python\SKILL.md"
 
 IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe" "$(TargetDir)lib"
+rem GmshCaller reads its data with the storage serializer, whose dependencies need the binding redirects of its config
+IF EXIST "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe.config" copy "$(SolutionDir)GmshCaller\bin\x64\$(ConfigurationName)\GmshCaller.exe.config" "$(TargetDir)lib"
 
 rem PrePoMaxCmd is the console subsystem launcher deployed as PrePoMax.com so that a command line run
 rem keeps the shell waiting and receives the exit code - see PrePoMaxCmd\Program.cs
 copy "$(SolutionDir)PrePoMaxCmd\bin\x64\$(ConfigurationName)\PrePoMaxCmd.exe" "$(TargetDir)PrePoMax.com"
 IF EXIST "$(TargetDir)PrePoMax.com.config" del "$(TargetDir)PrePoMax.com.config"
+
+rem PmxTool sits next to the assemblies, where AfterBuild runs its check of Schema_Snapshot.txt
+copy "$(SolutionDir)PmxTool\bin\x64\$(ConfigurationName)\PmxTool.exe" "$(TargetDir)lib\PmxTool.exe"
+copy "$(SolutionDir)PmxTool\bin\x64\$(ConfigurationName)\PmxTool.exe.config" "$(TargetDir)lib\PmxTool.exe.config"
 </PostBuildEvent>
   </PropertyGroup>
 </Project>

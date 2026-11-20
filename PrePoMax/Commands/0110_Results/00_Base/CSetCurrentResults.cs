@@ -23,11 +23,11 @@ using System.IO;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10233)]
     class CSetCurrentResults : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string _resultsName;
+        [PmxKey(0)] private string _resultsName;
 
 
         // Properties                                                                                                               

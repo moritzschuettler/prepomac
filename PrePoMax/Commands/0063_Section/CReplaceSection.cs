@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10139)]
     class CReplaceSection : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldSectionName;
-        private Section _newSection;
+        [PmxKey(0)] private string _oldSectionName;
+        [PmxKey(1)] private Section _newSection;
 
 
         // Constructor                                                                                                              

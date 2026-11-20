@@ -14,12 +14,12 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3090)]
     internal class CalElasticEngineeringConstants : CalculixKeyword
     {
         // Variables                                                                                                                
-        private ElasticEngineeringConstants _elasticEngineeringConstants;
-        private bool _temperatureDependent;
+        [PmxKey(0)] private ElasticEngineeringConstants _elasticEngineeringConstants;
+        [PmxKey(1)] private bool _temperatureDependent;
 
 
         // Properties                                                                                                               

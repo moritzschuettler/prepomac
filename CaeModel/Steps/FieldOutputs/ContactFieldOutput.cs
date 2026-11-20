@@ -15,10 +15,11 @@ using System.Threading.Tasks;
 using CaeMesh;
 using System.ComponentModel;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3233)]
     [Flags]
     public enum ContactFieldVariable
     {
@@ -29,11 +30,11 @@ namespace CaeModel
         PCON = 8
     }
 
-    [Serializable]
-    public class ContactFieldOutput : FieldOutput, ISerializable
+    [PmxType(3234)]
+    public class ContactFieldOutput : FieldOutput
     {
         // Variables                                                                                                                
-        private ContactFieldVariable _variables;        //ISerializable
+        [PmxKey(0)] private ContactFieldVariable _variables;        //ISerializable
 
 
         // Properties                                                                                                               
@@ -61,15 +62,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_variables", _variables, typeof(ContactFieldVariable));
-        }
     }
 }

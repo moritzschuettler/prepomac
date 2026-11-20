@@ -17,7 +17,7 @@ using System.Windows;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2014)]
     public class LinearTriangleElement : FeElement2D
     {
         // Variables                                                                                                                

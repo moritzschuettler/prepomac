@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3028)]
     public class SurfaceInteraction : NamedClass
     {
         // Variables                                                                                                                
-        private List<SurfaceInteractionProperty> _properties;
+        [PmxKey(0)] private List<SurfaceInteractionProperty> _properties;
 
 
         // Properties                                                                                                               

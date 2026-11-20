@@ -19,16 +19,16 @@ using System.Drawing;
 
 namespace CaeModel
 {
-    [Serializable]
-    public abstract class SectionData : NamedClass, IMultiRegion, ISerializable
+    [PmxType(3204)]
+    public abstract class SectionData : NamedClass, IMultiRegion
     {
         // Variables                                                                                                                
-        private string _materialName;               //ISerializable
-        private string _regionName;                 //ISerializable
-        private RegionTypeEnum _regionType;         //ISerializable
-        private int[] _creationIds;                 //ISerializable
-        private Selection _creationData;            //ISerializable
-        private double _thickness;                  //ISerializable
+        [PmxKey(0)] private string _materialName;               //ISerializable
+        [PmxKey(1)] private string _regionName;                 //ISerializable
+        [PmxKey(2)] private RegionTypeEnum _regionType;         //ISerializable
+        [PmxKey(3)] private int[] _creationIds;                 //ISerializable
+        [PmxKey(4)] private Selection _creationData;            //ISerializable
+        [PmxKey(5)] private double _thickness;                  //ISerializable
 
 
         // Properties                                                                                                               
@@ -76,22 +76,6 @@ namespace CaeModel
             }
         }
 
-        // Methods                                                                                                                  
-
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_materialName", _materialName, typeof(string));
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_creationIds", _creationIds, typeof(int[]));
-            info.AddValue("_creationData", _creationData, typeof(Selection));
-            info.AddValue("_thickness", _thickness, typeof(double));
-        }
 
     }
 

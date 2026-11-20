@@ -13,10 +13,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2060)]
     public enum SplitExtrusionLengthTypeEnum
     {
         [StandardValue("ThroughRegion", DisplayName = "Through the region")]

@@ -19,17 +19,17 @@ using DynamicTypeDescriptor;
 
 namespace CaeResults
 {   
-    [Serializable]
+    [PmxType(5043)]
     public abstract class ResultHistoryOutput : NamedClass, IMultiRegion
     {
         // Variables                                                                                                                
-        private RegionTypeEnum _regionType;
-        private string _regionName;
-        private int[] _creationIds;
-        private Selection _creationData;
-        private HistoryResultSet historyResultSet;
-        private HistoryResultFilter _filter1;
-        private HistoryResultFilter _filter2;
+        [PmxKey(0)] private RegionTypeEnum _regionType;
+        [PmxKey(1)] private string _regionName;
+        [PmxKey(2)] private int[] _creationIds;
+        [PmxKey(3)] private Selection _creationData;
+        [PmxKey(4)] private HistoryResultSet historyResultSet;
+        [PmxKey(5)] private HistoryResultFilter _filter1;
+        [PmxKey(6)] private HistoryResultFilter _filter2;
 
 
         // Properties                                                                                                               

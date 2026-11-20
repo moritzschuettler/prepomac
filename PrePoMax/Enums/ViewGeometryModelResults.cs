@@ -8,10 +8,11 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10301)]
     public enum ViewGeometryModelResults
     {
         Geometry,

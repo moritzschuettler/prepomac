@@ -18,17 +18,17 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3110)]
     internal class CalDisplacementRotation : CalBC
     {
         // Variables                                                                                                                
-        protected DisplacementRotation _displacementRotation;
-        protected Dictionary<string, CalReferencePoint> _referencePoints;
-        protected string _nodeSetNameOfSurface;
-        protected ComplexLoadTypeEnum _complexLoadType;
-        protected int _maxNumberNodeDOFs;
-        protected int[] _nodeIds;
-        protected double[][] _nodeValues;
+        [PmxKey(0)] protected DisplacementRotation _displacementRotation;
+        [PmxKey(1)] protected Dictionary<string, CalReferencePoint> _referencePoints;
+        [PmxKey(2)] protected string _nodeSetNameOfSurface;
+        [PmxKey(3)] protected ComplexLoadTypeEnum _complexLoadType;
+        [PmxKey(4)] protected int _maxNumberNodeDOFs;
+        [PmxKey(5)] protected int[] _nodeIds;
+        [PmxKey(6)] protected double[][] _nodeValues;
 
 
         // Properties                                                                                                               

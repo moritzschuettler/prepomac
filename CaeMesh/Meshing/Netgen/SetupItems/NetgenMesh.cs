@@ -9,6 +9,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -17,16 +18,16 @@ namespace CaeMesh
     /// elements. The mesh size comes from the meshing parameters; the item carries the settings that apply to Netgen
     /// alone. It is what a part is given when the structured mesh its geometry supports is not wanted.
     /// </summary>
-    [Serializable]
-    public class NetgenMesh : MeshSetupItem, ISerializable
+    [PmxType(2125)]
+    public class NetgenMesh : MeshSetupItem
     {
         // Variables
-        private int _optimizeSteps2D;               //ISerializable
-        private int _optimizeSteps3D;               //ISerializable
-        private bool _quadDominated;                //ISerializable
-        private TransfiniteThreeSidedEnum _transfiniteThreeSided;   //ISerializable
-        private bool _transfiniteFourSided;         //ISerializable
-        private double _transfiniteAngleDeg;        //ISerializable
+        [PmxKey(0)] private int _optimizeSteps2D;               //ISerializable
+        [PmxKey(1)] private int _optimizeSteps3D;               //ISerializable
+        [PmxKey(2)] private bool _quadDominated;                //ISerializable
+        [PmxKey(3)] private TransfiniteThreeSidedEnum _transfiniteThreeSided;   //ISerializable
+        [PmxKey(4)] private bool _transfiniteFourSided;         //ISerializable
+        [PmxKey(5)] private double _transfiniteAngleDeg;        //ISerializable
 
 
         // Properties
@@ -181,18 +182,6 @@ namespace CaeMesh
                    _transfiniteThreeSided == netgenMesh._transfiniteThreeSided &&
                    _transfiniteFourSided == netgenMesh._transfiniteFourSided &&
                    _transfiniteAngleDeg == netgenMesh._transfiniteAngleDeg;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_optimizeSteps2D", _optimizeSteps2D, typeof(int));
-            info.AddValue("_optimizeSteps3D", _optimizeSteps3D, typeof(int));
-            info.AddValue("_quadDominated", _quadDominated, typeof(bool));
-            info.AddValue("_transfiniteThreeSided", _transfiniteThreeSided, typeof(TransfiniteThreeSidedEnum));
-            info.AddValue("_transfiniteFourSided", _transfiniteFourSided, typeof(bool));
-            info.AddValue("_transfiniteAngleDeg", _transfiniteAngleDeg, typeof(double));
         }
     }
 }

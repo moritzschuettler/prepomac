@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10058)]
     class CDeleteCadPartFaces : PreprocessCommand
     {
         // Variables                                                                                                                
-        private GeometrySelection _geometrySelection;
+        [PmxKey(0)] private GeometrySelection _geometrySelection;
 
 
         // Constructor                                                                                                              

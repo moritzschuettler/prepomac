@@ -19,12 +19,12 @@ using System.Drawing;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
+    [PmxType(10482)]
     public class ViewGraphicsSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private GraphicsSettings _graphicsSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private GraphicsSettings _graphicsSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
         // Background                                                                               
         [CategoryAttribute("Background")]

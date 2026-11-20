@@ -21,15 +21,15 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class InitialTranslationalVelocity : InitialCondition, IPreviewable, ISerializable
+    [PmxType(3173)]
+    public class InitialTranslationalVelocity : InitialCondition, IPreviewable
     {
         // Variables                                                                                                                
-        private int _nodeId;                        //ISerializable
-        private EquationContainer _v1;              //ISerializable
-        private EquationContainer _v2;              //ISerializable
-        private EquationContainer _v3;              //ISerializable
-        private EquationContainer _magnitude;       //ISerializable
+        [PmxKey(0)] private int _nodeId;                        //ISerializable
+        [PmxKey(1)] private EquationContainer _v1;              //ISerializable
+        [PmxKey(2)] private EquationContainer _v2;              //ISerializable
+        [PmxKey(3)] private EquationContainer _v3;              //ISerializable
+        [PmxKey(4)] private EquationContainer _magnitude;       //ISerializable
 
 
         // Properties                                                                                                               
@@ -96,6 +96,14 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetV1(_v1, false);
+            SetV2(_v2, false);
+            SetV3(_v3, false);
+            SetMagnitude(_magnitude, false);
+        }
         private void UpdateEquations()
         {
             try
@@ -224,18 +232,6 @@ namespace CaeModel
             results.AddField(fieldData, field);
             //
             return results;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_nodeId", _nodeId, typeof(int));
-            info.AddValue("_v1", _v1, typeof(EquationContainer));
-            info.AddValue("_v2", _v2, typeof(EquationContainer));
-            info.AddValue("_v3", _v3, typeof(EquationContainer));
-            info.AddValue("_magnitude", _magnitude, typeof(EquationContainer));
         }
     }
 }

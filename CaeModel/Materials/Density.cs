@@ -17,11 +17,11 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class Density : MaterialProperty, ISerializable
+    [PmxType(3175)]
+    public class Density : MaterialProperty
     {
         // Variables                                                                                                                
-        private EquationContainer[][] _densityTemp;         //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _densityTemp;         //ISerializable
 
 
         // Properties                                                                                                               
@@ -59,6 +59,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetDensityTemp(_densityTemp, false);
+        }
         private void SetDensityTemp(double[][] value, bool checkEquation = true)
         {
             _densityTemp = new EquationContainer[value.Length][];
@@ -90,14 +95,6 @@ namespace CaeModel
                 _densityTemp[i][0].CheckEquation();
                 _densityTemp[i][1].CheckEquation();
             }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_densityTemp", _densityTemp, typeof(EquationContainer[][]));
         }
     }
 }

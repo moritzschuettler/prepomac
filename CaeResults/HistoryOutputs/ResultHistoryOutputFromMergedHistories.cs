@@ -13,17 +13,17 @@ using System.Collections.Generic;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5055)]
     public class ResultHistoryOutputFromMergedHistories : ResultHistoryOutput
     {
         // Variables                                                                                                                
         public const string FieldName = "MERGED";
         public const string ComponentName = "VALUE";
 
-        private HistoryResultData _source1;
-        private HistoryResultData _source2;
-        private HistoryResultData _source3;
-        private HistoryResultData _source4;
+        [PmxKey(0)] private HistoryResultData _source1;
+        [PmxKey(1)] private HistoryResultData _source2;
+        [PmxKey(2)] private HistoryResultData _source3;
+        [PmxKey(3)] private HistoryResultData _source4;
 
 
         // Properties                                                                                                               

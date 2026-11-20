@@ -20,12 +20,12 @@ using System.Drawing;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10545)]
     public class UnitSystemSettings : ISettings
     {
         // Variables                                                                                                                
-        private UnitSystemType _modelUnitSystemType;
-        private UnitSystemType _resultsUnitSystemType;
+        [PmxKey(0)] private UnitSystemType _modelUnitSystemType;
+        [PmxKey(1)] private UnitSystemType _resultsUnitSystemType;
 
 
         // Properties                                                                                                               

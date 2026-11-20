@@ -13,12 +13,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
-    [Serializable]
-    public class BoundaryDisplacementStep : Step, ISerializable
+    [PmxType(3213)]
+    public class BoundaryDisplacementStep : Step
     {
         // Variables                                                                                                                
 
@@ -84,12 +85,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return false;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
         }
     }
 }

@@ -19,11 +19,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10376)]
     public class ViewSlipWear : ViewMaterialProperty
     {
         // Variables                                                                                                                
-        private SlipWear _slipWear;
+        [PmxKey(0)] private SlipWear _slipWear;
 
 
         // Properties                                                                                                               

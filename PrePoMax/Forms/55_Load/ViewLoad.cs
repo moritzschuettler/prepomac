@@ -20,11 +20,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10469)]
     public abstract class ViewLoad: ViewMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
+        [PmxKey(0)] private string _selectionHidden;
 
 
         // Properties                                                                                                               

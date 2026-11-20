@@ -12,17 +12,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10012)]
     public class EdgesVisibilitiesCollection
     {
         // Variables                                                                                                                
         [NonSerialized] private Controller _controller;
-        private vtkControl.vtkEdgesVisibility _geometryEdgesVisibility;
-        private vtkControl.vtkEdgesVisibility _modelEdgesVisibility;
-        private Dictionary<string, vtkControl.vtkEdgesVisibility> _allResultsEdgesVisibilities;
+        [PmxKey(0)] private vtkControl.vtkEdgesVisibility _geometryEdgesVisibility;
+        [PmxKey(1)] private vtkControl.vtkEdgesVisibility _modelEdgesVisibility;
+        [PmxKey(2)] private Dictionary<string, vtkControl.vtkEdgesVisibility> _allResultsEdgesVisibilities;
 
 
         // Properties                                                                                                               

@@ -10,10 +10,11 @@
 using System;
 using System.ComponentModel;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10535)]
     public enum TrackpadGesturesEnum
     {
         [StandardValue("Off", Description = "Two finger gestures are ignored.")]
@@ -29,7 +30,7 @@ namespace PrePoMax
         On,
     }
 
-    [Serializable]
+    [PmxType(10536)]
     public enum TwoFingerDragEnum
     {
         [StandardValue("Rotate", Description = "A two finger drag rotates and Shift pans.")]
@@ -39,19 +40,19 @@ namespace PrePoMax
         Pan,
     }
 
-    [Serializable]
+    [PmxType(10537)]
     public class NavigationSettings : ISettings
     {
         // Variables                                                                                                                
-        private TrackpadGesturesEnum _trackpadGestures;
-        private TwoFingerDragEnum _twoFingerDrag;
-        private double _rotateSensitivity;
-        private double _panSensitivity;
-        private double _zoomSensitivity;
-        private bool _invertX;
-        private bool _invertY;
-        private bool _invertZoom;
-        private bool _smoothZoom;
+        [PmxKey(0)] private TrackpadGesturesEnum _trackpadGestures;
+        [PmxKey(1)] private TwoFingerDragEnum _twoFingerDrag;
+        [PmxKey(2)] private double _rotateSensitivity;
+        [PmxKey(3)] private double _panSensitivity;
+        [PmxKey(4)] private double _zoomSensitivity;
+        [PmxKey(5)] private bool _invertX;
+        [PmxKey(6)] private bool _invertY;
+        [PmxKey(7)] private bool _invertZoom;
+        [PmxKey(8)] private bool _smoothZoom;
 
 
         // Properties                                                                                                               

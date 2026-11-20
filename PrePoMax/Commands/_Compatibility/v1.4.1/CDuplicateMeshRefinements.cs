@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10272)]
     class CDuplicateMeshRefinements : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _meshRefinementNames;
+        [PmxKey(0)] private string[] _meshRefinementNames;
 
 
         // Constructor                                                                                                              

@@ -10,17 +10,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2101)]
     public class GmshVolume : IComparable<GmshVolume>
     {
-        public int Id;
-        public HashSet<int> SurfaceIds;
-        public List<int> TriSurfIds;
-        public List<int> QuadSurfIds;
-        public bool Transfinite;
+        [PmxKey(0)] public int Id;
+        [PmxKey(1)] public HashSet<int> SurfaceIds;
+        [PmxKey(2)] public List<int> TriSurfIds;
+        [PmxKey(3)] public List<int> QuadSurfIds;
+        [PmxKey(4)] public bool Transfinite;
         //
         public int NumTriSurfaces { get { return TriSurfIds.Count(); } }
         public int NumQuadSurfaces { get { return QuadSurfIds.Count(); } }

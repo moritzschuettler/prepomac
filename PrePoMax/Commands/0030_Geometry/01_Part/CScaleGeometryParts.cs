@@ -21,14 +21,14 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10049)]
     class CScaleGeometryParts : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private double[] _scaleCenter;
-        private double[] _scaleFactors;
-        private bool _copy;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private double[] _scaleCenter;
+        [PmxKey(2)] private double[] _scaleFactors;
+        [PmxKey(3)] private bool _copy;
 
 
         // Constructor                                                                                                              

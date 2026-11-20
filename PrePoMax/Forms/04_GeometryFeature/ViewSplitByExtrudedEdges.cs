@@ -19,11 +19,11 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10327)]
     public class ViewSplitByExtrudedEdges : ViewGeometryFeature
     {
         // Variables
-        private SplitByExtrudedEdges _splitByExtrudedEdges;
+        [PmxKey(0)] private SplitByExtrudedEdges _splitByExtrudedEdges;
 
 
         // Properties

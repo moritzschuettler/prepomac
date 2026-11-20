@@ -16,12 +16,12 @@ namespace CaeModel
 {
     // A shell section made of layers, written as a CalculiX composite shell. Layer 1 lies on the side opposite to the
     // shell normal and the layers stack along the normal. A symmetric layup is completed by its mirror image.
-    [Serializable]
-    public class CompositeShellSection : ShellSection, ISerializable
+    [PmxType(3195)]
+    public class CompositeShellSection : ShellSection
     {
         // Variables                                                                                                                
-        private List<CompositeLayer> _layers;       //ISerializable
-        private bool _symmetric;                    //ISerializable
+        [PmxKey(0)] private List<CompositeLayer> _layers;       //ISerializable
+        [PmxKey(1)] private bool _symmetric;                    //ISerializable
 
 
         // Properties                                                                                                               
@@ -102,15 +102,6 @@ namespace CaeModel
             UpdateTotalThickness();
             //
             base.CheckEquations();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_layers", _layers, typeof(List<CompositeLayer>));
-            info.AddValue("_symmetric", _symmetric, typeof(bool));
         }
     }
 }

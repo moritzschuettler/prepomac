@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10212)]
     class CAddParameter : PreprocessCommand
     {
         // Variables                                                                                                                
-        private EquationParameter _parameter;
+        [PmxKey(0)] private EquationParameter _parameter;
 
 
         // Constructor                                                                                                              

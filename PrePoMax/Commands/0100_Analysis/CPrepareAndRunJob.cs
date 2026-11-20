@@ -23,13 +23,13 @@ using PrePoMax.Forms;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10227)]
     class CPrepareAndRunJob : AnalysisCommand, ICommandAsynchronous
     {
         // Variables                                                                                                                
-        private string _jobName;
-        private bool _onlyCheckModel;
-        [OptionalField] private int _timeoutMilliseconds;
+        [PmxKey(0)] private string _jobName;
+        [PmxKey(1)] private bool _onlyCheckModel;
+        [PmxKey(2)] [OptionalField] private int _timeoutMilliseconds;
 
 
         // Properties                                                                                                               

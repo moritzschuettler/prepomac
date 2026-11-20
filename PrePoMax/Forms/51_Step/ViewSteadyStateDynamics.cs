@@ -21,11 +21,11 @@ using CaeJob;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10434)]
     public class ViewSteadyStateDynamics : ViewStep
     {
         // Variables                                                                                                                
-        private SteadyStateDynamicsStep _steadyStep;
+        [PmxKey(0)] private SteadyStateDynamicsStep _steadyStep;
 
 
         // Properties                                                                                                               

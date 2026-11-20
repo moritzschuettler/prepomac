@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3089)]
     internal class CalElastic : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Elastic _elastic;
-        private bool _temperatureDependent;
+        [PmxKey(0)] private Elastic _elastic;
+        [PmxKey(1)] private bool _temperatureDependent;
 
 
         // Properties                                                                                                               

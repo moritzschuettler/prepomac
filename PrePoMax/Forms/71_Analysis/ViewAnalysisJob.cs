@@ -26,13 +26,13 @@ namespace PrePoMax.Forms
 {
     
 
-    [Serializable]
+    [PmxType(10495)]
     public class ViewAnalysisJob
     {
         // Variables                                                                                                                
-        protected AnalysisJob _job;
-        protected Dictionary<FEMSolverEnum, string[]> _solverSettings;
-        protected DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] protected AnalysisJob _job;
+        [PmxKey(1)] protected Dictionary<FEMSolverEnum, string[]> _solverSettings;
+        [PmxKey(2)] protected DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties                                                                                                               

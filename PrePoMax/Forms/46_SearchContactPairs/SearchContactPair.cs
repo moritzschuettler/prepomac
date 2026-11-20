@@ -20,31 +20,31 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10405)]
     public enum SearchContactPairType
     {
         Tie,
         Contact
     }
-    [Serializable]
+    [PmxType(10406)]
     public enum SearchContactPairAdjust
     {
         Yes,
         No
     }
-    [Serializable]
+    [PmxType(10407)]
     public class SearchContactPair
     {
         // Variables                                                                                                                
-        private string _name;
-        private SearchContactPairType _type;
-        private string _surfaceInteractionName;
-        private string _contactPairMethod;
-        private SearchContactPairAdjust _adjust;
-        private double _distance;
-        private bool _multiView;
-        private CaeMesh.MasterSlaveItem _masterSlaveItem;
-        private DynamicCustomTypeDescriptor _dctd = null;           // needed for sorting properties
+        [PmxKey(0)] private string _name;
+        [PmxKey(1)] private SearchContactPairType _type;
+        [PmxKey(2)] private string _surfaceInteractionName;
+        [PmxKey(3)] private string _contactPairMethod;
+        [PmxKey(4)] private SearchContactPairAdjust _adjust;
+        [PmxKey(5)] private double _distance;
+        [PmxKey(6)] private bool _multiView;
+        [PmxKey(7)] private CaeMesh.MasterSlaveItem _masterSlaveItem;
+        [PmxKey(8)] private DynamicCustomTypeDescriptor _dctd = null;           // needed for sorting properties
 
 
         // Properties                                                                                                               

@@ -16,11 +16,11 @@ using System.Threading.Tasks;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10008)]
     public class NodeAnnotation : AnnotationBase
     {
         // Variables                                                                                                                
-        private int _nodeId;
+        [PmxKey(0)] private int _nodeId;
 
 
         // Properties                                                                                                               

@@ -12,10 +12,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-	[Serializable]
+	[PmxType(2054)]
 	public enum GeomFaceType
 	{
 		Plane,

@@ -16,14 +16,14 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2078)]
     public class FeNodeSet : FeGroup
     {
         // Variables                                                                                                                
-        private Selection _creationData;
-        private int[] _creationIds;
-        private double[] _centerOfGravity;
-        private double[][] _boundingBox;
+        [PmxKey(0)] private Selection _creationData;
+        [PmxKey(1)] private int[] _creationIds;
+        [PmxKey(2)] private double[] _centerOfGravity;
+        [PmxKey(3)] private double[][] _boundingBox;
 
 
         // Properties                                                                                                               

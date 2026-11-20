@@ -14,15 +14,16 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3112)]
     internal class CalSubmodelBC : CalBC
     {
         // Variables                                                                                                                
-        private SubmodelBC _submodel;
-        private string _surfaceNodeSetName;
+        [PmxKey(0)] private SubmodelBC _submodel;
+        [PmxKey(1)] private string _surfaceNodeSetName;
 
 
         // Properties                                                                                                               

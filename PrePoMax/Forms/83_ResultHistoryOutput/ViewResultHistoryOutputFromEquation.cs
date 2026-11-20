@@ -19,11 +19,11 @@ using CaeResults;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10508)]
     public class ViewResultHistoryOutputFromEquation : ViewResultHistoryOutput
     {
         // Variables                                                                                                                
-        private ResultHistoryOutputFromEquation _historyOutput;
+        [PmxKey(0)] private ResultHistoryOutputFromEquation _historyOutput;
 
 
         // Properties                                                                                                               

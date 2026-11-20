@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10295)]
     class CSplitAFaceUsingTwoPoints : PreprocessCommand
     {
         // Variables                                                                                                                
-        private GeometrySelection _surfaceSelection;
-        private GeometrySelection _verticesSelection;
+        [PmxKey(0)] private GeometrySelection _surfaceSelection;
+        [PmxKey(1)] private GeometrySelection _verticesSelection;
 
 
         // Constructor                                                                                                              

@@ -21,12 +21,12 @@ using System.Drawing;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10310)]
     public class ViewColor
     {
         // Variables                                                                                                                
-        private Color _color;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private Color _color;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

@@ -14,12 +14,12 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
+    [PmxType(10486)]
     public class ViewNavigationSettings : IViewSettings, IReset
     {
         // Variables                                                                                                                
-        private NavigationSettings _navigationSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private NavigationSettings _navigationSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Common                                                                                   

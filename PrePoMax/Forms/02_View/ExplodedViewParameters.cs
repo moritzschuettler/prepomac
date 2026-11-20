@@ -13,10 +13,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10313)]
     public enum ExplodedViewDirectionEnum
     {
         XYZ = 0,
@@ -28,7 +29,7 @@ namespace PrePoMax
         YZ = 6
     }
     //
-    [Serializable]
+    [PmxType(10314)]
     public enum ExplodedViewMethodEnum
     {
         [StandardValue("Disassembly", "Disassembly direction exploded view method. Each part is moved the " +
@@ -44,17 +45,17 @@ namespace PrePoMax
         CenterPoint = 2
     }
     //
-    [Serializable]
+    [PmxType(10315)]
     public class ExplodedViewParameters
     {
         // Variables                                                                                                                
-        private ExplodedViewMethodEnum _explodedViewMethod;
-        private double[] _center;
-        private ExplodedViewDirectionEnum _explodedViewDirection;
-        private double _scaleFactor;
-        private double _magnification;
-        private double _tolerance;
-        private bool _sequential;
+        [PmxKey(0)] private ExplodedViewMethodEnum _explodedViewMethod;
+        [PmxKey(1)] private double[] _center;
+        [PmxKey(2)] private ExplodedViewDirectionEnum _explodedViewDirection;
+        [PmxKey(3)] private double _scaleFactor;
+        [PmxKey(4)] private double _magnification;
+        [PmxKey(5)] private double _tolerance;
+        [PmxKey(6)] private bool _sequential;
 
 
         // Properties                                                                                                               

@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10497)]
     public class LimitPartDataPoint
     {
         // Variables                                                                                                                
-        private string _partName;
-        private double _limit;
+        [PmxKey(0)] private string _partName;
+        [PmxKey(1)] private double _limit;
 
 
         // Properties                                                                                                               

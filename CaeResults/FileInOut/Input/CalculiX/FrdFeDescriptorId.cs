@@ -12,10 +12,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5032)]
     enum FrdFeDescriptorId
     {
         SolidLinearHexahedron = 1,

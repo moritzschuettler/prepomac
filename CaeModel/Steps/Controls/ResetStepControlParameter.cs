@@ -19,7 +19,7 @@ using CaeJob;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3218)]
     public class ResetStepControlParameter : StepControlParameter
     {
         // Variables                                                                                                                

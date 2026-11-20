@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10096)]
     class CSetColorForModelParts : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private System.Drawing.Color _color;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private System.Drawing.Color _color;
 
 
         // Constructor                                                                                                              

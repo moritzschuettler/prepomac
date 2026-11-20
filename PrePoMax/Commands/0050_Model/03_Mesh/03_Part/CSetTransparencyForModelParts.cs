@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10097)]
     class CSetTransparencyForModelParts : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private byte _alpha;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private byte _alpha;
 
 
         // Constructor                                                                                                              

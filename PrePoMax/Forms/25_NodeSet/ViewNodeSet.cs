@@ -24,12 +24,12 @@ using System.Windows.Forms.Design;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10354)]
     public class ViewNodeSet
     {
         // Variables                                                                                                                
-        private FeNodeSet _nodeSet;
-        private DynamicCustomTypeDescriptor _dctd = null;           // needed for sorting properties
+        [PmxKey(0)] private FeNodeSet _nodeSet;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;           // needed for sorting properties
 
 
         // Properties                                                                                                               

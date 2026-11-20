@@ -20,12 +20,12 @@ using System.IO;
 
 namespace CaeResults
 {
-    [Serializable]
-    public class HistoryResultComponent : NamedClass, ISerializable
+    [PmxType(5035)]
+    public class HistoryResultComponent : NamedClass
     {
         // Variables                                                                                                                
-        protected string _unit;                                                     //ISerializable
-        protected OrderedDictionary<string, HistoryResultEntries> _entries;         //ISerializable
+        [PmxKey(0)] protected string _unit;                                                     //ISerializable
+        [PmxKey(1)] protected OrderedDictionary<string, HistoryResultEntries> _entries;         //ISerializable
 
 
         // Properties                                                                                                               
@@ -94,8 +94,9 @@ namespace CaeResults
                 }
             }
         }
-        public static void WriteToFileStream(HistoryResultComponent historyResultComponent, FileStream fileStream,
-                                             CompressionLevel compressionLevel)
+        public static void WriteToFileStream(HistoryResultComponent historyResultComponent, Stream fileStream,
+                                             CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (historyResultComponent == null)
             {
@@ -149,7 +150,7 @@ namespace CaeResults
                     try
                     {
                         foreach (var entry in historyResultComponent.Entries)
-                            HistoryResultEntries.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                            HistoryResultEntries.WriteToFileStream(entry.Value, fileStream, compressionLevel, compressBlocks);
                     }
                     finally
                     {
@@ -190,7 +191,7 @@ namespace CaeResults
             }
             return null;
         }
-        public static HistoryResultComponent ReadFromFileStream(FileStream fileStream, int version)
+        public static HistoryResultComponent ReadFromFileStream(Stream fileStream, int version, bool blocksCompressed = true)
         {
             int numItems;
             HistoryResultEntries historyResultEntry;
@@ -212,7 +213,7 @@ namespace CaeResults
                     //
                     for (int i = 0; i < numItems; i++)
                     {
-                        historyResultEntry = HistoryResultEntries.ReadFromFileStream(fileStream, version);
+                        historyResultEntry = HistoryResultEntries.ReadFromFileStream(fileStream, version, blocksCompressed);
                         historyResultComponent.Entries.Add(historyResultEntry.Name, historyResultEntry);
                     }
                 }
@@ -459,15 +460,6 @@ namespace CaeResults
             }
 
             return true;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_unit", _unit, typeof(string));
-            info.AddValue("_entries", _entries, typeof(OrderedDictionary<string, HistoryResultComponent>));
         }
 
     }

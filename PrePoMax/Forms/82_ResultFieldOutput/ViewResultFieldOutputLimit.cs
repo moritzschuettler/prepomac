@@ -20,14 +20,14 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10503)]
     public class ViewResultFieldOutputLimit : ViewResultFieldOutput
     {
         // Variables                                                                                                                
-        private List<LimitPartDataPoint> _partPoints;
-        private List<LimitElementSetDataPoint> _elementSetPoints;
-        private List<LimitElementSetDataPoint> _allElementsPoints;
-        private Dictionary<string, string[]> _filedNameComponentNames;
+        [PmxKey(0)] private List<LimitPartDataPoint> _partPoints;
+        [PmxKey(1)] private List<LimitElementSetDataPoint> _elementSetPoints;
+        [PmxKey(2)] private List<LimitElementSetDataPoint> _allElementsPoints;
+        [PmxKey(3)] private Dictionary<string, string[]> _filedNameComponentNames;
 
 
         // Properties                                                                                                               

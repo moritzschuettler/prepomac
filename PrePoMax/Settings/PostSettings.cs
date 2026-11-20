@@ -22,20 +22,20 @@ using System.Drawing;
 namespace PrePoMax
 {
 
-    [Serializable]
+    [PmxType(10540)]
     public class PostSettings : ISettings
     {
         // Variables                                                                                                                
-        private UndeformedModelTypeEnum _undeformedModelType;
-        private Color _undeformedWireModelColor;
-        private Color _undeformedSolidModelColor;
-        private double _vectorPlotScaleFactor;
-        private double _vectorPlotLengthScaleFactor;
-        private int _vectorPlotDensity;
-        private bool _showMinValueLocation;
-        private bool _showMaxValueLocation;
-        private int _maxHistoryEntriesToShow;
-        private int _maxCurvesPerPlot;
+        [PmxKey(0)] private UndeformedModelTypeEnum _undeformedModelType;
+        [PmxKey(1)] private Color _undeformedWireModelColor;
+        [PmxKey(2)] private Color _undeformedSolidModelColor;
+        [PmxKey(3)] private double _vectorPlotScaleFactor;
+        [PmxKey(4)] private double _vectorPlotLengthScaleFactor;
+        [PmxKey(5)] private int _vectorPlotDensity;
+        [PmxKey(6)] private bool _showMinValueLocation;
+        [PmxKey(7)] private bool _showMaxValueLocation;
+        [PmxKey(8)] private int _maxHistoryEntriesToShow;
+        [PmxKey(9)] private int _maxCurvesPerPlot;
 
 
         // Properties                                                                                                               

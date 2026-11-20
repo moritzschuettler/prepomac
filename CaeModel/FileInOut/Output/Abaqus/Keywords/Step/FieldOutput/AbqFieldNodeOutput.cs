@@ -18,7 +18,7 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3050)]
     internal class AbqFieldNodeOutput : CalNodeFile
     {
         // Variables                                                                                                                

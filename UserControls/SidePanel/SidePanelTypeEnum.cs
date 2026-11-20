@@ -8,10 +8,11 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
+    [PmxType(6209)]
     public enum SidePanelTypeEnum
     {
         None,

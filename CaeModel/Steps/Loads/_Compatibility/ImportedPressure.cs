@@ -20,18 +20,18 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class ImportedPressure : VariablePressure, IPreviewable, ISerializable
+    [PmxType(3272)]
+    public class ImportedPressure : VariablePressure, IPreviewable
     {
         // Variables                                                                                                                
-        private string _fileName;                       //ISerializable
-        private string _pressureTime;                   //ISerializable
-        private string _pressureVariableName;           //ISerializable
-        private InterpolatorEnum _interpolatorType;     //ISerializable
-        private EquationContainer _magnitudeFactor;     //ISerializable
-        private EquationContainer _geomScaleFactor;     //ISerializable
+        [PmxKey(0)] private string _fileName;                       //ISerializable
+        [PmxKey(1)] private string _pressureTime;                   //ISerializable
+        [PmxKey(2)] private string _pressureVariableName;           //ISerializable
+        [PmxKey(3)] private InterpolatorEnum _interpolatorType;     //ISerializable
+        [PmxKey(4)] private EquationContainer _magnitudeFactor;     //ISerializable
+        [PmxKey(5)] private EquationContainer _geomScaleFactor;     //ISerializable
         //
-        private FileInfo _oldFileInfo;                  //ISerializable
+        [PmxKey(6)] private FileInfo _oldFileInfo;                  //ISerializable
         //
         [NonSerialized]
         private ResultsInterpolator _interpolator;
@@ -113,6 +113,12 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetMagnitudeFactor(_magnitudeFactor, false);
+            SetGeomScaleFactor(_geomScaleFactor, false);
+        }
         private void SetMagnitudeFactor(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _magnitudeFactor, value, null, checkEquation);
@@ -308,20 +314,6 @@ namespace CaeModel
                 values[i] *= magnitude;
             }
             return values;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_fileName", _fileName, typeof(string));
-            info.AddValue("_pressureTime", _pressureTime, typeof(string));
-            info.AddValue("_pressureVariableName", _pressureVariableName, typeof(string));
-            info.AddValue("_interpolatorType", _interpolatorType, typeof(InterpolatorEnum));
-            info.AddValue("_magnitudeFactor", _magnitudeFactor, typeof(EquationContainer));
-            info.AddValue("_geomScaleFactor", _geomScaleFactor, typeof(EquationContainer));
-            info.AddValue("_oldFileInfo", _oldFileInfo, typeof(FileInfo));
         }
     }
 }

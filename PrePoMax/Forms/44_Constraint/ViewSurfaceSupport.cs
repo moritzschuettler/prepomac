@@ -19,7 +19,7 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10395)]
     public enum SurfaceSupportTypeEnum
     {
         [StandardValue("Spring", "Spring", Description =
@@ -30,13 +30,13 @@ namespace PrePoMax
         CompressionOnly
     }
 
-    [Serializable]
+    [PmxType(10396)]
     public class ViewSurfaceSupport : ViewConstraint
     {
         // Variables
-        private SurfaceSpring _surfaceSpring;
-        private CompressionOnly _compressionOnly;
-        private Constraint _constraint;
+        [PmxKey(0)] private SurfaceSpring _surfaceSpring;
+        [PmxKey(1)] private CompressionOnly _compressionOnly;
+        [PmxKey(2)] private Constraint _constraint;
 
 
         // Properties

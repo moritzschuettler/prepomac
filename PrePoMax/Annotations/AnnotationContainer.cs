@@ -17,18 +17,18 @@ using CaeMesh;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10001)]
     public class AnnotationContainer
     {
         // Variables                                                                                                                
-        private bool _suppressed;                                           // used only for min/max annotations
+        [PmxKey(0)] private bool _suppressed;                                           // used only for min/max annotations
         public static string MeasureAnnotationName = "Measure_Annotation";
         public static string MinAnnotationName = "Min_Annotation";          // there is a copy of this in vtkControl.Globals
         public static string MaxAnnotationName = "Max_Annotation";          // there is a copy of this in vtkControl.Globals
         //
-        private Dictionary<string, AnnotationBase> _geometryAnnotations;
-        private Dictionary<string, AnnotationBase> _modelAnnotations;
-        private Dictionary<string, Dictionary<string, AnnotationBase>> _allResultsAnnotations;
+        [PmxKey(1)] private Dictionary<string, AnnotationBase> _geometryAnnotations;
+        [PmxKey(2)] private Dictionary<string, AnnotationBase> _modelAnnotations;
+        [PmxKey(3)] private Dictionary<string, Dictionary<string, AnnotationBase>> _allResultsAnnotations;
 
         // Properties                                                                                                               
         public string CurrentResultName { get { return AnnotationBase.Controller.AllResults.GetCurrentResultName(); } }

@@ -18,15 +18,15 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class FilmHeatTransfer : Load, ISerializable
+    [PmxType(3260)]
+    public class FilmHeatTransfer : Load
     {
         // Variables                                                                                                                
-        private string _surfaceName;                    //ISerializable
-        private RegionTypeEnum _regionType;             //ISerializable
-        private EquationContainer _sinkTemperature;     //ISerializable
-        private EquationContainer _filmCoefficient;     //ISerializable
-        protected string _coefficientAmplitudeName;     //ISerializable
+        [PmxKey(0)] private string _surfaceName;                    //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _regionType;             //ISerializable
+        [PmxKey(2)] private EquationContainer _sinkTemperature;     //ISerializable
+        [PmxKey(3)] private EquationContainer _filmCoefficient;     //ISerializable
+        [PmxKey(4)] protected string _coefficientAmplitudeName;     //ISerializable
 
 
         // Properties                                                                                                               
@@ -97,6 +97,12 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetSinkTemperature(_sinkTemperature, false);
+            SetFilmCoefficient(_filmCoefficient, false);
+        }
         private void SetSinkTemperature(EquationContainer value, bool checkEquation = true)
         {
             EquationContainer.SetAndCheck(ref _sinkTemperature, value, null, checkEquation);
@@ -112,18 +118,6 @@ namespace CaeModel
             //
             _sinkTemperature.CheckEquation();
             _filmCoefficient.CheckEquation();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_surfaceName", _surfaceName, typeof(string));
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_sinkTemperature", _sinkTemperature, typeof(EquationContainer));
-            info.AddValue("_filmCoefficient", _filmCoefficient, typeof(EquationContainer));
-            info.AddValue("_coefficientAmplitudeName", _coefficientAmplitudeName, typeof(string));
         }
     }
 }

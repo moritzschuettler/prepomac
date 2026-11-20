@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3220)]
     public class StepControls
     {
         // Variables                                                                                                                
-        private List<StepControlParameter> _parameters;
+        [PmxKey(0)] private List<StepControlParameter> _parameters;
 
 
         // Properties                                                                                                               

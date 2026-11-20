@@ -13,12 +13,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
-    [Serializable]
-    public class CoupledTempDispStep : UncoupledTempDispStep, ISerializable
+    [PmxType(3222)]
+    public class CoupledTempDispStep : UncoupledTempDispStep
     {
         // Variables                                                                                                                
         
@@ -46,12 +47,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-       
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-        }
     }
 }

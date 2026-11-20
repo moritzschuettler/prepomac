@@ -20,11 +20,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10456)]
     public class ViewSubmodelBC : ViewBoundaryCondition
     {
         // Variables                                                                                                                
-        private SubmodelBC _submodel;
+        [PmxKey(0)] private SubmodelBC _submodel;
 
 
         // Properties                                                                                                               

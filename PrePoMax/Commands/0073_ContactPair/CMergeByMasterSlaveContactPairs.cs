@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10156)]
     class CMergeByMasterSlaveContactPairs : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _contactPairNames;
+        [PmxKey(0)] private string[] _contactPairNames;
 
 
         // Constructor                                                                                                              

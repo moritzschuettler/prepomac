@@ -17,14 +17,14 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
-    public class RemeshingParameters : MeshingParameters, IMultiRegion, ISerializable
+    [PmxType(2094)]
+    public class RemeshingParameters : MeshingParameters, IMultiRegion
     {
         // Variables                                                                                                                
-        private RegionTypeEnum _regionType;         //ISerializable
-        private string _regionName;                 //ISerializable
-        private double _hausdorff;                  //ISerializable
-        private bool _keepModelEdges;               //ISerializable
+        [PmxKey(0)] private RegionTypeEnum _regionType;         //ISerializable
+        [PmxKey(1)] private string _regionName;                 //ISerializable
+        [PmxKey(2)] private double _hausdorff;                  //ISerializable
+        [PmxKey(3)] private bool _keepModelEdges;               //ISerializable
 
 
         // Properties                                                                                                               
@@ -84,16 +84,6 @@ namespace CaeMesh
             _regionType = RegionTypeEnum.None;
             _hausdorff = 0.01;
             _keepModelEdges = true;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_regionType", _regionType, typeof(RegionTypeEnum));
-            info.AddValue("_regionName", _regionName, typeof(string));
-            info.AddValue("_hausdorff", _hausdorff, typeof(double));
-            info.AddValue("_keepModelEdges", _keepModelEdges, typeof(bool));
         }
     }
 }

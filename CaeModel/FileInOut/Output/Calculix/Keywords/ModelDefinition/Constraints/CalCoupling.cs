@@ -16,12 +16,12 @@ using CaeModel;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3078)]
     internal class CalCoupling : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Coupling _coupling;
-        private Dictionary<string, CalReferencePoint> _referencePoints;
+        [PmxKey(0)] private Coupling _coupling;
+        [PmxKey(1)] private Dictionary<string, CalReferencePoint> _referencePoints;
 
 
         // Properties                                                                                                               

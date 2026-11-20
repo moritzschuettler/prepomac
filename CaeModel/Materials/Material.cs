@@ -18,13 +18,13 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3180)]
     public class Material : NamedClass
     {
         // Variables                                                                                                                
-        private string _description;
-        private bool _temperatureDependent;
-        private List<MaterialProperty> _properties;
+        [PmxKey(0)] private string _description;
+        [PmxKey(1)] private bool _temperatureDependent;
+        [PmxKey(2)] private List<MaterialProperty> _properties;
 
 
         // Properties                                                                                                               

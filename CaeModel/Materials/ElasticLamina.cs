@@ -13,8 +13,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class ElasticLamina : MaterialProperty, ISerializable
+    [PmxType(3178)]
+    public class ElasticLamina : MaterialProperty
     {
         // Variables                                                                                                                
         public const int YoungsModulus1Id = 0;
@@ -25,7 +25,7 @@ namespace CaeModel
         public const int ShearModulus23Id = 5;
         public const int TemperatureId = 6;
         public const int NumberOfValues = 7;
-        private EquationContainer[][] _laminaConstantsTemp;         //ISerializable
+        [PmxKey(0)] private EquationContainer[][] _laminaConstantsTemp;         //ISerializable
 
 
         // Properties                                                                                                               
@@ -66,6 +66,11 @@ namespace CaeModel
 
 
         // Methods                                                                                                                  
+        [OnDeserialized]
+        private void RestoreEquationCallbacks(StreamingContext context)
+        {
+            SetLaminaConstantsTemp(_laminaConstantsTemp, false);
+        }
         private void SetLaminaConstantsTemp(double[][] value, bool checkEquation = true)
         {
             CheckDataSize(value);
@@ -184,13 +189,6 @@ namespace CaeModel
                 CheckStability(i);
             }
             CheckTemperatures();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_laminaConstantsTemp", _laminaConstantsTemp, typeof(EquationContainer[][]));
         }
     }
 }

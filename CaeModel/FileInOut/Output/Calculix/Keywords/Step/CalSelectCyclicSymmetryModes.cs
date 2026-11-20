@@ -5,13 +5,14 @@
 using System;
 using System.Text;
 using CaeModel;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3126)]
     internal class CalSelectCyclicSymmetryModes : CalculixKeyword
     {
-        private FrequencyStep _step;
+        [PmxKey(0)] private FrequencyStep _step;
 
         public CalSelectCyclicSymmetryModes(FrequencyStep step)
         {

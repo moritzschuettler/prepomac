@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10126)]
     class CSetNewModelProperties : PreprocessCommand
     {
         // Variables                                                                                                                
-        private ModelSpaceEnum _modelSpace;
-        private UnitSystemType _unitSystemType;
+        [PmxKey(0)] private ModelSpaceEnum _modelSpace;
+        [PmxKey(1)] private UnitSystemType _unitSystemType;
 
 
         // Properties                                                                                                               

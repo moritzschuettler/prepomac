@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10275)]
     class CReplaceMeshingParameters : PreprocessCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private string _oldMeshingParametersName;
-        private MeshingParameters _meshingParameters;
+        [PmxKey(0)] private string _oldMeshingParametersName;
+        [PmxKey(1)] private MeshingParameters _meshingParameters;
 
 
         // Constructor                                                                                                              

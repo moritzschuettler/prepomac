@@ -19,7 +19,7 @@ using DynamicTypeDescriptor;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3278)]
     public enum IncrementationTypeEnum
     {
         Default,
@@ -27,7 +27,7 @@ namespace CaeModel
         Direct
     }
     //
-    [Serializable]
+    [PmxType(3279)]
     public enum SolverTypeEnum
     {
         Default,
@@ -42,23 +42,23 @@ namespace CaeModel
         IterativeCholesky
     }
 
-    [Serializable]
-    public abstract class Step : NamedClass, ISerializable
+    [PmxType(3280)]
+    public abstract class Step : NamedClass
     {
         // Variables                                                                                                                
-        protected OrderedDictionary<string, HistoryOutput> _historyOutputs;             //ISerializable
-        protected OrderedDictionary<string, FieldOutput> _fieldOutputs;                 //ISerializable
-        protected OrderedDictionary<string, BoundaryCondition> _boundaryConditions;     //ISerializable
-        protected OrderedDictionary<string, Load> _loads;                               //ISerializable
-        protected OrderedDictionary<string, DefinedField> _definedFields;               //ISerializable
-        protected bool _runAnalysis;                                                    //ISerializable
-        protected bool _perturbation;                                                   //ISerializable
-        protected bool _nlgeom;                                                         //ISerializable
-        protected int _maxIncrements;                                                   //ISerializable
-        protected IncrementationTypeEnum _incrementationType;                           //ISerializable
-        protected SolverTypeEnum _solverType;                                           //ISerializable
-        protected int _outputFrequency;                                                 //ISerializable
-        protected StepControls _stepControls;                                           //ISerializable
+        [PmxKey(0)] protected OrderedDictionary<string, HistoryOutput> _historyOutputs;             //ISerializable
+        [PmxKey(1)] protected OrderedDictionary<string, FieldOutput> _fieldOutputs;                 //ISerializable
+        [PmxKey(2)] protected OrderedDictionary<string, BoundaryCondition> _boundaryConditions;     //ISerializable
+        [PmxKey(3)] protected OrderedDictionary<string, Load> _loads;                               //ISerializable
+        [PmxKey(4)] protected OrderedDictionary<string, DefinedField> _definedFields;               //ISerializable
+        [PmxKey(5)] protected bool _runAnalysis;                                                    //ISerializable
+        [PmxKey(6)] protected bool _perturbation;                                                   //ISerializable
+        [PmxKey(7)] protected bool _nlgeom;                                                         //ISerializable
+        [PmxKey(8)] protected int _maxIncrements;                                                   //ISerializable
+        [PmxKey(9)] protected IncrementationTypeEnum _incrementationType;                           //ISerializable
+        [PmxKey(10)] protected SolverTypeEnum _solverType;                                           //ISerializable
+        [PmxKey(11)] protected int _outputFrequency;                                                 //ISerializable
+        [PmxKey(12)] protected StepControls _stepControls;                                           //ISerializable
 
 
         // Properties                                                                                                               
@@ -230,27 +230,6 @@ namespace CaeModel
         {
             if (_stepControls != null && _stepControls.Parameters != null) return _stepControls.Parameters.Count;
             else return 0;
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_historyOutputs", _historyOutputs, typeof(OrderedDictionary<string, HistoryOutput>));
-            info.AddValue("_fieldOutputs", _fieldOutputs, typeof(OrderedDictionary<string, FieldOutput>));
-            info.AddValue("_boundaryConditions", _boundaryConditions, typeof(OrderedDictionary<string, BoundaryCondition>));
-            info.AddValue("_loads", _loads, typeof(OrderedDictionary<string, Load>));
-            info.AddValue("_definedFields", _definedFields, typeof(OrderedDictionary<string, DefinedField>));
-            info.AddValue("_runAnalysis", _runAnalysis, typeof(bool));
-            info.AddValue("_perturbation", _perturbation, typeof(bool));
-            info.AddValue("_nlgeom", _nlgeom, typeof(bool));
-            info.AddValue("_maxIncrements", _maxIncrements, typeof(int));
-            info.AddValue("_incrementationType", _incrementationType, typeof(IncrementationTypeEnum));
-            info.AddValue("_solverType", _solverType, typeof(SolverTypeEnum));
-            info.AddValue("_outputFrequency", _outputFrequency, typeof(int));
-            info.AddValue("_stepControls", _stepControls, typeof(StepControls));
         }
     }
 }

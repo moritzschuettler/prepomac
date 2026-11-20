@@ -19,11 +19,11 @@ using System.Windows.Forms;
 
 namespace PrePoMax.PropertyViews
 {
-    [Serializable]
+    [PmxType(10420)]
     public class ViewFieldStepControlParameter : ViewStepControlParameter
     {
         // Variables                                                                                                                
-        private CaeModel.FieldStepControlParameter _parameter;
+        [PmxKey(0)] private CaeModel.FieldStepControlParameter _parameter;
 
 
         // Properties                                                                                                               

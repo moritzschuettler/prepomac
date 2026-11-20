@@ -12,16 +12,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace UserControls
 {
-    [Serializable]
+    [PmxType(6204)]
     public class PanelItemLinkLabel : PanelItem
     {
         // Variables                                                                                                                
-        protected List<Action<object, EventArgs>> _actions;
-        protected List<object> _senders;
-        protected List<EventArgs> _eventArgs;
+        [PmxKey(0)] protected List<Action<object, EventArgs>> _actions;
+        [PmxKey(1)] protected List<object> _senders;
+        [PmxKey(2)] protected List<EventArgs> _eventArgs;
 
 
         // Properties                                                                                                               

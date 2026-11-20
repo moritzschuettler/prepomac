@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10532)]
     public enum AnnotationBackgroundType
     {
         None,
@@ -28,13 +28,13 @@ namespace PrePoMax
     }
 
 
-    [Serializable]
+    [PmxType(10533)]
     public class LegendSettings : ISettings
     {
         // Variables                                                                                                                
-        private vtkControl.vtkMaxColorSpectrum _colorSpectrum;
-        private AnnotationBackgroundType _backgroundType;
-        private bool _drawBorder;
+        [PmxKey(0)] private vtkControl.vtkMaxColorSpectrum _colorSpectrum;
+        [PmxKey(1)] private AnnotationBackgroundType _backgroundType;
+        [PmxKey(2)] private bool _drawBorder;
 
 
         // Properties                                                                                                               

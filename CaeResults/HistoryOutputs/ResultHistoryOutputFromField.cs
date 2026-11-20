@@ -17,7 +17,7 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable] 
+    [PmxType(5050)] 
     public enum OutputNodeCoordinatesEnum
     {
         Off,
@@ -25,21 +25,21 @@ namespace CaeResults
         Deformed
     }
 
-    [Serializable]
+    [PmxType(5051)]
     public class ResultHistoryOutputFromField : ResultHistoryOutput
     {
         // Variables                                                                                                                
         public readonly static string AllSteps = "All steps";
         public readonly static string AllIncrements = "All increments";
         //
-        private string _fieldName;
-        private string[] _componentNames;
-        private ComplexResultTypeEnum _complexResultType;
-        private double _complexAngleDeg;    // must be double
-        private int _stepId;
-        private int _stepIncrementId;
-        private bool _harmonic;
-        private OutputNodeCoordinatesEnum _outputNodeCoordinates;
+        [PmxKey(0)] private string _fieldName;
+        [PmxKey(1)] private string[] _componentNames;
+        [PmxKey(2)] private ComplexResultTypeEnum _complexResultType;
+        [PmxKey(3)] private double _complexAngleDeg;    // must be double
+        [PmxKey(4)] private int _stepId;
+        [PmxKey(5)] private int _stepIncrementId;
+        [PmxKey(6)] private bool _harmonic;
+        [PmxKey(7)] private OutputNodeCoordinatesEnum _outputNodeCoordinates;
 
 
         // Properties                                                                                                               

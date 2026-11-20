@@ -12,15 +12,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10011)]
     public class TextAnnotation : AnnotationBase
     {
         // Variables                                                                                                                
-        private string _text;
-        protected double[] _anchorPoint;
+        [PmxKey(0)] private string _text;
+        [PmxKey(1)] protected double[] _anchorPoint;
 
 
         // Properties                                                                                                               

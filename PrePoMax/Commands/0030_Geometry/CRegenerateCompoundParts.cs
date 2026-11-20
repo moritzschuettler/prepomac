@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10065)]
     class CRegenerateCompoundParts : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _compoundPartNames;
+        [PmxKey(0)] private string[] _compoundPartNames;
 
 
         // Constructor                                                                                                              

@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3116)]
     internal class CalCoupledTempDispStep : CalStep
     {
         // Variables                                                                                                                
-        private CoupledTempDispStep _step;
+        [PmxKey(0)] private CoupledTempDispStep _step;
 
 
         // Properties                                                                                                               

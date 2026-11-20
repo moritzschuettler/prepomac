@@ -20,11 +20,11 @@ using UnitsNet;
 
 namespace CaeGlobals
 {
-    [Serializable]
+    [PmxType(1020)]
     public class EquationString
     {
         // Variables                                                                                                                
-        private string _equation;
+        [PmxKey(0)] private string _equation;
 
 
         // Properties                                                                                                               

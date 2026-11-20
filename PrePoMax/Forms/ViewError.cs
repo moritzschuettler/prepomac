@@ -13,14 +13,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
+using CaeGlobals;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10519)]
     public class ViewError
     {
         // Variables                                                                                                                
-        private string _message;
+        [PmxKey(0)] private string _message;
 
 
         // Properties                                                                                                               

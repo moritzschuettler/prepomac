@@ -20,7 +20,6 @@ using Octree;
 
 namespace CaeResults
 {
-    [Serializable]
     public static class CloudPointReader
     {
         // Variables                                                                                                                

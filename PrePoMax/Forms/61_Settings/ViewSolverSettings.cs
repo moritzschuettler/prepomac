@@ -21,12 +21,12 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Settings
 {
-    [Serializable]
+    [PmxType(10490)]
     public class ViewSolverSettings : IViewSettings, IReset
     {
         // Variables
-        private SolverSettings _solverSettings;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private SolverSettings _solverSettings;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties

@@ -13,60 +13,60 @@ using System.Collections.Generic;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2097)]
     public struct GmshIdLocation
     {
-        public int Id;
-        public double Size;
-        public double[] Location;
+        [PmxKey(0)] public int Id;
+        [PmxKey(1)] public double Size;
+        [PmxKey(2)] public double[] Location;
     }
 
-    [Serializable]
+    [PmxType(2098)]
     public class GmshData
     {
         // Variables                                                                                                                
 
 
         // Properties                                                                                                               
-        public string GeometryFileName;
-        public string MeshFileName;
-        public string InpFileName;
-        public MeshingParameters PartMeshingParameters;
-        public MeshSetupItem[] GmshSetupItems;
-        public bool Preview;
-        public bool PreviewSweepSourceMesh;
+        [PmxKey(0)] public string GeometryFileName;
+        [PmxKey(1)] public string MeshFileName;
+        [PmxKey(2)] public string InpFileName;
+        [PmxKey(3)] public MeshingParameters PartMeshingParameters;
+        [PmxKey(4)] public MeshSetupItem[] GmshSetupItems;
+        [PmxKey(5)] public bool Preview;
+        [PmxKey(6)] public bool PreviewSweepSourceMesh;
         // Topology
-        public Dictionary<int, string> PartIdPartName;
-        public Dictionary<int, FeNode> VertexNodes;
-        public Dictionary<int[], List<GmshIdLocation>> EdgeVertexNodeIdsEdgeId;
-        public Dictionary<int[], List<GmshIdLocation>> FaceVertexNodeIdsFaceId;
+        [PmxKey(7)] public Dictionary<int, string> PartIdPartName;
+        [PmxKey(8)] public Dictionary<int, FeNode> VertexNodes;
+        [PmxKey(9)] public Dictionary<int[], List<GmshIdLocation>> EdgeVertexNodeIdsEdgeId;
+        [PmxKey(10)] public Dictionary<int[], List<GmshIdLocation>> FaceVertexNodeIdsFaceId;
         // Mesh size
-        public Dictionary<int, double> VertexNodeIdMeshSize;
-        public Dictionary<int, int> EdgeIdNumElements;
+        [PmxKey(11)] public Dictionary<int, double> VertexNodeIdMeshSize;
+        [PmxKey(12)] public Dictionary<int, int> EdgeIdNumElements;
         // The edges whose number of elements the user set as a number; the others carry the number an element size
         // gives them, which a structured grid may change. Null where every number is the user's
-        public HashSet<int> FixedCountEdgeIds;
+        [PmxKey(13)] public HashSet<int> FixedCountEdgeIds;
         // Transfinite: the structured faces by the one definition all meshers follow - faces and edges by their gmsh
         // topology ids, corners by their vertex node ids
-        public TransfiniteFace[] TransfiniteFaces;
+        [PmxKey(14)] public TransfiniteFace[] TransfiniteFaces;
         // Sweep
-        public HashSet<int>[] EdgeIdsBySweepLayer;
-        public string QuadWildDirectory;
-        public string NetgenMesherFileName;
-        public string NetgenMeshParametersFileName;
+        [PmxKey(15)] public HashSet<int>[] EdgeIdsBySweepLayer;
+        [PmxKey(16)] public string QuadWildDirectory;
+        [PmxKey(17)] public string NetgenMesherFileName;
+        [PmxKey(18)] public string NetgenMeshParametersFileName;
         // Normals
-        public Dictionary<int, FeNode[]> FaceIdNodes;
-        public Dictionary<int, List<Vec3D>> NodeIdNormals;
+        [PmxKey(19)] public Dictionary<int, FeNode[]> FaceIdNodes;
+        [PmxKey(20)] public Dictionary<int, List<Vec3D>> NodeIdNormals;
         // Element quality
-        public string ElementQualityMetric;
-        public Dictionary<int, double> ElementQuality;
+        [PmxKey(21)] public string ElementQualityMetric;
+        [PmxKey(22)] public Dictionary<int, double> ElementQuality;
         // Defeature
-        public int[] SurfaceIds;
+        [PmxKey(23)] public int[] SurfaceIds;
         // Parameterization
-        public double[][][][] ParameterizationLinesU;
-        public double[][][][] ParameterizationLinesV;
+        [PmxKey(24)] public double[][][][] ParameterizationLinesU;
+        [PmxKey(25)] public double[][][][] ParameterizationLinesV;
         //
-        public double StlFeatureAngleDeg;
+        [PmxKey(26)] public double StlFeatureAngleDeg;
 
 
         // Constructors                                                                                                             

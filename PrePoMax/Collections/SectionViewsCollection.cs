@@ -13,21 +13,22 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10015)]
     public class SectionViewsCollection
     {
         // Variables                                                                                                                
         [NonSerialized] private Controller _controller;
-        private Octree.Plane _geometrySectionViewPlane;
-        private Octree.Plane _modelSectionViewPlane;
-        private Dictionary<string, Octree.Plane> _resultNameSectionViewPlane;
-        private bool _lightenColors;
-        private Color _sectionColor;
-        private bool _elementWise;
-        private bool _hatch;
+        [PmxKey(0)] private Octree.Plane _geometrySectionViewPlane;
+        [PmxKey(1)] private Octree.Plane _modelSectionViewPlane;
+        [PmxKey(2)] private Dictionary<string, Octree.Plane> _resultNameSectionViewPlane;
+        [PmxKey(3)] private bool _lightenColors;
+        [PmxKey(4)] private Color _sectionColor;
+        [PmxKey(5)] private bool _elementWise;
+        [PmxKey(6)] private bool _hatch;
 
 
         // Properties                                                                                                               

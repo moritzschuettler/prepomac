@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10067)]
     class CSplitGeometry : PreprocessCommand
     {
         // Variables                                                                                                                
-        private GeometryFeature _geometryFeature;
+        [PmxKey(0)] private GeometryFeature _geometryFeature;
 
 
         // Properties

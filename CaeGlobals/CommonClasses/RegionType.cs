@@ -16,7 +16,7 @@ using DynamicTypeDescriptor;
 
 namespace CaeGlobals
 {
-    [Serializable]
+    [PmxType(1014)]
     public enum RegionTypeEnum
     {
         [StandardValue("None")]

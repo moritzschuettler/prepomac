@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3026)]
     public enum PressureOverclosureEnum
     {
         Hard,
@@ -26,18 +26,18 @@ namespace CaeModel
         Tied
     }
 
-    [Serializable]
+    [PmxType(3027)]
     public class SurfaceBehavior : SurfaceInteractionProperty
     {
         // Variables                                                                                                                
         private static string _positive = "The value must be larger than 0.";
         //
-        private double _c0;
-        private double _p0;
-        private double _k;
-        private double _sInf;
-        private double[][] _pressureOverclosure;
-        private PressureOverclosureEnum _pressureOverclosureType;
+        [PmxKey(0)] private double _c0;
+        [PmxKey(1)] private double _p0;
+        [PmxKey(2)] private double _k;
+        [PmxKey(3)] private double _sInf;
+        [PmxKey(4)] private double[][] _pressureOverclosure;
+        [PmxKey(5)] private PressureOverclosureEnum _pressureOverclosureType;
 
 
         // Properties                                                                                                               

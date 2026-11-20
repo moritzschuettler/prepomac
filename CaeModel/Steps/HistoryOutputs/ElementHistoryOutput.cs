@@ -18,7 +18,7 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3245)]
     [Flags]
     public enum ElementHistoryVariable
     {
@@ -39,11 +39,11 @@ namespace CaeModel
         SDV = 1073741824,
     }
 
-    [Serializable]
-    public class ElementHistoryOutput : HistoryOutput, ISerializable
+    [PmxType(3246)]
+    public class ElementHistoryOutput : HistoryOutput
     {
         // Variables                                                                                                                
-        private ElementHistoryVariable _variables;          //ISerializable
+        [PmxKey(0)] private ElementHistoryVariable _variables;          //ISerializable
 
 
         // Properties                                                                                                               
@@ -71,16 +71,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_variables", _variables, typeof(ElementHistoryVariable));
-        }
     }
 }

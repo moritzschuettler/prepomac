@@ -18,7 +18,7 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10424)]
     public class ViewBoundaryDisplacementStep : ViewStep
     {
         // Variables                                                                                                                

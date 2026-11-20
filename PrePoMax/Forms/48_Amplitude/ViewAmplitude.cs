@@ -19,11 +19,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10413)]
     public abstract class ViewAmplitude
     {
         // Variables                                                                                                                
-        private DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties                                                                                                               

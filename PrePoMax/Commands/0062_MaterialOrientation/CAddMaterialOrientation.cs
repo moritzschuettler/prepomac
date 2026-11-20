@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10132)]
     class CAddMaterialOrientation : PreprocessCommand
     {
         // Variables                                                                                                                
-        private MaterialOrientation _materialOrientation;
+        [PmxKey(0)] private MaterialOrientation _materialOrientation;
 
 
         // Constructor                                                                                                              

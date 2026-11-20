@@ -20,11 +20,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10473)]
     public class ViewShellEdgeLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private ShellEdgeLoad _shellEdgeLoad;
+        [PmxKey(0)] private ShellEdgeLoad _shellEdgeLoad;
 
 
         // Properties                                                                                                               

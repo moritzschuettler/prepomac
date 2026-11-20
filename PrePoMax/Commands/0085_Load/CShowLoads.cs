@@ -21,12 +21,17 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
-    class CShowLoads : PreprocessCommand
+    [PmxType(10204)]
+    class CShowLoads : PreprocessCommand, ILoadNamesCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string[] _loadNames;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string[] _loadNames;
+
+
+        // Properties                                                                                                               
+        public string StepName { get { return _stepName; } }
+        public string[] LoadNames { get { return _loadNames; } set { _loadNames = value; } }
 
 
         // Constructor                                                                                                              

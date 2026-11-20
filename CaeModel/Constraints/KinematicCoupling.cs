@@ -15,13 +15,13 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class KinematicCoupling : Coupling, ISerializable // ISerializable must be here
+    [PmxType(3014)]
+    public class KinematicCoupling : Coupling // ISerializable must be here
     {
         // Variables                                                                                                                
-        private bool _u1;                           //ISerializable
-        private bool _u2;                           //ISerializable
-        private bool _u3;                           //ISerializable
+        [PmxKey(0)] private bool _u1;                           //ISerializable
+        [PmxKey(1)] private bool _u2;                           //ISerializable
+        [PmxKey(2)] private bool _u3;                           //ISerializable
 
 
         // Properties                                                                                                               
@@ -68,17 +68,6 @@ namespace CaeModel
             if (_u2) directions.Add(2);
             if (_u3) directions.Add(3);
             return directions.ToArray();
-        }
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_u1", _u1, typeof(bool));
-            info.AddValue("_u2", _u2, typeof(bool));
-            info.AddValue("_u3", _u3, typeof(bool));
         }
     }
 }

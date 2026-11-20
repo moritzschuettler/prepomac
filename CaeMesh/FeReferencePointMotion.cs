@@ -8,17 +8,18 @@
 // Contributors:
 
 using System;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2081)]
     public class FeReferencePointMotion
     {
         // Variables                                                                                                                
-        private int[] _nodeIds;
-        private double[] _weights;
-        private bool[] _directions;
-        private bool _twoD;
+        [PmxKey(0)] private int[] _nodeIds;
+        [PmxKey(1)] private double[] _weights;
+        [PmxKey(2)] private bool[] _directions;
+        [PmxKey(3)] private bool _twoD;
 
 
         // Properties                                                                                                               

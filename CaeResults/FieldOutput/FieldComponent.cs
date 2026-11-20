@@ -18,14 +18,14 @@ using System.Security.Cryptography;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5013)]
     public class FieldComponent : NamedClass
     {
         // Variables                                                                                                                
-        public bool Invariant;                  // add to binary writer/reader
-        public float[] Values;                  // add to binary writer/reader
-        public IDValuePair Max;
-        public IDValuePair Min;
+        [PmxKey(0)] public bool Invariant;                  // add to binary writer/reader
+        [PmxKey(1)] public float[] Values;                  // add to binary writer/reader
+        [PmxKey(2)] public IDValuePair Max;
+        [PmxKey(3)] public IDValuePair Min;
 
         // Constructor                                                                                                              
         public FieldComponent(string name, float[] values, bool invariant = false)

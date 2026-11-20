@@ -19,11 +19,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10460)]
     public class ViewBodyFlux : ViewLoad
     {
         // Variables                                                                                                                
-        private CaeModel.BodyFlux _flux;
+        [PmxKey(0)] private CaeModel.BodyFlux _flux;
 
 
         // Properties                                                                                                               

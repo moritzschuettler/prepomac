@@ -22,16 +22,16 @@ using CaeMesh;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10534)]
     public class MeshingSettings : ISettings
     {
         // Variables                                                                                                                
         public const int MinMesherTimeLimit = 1;
         public const int MaxMesherTimeLimit = 10080;
         public const int DefaultMesherTimeLimit = 30;
-        private MeshingParameters _meshingParameters;
-        private int _parallelMeshingThreads;
-        private int _mesherTimeLimit;
+        [PmxKey(0)] private MeshingParameters _meshingParameters;
+        [PmxKey(1)] private int _parallelMeshingThreads;
+        [PmxKey(2)] private int _mesherTimeLimit;
 
 
         // Properties                                                                                                               

@@ -17,14 +17,14 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3283)]
     public class UserViewParameters : NamedClass
     {
         // Variables                                                                                                                
-        private double[] _position;
-        private double[] _focalPoint;
-        private double[] _upVector;
-        private double _parallelScale;
+        [PmxKey(0)] private double[] _position;
+        [PmxKey(1)] private double[] _focalPoint;
+        [PmxKey(2)] private double[] _upVector;
+        [PmxKey(3)] private double _parallelScale;
 
 
         // Properties                                                                                                               

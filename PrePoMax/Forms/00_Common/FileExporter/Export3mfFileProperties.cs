@@ -22,13 +22,13 @@ using System.Threading.Tasks;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10304)]
     public class Export3mfFileProperties : ExportFileProperties
     {
         // Variables                                                                                                                
         public static readonly string DefaultFileName = "Model.3mf";
         public static readonly string DefaultFilter = "3D Manufacturing Format (*.3mf)|*.3mf";
-        private double _edgeThicknessRatio;
+        [PmxKey(0)] private double _edgeThicknessRatio;
 
 
         // Properties                                                                                                               

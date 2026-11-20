@@ -18,12 +18,12 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10386)]
     public class ViewSection : ViewMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
-        private CaeModel.Section _section;
+        [PmxKey(0)] private string _selectionHidden;
+        [PmxKey(1)] private CaeModel.Section _section;
 
 
         // Properties                                                                                                               

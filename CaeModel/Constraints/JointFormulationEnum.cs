@@ -9,10 +9,11 @@
 
 using System;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3011)]
     public enum JointFormulationEnum
     {
         [StandardValue("Rigid body", "Rigid body", Description =

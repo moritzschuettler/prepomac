@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3156)]
     internal class CalRadiationHeatTransfer : CalLoad
     {
         // Variables                                                                                                                
-        private RadiationHeatTransfer _radiationHeatTransfer;
-        private FeSurface _surface;
+        [PmxKey(0)] private RadiationHeatTransfer _radiationHeatTransfer;
+        [PmxKey(1)] private FeSurface _surface;
 
         
         // Constructor                                                                                                              

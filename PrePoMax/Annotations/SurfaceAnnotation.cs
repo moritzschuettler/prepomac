@@ -13,14 +13,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10010)]
     public class SurfaceAnnotation : AnnotationBase
     {
         // Variables                                                                                                                
-        private int _geometryId;
+        [PmxKey(0)] private int _geometryId;
 
 
         // Properties                                                                                                               

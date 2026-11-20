@@ -16,15 +16,16 @@ using PrePoMax;
 using CaeModel;
 
 using PrePoMax.Python.Journal;
+using CaeGlobals;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10209)]
     class CRemoveDefinedFields : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string[] _definedFieldNames;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string[] _definedFieldNames;
 
         // Constructor                                                                                                              
         public CRemoveDefinedFields(string stepName, string[] definedFieldNames)

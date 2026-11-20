@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10064)]
     class COffsetFace : PreprocessCommand
     {
         // Variables
-        private FaceOffset _faceOffset;
+        [PmxKey(0)] private FaceOffset _faceOffset;
 
 
         // Constructor

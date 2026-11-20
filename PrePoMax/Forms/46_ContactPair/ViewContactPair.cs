@@ -20,12 +20,12 @@ using System.Drawing.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10404)]
     public class ViewContactPair : ViewMasterSlaveMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
-        private CaeModel.ContactPair _contactPair;
+        [PmxKey(0)] private string _selectionHidden;
+        [PmxKey(1)] private CaeModel.ContactPair _contactPair;
 
 
         // Properties                                                                                                               

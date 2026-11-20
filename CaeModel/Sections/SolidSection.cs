@@ -17,8 +17,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class SolidSection : Section, ISerializable
+    [PmxType(3206)]
+    public class SolidSection : Section
     {
         // Variables                                                                                                                
 

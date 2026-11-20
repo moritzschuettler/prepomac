@@ -21,12 +21,17 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
-    class CDuplicateLoads : PreprocessCommand
+    [PmxType(10199)]
+    class CDuplicateLoads : PreprocessCommand, ILoadNamesCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string[] _loadNames;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string[] _loadNames;
+
+
+        // Properties                                                                                                               
+        public string StepName { get { return _stepName; } }
+        public string[] LoadNames { get { return _loadNames; } set { _loadNames = value; } }
 
 
         // Constructor                                                                                                              

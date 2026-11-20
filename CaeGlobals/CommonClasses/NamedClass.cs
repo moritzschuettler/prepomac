@@ -17,18 +17,18 @@ using System.Runtime.Serialization;
 
 namespace CaeGlobals
 {
-    [Serializable]
+    [PmxType(1010)]
     public abstract class NamedClass //: ISerializable - this would mean that all derived classes must be Serializable !!!
     {
         // Variables                                                                                                                
-        protected string _name;                         //ISerializable
-        protected bool _active;                         //ISerializable
-        protected bool _visible;                        //ISerializable
-        protected bool _modified;                       //ISerializable
-        protected bool _valid;                          //ISerializable
-        protected bool _internal;                       //ISerializable
-        protected bool _checkName;                      //ISerializable
-        protected HashSet<char> _additionalCharacters;  //ISerializable
+        [PmxKey(0)] protected string _name;                         //ISerializable
+        [PmxKey(1)] protected bool _active;                         //ISerializable
+        [PmxKey(2)] protected bool _visible;                        //ISerializable
+        [PmxKey(3)] protected bool _modified;                       //ISerializable
+        [PmxKey(4)] protected bool _valid;                          //ISerializable
+        [PmxKey(5)] protected bool _internal;                       //ISerializable
+        [PmxKey(6)] protected bool _checkName;                      //ISerializable
+        [PmxKey(7)] protected HashSet<char> _additionalCharacters;  //ISerializable
 
 
         // Properties                                                                                                               
@@ -239,20 +239,6 @@ namespace CaeGlobals
         public override string ToString()
         {
             return _name;
-        }
-
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_name", _name, typeof(string));
-            info.AddValue("_active", _active, typeof(bool));
-            info.AddValue("_visible", _visible, typeof(bool));
-            info.AddValue("_modified", _modified, typeof(bool));
-            info.AddValue("_valid", _valid, typeof(bool));
-            info.AddValue("_internal", _internal, typeof(bool));
-            info.AddValue("_checkName", _checkName, typeof(bool));
-            info.AddValue("_additionalCharacters", _additionalCharacters, typeof(HashSet<char>));
         }
     }
 }

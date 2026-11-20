@@ -21,13 +21,13 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10128)]
     class CDuplicateMaterial : PreprocessCommand
     {
         // Compatibility v1.4.0 - the name of the class is missing one s - CDuplicateMaterials
 
         // Variables                                                                                                                
-        private string[] _materialNames;
+        [PmxKey(0)] private string[] _materialNames;
 
 
         // Constructor                                                                                                              

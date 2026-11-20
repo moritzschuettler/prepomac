@@ -19,12 +19,12 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10324)]
     public class ViewGeometryRepair : UserControls.IMissingPropertyValues
     {
         // Variables                                                                                                                
-        private GeometryRepair _geometryRepair;
-        private DynamicCustomTypeDescriptor _dctd;
+        [PmxKey(0)] private GeometryRepair _geometryRepair;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd;
 
 
         // Properties                                                                                                               

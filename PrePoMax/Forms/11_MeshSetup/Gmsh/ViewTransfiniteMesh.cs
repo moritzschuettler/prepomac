@@ -19,11 +19,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10338)]
     public class ViewTransfiniteMesh : ViewGmshSetupItem
     {
         // Variables                                                                                                                
-        private TransfiniteMesh _transfiniteMesh;
+        [PmxKey(0)] private TransfiniteMesh _transfiniteMesh;
 
 
         // Properties                                                                                                               

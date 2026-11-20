@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10412)]
     public class AmplitudeDataPoint
     {
         // Variables                                                                                                                
-        private double _time;
-        private double _amplitude;
+        [PmxKey(0)] private double _time;
+        [PmxKey(1)] private double _amplitude;
 
 
         // Properties                                                                                                               

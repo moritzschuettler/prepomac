@@ -16,11 +16,11 @@ using CaeResults;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10507)]
     public class ViewResultHistoryOutputFromAffineFit : ViewResultHistoryOutput
     {
         // Variables
-        private ResultHistoryOutputFromAffineFit _historyOutput;
+        [PmxKey(0)] private ResultHistoryOutputFromAffineFit _historyOutput;
 
 
         // Properties

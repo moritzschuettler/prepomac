@@ -21,7 +21,7 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10030)]
     class CClear : PreprocessCommand
     {
         // Variables                                                                                                                

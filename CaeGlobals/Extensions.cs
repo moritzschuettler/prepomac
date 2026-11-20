@@ -13,7 +13,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Xml.Serialization;
 using System.Xml;
 using System.Windows.Forms;
@@ -35,49 +34,35 @@ namespace CaeGlobals
         // Deep clone
         public static T DeepClone<T>(this T a)
         {
-            using (MemoryStream stream = new MemoryStream())
-            {
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Serialize(stream, a);
-                stream.Position = 0;
-                return (T)formatter.Deserialize(stream);
-            }
+            return ObjectSerializer.Default.Clone(a);
         }
         // Save clone to File
         public static void DumpToFile<T>(this T a, string fileName)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Serialize(stream, a);
+                ObjectSerializer.Default.Serialize(stream, a);
                 stream.Position = 0;
                 //
-                FileStream fs = new FileStream(fileName, FileMode.Create);
-                //
-                stream.WriteTo(fs);
-                fs.Close();
+                using (FileStream fs = new FileStream(fileName, FileMode.Create)) stream.WriteTo(fs);
             }
         }
         public static T LoadFromFile<T>(string fileName)
         {
             using (FileStream fs = new FileStream(fileName, FileMode.Open))
             {
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Binder = RenamedTypeSerializationBinder.Instance;
-                return (T)formatter.Deserialize(fs);
+                return (T)ObjectSerializer.Default.Deserialize(fs);
             }
         }
         public static void DumpToStream<T>(this T a, BinaryWriter bw)
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Serialize(stream, a);
+                ObjectSerializer.Default.Serialize(stream, a);
                 stream.Position = 0;
-
+                //
                 long length = stream.Length;
                 bw.Write(length);
-                //stream.WriteTo(bw.BaseStream);
                 stream.CopyTo(bw.BaseStream);
             }
         }

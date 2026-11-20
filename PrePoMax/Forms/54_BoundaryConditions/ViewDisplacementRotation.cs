@@ -20,11 +20,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10454)]
     public class ViewDisplacementRotation : ViewBoundaryCondition
     {
         // Variables                                                                                                                
-        private DisplacementRotation _displacementRotation;
+        [PmxKey(0)] private DisplacementRotation _displacementRotation;
 
 
         // Properties                                                                                                               

@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3104)]
     internal class CalSolidSection : CalculixKeyword
     {
         // Variables                                                                                                                
-        private SolidSection _section;
+        [PmxKey(0)] private SolidSection _section;
 
 
         // Properties                                                                                                               

@@ -29,7 +29,6 @@ using System.Security.Cryptography;
 
 namespace FileInOut.Output
 {
-    [Serializable]
     public static class CalculixFileWriter
     {
         // Variables                                                                                                                

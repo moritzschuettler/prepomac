@@ -19,11 +19,11 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10453)]
     public abstract class ViewBoundaryCondition : ViewMultiRegion
     {
         // Variables                                                                                                                
-        private string _selectionHidden;
+        [PmxKey(0)] private string _selectionHidden;
 
 
         // Properties                                                                                                               

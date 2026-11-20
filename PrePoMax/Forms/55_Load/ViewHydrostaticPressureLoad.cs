@@ -20,13 +20,13 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10468)]
     public class ViewHydrostaticPressureLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private HydrostaticPressure _hpLoad;
-        private ItemSetData _singlePointItemSetData;
-        private ItemSetData _twoPointPointItemSetData;
+        [PmxKey(0)] private HydrostaticPressure _hpLoad;
+        [PmxKey(1)] private ItemSetData _singlePointItemSetData;
+        [PmxKey(2)] private ItemSetData _twoPointPointItemSetData;
 
 
         // Properties                                                                                                               

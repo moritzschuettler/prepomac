@@ -79,6 +79,8 @@ namespace PrePoMax
             Console.WriteLine("");
             //
             SetCultureAndLanguage();
+            //
+            SetObjectSerializer();
             // Parse
             if (args != null && args.Length == 1 && File.Exists(args[0])) args = new string[] { "-f", args[0] };
             //
@@ -92,6 +94,11 @@ namespace PrePoMax
             else Finish(GetParserExitCode(parserResult), null);
             //
             return;
+        }
+        // The files of older versions, written by the binary formatter, are read by the legacy import only
+        private static void SetObjectSerializer()
+        {
+            ObjectSerializer.LegacyReader = LegacyImport.LegacyReader.Read;
         }
         private static void AttachToParentConsole()
         {

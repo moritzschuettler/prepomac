@@ -17,8 +17,8 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class DistributedMassSection : MassSection, ISerializable
+    [PmxType(3196)]
+    public class DistributedMassSection : MassSection
     {
         // Variables                                                                                                                
 
@@ -37,13 +37,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-        
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-        }
     }
 }

@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3093)]
     internal class CalPlastic : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Plastic _plastic;
-        private bool _temperatureDependent;
+        [PmxKey(0)] private Plastic _plastic;
+        [PmxKey(1)] private bool _temperatureDependent;
 
 
         // Properties                                                                                                               

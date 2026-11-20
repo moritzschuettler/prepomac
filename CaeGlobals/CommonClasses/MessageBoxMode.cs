@@ -11,7 +11,7 @@ using System;
 
 namespace CaeGlobals
 {
-    [Serializable]
+    [PmxType(1008)]
     public enum MessageBoxModeEnum
     {
         Interactive,

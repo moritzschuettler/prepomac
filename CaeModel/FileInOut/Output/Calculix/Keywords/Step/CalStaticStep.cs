@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3127)]
     internal class CalStaticStep : CalStep
     {
         // Variables                                                                                                                
-        private StaticStep _step;
+        [PmxKey(0)] private StaticStep _step;
 
 
         // Properties                                                                                                               

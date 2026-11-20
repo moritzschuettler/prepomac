@@ -11,6 +11,7 @@ using System;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
@@ -19,14 +20,14 @@ namespace FileInOut.Output.Calculix
     /// tree before user keywords are inserted. The original signature prevents an edit from being
     /// applied to a different generated keyword after the model has changed.
     /// </summary>
-    [Serializable]
+    [PmxType(3059)]
     public class CalculixKeywordOverride
     {
-        private int[] _indices;
-        private string _originalSignature;
-        private string _data;
-        private bool _disabled;
-        [OptionalField] private bool _suppressed;
+        [PmxKey(0)] private int[] _indices;
+        [PmxKey(1)] private string _originalSignature;
+        [PmxKey(2)] private string _data;
+        [PmxKey(3)] private bool _disabled;
+        [PmxKey(4)] [OptionalField] private bool _suppressed;
 
         public int[] Indices { get { return _indices == null ? null : (int[])_indices.Clone(); } }
         public string OriginalSignature { get { return _originalSignature; } }
@@ -59,12 +60,12 @@ namespace FileInOut.Output.Calculix
     /// A transient rendered keyword used only while writing. It keeps the original child keyword list
     /// so one generated fragment can be overridden independently.
     /// </summary>
-    [Serializable]
+    [PmxType(3060)]
     internal class CalKeywordOverride : CalculixKeyword
     {
-        private string _originalData;
-        private string _replacementData;
-        private bool _disabled;
+        [PmxKey(0)] private string _originalData;
+        [PmxKey(1)] private string _replacementData;
+        [PmxKey(2)] private bool _disabled;
 
         public CalKeywordOverride(CalculixKeyword originalKeyword, string originalData,
                                   string replacementData, bool disabled)

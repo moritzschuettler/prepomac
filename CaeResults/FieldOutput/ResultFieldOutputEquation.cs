@@ -17,15 +17,15 @@ using CaeGlobals;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5025)]
     public class ResultFieldOutputEquation : ResultFieldOutput
     {
         // Variables                                                                                                                
         public static string EquationSeparator = ".";
         public static string ComponentName = "VALUE";
-        private string _equation;
-        private string _unit;
-        private string[] _parentNames;
+        [PmxKey(0)] private string _equation;
+        [PmxKey(1)] private string _unit;
+        [PmxKey(2)] private string[] _parentNames;
 
 
         // Properties                                                                                                               

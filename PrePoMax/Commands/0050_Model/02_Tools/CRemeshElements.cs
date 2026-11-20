@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10080)]
     class CRemeshElements : PreprocessCommand
     {
         // Variables                                                                                                                
-        private RemeshingParameters _remeshingParameters;
+        [PmxKey(0)] private RemeshingParameters _remeshingParameters;
 
 
         // Constructor                                                                                                              

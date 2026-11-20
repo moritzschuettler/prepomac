@@ -21,13 +21,13 @@ using System.IO;
 
 namespace CaeResults
 {
-    [Serializable]
-    public class HistoryResultSet : NamedClass, ISerializable
+    [PmxType(5042)]
+    public class HistoryResultSet : NamedClass
     {
         // Variables                                                                                                                
-        protected bool _harmonic;                                           //ISerializable
-        protected OrderedDictionary<string, HistoryResultField> _fields;    //ISerializable
-        protected string _baseSetName;                                      //ISerializable
+        [PmxKey(0)] protected bool _harmonic;                                           //ISerializable
+        [PmxKey(1)] protected OrderedDictionary<string, HistoryResultField> _fields;    //ISerializable
+        [PmxKey(2)] protected string _baseSetName;                                      //ISerializable
 
 
         // Properties                                                                                                               
@@ -99,8 +99,9 @@ namespace CaeResults
                 else bw.Write(historyResultSet.BaseSetName);
             }
         }
-        public static void WriteToFileStream(HistoryResultSet historyResultSet, FileStream fileStream,
-                                             CompressionLevel compressionLevel)
+        public static void WriteToFileStream(HistoryResultSet historyResultSet, Stream fileStream,
+                                             CompressionLevel compressionLevel,
+                                             bool compressBlocks = true)
         {
             if (historyResultSet == null)
             {
@@ -121,7 +122,7 @@ namespace CaeResults
                     Tools.WriteIntToFileStream(fileStream, historyResultSet.Fields.Count);
                     //
                     foreach (var entry in historyResultSet.Fields)
-                        HistoryResultField.WriteToFileStream(entry.Value, fileStream, compressionLevel);
+                        HistoryResultField.WriteToFileStream(entry.Value, fileStream, compressionLevel, compressBlocks);
                 }
                 // BaseSetName
                 Tools.WriteStringToFileStream(fileStream, historyResultSet.BaseSetName);
@@ -161,7 +162,7 @@ namespace CaeResults
             }
             return null;
         }
-        public static HistoryResultSet ReadFromFileStream(FileStream fileStream, int version)
+        public static HistoryResultSet ReadFromFileStream(Stream fileStream, int version, bool blocksCompressed = true)
         {
             int numItems;
             HistoryResultField historyResultField;
@@ -183,7 +184,7 @@ namespace CaeResults
                     //
                     for (int i = 0; i < numItems; i++)
                     {
-                        historyResultField = HistoryResultField.ReadFromFileStream(fileStream, version);
+                        historyResultField = HistoryResultField.ReadFromFileStream(fileStream, version, blocksCompressed);
                         historyResultSet.Fields.Add(historyResultField.Name, historyResultField);
                     }
                 }
@@ -214,16 +215,6 @@ namespace CaeResults
                 fieldNameComponentNames.Add(entry.Key, entry.Value.Components.Keys.ToArray());
             }
             return fieldNameComponentNames;
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_harmonic", _harmonic, typeof(bool));
-            info.AddValue("_fields", _fields, typeof(OrderedDictionary<string, HistoryResultField>));
-            info.AddValue("_baseSetName", _baseSetName, typeof(string));
         }
 
     }

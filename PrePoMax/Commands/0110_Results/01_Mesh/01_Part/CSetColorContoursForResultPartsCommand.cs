@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10239)]
     class CSetColorContoursForResultPartsCommand : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _partNames;
-        private bool _colorContours;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private bool _colorContours;
 
 
         // Constructor                                                                                                              

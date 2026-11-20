@@ -14,10 +14,11 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
 using DynamicTypeDescriptor;
+using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3231)]
     public enum SolutionProcedureEnum
     {
         [StandardValue("ImplicitImplicit", DisplayName = "Implicit/Implicit")]
@@ -33,15 +34,15 @@ namespace CaeModel
         ExplicitExplicit = 3
     }
 
-    [Serializable]
-    public class DynamicStep : StaticStep, ISerializable
+    [PmxType(3232)]
+    public class DynamicStep : StaticStep
     {
         // Variables                                                                                                                
         public static readonly double AlphaDefault = -0.05;
-        private double _alpha;                              //ISerializable
-        private SolutionProcedureEnum _solutionProcedure;   //ISerializable
-        private bool _relativeToAbsolute;                   //ISerializable
-        private Damping _damping;                           //ISerializable
+        [PmxKey(0)] private double _alpha;                              //ISerializable
+        [PmxKey(1)] private SolutionProcedureEnum _solutionProcedure;   //ISerializable
+        [PmxKey(2)] private bool _relativeToAbsolute;                   //ISerializable
+        [PmxKey(3)] private Damping _damping;                           //ISerializable
 
 
         // Properties                                                                                                               
@@ -150,17 +151,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return true;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_alpha", _alpha, typeof(double));
-            info.AddValue("_explicit", _solutionProcedure, typeof(SolutionProcedureEnum));
-            info.AddValue("_relativeToAbsolute", _relativeToAbsolute, typeof(bool));
-            info.AddValue("_damping", _damping, typeof(Damping));
         }
     }
 }

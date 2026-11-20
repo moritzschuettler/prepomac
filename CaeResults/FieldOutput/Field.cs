@@ -21,7 +21,7 @@ using System.Diagnostics.Eventing.Reader;
 
 namespace CaeResults
 {
-    [Serializable]
+    [PmxType(5009)]
     public enum DataTypeEnum
     {
         None,
@@ -30,7 +30,7 @@ namespace CaeResults
         Tensor
     }
 
-    [Serializable]
+    [PmxType(5010)]
     public enum DataStateEnum
     {
         OK,
@@ -39,21 +39,21 @@ namespace CaeResults
     }
 
 
-    [Serializable]
+    [PmxType(5011)]
     public struct IDValuePair
     {
-        public int Id;
-        public float Value;
+        [PmxKey(0)] public int Id;
+        [PmxKey(1)] public float Value;
     }
 
-    [Serializable]
+    [PmxType(5012)]
     public class Field : NamedClass
     {
         // Variables                                                                                                                
-        private DataTypeEnum _dataType;                                     // add to binary writer/reader
-        private OrderedDictionary<string,  FieldComponent> _components;     // add to binary writer/reader
-        private bool _complex;                                              // add to binary writer/reader
-        private DataStateEnum _dataState;                                   // add to binary writer/reader
+        [PmxKey(0)] private DataTypeEnum _dataType;                                     // add to binary writer/reader
+        [PmxKey(1)] private OrderedDictionary<string,  FieldComponent> _components;     // add to binary writer/reader
+        [PmxKey(2)] private bool _complex;                                              // add to binary writer/reader
+        [PmxKey(3)] private DataStateEnum _dataState;                                   // add to binary writer/reader
 
 
         // Properties                                                                                                               

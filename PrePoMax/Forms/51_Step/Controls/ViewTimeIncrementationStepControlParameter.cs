@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace PrePoMax.PropertyViews
 {
-    [Serializable]
+    [PmxType(10423)]
     public class ViewTimeIncrementationStepControlParameter : ViewStepControlParameter
     {
         // Variables                                                                                                                
-        private CaeModel.TimeIncrementationStepControlParameter _parameter;
+        [PmxKey(0)] private CaeModel.TimeIncrementationStepControlParameter _parameter;
 
 
         // Properties                                                                                                               

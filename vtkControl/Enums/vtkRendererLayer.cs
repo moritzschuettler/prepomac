@@ -12,10 +12,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace vtkControl
 {
-    [Serializable]
+    [PmxType(6105)]
     public enum vtkRendererLayer
     {
         Base,

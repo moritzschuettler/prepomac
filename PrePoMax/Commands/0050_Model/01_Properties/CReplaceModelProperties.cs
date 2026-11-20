@@ -22,12 +22,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10077)]
     class CReplaceModelProperties : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private string _newModelName;
-        private ModelProperties _newModelProperties;
+        [PmxKey(0)] private string _newModelName;
+        [PmxKey(1)] private ModelProperties _newModelProperties;
 
 
         // Properties                                                                                                               
@@ -50,7 +50,7 @@ namespace PrePoMax.Commands
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ReplaceModelProperties(_newModelName, _newModelProperties);
+            receiver.ReplaceModelProperties(_newModelName, _newModelProperties.DeepClone());
             return true;
         }
         // ICommandWithDialog

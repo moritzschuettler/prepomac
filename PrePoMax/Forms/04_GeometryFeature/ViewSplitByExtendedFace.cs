@@ -19,11 +19,11 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10326)]
     public class ViewSplitByExtendedFace : ViewGeometryFeature
     {
         // Variables
-        private SplitByExtendedFace _splitByExtendedFace;
+        [PmxKey(0)] private SplitByExtendedFace _splitByExtendedFace;
 
 
         // Properties

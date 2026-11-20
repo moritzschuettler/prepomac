@@ -19,14 +19,14 @@ using CaeJob;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3216)]
     public class ContactStepControlParameter : StepControlParameter
     {
         // Variables                                                                                                                
-        private double _delcon;
-        private double _alea;
-        private int _kscalemax;
-        private int _itf2f;
+        [PmxKey(0)] private double _delcon;
+        [PmxKey(1)] private double _alea;
+        [PmxKey(2)] private int _kscalemax;
+        [PmxKey(3)] private int _itf2f;
 
 
         // Properties                                                                                                               

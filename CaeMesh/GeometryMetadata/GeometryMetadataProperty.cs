@@ -4,15 +4,16 @@
 
 using System;
 using System.Linq;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2088)]
     public class GeometryMetadataProperty
     {
         // Variables
-        private readonly double[] _numericValues;
-        private readonly string[] _textValues;
+        [PmxKey(0)] private readonly double[] _numericValues;
+        [PmxKey(1)] private readonly string[] _textValues;
 
 
         // Properties

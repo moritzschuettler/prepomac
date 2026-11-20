@@ -19,11 +19,11 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class SurfaceSpring : SpringConstraint, ISerializable
+    [PmxType(3019)]
+    public class SurfaceSpring : SpringConstraint
     {
         // Variables                                                                                                                
-        private bool _stiffnessPerArea;         //ISerializable
+        [PmxKey(0)] private bool _stiffnessPerArea;         //ISerializable
 
 
         // Properties                                                                                                               
@@ -74,14 +74,6 @@ namespace CaeModel
             K1.SetConverterType(stringDoubleConverterType);
             K2.SetConverterType(stringDoubleConverterType);
             K3.SetConverterType(stringDoubleConverterType);
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_stiffnessPerArea", _stiffnessPerArea, typeof(bool));
         }
     }
 }

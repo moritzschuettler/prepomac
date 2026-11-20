@@ -16,8 +16,8 @@ using System.Runtime.Serialization;
 
 namespace CaeGlobals
 {
-    [Serializable]
-    public class SelectionNodeInvert : SelectionNode, ISerializable
+    [PmxType(1028)]
+    public class SelectionNodeInvert : SelectionNode
     {
         // Variables                                                                                                                
 
@@ -36,14 +36,5 @@ namespace CaeGlobals
         }
 
 
-        // Methods                                                                                                                  
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            //info.AddValue("_pickedPoint", _pickedPoint, typeof(double[]));
-        }
     }
 }

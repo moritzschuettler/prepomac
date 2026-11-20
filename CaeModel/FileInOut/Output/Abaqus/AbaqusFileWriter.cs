@@ -26,7 +26,6 @@ using System.Security;
 
 namespace FileInOut.Output
 {
-    [Serializable]
     public static class AbaqusFileWriter
     {
         // Methods                                                                                                                  

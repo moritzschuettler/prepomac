@@ -20,11 +20,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10464)]
     public class ViewDFlux : ViewLoad
     {
         // Variables                                                                                                                
-        private DFlux _flux;
+        [PmxKey(0)] private DFlux _flux;
 
 
         // Properties                                                                                                               

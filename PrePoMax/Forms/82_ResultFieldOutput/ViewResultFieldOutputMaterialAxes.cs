@@ -20,7 +20,7 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10504)]
     public class ViewResultFieldOutputMaterialAxes : ViewResultFieldOutput
     {
         // Variables                                                                                                                

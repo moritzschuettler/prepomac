@@ -22,7 +22,7 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10528)]
     public enum RunPostProcessingEnum
     {
         [StandardValue("Yes", DisplayName = "Yes")]
@@ -34,31 +34,31 @@ namespace PrePoMax
         [StandardValue("Ask", DisplayName = "Ask")]
         Ask,
     }
-    [Serializable]
+    [PmxType(10529)]
     public class GeneralSettings : ISettings
     {
         // Variables                                                                                                                
-        private bool _openLastFile;
-        private string _lastFileName;
-        private bool _saveResultsInPmx;
-        private CompressionLevel _compressionLevel;
-        private UnitSystemType _unitSystemType;
+        [PmxKey(0)] private bool _openLastFile;
+        [PmxKey(1)] private string _lastFileName;
+        [PmxKey(2)] private bool _saveResultsInPmx;
+        [PmxKey(3)] private CompressionLevel _compressionLevel;
+        [PmxKey(4)] private UnitSystemType _unitSystemType;
         // CAD periodic surface split of older files when their history is regenerated
-        private int _numOfSplitFaces;
+        [PmxKey(5)] private int _numOfSplitFaces;
         // Mesh edge angle
-        private double _edgeAngle;
+        [PmxKey(6)] private double _edgeAngle;
         // Post-processing
-        private RunPostProcessingEnum _runHistoryPostprocessing;
+        [PmxKey(7)] private RunPostProcessingEnum _runHistoryPostprocessing;
         // Property editor
-        private bool _showAllProperties;
+        [PmxKey(8)] private bool _showAllProperties;
         //
-        private LinkedList<string> _recentFiles;
-        private List<string> _materialLibraryFiles;
+        [PmxKey(9)] private LinkedList<string> _recentFiles;
+        [PmxKey(10)] private List<string> _materialLibraryFiles;
         // Form size and position
-        private FormWindowState _formWindowState;
-        private Size _formSize;
-        private double _formRelativeXLocation;
-        private double _formRelativeYLocation;
+        [PmxKey(11)] private FormWindowState _formWindowState;
+        [PmxKey(12)] private Size _formSize;
+        [PmxKey(13)] private double _formRelativeXLocation;
+        [PmxKey(14)] private double _formRelativeYLocation;
 
 
         // Properties                                                                                                               

@@ -16,16 +16,16 @@ using System.Drawing;
 
 namespace CaeGlobals
 {
-    [Serializable]
+    [PmxType(1002)]
     public class NodesExchangeData
     {
         // Variables                                                                                                                
-        public int[] Ids;
-        public double[][] Coor;
-        public float[] FlatCoor;                            // x, y, z, x, y, z, ...
-        public double[][] Normals;
-        public float[] Values;
-        public ResultFieldExchangeData ResultField;
+        [PmxKey(0)] public int[] Ids;
+        [PmxKey(1)] public double[][] Coor;
+        [PmxKey(2)] public float[] FlatCoor;                            // x, y, z, x, y, z, ...
+        [PmxKey(3)] public double[][] Normals;
+        [PmxKey(4)] public float[] Values;
+        [PmxKey(5)] public ResultFieldExchangeData ResultField;
 
 
         // Constructors                                                                                                             

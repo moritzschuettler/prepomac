@@ -17,13 +17,13 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2076)]
     public class FeGroup : NamedClass
     {
         // Variables                                                                                                                
-        protected int[] _labels;
+        [PmxKey(0)] protected int[] _labels;
         //
-        public IMultiRegion ParentMultiRegion; // temporary storage 
+        [PmxKey(1)] public IMultiRegion ParentMultiRegion; // temporary storage 
 
 
         // Properties                                                                                                               

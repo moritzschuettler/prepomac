@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10193)]
     class CHideBCs : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string[] _boundaryConditionNames;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string[] _boundaryConditionNames;
 
 
         // Constructor                                                                                                              

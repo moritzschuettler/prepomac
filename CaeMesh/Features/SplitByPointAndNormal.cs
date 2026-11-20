@@ -13,16 +13,17 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2073)]
     public class SplitByPointAndNormal : GeometryFeature
     {
         // Variables
-        private double[] _point;                            //ISerializable
-        private double[] _normal;                           //ISerializable
-        private double _offset;                             //ISerializable
+        [PmxKey(0)] private double[] _point;                            //ISerializable
+        [PmxKey(1)] private double[] _normal;                           //ISerializable
+        [PmxKey(2)] private double _offset;                             //ISerializable
 
 
         // Properties
@@ -91,15 +92,6 @@ namespace CaeMesh
         {
             if (GetPlaneNormal() == null) return "The normal of the splitting plane is zero.";
             return null;
-        }
-        // ISerialization
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-            // Using typeof() works also for null fields
-            info.AddValue("_point", _point, typeof(double[]));
-            info.AddValue("_normal", _normal, typeof(double[]));
-            info.AddValue("_offset", _offset, typeof(double));
         }
     }
 }

@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10024)]
     class CExportToAbaqus : PreprocessCommand, IExportFileCommand
     {
         // Variables                                                                                                                
-        private string _fileName;
+        [PmxKey(0)] private string _fileName;
 
 
         // Properties                                                                                                               

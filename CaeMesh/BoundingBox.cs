@@ -60,19 +60,19 @@ namespace CaeMesh
         }
     }
 
-    [Serializable]
+    [PmxType(2000)]
     public class BoundingBox
     {
         // Variables                                                                                                                
-        public double MinX;
-        public double MinY;
-        public double MinZ;
+        [PmxKey(0)] public double MinX;
+        [PmxKey(1)] public double MinY;
+        [PmxKey(2)] public double MinZ;
         //
-        public double MaxX;
-        public double MaxY;
-        public double MaxZ;
+        [PmxKey(3)] public double MaxX;
+        [PmxKey(4)] public double MaxY;
+        [PmxKey(5)] public double MaxZ;
         //
-        public object Tag;
+        [PmxKey(6)] public object Tag;
 
 
         // Constructors                                                                                                             

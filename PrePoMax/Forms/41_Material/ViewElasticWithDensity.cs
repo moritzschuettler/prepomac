@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace PrePoMax.PropertyViews
 {
-    [Serializable]
+    [PmxType(10374)]
     public class ViewElasticWithDensity : ViewMaterialProperty
     {
         // Variables                                                                                                                
-        private CaeModel.ElasticWithDensity _elasticWithDensity;
+        [PmxKey(0)] private CaeModel.ElasticWithDensity _elasticWithDensity;
 
 
         // Properties                                                                                                               

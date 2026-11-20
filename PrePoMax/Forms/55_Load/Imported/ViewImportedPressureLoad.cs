@@ -21,11 +21,11 @@ using System.Drawing.Design;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10458)]
     public class ViewImportedPressureLoad : ViewLoad
     {
         // Variables                                                                                                                
-        private ImportedPressure _importedPressure;
+        [PmxKey(0)] private ImportedPressure _importedPressure;
 
 
         // Properties                                                                                                               

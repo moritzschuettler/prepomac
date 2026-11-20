@@ -18,11 +18,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10433)]
     public class ViewStaticStep : ViewStep
     {
         // Variables                                                                                                                
-        private CaeModel.StaticStep _staticStep;
+        [PmxKey(0)] private CaeModel.StaticStep _staticStep;
 
 
         // Properties                                                                                                               

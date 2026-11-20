@@ -16,14 +16,14 @@ using System.Drawing;
 
 namespace CaeGlobals
 {
-    [Serializable]
+    [PmxType(1001)]
     public class CellsExchangeData
     {
         // Variables                                                                                                                
-        public int[] Ids;
-        public int[][] CellNodeIds;
-        public int[] Types;
-        public float[] Values;
+        [PmxKey(0)] public int[] Ids;
+        [PmxKey(1)] public int[][] CellNodeIds;
+        [PmxKey(2)] public int[] Types;
+        [PmxKey(3)] public float[] Values;
 
 
         // Constructors                                                                                                             

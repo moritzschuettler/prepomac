@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10270)]
     class CAddMeshRefinement : PreprocessCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private FeMeshRefinement _meshRefinement;
+        [PmxKey(0)] private FeMeshRefinement _meshRefinement;
 
 
         // Constructor                                                                                                              

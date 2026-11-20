@@ -18,12 +18,12 @@ using System.Threading.Tasks;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3192)]
     public class EquationParameter : NamedClass
     {
         // Variables                                                                                                                
-        private EquationContainer _equation;
-        private string _description;
+        [PmxKey(0)] private EquationContainer _equation;
+        [PmxKey(1)] private string _description;
 
 
         // Properties                                                                                                               

@@ -18,7 +18,7 @@ using System.Runtime.Serialization;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10222)]
     public abstract class PreprocessCommand : Command
     {
         // Variables                                                                                                                
@@ -38,10 +38,5 @@ namespace PrePoMax.Commands
         }
 
 
-        // Methods                                                                                                                  
-        protected override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-        }
     }
 }

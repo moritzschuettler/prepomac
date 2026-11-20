@@ -19,12 +19,12 @@ using System.Drawing;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3085)]
     internal class CalInitialAngularVelocity : CalculixKeyword
     {
         // Variables                                                                                                                
-        private InitialAngularVelocity _initialVelocity;
-        private InitialTranslationalVelocity[] _initialTranslationalVelocities;
+        [PmxKey(0)] private InitialAngularVelocity _initialVelocity;
+        [PmxKey(1)] private InitialTranslationalVelocity[] _initialTranslationalVelocities;
 
 
         // Properties                                                                                                               

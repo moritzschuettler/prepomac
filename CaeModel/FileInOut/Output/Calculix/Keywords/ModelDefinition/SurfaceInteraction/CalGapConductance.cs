@@ -18,11 +18,11 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3106)]
     internal class CalGapConductance : CalculixKeyword
     {
         // Variables                                                                                                                
-        private GapConductance _gapConductance;
+        [PmxKey(0)] private GapConductance _gapConductance;
 
 
         // Properties                                                                                                               

@@ -15,14 +15,15 @@ using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
 using System.Xml.Linq;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3062)]
     public class CalAdditional : CalTitle
     {
         // Variables                                                                                                                
-        private List<CalculixKeyword> _additionalKeywords;
+        [PmxKey(0)] private List<CalculixKeyword> _additionalKeywords;
 
 
         // Properties                                                                                                               

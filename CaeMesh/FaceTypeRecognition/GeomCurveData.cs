@@ -9,6 +9,7 @@
 
 using System;
 using System.Globalization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -16,21 +17,21 @@ namespace CaeMesh
     /// The result of the mesh based recognition of a visualization edge.
     /// Besides the curve type it also contains the parameters of the recognized analytic curve.
     /// </summary>
-    [Serializable]
+    [PmxType(2063)]
     public class GeomCurveData
     {
         // Variables
-        private GeomCurveType _type;
-        private double[] _point;
-        private double[] _direction;
-        private double[] _majorAxis;
-        private double _radius;
-        private double _minorRadius;
-        private double _arcAngleDeg;
-        private double _length;
-        private bool _closed;
-        private double _residual;
-        private int _nodeCount;
+        [PmxKey(0)] private GeomCurveType _type;
+        [PmxKey(1)] private double[] _point;
+        [PmxKey(2)] private double[] _direction;
+        [PmxKey(3)] private double[] _majorAxis;
+        [PmxKey(4)] private double _radius;
+        [PmxKey(5)] private double _minorRadius;
+        [PmxKey(6)] private double _arcAngleDeg;
+        [PmxKey(7)] private double _length;
+        [PmxKey(8)] private bool _closed;
+        [PmxKey(9)] private double _residual;
+        [PmxKey(10)] private int _nodeCount;
 
 
         // Properties

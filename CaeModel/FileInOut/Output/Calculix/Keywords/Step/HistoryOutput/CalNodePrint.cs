@@ -14,21 +14,22 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3143)]
     internal class CalNodePrint : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected readonly NodalHistoryOutput _nodalHistoryOutput;
-        protected string _regionName;
-        protected int _outputFrequency;
+        [PmxKey(0)] protected readonly NodalHistoryOutput _nodalHistoryOutput;
+        [PmxKey(1)] protected string _regionName;
+        [PmxKey(2)] protected int _outputFrequency;
 
 
         // Properties                                                                                                               
         public string RegionName { get { return _regionName; } }
-        public bool OutputFrequency { get; set; }
+        [field: PmxKey(3)] public bool OutputFrequency { get; set; }
 
 
         // Constructors                                                                                                             

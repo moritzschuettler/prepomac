@@ -20,12 +20,12 @@ using System.Drawing.Printing;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10346)]
     public class ViewMergeCoincidentNodes
     {
         // Variables                                                                                                                
-        private MergeCoincidentNodes _mergeCoincidentNodes;
-        private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(0)] private MergeCoincidentNodes _mergeCoincidentNodes;
+        [PmxKey(1)] private DynamicCustomTypeDescriptor _dctd = null;
 
 
         // Properties                                                                                                               

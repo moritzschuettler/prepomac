@@ -21,15 +21,15 @@ using System.Drawing;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10320)]
     public class ViewFollowerViewParameters
     {
         // Variables                                                                                                                      
-        private DynamicCustomTypeDescriptor _dctd = null;
-        private FollowerViewParameters _parameters;
-        private ItemSetData _centerNodeItemSetData;
-        private ItemSetData _direction1NodeItemSetData;
-        private ItemSetData _direction2NodeItemSetData;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(1)] private FollowerViewParameters _parameters;
+        [PmxKey(2)] private ItemSetData _centerNodeItemSetData;
+        [PmxKey(3)] private ItemSetData _direction1NodeItemSetData;
+        [PmxKey(4)] private ItemSetData _direction2NodeItemSetData;
 
 
         // Properties                                                                                                               

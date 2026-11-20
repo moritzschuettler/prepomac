@@ -14,10 +14,11 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2103)]
     public enum GmshAlgorithmMesh2DEnum
     {
         [StandardValue("MeshAdapt", DisplayName = "MeshAdapt")]

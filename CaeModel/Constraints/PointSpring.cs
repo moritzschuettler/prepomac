@@ -19,11 +19,11 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class PointSpring : SpringConstraint, ISerializable
+    [PmxType(3015)]
+    public class PointSpring : SpringConstraint
     {
         // Variables                                                                                                                
-        private int _nodeId;                  //ISerializable
+        [PmxKey(0)] private int _nodeId;                  //ISerializable
 
 
         // Properties                                                                                                               
@@ -57,15 +57,5 @@ namespace CaeModel
         }
 
 
-        // Methods                                                                                                                  
-
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_nodeId", _nodeId, typeof(int));
-        }
     }
 }

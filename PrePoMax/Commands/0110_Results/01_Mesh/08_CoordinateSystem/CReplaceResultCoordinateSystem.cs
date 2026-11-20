@@ -21,12 +21,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10253)]
     class CReplaceResultCoordinateSystem : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldCoordinateSystemName;
-        private CoordinateSystem _newCoordinateSystem;
+        [PmxKey(0)] private string _oldCoordinateSystemName;
+        [PmxKey(1)] private CoordinateSystem _newCoordinateSystem;
 
         // Constructor                                                                                                              
         public CReplaceResultCoordinateSystem(string oldCoordinateSystemName, CoordinateSystem newCoordinateSystem)

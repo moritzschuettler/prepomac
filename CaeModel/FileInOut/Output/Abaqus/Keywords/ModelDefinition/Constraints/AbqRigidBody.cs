@@ -14,10 +14,11 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3046)]
     internal class AbqRigidBody : CalRigidBody
     {
         // Variables                                                                                                                

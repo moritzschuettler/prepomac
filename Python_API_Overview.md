@@ -298,17 +298,18 @@ To have the server on whenever PrePoMax runs, set *Start with the application* i
 The address and the token are both in **Tools - Settings - Automation**, under *Connection*. **The
 server will not start without a token**, and there is no command line switch for one: run PrePoMax
 once, right click the *Access token* entry, and choose *Generate the access token*. It is kept in
-that folder's `settings.bin`, so deleting the portable folder deletes it, and it can only be
+that folder's `settings.json`, so deleting the portable folder deletes it, and it can only be
 generated - never typed or pasted, which is what keeps it long and random.
 
-**A newly unpacked PrePoMax starts without one, deliberately.** `settings.bin` is part of the
+**A newly unpacked PrePoMax starts without one, deliberately.** `settings.json` is part of the
 redistributable, so a token left in it would be shipped to every user, identical for all of them and
 readable by anyone. Two things prevent that: the settings page has a *Clear the access token* action
 to use before preparing a release, and the first run in any folder clears the token found in its
 settings before anything can serve with it - PrePoMax detects that from the absence of its own
 `trace.info` marker. So after an update you generate a new token in the new folder and give it to
 your assistant, or keep the old one: start the new version once and close it, then copy
-`settings.bin` over from the old folder. One copied in before that first start loses its token.
+`settings.json` over from the old folder - or the `settings.bin` of a version before the JSON settings,
+which is read once and rewritten as `settings.json`. One copied in before that first start loses its token.
 
 **A client that cannot connect is telling you that PrePoMax is closed, or that its automation server
 is off.** Nothing answers on the address unless the session is open - that is the point of serving it
@@ -547,7 +548,7 @@ anything running **as that user** can read it, exactly as anything running as th
 pipe. It stops a web page, which cannot read a file at all. It stops another account logged into the
 machine - which can reach a loopback port, and is the boundary the named pipe used to get from
 Windows for free - **only when the PrePoMax folder is readable by this user alone**, such as a folder
-inside the user profile. `settings.bin` is given no access rules of its own and inherits those of the
+inside the user profile. `settings.json` is given no access rules of its own and inherits those of the
 folder it is in, and a folder under `C:\` is readable by every local account by default, so there any
 other account can read the token. It is not a defence against code already running as the user, and
 nothing served over loopback can be. While the server runs the token is also in the session file under

@@ -59,12 +59,12 @@ namespace PrePoMax
         }
     }
 
-    [Serializable]
+    [PmxType(10308)]
     public class ViewExportFileProperties
     {
         // Variables                                                                                                                
-        protected DynamicCustomTypeDescriptor _dctd = null;
-        protected ExportFileProperties _properties;
+        [PmxKey(0)] protected DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(1)] protected ExportFileProperties _properties;
 
 
         // Properties                                                                                                               

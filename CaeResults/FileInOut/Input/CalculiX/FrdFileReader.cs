@@ -20,7 +20,6 @@ using System.Globalization;
 
 namespace CaeResults
 {
-    [Serializable]
     public static class FrdFileReader
     {
         static Dictionary<string, string> componentNameMap = new Dictionary<string, string>()

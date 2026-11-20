@@ -24,17 +24,17 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10022)]
     class CExportResultParts : PostprocessCommand, IExportFileCommand
     {
         // Variables
-        private string[] _partNames;
-        private string _fileName;
-        private ResultsExportFormatEnum _format;
-        [OptionalField] private string _resultName;
-        [OptionalField] private int _stepId;
-        [OptionalField] private int _incrementId;
-        [OptionalField] private float _deformationFactor;
+        [PmxKey(0)] private string[] _partNames;
+        [PmxKey(1)] private string _fileName;
+        [PmxKey(2)] private ResultsExportFormatEnum _format;
+        [PmxKey(3)] [OptionalField] private string _resultName;
+        [PmxKey(4)] [OptionalField] private int _stepId;
+        [PmxKey(5)] [OptionalField] private int _incrementId;
+        [PmxKey(6)] [OptionalField] private float _deformationFactor;
 
 
         // Properties

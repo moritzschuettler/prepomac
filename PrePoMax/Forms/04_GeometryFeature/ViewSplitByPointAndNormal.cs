@@ -19,11 +19,11 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10330)]
     public class ViewSplitByPointAndNormal : ViewGeometryFeature
     {
         // Variables
-        private SplitByPointAndNormal _splitByPointAndNormal;
+        [PmxKey(0)] private SplitByPointAndNormal _splitByPointAndNormal;
 
 
         // Properties

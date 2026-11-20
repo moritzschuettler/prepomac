@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10141)]
     class CDuplicateConstraints : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _constraintNames;
+        [PmxKey(0)] private string[] _constraintNames;
 
 
         // Constructor                                                                                                              

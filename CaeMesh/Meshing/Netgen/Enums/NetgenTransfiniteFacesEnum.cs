@@ -13,10 +13,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2124)]
     public enum NetgenTransfiniteFacesEnum
     {
         // The Netgen transfinite setting of an earlier version, kept so that its files still load: any value but None

@@ -21,11 +21,11 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10162)]
     class CDuplicateDistributions : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string[] _distributionNames;
+        [PmxKey(0)] private string[] _distributionNames;
 
 
         // Constructor                                                                                                              

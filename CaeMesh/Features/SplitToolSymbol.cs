@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 namespace CaeMesh
 {
@@ -18,15 +19,15 @@ namespace CaeMesh
     /// The finished symbol of a splitting tool, in the coordinates of the parts themselves. It is made when
     /// the split is applied, while the picks still name the geometry they were made on.
     /// </summary>
-    [Serializable]
-    public class SplitToolSymbol : ISerializable
+    [PmxType(2074)]
+    public class SplitToolSymbol
     {
         // Variables
-        private List<double[][]> _surfaceNodeCoor;          //ISerializable
-        private List<int[][]> _surfaceCells;                //ISerializable
-        private List<double[][]> _borderNodeCoor;           //ISerializable
-        private List<int[][]> _borderCells;                 //ISerializable
-        private List<double[]> _points;                     //ISerializable
+        [PmxKey(0)] private List<double[][]> _surfaceNodeCoor;          //ISerializable
+        [PmxKey(1)] private List<int[][]> _surfaceCells;                //ISerializable
+        [PmxKey(2)] private List<double[][]> _borderNodeCoor;           //ISerializable
+        [PmxKey(3)] private List<int[][]> _borderCells;                 //ISerializable
+        [PmxKey(4)] private List<double[]> _points;                     //ISerializable
 
 
         // Properties
@@ -92,16 +93,6 @@ namespace CaeMesh
         private static T[][] Copy<T>(T[][] values)
         {
             return values.Select(value => value.ToArray()).ToArray();
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_surfaceNodeCoor", _surfaceNodeCoor, typeof(List<double[][]>));
-            info.AddValue("_surfaceCells", _surfaceCells, typeof(List<int[][]>));
-            info.AddValue("_borderNodeCoor", _borderNodeCoor, typeof(List<double[][]>));
-            info.AddValue("_borderCells", _borderCells, typeof(List<int[][]>));
-            info.AddValue("_points", _points, typeof(List<double[]>));
         }
     }
 }

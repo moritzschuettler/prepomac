@@ -14,19 +14,20 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3144)]
     internal class CalSectionPrint : CalculixKeyword
     {
         // Variables                                                                                                                
-        protected readonly SectionHistoryOutput _sectionHistoryOutput;
-        protected int _outputFrequency;
+        [PmxKey(0)] protected readonly SectionHistoryOutput _sectionHistoryOutput;
+        [PmxKey(1)] protected int _outputFrequency;
 
 
         // Properties                                                                                                               
-        public bool OutputFrequency { get; set; }
+        [field: PmxKey(2)] public bool OutputFrequency { get; set; }
 
 
         // Constructors                                                                                                             

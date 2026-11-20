@@ -17,7 +17,7 @@ using CaeGlobals;
 
 namespace CaeMesh
 {
-    [Serializable]
+    [PmxType(2082)]
     public enum FeSurfaceCreatedFrom
     {
         [StandardValue("Selection", DisplayName = "Selection")]
@@ -29,14 +29,14 @@ namespace CaeMesh
     }
 
     // used in Calculix inp file
-    [Serializable]
+    [PmxType(2083)]
     public enum FeSurfaceType
     {
         Element,
         Node
     }
 
-    [Serializable]
+    [PmxType(2084)]
     public enum FeSurfaceFaceTypes
     {
         Unknown,
@@ -46,25 +46,25 @@ namespace CaeMesh
         SolidFaces
     }
 
-    [Serializable]
+    [PmxType(2085)]
     public class FeSurface : NamedClass
     {
         // Variables                                                                                                                
-        private FeSurfaceType _type;
-        private FeSurfaceCreatedFrom _createdFrom;
-        private string _nodeSetName;
-        private string _createdFromNodeSetName;
-        private int[] _faceIds;                                         // renumber on renumber elements ids
-        private double _area;
-        private Dictionary<FeFaceName, string> _elementFaces;
-        private Selection _creationData;
-        private FeSurfaceFaceTypes _surfaceFaceTypes = FeSurfaceFaceTypes.Unknown;
+        [PmxKey(0)] private FeSurfaceType _type;
+        [PmxKey(1)] private FeSurfaceCreatedFrom _createdFrom;
+        [PmxKey(2)] private string _nodeSetName;
+        [PmxKey(3)] private string _createdFromNodeSetName;
+        [PmxKey(4)] private int[] _faceIds;                                         // renumber on renumber elements ids
+        [PmxKey(5)] private double _area;
+        [PmxKey(6)] private Dictionary<FeFaceName, string> _elementFaces;
+        [PmxKey(7)] private Selection _creationData;
+        [PmxKey(8)] private FeSurfaceFaceTypes _surfaceFaceTypes = FeSurfaceFaceTypes.Unknown;
         //
-        private IMultiRegion _parentMultiRegion;                        // temporary storage 
-        private IMasterSlaveMultiRegion _parentMasterMultiRegion;       // temporary storage 
-        private IMasterSlaveMultiRegion _parentSlaveMultiRegion;        // temporary storage 
+        [PmxKey(9)] private IMultiRegion _parentMultiRegion;                        // temporary storage 
+        [PmxKey(10)] private IMasterSlaveMultiRegion _parentMasterMultiRegion;       // temporary storage 
+        [PmxKey(11)] private IMasterSlaveMultiRegion _parentSlaveMultiRegion;        // temporary storage 
         //
-        private bool _temporarySurface;                                 // for visualization
+        [PmxKey(12)] private bool _temporarySurface;                                 // for visualization
 
 
         // Properties                                                                                                               

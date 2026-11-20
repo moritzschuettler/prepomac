@@ -14,14 +14,15 @@ using System.Text;
 using System.Threading.Tasks;
 using CaeModel;
 using CaeMesh;
+using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3092)]
     internal class CalMaterial : CalculixKeyword
     {
         // Variables                                                                                                                
-        private Material _material;
+        [PmxKey(0)] private Material _material;
 
 
         // Properties                                                                                                               

@@ -21,11 +21,11 @@ using System.Threading.Tasks;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10260)]
     class CAddResultHistoryOutput : PostprocessCommand
     {
         // Variables                                                                                                                
-        private ResultHistoryOutput _resultHistoryOutput;
+        [PmxKey(0)] private ResultHistoryOutput _resultHistoryOutput;
         
         
         // Properties                                                                                                               

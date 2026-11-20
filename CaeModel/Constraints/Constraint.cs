@@ -20,24 +20,24 @@ using System.Runtime.Serialization;
 
 namespace CaeModel
 {
-    [Serializable]
-    public abstract class Constraint : NamedClass, IMasterSlaveMultiRegion, IContainsEquations, ISerializable
+    [PmxType(3004)]
+    public abstract class Constraint : NamedClass, IMasterSlaveMultiRegion, IContainsEquations
     {
         // Variables                                                                                                                
-        private string _masterRegionName;               //ISerializable
-        private RegionTypeEnum _masterRegionType;       //ISerializable
-        private string _slaveRegionName;                //ISerializable
-        private RegionTypeEnum _slaveRegionType;        //ISerializable
+        [PmxKey(0)] private string _masterRegionName;               //ISerializable
+        [PmxKey(1)] private RegionTypeEnum _masterRegionType;       //ISerializable
+        [PmxKey(2)] private string _slaveRegionName;                //ISerializable
+        [PmxKey(3)] private RegionTypeEnum _slaveRegionType;        //ISerializable
         //
-        private int[] _masterCreationIds;               //ISerializable
-        private Selection _masterCreationData;          //ISerializable
-        private int[] _slaveCreationIds;                //ISerializable
-        private Selection _slaveCreationData;           //ISerializable
+        [PmxKey(4)] private int[] _masterCreationIds;               //ISerializable
+        [PmxKey(5)] private Selection _masterCreationData;          //ISerializable
+        [PmxKey(6)] private int[] _slaveCreationIds;                //ISerializable
+        [PmxKey(7)] private Selection _slaveCreationData;           //ISerializable
         //
-        protected Color _masterColor;                   //ISerializable
-        protected Color _slaveColor;                    //ISerializable
+        [PmxKey(8)] protected Color _masterColor;                   //ISerializable
+        [PmxKey(9)] protected Color _slaveColor;                    //ISerializable
         //
-        private bool _twoD;                             //ISerializable
+        [PmxKey(10)] private bool _twoD;                             //ISerializable
 
 
         // Properties                                                                                                               
@@ -132,27 +132,6 @@ namespace CaeModel
                 return true;
             }
             catch (Exception ex) { return false; }
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_masterRegionName", _masterRegionName, typeof(string));
-            info.AddValue("_masterRegionType", _masterRegionType, typeof(RegionTypeEnum));
-            info.AddValue("_slaveRegionName", _slaveRegionName, typeof(string));
-            info.AddValue("_slaveRegionType", _slaveRegionType, typeof(RegionTypeEnum));
-            //
-            info.AddValue("_masterCreationIds", _masterCreationIds, typeof(int[]));
-            info.AddValue("_masterCreationData", _masterCreationData, typeof(Selection));
-            info.AddValue("_slaveCreationIds", _slaveCreationIds, typeof(int[]));
-            info.AddValue("_slaveCreationData", _slaveCreationData, typeof(Selection));
-            //
-            info.AddValue("_masterColor", _masterColor, typeof(Color));
-            info.AddValue("_slaveColor", _slaveColor, typeof(Color));
-            //
-            info.AddValue("_twoD", _twoD, typeof(bool));
         }
 
     }

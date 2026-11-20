@@ -20,11 +20,11 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10457)]
     public class ViewTemperatureBC : ViewBoundaryCondition
     {
         // Variables                                                                                                                
-        private CaeModel.TemperatureBC _temperatureBC;
+        [PmxKey(0)] private CaeModel.TemperatureBC _temperatureBC;
 
 
         // Properties                                                                                                               

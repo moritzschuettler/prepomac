@@ -18,7 +18,7 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3054)]
     internal class AbqVariablePressureLoad : CalVariablePressureLoad
     {
         // Variables                                                                                                                

@@ -19,8 +19,8 @@ using System.Drawing;
 
 namespace CaeModel
 {
-    [Serializable]
-    public class FixedBC : BoundaryCondition, ISerializable
+    [PmxType(3210)]
+    public class FixedBC : BoundaryCondition
     {
         // Variables                                                                                                                
 
@@ -57,13 +57,6 @@ namespace CaeModel
         public override void CheckEquations()
         {
             base.CheckEquations();
-            //
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
             //
         }
     }

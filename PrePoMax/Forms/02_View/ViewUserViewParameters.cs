@@ -21,12 +21,12 @@ using System.Drawing.Design;
 
 namespace PrePoMax.Forms
 {    
-    [Serializable]
+    [PmxType(10321)]
     public class ViewUserViewParameters
     {
         // Variables                                                                                                                
-        private DynamicCustomTypeDescriptor _dctd = null;
-        private UserViewParameters _parameters;
+        [PmxKey(0)] private DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(1)] private UserViewParameters _parameters;
 
 
         // Properties                                                                                                               

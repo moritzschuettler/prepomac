@@ -16,12 +16,12 @@ using System.Runtime.Serialization;
 
 namespace CaeGlobals
 {
-    [Serializable]
-    public abstract class SelectionNode : ISerializable
+    [PmxType(1026)]
+    public abstract class SelectionNode
     {
         // Variables                                                                                                                
-        protected vtkSelectOperation _selectOperation;      //ISerializable
-        protected int[] _partIds;                           //ISerializable
+        [PmxKey(0)] protected vtkSelectOperation _selectOperation;      //ISerializable
+        [PmxKey(1)] protected int[] _partIds;                           //ISerializable
         [NonSerialized] protected int _hash;
 
 
@@ -65,16 +65,14 @@ namespace CaeGlobals
 
 
         // Methods                                                                                                                  
+        [OnDeserializing]
+        private void ResetHash(StreamingContext context)
+        {
+            _hash = -1;
+        }
         public void SetSelectOperation(vtkSelectOperation selectOperation)
         {
             _selectOperation = selectOperation;
-        }
-        // ISerialization
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            info.AddValue("_selectOperation", _selectOperation, typeof(vtkSelectOperation));
-            info.AddValue("_partIds", _partIds, typeof(int[]));
         }
     }
 }

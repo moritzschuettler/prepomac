@@ -13,23 +13,24 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
+using CaeGlobals;
 
 
 namespace CaeModel
 {
-    [Serializable]
-    public class SteadyStateDynamicsStep : Step, ISerializable
+    [PmxType(3277)]
+    public class SteadyStateDynamicsStep : Step
     {
         // Variables                                                                                                                
-        private bool _harmonic;             //ISerializable
-        private double _lowerFrequency;     //ISerializable
-        private double _upperFrequency;     //ISerializable
-        private int _numDataPoints;         //ISerializable
-        private double _bias;               //ISerializable
-        private int _numFourierTerms;       //ISerializable
-        private double _timeLower;          //ISerializable
-        private double _timeUpper;          //ISerializable
-        private ModalDamping _modalDamping; //ISerializable
+        [PmxKey(0)] private bool _harmonic;             //ISerializable
+        [PmxKey(1)] private double _lowerFrequency;     //ISerializable
+        [PmxKey(2)] private double _upperFrequency;     //ISerializable
+        [PmxKey(3)] private int _numDataPoints;         //ISerializable
+        [PmxKey(4)] private double _bias;               //ISerializable
+        [PmxKey(5)] private int _numFourierTerms;       //ISerializable
+        [PmxKey(6)] private double _timeLower;          //ISerializable
+        [PmxKey(7)] private double _timeUpper;          //ISerializable
+        [PmxKey(8)] private ModalDamping _modalDamping; //ISerializable
 
 
         // Properties                                                                                                               
@@ -180,22 +181,6 @@ namespace CaeModel
         {
             if (definedField is DefinedTemperature) return false;
             else throw new NotSupportedException();
-        }
-        // ISerialization
-        public new void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            // Using typeof() works also for null fields
-            base.GetObjectData(info, context);
-            //
-            info.AddValue("_harmonic", _harmonic, typeof(bool));
-            info.AddValue("_lowerFrequency", _lowerFrequency, typeof(double));
-            info.AddValue("_upperFrequency", _upperFrequency, typeof(double));
-            info.AddValue("_numDataPoints", _numDataPoints, typeof(int));
-            info.AddValue("_bias", _bias, typeof(double));
-            info.AddValue("_numFourierTerms", _numFourierTerms, typeof(int));
-            info.AddValue("_timeLower", _timeLower, typeof(double));
-            info.AddValue("_timeUpper", _timeUpper, typeof(double));
-            info.AddValue("_modalDamping", _modalDamping, typeof(ModalDamping));
         }
     }
 }

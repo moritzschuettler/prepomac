@@ -18,12 +18,12 @@ using CaeGlobals;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10360)]
     public class ElasticDataPoint : TempDataPoint
     {
         // Variables                                                                                                                
-        private EquationContainer _youngsModulus;
-        private EquationContainer _poissonsRatio;
+        [PmxKey(0)] private EquationContainer _youngsModulus;
+        [PmxKey(1)] private EquationContainer _poissonsRatio;
 
 
         // Properties                                                                                                               

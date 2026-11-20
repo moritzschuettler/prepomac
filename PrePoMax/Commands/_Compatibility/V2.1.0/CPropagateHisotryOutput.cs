@@ -19,12 +19,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10281)]
     class CPropagateHisotryOutput : PreprocessCommand
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private string _historyOutputName;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private string _historyOutputName;
 
 
         // Constructor                                                                                                              

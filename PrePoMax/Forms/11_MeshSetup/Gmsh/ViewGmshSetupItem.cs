@@ -21,11 +21,11 @@ using System.Diagnostics;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10334)]
     public class ViewGmshSetupItem : ViewMeshSetupItem
     {
         // Variables                                                                                                                
-        protected GmshSetupItem _gmshSetupItem;
+        [PmxKey(0)] protected GmshSetupItem _gmshSetupItem;
 
 
         // Properties                                                                                                               

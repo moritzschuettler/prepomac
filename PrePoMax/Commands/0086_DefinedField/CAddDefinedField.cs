@@ -19,12 +19,12 @@ using PrePoMax.Python.Journal;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10205)]
     class CAddDefinedField : PreprocessCommand, IFileDependentCommand, ICommandWithDialog
     {
         // Variables                                                                                                                
-        private string _stepName;
-        private DefinedField _definedField;
+        [PmxKey(0)] private string _stepName;
+        [PmxKey(1)] private DefinedField _definedField;
 
 
         // Properties                                                                                                               

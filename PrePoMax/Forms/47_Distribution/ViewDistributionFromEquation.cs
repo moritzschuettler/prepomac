@@ -20,11 +20,11 @@ using System.Security.Policy;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10409)]
     public class ViewDistributionFromEquation : ViewDistribution
     {
         // Variables                                                                                                                
-        private DistributionFromEquation _distributionFromEquation;
+        [PmxKey(0)] private DistributionFromEquation _distributionFromEquation;
 
 
         // Properties                                                                                                               

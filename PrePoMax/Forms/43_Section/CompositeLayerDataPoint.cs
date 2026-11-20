@@ -14,13 +14,13 @@ using CaeModel;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10381)]
     public class CompositeLayerDataPoint
     {
         // Variables                                                                                                                
-        private string _materialName;
-        private EquationContainer _thickness;
-        private EquationContainer _angle;
+        [PmxKey(0)] private string _materialName;
+        [PmxKey(1)] private EquationContainer _thickness;
+        [PmxKey(2)] private EquationContainer _angle;
 
 
         // Properties                                                                                                               

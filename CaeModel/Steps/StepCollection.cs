@@ -16,12 +16,12 @@ using CaeGlobals;
 
 namespace CaeModel
 {
-    [Serializable]
+    [PmxType(3281)]
     public class StepCollection
     {
         // Variables                                                                                                                
-        private List<Step> _steps;
-        private bool _onlyCheckModel;
+        [PmxKey(0)] private List<Step> _steps;
+        [PmxKey(1)] private bool _onlyCheckModel;
 
 
         // Properties                                                                                                               

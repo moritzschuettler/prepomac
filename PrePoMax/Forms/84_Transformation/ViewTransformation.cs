@@ -21,18 +21,18 @@ using CaeResults;
 
 namespace PrePoMax.Forms
 {
-    [Serializable]
+    [PmxType(10518)]
     public abstract class ViewTransformation
     {
         // Variables                                                                                                                
-        protected DynamicCustomTypeDescriptor _dctd = null;
-        protected ItemSetData _startPointItemSetData;
-        protected ItemSetData _endPointItemSetData;
+        [PmxKey(0)] protected DynamicCustomTypeDescriptor _dctd = null;
+        [PmxKey(1)] protected ItemSetData _startPointItemSetData;
+        [PmxKey(2)] protected ItemSetData _endPointItemSetData;
 
 
         // Properties                                                                                                               
         //[Browsable(false)]
-        [Category("Data")]
+        [field: PmxKey(3)] [Category("Data")]
         [OrderedDisplayName(0, 10, "Name")]
         [DescriptionAttribute("Enter the transformation name.")]
         [Id(1, 1)]

@@ -20,12 +20,12 @@ using CaeResults;
 
 namespace PrePoMax.Commands
 {
-    [Serializable]
+    [PmxType(10259)]
     class CReplaceResultFieldOutput : PostprocessCommand
     {
         // Variables                                                                                                                
-        private string _oldResultFieldOutputName;
-        private ResultFieldOutput _newResultFieldOutput;
+        [PmxKey(0)] private string _oldResultFieldOutputName;
+        [PmxKey(1)] private ResultFieldOutput _newResultFieldOutput;
 
 
         // Constructor                                                                                                              

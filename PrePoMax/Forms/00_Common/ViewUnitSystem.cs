@@ -19,11 +19,11 @@ using DynamicTypeDescriptor;
 
 namespace PrePoMax
 {
-    [Serializable]
+    [PmxType(10311)]
     public class ViewUnitSystem
     {
         // Variables                                                                                                                
-        private UnitSystem _unitSystem;
+        [PmxKey(0)] private UnitSystem _unitSystem;
 
 
         // Properties                                                                                                               

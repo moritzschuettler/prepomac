@@ -15,13 +15,13 @@ using CaeGlobals;
 
 namespace FileInOut.Output.Calculix
 {
-    [Serializable]
+    [PmxType(3098)]
     internal class CalCompositeShellSection : CalculixKeyword
     {
         // Variables                                                                                                                
-        private CompositeShellSection _section;
-        private string _elementSetName;
-        private string[] _layerOrientationNames;
+        [PmxKey(0)] private CompositeShellSection _section;
+        [PmxKey(1)] private string _elementSetName;
+        [PmxKey(2)] private string[] _layerOrientationNames;
 
 
         // Properties                                                                                                               
