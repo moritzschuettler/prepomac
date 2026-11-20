@@ -1175,23 +1175,23 @@ namespace CaeModel
             }
             else if (load is DLoad dl)
             {
-                valid = (_mesh.Surfaces.TryGetValue(dl.RegionName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(dl, dl.RegionName);
             }
             else if (load is HydrostaticPressure hpl)
             {
-                valid = (_mesh.Surfaces.TryGetValue(hpl.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(hpl, hpl.SurfaceName);
             }
             else if (load is ImportedPressure ip)
             {
-                valid = (_mesh.Surfaces.TryGetValue(ip.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(ip, ip.SurfaceName);
             }
             else if (load is STLoad stl)
             {
-                valid = (_mesh.Surfaces.TryGetValue(stl.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(stl, stl.SurfaceName);
             }
             else if (load is ImportedSTLoad istl)
             {
-                valid = (_mesh.Surfaces.TryGetValue(istl.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(istl, istl.SurfaceName);
             }
             else if (load is ShellEdgeLoad sel)
             {
@@ -1226,7 +1226,7 @@ namespace CaeModel
             }
             else if (load is DFlux df)
             {
-                valid = (_mesh.Surfaces.TryGetValue(df.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(df, df.SurfaceName);
             }
             else if (load is BodyFlux bf)
             {
@@ -1238,11 +1238,11 @@ namespace CaeModel
             }
             else if (load is FilmHeatTransfer fht)
             {
-                valid = (_mesh.Surfaces.TryGetValue(fht.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(fht, fht.SurfaceName);
             }
             else if (load is RadiationHeatTransfer rht)
             {
-                valid = (_mesh.Surfaces.TryGetValue(rht.SurfaceName, out s) && s.Valid);
+                valid = IsLoadSurfaceValid(rht, rht.SurfaceName);
             }
             else throw new NotSupportedException();
             //
@@ -8981,6 +8981,12 @@ namespace CaeModel
             FeElementSet elementSet;
             foreach (var entry in surface.ElementFaces)
             {
+        private bool IsLoadSurfaceValid(Load load, string surfaceName)
+        {
+            FeSurface surface;
+            return surfaceName != null && _mesh.Surfaces.TryGetValue(surfaceName, out surface) && surface.Valid &&
+                   (!load.TwoD || IsShellEdgeSurface(surface));
+        }
                 if (entry.Key == FeFaceName.S1 || entry.Key == FeFaceName.S2) return false;
                 if (!_mesh.ElementSets.TryGetValue(entry.Value, out elementSet)) return false;
                 foreach (var elementId in elementSet.Labels)

@@ -2436,6 +2436,13 @@ The details the model imposes:
   axisymmetric model turns a centrifugal load about its y axis, so there `axis_point` must be `[0, 0, 0]`
   and `axis_direction` `[0, 1, 0]` when given. A negative `rotational_speed` is refused.
 - **A load acts.** The dialog refuses on OK a load that would do nothing, and so does the API, in the
+- **A surface load of a two dimensional model acts on element edges.** The solver input gives a 2D
+  element no front or back face, so, as the dialog does, a `surfaces` selection of a pressure, hydrostatic
+  or imported pressure, surface traction, surface flux, film or radiation load is limited to element
+  edges (`shell_edges_only`), and a named surface not made of edges is refused. A pick that takes the
+  elements themselves, such as a `Geometry` box over an edge, is refused naming the picks that take
+  edges: `selection_by_pick` with `select_by` `'Edge'`, `'GeometryEdge'` or `'Geometry'`. A load already on
+  element faces is marked invalid.
   dialog's words and naming the arguments, judged on the load an add or a replace ends with and on the
   value an expression evaluates to: a concentrated force, a moment, a gravity load or the component group
   a surface traction writes with every component 0, a pressure, a shell edge load or a pre-tension

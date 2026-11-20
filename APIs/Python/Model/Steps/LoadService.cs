@@ -61,6 +61,41 @@ namespace APIs.Python.Model
             if (color != null) load.Color = PythonColorConverter.ToColor(color, "color");
         }
         public void Add(string stepName, Load load)
+        // The solver input gives a 2D element no front or back face, so a 2D surface load takes element edges only,
+        // as the dialog limits its picks to them and offers only the surfaces made of them
+        public void ApplyLoadRegion(Load load, object region, string target)
+        {
+            bool edgesOnly = load.TwoD && target == "surfaces";
+            SelectionAPI selection = region as SelectionAPI;
+            if (edgesOnly && selection != null) region = selection.DeepCopy().configure(shell_edges_only: true);
+            try
+            {
+                ApplyRegion(load, region, target);
+            }
+            catch (PythonAPIException ex) when (edgesOnly && selection != null &&
+                                                 ex.Message.StartsWith("The selection does not resolve"))
+            {
+                throw new PythonAPIException(ex.Message + " " + GetTwoDEdgesOnlyText(load) + " The selection is " +
+                                             "therefore limited to element edges, and none of its picks holds " +
+                                             "only edges. Pick the edges with pmx.create.selection_by_pick and " +
+                                             "select_by 'Edge', 'GeometryEdge' or 'Geometry'.");
+            }
+            if (edgesOnly && load.RegionType == RegionTypeEnum.SurfaceName) EnsureEdgeSurface(load);
+        }
+        private void EnsureEdgeSurface(Load load)
+        {
+            FeSurface surface = ModelResolver.GetModel().Mesh.Surfaces[load.RegionName];
+            if (surface.SurfaceFaceTypes == FeSurfaceFaceTypes.ShellEdgeFaces) return;
+            //
+            throw new PythonAPIException("The argument 'region' names the surface '" + surface.Name + "', which " +
+                                         "is not made of element edges. " + GetTwoDEdgesOnlyText(load) +
+                                         " Name a surface made of edges, or give a selection.");
+        }
+        private static string GetTwoDEdgesOnlyText(Load load)
+        {
+            return "In a two dimensional model a " + LoadAPI.GetItemType(load) + " load acts on element edges " +
+                   "only, because the solver input gives a two dimensional element no front or back face.";
+        }
         {
             // The step silently refuses an unsupported type, so the check is done before the command
             Step step = StepService.ResolveStep(stepName);

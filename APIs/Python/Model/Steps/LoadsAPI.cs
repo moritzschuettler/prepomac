@@ -130,7 +130,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
             DLoad load = new DLoad(nameText, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyPressure(load, magnitude);
             if (distribution_name != null)
                 load.DistributionName = _service.ResolveScalarDistributionName(distribution_name, "a pressure");
@@ -179,7 +179,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             HydrostaticPressure load =
                 new HydrostaticPressure(nameText, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyHydrostaticPressure(load, first_point, second_point, direction,
                                                  first_point_pressure, second_point_pressure, cutoff);
             //
@@ -229,7 +229,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             ImportedPressure load =
                 new ImportedPressure(nameText, null, RegionTypeEnum.Selection, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             load.FileName = _service.ResolveExistingFileName(file_name, "file_name");
             LoadFactory.ApplyImportedPressure(load, pressure_time, pressure_variable_name, interpolator_type,
                                               magnitude_factor, geometry_scale_factor);
@@ -281,7 +281,7 @@ namespace APIs.Python.Model
             string nameText = PythonValueConverter.ToText(name, "name", false);
             _service.ValidateName(StepName, nameText, null);
             STLoad load = new STLoad(nameText, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             if (distribution_name != null)
                 load.DistributionName = _service.ResolveDistributionName(distribution_name);
             LoadFactory.ApplySurfaceTraction(load, f1, f2, f3, p1, p2, p3);
@@ -326,7 +326,7 @@ namespace APIs.Python.Model
                 throw new PythonAPIException("A shell edge load loads the edges of shell elements, which a two " +
                                              "dimensional model does not have, as the dialog does not offer it there.");
             ShellEdgeLoad load = new ShellEdgeLoad(nameText, null, RegionTypeEnum.Selection, 0, TwoD(), Complex(), 0);
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyShellEdgeLoad(load, magnitude);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
@@ -448,7 +448,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
             PreTensionLoad load = new PreTensionLoad(nameText, null, RegionTypeEnum.Selection, 0, TwoD());
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyPreTension(load, magnitude, direction, tension_type, auto_direction);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
@@ -522,7 +522,7 @@ namespace APIs.Python.Model
             _service.ValidateName(StepName, nameText, null);
             RefuseNone(magnitude, "magnitude");
             DFlux load = new DFlux(nameText, null, RegionTypeEnum.Selection, 0, TwoD());
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplySurfaceFlux(load, magnitude);
             //
             return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
@@ -596,7 +596,7 @@ namespace APIs.Python.Model
             RefuseNone(sink_temperature, "sink_temperature");
             RefuseNone(film_coefficient, "film_coefficient");
             FilmHeatTransfer load = new FilmHeatTransfer(nameText, null, RegionTypeEnum.Selection, 0, 0, TwoD());
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyFilmHeatTransfer(load, sink_temperature, film_coefficient);
             if (coefficient_amplitude_name != null)
                 load.CoefficientAmplitudeName =
@@ -652,7 +652,7 @@ namespace APIs.Python.Model
             RefuseNone(emissivity, "emissivity");
             RadiationHeatTransfer load =
                 new RadiationHeatTransfer(nameText, null, RegionTypeEnum.Selection, 0, 0, TwoD());
-            _service.ApplyRegion(load, region, SurfaceTarget);
+            _service.ApplyLoadRegion(load, region, SurfaceTarget);
             LoadFactory.ApplyRadiationHeatTransfer(load, sink_temperature, emissivity, cavity_radiation);
             ApplyRadiationNames(load, cavity_name, emissivity_amplitude_name);
             //
@@ -757,7 +757,7 @@ namespace APIs.Python.Model
         }
         private void ApplyRegionIfGiven(Load load, object region, string target)
         {
-            if (region != null) _service.ApplyRegion(load, region, target);
+            if (region != null) _service.ApplyLoadRegion(load, region, target);
         }
         private void ApplyRadiationNames(RadiationHeatTransfer load, object cavityName,
                                          object emissivityAmplitudeName)
