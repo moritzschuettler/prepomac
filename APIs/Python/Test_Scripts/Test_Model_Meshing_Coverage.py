@@ -247,9 +247,10 @@ def test_gmsh_items(items, selection, shell_selection, box_selection):
     check("algorithm_3d" not in values, "a shell item read back a 3D algorithm: " + str(values))
     message = raised_message(lambda: items.replace_shell_gmsh(PREFIX + "Shell", algorithm_3d="Delaunay"))
     check(message is not None and "algorithm_3d" in message, "a shell item took a 3D algorithm: " + str(message))
-    # The angle is used, shown and read back only while a face is structured
+    # The angle is used, shown and read back only while a face is structured, a submapped one included
     message = raised_message(lambda: items.replace_shell_gmsh(PREFIX + "Shell", transfinite_three_sided="No",
                                                               transfinite_four_sided=False,
+                                                              transfinite_submapped=False,
                                                               transfinite_angle_deg=100.0))
     check(message is not None and "'transfinite_angle_deg'" in message and "transfinite_three_sided" in message,
           "an unused transfinite angle must be refused naming the transfinite settings: " + str(message))

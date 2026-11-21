@@ -4558,12 +4558,29 @@ namespace CaeMesh
             // A shell is structured on the faces the one definition all meshers follow finds
             ShellGmsh shellGmsh = gmshData.GmshSetupItems?.OfType<ShellGmsh>().FirstOrDefault();
             if (shellGmsh != null) gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, shellGmsh, null);
+            // and submapped on the faces whose corners lie near multiples of 90 degrees
+            if (shellGmsh != null && shellGmsh.TransfiniteSubmapped)
+            {
+                gmshData.SubmapFaces = GetSubmapFacesForGmsh(partNames, shellGmsh, gmshData.TransfiniteFaces, null);
+                gmshData.RingFaces = GetRingFacesForGmsh(partNames, gmshData.TransfiniteFaces, null);
+                gmshData.TubeFaces = GetTubeFacesForGmsh(partNames);
+                gmshData.CapFaces = GetCapFacesForGmsh(partNames);
+                gmshData.LensFaces = GetLensFacesForGmsh(partNames, shellGmsh, null);
+            }
             // So are the sources of a sweep
             SweepMesh sweepMesh = gmshData.GmshSetupItems?.OfType<SweepMesh>().FirstOrDefault();
             if (sweepMesh != null && sweepMesh.BlockSourceSurfaceIds != null)
-                gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, sweepMesh,
-                                                                       new HashSet<int>(sweepMesh.BlockSourceSurfaceIds
-                                                                                        .SelectMany(ids => ids)));
+            {
+                HashSet<int> sourceSurfaceIds = new HashSet<int>(sweepMesh.BlockSourceSurfaceIds.SelectMany(ids => ids));
+                gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, sweepMesh, sourceSurfaceIds);
+                if (sweepMesh.TransfiniteSubmapped)
+                {
+                    gmshData.SubmapFaces = GetSubmapFacesForGmsh(partNames, sweepMesh, gmshData.TransfiniteFaces,
+                                                                 sourceSurfaceIds);
+                    gmshData.RingFaces = GetRingFacesForGmsh(partNames, gmshData.TransfiniteFaces, sourceSurfaceIds);
+                    gmshData.LensFaces = GetLensFacesForGmsh(partNames, sweepMesh, sourceSurfaceIds);
+                }
+            }
         }
         /// <summary>
         /// The structured faces of the parts by the one definition all meshers follow, with gmsh topology ids: of the
@@ -4593,6 +4610,166 @@ namespace CaeMesh
                 }
             }
             return transfiniteFaces.ToArray();
+        }
+        /// <summary>
+        /// The submapped faces with gmsh topology ids, other than the structured faces already found: of the shells,
+        /// or, where faceTopologyIds is given, those faces of any part.
+        /// </summary>
+        private SubmapFace[] GetSubmapFacesForGmsh(string[] partNames, GmshSetupItem gmshSetupItem,
+                                                  TransfiniteFace[] transfiniteFaces, HashSet<int> faceTopologyIds)
+        {
+            HashSet<int> transfiniteFaceIds = new HashSet<int>();
+            if (transfiniteFaces != null)
+            {
+                foreach (var face in transfiniteFaces) transfiniteFaceIds.Add(face.FaceId);
+            }
+            List<SubmapFace> submapFaces = new List<SubmapFace>();
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                if (faceTopologyIds == null && part.PartType != PartType.Shell) continue;
+                //
+                foreach (var face in SubmapFaceDetector.Detect(this, part, gmshSetupItem.TransfiniteAngleDeg,
+                                                               faceTopologyIds == null))
+                {
+                    int faceId = GmshTopologyId(face.FaceId, part.PartId);
+                    if (transfiniteFaceIds.Contains(faceId)) continue;
+                    if (faceTopologyIds != null && !faceTopologyIds.Contains(faceId)) continue;
+                    SubmapFace[] holes = null;
+                    if (face.HasHoles)
+                    {
+                        holes = new SubmapFace[face.Holes.Length];
+                        for (int h = 0; h < holes.Length; h++)
+                            holes[h] = GetSubmapLoopForGmsh(face.Holes[h], faceId, part.PartId, null);
+                    }
+                    submapFaces.Add(GetSubmapLoopForGmsh(face, faceId, part.PartId, holes));
+                }
+            }
+            return submapFaces.ToArray();
+        }
+        /// <summary>
+        /// A loop of a submapped face with the gmsh topology ids of its face and its edges.
+        /// </summary>
+        private SubmapFace GetSubmapLoopForGmsh(SubmapFace loop, int faceId, int partId, SubmapFace[] holes)
+        {
+            int[] edgeIds = new int[loop.EdgeIds.Length];
+            for (int k = 0; k < edgeIds.Length; k++) edgeIds[k] = GmshTopologyId(loop.EdgeIds[k], partId);
+            return new SubmapFace(faceId, loop.VertexNodeIds.ToArray(), edgeIds, loop.EdgeDirections.ToArray(),
+                                  loop.VertexAnglesDeg.ToArray(), loop.EdgeTurns == null ? null : loop.EdgeTurns.ToArray(),
+                                  holes, loop.IsRound);
+        }
+        /// <summary>
+        /// The ring faces with gmsh topology ids, other than the structured faces already found: of the shells, or, where
+        /// faceTopologyIds is given, those faces of any part.
+        /// </summary>
+        private RingFace[] GetRingFacesForGmsh(string[] partNames, TransfiniteFace[] transfiniteFaces,
+                                               HashSet<int> faceTopologyIds)
+        {
+            HashSet<int> transfiniteFaceIds = new HashSet<int>();
+            if (transfiniteFaces != null)
+            {
+                foreach (var face in transfiniteFaces) transfiniteFaceIds.Add(face.FaceId);
+            }
+            List<RingFace> ringFaces = new List<RingFace>();
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                if (faceTopologyIds == null && part.PartType != PartType.Shell) continue;
+                //
+                foreach (var face in RingFaceDetector.Detect(this, part))
+                {
+                    int faceId = GmshTopologyId(face.FaceId, part.PartId);
+                    if (transfiniteFaceIds.Contains(faceId)) continue;
+                    if (faceTopologyIds != null && !faceTopologyIds.Contains(faceId)) continue;
+                    int[] outerEdgeIds = new int[face.OuterEdgeIds.Length];
+                    for (int k = 0; k < outerEdgeIds.Length; k++)
+                        outerEdgeIds[k] = GmshTopologyId(face.OuterEdgeIds[k], part.PartId);
+                    int[] innerEdgeIds = new int[face.InnerEdgeIds.Length];
+                    for (int k = 0; k < innerEdgeIds.Length; k++)
+                        innerEdgeIds[k] = GmshTopologyId(face.InnerEdgeIds[k], part.PartId);
+                    ringFaces.Add(new RingFace(faceId, face.OuterVertexNodeIds.ToArray(), outerEdgeIds,
+                                               face.InnerVertexNodeIds.ToArray(), innerEdgeIds, face.IsPaired,
+                                               face.MinLoopDistance, face.MeanLoopDistance));
+                }
+            }
+            return ringFaces.ToArray();
+        }
+        /// <summary>
+        /// The tube faces of the shells with gmsh topology ids. A face closed along a seam is never one of the structured
+        /// faces found before.
+        /// </summary>
+        private TubeFace[] GetTubeFacesForGmsh(string[] partNames)
+        {
+            List<TubeFace> tubeFaces = new List<TubeFace>();
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                if (part.PartType != PartType.Shell) continue;
+                //
+                foreach (var face in TubeFaceDetector.Detect(this, part))
+                {
+                    int[] firstRimEdgeIds = new int[face.FirstRimEdgeIds.Length];
+                    for (int k = 0; k < firstRimEdgeIds.Length; k++)
+                        firstRimEdgeIds[k] = GmshTopologyId(face.FirstRimEdgeIds[k], part.PartId);
+                    int[] secondRimEdgeIds = new int[face.SecondRimEdgeIds.Length];
+                    for (int k = 0; k < secondRimEdgeIds.Length; k++)
+                        secondRimEdgeIds[k] = GmshTopologyId(face.SecondRimEdgeIds[k], part.PartId);
+                    tubeFaces.Add(new TubeFace(GmshTopologyId(face.FaceId, part.PartId),
+                                               GmshTopologyId(face.SeamEdgeId, part.PartId),
+                                               face.FirstRimVertexNodeIds.ToArray(), firstRimEdgeIds,
+                                               face.SecondRimVertexNodeIds.ToArray(), secondRimEdgeIds, face.IsPaired));
+                }
+            }
+            return tubeFaces.ToArray();
+        }
+        /// <summary>
+        /// The cap faces of the shells with gmsh topology ids. A face closed along a seam that ends in a pole is never one
+        /// of the structured faces found before.
+        /// </summary>
+        private CapFace[] GetCapFacesForGmsh(string[] partNames)
+        {
+            List<CapFace> capFaces = new List<CapFace>();
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                if (part.PartType != PartType.Shell) continue;
+                //
+                foreach (var face in CapFaceDetector.Detect(part))
+                {
+                    int[] rimEdgeIds = new int[face.RimEdgeIds.Length];
+                    for (int k = 0; k < rimEdgeIds.Length; k++) rimEdgeIds[k] = GmshTopologyId(face.RimEdgeIds[k], part.PartId);
+                    capFaces.Add(new CapFace(GmshTopologyId(face.FaceId, part.PartId),
+                                             GmshTopologyId(face.SeamEdgeId, part.PartId), face.RimVertexNodeIds.ToArray(),
+                                             rimEdgeIds, face.PoleVertexNodeIds.ToArray()));
+                }
+            }
+            return capFaces.ToArray();
+        }
+        /// <summary>
+        /// The lens faces with gmsh topology ids: of the shells, or, where faceTopologyIds is given, those faces of any
+        /// part. A face with two corners, one or none is never one of the structured faces found before but a submapped
+        /// one, which the submapping keeps.
+        /// </summary>
+        private LensFace[] GetLensFacesForGmsh(string[] partNames, GmshSetupItem gmshSetupItem,
+                                               HashSet<int> faceTopologyIds)
+        {
+            List<LensFace> lensFaces = new List<LensFace>();
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                if (faceTopologyIds == null && part.PartType != PartType.Shell) continue;
+                //
+                foreach (var face in LensFaceDetector.Detect(this, part, gmshSetupItem.TransfiniteAngleDeg))
+                {
+                    if (faceTopologyIds != null && !faceTopologyIds.Contains(GmshTopologyId(face.FaceId, part.PartId)))
+                        continue;
+                    int[] edgeIds = new int[face.EdgeIds.Length];
+                    for (int k = 0; k < edgeIds.Length; k++) edgeIds[k] = GmshTopologyId(face.EdgeIds[k], part.PartId);
+                    lensFaces.Add(new LensFace(GmshTopologyId(face.FaceId, part.PartId), face.VertexNodeIds.ToArray(),
+                                               edgeIds, face.CornerIndices.ToArray(), face.ReentrantIndices.ToArray()));
+                }
+            }
+            return lensFaces.ToArray();
         }
         /// <summary>
         /// Finds the surfaces that two of the given parts have in common - the interfaces between the
@@ -5221,12 +5398,26 @@ namespace CaeMesh
         }
         // Mesh types
         /// <summary>
-        /// Which faces of a shell part are meshed by a structured grid, by the one definition all meshers follow.
+        /// Which faces of a shell part are meshed by a structured grid, by the one definition all meshers follow, and
+        /// with submapped also the faces SubmapFaceDetector, RingFaceDetector, TubeFaceDetector, CapFaceDetector and
+        /// LensFaceDetector find.
         /// </summary>
         public bool[] GetTransfiniteShellFaces(BasePart part, TransfiniteThreeSidedEnum threeSided, bool fourSided,
-                                               double transfiniteAngleDeg)
+                                               double transfiniteAngleDeg, bool submapped = false)
         {
-            return TransfiniteFaceDetector.GetTransfiniteFaceFlags(this, part, threeSided, fourSided, transfiniteAngleDeg);
+            bool[] transfinite = TransfiniteFaceDetector.GetTransfiniteFaceFlags(this, part, threeSided, fourSided,
+                                                                                 transfiniteAngleDeg);
+            if (submapped)
+            {
+                foreach (var face in SubmapFaceDetector.Detect(this, part, transfiniteAngleDeg))
+                    transfinite[face.FaceId] = true;
+                foreach (var face in RingFaceDetector.Detect(this, part)) transfinite[face.FaceId] = true;
+                foreach (var face in TubeFaceDetector.Detect(this, part)) transfinite[face.FaceId] = true;
+                foreach (var face in CapFaceDetector.Detect(part)) transfinite[face.FaceId] = true;
+                foreach (var face in LensFaceDetector.Detect(this, part, transfiniteAngleDeg))
+                    transfinite[face.FaceId] = true;
+            }
+            return transfinite;
         }
 
         #endregion #################################################################################################################

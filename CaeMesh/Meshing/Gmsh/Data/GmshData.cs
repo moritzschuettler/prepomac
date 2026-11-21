@@ -67,6 +67,17 @@ namespace CaeMesh
         [PmxKey(25)] public double[][][][] ParameterizationLinesV;
         //
         [PmxKey(26)] public double StlFeatureAngleDeg;
+        // Submapping: the faces SubmapFaceDetector found on the shells - faces and edges by their gmsh topology ids,
+        // vertices by their vertex node ids
+        [PmxKey(27)] public SubmapFace[] SubmapFaces;
+        // Ring mapping: the faces RingFaceDetector found, by the same ids
+        [PmxKey(28)] public RingFace[] RingFaces;
+        // Tube mapping: the faces TubeFaceDetector found on the shells, by the same ids
+        [PmxKey(29)] public TubeFace[] TubeFaces;
+        // Cap mapping: the faces CapFaceDetector found on the shells, by the same ids
+        [PmxKey(30)] public CapFace[] CapFaces;
+        // Lens mapping: the faces LensFaceDetector found on the shells, by the same ids
+        [PmxKey(31)] public LensFace[] LensFaces;
 
 
         // Constructors                                                                                                             

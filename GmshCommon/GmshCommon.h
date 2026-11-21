@@ -331,6 +331,23 @@ namespace GmshCommon {
                 max = gcnew array<double>((int)max_native.size());
                 if ((int)max_native.size() > 0) Marshal::Copy(IntPtr(max_native.data()), max, 0, (int)max_native.size());
             }
+            static void ReparametrizeOnSurface(int dim, int tag, array<double>^ parametricCoord, int surfaceTag,
+                [System::Runtime::InteropServices::Out] array<double>^% surfaceParametricCoord, int which)
+            {
+                std::vector<double> parametricCoord_native(parametricCoord->Length);
+                if (parametricCoord->Length > 0)
+                    Marshal::Copy(parametricCoord, 0, IntPtr(&parametricCoord_native[0]), parametricCoord->Length);
+                //
+                std::vector<double> surfaceParametricCoord_native;
+                //
+                gmsh::model::reparametrizeOnSurface(dim, tag, parametricCoord_native, surfaceTag,
+                                                    surfaceParametricCoord_native, which);
+                //
+                surfaceParametricCoord = gcnew array<double>((int)surfaceParametricCoord_native.size());
+                if ((int)surfaceParametricCoord_native.size() > 0)
+                    Marshal::Copy(IntPtr(surfaceParametricCoord_native.data()), surfaceParametricCoord, 0,
+                                  (int)surfaceParametricCoord_native.size());
+            }
             static int IsInside(int dim, int tag, array<double>^ coord, System::Boolean parametric)
             {
                 std::vector<double> coord_native(coord->Length);
@@ -596,6 +613,23 @@ namespace GmshCommon {
                     nodeTags = gcnew array<IntPtr>((int)nodeTags_native.size());
                     if ((int)nodeTags_native.size() > 0)
                         Marshal::Copy(IntPtr(nodeTags_native.data()), nodeTags, 0, (int)nodeTags_native.size());
+                }
+                static void GetCurveNodes(int tag,
+                    [System::Runtime::InteropServices::Out] array<IntPtr>^% nodeTags,
+                    [System::Runtime::InteropServices::Out] array<double>^% coord,
+                    [System::Runtime::InteropServices::Out] array<double>^% parameters)
+                {
+                    std::vector<size_t> nativeTags;
+                    std::vector<double> nativeCoord, nativeParameters;
+                    gmsh::model::mesh::getNodes(nativeTags, nativeCoord, nativeParameters, 1, tag, false, true);
+
+                    nodeTags = gcnew array<IntPtr>((int)nativeTags.size());
+                    coord = gcnew array<double>((int)nativeCoord.size());
+                    parameters = gcnew array<double>((int)nativeParameters.size());
+                    if (nodeTags->Length > 0) Marshal::Copy(IntPtr(nativeTags.data()), nodeTags, 0, nodeTags->Length);
+                    if (coord->Length > 0) Marshal::Copy(IntPtr(nativeCoord.data()), coord, 0, coord->Length);
+                    if (parameters->Length > 0)
+                        Marshal::Copy(IntPtr(nativeParameters.data()), parameters, 0, parameters->Length);
                 }
                 static void GetElement(IntPtr elementTag, int elementType,
                     [System::Runtime::InteropServices::Out] array<IntPtr>^% nodeTags,

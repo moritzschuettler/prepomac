@@ -137,13 +137,22 @@ namespace CaeMesh
         {
             AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.EqualSums, new int[][] { sideA, sideB }, surfaceId));
         }
-        public void AddEvenSum(string name, IntervalRowTierEnum tier, int[] side)
+        /// <summary>
+        /// The side carries a total that is a multiple of the given number, an even one unless set.
+        /// </summary>
+        public void AddEvenSum(string name, IntervalRowTierEnum tier, int[] side, int multiple = 2)
         {
-            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.EvenSum, new int[][] { side }));
+            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.EvenSum, new int[][] { side }, 0, 0, multiple));
         }
         public void AddAtLeastSum(string name, IntervalRowTierEnum tier, int[] side, int bound, int surfaceId = 0)
         {
             AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.AtLeastSum, new int[][] { side }, surfaceId, bound));
+        }
+        public void AddAtLeastDifference(string name, IntervalRowTierEnum tier, int[] sideA, int[] sideB, int bound,
+                                         int surfaceId = 0)
+        {
+            AddRow(new IntervalRow(name, tier, IntervalRowKindEnum.AtLeastDifference, new int[][] { sideA, sideB },
+                                   surfaceId, bound));
         }
         public void AddThreeSided(string name, IntervalRowTierEnum tier, int[][] sides, int surfaceId = 0)
         {
@@ -286,6 +295,14 @@ namespace CaeMesh
                     rowCoefficients.Add(coefficients);
                     rowType = LpSolve.GE;
                 }
+                else if (row.Kind == IntervalRowKindEnum.AtLeastDifference)
+                {
+                    Dictionary<int, double> coefficients = new Dictionary<int, double>();
+                    addSide(coefficients, row.Sides[0], 1);
+                    addSide(coefficients, row.Sides[1], -1);
+                    rowCoefficients.Add(coefficients);
+                    rowType = LpSolve.GE;
+                }
                 else if (row.Kind == IntervalRowKindEnum.EqualSums)
                 {
                     Dictionary<int, double> coefficients = new Dictionary<int, double>();
@@ -297,7 +314,7 @@ namespace CaeMesh
                 {
                     Dictionary<int, double> coefficients = new Dictionary<int, double>();
                     addSide(coefficients, row.Sides[0], 1);
-                    coefficients.Add(addColumn("k" + r, 0, LpSolve.Infinity, true, 0), -2);
+                    coefficients.Add(addColumn("k" + r, 0, LpSolve.Infinity, true, 0), -row.Multiple);
                     rowCoefficients.Add(coefficients);
                 }
                 else

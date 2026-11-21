@@ -1058,7 +1058,8 @@ item does not use in the state it ends up with is refused before its range, nami
 used: the factors against `relative_size`, the two Hausdorff distances of a shell MMG item against `relative_size`,
 the QuadWild settings of a sweep against `algorithm_2d`, the `recombine_min_quality` of a Gmsh item against
 `algorithm_recombine='None'`, the `transfinite_angle_deg` of a Gmsh, Netgen or QuadWild item against
-`transfinite_three_sided='No'` together with `transfinite_four_sided=False`, and the `smooth`, `alpha`,
+`transfinite_three_sided='No'` together with `transfinite_four_sided=False` (and, for `shell_gmsh` and
+`sweep_mesh`, `transfinite_submapped=False`), and the `smooth`, `alpha`,
 `flow_profile`, `boundary_layer` and transfinite settings of a QuadWild shell item against `preview=True`, which
 shows the triangulation without running QuadWild. Such a value is also left out of `get_settings`. A minimum is checked
 against the maximum the item ends up with - the one given, or the one it keeps or takes from the selected parts - so a
@@ -1082,7 +1083,213 @@ item, with one exception: the transfinite mesh also takes `algorithm_2d` and `al
 hidden, because they set the mesh size the 2D algorithm needs and mesh the faces and volumes it does not structure.
 A shell has no volume and a sweep builds its volume mesh itself, so neither takes `algorithm_3d`.
 `recombine_min_quality` is shown and taken only while `algorithm_recombine` is not `None`, and
-`transfinite_angle_deg` only while `transfinite_three_sided` is not `No` or `transfinite_four_sided` is `True`.
+`transfinite_angle_deg` only while `transfinite_three_sided` is not `No` or `transfinite_four_sided` is `True`, or,
+for `shell_gmsh` and `sweep_mesh`, `transfinite_submapped` is `True`.
+`transfinite_submapped` belongs to `shell_gmsh` and `sweep_mesh` and is `True` by default, like `transfinite_four_sided`; an item
+read from a file written before the setting existed has it `False`. It meshes as a structured grid every face whose
+vertices are all ends, sides or corners by the interior angle of the face there: an end
+from 180 degrees minus `transfinite_angle_deg` to `transfinite_angle_deg`, a corner from 360 degrees minus it to 180
+degrees plus it, and a side between, the ends outnumbering the corners by four and at least one corner, such as L, T,
+U, plus and staircase shaped faces. A face this rule leaves out is classified again by the turns of its vertices and of
+its edges, so that a fillet, which turns a corner in its middle, and a chamfer, whose two vertices each turn by half a
+corner, are taken as well: a filleted or chamfered L or U, a rectangle with rounded corners, a five-sided house. A
+fillet carries an even number of elements, as its two halves are two sides of the grid; a half circle, the end of a
+slot or of a slot-shaped plate, turns twice and carries a multiple of four, its quarters, half and quarter being three
+sides. A face may have holes with corners - a rectangular tube or box section, a plate with rectangular,
+L-shaped or filleted cut-outs, a slot - each classified by the same rules, its corners turning the other way, and placed
+in the grid where it lies; its outer loop then needs no corner. A round hole - one closed edge, two half circles or four
+quarters of equal length - is a square in the grid with its corners at 45 degrees, so it carries a multiple of four
+elements, as many on each of its edges, and bolt holes, a plate with a round hole or an L bracket with one are taken. A
+hole turned off the outline by more than 20 degrees from a multiple of 90, such as a diamond, an elliptic hole, and a
+disc are not submapped. A face of exactly two loops that run roughly parallel - an annulus, a washer, an elliptic ring,
+a tube with or without corner radii, a plate with a large bore, a diamond or an elliptic hole - is meshed as a ring
+instead, unless its inner loop is shorter than a quarter of its outer one, as a small hole is: both loops carry the same
+number of elements, each node of one joined to a node of the other, with layers of elements between them as many as
+the distance between the loops over the element size, at least one. Where the two loops have as many edges facing each
+other one to one, each pair carries the same number, otherwise only the two loops do; a number of elements set on one
+loop carries over to the other, and numbers that make the two unequal leave the face free. A shell face that is both
+a ring and submapped keeps its lattice when every loop has sharp corners. The other faces that qualify for both use
+their ring when both the smallest and mean distances between loops are below 1.5 element sizes, and their lattice
+otherwise. A face of `shell_gmsh` closed along exactly one seam
+between exactly two closed rims - a full cylinder, a cone frustum, a pipe bend, a surface of revolution or extrusion of
+a closed profile, also cut obliquely or with its rims split into several edges - is meshed as a tube, a ring that does
+not lie flat: both rims carry the same number of elements N, the seam M, node i of one rim is joined to node i of the
+other counted from the seam, and the face is N x M quads with no irregular node. The rims are balanced like the loops
+of a ring - edge by edge where their vertices lie at the same shares of the way round from the seam, by their totals
+otherwise - so a number set on one rim carries over to the other and numbers that make them unequal leave the face
+free; the seam keeps its own count or the one set on it. A face with a hole besides its rims, a face closed along two
+seams (a torus) and a face with a degenerate edge (a cone with its apex, a sphere) are no tubes, and a tube whose grid
+would fold or have a quad corner of a scaled Jacobian below 0.2 is meshed free; the output says why ("Tube mapping:
+Surface N is meshed free - reason"). A face of `shell_gmsh` closed along exactly one seam that ends in a pole - the
+apex of a cone, the pole of a sphere - at one end and on one closed rim at the other (a dome, a spherical cap, a cone
+with its apex, a paraboloid, an elliptical or torispherical head, also with its rim split or cut obliquely), or in a
+pole at both ends (a sphere, a spheroid), is meshed as a cap, an O-grid: N elements round, rings of N quads from the
+rim inward, and around each pole a block of a x b quads, 2 (a + b) = N, whose four corners are its only irregular
+nodes; the seam is a line of the grid through the rings and the block to the pole. The rim total is balanced even and
+8 at least with the other structured faces, so a dome on a cylinder carries the count of the cylinder (a pressure
+vessel is structured throughout); a sphere takes N from the element size and its longest circle. The seam keeps the
+number the mesh size asks for unless the blocks would take more than 0.45 of it, then it is raised, or keeps the
+number set on it. A cap is meshed on the nodes of its edges before gmsh meshes the other surfaces, so it does not
+depend on gmsh's own mesh at the pole, which at the apex of a sharp cone folds, splits the edges or fails. A rim set to
+an odd number or to fewer than 8, a seam set too short to leave a ring, and a grid that would fold or have a quad
+corner below 0.1 leave the face to gmsh, meshed free ("Cap mapping: Surface N is meshed free - reason"); the floor is
+half that of the other structured faces because the four quads at the apex of a cone share the angle round it (0.26 at
+a half angle of 15 degrees, 0.2 at 11) and gmsh's free mesh is no better there. A face with a hole besides its rim is
+no cap, nor is a face of a plane, a cylinder or a surface of extrusion, which has no pole (an edge with a free end
+inside it, the edge of a baffle, is no seam), and under `algorithm_2d='QuasiStructuredQuad'`, which lays its own quads
+round a pole, a cap is left to gmsh.
+A face of `shell_gmsh` of one boundary loop with exactly two corners - a half disc, a dome cut in half through its
+pole, the wedge of a sphere between two meridians, a cone revolved by more than 180 degrees -, with one corner - a
+teardrop, a half disc with one corner rounded - or with no corner - a disc of one closed edge or of several arcs, an
+ellipse, a stadium, a rounded polygon, a cap of a sphere cut off by a plane, a half sphere between two meridians
+meeting at its poles - is meshed as a lens face. With two corners, one inner line from a node of one side to a node of
+the other splits it into two three-sided pieces of three blocks of quads each, so its grid has two inner nodes of three
+quads. With no corner, a first line across it splits it into two such faces, four inner nodes of three quads: the line
+runs between two poles of the surface, from a pole to the node of the loop opposite it by length, or else from each of
+its first four vertices and from the node farthest from its centre to the node opposite, and the grid that is best in
+space once smoothed is kept. With one corner, a line across the corner from the node at 0.25, 0.3 or 0.35 of the length
+of the loop from the corner to the node as far from it the other way leaves a three-sided piece at the corner and a
+two-sided rest, three inner nodes of three quads, the best of the three grids kept. A side with a pole of the surface
+inside it (the half dome) is split there, otherwise near the middle of each side, and the line runs straight in the
+parameters of the surface, from a pole along a meridian. The sum of its edges is balanced even and each side 4 elements
+at least, the loop of a face with one corner or none 8 at least, with the other structured faces, so a half dome on a
+half cylinder carries the count of the cylinder. A thin lens face, whose line would otherwise carry far
+more elements than its length asks for because its sides carry different counts (a flat circular segment, whose arc is
+given more elements than its chord), also asks for equal counts on its two sides, at the weakest tier, which never
+changes a number set on an edge or a structured face. Once its pieces are laid, the nodes inside the face (those of the
+line included) are smoothed together, in the parameters of the surface or in the chart of its one pole, so that the
+grid lines run on smoothly across the line; the smoothed grid is kept only when it is no worse in space, and a face with
+two poles is not smoothed. A lens face is meshed on the nodes of its edges before
+gmsh meshes the other surfaces, like a cap; numbers set on its edges that leave an odd sum, a side below 4 or a loop of
+one corner or none below 8, and a grid that would fold or have a quad corner below 0.2, leave it to gmsh, meshed free
+("Lens mapping: Surface N is meshed free - reason"). A lens face that is submapped as well (a planar half disc, a
+stadium, a rounded rectangle) is meshed as the kind whose grid, laid on the face alone on the counts that kind asks
+for, is better: it keeps its submapped grid when the worst quad corner of that grid has a scaled Jacobian of 0.5 at
+least, and otherwise takes its lens grid when that one is better in its worst corner and stretches no element beyond
+1.5 times the maximum element size (so a stadium is a lens face at every size, while a rectangle with small fillets
+stays submapped). A submapped grid refused on the face alone makes it a lens face, and one refused on the counts the
+balance gives it sends the face once more into the balance as a lens face; refused at the meshing all the same, it is
+laid as a lens face on the counts of the submapping. One whose counts the submapping cannot balance (a half disc with
+one corner rounded) is balanced as a lens face instead, without the submapping message. A lens face with no straight
+edge (a disc of arcs, an ellipse, a lens of two arcs) is never submapped. A face whose one reentrant vertex is a pole of
+its surface (a dome, a cone or a paraboloid revolved by more than 225 degrees about its apex) with two corners or more
+is a lens face as well: lines along the surface from the pole split it into pieces of about a right angle at the pole
+(three from 225 to 315 degrees), each three-sided, three blocks of quads, or four-sided, one block, so the pole is in
+one quad per piece; a reentrant vertex that is no pole leaves the face free as before.
+Under `algorithm_2d='QuasiStructuredQuad'` a lens face is left to gmsh.
+The corners of the 3-sided, 4-sided and lens faces are judged by the angle between their edges at a vertex, unless the
+interior angle of the face there differs from it by more than 30 degrees - the apex of a cone, round which the face
+turns by its developed angle, or a reentrant vertex - then by the interior angle; a reentrant vertex (above 360 degrees
+minus `transfinite_angle_deg`) makes the face neither 3- nor 4-sided (a dome revolved by 270 degrees is a lens face
+split at its pole). A 3-sided or 4-sided face or a piece of a lens face with a pole of its surface at a corner is mapped
+in a chart that is regular at the pole - the development of a cone, the stereographic projection of a sphere - and in
+the parameters of the surface, the better grid kept; a 3-sided or 4-sided face of `shell_gmsh` with a pole is meshed
+before gmsh meshes the other surfaces as well (but under `QuasiStructuredQuad`, which keeps gmsh's transfinite mapping
+of a 4-sided one), the inner nodes of a 4-sided one smoothed in the chart, and one whose grid would fold or have a quad
+corner below 0.2 is meshed free ("Transfinite: Surface N is meshed free - reason"). A 3-sided face of `shell_gmsh`,
+with a pole or without, whose three blocks would fold, in the
+parameters of the surface or in space, or have a quad corner of a scaled Jacobian below 0.2 in space is meshed free on
+the counts balanced for it ("Transfinite: Surface N is meshed free - reason"), as the other structured faces are. A
+3-sided face without a pole and with a sharp corner, whose quad there cannot be better than the sine of the corner
+(0.2 at 11.5 degrees), is asked for half of that sine instead: a free mesh is no better there and keeps triangles.
+Before placing the grid on a 4-sided structured face of `shell_gmsh`, the mesher matches nodes at equal fractions of
+arc length along opposite sides when one is split or shares a pattern with its neighbour. The two sides qualify when
+their shapes agree. The mesher samples nine equally spaced arc-length fractions and compares every distance between
+samples after dividing by the side length. Each comparison must agree within 0.02. This allows trapezoids and
+concentric arcs of different lengths. A submapped face without a lens fallback can share this spacing across its
+interior lattice lines, including those joining its outer boundary and cornered holes or connecting two holes.
+The mapper places the holes from the meshed boundary. The outer logical outline uses edge lengths scaled to close
+the outline. An affine fit from the outer corners maps the hole corners into the same frame. Aligned planar shell
+submaps without a round loop or lens fallback place interior nodes at the crossings of perpendicular lattice lines.
+Lean is the arctangent of the mismatch along the sides divided by the distance between facing nodes. Below 5 degrees
+of initial largest lean, a chain keeps a match only if every face bordering a moved edge belongs to a spacing
+chain, the largest remaining lean is at most 0.1 degrees, and every submapped face with a moved edge has a worst
+scaled Jacobian of at least 0.9999. At or above 5 degrees, the mesher restores the chain if an originally accepted
+submap is refused or its worst scaled Jacobian falls below 0.5 and drops by more than 0.02. Vertices, element
+counts, and nodes on submap turn edges stay fixed. Moved nodes keep at least a third of the even spacing between
+them. Edges owned by other structured meshers or bordering free faces less than three elements deep stay fixed.
+A face on which two sides of several edges still disagree, so that its grid has a corner of a scaled Jacobian below
+0.5 that is also worse than the corners of the face itself, is meshed free as well - converted by `QuadDominant` when
+that is the recombination, and by the same conversion under a full-quad recombination, where it must end as quads
+only - and the mesh with the better worst corner in space is kept, the grid on a tie, so a face never ends worse than
+its grid and no other face is meshed twice. The output says which was kept ("Transfinite: Surface N is meshed free -
+the numbers of elements on its sides lean its grid by M degrees", or "... is meshed with its grid - ... and the free
+mesh is no better").
+Where the edges of a face of `shell_gmsh` start its boundary loop, and which way they run it, does not change whether it
+is submapped or a lens face, or its grid: a face of one loop is laid from its lowest vertex, and judged from every
+vertex of its loop, the best kept, when its grid from there is poor.
+A structured face whose surface gmsh bounds by other edges than the part shows for it - a face whose
+visualization lost part of its boundary, a surface gmsh did not close along its seam - is meshed free with the reason
+("... is meshed free - the surface gmsh meshes is bounded by other edges than the part shows for it").
+The counts of a submapped face leave room for every
+hole and a row of elements on each side of it, so a wall thinner than the element size is one element thick, its
+elements along the outer edges shortened at a corner so that the corner element does not fold. Its edges are balanced
+together with the 3-sided and 4-sided faces, the edges
+running one way against those running the opposite way, so a number of elements set on one edge carries over, and its
+sides that face each other across it are kept at least one element apart, so a web or a leg thinner than the element
+size keeps a row of elements. A face
+whose counts cannot be balanced, whose counts do not close a valid outline or leave no room or no place for a hole,
+whose fillet was set to an odd number of elements, whose half circle or round hole was set to a number that is not a
+multiple of four, or whose grid would fold or have a quad corner of a scaled Jacobian below 0.2 - as at the middle of a
+convex fillet of 8 or more elements or at the ends of a convex half circle of 16 or more - is meshed free instead, and
+the output says why; the meshing never fails for it.
+A sweep submaps only its source surfaces, of the blocks swept between two ends, by the rules of its structured
+sources, a source with holes as well, whose inner walls are swept like the outer ones, and meshes a ring source - a
+pipe, a tube, a flange - as a ring by the same choice, and a plane source of one loop with two corners, one or none -
+a disc, an ellipse, a half disc, a teardrop, a stadium - as a lens face, chosen against the submapping as on a shell
+(one with no straight edge is never submapped): the rows that tie the counts
+of such a source are given up at a price rather than refuse the sweep, also
+when the numbers of elements set on its edges make the grid impossible, and the source is then meshed free with a
+message, as is one whose grid would fold or have a quad corner below 0.2; under
+`algorithm_2d='QuadWild'` a submapped, ring or lens source is left to gmsh. A source of a revolved block, a curved
+source and, under `algorithm_2d='QuasiStructuredQuad'`, a lens source are not structured this way.
+`algorithm_recombine` of a Gmsh item is `None`, `Simple`, `Blossom`, `SimpleFullQuad`, `BlossomFullQuad` or
+`QuadDominant`.
+`QuadDominant`, for `shell_gmsh`, meshes like `Blossom` - gmsh then gives every edge it meshes itself an even number of
+elements - and then turns every face gmsh meshed free - not transfinite, three-sided, submapped, a ring or a tube -
+into quads on the boundary nodes gmsh placed, at the element size asked for, keeping triangles only where quads would
+be the worse elements or the total around the face is odd: the triangles left are paired and merged into quads, its
+valences evened out and its nodes smoothed; a pair the merging leaves has its region meshed
+again with quads only or the path between its triangles split along its length, which adds nodes inside the face;
+such a result is kept only when it does not narrow the elements below an aspect of about 10:1 or below what gmsh's mesh
+had, so a narrow face may keep a pair of triangles rather than stretched quads.
+Only an even number of elements around a face allows quads only, so the edges of the free faces are balanced to an
+even total around each face where no number set on an edge or structured face holds them, giving way to everything
+else; the balance measures the edges as gmsh meshes them in the end. A face that still has an odd total keeps one
+triangle, and its message names what holds the total odd (the numbers set on its edges, the structured faces beside
+it, or the even totals of the faces beside it). A face is kept as gmsh meshed it when the conversion would not lower
+its number of triangles, would fold a quad or have a corner of a scaled Jacobian below 0.2 that gmsh's own mesh does
+not have - below half the sine of its sharpest corner instead where that corner is below 23.6 degrees, as on a sliver
+of a blend - and the output says why a face keeps triangles ("Quad-dominant meshing: Surface N keeps M triangles -
+reason"). A face closed along a seam - a full cylinder, cone, torus or other surface of revolution or
+extrusion, with or without holes - is converted as well: it is cut open along its seams, and a seam does not count in
+the even total, since the face meets it on both sides. While `transfinite_submapped` is on, a face of one seam between
+two closed rims is a tube instead, quads with no irregular node, and a face of one seam ending in a pole a cap, quads
+with the four corners of the block at each pole as its only irregular nodes, and a face of one loop with two corners,
+one or none - a disc, a teardrop - a lens face; only one the tube, the cap or the lens face leaves free is converted.
+A face with an edge or a point inside it is converted with its nodes there kept in place and its edge inside never
+crossed; the edge does not count in the even total, since the face meets it on both sides. A face with a degenerate
+edge (the pole of a sphere, the apex of a cone) that is no cap, lens, 3- or 4-sided face, or a face the cap or the
+lens face leaves free, and on which gmsh left triangles, is converted in its projection on its mean plane or, where
+that folds an element, in the conformal chart round its pole; it has no even total of its own, which the message of
+one left with an odd total says. One that neither
+unfolds, a cap reaching far beyond its equator, one gmsh meshed with quads only, and a face with an edge inside it
+that is closed along a seam are, for now, kept as gmsh meshed them.
+A face gmsh meshed with quads only has its valences evened out and its nodes smoothed in the same way, which is kept
+only when it leaves no more irregular inner nodes, no fold and no worse corner.
+Second order elements and the full-quad recombinations work as before; gmsh refuses a full-quad recombination of a
+surface closed along a seam, so such a face fails the meshing under `SimpleFullQuad` and `BlossomFullQuad` unless it is
+a tube, which gmsh leaves unrecombined and the grid replaces, or a cap, both on even counts; gmsh also refuses it on
+any face of a periodic surface (a sphere, a cone, a cylinder), so a lens face, a 3-sided or 4-sided face with a pole,
+and a 3-sided, submapped or ring face of such a surface are left unrecombined as well and laid on even counts (one whose
+grid is refused keeps gmsh's triangles, with its message), and a free face of such a surface (a cone sector whose sides
+fold the transfinite grid) fails the meshing as before. A structured face whose parameter range runs over the seam of
+its periodic surface without being closed (a patch of a cylinder, a cone, a sphere or a torus lying across the seam) is
+meshed as the same face with the seam at an edge.
+`tetrahedral_gmsh` takes `QuadDominant` as `Simple`, and a sweep meshes with it as with `Simple`. A recombined sweep
+turns its free sources into quads in the same way by default, with no setting, and asks the sweep counts for an even
+total around each such source at the weakest tier, so that a block whose free source becomes quads only is swept into
+hexahedra only.
 `transfinite_three_sided` of a Gmsh item is `Polar`, `Mapped` (the default for a new item) or `No`: a
 3-sided face with `Polar` is the structured grid gmsh collapses at one corner, with triangles there and arcs around
 it as a revolution about that corner would make, and its two sides meeting there carry one number of elements. The
@@ -1098,9 +1305,9 @@ polar face the counts fixed on its sides do not allow is meshed as an ordinary p
 | Item | Settings |
 | --- | --- |
 | `tetrahedral_gmsh` | `algorithm_2d`, `algorithm_3d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_solid`, `optimize_high_order` |
-| `shell_gmsh` | `algorithm_2d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell` |
+| `shell_gmsh` | `algorithm_2d`, `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_submapped`, `transfinite_angle_deg`, `optimize_first_order_shell` |
 | `transfinite_mesh` | `allow_pyramid_elements`, `algorithm_2d`, `algorithm_3d`, `recombine`, `transfinite_angle_deg`, `transfinite_three_sided` (`Polar` caps the five-faced cells with the grid gmsh collapses at one corner and fills them with wedges and hexahedra; `Mapped` meshes the caps as three blocks of quads and, recombined, the cells by hexahedra only) |
-| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_angle_deg`, `optimize_first_order_shell`, `elements_per_layer`, `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`). gmsh meshes the walls whichever mesher meshes the sources, so the recombination and optimisation settings apply with either `algorithm_2d`; as in the dialog, the `quad_wild_*` settings are used only with `algorithm_2d='QuadWild'`, refused naming `algorithm_2d` otherwise and left out of `get_settings` |
+| `sweep_mesh` | `number_of_global_smooth_steps`, `algorithm_2d` (a gmsh algorithm, or `QuadWild`: QuadWild meshes the source surfaces with quadrilaterals and chooses the element count of every source edge that no edge mesh size, other sweep block or neighbouring part fixes), `recombine_min_quality`, `algorithm_recombine`, `transfinite_three_sided`, `transfinite_four_sided`, `transfinite_submapped`, `transfinite_angle_deg`, `optimize_first_order_shell`, `elements_per_layer`, `quad_wild_flow_profile`, `quad_wild_alpha`, `quad_wild_smooth`, `symmetry` (`Automatic` or `Off`, see `add_sweep_mesh`). gmsh meshes the walls whichever mesher meshes the sources, so the recombination and optimisation settings apply with either `algorithm_2d`; as in the dialog, the `quad_wild_*` settings are used only with `algorithm_2d='QuadWild'`, refused naming `algorithm_2d` otherwise and left out of `get_settings` |
 
 A mesh setup item takes the selection its dialog would have recorded, which is also what a session
 journal replays: a whole part mesher - `meshing_parameters`, `shell_mmg`, `shell_gmsh`,

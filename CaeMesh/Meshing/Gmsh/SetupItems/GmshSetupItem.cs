@@ -39,6 +39,7 @@ namespace CaeMesh
         [PmxKey(13)] private double[] _layerSizes;                                       // ISerializable
         [PmxKey(14)] private int[] _numOfElementsPerLayer;                               // ISerializable
         [PmxKey(15)] private int _numberOfThreads;                                       // ISerializable
+        [PmxKey(16)] private bool _transfiniteSubmapped;
 
 
         // Properties                                                                                                               
@@ -58,6 +59,7 @@ namespace CaeMesh
         }
         public bool IsTransfiniteThreeSided { get { return _transfiniteThreeSided != TransfiniteThreeSidedEnum.No; } }
         public bool TransfiniteFourSided { get { return _transfiniteFourSided; } set { _transfiniteFourSided = value; } }
+        public bool TransfiniteSubmapped { get { return _transfiniteSubmapped; } set { _transfiniteSubmapped = value; } }
         public double TransfiniteAngleDeg { get { return _transfiniteAngleDeg; } set { _transfiniteAngleDeg = value; } }
         public double TransfiniteAngleRad { get { return _transfiniteAngleDeg * Math.PI / 180; } }
         public GmshOptimizeFirstOrderShellEnum OptimizeFirstOrderShell
@@ -193,6 +195,7 @@ namespace CaeMesh
             _recombineMinQuality = 0.01;
             _transfiniteThreeSided = TransfiniteThreeSidedEnum.Mapped;
             _transfiniteFourSided = true;
+            _transfiniteSubmapped = true;
             _transfiniteAngleDeg = 135;
             _optimizeFirstOrderShell = GmshOptimizeFirstOrderShellEnum.None;
             _optimizeFirstOrderSolid = GmshOptimizeFirstOrderSolidEnum.None;
@@ -214,6 +217,7 @@ namespace CaeMesh
             _recombineMinQuality = gmshSetupItem._recombineMinQuality;
             _transfiniteThreeSided = gmshSetupItem._transfiniteThreeSided;
             _transfiniteFourSided = gmshSetupItem._transfiniteFourSided;
+            _transfiniteSubmapped = gmshSetupItem._transfiniteSubmapped;
             _transfiniteAngleDeg = gmshSetupItem._transfiniteAngleDeg;
             _optimizeFirstOrderShell = gmshSetupItem.OptimizeFirstOrderShell;
             _optimizeFirstOrderSolid = gmshSetupItem.OptimizeFirstOrderSolid;

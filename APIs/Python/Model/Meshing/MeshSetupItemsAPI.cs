@@ -113,7 +113,7 @@ namespace APIs.Python.Model
                 names.Add("algorithm_2d", new string[] { "sweep_algorithm_mesh2_d" });
                 // gmsh meshes the walls of a sweep whose sources QuadWild meshes, so its recombination and
                 // optimisation apply with either source mesher
-                AddGmshArguments(names, (SweepMesh)item, "optimize_first_order_shell");
+                AddGmshArguments(names, (SweepMesh)item, true, "optimize_first_order_shell");
                 names.Add("elements_per_layer", new string[] { "number_of_elements_per_layer" });
                 if (((SweepMesh)item).SourceMesher == SweepSourceMesherEnum.QuadWild)
                     ModelItemValueReader.AddArguments(names, "quad_wild_flow_profile", "quad_wild_alpha",
@@ -132,13 +132,13 @@ namespace APIs.Python.Model
             {
                 names.Add("algorithm_2d", new string[] { "algorithm_mesh2_d" });
                 names.Add("algorithm_3d", new string[] { "algorithm_mesh3_d" });
-                AddGmshArguments(names, (GmshSetupItem)item, "optimize_first_order_solid", "optimize_high_order");
+                AddGmshArguments(names, (GmshSetupItem)item, false, "optimize_first_order_solid", "optimize_high_order");
             }
             else if (item is ShellGmsh)
             {
                 // A shell has no volume, and its dialog no 3D algorithm
                 names.Add("algorithm_2d", new string[] { "algorithm_mesh2_d" });
-                AddGmshArguments(names, (GmshSetupItem)item, "optimize_first_order_shell");
+                AddGmshArguments(names, (GmshSetupItem)item, true, "optimize_first_order_shell");
             }
             else if (item is ShellQuadWild)
             {
@@ -167,15 +167,17 @@ namespace APIs.Python.Model
         }
         // The recombination and transfinite settings every gmsh item but the transfinite one takes, followed by
         // the optimization settings of the item type. The minimum quality is read only while the item recombines
-        // and the angle only while it structures a face, as the dialog shows them only then
-        private static void AddGmshArguments(Dictionary<string, string[]> names, GmshSetupItem item,
+        // and the angle only while it structures a face, as the dialog shows them only then. Only a shell and a
+        // sweep take the submapped faces
+        private static void AddGmshArguments(Dictionary<string, string[]> names, GmshSetupItem item, bool submapped,
                                              params string[] optimizeArguments)
         {
             if (item.AlgorithmRecombine != GmshAlgorithmRecombineEnum.None)
                 ModelItemValueReader.AddArguments(names, "recombine_min_quality");
             ModelItemValueReader.AddArguments(names, "algorithm_recombine", "transfinite_three_sided",
                                               "transfinite_four_sided");
-            if (item.IsTransfiniteThreeSided || item.TransfiniteFourSided)
+            if (submapped) ModelItemValueReader.AddArguments(names, "transfinite_submapped");
+            if (item.IsTransfiniteThreeSided || item.TransfiniteFourSided || (submapped && item.TransfiniteSubmapped))
                 ModelItemValueReader.AddArguments(names, "transfinite_angle_deg");
             ModelItemValueReader.AddArguments(names, optimizeArguments);
         }
@@ -518,17 +520,22 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a Gmsh shell mesh item for the selected geometry. A shell has no volume, so the item " +
-                   "takes no 3D algorithm. " + GmshValueRanges + " " + GmshUnusedValues,
+                   "takes no 3D algorithm. transfinite_submapped, True by default like transfinite_four_sided, " +
+                   "meshes the faces of one boundary loop whose corners all lie near 90 or 270 degrees, such as L, " +
+                   "T and U shaped faces, as structured grids; a face whose grid would fold or be poor is meshed " +
+                   "free and the output says why. transfinite_angle_deg is also used while transfinite_submapped is " +
+                   "True. " + GmshValueRanges + " " + GmshUnusedValues,
                    Arguments = "name: str, selection: Selection, algorithm_2d: str = None, " +
                                "recombine_min_quality: float = None, " +
-                               GmshRecombineArguments + ", transfinite_angle_deg: float = None, " +
-                               "optimize_first_order_shell: str = None",
+                               GmshRecombineArguments + ", transfinite_submapped: bool = None, " +
+                               "transfinite_angle_deg: float = None, optimize_first_order_shell: str = None",
                    Returns = "MeshSetupItem")]
         public MeshSetupItemAPI add_shell_gmsh(object name, object selection, object algorithm_2d = null,
                                                object recombine_min_quality = null,
                                                object algorithm_recombine = null,
                                                object transfinite_three_sided = null,
                                                object transfinite_four_sided = null,
+                                               object transfinite_submapped = null,
                                                object transfinite_angle_deg = null,
                                                object optimize_first_order_shell = null)
         {
@@ -543,7 +550,7 @@ namespace APIs.Python.Model
             _service.ValidateNewName(nameText);
             ShellGmsh item = new ShellGmsh(nameText);
             ApplyShellGmsh(item, algorithm2d, recombine_min_quality, algorithmRecombine,
-                           transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg,
+                           transfiniteThreeSided, transfinite_four_sided, transfinite_submapped, transfinite_angle_deg,
                            optimizeFirstOrderShell);
             _service.Add(item, nameText, selectionValue);
             return this[nameText];
@@ -558,6 +565,7 @@ namespace APIs.Python.Model
                                                    object algorithm_recombine = null,
                                                    object transfinite_three_sided = null,
                                                    object transfinite_four_sided = null,
+                                                   object transfinite_submapped = null,
                                                    object transfinite_angle_deg = null,
                                                    object optimize_first_order_shell = null)
         {
@@ -572,7 +580,7 @@ namespace APIs.Python.Model
                 PythonValueConverter.ToText(optimize_first_order_shell, "optimize_first_order_shell", true);
             ShellGmsh item = _service.CloneItem<ShellGmsh>(oldName);
             ApplyShellGmsh(item, algorithm2d, recombine_min_quality, algorithmRecombine,
-                           transfiniteThreeSided, transfinite_four_sided, transfinite_angle_deg,
+                           transfiniteThreeSided, transfinite_four_sided, transfinite_submapped, transfinite_angle_deg,
                            optimizeFirstOrderShell);
             return Replace(oldName, nameText, item, selectionValue);
         }
@@ -646,10 +654,16 @@ namespace APIs.Python.Model
                    "other cells, a cell of the piece the sweep cannot reach meshed by tetrahedra and mirrored " +
                    "alike; Off sweeps every cell. quad_wild_alpha lies from 0 to 1, and " +
                    "number_of_global_smooth_steps is 0 or larger. The quad_wild arguments are used only with " +
-                   "algorithm_2d 'QuadWild' and are refused naming algorithm_2d otherwise. " + GmshUnusedValues,
+                   "algorithm_2d 'QuadWild' and are refused naming algorithm_2d otherwise. transfinite_submapped, " +
+                   "True by default like transfinite_four_sided, meshes the source surfaces of one boundary loop " +
+                   "whose corners all lie near 90 or 270 degrees as structured grids, also under QuadWild, which " +
+                   "then leaves them to gmsh; a source whose grid would fold or be poor, or whose counts the walls " +
+                   "cannot give it, is meshed free and the output says why. transfinite_angle_deg is also used while " +
+                   "transfinite_submapped is True. " + GmshUnusedValues,
                    Arguments = "name: str, selection: Selection, number_of_global_smooth_steps: int = 0, " +
                                "algorithm_2d: str = None, recombine_min_quality: float = None, " +
-                               GmshRecombineArguments + ", transfinite_angle_deg: float = None, " +
+                               GmshRecombineArguments + ", transfinite_submapped: bool = None, " +
+                               "transfinite_angle_deg: float = None, " +
                                "optimize_first_order_shell: str = None, elements_per_layer: list[int] = None, " +
                                "quad_wild_flow_profile: str = None, quad_wild_alpha: float = None, " +
                                "quad_wild_smooth: bool = None, symmetry: str = None",
@@ -660,6 +674,7 @@ namespace APIs.Python.Model
                                                object algorithm_recombine = null,
                                                object transfinite_three_sided = null,
                                                object transfinite_four_sided = null,
+                                               object transfinite_submapped = null,
                                                object transfinite_angle_deg = null,
                                                object optimize_first_order_shell = null,
                                                object elements_per_layer = null,
@@ -683,7 +698,7 @@ namespace APIs.Python.Model
                 item.Symmetry = PythonValueConverter.ToEnum<SweepSymmetryEnum>(symmetryText, "symmetry");
             item.NumberOfGlobalSmoothSteps = ToNumberOfGlobalSmoothSteps(number_of_global_smooth_steps ?? 0);
             ApplySweepMesh(item, algorithm2d, recombine_min_quality, algorithmRecombine, transfiniteThreeSided,
-                           transfinite_four_sided, transfinite_angle_deg, optimizeFirstOrderShell,
+                           transfinite_four_sided, transfinite_submapped, transfinite_angle_deg, optimizeFirstOrderShell,
                            elements_per_layer);
             ApplySweepQuadWild(item, quadWildFlowProfile, quad_wild_alpha, quad_wild_smooth);
             _service.Add(item, nameText, selectionValue);
@@ -701,6 +716,7 @@ namespace APIs.Python.Model
                                                    object algorithm_recombine = null,
                                                    object transfinite_three_sided = null,
                                                    object transfinite_four_sided = null,
+                                                   object transfinite_submapped = null,
                                                    object transfinite_angle_deg = null,
                                                    object optimize_first_order_shell = null,
                                                    object elements_per_layer = null,
@@ -725,7 +741,7 @@ namespace APIs.Python.Model
             if (number_of_global_smooth_steps != null)
                 item.NumberOfGlobalSmoothSteps = ToNumberOfGlobalSmoothSteps(number_of_global_smooth_steps);
             ApplySweepMesh(item, algorithm2d, recombine_min_quality, algorithmRecombine, transfiniteThreeSided,
-                           transfinite_four_sided, transfinite_angle_deg, optimizeFirstOrderShell,
+                           transfinite_four_sided, transfinite_submapped, transfinite_angle_deg, optimizeFirstOrderShell,
                            elements_per_layer);
             ApplySweepQuadWild(item, quadWildFlowProfile, quad_wild_alpha, quad_wild_smooth);
             return Replace(oldName, nameText, item, selectionValue);
@@ -1167,12 +1183,12 @@ namespace APIs.Python.Model
         }
         private static void ApplyShellGmsh(ShellGmsh item, string algorithm2D, object recombineMinQuality,
                                            string algorithmRecombine, string transfiniteThreeSided,
-                                           object transfiniteFourSided, object transfiniteAngle,
-                                           string optimizeFirstOrderShell)
+                                           object transfiniteFourSided, object transfiniteSubmapped,
+                                           object transfiniteAngle, string optimizeFirstOrderShell)
         {
             ApplyAlgorithms(item, algorithm2D, null);
             ApplyRecombination(item, recombineMinQuality, algorithmRecombine, transfiniteThreeSided,
-                               transfiniteFourSided, transfiniteAngle);
+                               transfiniteFourSided, transfiniteAngle, true, transfiniteSubmapped);
             ApplyOptimizeFirstOrderShell(item, optimizeFirstOrderShell);
         }
         private static void ApplyTransfiniteMesh(TransfiniteMesh item, string algorithm2D, string algorithm3D,
@@ -1194,7 +1210,7 @@ namespace APIs.Python.Model
         }
         private static void ApplySweepMesh(SweepMesh item, string algorithm2D, object recombineMinQuality,
                                            string algorithmRecombine, string transfiniteThreeSided,
-                                           object transfiniteFourSided, object transfiniteAngle,
+                                           object transfiniteFourSided, object transfiniteSubmapped, object transfiniteAngle,
                                            string optimizeFirstOrderShell, object elementsPerLayer)
         {
             // The 2D algorithm of a sweep may also be QuadWild, which meshes the source surfaces while gmsh
@@ -1203,7 +1219,7 @@ namespace APIs.Python.Model
                 item.SweepAlgorithmMesh2D = PythonValueConverter.ToEnum<SweepAlgorithmMesh2DEnum>(algorithm2D,
                                                                                                    "algorithm_2d");
             ApplyRecombination(item, recombineMinQuality, algorithmRecombine, transfiniteThreeSided,
-                               transfiniteFourSided, transfiniteAngle);
+                               transfiniteFourSided, transfiniteAngle, true, transfiniteSubmapped);
             ApplyOptimizeFirstOrderShell(item, optimizeFirstOrderShell);
             ApplyElementsPerLayer(item, elementsPerLayer);
         }
@@ -1313,10 +1329,12 @@ namespace APIs.Python.Model
                                                                                              "algorithm_3d");
         }
         // The minimum quality and the angle are judged on the recombination and the transfinite settings the item
-        // ends up with, the given ones or the ones it keeps
+        // ends up with, the given ones or the ones it keeps. Only a shell and a sweep take the submapped
+        // faces
         private static void ApplyRecombination(GmshSetupItem item, object recombineMinQuality,
                                                string algorithmRecombine, string transfiniteThreeSided,
-                                               object transfiniteFourSided, object transfiniteAngle)
+                                               object transfiniteFourSided, object transfiniteAngle,
+                                               bool takesSubmapped = false, object transfiniteSubmapped = null)
         {
             GmshAlgorithmRecombineEnum recombine = algorithmRecombine != null
                 ? PythonValueConverter.ToEnum<GmshAlgorithmRecombineEnum>(algorithmRecombine, "algorithm_recombine")
@@ -1326,13 +1344,18 @@ namespace APIs.Python.Model
             bool fourSided = transfiniteFourSided != null
                              ? PythonValueConverter.ToBool(transfiniteFourSided, "transfinite_four_sided")
                              : item.TransfiniteFourSided;
+            bool? submapped = null;
+            if (takesSubmapped)
+                submapped = transfiniteSubmapped != null
+                            ? PythonValueConverter.ToBool(transfiniteSubmapped, "transfinite_submapped")
+                            : item.TransfiniteSubmapped;
             if (recombineMinQuality != null && recombine == GmshAlgorithmRecombineEnum.None)
                 throw new PythonAPIException("The argument 'recombine_min_quality' is not used with " +
                                              "algorithm_recombine='None'" +
                                              (algorithmRecombine == null ? ", which the item keeps," : "") +
                                              " as no triangles are then recombined. Give another " +
                                              "algorithm_recombine to use it.");
-            RefuseUnusedTransfiniteAngle(transfiniteAngle, threeSided, fourSided);
+            RefuseUnusedTransfiniteAngle(transfiniteAngle, threeSided, fourSided, submapped);
             double? minQuality = null;
             if (recombineMinQuality != null)
                 minQuality = PythonValueConverter.ToFiniteDouble(recombineMinQuality, "recombine_min_quality");
@@ -1344,6 +1367,7 @@ namespace APIs.Python.Model
             if (minQuality.HasValue) item.RecombineMinQuality = minQuality.Value;
             item.TransfiniteThreeSided = threeSided;
             item.TransfiniteFourSided = fourSided;
+            if (submapped.HasValue) item.TransfiniteSubmapped = submapped.Value;
             if (angle.HasValue) item.TransfiniteAngleDeg = angle.Value;
         }
         private static TransfiniteThreeSidedEnum ToTransfiniteThreeSided(string transfiniteThreeSided,
@@ -1354,14 +1378,21 @@ namespace APIs.Python.Model
             return PythonValueConverter.ToEnum<TransfiniteThreeSidedEnum>(transfiniteThreeSided,
                                                                           "transfinite_three_sided");
         }
-        // No face is structured while both transfinite settings are off, and the dialog then hides the angle
+        // No face is structured while the transfinite settings are off, and the dialog then hides the angle. The
+        // submapped faces count only for an item that takes them
         private static void RefuseUnusedTransfiniteAngle(object transfiniteAngle,
                                                          TransfiniteThreeSidedEnum transfiniteThreeSided,
-                                                         bool transfiniteFourSided)
+                                                         bool transfiniteFourSided, bool? transfiniteSubmapped = null)
         {
             if (transfiniteAngle == null || transfiniteThreeSided != TransfiniteThreeSidedEnum.No ||
-                transfiniteFourSided) return;
+                transfiniteFourSided || transfiniteSubmapped == true) return;
             //
+            if (transfiniteSubmapped.HasValue)
+                throw new PythonAPIException("The argument 'transfinite_angle_deg' is not used while the item ends " +
+                                             "up with transfinite_three_sided='No', transfinite_four_sided=False " +
+                                             "and transfinite_submapped=False, as no face is then structured. Give " +
+                                             "transfinite_three_sided, transfinite_four_sided or " +
+                                             "transfinite_submapped to use it.");
             throw new PythonAPIException("The argument 'transfinite_angle_deg' is not used while the item ends up " +
                                          "with transfinite_three_sided='No' and transfinite_four_sided=False, as " +
                                          "no face is then structured. Give transfinite_three_sided or " +

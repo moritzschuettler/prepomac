@@ -26,6 +26,8 @@ namespace CaeMesh
         [StandardValue("SimpleFullQuad", DisplayName = "Simple full-quad")]
         SimpleFullQuad = 2,
         [StandardValue("BlossomFullQuad", DisplayName = "Blossom full-quad")]
-        BlossomFullQuad = 3
+        BlossomFullQuad = 3,
+        [StandardValue("QuadDominant", DisplayName = "Quad-dominant")]
+        QuadDominant = 4
     }
 }
