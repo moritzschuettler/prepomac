@@ -172,7 +172,6 @@ namespace vtkn
         void WritePng(const std::string& fileName, int magnification);
         // Ambient occlusion (Geometry/vtkNativeAmbientOcclusion.cpp)
         void SetAmbientOcclusion(bool enabled, double relativeRadius, int kernelSize);
-        void SetBasePassSuspended(bool suspended) { BasePassSuspended = suspended; }
         void SetActorBatching(bool enabled) { Batches.SetEnabled(enabled); }
         void GetActorBatches(int& batchCount, int& memberCount) { Batches.GetCounts(batchCount, memberCount); }
         void SetClearedActorReuse(bool enabled)
@@ -286,7 +285,6 @@ namespace vtkn
         BasePass BasePasses[2][2];
         vtkSmartPointer<vtkSSAOPass> SsaoPass;
         bool PickingWithoutBasePass = false;
-        bool BasePassSuspended = false;
         std::map<vtkProperty*, SupersampledSizes> SupersampledPixelSizes;
 
         bool OffScreen;

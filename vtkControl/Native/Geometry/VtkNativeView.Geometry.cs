@@ -456,10 +456,6 @@ namespace vtkControl.Native
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_ambient_occlusion(Handle(), enabled ? 1 : 0,
                                                                                     relativeRadius, kernelSize));
         }
-        public void SetBasePassSuspended(bool suspended)
-        {
-            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_base_pass_suspended(Handle(), suspended ? 1 : 0));
-        }
         public void SetActorBatching(bool enabled)
         {
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_actor_batching(Handle(), enabled ? 1 : 0));
