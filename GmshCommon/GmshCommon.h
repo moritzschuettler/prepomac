@@ -266,6 +266,12 @@ namespace GmshCommon {
 
                 gmsh::model::setVisibility(dimTags, value, recursive);
             }
+            static int GetVisibility(int dim, int tag)
+            {
+                int value;
+                gmsh::model::getVisibility(dim, tag, value);
+                return value;
+            }
             static System::String^ GetType(int dim, int tag)
             {
                 std::string value;

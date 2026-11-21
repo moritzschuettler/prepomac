@@ -127,7 +127,7 @@ namespace CaeMesh
             if (sides[2].Count != width || sides[3].Count != height) return false;
             if ((width != _width || height != _height) && !Subdivide(width, height, sideXyz)) return false;
             //
-            double freeQuality = GetFreeQuality(requireQuads, out double orientation);
+            double freeQuality = GetFreeQuality(FaceId, requireQuads, out double orientation, _orientation);
             if (freeQuality > _quality) return false;
             //
             IntPtr[] tags = new IntPtr[_uv.Length];
@@ -194,14 +194,15 @@ namespace CaeMesh
             _quality = GetMinimum(_elements, xyz, normals, _orientation);
             return true;
         }
-        private double GetFreeQuality(bool requireQuads, out double orientation)
+        internal static double GetFreeQuality(int surfaceId, bool requireQuads, out double orientation,
+                                              double fallbackOrientation = 1)
         {
-            orientation = _orientation;
+            orientation = fallbackOrientation;
             Gmsh.Model.Mesh.GetElements(out int[] types, out IntPtr[][] elementTags, out IntPtr[][] elementNodes,
-                                         2, FaceId);
-            Gmsh.Model.Mesh.GetNodes(out IntPtr[] tags, out double[] xyz, 2, FaceId, true, false);
+                                         2, surfaceId);
+            Gmsh.Model.Mesh.GetNodes(out IntPtr[] tags, out double[] xyz, 2, surfaceId, true, false);
             if (xyz.Length != 3 * tags.Length || tags.Length == 0) return double.NegativeInfinity;
-            Gmsh.Model.GetParametrization(2, FaceId, xyz, out double[] uv);
+            Gmsh.Model.GetParametrization(2, surfaceId, xyz, out double[] uv);
             if (uv.Length != 2 * tags.Length) return double.NegativeInfinity;
             //
             Dictionary<IntPtr, int> ids = new Dictionary<IntPtr, int>();
@@ -226,7 +227,7 @@ namespace CaeMesh
             }
             if (elements.Count == 0) return double.NegativeInfinity;
             double[][] points = ToPoints(xyz, 3);
-            double[][] normals = GmshQuadMesher.GetNormals(FaceId, ToPoints(uv, 2));
+            double[][] normals = GmshQuadMesher.GetNormals(surfaceId, ToPoints(uv, 2));
             double sum = 0;
             double min = 1;
             double max = -1;

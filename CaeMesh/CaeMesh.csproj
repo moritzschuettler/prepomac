@@ -162,7 +162,7 @@
     <Compile Include="Meshing\IntervalAssignment\IntervalRowKindEnum.cs" />
     <Compile Include="Meshing\IntervalAssignment\IntervalRowTierEnum.cs" />
     <Compile Include="Meshing\IntervalAssignment\IntervalSolution.cs" />
-    <Compile Include="Meshing\IntervalAssignment\LpSolve.cs" />
+    <Compile Include="Meshing\IntervalAssignment\Highs.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepBlocks.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepBlockValidation.cs" />
     <Compile Include="Meshing\Gmsh\Sweep\SweepDetectionData.cs" />

@@ -1197,17 +1197,26 @@ arc length along opposite sides when one is split or shares a pattern with its n
 their shapes agree. The mesher samples nine equally spaced arc-length fractions and compares every distance between
 samples after dividing by the side length. Each comparison must agree within 0.02. This allows trapezoids and
 concentric arcs of different lengths. A submapped face without a lens fallback can share this spacing across its
-interior lattice lines, including those joining its outer boundary and cornered holes or connecting two holes.
-The mapper places the holes from the meshed boundary. The outer logical outline uses edge lengths scaled to close
-the outline. An affine fit from the outer corners maps the hole corners into the same frame. Aligned planar shell
-submaps without a round loop or lens fallback place interior nodes at the crossings of perpendicular lattice lines.
+interior lattice lines, including those joining its outer boundary and cornered holes or connecting two cornered
+holes. Spacing pairs pass through round holes and the nodes on their rims stay fixed. When the face also has
+cornered holes, placement still includes the round holes in the same order as in the mapper.
+The mapper places the holes from the meshed boundary, breaking near-ties in offset distance by lattice i then j.
+The outer logical outline uses edge lengths scaled to close the outline. An affine fit maps the hole corners into
+that frame. Aligned planar shell submaps without a round loop or lens fallback place interior nodes at crossings
+of perpendicular lattice lines; a line that a hole or a reentrant corner cuts may lie differently in each piece.
 Lean is the arctangent of the mismatch along the sides divided by the distance between facing nodes. Below 5 degrees
 of initial largest lean, a chain keeps a match only if every face bordering a moved edge belongs to a spacing
-chain, the largest remaining lean is at most 0.1 degrees, and every submapped face with a moved edge has a worst
-scaled Jacobian of at least 0.9999. At or above 5 degrees, the mesher restores the chain if an originally accepted
-submap is refused or its worst scaled Jacobian falls below 0.5 and drops by more than 0.02. Vertices, element
-counts, and nodes on submap turn edges stay fixed. Moved nodes keep at least a third of the even spacing between
-them. Edges owned by other structured meshers or bordering free faces less than three elements deep stay fixed.
+chain and the largest remaining lean is at most 0.1 degrees. A moved submap with only cornered loops must reach a
+worst scaled Jacobian of 0.9999. A moved submap with a round hole needs a valid grid whose worst scaled Jacobian
+drops by at most 0.02 from the original valid grid. At or above 5 degrees, the mesher restores the chain if an
+originally accepted submap is refused or its worst scaled Jacobian falls below 0.5 and drops by more than 0.02.
+Vertices, element counts, and nodes on submap turn edges and on the rims of round holes stay fixed. Moved nodes
+keep at least a third of the even spacing between them. Edges owned by other structured meshers or bordering free
+faces less than three elements deep stay fixed.
+For chains at or above 5 degrees, a submap refused on both boundaries leaves the chain and matching restarts.
+A free face beside a moved edge is trialled on that boundary. If its worst scaled Jacobian falls below 0.5 and by
+more than 0.02 from the original boundary, its edges stay fixed for the rematch. Trials cover None, Simple, Blossom
+and QuadDominant, excluding periodic surfaces, the quasi-structured quad algorithm and first-order optimized shells.
 A face on which two sides of several edges still disagree, so that its grid has a corner of a scaled Jacobian below
 0.5 that is also worse than the corners of the face itself, is meshed free as well - converted by `QuadDominant` when
 that is the recombination, and by the same conversion under a full-quad recombination, where it must end as quads

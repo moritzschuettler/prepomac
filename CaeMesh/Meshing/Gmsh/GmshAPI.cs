@@ -591,7 +591,7 @@ namespace CaeMesh
             }
             IntervalSolution solution = problem.Solve(false, _intervalTimeoutSeconds);
             if (!solution.HasCounts)
-                throw new CaeException("lp_solve found no even element counts for the full-quad recombination (" +
+                throw new CaeException("HiGHS found no even element counts for the full-quad recombination (" +
                                        solution.StatusName + ").");
             //
             foreach (var edgeId in pinnedEdgeIds)
@@ -806,8 +806,8 @@ namespace CaeMesh
             bool movedEdgeNodes = false;
             List<GmshShellGridQuality> trialGrids = new List<GmshShellGridQuality>();
             bool switchToFaceRecombination = false;
-            SubmapFace[] spacingSubmaps = _submapFaces.Where(face => !face.Loops.Any(loop => loop.IsRound) &&
-                                                                    !_lensFallbackFaces.ContainsKey(face.FaceId))
+            // The other loops of a submap with a round hole take part; the round loop is transparent to spacing.
+            SubmapFace[] spacingSubmaps = _submapFaces.Where(face => !_lensFallbackFaces.ContainsKey(face.FaceId))
                                                      .ToArray();
             if (_shellSpacingFaces != null || spacingSubmaps.Length > 0)
             {
@@ -829,6 +829,13 @@ namespace CaeMesh
                     if (_isOCC) Gmsh.Model.OCC.GetMass(2, surfaceId, out area);
                     return area;
                 };
+                Func<int, double?> getFreeQuality = null;
+                if (!fullQuad && !quasiStructured &&
+                    gmshSetupItem.OptimizeFirstOrderShell == GmshOptimizeFirstOrderShellEnum.None)
+                {
+                    bool quadDominant = gmshSetupItem.AlgorithmRecombine == GmshAlgorithmRecombineEnum.QuadDominant;
+                    getFreeQuality = surfaceId => TrialFreeShellSurface(surfaceId, quadDominant);
+                }
                 movedEdgeNodes = GmshShellSideSpacing.Match(spacingFaces, spacingSubmaps, _transfiniteSurfaceIds,
                                                            fixedSurfaceIds, getSurfaceArea, meshEdges, recombine, grid =>
                 {
@@ -844,7 +851,7 @@ namespace CaeMesh
                     }
                     else if (recombine && !unrecombinedSurfaceIds.Contains(surfaceId))
                         Gmsh.Model.Mesh.SetRecombine(2, surfaceId);
-                });
+                }, getFreeQuality);
                 if (switchToFaceRecombination) SetShellRecombination(unrecombinedSurfaceIds);
             }
             if (meshEdgesFirst)
@@ -962,6 +969,40 @@ namespace CaeMesh
                     WriteTransfiniteFreeMessage(grid.FaceId, lean);
                     if (trialQuadMessages != null && trialQuadMessages[grid.FaceId] != null)
                         _writeOutput?.Invoke(trialQuadMessages[grid.FaceId]);
+                }
+            }
+        }
+        private double? TrialFreeShellSurface(int surfaceId, bool quadDominant)
+        {
+            if (IsPeriodicSurface(surfaceId) || Gmsh.Model.GetVisibility(2, surfaceId) != 1) return null;
+            Tuple<int, int>[] target = new[] { Tuple.Create(2, surfaceId) };
+            Gmsh.Model.GetEntities(out Tuple<int, int>[] surfaces, 2);
+            Tuple<int, int>[] hidden = surfaces.Where(surface => surface.Item2 != surfaceId &&
+                                                                 Gmsh.Model.GetVisibility(2, surface.Item2) == 1)
+                                              .ToArray();
+            double onlyVisible = Gmsh.Option.GetNumber("Mesh.MeshOnlyVisible");
+            double onlyEmpty = Gmsh.Option.GetNumber("Mesh.MeshOnlyEmpty");
+            try
+            {
+                Gmsh.Model.SetVisibility(hidden, 0);
+                Gmsh.Option.SetNumber("Mesh.MeshOnlyVisible", 1);
+                Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", 1);
+                GenerateMesh(2);
+                if (quadDominant)
+                {
+                    try { GmshQuadMesher.Mesh(surfaceId, out _, out _); }
+                    catch (Exception ex) when (!(ex is OutOfMemoryException)) { }
+                }
+                return GmshShellGridQuality.GetFreeQuality(surfaceId, false, out _);
+            }
+            finally
+            {
+                try { Gmsh.Model.Mesh.Clear(target); }
+                finally
+                {
+                    Gmsh.Option.SetNumber("Mesh.MeshOnlyEmpty", onlyEmpty);
+                    Gmsh.Option.SetNumber("Mesh.MeshOnlyVisible", onlyVisible);
+                    Gmsh.Model.SetVisibility(hidden, 1);
                 }
             }
         }
@@ -4586,7 +4627,7 @@ namespace CaeMesh
         /// <summary>
         /// The counts of the sweep edges solved in one problem. Counts that cannot keep every hard row - the numbers of
         /// elements the user set on edges against the walls and the levels of the sweep - refuse the meshing with the rows
-        /// that conflict, as the relaxed problem finds them, and so does a problem lp_solve finds no counts for in time.
+        /// that conflict, as the relaxed problem finds them, and so does a problem HiGHS finds no counts for in time.
         /// </summary>
         private IntervalSolution SolveSweepIntervals(IntervalProblem problem)
         {
@@ -4610,8 +4651,8 @@ namespace CaeMesh
                     "Change the number of elements set on these edges, or switch off the transfinite meshing of the " +
                     "3-sided and 4-sided surfaces.", refusedRows, solution);
             }
-            if (solution.Status != LpSolve.Infeasible)
-                throw new CaeException("Sweep: lp_solve found no element counts for the sweep (" + solution.StatusName +
+            if (solution.Status != Highs.Infeasible)
+                throw new CaeException("Sweep: HiGHS found no element counts for the sweep (" + solution.StatusName +
                                        " after " + _intervalTimeoutSeconds + " s).");
             //
             IntervalSolution relaxed = problem.Solve(true, _intervalTimeoutSeconds);

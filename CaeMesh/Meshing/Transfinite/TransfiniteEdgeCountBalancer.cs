@@ -17,7 +17,7 @@ namespace CaeMesh
     /// <summary>
     /// Gives the paired sides of the structured faces the same number of elements, for the coarser mesh, and the sides of
     /// a three-sided face an even sum in which no side carries as many elements as the other two together. The balance
-    /// is the interval assignment: every pair and every three-sided face is a row of one lp_solve problem, and the counts
+    /// is the interval assignment: every pair and every three-sided face is a row of one HiGHS problem, and the counts
     /// closest to the ones the mesh size asks for, lower ones before higher ones, keep them all. The numbers the user set
     /// are never changed, so sides they leave no way to agree are returned, for the meshing to be refused. Lowering
     /// evens out counts that are close: an edge that borders a free face keeps at least 0.8 of the count the mesh size
@@ -125,12 +125,12 @@ namespace CaeMesh
                                 maxSizeCounts, pairs, triples, separations, edgeIdMultiples, evenSides, structuredEvenSides,
                                 minStructuredEvenSum, evenLoops, minSumSides, minSideSum, equalSumSides, minSumLoops,
                                 minLoopSum, out unbalanced, out unbalancedTriples, out unbalancedSeparations))
-                throw new CaeException("lp_solve found no element counts for the structured faces.");
+                throw new CaeException("HiGHS found no element counts for the structured faces.");
             return unbalanced;
         }
         /// <summary>
         /// The balance as one integer problem. A side pinned against another is a row no counts keep, and the relaxed
-        /// problem, which gives such rows up at a high price, names it. False when lp_solve finds no counts at all.
+        /// problem, which gives such rows up at a high price, names it. False when HiGHS finds no counts at all.
         /// </summary>
         private static bool BalanceBySolve(Dictionary<int, int> edgeIdCount, Dictionary<int, int> naturalCounts,
                                            HashSet<int> pinnedEdgeIds, Dictionary<int, int> edgeIdLowestCount,
@@ -226,7 +226,7 @@ namespace CaeMesh
             IntervalSolution solution = problem.Solve(false, _timeoutSeconds);
             if (!solution.HasCounts)
             {
-                if (solution.Status != LpSolve.Infeasible) return false;
+                if (solution.Status != Highs.Infeasible) return false;
                 solution = problem.Solve(true, _timeoutSeconds);
                 if (!solution.HasCounts) return false;
             }

@@ -26,7 +26,9 @@ namespace CaeMesh
     /// the holes placed before it. The holes are placed one after another in loop order.
     /// A round hole is a square of a quarter of its nodes on each side, placed as any hole; where its corners go is
     /// found before, by the lattice positions of its nodes about its centre (GetRoundLoopOrder), the same way in the
-    /// detection and in the meshers, which then pass its nodes in that order.
+    /// detection and in the meshers, which then pass its nodes in that order. Offset distances within
+    /// OffsetTieTolerance are tied and ordered by i then j. Tied round-loop starts use the smaller signed angle
+    /// from 45 degrees.
     /// </summary>
     public static class SubmapHolePlacement
     {
@@ -35,6 +37,8 @@ namespace CaeMesh
         /// How far from the offset nearest to its target a hole is looked for, in lattice cells.
         /// </summary>
         public const int MaxSearchRadius = 12;
+        private const double OffsetTieTolerance = 1E-9;
+        private const double AngleTieTolerance = 1E-9;
         private static readonly int[] DirectionI = new int[] { 1, 0, -1, 0 };
         private static readonly int[] DirectionJ = new int[] { 0, 1, 0, -1 };
 
@@ -243,16 +247,22 @@ namespace CaeMesh
                 angles[p] = Math.Atan2(position[1] - target[1], position[0] - target[0]);
             }
             double sumOfTurns = 0;
-            int start = 0;
-            double startDeviation = double.MaxValue;
+            double[] deviations = new double[n];
+            double nearest = double.PositiveInfinity;
             for (int p = 0; p < n; p++)
             {
                 sumOfTurns += GetWrappedAngle(angles[(p + 1) % n] - angles[p]);
-                double deviation = Math.Abs(GetWrappedAngle(angles[p] - 0.25 * Math.PI));
-                if (deviation < startDeviation)
+                deviations[p] = GetWrappedAngle(angles[p] - 0.25 * Math.PI);
+                nearest = Math.Min(nearest, Math.Abs(deviations[p]));
+            }
+            int start = 0;
+            double startDeviation = double.PositiveInfinity;
+            for (int p = 0; p < n; p++)
+            {
+                if (Math.Abs(deviations[p]) <= nearest + AngleTieTolerance && deviations[p] < startDeviation)
                 {
                     start = p;
-                    startDeviation = deviation;
+                    startDeviation = deviations[p];
                 }
             }
             int step = sumOfTurns > 0 ? -1 : 1;
@@ -348,8 +358,8 @@ namespace CaeMesh
         /// </summary>
         private static List<int[]> GetCandidateOffsets(double targetI, double targetJ)
         {
-            int centreI = (int)Math.Round(targetI);
-            int centreJ = (int)Math.Round(targetJ);
+            int centreI = GetNearestOffset(targetI);
+            int centreJ = GetNearestOffset(targetJ);
             List<int[]> candidates = new List<int[]>();
             List<double> distances = new List<double>();
             for (int di = -MaxSearchRadius; di <= MaxSearchRadius; di++)
@@ -360,20 +370,33 @@ namespace CaeMesh
                     int i = centreI + di;
                     int j = centreJ + dj;
                     candidates.Add(new int[] { i, j });
-                    distances.Add((i - targetI) * (i - targetI) + (j - targetJ) * (j - targetJ));
+                    distances.Add(Math.Sqrt((i - targetI) * (i - targetI) + (j - targetJ) * (j - targetJ)));
                 }
             }
             int[] order = new int[candidates.Count];
             for (int c = 0; c < order.Length; c++) order[c] = c;
-            Array.Sort(order, (a, b) =>
+            Array.Sort(order, (a, b) => distances[a].CompareTo(distances[b]));
+            var byOffset = Comparer<int>.Create((a, b) =>
             {
-                if (distances[a] != distances[b]) return distances[a].CompareTo(distances[b]);
-                if (candidates[a][0] != candidates[b][0]) return candidates[a][0].CompareTo(candidates[b][0]);
-                return candidates[a][1].CompareTo(candidates[b][1]);
+                int compareI = candidates[a][0].CompareTo(candidates[b][0]);
+                return compareI != 0 ? compareI : candidates[a][1].CompareTo(candidates[b][1]);
             });
+            for (int start = 0; start < order.Length;)
+            {
+                int end = start + 1;
+                double lastDistance = distances[order[start]] + OffsetTieTolerance;
+                while (end < order.Length && distances[order[end]] <= lastDistance) end++;
+                Array.Sort(order, start, end - start, byOffset);
+                start = end;
+            }
             List<int[]> sorted = new List<int[]>();
             foreach (var c in order) sorted.Add(candidates[c]);
             return sorted;
+        }
+        private static int GetNearestOffset(double target)
+        {
+            int lower = (int)Math.Floor(target);
+            return target - lower > 0.5 + OffsetTieTolerance ? lower + 1 : lower;
         }
         /// <summary>
         /// Whether hole h at the offset keeps at least the bound of cells, by the lattice distance along i or j,

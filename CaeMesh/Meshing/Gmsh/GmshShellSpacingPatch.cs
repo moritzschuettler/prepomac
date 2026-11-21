@@ -48,7 +48,7 @@ namespace CaeMesh
         public GmshShellSpacingPatch(SubmapFace face)
         {
             _submap = face;
-            _edgeIds = face.AllEdgeIds;
+            _edgeIds = face.Loops.Where(loop => !loop.IsRound).SelectMany(loop => loop.EdgeIds).ToArray();
         }
 
 

@@ -441,8 +441,8 @@ namespace CaeMesh
             int[][] quadArray = quads.ToArray();
             double orientation = ThreeBlockMapping.GetSignedArea(points, numOfOuterNodes) < 0 ? -1 : 1;
             int numOfFoldedQuads = 0;
-            bool aligned = keepOrthogonal && TrySetOrthogonalPoints(points, boundaryI, boundaryJ, nextNodeIds,
-                                                                     logical, width, height) &&
+            bool aligned = keepOrthogonal && TrySetOrthogonalPoints(points, nodeIds, boundaryI, boundaryJ, nextNodeIds,
+                                                                     rowLength, height) &&
                            QuadSmoothing.GetMinScaledJacobian(points, quadArray, orientation) >= MinAlignedGridQuality;
             if (!aligned)
             {
@@ -497,12 +497,13 @@ namespace CaeMesh
                                   QuadSmoothing.GetMinScaledJacobian(points, quadArray, orientation));
         }
         /// <summary>
-        /// Places the inner nodes at the crossings of the lattice lines when the boundary nodes of every line i share one
-        /// coordinate along the first lattice direction and those of every line j one across it, within
-        /// AlignedCoordinateTolerance of the size of the face. False when a boundary node is off its lines.
+        /// Places every inner node at the crossing of its two lattice lines when the two boundary nodes each of them ends
+        /// on share one coordinate across the line and every boundary segment runs along its lattice direction, within
+        /// AlignedCoordinateTolerance of the size of the face. A lattice line that a hole or a reentrant corner cuts in
+        /// pieces may lie differently in each of them. False when a boundary node is off its line.
         /// </summary>
-        private static bool TrySetOrthogonalPoints(double[][] points, int[] boundaryI, int[] boundaryJ,
-                                                   int[] nextNodeIds, List<int[]> logical, int width, int height)
+        private static bool TrySetOrthogonalPoints(double[][] points, int[] nodeIds, int[] boundaryI, int[] boundaryJ,
+                                                   int[] nextNodeIds, int rowLength, int height)
         {
             int numOfBoundaryNodes = boundaryI.Length;
             int b = 0;
@@ -521,28 +522,39 @@ namespace CaeMesh
             for (b = 0; b < numOfBoundaryNodes; b++)
                 size = Math.Max(size, Math.Abs(points[b][0] - origin[0]) + Math.Abs(points[b][1] - origin[1]));
             double tolerance = AlignedCoordinateTolerance * size;
-            double[] x = new double[width + 1];
-            double[] y = new double[height + 1];
-            for (int i = 0; i < x.Length; i++) x[i] = double.NaN;
-            for (int j = 0; j < y.Length; j++) y[j] = double.NaN;
+            double[] x = new double[numOfBoundaryNodes];
+            double[] y = new double[numOfBoundaryNodes];
             for (b = 0; b < numOfBoundaryNodes; b++)
             {
                 double px = points[b][0] - origin[0];
                 double py = points[b][1] - origin[1];
-                double xi = dx * px + dy * py;
-                double yj = dx * py - dy * px;
-                int i = boundaryI[b];
-                int j = boundaryJ[b];
-                if (double.IsNaN(x[i])) x[i] = xi;
-                if (double.IsNaN(y[j])) y[j] = yj;
-                if (Math.Abs(x[i] - xi) > tolerance || Math.Abs(y[j] - yj) > tolerance) return false;
+                x[b] = dx * px + dy * py;
+                y[b] = dx * py - dy * px;
             }
-            for (int n = numOfBoundaryNodes; n < points.Length; n++)
+            for (b = 0; b < numOfBoundaryNodes; b++)
             {
-                double xi = x[logical[n][0]];
-                double yj = y[logical[n][1]];
-                if (double.IsNaN(xi) || double.IsNaN(yj)) return false;
-                points[n] = new double[] { origin[0] + dx * xi - dy * yj, origin[1] + dy * xi + dx * yj };
+                int after = nextNodeIds[b];
+                if (boundaryI[b] == boundaryI[after] ? Math.Abs(x[b] - x[after]) > tolerance :
+                                                       Math.Abs(y[b] - y[after]) > tolerance) return false;
+            }
+            int numOfInnerNodes = points.Length - numOfBoundaryNodes;
+            int[] first = new int[numOfInnerNodes];
+            int[] last = new int[numOfInnerNodes];
+            SetLineEndsAlongI(nodeIds, numOfBoundaryNodes, rowLength, height, first, last);
+            double[] innerY = new double[numOfInnerNodes];
+            for (int n = 0; n < numOfInnerNodes; n++)
+            {
+                if (first[n] < 0 || last[n] < 0 || Math.Abs(y[first[n]] - y[last[n]]) > tolerance) return false;
+                innerY[n] = y[first[n]];
+            }
+            SetLineEndsAlongJ(nodeIds, numOfBoundaryNodes, rowLength, height, first, last);
+            for (int n = 0; n < numOfInnerNodes; n++)
+            {
+                if (first[n] < 0 || last[n] < 0 || Math.Abs(x[first[n]] - x[last[n]]) > tolerance) return false;
+                double xi = x[first[n]];
+                double yj = innerY[n];
+                points[numOfBoundaryNodes + n] = new double[] { origin[0] + dx * xi - dy * yj,
+                                                                origin[1] + dy * xi + dx * yj };
             }
             return true;
         }
@@ -556,7 +568,26 @@ namespace CaeMesh
             int numOfInnerNodes = points.Length - numOfBoundaryNodes;
             int[] first = new int[numOfInnerNodes];
             int[] last = new int[numOfInnerNodes];
-            // Along i
+            SetLineEndsAlongI(nodeIds, numOfBoundaryNodes, rowLength, height, first, last);
+            double[][] alongI = new double[numOfInnerNodes][];
+            for (int n = 0; n < numOfInnerNodes; n++)
+                alongI[n] = Interpolate(points[first[n]], points[last[n]], logical[first[n]][0],
+                                        logical[last[n]][0], logical[numOfBoundaryNodes + n][0]);
+            SetLineEndsAlongJ(nodeIds, numOfBoundaryNodes, rowLength, height, first, last);
+            for (int n = 0; n < numOfInnerNodes; n++)
+            {
+                double[] alongJ = Interpolate(points[first[n]], points[last[n]], logical[first[n]][1],
+                                              logical[last[n]][1], logical[numOfBoundaryNodes + n][1]);
+                points[numOfBoundaryNodes + n] = new double[] { 0.5 * (alongI[n][0] + alongJ[0]),
+                                                                0.5 * (alongI[n][1] + alongJ[1]) };
+            }
+        }
+        /// <summary>
+        /// For every inner node the two boundary nodes its lattice line along i ends on, towards -i and towards +i.
+        /// </summary>
+        private static void SetLineEndsAlongI(int[] nodeIds, int numOfBoundaryNodes, int rowLength, int height,
+                                              int[] first, int[] last)
+        {
             for (int j = 0; j <= height; j++)
             {
                 int boundaryNode = -1;
@@ -566,11 +597,13 @@ namespace CaeMesh
                 for (int i = rowLength - 1; i >= 0; i--) boundaryNode = SetLineEnd(nodeIds[j * rowLength + i], boundaryNode,
                                                                                   numOfBoundaryNodes, last);
             }
-            double[][] alongI = new double[numOfInnerNodes][];
-            for (int n = 0; n < numOfInnerNodes; n++)
-                alongI[n] = Interpolate(points[first[n]], points[last[n]], logical[first[n]][0],
-                                        logical[last[n]][0], logical[numOfBoundaryNodes + n][0]);
-            // Along j
+        }
+        /// <summary>
+        /// For every inner node the two boundary nodes its lattice line along j ends on, towards -j and towards +j.
+        /// </summary>
+        private static void SetLineEndsAlongJ(int[] nodeIds, int numOfBoundaryNodes, int rowLength, int height,
+                                              int[] first, int[] last)
+        {
             for (int i = 0; i < rowLength; i++)
             {
                 int boundaryNode = -1;
@@ -579,13 +612,6 @@ namespace CaeMesh
                 boundaryNode = -1;
                 for (int j = height; j >= 0; j--) boundaryNode = SetLineEnd(nodeIds[j * rowLength + i], boundaryNode,
                                                                            numOfBoundaryNodes, last);
-            }
-            for (int n = 0; n < numOfInnerNodes; n++)
-            {
-                double[] alongJ = Interpolate(points[first[n]], points[last[n]], logical[first[n]][1],
-                                              logical[last[n]][1], logical[numOfBoundaryNodes + n][1]);
-                points[numOfBoundaryNodes + n] = new double[] { 0.5 * (alongI[n][0] + alongJ[0]),
-                                                                0.5 * (alongI[n][1] + alongJ[1]) };
             }
         }
         /// <summary>

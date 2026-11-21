@@ -180,8 +180,8 @@ namespace CaeMesh
             if (solution.HasCounts)
                 return sizedCounts.Where(entry => sideEdgeIds.Contains(entry.Key))
                                   .ToDictionary(entry => entry.Key, entry => solution.EdgeIdNumOfElements[entry.Key]);
-            if (solution.Status != LpSolve.Infeasible)
-                throw new CaeException("lp_solve found no element counts for the structured faces (" + solution.StatusName +
+            if (solution.Status != Highs.Infeasible)
+                throw new CaeException("HiGHS found no element counts for the structured faces (" + solution.StatusName +
                                        ").");
             //
             IntervalSolution relaxed = problem.Solve(true, _timeoutSeconds);

@@ -12,7 +12,7 @@ using System.Collections.Generic;
 namespace CaeMesh
 {
     /// <summary>
-    /// What lp_solve returned for an interval assignment: its status, the counts when it found any, and the rows those
+    /// What HiGHS returned for an interval assignment: its status, the counts when it found any, and the rows those
     /// counts leave unsatisfied - soft rows given up, or every row the counts break when the hard rows were relaxed.
     /// </summary>
     public class IntervalSolution
@@ -38,11 +38,10 @@ namespace CaeMesh
             {
                 switch (_status)
                 {
-                    case LpSolve.Optimal: return "optimal";
-                    case LpSolve.SubOptimal: return "suboptimal";
-                    case LpSolve.Infeasible: return "infeasible";
-                    case LpSolve.Unbounded: return "unbounded";
-                    case LpSolve.Timeout: return "timeout";
+                    case Highs.Optimal: return "optimal";
+                    case Highs.Infeasible: return "infeasible";
+                    case Highs.Unbounded: return "unbounded";
+                    case Highs.TimeLimit: return "time limit";
                     default: return "status " + _status;
                 }
             }
