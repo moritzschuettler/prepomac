@@ -47,14 +47,15 @@ namespace PrePoMax
                 string path = System.IO.Path.Combine(workDirectory, $"{_directoryNamePrefix}{counter:D4}");
                 if (Directory.Exists(path)) continue;
                 //
-                Directory.CreateDirectory(path);
                 try
                 {
+                    Directory.CreateDirectory(path);
                     FileStream lockStream = new FileStream(System.IO.Path.Combine(path, _lockFileName),
                                                            FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
                     return new MeshBatchDirectory(path, lockStream);
                 }
                 catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
             }
             throw new CaeGlobals.CaeException("A meshing folder could not be created in the work directory.");
         }
