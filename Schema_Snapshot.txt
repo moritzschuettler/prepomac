@@ -2401,6 +2401,27 @@ F 3286.1 #3154 _complexLoadType
 F 3286.2 System.Double[] _uniformForce
 F 3286.3 System.Int32[] _elementIds
 F 3286.4 System.Double[][] _elementForces
+T 3287 class CaeModel.EdgeLoad
+F 3287.0 System.String _regionName
+F 3287.1 #1014 _regionType
+F 3287.2 #1019 _f1
+F 3287.3 #1019 _f2
+F 3287.4 #1019 _f3
+F 3287.5 #1019 _magnitude
+F 3287.6 System.String _distributionName
+F 3287.7 #3289 _direction
+F 3287.8 #1019 _normal
+T 3288 class FileInOut.Output.Calculix.CalEdgeLoad
+F 3288.0 #3287 _load
+F 3288.1 #3154 _complexLoadType
+F 3288.2 System.Int32[] _nodeIds
+F 3288.3 System.Double[][] _forces
+F 3288.4 System.Int32[] _elementIds
+F 3288.5 System.Int32[] _edgeNumbers
+F 3288.6 System.Double[] _values
+T 3289 enum CaeModel.EdgeLoadDirectionEnum
+E 3289.0 member Components
+E 3289.1 member Normal
 T 5000 class CaeResults.PlyStiffness
 F 5000.0 System.Double _q11
 F 5000.1 System.Double _q22
@@ -4705,6 +4726,8 @@ F 10545.0 #1033 _modelUnitSystemType
 F 10545.1 #1033 _resultsUnitSystemType
 T 10546 class PrePoMax.ViewBodyForce
 F 10546.0 #3285 _bForce
+T 10547 class PrePoMax.ViewEdgeLoad
+F 10547.0 #3287 _edgeLoad
 R T 3039 class FileInOut.Input.NetgenVolFileReader
 R T 3042 class FileInOut.Input.UnvFileReader
 R T 3043 class FileInOut.Output.AbaqusFileWriter

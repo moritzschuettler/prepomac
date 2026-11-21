@@ -51,9 +51,10 @@ namespace PrePoMax.Python.Journal
             string method = verb + "_" + AddTypeArguments(writer, arguments, load, replace);
             //
             PythonStepItemEmitter.AddAmplitude(writer, arguments, load.AmplitudeName, replace);
-            // The dialog offers a coordinate system for a concentrated force, a surface traction and a body force
-            // only, and the API refuses one elsewhere
-            if (load is CLoad || load is STLoad || load is BodyForce)
+            // The dialog offers a coordinate system for a concentrated force, a surface traction, a body force and an
+            // edge load only, and the API refuses one elsewhere
+            if (load is CLoad || load is STLoad || load is BodyForce ||
+                (load is EdgeLoad edgeLoad && edgeLoad.Direction == EdgeLoadDirectionEnum.Components))
                 PythonStepItemEmitter.AddCoordinateSystem(writer, arguments, load.CoordinateSystemName, replace);
             // A pre-tension is complex in a steady state dynamics step, but the solver input carries no phase for it
             PythonStepItemEmitter.AddPhase(arguments, load.Complex && !(load is PreTensionLoad), load.PhaseDeg);
@@ -163,6 +164,20 @@ namespace PrePoMax.Python.Journal
                 AddName(arguments, "distribution_name",
                         writer.KeptReference(Distributions, bodyForce.DistributionName, replace));
                 return "body_force";
+            }
+            if (load is EdgeLoad edgeLoad)
+            {
+                if (edgeLoad.Direction == EdgeLoadDirectionEnum.Normal)
+                    arguments.Add("normal=" + PythonValueFormatter.Equation(edgeLoad.Normal));
+                else
+                {
+                    AddComponent(arguments, "f1", edgeLoad.F1);
+                    AddComponent(arguments, "f2", edgeLoad.F2);
+                    AddComponent(arguments, "f3", edgeLoad.F3);
+                }
+                AddName(arguments, "distribution_name",
+                        writer.KeptReference(Distributions, edgeLoad.DistributionName, replace));
+                return "edge_load";
             }
             if (load is PreTensionLoad preTension)
             {

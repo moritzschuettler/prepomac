@@ -2384,7 +2384,8 @@ command, naming the step type.
 Reached as `step.loads`. It shares the collection verbs. Every `region` argument is a `Selection` or
 a `Region`; the selection target follows the load type. A gravity, a centrifugal, a body force and a body flux load
 pick parts, as their dialog does, because the selection becomes an element set made of the picked parts;
-named, their region is an `ElementSetName` or a `PartName` region.
+named, their region is an `ElementSetName` or a `PartName` region. An edge load picks geometry edges, which the
+controller keeps in a node set.
 
 | Member | Selection target | Description |
 | --- | --- | --- |
@@ -2394,7 +2395,8 @@ named, their region is an `ElementSetName` or a `PartName` region.
 | `add_hydrostatic_pressure(name, region, first_point=None, second_point=None, direction=None, first_point_pressure=None, second_point_pressure=None, cutoff=None, ...)` | surfaces | A hydrostatic pressure. `cutoff` is `None`, `Positive` or `Negative`. The default `direction` is zero, so a direction must be given, and the two points must lie apart along it. |
 | `add_imported_pressure(name, region, file_name, pressure_time, pressure_variable_name, interpolator_type=None, magnitude_factor=None, geometry_scale_factor=None, ...)` | surfaces | A pressure read from an OpenFOAM case, named by its `.foam` file, and interpolated onto the surface. As the dialog does, a case without results, a `pressure_time` the case does not hold and a `pressure_variable_name` that is not a scalar field of that time are refused, on an add and on the load a replace ends with. |
 | `add_surface_traction(name, region, f1=None, f2=None, f3=None, p1=None, p2=None, p3=None, distribution_name=None, ...)` | surfaces | A surface traction. |
-| `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A shell edge load. |
+| `add_shell_edge_load(name, region, magnitude, ...)` | surfaces | A normal shell edge load (`*Dload EDNOR`). The dialog offers it only to edit an existing one; `add_edge_load` with `normal` replaces it. |
+| `add_edge_load(name, region, f1=None, f2=None, f3=None, normal=None, distribution_name=None, ...)` | edges | A force per unit length on geometry edges of solid, shell or 2D parts, written as the equivalent nodal forces in `*Cload` lines. Named, the region is a `NodeSetName` region of a node set created by picking geometry edges. A distribution is evaluated at the edge nodes and multiplies the components; in a cylindrical `coordinate_system_name` the components are radial, tangential and axial. Instead of the components, a `normal` acts normal to the edge in the plane of the shell or 2D part, a positive value pushing into the part as a pressure and `*Dload EDNOR` do; it needs edges that each bound one shell or 2D element, a scalar distribution and no coordinate system. On a shell the `normal` is written as `*Dload EDNOR` with the mean value over each element edge, so it follows the shell under NLGEOM; on a 2D part it is written as nodal forces. Giving the components or the `normal` on a replace switches between the two. An axisymmetric model refuses it. |
 | `add_gravity(name, region, f1=None, f2=None, f3=None, ...)` | parts | A gravity load. |
 | `add_centrifugal(name, region, axis_point=None, axis_direction=None, rotational_speed=None, ...)` | parts | A centrifugal load. The `rotational_speed` is in rad/s. The defaults of `axis_direction` and `rotational_speed` are zero, so a model that is not axisymmetric needs the direction, and every model the speed. |
 | `add_body_force(name, region, f1=None, f2=None, f3=None, distribution_name=None, ...)` | parts | A force per unit volume, written as `*Dload` `BX`, `BY` and `BZ`. A distribution is evaluated at the element centroids and multiplies the components; in a cylindrical `coordinate_system_name` the components are radial, tangential and axial. |
@@ -2425,9 +2427,9 @@ The details the model imposes:
   `p1`-`p3` the force per area. The solver is given the group that matches the distribution: the
   force components without a distribution, the force per area components with one. The other group is
   refused, checked against the distribution the load carries after the call.
-- **A coordinate system belongs to a concentrated force, a surface traction or a body force.** The
-  solver input orients only their components, and the dialog offers one only for them, so any other load
-  refuses a `coordinate_system_name` other than `Global`.
+- **A coordinate system belongs to a concentrated force, a surface traction, a body force or an edge load.** The
+  solver input orients only their components, and the dialog offers one only for them, so any other load, and an
+  edge load with a `normal`, refuses a `coordinate_system_name` other than `Global`.
 - **A phase belongs to a complex load.** Only a steady state dynamics step makes its loads complex, so
   `phase_deg` is refused in any other step and by a thermal or pre-tension load, and is read back only
   where it is taken. A phase is at least 0 and below 360 degrees: the load would wrap any other value
@@ -2447,7 +2449,7 @@ The details the model imposes:
   dialog's words and naming the arguments, judged on the load an add or a replace ends with and on the
   value an expression evaluates to: a concentrated force, a moment, a gravity load or the component group
   a surface traction writes with every component 0, a pressure, a shell edge load or a pre-tension
-  `Force` with a magnitude of 0, a centrifugal load with a zero axis or a `rotational_speed` of 0, and a
+  `Force` with a magnitude of 0, an edge load with every component or its `normal` 0, a centrifugal load with a zero axis or a `rotational_speed` of 0, and a
   hydrostatic pressure whose direction is zero or whose two points lie on one plane across it.
 - **A direction is not zero.** A given `axis_direction` of a centrifugal load and `direction` of a hydrostatic
   pressure or a pre-tension load of zero length is refused naming the argument, as the dialog refuses it; so are
@@ -2470,7 +2472,7 @@ An **imported pressure** is read from its results file on every model check, so 
 | Member | Description |
 | --- | --- |
 | `name`, `step_name` | The load name and the step it belongs to. |
-| `item_type` | The load type, named after the `add_*` method that makes it without `add_`: `concentrated_force`, `moment`, `pressure`, `hydrostatic_pressure`, `imported_pressure`, `surface_traction`, `shell_edge_load`, `gravity`, `centrifugal`, `body_force`, `pre_tension`, `concentrated_flux`, `surface_flux`, `body_flux`, `film_heat_transfer` or `radiation_heat_transfer`. |
+| `item_type` | The load type, named after the `add_*` method that makes it without `add_`: `concentrated_force`, `moment`, `pressure`, `hydrostatic_pressure`, `imported_pressure`, `surface_traction`, `shell_edge_load`, `edge_load`, `gravity`, `centrifugal`, `body_force`, `pre_tension`, `concentrated_flux`, `surface_flux`, `body_flux`, `film_heat_transfer` or `radiation_heat_transfer`. |
 | `active`, `visible` | Item state. |
 | `valid` | False when the region, distribution, amplitude, coordinate system or an equation the load refers to no longer resolves, or the load does not fit the model space; the model tree marks it invalid. |
 | `region_type`, `region_name` | The region the load is applied to. |

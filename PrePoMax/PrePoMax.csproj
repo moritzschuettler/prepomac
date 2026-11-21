@@ -770,6 +770,7 @@
     <Compile Include="Forms\55_Load\ViewDFlux.cs" />
     <Compile Include="Forms\55_Load\ViewBodyFlux.cs" />
     <Compile Include="Forms\55_Load\ViewBodyForce.cs" />
+    <Compile Include="Forms\55_Load\ViewEdgeLoad.cs" />
     <Compile Include="Forms\55_Load\ViewRadiationHeatTransfer.cs" />
     <Compile Include="Forms\55_Load\ViewShellEdgeLoad.cs" />
     <Compile Include="Forms\56_DefinedField\FrmDefinedField.cs">

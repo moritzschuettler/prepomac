@@ -15208,6 +15208,19 @@ namespace PrePoMax
             }
             else return null;
         }
+        public string[] GetUserGeometryEdgeNodeSetNames()
+        {
+            if (_model.Mesh != null)
+            {
+                List<string> edgeNodeSetNames = new List<string>();
+                foreach (var entry in _model.Mesh.NodeSets)
+                {
+                    if (!entry.Value.Internal && _model.IsGeometryEdgeNodeSet(entry.Value)) edgeNodeSetNames.Add(entry.Key);
+                }
+                return edgeNodeSetNames.ToArray();
+            }
+            else return null;
+        }
         public void AddNodeSet(FeNodeSet nodeSet, bool update = true)
         {
             // In order for the Regenerate history to work perform the selection
@@ -15318,7 +15331,8 @@ namespace PrePoMax
                     nodeSet.CreationIds = GetSelectionIds();
                     nodeSet.Labels = nodeSet.CreationIds.ToArray();
                 }
-                else if (_selection.SelectItem == vtkSelectItem.Geometry)
+                else if (_selection.SelectItem == vtkSelectItem.Geometry ||
+                         _selection.SelectItem == vtkSelectItem.GeometryEdge)
                 {
                     if (_selection.CurrentView == (int)ViewGeometryModelResults.Model)
                     {
@@ -19392,6 +19406,10 @@ namespace PrePoMax
                 {
                     results = bf.GetPreview(_model, stepName + "_" + loadName, _model.UnitSystem);
                 }
+                else if (load is EdgeLoad el)
+                {
+                    results = el.GetPreview(_model, stepName + "_" + loadName, _model.UnitSystem);
+                }
                 else throw new CaeException("It is not possible to preview this load type.");
                 //
                 SetResults(results);
@@ -19449,8 +19467,8 @@ namespace PrePoMax
             if (load.RegionType == RegionTypeEnum.Selection)
             {
                 string name;
-                // Node set
-                if (load is CLoad || load is MomentLoad || load is CFlux)
+                // Node set; for an edge load it keeps the geometry edge ids as its creation ids
+                if (load is CLoad || load is MomentLoad || load is CFlux || load is EdgeLoad)
                 {
                     name = FeMesh.GetNextFreeSelectionName(_model.Mesh.NodeSets, load.Name);
                     FeNodeSet nodeSet = new FeNodeSet(name, load.CreationIds);
@@ -19506,7 +19524,7 @@ namespace PrePoMax
             // Delete previously created sets
             if (load.CreationData != null && load.RegionName != null && regionsCount[load.RegionName] == 1)
             {
-                if (load is CLoad || load is MomentLoad || load is CFlux)
+                if (load is CLoad || load is MomentLoad || load is CFlux || load is EdgeLoad)
                     RemoveNodeSets(new string[] { load.RegionName }, false);
                 else if (load is GravityLoad || load is CentrifLoad || load is BodyFlux || load is BodyForce)
                     RemoveElementSets(new string[] { load.RegionName }, false);
@@ -27944,6 +27962,8 @@ namespace PrePoMax
                     DrawCentrifLoad(prefixName, cfLoad, color, symbolSize, nodeSymbolSize, layer, onlyVisible);
                 else if (load is BodyForce bForce)
                     DrawBodyForceLoad(prefixName, bForce, color, symbolSize, layer, onlyVisible);
+                else if (load is EdgeLoad eLoad)
+                    DrawEdgeLoad(prefixName, eLoad, color, symbolSize, nodeSymbolSize, layer, onlyVisible);
                 else if (load is PreTensionLoad ptLoad)
                     DrawPreTensionLoad(prefixName, ptLoad, color, symbolSize, nodeSymbolSize, layer, onlyVisible);
                 // Thermal
@@ -28383,6 +28403,77 @@ namespace PrePoMax
                 if (forces[i][0] == 0 && forces[i][1] == 0 && forces[i][2] == 0) continue;
                 symbolCoor.Add(sampleCoor[i]);
                 symbolNormals.Add(forces[i]);
+            }
+            //
+            if (symbolCoor.Count > 0)
+            {
+                vtkMaxActorData data = new vtkMaxActorData();
+                data.Name = prefixName;
+                data.Color = color;
+                data.Layer = layer;
+                data.Geometry.Nodes.Coor = symbolCoor.ToArray();
+                data.Geometry.Nodes.Normals = symbolNormals.ToArray();
+                ApplyLighting(data);
+                _form.AddOrientedArrowsActor(data, symbolSize);
+            }
+        }
+        public void DrawEdgeLoad(string prefixName, EdgeLoad eLoad, Color color, int symbolSize, int nodeSymbolSize,
+                                 vtkRendererLayer layer, bool onlyVisible)
+        {
+            int count = 0;
+            vtkRendererLayer symbolLayer = layer == vtkRendererLayer.Selection ? layer : vtkRendererLayer.Overlay;
+            //
+            if (eLoad.RegionType == RegionTypeEnum.NodeSetName)
+            {
+                FeNodeSet nodeSet;
+                if (!_model.Mesh.NodeSets.TryGetValue(eLoad.RegionName, out nodeSet)) return;
+                count += DrawNodeSet(prefixName, nodeSet.Name, color, layer, true, nodeSymbolSize, false, onlyVisible);
+            }
+            else throw new NotSupportedException();
+            //
+            if (count > 0) DrawEdgeLoadSymbols(prefixName, eLoad, color, symbolSize, symbolLayer, onlyVisible);
+        }
+        public void DrawEdgeLoadSymbols(string prefixName, EdgeLoad eLoad, Color color, int symbolSize,
+                                        vtkRendererLayer layer, bool onlyVisible)
+        {
+            int[][] edgeCells;
+            double[][][] cellForcesPerLength;
+            try
+            {
+                edgeCells = _model.GetEdgeLoadCellForcesPerLength(eLoad, out cellForcesPerLength, out _);
+            }
+            catch (CaeException)
+            {
+                return;
+            }
+            HashSet<int> visibleNodeIds = onlyVisible ? new HashSet<int>(_model.Mesh.GetVisibleNodeIds()) : null;
+            List<double[]> edgeCenters = new List<double[]>();
+            List<double[]> edgeForces = new List<double[]>();
+            for (int i = 0; i < edgeCells.Length; i++)
+            {
+                int[] edgeCell = edgeCells[i];
+                if (visibleNodeIds != null && !visibleNodeIds.Contains(edgeCell[0])) continue;
+                //
+                double[] coor1 = _model.Mesh.Nodes[edgeCell[0]].Coor;
+                double[] coor2 = _model.Mesh.Nodes[edgeCell[1]].Coor;
+                double[] force1 = cellForcesPerLength[i][0];
+                double[] force2 = cellForcesPerLength[i][1];
+                edgeCenters.Add(new double[] { 0.5 * (coor1[0] + coor2[0]), 0.5 * (coor1[1] + coor2[1]),
+                                               0.5 * (coor1[2] + coor2[2]) });
+                edgeForces.Add(new double[] { 0.5 * (force1[0] + force2[0]), 0.5 * (force1[1] + force2[1]),
+                                              0.5 * (force1[2] + force2[2]) });
+            }
+            double[][] centers = edgeCenters.ToArray();
+            int[] sampleIds = SpatialPointSampler.GetSampleIndicesBySpatialResolution(centers, 6, null);
+            //
+            List<double[]> symbolCoor = new List<double[]>();
+            List<double[]> symbolNormals = new List<double[]>();
+            foreach (int sampleId in sampleIds)
+            {
+                double[] force = edgeForces[sampleId];
+                if (force[0] == 0 && force[1] == 0 && force[2] == 0) continue;
+                symbolCoor.Add(centers[sampleId]);
+                symbolNormals.Add(force);
             }
             //
             if (symbolCoor.Count > 0)
@@ -29716,7 +29807,8 @@ namespace PrePoMax
                     //
                     if (nodeSize == -1) nodeSize = _settings.Pre.NodeSymbolSize;
                     // Draw node set as geometry
-                    if (nodeSet.CreationData != null && nodeSet.CreationData.SelectItem == vtkSelectItem.Geometry)
+                    if (nodeSet.CreationData != null && (nodeSet.CreationData.SelectItem == vtkSelectItem.Geometry ||
+                                                         nodeSet.CreationData.SelectItem == vtkSelectItem.GeometryEdge))
                     {
                         int[] ids = nodeSet.CreationIds;
                         //

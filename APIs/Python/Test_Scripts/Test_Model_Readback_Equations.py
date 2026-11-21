@@ -149,12 +149,14 @@ def test_load_round_trips():
     loads.add_centrifugal(PREFIX + "C", part_selection(), axis_point=[0, 0, 0], axis_direction=[0, 0, 1],
                           rotational_speed=100)
     loads.add_body_force(PREFIX + "BForce", part_selection(), f1="=2.5", f3=1, distribution_name=SCALAR)
+    loads.add_edge_load(PREFIX + "Edge", pmx.create.selection_by_pick('femodel', 'edges', [0.5, 0, 1], 'GeometryEdge'),
+                        f2="=1.5", f3=-2, distribution_name=SCALAR)
     loads.add_pre_tension(PREFIX + "PT_Auto", surface_selection(1), 500)
     loads.add_pre_tension(PREFIX + "PT_Dir", surface_selection(3), 0.5, tension_type="Displacement",
                           direction=[0, 0, 1])
     check_collection_round_trips(loads, ["concentrated_force", "moment", "pressure", "hydrostatic_pressure",
                                          "surface_traction", "shell_edge_load", "gravity", "centrifugal",
-                                         "body_force", "pre_tension"])
+                                         "body_force", "edge_load", "pre_tension"])
     #
     thermal = pmx.model.steps.add_uncoupled_temp_disp(PREFIX + "RT_Thermal")
     loads = thermal.loads

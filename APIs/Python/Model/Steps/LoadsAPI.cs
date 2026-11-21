@@ -1,4 +1,4 @@
-// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
+﻿// PrePoMax - Copyright (C) 2016-2026 Matej Borovinšek
 //
 // Licensed under the terms defined in the LICENSE file located in the root directory of this source code.
 //
@@ -25,6 +25,9 @@ namespace APIs.Python.Model
         // so a selection targets parts while a named region is an element set or a part
         private static readonly string[] PartTargets = new string[] { "parts" };
         private static readonly string[] ElementRegionTargets = new string[] { "elements" };
+        // The dialog picks geometry edges, which the controller keeps in a node set, so a named region is a node set
+        private static readonly string[] EdgeTargets = new string[] { "edges" };
+        private static readonly string[] NodeTargets = new string[] { "nodes" };
         private readonly LoadService _service;
 
 
@@ -41,8 +44,8 @@ namespace APIs.Python.Model
                    "nonzero, as the dialog refuses a zero force. A two dimensional model refuses a nonzero " +
                    "f3. The phase_deg applies only in a steady_state_dynamics step, where a load is complex, " +
                    "and is refused elsewhere; it is at least 0 and below 360 degrees. Only a concentrated " +
-                   "force and a surface traction take a coordinate_system_name other than Global; the other " +
-                   "loads refuse it. The selection target is nodes.",
+                   "force, a surface traction, a body force and an edge load take a coordinate_system_name " +
+                   "other than Global; the other loads refuse it. The selection target is nodes.",
                    Arguments = "name: str, region: Selection or Region, f1: float = None, " +
                                "f2: float = None, f3: float = None, amplitude_name: str = None, " +
                                "coordinate_system_name: str = None, phase_deg: float = None, " +
@@ -311,7 +314,8 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds a shell edge load using command history. A magnitude of 0 is refused. The selection " +
-                   "target is surfaces.",
+                   "target is surfaces. The dialog no longer offers it for a new load: add_edge_load with a " +
+                   "normal replaces it, and it is kept for existing models and scripts.",
                    Arguments = "name: str, region: Selection or Region, magnitude: float, and the shared " +
                                "load arguments", Returns = "Load")]
         public LoadAPI add_shell_edge_load(object name, object region, object magnitude,
@@ -472,6 +476,62 @@ namespace APIs.Python.Model
             if (distribution_name != null)
                 load.DistributionName = _service.ResolveDistributionName(distribution_name);
             LoadFactory.ApplyBodyForce(load, f1, f2, f3);
+            //
+            return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
+        }
+
+        [PythonAPI("Adds an edge load using command history: a force per unit length on geometry edges of solid, " +
+                   "shell or two dimensional parts, written as the equivalent nodal forces in *Cload lines. At " +
+                   "least one of f1, f2 and f3 must be nonzero, and a two dimensional model refuses a nonzero f3. " +
+                   "An axisymmetric model refuses an edge load. With a distribution, the distribution is evaluated " +
+                   "at the edge nodes and multiplies the components, a scalar one all three and a vector one each " +
+                   "its own. In a cylindrical coordinate system the components are radial, tangential and axial. " +
+                   "A nonzero normal instead of the components acts normal to the edge in the plane of the shell " +
+                   "or of the two dimensional part, a positive one pointing into the part as a pressure does; it " +
+                   "needs edges that bound one shell or two dimensional element each, a scalar distribution and " +
+                   "no coordinate system, and replaces the normal shell edge load. On a shell it is written as " +
+                   "*Dload EDNOR with the mean value over each element edge, on a two dimensional part as nodal " +
+                   "forces. " +
+                   "The selection target is edges; a named region is a node set created by picking geometry edges.",
+                   Arguments = "name: str, region: Selection or Region, f1: float = None, f2: float = None, " +
+                               "f3: float = None, normal: float = None, distribution_name: str = None, and the " +
+                               "shared load arguments",
+                   Returns = "Load",
+                   Example = "step.loads.add_edge_load('Line_load', edge_selection, f3=-2.5)")]
+        public LoadAPI add_edge_load(object name, object region, object f1 = null, object f2 = null,
+                                     object f3 = null, object normal = null,
+                                     object distribution_name = null, object amplitude_name = null,
+                                     object coordinate_system_name = null, object phase_deg = null,
+                                     object color = null)
+        {
+            string nameText = PythonValueConverter.ToText(name, "name", false);
+            _service.ValidateName(StepName, nameText, null);
+            EdgeLoad load = new EdgeLoad(nameText, null, RegionTypeEnum.Selection, 0, 0, 0, TwoD(), Complex(), 0);
+            _service.ApplyRegion(load, region, EdgeTargets, NodeTargets);
+            if (distribution_name != null)
+                load.DistributionName = _service.ResolveDistributionName(distribution_name);
+            LoadFactory.ApplyEdgeLoad(load, f1, f2, f3, normal);
+            //
+            return Add(load, amplitude_name, coordinate_system_name, phase_deg, color);
+        }
+
+        [PythonAPI("Replaces an existing edge load using command history.",
+                   Arguments = "old_name: str, name: str = None, and the arguments of add_edge_load",
+                   Returns = "Load")]
+        public LoadAPI replace_edge_load(object old_name, object name = null, object region = null,
+                                         object f1 = null, object f2 = null, object f3 = null,
+                                         object normal = null,
+                                         object distribution_name = null, object amplitude_name = null,
+                                         object coordinate_system_name = null, object phase_deg = null,
+                                         object color = null)
+        {
+            string oldName = PythonValueConverter.ToText(old_name, "old_name", false);
+            string nameText = PythonValueConverter.ToText(name, "name", true);
+            EdgeLoad load = _service.CloneForReplace<EdgeLoad>(StepName, oldName, "edge_load");
+            if (region != null) _service.ApplyRegion(load, region, EdgeTargets, NodeTargets);
+            if (distribution_name != null)
+                load.DistributionName = _service.ResolveDistributionName(distribution_name);
+            LoadFactory.ApplyEdgeLoad(load, f1, f2, f3, normal);
             //
             return Replace(oldName, nameText, load, amplitude_name, coordinate_system_name, phase_deg, color);
         }

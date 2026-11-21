@@ -134,6 +134,7 @@
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalCFlux.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalBodyFlux.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalBodyForce.cs" />
+    <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalEdgeLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalVariablePressureLoad.cs" />
     <Compile Include="FileInOut\Output\Calculix\Keywords\Step\Load\CalLoadEnums.cs" />
@@ -292,6 +293,7 @@
     <Compile Include="Steps\Loads\CFlux.cs" />
     <Compile Include="Steps\Loads\BodyFlux.cs" />
     <Compile Include="Steps\Loads\BodyForce.cs" />
+    <Compile Include="Steps\Loads\EdgeLoad.cs" />
     <Compile Include="Steps\Loads\FilmHeatTransfer.cs" />
     <Compile Include="Steps\Loads\DFlux.cs" />
     <Compile Include="Steps\Loads\RadiationHeatTransfer.cs" />

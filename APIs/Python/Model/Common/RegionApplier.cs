@@ -184,10 +184,11 @@ namespace APIs.Python.Model
         {
             if (!regionTypes.Contains(regionType)) regionTypes.Add(regionType);
         }
-        // A concentrated load, a point spring and a point mass act on nodes or on a reference point only
+        // A concentrated load, a point spring and a point mass act on nodes or on a reference point only, and an edge
+        // load on a node set of geometry edges
         private static bool AcceptsSurfaceForNodes(IMultiRegion item)
         {
-            return !(item is CLoad || item is MomentLoad || item is CFlux || item is PointSpring ||
+            return !(item is CLoad || item is MomentLoad || item is CFlux || item is EdgeLoad || item is PointSpring ||
                      item is PointMassSection);
         }
         // BoundaryConditionService narrows the boundary conditions down to the types that support it

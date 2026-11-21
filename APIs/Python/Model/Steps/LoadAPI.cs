@@ -25,6 +25,7 @@ namespace APIs.Python.Model
             { typeof(ImportedPressure), "imported_pressure" },
             { typeof(STLoad), "surface_traction" },
             { typeof(ShellEdgeLoad), "shell_edge_load" },
+            { typeof(EdgeLoad), "edge_load" },
             { typeof(GravityLoad), "gravity" },
             { typeof(CentrifLoad), "centrifugal" },
             { typeof(BodyForce), "body_force" },
@@ -116,7 +117,10 @@ namespace APIs.Python.Model
                 else ModelItemValueReader.AddArguments(names, "p1", "p2", "p3");
                 ModelItemValueReader.AddArguments(names, "distribution_name");
             }
-            else if (load is BodyForce) ModelItemValueReader.AddArguments(names, "f1", "f2", "f3", "distribution_name");
+            else if (load is EdgeLoad edgeLoad && edgeLoad.Direction == EdgeLoadDirectionEnum.Normal)
+                ModelItemValueReader.AddArguments(names, "normal", "distribution_name");
+            else if (load is BodyForce || load is EdgeLoad)
+                ModelItemValueReader.AddArguments(names, "f1", "f2", "f3", "distribution_name");
             else if (load is CentrifLoad)
             {
                 names.Add("axis_point", new string[] { "x", "y", "z" });
@@ -156,11 +160,12 @@ namespace APIs.Python.Model
         {
             return load.Complex && !(load is PreTensionLoad);
         }
-        // The solver input orients only a concentrated force, a surface traction and a body force in a coordinate
-        // system, and the dialog offers one for those three only
+        // The solver input orients only a concentrated force, a surface traction, a body force and an edge load in a
+        // coordinate system, and the dialog offers one for those four only
         internal static bool TakesCoordinateSystem(Load load)
         {
-            return load is CLoad || load is STLoad || load is BodyForce;
+            return load is CLoad || load is STLoad || load is BodyForce ||
+                   (load is EdgeLoad edgeLoad && edgeLoad.Direction == EdgeLoadDirectionEnum.Components);
         }
         private static Dictionary<string, object> GetValues(Load load)
         {

@@ -1588,6 +1588,7 @@ namespace FileInOut.Output
                 !(keyword is CalVariablePressureLoad) &&
                 !(keyword is CalImportedPressureLoad) &&
                 !(keyword is CalSTLoad) &&
+                !(keyword is CalEdgeLoad) &&
                 !(keyword is CalBodyForce cbf && cbf.CanHideData) &&
                 !(keyword is CalDefinedTemperature dt && dt.CanHideData) &&
                 !(keyword is CalAdditional))
@@ -3163,6 +3164,11 @@ namespace FileInOut.Output
                 {
                     CalBodyForce bForce = new CalBodyForce(model, bfl, complexLoadType);
                     parent.AddKeyword(bForce);
+                }
+                else if (load is EdgeLoad edl)
+                {
+                    CalEdgeLoad eLoad = new CalEdgeLoad(model, edl, complexLoadType);
+                    parent.AddKeyword(eLoad);
                 }
                 else if (load is PreTensionLoad ptl)
                 {

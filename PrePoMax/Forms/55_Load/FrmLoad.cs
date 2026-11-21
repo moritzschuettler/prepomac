@@ -46,6 +46,7 @@ namespace PrePoMax.Forms
                 else if (clone is STLoad stl) _viewLoad = new ViewSTLoad(stl);
                 else if (clone is ImportedSTLoad istl) _viewLoad = new ViewImportedSTLoad(istl);
                 else if (clone is ShellEdgeLoad sel) _viewLoad = new ViewShellEdgeLoad(sel);
+                else if (clone is EdgeLoad edl) _viewLoad = new ViewEdgeLoad(edl);
                 else if (clone is GravityLoad gl) _viewLoad = new ViewGravityLoad(gl);
                 else if (clone is CentrifLoad cfl) _viewLoad = new ViewCentrifLoad(cfl);
                 else if (clone is BodyForce bfl) _viewLoad = new ViewBodyForce(bfl);
@@ -197,6 +198,7 @@ namespace PrePoMax.Forms
                     _viewLoad = vsel;
                     _controller.Selection.LimitSelectionToShellEdges = true;
                 }
+                else if (itemTag is ViewEdgeLoad vedl) _viewLoad = vedl;
                 else if (itemTag is ViewGravityLoad vgl) _viewLoad = vgl;
                 else if (itemTag is ViewCentrifLoad vcfl) _viewLoad = vcfl;
                 else if (itemTag is ViewBodyForce vbfl) _viewLoad = vbfl;
@@ -343,6 +345,18 @@ namespace PrePoMax.Forms
                 if (sel.Magnitude.Value == 0)
                     throw new CaeException("The shell edge load magnitude must not be equal to 0.");
             }
+            else if (FELoad is EdgeLoad edl)
+            {
+                if (edl.IsZero())
+                {
+                    if (edl.Direction == EdgeLoadDirectionEnum.Normal)
+                        throw new CaeException("The normal edge load must not be equal to 0.");
+                    else
+                        throw new CaeException("At least one edge load component must not be equal to 0.");
+                }
+                if (edl.Direction == EdgeLoadDirectionEnum.Normal)
+                    _controller.Model.GetEdgeLoadCellForcesPerLength(edl, out _, out _);
+            }
             else if (FELoad is GravityLoad gl)
             {
                 if (gl.Magnitude.Value == 0)
@@ -438,6 +452,8 @@ namespace PrePoMax.Forms
             //
             string[] partNames = _controller.GetModelPartNames();
             string[] nodeSetNames = _controller.GetUserNodeSetNames();
+            // Only node sets created by picking geometry edges
+            string[] edgeNodeSetNames = _controller.GetUserGeometryEdgeNodeSetNames();
             string[] elementSetNames = _controller.GetUserElementSetNames();
             // All element based surfaces
             string[] elementBasedSurfaceNames = _controller.GetUserSurfaceNames(FeSurfaceType.Element);
@@ -455,6 +471,7 @@ namespace PrePoMax.Forms
             //
             if (partNames == null) partNames = new string[0];
             if (nodeSetNames == null) nodeSetNames = new string[0];
+            if (edgeNodeSetNames == null) edgeNodeSetNames = new string[0];
             if (elementSetNames == null) elementSetNames = new string[0];
             if (elementBasedSurfaceNames == null) elementBasedSurfaceNames = new string[0];
             if (shellEdgeSurfaceNames == null) shellEdgeSurfaceNames = new string[0];
@@ -469,9 +486,9 @@ namespace PrePoMax.Forms
             // Only element based surfaces based on solid and shell faces
             string[] noEdgeSurfaceNames = elementBasedSurfaceNames.Except(shellEdgeSurfaceNames).ToArray();
             //
-            PopulateListOfLoads(partNames, nodeSetNames, elementSetNames, referencePointNames, elementBasedSurfaceNames,
-                                solidFaceSurfaceNames, noEdgeSurfaceNames, shellEdgeSurfaceNames, massSectionNames,
-                                distributionNames, amplitudeNames, coordinateSystemNames);
+            PopulateListOfLoads(partNames, nodeSetNames, edgeNodeSetNames, elementSetNames, referencePointNames,
+                                elementBasedSurfaceNames, solidFaceSurfaceNames, noEdgeSurfaceNames, shellEdgeSurfaceNames,
+                                massSectionNames, distributionNames, amplitudeNames, coordinateSystemNames);
             // Check if this step supports any loads
             if (lvTypes.Items.Count == 0) return false;
             // Create new load
@@ -628,6 +645,17 @@ namespace PrePoMax.Forms
                     //
                     vsel.PopulateDropDownLists(shellEdgeSurfaceNames, amplitudeNames);
                 }
+                else if (_viewLoad is ViewEdgeLoad vedl)
+                {
+                    selectedId = lvTypes.FindItemWithText("Edge Load").Index;
+                    // Check for deleted regions
+                    if (vedl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
+                    else if (vedl.RegionType == RegionTypeEnum.NodeSetName.ToFriendlyString())
+                        CheckMissingValueRef(ref edgeNodeSetNames, vedl.NodeSetName, s => { vedl.NodeSetName = s; });
+                    else throw new NotSupportedException();
+                    //
+                    vedl.PopulateDropDownLists(edgeNodeSetNames, distributionNames, amplitudeNames, coordinateSystemNames);
+                }
                 else if (_viewLoad is ViewGravityLoad vgl)
                 {
                     selectedId = lvTypes.FindItemWithText("Gravity").Index;
@@ -779,8 +807,9 @@ namespace PrePoMax.Forms
 
 
         // Methods                                                                                                                  
-        private void PopulateListOfLoads(string[] partNames, string[] nodeSetNames, string[] elementSetNames, 
-                                         string[] referencePointNames, string[] elementBasedSurfaceNames,
+        private void PopulateListOfLoads(string[] partNames, string[] nodeSetNames, string[] edgeNodeSetNames,
+                                         string[] elementSetNames, string[] referencePointNames,
+                                         string[] elementBasedSurfaceNames,
                                          string[] solidFaceSurfaceNames, string[] noEdgeSurfaceNames,
                                          string[] shellEdgeSurfaceNames, string[] massSectionNames,
                                          string[] distributionNames, string[] amplitudeNames,
@@ -888,17 +917,33 @@ namespace PrePoMax.Forms
                 item.Tag = vstl;
                 lvTypes.Items.Add(item);
             }
-            // Shell edge load
+            // Shell edge load - the edge load with the normal direction replaces it, so only an existing one is edited
             name = "Normal Shell Edge Load";
             loadName = GetLoadName(name);
             item = new ListViewItem(name);
             ShellEdgeLoad shellEdgeLoad = new ShellEdgeLoad(loadName, "", RegionTypeEnum.Selection, 0, twoD, complex, 0);
-            if (step.IsLoadSupported(shellEdgeLoad) && !twoD)
+            bool editingShellEdgeLoad = _loadToEditName != null &&
+                                        _controller.GetLoad(_stepName, _loadToEditName) is ShellEdgeLoad;
+            if (step.IsLoadSupported(shellEdgeLoad) && !twoD && editingShellEdgeLoad)
             {
                 ViewShellEdgeLoad vsel = new ViewShellEdgeLoad(shellEdgeLoad);
                 vsel.PopulateDropDownLists(shellEdgeSurfaceNames, amplitudeNames);
                 vsel.Color = color;
                 item.Tag = vsel;
+                lvTypes.Items.Add(item);
+            }
+            // Edge load - geometry edges, node sets created from geometry edges
+            name = "Edge Load";
+            loadName = GetLoadName(name);
+            item = new ListViewItem(name);
+            EdgeLoad edgeLoad = new EdgeLoad(loadName, "", RegionTypeEnum.Selection, 0, 0, 0, twoD, complex, 0);
+            bool axisymmetricModel = _controller.Model.Properties.ModelSpace == ModelSpaceEnum.Axisymmetric;
+            if (step.IsLoadSupported(edgeLoad) && !axisymmetricModel)
+            {
+                ViewEdgeLoad vedl = new ViewEdgeLoad(edgeLoad);
+                vedl.PopulateDropDownLists(edgeNodeSetNames, distributionNames, amplitudeNames, coordinateSystemNames);
+                vedl.Color = color;
+                item.Tag = vedl;
                 lvTypes.Items.Add(item);
             }
             // Gravity load -  part, element sets
@@ -1059,6 +1104,7 @@ namespace PrePoMax.Forms
                          load is STLoad ||
                          load is ImportedSTLoad ||
                          load is ShellEdgeLoad ||
+                         load is EdgeLoad ||
                          load is GravityLoad ||
                          load is CentrifLoad ||
                          load is BodyForce ||
@@ -1158,6 +1204,7 @@ namespace PrePoMax.Forms
                 else if (FELoad is STLoad) _controller.SetSelectItemToSurface();
                 else if (FELoad is ImportedSTLoad) _controller.SetSelectItemToSurface();
                 else if (FELoad is ShellEdgeLoad) _controller.SetSelectItemToSurface();
+                else if (FELoad is EdgeLoad) _controller.SetSelectItemToGeometryEdge();
                 else if (FELoad is GravityLoad) _controller.SetSelectItemToPart();
                 else if (FELoad is CentrifLoad) _controller.SetSelectItemToPart();
                 else if (FELoad is BodyForce) _controller.SetSelectItemToPart();
@@ -1197,6 +1244,7 @@ namespace PrePoMax.Forms
                         FELoad is STLoad ||
                         FELoad is ImportedSTLoad ||
                         FELoad is ShellEdgeLoad ||
+                        FELoad is EdgeLoad ||
                         FELoad is GravityLoad ||
                         FELoad is CentrifLoad ||
                         FELoad is BodyForce ||
