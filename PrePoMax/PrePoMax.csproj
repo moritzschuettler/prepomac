@@ -1506,8 +1506,10 @@ rem VTK native pilot: vtkNative.dll and the VTK 9.7 DLLs it loads sit beside vtk
 IF EXIST "$(SolutionDir)vtkNative\build\runtime\vtkNative.dll" xcopy /D /Y /Q "$(SolutionDir)vtkNative\build\runtime\*.dll" "$(TargetDir)lib\"
 IF EXIST "$(TargetDir)lib\vtkNative.dll" xcopy /E /I /Y /Q "$(SolutionDir)Licenses\vtk" "$(TargetDir)lib\vtk-licenses"
 
-rem lp_solve solves the element counts of the edges; it sits next to GmshCaller.exe, which loads it
-copy "$(SolutionDir)ThirdParty\lpsolve\lpsolve55.dll" "$(TargetDir)lib\lpsolve55.dll"
+rem HiGHS solves the element counts of the edges and the ways of sweeping; it sits next to GmshCaller.exe, which loads it
+copy "$(SolutionDir)ThirdParty\highs\highs.dll" "$(TargetDir)lib\highs.dll"
+IF EXIST "$(TargetDir)lib\lpsolve55.dll" del "$(TargetDir)lib\lpsolve55.dll"
+IF EXIST "$(TargetDir)lib\lpsolve-LGPL-2.1.txt" del "$(TargetDir)lib\lpsolve-LGPL-2.1.txt"
 
 rem Mmg binaries are vendored in ThirdParty so a build produces a working Meshers\Mmg
 IF NOT EXIST "$(TargetDir)Meshers\Mmg\" mkdir "$(TargetDir)Meshers\Mmg\"
@@ -1526,7 +1528,8 @@ rem License texts that must travel with the distributed binaries
 copy "$(SolutionDir)LICENSE" "$(TargetDir)LICENSE"
 IF EXIST "$(TargetDir)lib\gmsh-*.dll" copy "$(SolutionDir)Licenses\gmsh\LICENSE.txt" "$(TargetDir)lib\gmsh-LICENSE.txt"
 IF EXIST "$(TargetDir)lib\gmsh-*.dll" copy "$(SolutionDir)Licenses\gmsh\CREDITS.txt" "$(TargetDir)lib\gmsh-CREDITS.txt"
-IF EXIST "$(TargetDir)lib\lpsolve55.dll" copy "$(SolutionDir)Licenses\lpsolve\LGPL-2.1.txt" "$(TargetDir)lib\lpsolve-LGPL-2.1.txt"
+IF EXIST "$(TargetDir)lib\highs.dll" copy "$(SolutionDir)Licenses\highs\LICENSE.txt" "$(TargetDir)lib\highs-LICENSE.txt"
+IF EXIST "$(TargetDir)lib\highs.dll" copy "$(SolutionDir)Licenses\highs\NOTICE.md" "$(TargetDir)lib\highs-NOTICE.md"
 IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\LICENSE" "$(TargetDir)Meshers\Mmg\LICENSE"
 IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\COPYING.LESSER" "$(TargetDir)Meshers\Mmg\COPYING.LESSER"
 IF EXIST "$(TargetDir)Meshers\Mmg\mmgs.exe" copy "$(SolutionDir)Licenses\mmg\COPYING" "$(TargetDir)Meshers\Mmg\COPYING"

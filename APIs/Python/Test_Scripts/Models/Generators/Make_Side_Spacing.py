@@ -1,12 +1,14 @@
 #PrePoMax Python Script
 # Writes side_spacing.brep for Test_Model_Meshing_Side_Spacing.py through GmshCommon (OCC kernel): the shell parts
-# the header of that test describes, side by side along x.
+# the header of that test describes, side by side along x. Two are the boundary shells of gmsh's examples
+# boolean/fillet3.geo and boolean/twist.geo, read from the gmsh SDK in ThirdParty.
 #
 #  PrePoMax.com -u MM_TON_S_C --script Make_Side_Spacing.py -g No -x Yes -w <work folder>
 #  The files go to the folder in PMX_MODEL_DIR, or to the Models folder above this script when it is not set.
 import math
 import os
 import sys
+import tempfile
 import clr
 clr.AddReference('GmshCommon')
 from GmshCommon import Gmsh
@@ -21,10 +23,10 @@ occ = Gmsh.Model.OCC
 DimTag = Tuple[Int32, Int32]
 
 
-def plates(x, outlines, z=0.0, arcs=None):
+def plates(x, outlines, z=0.0, arcs=None, holes=None):
     points = {}
     edges = {}
-    for outline in outlines:
+    for face_index, outline in enumerate(outlines):
         corners = []
         for u, v in outline:
             if (u, v) not in points:
@@ -44,7 +46,10 @@ def plates(x, outlines, z=0.0, arcs=None):
                 else:
                     edges[a, b] = occ.AddLine(a, b)
                 curves.append(edges[a, b])
-        surface = occ.AddPlaneSurface(Array[Int32]([occ.AddCurveLoop(Array[Int32](curves))]))
+        loops = [occ.AddCurveLoop(Array[Int32](curves))]
+        if holes and face_index in holes:
+            loops.extend(holes[face_index]())
+        surface = occ.AddPlaneSurface(Array[Int32](loops))
     return surface
 
 
@@ -166,6 +171,52 @@ rectangular_frame(3750, 40 + 10 / 3, 80 + 10 / 3, 5 / 3)
 plate(3900, 60, [30], [33])
 plates(4050, [[(0, 0), (30, 0), (100, 0), (97.5, 60), (2.5, 60)],
               [(2.5, 60), (97.5, 60), (127, 150), (50, 206), (-27, 150)]])
+
+
+def add_example_shell(name, x):
+    script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    root = os.path.abspath(os.path.join(script_dir, "..", "..", "..", "..", ".."))
+    examples = os.path.join(root, "ThirdParty", "gmsh-4.13.0-Windows64-sdk", "share", "doc", "gmsh", "examples")
+    descriptor, shell_file = tempfile.mkstemp(suffix=".brep", dir=OUT)
+    os.close(descriptor)
+    try:
+        Gmsh.Model.Add(name)
+        Gmsh.Merge(os.path.join(examples, "boolean", name + ".geo"))
+        occ.Synchronize()
+        occ.Remove(Array[DimTag](occ.GetEntities(3)), False)
+        occ.Synchronize()
+        Gmsh.Write(shell_file)
+        Gmsh.Model.SetCurrent("side_spacing")
+        imported = occ.ImportShapes(shell_file, None, True, "")
+        occ.Translate(Array[DimTag](imported), float(x), 0.0, 0.0)
+        if name == "fillet3":
+            point = DimTag(0, occ.AddPoint(x - 0.2, -0.05, -0.3))
+            occ.Fragment(Array[DimTag](imported), Array[DimTag]([point]), None, None, -1, True, True)
+    finally:
+        os.remove(shell_file)
+
+
+add_example_shell("fillet3", 4200)
+add_example_shell("twist", 4350)
+
+
+def round_loop(x, y, radius):
+    point = occ.AddPoint(x + radius, y, 0.0)
+    entities = occ.Revolve(Array[DimTag]([DimTag(0, point)]), x, y, 0.0, 0.0, 0.0, 1.0, 2 * math.pi,
+                           None, Array[Int32]([]), Array[Double]([]), False)
+    return occ.AddCurveLoop(Array[Int32]([tag.Item2 for tag in entities if tag.Item1 == 1]))
+
+
+def box_loop(x0, y0, x1, y1):
+    points = [occ.AddPoint(x, y, 0.0) for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))]
+    return occ.AddCurveLoop(Array[Int32]([occ.AddLine(a, b) for a, b in zip(points, points[1:] + points[:1])]))
+
+
+plates(4500, [[(0, 0), (30, 0), (100, 0), (100, 40), (0, 40)],
+              [(0, 40), (100, 40), (100, 100), (0, 100)]],
+       holes={1: lambda: [round_loop(4550.0, 70.0, 12.0)]})
+plates(4650, [[(0, 0), (100, 0), (100, 80), (0, 80)]],
+       holes={0: lambda: [round_loop(4675.0, 40.0, 10.0), box_loop(4703.0, 23.0, 4728.0, 57.0)]})
 occ.Synchronize()
 Gmsh.Write(os.path.join(OUT, "side_spacing.brep"))
 Gmsh.FinalizeAll()

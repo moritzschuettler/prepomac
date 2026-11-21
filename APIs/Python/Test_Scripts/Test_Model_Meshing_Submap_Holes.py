@@ -15,6 +15,7 @@
 #    At the element size 5 every face but the diamond and the round hole is detected with its holes, each hole turned
 #    into the frame of the outer loop by a multiple of 90 degrees, and meshed as quadrilaterals only with four quads
 #    around every inner node, no folded quad, a worst scaled Jacobian of 0.2 at least and as many quads as recorded.
+#    At size 2.24 the two aligned holes share their lattice rows and the plate gets 486 right-angled quads.
 #    The diamond hole is turned 45 degrees off the frame of the outer loop, and the visualization of the round hole
 #    plate is triangulated only in part and shows only the hole, a disc of two half circles to the detection, which
 #    leaves a round loop of one face free (round holes: Test_Model_Meshing_Submap_Round): both faces are not detected.
@@ -70,7 +71,7 @@ EXPECTED = {"centred hole": (1, [1], [], 72), "off-centre hole": (1, [1], [], 88
             "L with hole": (1, [1], [], 68), "U with hole": (1, [1], [], 82), "sheared": (1, [1], [], 73),
             "mirrored L with hole": (1, [1], [], 68), "thin border": (1, [1], [], 80)}
 # The hexahedra of the swept solids at the element size 5
-EXPECTED_HEXAHEDRA = {"tube": 384, "thin tube": 240, "box section": 312, "L with hole": 408, "filleted tube": 352}
+EXPECTED_HEXAHEDRA = {"tube": 384, "thin tube": 240, "box section": 312, "L with hole": 408, "filleted tube": 368}
 
 
 def check(condition, message):
@@ -352,6 +353,24 @@ def check_matched_holes(parts, faces):
           math.degrees(math.acos(min(1.0, quality))))
 
 
+def check_aligned_hole_rows(part):
+    mesh(part, recombine="QuadDominant", max_size=2.24)
+    face = FaceMesh(part.name)
+    quality = check_submapped(face, "the two aligned holes at size 2.24")
+    check(len(face.elements) == 486 and abs(quality - 1.0) < 1E-6 and not submapping_messages(part.name),
+          "the aligned holes did not get their 486 right-angled quads: " + str(len(face.elements)) + ", " + str(quality))
+    left = min(x for x, y in face.uv.values())
+    sides = [sorted(y for x, y in face.uv.values() if abs(x - left - offset) < 1E-6 and 10 - 1E-6 <= y <= 30 + 1E-6)
+             for offset in (30, 50)]
+    check(all(len(side) == 10 for side in sides) and all(max(row) - min(row) < 1E-6 for row in zip(*sides)),
+          "the facing holes occupy different lattice rows")
+    for outer_x in (left, left + 80):
+        for row in (10, 30):
+            check(any(abs(x - outer_x) < 1E-6 and abs(y - row) < 1E-6 for x, y in face.uv.values()),
+                  "a hole corner did not align with the outer boundary")
+    print("two aligned holes at size 2.24: 486 quads, worst scaled Jacobian", quality)
+
+
 def check_thin_border(face):
     """The 1 mm wall between the hole and the left border is one element thick: the quads along the hole that reach
     the border end on the hole, 1 mm from it."""
@@ -501,6 +520,7 @@ def main():
     parts = parts_by_x(SHELLS)
     faces = check_shells(parts)
     check_matched_holes(parts, faces)
+    check_aligned_hole_rows(parts["two holes"])
     check_thin_border(faces["thin border"])
     check_pinned_hole_edge(parts)
     check_variants(parts)

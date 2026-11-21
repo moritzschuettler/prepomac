@@ -171,8 +171,47 @@ namespace CaeMesh
                                 out List<IntPtr>[][] loopTags, out double[][][][] loopXyz,
                                 out double[][][][] loopUv, out string reason)
         {
-            reason = null;
             grid = null;
+            if (!TryPlaceHoles(face, out loopTags, out loopXyz, out loopUv, out _, out int[][] holeOffsets, out reason))
+                return false;
+            int surfaceId = face.FaceId;
+            SubmapFace[] loops = face.Loops;
+            int[][] loopDirections = face.LoopLogicalEdgeDirections;
+            keepOrthogonal = keepOrthogonal && loops.All(loop => !loop.IsRound) &&
+                             Gmsh.Model.GetType(2, surfaceId) == "Plane";
+            try
+            {
+                grid = SubmapMapping.Map(loopDirections, loopUv, loopXyz, holeOffsets, uv =>
+                {
+                    double[] coor;
+                    Gmsh.Model.GetValue(2, surfaceId, uv, out coor);
+                    return coor;
+                }, keepOrthogonal);
+            }
+            catch (CaeException ex)
+            {
+                reason = NameLoopEdges(face, ex.Message);
+                return false;
+            }
+            if (grid.NumberOfFoldedQuads > 0)
+            {
+                reason = grid.NumberOfFoldedQuads + " of the " + grid.Quads.Length + " quads of its grid fold";
+                return false;
+            }
+            if (grid.MinScaledJacobian < SubmapFaceDetector.MinScaledJacobian)
+            {
+                reason = "its grid has a quad corner of the scaled Jacobian " + Math.Round(grid.MinScaledJacobian, 3) +
+                         ", below " + SubmapFaceDetector.MinScaledJacobian;
+                return false;
+            }
+            return true;
+        }
+        internal static bool TryPlaceHoles(SubmapFace face, out List<IntPtr>[][] loopTags, out double[][][][] loopXyz,
+                                           out double[][][][] loopUv, out double[][][] loopNodeUv,
+                                           out int[][] holeOffsets, out string reason)
+        {
+            reason = null;
+            holeOffsets = null;
             int surfaceId = face.FaceId;
             SubmapFace[] loops = face.Loops;
             int numOfLoops = loops.Length;
@@ -180,7 +219,7 @@ namespace CaeMesh
             loopTags = new List<IntPtr>[numOfLoops][];
             loopXyz = new double[numOfLoops][][][];
             loopUv = new double[numOfLoops][][][];
-            double[][][] loopNodeUv = new double[numOfLoops][][];
+            loopNodeUv = new double[numOfLoops][][];
             int[][] loopCounts = new int[numOfLoops][];
             for (int l = 0; l < numOfLoops; l++)
             {
@@ -219,37 +258,9 @@ namespace CaeMesh
                 for (int k = 0; k < 4; k++) loopCounts[l][k] = loopUv[l][k].Length - 1;
             }
             // The holes are placed in the lattice by where they lie in the parameter space
-            int[][] holeOffsets;
             if (!SubmapHolePlacement.TryPlace(loopDirections, loopCounts, loopNodeUv, 1, out holeOffsets, out reason))
             {
                 reason = NameLoopEdges(face, reason);
-                return false;
-            }
-            keepOrthogonal = keepOrthogonal && loops.All(loop => !loop.IsRound) &&
-                             Gmsh.Model.GetType(2, surfaceId) == "Plane";
-            try
-            {
-                grid = SubmapMapping.Map(loopDirections, loopUv, loopXyz, holeOffsets, uv =>
-                {
-                    double[] coor;
-                    Gmsh.Model.GetValue(2, surfaceId, uv, out coor);
-                    return coor;
-                }, keepOrthogonal);
-            }
-            catch (CaeException ex)
-            {
-                reason = NameLoopEdges(face, ex.Message);
-                return false;
-            }
-            if (grid.NumberOfFoldedQuads > 0)
-            {
-                reason = grid.NumberOfFoldedQuads + " of the " + grid.Quads.Length + " quads of its grid fold";
-                return false;
-            }
-            if (grid.MinScaledJacobian < SubmapFaceDetector.MinScaledJacobian)
-            {
-                reason = "its grid has a quad corner of the scaled Jacobian " + Math.Round(grid.MinScaledJacobian, 3) +
-                         ", below " + SubmapFaceDetector.MinScaledJacobian;
                 return false;
             }
             return true;

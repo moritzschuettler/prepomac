@@ -15,7 +15,8 @@ using CaeGlobals;
 namespace CaeMesh
 {
     /// <summary>
-    /// Pairs the boundary nodes visible to each other along a submap lattice, including its cornered holes.
+    /// Pairs boundary nodes along a submap lattice. Cornered holes supply nodes and interrupt lines of sight.
+    /// Round holes only participate in placement when there are cornered holes; lines pass through round holes.
     /// </summary>
     internal static class GmshShellSubmapSpacing
     {
@@ -30,18 +31,21 @@ namespace CaeMesh
         {
             SubmapFace[] loops = face.Loops;
             Dictionary<int, int> edgeCounts = new Dictionary<int, int>();
-            foreach (SubmapFace loop in loops)
+            int[][] counts = new int[loops.Length][];
+            int[][] directions = face.LoopLogicalEdgeDirections;
+            for (int l = 0; l < loops.Length; l++)
             {
-                foreach (int id in loop.EdgeIds)
+                SubmapFace loop = loops[l];
+                if (loop.IsRound) continue;
+                for (int k = 0; k < loop.EdgeIds.Length; k++)
                 {
+                    int id = loop.EdgeIds[k];
                     GmshShellSpacingEdge edge = edges[id];
-                    if (edge == null) return null;
+                    if (edge == null || (edge.NumOfNodes - 1) % loop.GetEdgeMultiple(k) != 0) return null;
                     edgeCounts.Add(id, edge.NumOfNodes - 1);
                 }
+                counts[l] = loop.GetLogicalEdgeCounts(edgeCounts);
             }
-            if (face.GetIndivisibleCountReason(edgeCounts) != null) return null;
-            int[][] directions = face.LoopLogicalEdgeDirections;
-            int[][] counts = face.GetLoopLogicalEdgeCounts(edgeCounts);
             double[] lengths = face.EdgeIds.Select(id => edges[id].Length).ToArray();
             double[][] outer = SubmapFaceDetector.GetIdealOutline(directions[0], face.GetLogicalEdgeLengths(lengths));
             if (outer == null) return null;
@@ -51,24 +55,34 @@ namespace CaeMesh
             outlines[0] = outer;
             for (int l = 0; l < loops.Length; l++)
             {
+                if (loops[l].IsRound) continue;
                 loopNodes[l] = ReadLoop(loops[l], edges, counts[l].Sum());
                 if (loopNodes[l] == null || counts[l].Any(count => count <= 0)) return null;
             }
             int[][] offsets = null;
-            if (face.HasHoles)
+            if (counts.Skip(1).Any(count => count != null))
             {
-                double[][][] uv = new double[loops.Length][][];
-                try
+                double[][][] uv;
+                if (loops.Any(loop => loop.IsRound))
                 {
-                    for (int l = 0; l < loops.Length; l++)
-                        uv[l] = GmshThreeBlockMesher.GetParametricCoordinates(face.FaceId,
-                            loopNodes[l].Select(node => node.Edge.GetPoint(node.Index)).ToList());
+                    if (!GmshSubmapMesher.TryPlaceHoles(face, out _, out _, out _, out uv, out offsets, out _))
+                        return null;
                 }
-                catch (CaeException)
+                else
                 {
-                    return null;
+                    uv = new double[loops.Length][][];
+                    try
+                    {
+                        for (int l = 0; l < loops.Length; l++)
+                            uv[l] = GmshThreeBlockMesher.GetParametricCoordinates(face.FaceId,
+                                loopNodes[l].Select(node => node.Edge.GetPoint(node.Index)).ToList());
+                    }
+                    catch (CaeException)
+                    {
+                        return null;
+                    }
+                    if (!SubmapHolePlacement.TryPlace(directions, counts, uv, 1, out offsets, out _)) return null;
                 }
-                if (!SubmapHolePlacement.TryPlace(directions, counts, uv, 1, out offsets, out _)) return null;
                 if (!MapHoleOutlines(uv, counts, outlines)) return null;
             }
             //
@@ -78,6 +92,7 @@ namespace CaeMesh
             int[][] cornerJ = new int[loops.Length][];
             for (int l = 0; l < loops.Length; l++)
             {
+                if (loops[l].IsRound) continue;
                 int i = l == 0 ? 0 : offsets[l - 1][0];
                 int j = l == 0 ? 0 : offsets[l - 1][1];
                 int numOfSegments = counts[l].Length;
@@ -201,6 +216,7 @@ namespace CaeMesh
             double yv = (uu * vy - uvSum * uy) / determinant;
             for (int l = 1; l < outlines.Length; l++)
             {
+                if (counts[l] == null) continue;
                 outlines[l] = new double[counts[l].Length][];
                 for (int k = 0, n = 0; k < counts[l].Length; n += counts[l][k], k++)
                 {
@@ -218,6 +234,7 @@ namespace CaeMesh
             bool above = false;
             for (int l = 0; l < along.Length; l++)
             {
+                if (along[l] == null) continue;
                 for (int k = 0; k < along[l].Length - 1; k++)
                 {
                     if (along[l][k] != along[l][k + 1] || along[l][k] <= midpoint) continue;

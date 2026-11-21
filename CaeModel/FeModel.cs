@@ -4179,7 +4179,7 @@ namespace CaeModel
                 choices = problem.Solve();
                 if (choices == null)
                 {
-                    return new SweepDetectionData(null, "lp_solve found no way of sweeping the part " + groupName +
+                    return new SweepDetectionData(null, "HiGHS found no way of sweeping the part " + groupName +
                                                   ". Select the source surfaces by hand.", null, new HashSet<int>(),
                                                   stamp);
                 }

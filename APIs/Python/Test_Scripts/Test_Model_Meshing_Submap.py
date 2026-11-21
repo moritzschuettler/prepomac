@@ -18,10 +18,11 @@
 #  - submap_thin.brep: faces thinner than the element size, one part each, the balance keeping them apart where the
 #    counts the mesh size asks for would close them up: a U with a web of 2 mm, also with a full-quad recombination, a
 #    face with a step of 1 mm, and an L with legs of 2 mm. At size 5, spacing gives this L 23 right-angled quads. The U
-#    beside a flange pinned to 30 elements on its bottom and 2 on its notch bottom keeps 254 quads. At 50 and 2,
-#    the U still closes a valid lattice outline, but the mesher leaves it free and reports a poor corner. The flange
-#    stays structured with both sets of pins. An L whose bottom side winds back over itself is rejected in detection
-#    because its provisional grid folds. The L with a low bump in its bottom side is submapped.
+#    beside a flange pinned to 30 elements on its bottom and 2 on its notch bottom keeps 254 quads. At 50 and 2
+#    its arm tops share the 48 elements left and it keeps 532 quads. With one arm top pinned to 3 as well, the other
+#    takes 45: the U still closes a valid lattice outline, but the mesher leaves it free and reports a folded grid.
+#    The flange stays structured with every set of pins. An L whose bottom side winds back over itself is rejected in
+#    detection because its provisional grid folds. The L with a low bump in its bottom side is submapped.
 #  - Second order elements mesh the L and the U structured; a full-quad recombination and the quasi-structured quad
 #    algorithm mesh them structured or free, but never fail.
 #  - submap_folded.brep: an L-shaped plate with a flange of 20 mm up along two of its outer edges, the three faces
@@ -584,12 +585,18 @@ def check_thin_faces(parts):
     face.plot("thin_L_leg", "L with legs of 2 mm, element size 3: " + str(len(face.elements)) + " quads")
 
 
-def mesh_pinned_u(part, bottom_count):
+def mesh_pinned_u(part, bottom_count, top_count=None):
     lengths = edges_by_length(part)
-    check(len(lengths[60.0]) == 2 and len(lengths[30.0]) == 1, "the U and flange have unexpected edges")
+    check(len(lengths[60.0]) == 2 and len(lengths[30.0]) == 1 and len(lengths[15.0]) == 2,
+          "the U and flange have unexpected edges")
     counts = ((60.0, bottom_count), (30.0, 2))
     items = pmx.model.mesh.setup_items
     pins = []
+    if top_count is not None:
+        edge_id = lengths[15.0][0][0]
+        name = "PyTest_Submap_Pin_" + str(edge_id)
+        items.add_local_mesh_size(name, edge_selection(part, edge_id), number_of_elements=top_count)
+        pins.append(name)
     for length, count in counts:
         for edge_id, _ in lengths[length]:
             name = "PyTest_Submap_Pin_" + str(edge_id)
@@ -608,7 +615,7 @@ def mesh_pinned_u(part, bottom_count):
 
 
 def check_mesher_fallback(parts):
-    """Matching untangles the thin L and pinned U. A poor grid still falls back to the native free mesh."""
+    """Matching untangles the thin L and pinned U. A grid the pins fold still falls back to the native free mesh."""
     tolerance = 1E-3
     part = parts["thin L leg"]
     detected, _ = detected_faces(part)
@@ -628,7 +635,7 @@ def check_mesher_fallback(parts):
     u, flange, messages = mesh_pinned_u(part, 30)
     _, quality = check_submapped(u, "the matched U with 30 elements on its bottom and 2 on its notch bottom")
     _, flange_quality = check_submapped(flange, "the flange beside the matched U")
-    check(len(u.elements) == 254 and abs(quality - 0.314705) < tolerance and not messages,
+    check(len(u.elements) == 254 and abs(quality - 0.846571) < tolerance and not messages,
           "the matched U did not retain its 254-quad grid: " + str((u.kinds(), quality, messages)))
     check(len(flange.elements) == 180 and abs(flange_quality - 1.0) < tolerance,
           "the flange beside the matched U did not retain its 180 right-angled quads")
@@ -637,18 +644,29 @@ def check_mesher_fallback(parts):
     FaceMesh(part.name, oblique).plot("matched_U_flange", "U pinned 30 / 2: U and flange structured")
 
     u, flange, messages = mesh_pinned_u(part, 50)
+    _, quality = check_submapped(u, "the matched U with 50 elements on its bottom and 2 on its notch bottom")
+    _, flange_quality = check_submapped(flange, "the flange beside the matched U pinned 50 / 2")
+    check(len(u.elements) == 532 and abs(quality - 0.548525) < tolerance and not messages,
+          "the matched U pinned 50 / 2 did not retain its 532-quad grid: " + str((u.kinds(), quality, messages)))
+    check(len(flange.elements) == 450 and abs(flange_quality - 1.0) < tolerance,
+          "the flange beside the matched U pinned 50 / 2 did not retain its 450 right-angled quads")
+    print("U pinned 50 / 2:", u.kinds(), "worst scaled Jacobian", quality, messages,
+          "flange", flange.kinds(), "worst scaled Jacobian", flange_quality)
+
+    u, flange, messages = mesh_pinned_u(part, 50, 3)
     steps, area = u.lattice()
-    check(steps == [50, 20, 50, 20] and area == 532, "the U pinned 50 / 2 did not close its 532-cell outline")
+    check(steps == [50, 20, 50, 20] and area == 532, "the U pinned 50 / 2 / 3 did not close its 532-cell outline")
     check(len(messages) == 1 and "is meshed free" in messages[0] and
-          "its grid has a quad corner of the scaled Jacobian" in messages[0] and "below" in messages[0],
-          "the U pinned 50 / 2 must fall back in the mesher for a poor grid corner: " + str(messages))
-    check(u.kinds() == {"triangle": 96, "quadrilateral": 123},
-          "the U pinned 50 / 2 did not retain the free mesh: " + str(u.kinds()))
+          "117 of the 532 quads of its grid fold" in messages[0],
+          "the U pinned 50 / 2 / 3 must fall back in the mesher for its folded grid: " + str(messages))
+    check(u.kinds() == {"triangle": 92, "quadrilateral": 131},
+          "the U pinned 50 / 2 / 3 did not retain the free mesh: " + str(u.kinds()))
     _, flange_quality = check_submapped(flange, "the flange beside the free U")
     check(len(flange.elements) == 450 and abs(flange_quality - 1.0) < tolerance,
           "the flange beside the free U did not retain its 450 right-angled quads")
-    print("U pinned 50 / 2:", u.kinds(), messages, "flange", flange.kinds())
-    FaceMesh(part.name, oblique).plot("fallback_mesher_U_flange", "U pinned 50 / 2: U meshed free, flange structured")
+    print("U pinned 50 / 2 / 3:", u.kinds(), messages, "flange", flange.kinds())
+    FaceMesh(part.name, oblique).plot("fallback_mesher_U_flange",
+                                      "U pinned 50 / 2 / 3: U meshed free, flange structured")
 
 
 def check_detection_rejection(parts):

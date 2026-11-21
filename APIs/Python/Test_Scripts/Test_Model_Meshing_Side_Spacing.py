@@ -10,7 +10,10 @@
 #Below 5 degrees, a split plate and the user's rectangular frame scaled by 1/11 can align. Fixed split vertices
 #or a shared edge beside a free face can prevent alignment and leave the whole mesh unchanged. A second frame
 #has a wall a third of the default element size. The GmshCommon generator is
-#Models/Generators/Make_Side_Spacing.py.
+#Models/Generators/Make_Side_Spacing.py. Closed shells from the fillet3 and twist examples cover the removal
+#of refused submaps and the guard for a free face beside a chain.
+#A strip shares its pin pattern with a plate through a round hole at both sides of the 5-degree threshold.
+#A mixed-hole plate aligns the cornered hole with its outer edges while both cases keep their round rims fixed.
 #
 #  PrePoMax.com -f side_spacing.brep -u MM_TON_S_C --script Test_Model_Meshing_Side_Spacing.py -g No -x Yes -w <dir>
 #
@@ -43,11 +46,11 @@ def messages(part):
             if any(kind in line for kind in ("Transfinite:", "Quad-dominant meshing:", "Submapping:"))]
 
 
-def mesh(part, pins, recombine, second_order, algorithm_2d, max_size=MAX_SIZE):
+def mesh(part, pins, recombine, second_order, algorithm_2d, max_size=MAX_SIZE, min_size=0.5):
     items = pmx.model.mesh.setup_items
     names = ["Spacing_Size", "Spacing_Shell"]
     selection = pmx.create.selection_by_ids("geometry", "parts", "parts", [part.id])
-    items.add_meshing_parameters(names[0], selection, relative_size=False, max_size=max_size, min_size=0.5,
+    items.add_meshing_parameters(names[0], selection, relative_size=False, max_size=max_size, min_size=min_size,
                                  second_order=second_order)
     selection = pmx.create.selection_by_ids("geometry", "geometry", "parts", [part.id])
     items.add_shell_gmsh(names[1], selection, algorithm_2d=algorithm_2d, algorithm_recombine=recombine)
@@ -99,9 +102,11 @@ class FaceMesh:
                 sines.append(sine * 2 / math.sqrt(3) if len(element) == 3 else sine)
         return min(sines) if sum(sines) >= 0 else -max(sines)
 
-    def fingerprint(self):
-        nodes = sorted(tuple(float(c).hex() for c in p) for p in self.xyz.values())
-        elements = sorted(tuple(sorted(self.xyz[node] for node in e)) for e in self.elements)
+    def fingerprint(self, subset=None):
+        points = self.xyz.values() if subset is None else (self.xyz[n] for n in {n for e in subset for n in e})
+        nodes = sorted(tuple(float(c).hex() for c in p) for p in points)
+        elements = sorted(tuple(sorted(self.xyz[node] for node in e))
+                          for e in (self.elements if subset is None else subset))
         return hashlib.sha256(repr((nodes, elements)).encode("ascii")).hexdigest()
 
 
@@ -206,7 +211,7 @@ for part in pmx.model.geometry.parts:
     key = int(round(min(p[0] for p in vertices) / 150)) * 150
     check(key not in parts, "the two faces of a strip did not import into one part")
     parts[key] = part
-check(sorted(parts) == list(range(0, 4051, 150)), "model parts were not all found")
+check(sorted(parts) == list(range(0, 4651, 150)), "model parts were not all found")
 
 for key in (0, 150, 900):
     grid, rows, lean, worst, output = case("unassigned " + str(key), key)
@@ -284,6 +289,8 @@ print("  trapezoid fingerprint " + grid.fingerprint())
 check(grid.node_counts == {4} and not output and lean < 0.1, "the trapezoid's side fractions differ")
 check_count(rows[0], 0, 30, 12)
 
+free_neighbour_baseline = {"Simple": "a03b1408dfefa78f36834525caad8d7488341a4fd4ca36a3dbbc43d474f65d97",
+                           "QuadDominant": "c6b8d290e1c4343c64af304fc2b12d0309a6dfa70c3d60e96d9aeffb39016929"}
 for recombine in ("Simple", "QuadDominant"):
     grid, rows, lean, worst, output = case("free neighbour " + recombine, 1200, 12, recombine=recombine)
     plate = [element for element in grid.elements if max(grid.uv[node][1] for node in element) <= 40 + EPS]
@@ -291,6 +298,7 @@ for recombine in ("Simple", "QuadDominant"):
     check(len(plate) == 208 and all(len(element) == 4 for element in plate), "the plate lost its grid")
     check(lean < 0.1 and grid.worst_corner(plate) > 0.99999, "the neighbour held the plate's shared edge fixed")
     check(neighbour and grid.worst_corner(neighbour) > 0, "the free neighbour has no valid mesh")
+    check(grid.fingerprint() == free_neighbour_baseline[recombine], "a passing free-face trial changed the mesh")
     if recombine == "QuadDominant":
         uses = {}
         for element in neighbour:
@@ -404,7 +412,7 @@ for label, key, length, count, read_lean, elements, before_worst in submaps:
         check(max_lean(grid.row(-40), grid.row(0), 40) < 0.1, "the L did not pass its spacing to the far edge")
 
 
-for pin, quads in ((21, 297), (42, 540)):
+for pin, quads in ((21, 297), (42, 492)):
     label = "right-angled L with %d on its 70 mm edge" % pin
     grid, lean, worst, output = measure(label, 2400, ((70, 40, pin),), l_lean)
     check(grid.node_counts == {4} and len(grid.elements) == quads and not output, label + " lost its submapped grid")
@@ -502,4 +510,142 @@ check_frame(3600, 644 / 11, 1149 / 11, 62 / 11, MAX_SIZE, 1, 62)
 check_frame(3600, 644 / 11, 1149 / 11, 62 / 11, 30 / 11, 2, 228)
 check_frame(3600, 644 / 11, 1149 / 11, 62 / 11, 28.8 / 11, 2, 236)
 check_frame(3750, 40 + 10 / 3, 80 + 10 / 3, MAX_SIZE / 3, MAX_SIZE, 1, 88)
+
+def face_elements(part, grid, face_id):
+    data = part.get_face_data()
+    geometry_id = next(g for i, g in zip(data.ids, data.geometry_ids) if i == face_id)
+    selection = pmx.create.selection_by_ids("femodel", "elements", "geometry", [int(geometry_id)])
+    selected = set(selection.preview().ids)
+    ids = list(map(int, pmx.model.parts[part.name].get_element_ids()))
+    return [element for tag, element in zip(ids, grid.elements) if tag in selected]
+
+
+def boundary_fingerprint(grid, elements):
+    uses = {}
+    for element in elements:
+        for i, node in enumerate(element):
+            edge = tuple(sorted((node, element[i - 1])))
+            uses[edge] = uses.get(edge, 0) + 1
+    boundary = {node for edge, count in uses.items() if count == 1 for node in edge}
+    points = sorted(tuple(round(c, 9) for c in grid.xyz[node]) for node in boundary)
+    return hashlib.sha256(repr(points).encode("ascii")).hexdigest()
+
+
+def check_refused_patches():
+    part = parts[4200]
+    data = part.get_edge_data()
+    split_edge = next(i for i, length in zip(data.ids, data.lengths) if abs(length - 0.1) < EPS)
+    _, output = mesh(part, ((int(split_edge), 5),), "QuadDominant", False, "Automatic",
+                     max_size=0.0361, min_size=0.00361)
+    grid = FaceMesh(part, planar(4200))
+    baseline = {9: "aa3eac48e46860efdc87e93501246610869f796cebc195ef2dde7cacace4a297",
+                12: "e8b153142fbed7a0d75b807a1985506a6ad7d4567bfaae34aeef2112394144ef"}
+    for face_id, expected in baseline.items():
+        elements = face_elements(part, grid, face_id)
+        check(any("Surface %d " % face_id in line and "is meshed free" in line for line in output),
+              "the refused submap did not fall back to a free face")
+        expected_quads = 550 if face_id == 9 else 548
+        check(len(elements) == expected_quads and grid.node_counts == {4}, "the refused submap lost its free quads")
+        check(boundary_fingerprint(grid, elements) == expected, "the refused submap kept its matched boundary")
+    wall = face_elements(part, grid, 3)
+    check(len(wall) == 132 and grid.worst_corner(wall) > 1 - EPS, "the adjoining wall lost its right-angled grid")
+    sides = [sorted(y for x, y, z in grid.xyz.values() if abs(x - 4200 - side) < EPS and abs(z + 0.3) < EPS)
+             for side in (-0.2, 0.2)]
+    check(all(len(side) == 12 for side in sides), "the adjoining wall did not keep 11 intervals on each side")
+    check(abs(sides[0][5] + 0.05) < EPS and max(abs(a - b) for a, b in zip(*sides)) < EPS,
+          "the pin pattern did not reach the opposite side after the submaps left")
+
+
+def check_free_face_guard():
+    part = parts[4350]
+    mesh(part, (), "QuadDominant", False, "Automatic", max_size=0.0433, min_size=0.00433)
+    grid = FaceMesh(part, planar(4350))
+    free = face_elements(part, grid, 6)
+    submap = face_elements(part, grid, 9)
+    check(boundary_fingerprint(grid, free) == "bc90d909fd813d1b34b258bc17098202a05d7147e23abe38e4c9bc98ec1bf83f",
+          "the poor free face did not recover its fixed boundary")
+    check(len(free) == 683 and abs(grid.worst_corner(free) - 0.644742) < EPS,
+          "the poor free face did not recover its baseline quality")
+    check(grid.fingerprint(free) == "98cb8c2d37e34025d3edf6299df0043fa05e1e3a481f0c9d8a2ae38aedb85c70",
+          "the poor free face changed from its baseline mesh")
+    check(len(submap) == 476 and abs(grid.worst_corner(submap) - 0.414856) < EPS,
+          "spacing did not rematch the chain around the fixed free face")
+
+
+check_refused_patches()
+check_free_face_guard()
+
+
+def check_round_rim(grid, cx, cy, radius, fingerprint):
+    rim = sorted((x, y) for x, y in grid.uv.values() if abs(math.hypot(x - cx, y - cy) - radius) < EPS)
+    check(len(rim) == 16 and hashlib.sha256(repr(rim).encode("ascii")).hexdigest() == fingerprint,
+          "the round rim moved from its baseline")
+
+
+def check_round_strip(pin, total, plate_count, expected_quality, baseline_quality):
+    part = parts[4500]
+    data = part.get_edge_data()
+    pins = [int(i) for i, length, center in zip(data.ids, data.lengths, data.centroids)
+            if abs(length - 30) < EPS and abs(center[1]) < EPS]
+    check(len(pins) == 1, "the split edge of the round-hole strip is missing")
+    _, output = mesh(part, [(pins[0], pin)], "Simple", False, "Automatic")
+    grid = FaceMesh(part, planar(4500))
+    bottom, shared, top = [grid.row(y) for y in (0, 40, 100)]
+    for row in (bottom, shared, top):
+        check_count(row, 0, 100, total)
+    check_count(bottom, 0, 30, pin)
+    check_count(bottom, 30, 100, total - pin)
+    strip = [element for element in grid.elements if max(grid.uv[n][1] for n in element) <= 40 + EPS]
+    plate = [element for element in grid.elements if min(grid.uv[n][1] for n in element) >= 40 - EPS]
+    check(len(strip) == 8 * total and len(plate) == plate_count and grid.node_counts == {4} and not output,
+          "the strip or the round-hole plate lost its grid")
+    strip_lean = max_lean(bottom, shared, 40)
+    plate_lean = max_lean(shared, top, 60)
+    quality = grid.worst_corner(plate)
+    check(strip_lean < 0.1 and plate_lean < 0.1 and grid.worst_corner(strip) > 1 - EPS,
+          "the spacing did not cross the shared edge and the round hole")
+    check(abs(quality - expected_quality) < EPS, "the round-hole grid changed quality")
+    if pin == 7:
+        check(quality >= baseline_quality - 0.02, "the exact chain made the round-hole grid too much worse")
+    check_round_rim(grid, 50, 70, 12, "519f76c546585d3b0b94ed61768b53269edd9ff341c5b2887ed4d45f29c1a610")
+    print("round strip pin %d lean %.6f, worst %.6f; round plate lean %.6f, worst %.6f" %
+          (pin, strip_lean, grid.worst_corner(strip), plate_lean, quality))
+
+
+def check_mixed_holes():
+    part = parts[4650]
+    _, output = mesh(part, (), "Simple", False, "Automatic")
+    grid = FaceMesh(part, planar(4650))
+    check(len(grid.elements) == 269 and grid.node_counts == {4} and not output,
+          "the mixed-hole plate lost its grid")
+    quality = grid.worst_corner()
+    check(abs(quality - 0.814838) < EPS, "the mixed-hole grid changed quality")
+
+    def column(x):
+        return sorted(y for u, y in grid.uv.values() if abs(u - x) < EPS)
+
+    bottom, top = grid.row(0), grid.row(80)
+    left, right = column(0), column(100)
+    check(max_lean(bottom, top, 80) < 0.1 and max_lean(left, right, 100) < 0.1,
+          "the outer edges of the mixed-hole plate are skewed")
+    for edge in (bottom, top):
+        for y in (23, 57):
+            hole = intervals(grid.row(y), 53, 78)
+            match = intervals(edge, 53, 78)
+            check(len(hole) == 6 and len(match) == 6 and max(abs(a - b) for a, b in zip(match, hole)) < EPS,
+                  "a horizontal edge of the cornered hole did not align with the boundary")
+    for edge in (left, right):
+        for x in (53, 78):
+            hole = intervals(column(x), 23, 57)
+            match = intervals(edge, 23, 57)
+            check(len(hole) == 8 and len(match) == 8 and max(abs(a - b) for a, b in zip(match, hole)) < EPS,
+                  "a vertical edge of the cornered hole did not align through the round hole")
+    check_round_rim(grid, 25, 40, 10, "33cfbad06ae4eb52eb1ee6409029ac18bfdd539580c83dbab9d126437cff9bc2")
+    print("mixed holes: 269 quads, worst %.6f" % quality)
+
+
+check_round_strip(12, 26, 296, 0.723421, 0.789909)
+check_round_strip(7, 21, 236, 0.834268, 0.771253)
+check_mixed_holes()
+
 print("TEST PASSED")

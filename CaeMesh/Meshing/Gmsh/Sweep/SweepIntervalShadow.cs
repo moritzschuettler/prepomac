@@ -82,7 +82,7 @@ namespace CaeMesh.Sweep
                 // The solve
                 string lpFileName = Path.Combine(Folder, "interval_" + index + ".lp");
                 IntervalSolution solution = problem.Solve(false, _timeoutSeconds, lpFileName);
-                report.AppendLine("lp_solve: " + solution.StatusName + " in " + solution.Seconds.ToString("0.###") + " s");
+                report.AppendLine("HiGHS: " + solution.StatusName + " in " + solution.Seconds.ToString("0.###") + " s");
                 string solved = solution.StatusName;
                 int numOfDifferent = 0;
                 if (solution.HasCounts)
