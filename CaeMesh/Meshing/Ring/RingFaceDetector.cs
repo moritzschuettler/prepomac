@@ -22,11 +22,12 @@ namespace CaeMesh
     /// faces its outer partner: the midpoint of each is the nearest midpoint of the other loop to the midpoint of the
     /// other, and the same of their first vertices. A loop of one closed edge pairs with the other. The inner loop is then
     /// started at the edge that faces outer edge 0.
-    /// A face is judged as SubmapFaceDetector judges its grids: the ring grid is laid in the plane of the outer loop with
+    /// A face is judged by the grid it would get: the ring grid is laid in the plane of the outer loop with
     /// counts in proportion to the lengths, one step for both loops, a pair of edges taking the mean of its two lengths
     /// and an unpaired ring the mean of the two totals spread over each loop, with the layers RingMapping gives for that
-    /// step, and the face is left free when the grid folds or has a quad corner below SubmapFaceDetector.MinScaledJacobian.
-    /// That keeps out an L with a small hole and a bore far off the centre of a disc. A face whose inner loop is shorter
+    /// step, and the face is left free when the grid folds or has a quad corner below MinGridScaledJacobian.
+    /// That keeps out an L with a small hole, a bore far off the centre of a disc and a round hole in a long face,
+    /// whose loops do not run side by side. A face whose inner loop is shorter
     /// than MinLengthRatio of its outer loop is left free as well. The face keeps the smallest
     /// distance between the polylines of its loops and the mean distance between the nodes that grid joins. A face may be
     /// a SubmapFace as well. A shell keeps the lattice of sharp-cornered loops even when the wall is thin.
@@ -43,6 +44,14 @@ namespace CaeMesh
         /// loop is lined with quads more than two and a half times as long across the ring as along the loop.
         /// </summary>
         public const double MinLengthRatio = 0.25;
+        /// <summary>
+        /// The worst quad corner of the grid a ring face is admitted with, the level below which the shell mesher
+        /// tries a four-sided grid free as well. The lines of a ring grid run from loop to loop and follow no corner
+        /// of the face, so a grid below it leans because the loops do not run side by side. The loops of a ring carry
+        /// as many elements, which the edges of the shorter loop hand on to the faces beside them, so such a face is
+        /// left free before the numbers of elements are balanced and not after its grid is laid.
+        /// </summary>
+        public const double MinGridScaledJacobian = 0.5;
         private const int NumOfDivisions = 64;
 
 
@@ -138,7 +147,7 @@ namespace CaeMesh
             //
             double meanDistance;
             double quality = GetGridQuality(polylines[outer], innerPolylines, paired, frame, out meanDistance);
-            if (!(quality >= SubmapFaceDetector.MinScaledJacobian)) return null;
+            if (!(quality >= MinGridScaledJacobian)) return null;
             return new RingFace(faceId, loopsVertexIds[outer], loopsEdgeIds[outer], innerVertexIds, innerEdgeIds, paired,
                                 GetMinDistance(polylines[outer], innerPolylines), meanDistance);
         }

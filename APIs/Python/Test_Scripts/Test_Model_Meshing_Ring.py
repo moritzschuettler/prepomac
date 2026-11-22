@@ -28,8 +28,14 @@
 #  - ring_sweep.brep: a pipe of r 20 and r 12, a thin pipe of r 20 and r 18, the tube with radii and a square flange of
 #    60 with a bore of r 28, extruded by 30 mm and swept from their ends in z = 0: hexahedra only, the source a ring,
 #    the hexahedra a multiple of its quads, as many as recorded.
+#  - ring_long_face.brep: the web of the revolved bracket of revolve_bracket.brep, a plane face 30 mm long and 10 mm
+#    high with a hole of r 3 near its lower edge. Its inner loop is 0.27 of its outer one, so it is no small hole, but
+#    its loops do not run side by side: the ring grid laid for the detection has a quad corner of 0.23, below the 0.5
+#    a ring is admitted with. It is no ring and is meshed free at the element size 2.63 without a message: the hole
+#    carries the 16 elements its size asks for, and the face is quadrilaterals only, fewer than 100, none with a
+#    corner below 0.4. As a ring both loops carried 36 elements and the face 180 quads with a worst corner of 0.2.
 #  The models were made by gmsh's OCC kernel through GmshCommon: plane surfaces of lines, circle arcs, closed circles
-#  and closed ellipses in z = 0, the solids extruded by 30 mm.
+#  and closed ellipses in z = 0, the solids extruded by 30 mm; the long face is cut from the boundary of the bracket.
 #  With the environment variable PMX_RING_PLOT_DIR set, the meshes are written into that folder as PNG images.
 #
 #  PrePoMax.com -f ring_faces.brep -u MM_TON_S_C --script Test_Model_Meshing_Ring.py -g No -x Yes -w <dir>
@@ -53,6 +59,7 @@ from System.Windows.Forms import Application
 MODELS = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "Models")
 PLOT_DIR = os.environ.get("PMX_RING_PLOT_DIR")
 MAX_SIZE = 5.0
+LONG_FACE_SIZE = 2.63
 SPACING = 150.0
 SHELLS = ["annulus", "annulus of halves", "turned seam", "thin washer", "eccentric", "very eccentric",
           "tube with radii", "thin tube", "thick tube", "plate large bore", "plate small bore", "elliptic ring",
@@ -235,6 +242,51 @@ def min_scaled_jacobian(quads, uv):
     if not sines:
         return None
     return min(s if signs > 0 else -s for s in sines)
+
+
+def boundary_loops(elements):
+    """The boundary nodes of the elements, loop by loop, the longest loop first."""
+    neighbours = {}
+    uses = {}
+    for element in elements:
+        for k in range(len(element)):
+            edge = tuple(sorted((element[k], element[(k + 1) % len(element)])))
+            uses[edge] = uses.get(edge, 0) + 1
+    for (a, b), count in uses.items():
+        if count == 1:
+            neighbours.setdefault(a, []).append(b)
+            neighbours.setdefault(b, []).append(a)
+    loops = []
+    seen = set()
+    for start in sorted(neighbours):
+        if start in seen:
+            continue
+        loop = []
+        stack = [start]
+        while stack:
+            node = stack.pop()
+            if node in seen:
+                continue
+            seen.add(node)
+            loop.append(node)
+            stack.extend(neighbours[node])
+        loops.append(loop)
+    return sorted(loops, key=len, reverse=True)
+
+
+def min_corner_sine(elements, xyz):
+    """The smallest sine of a corner of the elements in space."""
+    worst = 1.0
+    for element in elements:
+        n = len(element)
+        for c in range(n):
+            p, a, b = xyz[element[c]], xyz[element[(c + 1) % n]], xyz[element[(c - 1) % n]]
+            e1 = [a[k] - p[k] for k in range(3)]
+            e2 = [b[k] - p[k] for k in range(3)]
+            product = (e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0])
+            length = math.sqrt(sum(v * v for v in e1) * sum(v * v for v in e2))
+            worst = min(worst, math.sqrt(sum(v * v for v in product)) / length if length > 0 else 0.0)
+    return worst
 
 
 def mapping_of(elements):
@@ -496,6 +548,31 @@ def check_sweeps():
              " layers, " + str(len(source)) + " quads", source, uv)
 
 
+def check_long_face():
+    known = set(part.name for part in pmx.model.geometry.parts)
+    pmx.import_file(os.path.join(MODELS, "ring_long_face.brep"))
+    parts = [part for part in pmx.model.geometry.parts if part.name not in known]
+    check(len(parts) == 1, "ring_long_face.brep holds " + str(len(parts)) + " parts instead of one")
+    part = parts[0]
+    rings = detected_rings(part)
+    mesh(part, recombine="QuadDominant", max_size=LONG_FACE_SIZE)
+    face = FaceMesh(part.name)
+    messages = mapping_messages(part.name)
+    mapping, layers = mapping_of(face.elements)
+    loops = boundary_loops(face.elements)
+    quality = min_corner_sine(face.elements, face.xyz)
+    print("long face with a hole: ring", len(rings), "mapping", mapping, "elements", face.kinds(), "loops",
+          [len(loop) for loop in loops], "worst corner", round(quality, 3), "messages", messages)
+    check(len(rings) == 0, "the long face with a hole is detected as a ring")
+    check(mapping == "free" and len(messages) == 0, "the long face with a hole is meshed by " + mapping +
+          " and wrote: " + str(messages))
+    check(len(loops) == 2 and len(loops[1]) == 16, "the hole of the long face does not carry 16 elements: " +
+          str([len(loop) for loop in loops]))
+    check(list(face.kinds().keys()) == ["quadrilateral"] and len(face.elements) < 100,
+          "the long face with a hole must be fewer than 100 quadrilaterals: " + str(face.kinds()))
+    check(quality > 0.4, "the long face with a hole has a corner of the sine " + str(quality))
+
+
 def main():
     check(pmx.model.is_open(), "a model must be open")
     parts = parts_by_x(SHELLS)
@@ -504,6 +581,7 @@ def main():
     check_pins(parts)
     check_variants(parts)
     check_sweeps()
+    check_long_face()
     print("TEST PASSED")
 
 

@@ -1104,7 +1104,9 @@ elements, as many on each of its edges, and bolt holes, a plate with a round hol
 hole turned off the outline by more than 20 degrees from a multiple of 90, such as a diamond, an elliptic hole, and a
 disc are not submapped. A face of exactly two loops that run roughly parallel - an annulus, a washer, an elliptic ring,
 a tube with or without corner radii, a plate with a large bore, a diamond or an elliptic hole - is meshed as a ring
-instead, unless its inner loop is shorter than a quarter of its outer one, as a small hole is: both loops carry the same
+instead, unless its inner loop is shorter than a quarter of its outer one, as a small hole is, or its loops do not run
+side by side, as with a bore far off the centre or a round hole in a long face, where a line of the ring would meet a
+loop at less than 30 degrees: both loops carry the same
 number of elements, each node of one joined to a node of the other, with layers of elements between them as many as
 the distance between the loops over the element size, at least one. Where the two loops have as many edges facing each
 other one to one, each pair carries the same number, otherwise only the two loops do; a number of elements set on one
