@@ -212,18 +212,41 @@
   <Target Name="AfterBuild">
   </Target>
   -->
-  <!-- vtkNative: the native VTK 9.7 library of the pilot, built with CMake before this project. The post build
-       event of PrePoMax copies vtkNative\build\runtime into the lib folder. Set VtkNativeSkipBuild=true to skip. -->
+  <!-- vtkNative: the native VTK 9.7 library, built with CMake before this project. The post build event of PrePoMax
+       copies vtkNative\build\runtime into the lib folder. VtkNativeVtkDir defaults to the prebuilt VTK SDK, which is
+       downloaded from VtkNativeSdkUrl into vtkNative\sdk on the first build; set it (e.g. as an environment
+       variable) to use a local VTK build instead. CMake defaults to the one installed with Visual Studio.
+       Set VtkNativeSkipBuild=true to skip. -->
   <PropertyGroup>
+    <VtkNativeCMake Condition="'$(VtkNativeCMake)' == '' And Exists('$(VsInstallRoot)\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe')">$(VsInstallRoot)\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe</VtkNativeCMake>
     <VtkNativeCMake Condition="'$(VtkNativeCMake)' == ''">C:\Program Files\CMake\bin\cmake.exe</VtkNativeCMake>
-    <VtkNativeVtkDir Condition="'$(VtkNativeVtkDir)' == ''">C:\Pc\Programiranje\KitwareVTK\vtk-9.7.1-build-x64-opt\lib\cmake\vtk-9.7</VtkNativeVtkDir>
-    <VtkNativeSourceDir>$(MSBuildProjectDirectory)\..\vtkNative</VtkNativeSourceDir>
+    <VtkNativeSourceDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\vtkNative'))</VtkNativeSourceDir>
     <VtkNativeBuildDir>$(VtkNativeSourceDir)\build</VtkNativeBuildDir>
-    <VtkNativeCanBuild Condition="Exists('$(VtkNativeCMake)') And Exists('$(VtkNativeVtkDir)')">true</VtkNativeCanBuild>
+    <VtkNativeSdkName>vtk-9.7.1-pmx1-win-x64</VtkNativeSdkName>
+    <VtkNativeSdkUrl Condition="'$(VtkNativeSdkUrl)' == ''">https://github.com/PrePoMax/PrePoMax/releases/download/vtk-sdk-9.7.1-pmx1/$(VtkNativeSdkName).zip</VtkNativeSdkUrl>
+    <VtkNativeSdkDir>$(VtkNativeSourceDir)\sdk\$(VtkNativeSdkName)</VtkNativeSdkDir>
+    <VtkNativeSdkVtkDir>$(VtkNativeSdkDir)\lib\cmake\vtk-9.7</VtkNativeSdkVtkDir>
+    <VtkNativeVtkDir Condition="'$(VtkNativeVtkDir)' == ''">$(VtkNativeSdkVtkDir)</VtkNativeVtkDir>
+    <VtkNativeConfigureStamp>$(VtkNativeBuildDir)\vtkNative.configure.txt</VtkNativeConfigureStamp>
+    <VtkNativeConfiguration>$(VtkNativeCMake)|$(VtkNativeVtkDir)</VtkNativeConfiguration>
   </PropertyGroup>
-  <Target Name="BuildVtkNative" BeforeTargets="BeforeBuild" Condition="'$(VtkNativeSkipBuild)' != 'true'">
-    <Warning Condition="'$(VtkNativeCanBuild)' != 'true'" Text="vtkNative is not built: CMake or VTK 9.7 was not found ($(VtkNativeCMake), $(VtkNativeVtkDir))." />
-    <Exec Condition="'$(VtkNativeCanBuild)' == 'true' And !Exists('$(VtkNativeBuildDir)\CMakeCache.txt')" Command="&quot;$(VtkNativeCMake)&quot; -S &quot;$(VtkNativeSourceDir)&quot; -B &quot;$(VtkNativeBuildDir)&quot; -G &quot;Visual Studio 17 2022&quot; -A x64 &quot;-DVTK_DIR=$(VtkNativeVtkDir)&quot;" />
-    <Exec Condition="'$(VtkNativeCanBuild)' == 'true'" Command="&quot;$(VtkNativeCMake)&quot; --build &quot;$(VtkNativeBuildDir)&quot; --config Release -- -nologo -v:minimal" />
+  <Target Name="DownloadVtkNativeSdk" Condition="'$(VtkNativeSkipBuild)' != 'true' And '$(VtkNativeVtkDir)' == '$(VtkNativeSdkVtkDir)' And !Exists('$(VtkNativeSdkDir)\sdk.complete')">
+    <Message Importance="high" Text="vtkNative: downloading the VTK SDK from $(VtkNativeSdkUrl)" />
+    <RemoveDir Directories="$(VtkNativeSdkDir)" />
+    <DownloadFile SourceUrl="$(VtkNativeSdkUrl)" DestinationFolder="$(VtkNativeSourceDir)\sdk" DestinationFileName="$(VtkNativeSdkName).zip" Retries="2" />
+    <Unzip SourceFiles="$(VtkNativeSourceDir)\sdk\$(VtkNativeSdkName).zip" DestinationFolder="$(VtkNativeSdkDir)" />
+    <Delete Files="$(VtkNativeSourceDir)\sdk\$(VtkNativeSdkName).zip" />
+    <Touch Files="$(VtkNativeSdkDir)\sdk.complete" AlwaysCreate="true" />
+  </Target>
+  <Target Name="BuildVtkNative" BeforeTargets="BeforeBuild" DependsOnTargets="DownloadVtkNativeSdk" Condition="'$(VtkNativeSkipBuild)' != 'true'">
+    <Error Condition="!Exists('$(VtkNativeCMake)')" Text="vtkNative cannot be built: CMake was not found at $(VtkNativeCMake). Install the 'C++ CMake tools for Windows' component of Visual Studio, or set VtkNativeCMake." />
+    <Error Condition="!Exists('$(VtkNativeVtkDir)\vtk-config.cmake')" Text="vtkNative cannot be built: VTK 9.7 was not found at $(VtkNativeVtkDir)." />
+    <ReadLinesFromFile Condition="Exists('$(VtkNativeConfigureStamp)')" File="$(VtkNativeConfigureStamp)">
+      <Output TaskParameter="Lines" PropertyName="VtkNativeConfiguredWith" />
+    </ReadLinesFromFile>
+    <RemoveDir Condition="'$(VtkNativeConfiguredWith)' != '$(VtkNativeConfiguration)'" Directories="$(VtkNativeBuildDir)" />
+    <Exec Condition="'$(VtkNativeConfiguredWith)' != '$(VtkNativeConfiguration)'" Command="&quot;$(VtkNativeCMake)&quot; -S &quot;$(VtkNativeSourceDir)&quot; -B &quot;$(VtkNativeBuildDir)&quot; -A x64 &quot;-DVTK_DIR=$(VtkNativeVtkDir)&quot;" />
+    <WriteLinesToFile Condition="'$(VtkNativeConfiguredWith)' != '$(VtkNativeConfiguration)'" File="$(VtkNativeConfigureStamp)" Lines="$(VtkNativeConfiguration)" Overwrite="true" />
+    <Exec Command="&quot;$(VtkNativeCMake)&quot; --build &quot;$(VtkNativeBuildDir)&quot; --config Release -- -nologo -v:minimal" />
   </Target>
 </Project>

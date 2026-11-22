@@ -5,29 +5,37 @@ https://gitlab.com/MatejB/PrePoMax, is archived and no longer updated - open iss
 on GitHub.
 
 # Prerequisites
-*  Visual Studio 2026 Community (development environment) - https://www.visualstudio.com/downloads/
-*  CMake 3.21 or later - https://cmake.org/download/
-*  VTK 9.7.1, built from source (3D library used for graphics - needed only on the development PC; users get its
-   DLLs with PrePoMax) - see "Build VTK and vtkNative" below
+*  Visual Studio 2026 Community (development environment) - https://www.visualstudio.com/downloads/ - with the
+   workloads ".NET desktop development" and "Desktop development with C++", including its component
+   "C++ CMake tools for Windows" (the CMake that builds vtkNative)
 
 # PrePoMax Visual Studio setup
 *  Download a Master branch of the PrePoMax package and extract it to a PrePoMax folder
 *  Open the solution: "PrePoMax\PrePoMax.sln"
 
-# Build VTK and vtkNative
+# vtkNative and the VTK SDK
 The 3D view is `vtkNative`, a C++ library on VTK 9.7.1 (folder [vtkNative/](vtkNative/)) that `vtkControl` reaches
-through a C API. Building `vtkControl` builds it with CMake when CMake and VTK are found.
+through a C API. Building `vtkControl` builds it with CMake.
+*  VTK comes as a prebuilt SDK (VTK 9.7.1, shared, x64, Release, patched). The first build downloads it from the
+   GitHub release named by `VtkNativeSdkUrl` in `vtkControl/vtkControl.csproj` (about 60 MB) and unpacks it into
+   `vtkNative\sdk`, which git ignores. Nothing else needs to be installed.
+*  The build writes `vtkNative.dll` and the VTK DLLs it loads to `vtkNative\build\runtime`, and the post-build
+   event of PrePoMax copies them, with the VTK license texts, into the `lib` folder of the output.
+*  `VtkNativeCMake` is the path of `cmake.exe` (default: the one installed with Visual Studio); `VtkNativeVtkDir`
+   points at a local VTK build instead of the SDK. Both can be set as environment variables.
+
+## Build VTK and publish a new SDK
+Needed only to change the VTK version or its patches.
 *  Download the VTK 9.7.1 sources from https://vtk.org/download/ and apply
    [vtkNative/patches/vtk-9.7.1-ssao-background.patch](vtkNative/patches/vtk-9.7.1-ssao-background.patch)
    (the ambient occlusion keeps the background).
 *  Configure and build VTK shared, x64, Release, with the module groups StandAlone, Rendering and Imaging and without
-   FFMPEG, e.g. `cmake -S <vtk source> -B <vtk build> -G "Visual Studio 17 2022" -A x64 -DBUILD_SHARED_LIBS=ON
-   -DVTK_GROUP_ENABLE_Rendering=YES -DVTK_GROUP_ENABLE_StandAlone=YES -DVTK_GROUP_ENABLE_Imaging=YES` and
-   `cmake --build <vtk build> --config Release`.
-*  Tell the build where VTK is: the MSBuild property `VtkNativeVtkDir` (default in `vtkControl/vtkControl.csproj`)
-   is `<vtk build>\lib\cmake\vtk-9.7`; `VtkNativeCMake` is the path of `cmake.exe`.
-*  The build writes `vtkNative.dll` and the VTK DLLs it loads to `vtkNative\build\runtime`, and the post-build
-   event of PrePoMax copies them, with the VTK license texts, into the `lib` folder of the output.
+   FFMPEG, e.g. `cmake -S <vtk source> -B <vtk build> -A x64 -DBUILD_SHARED_LIBS=ON
+   -DVTK_GROUP_ENABLE_Rendering=YES -DVTK_GROUP_ENABLE_StandAlone=YES -DVTK_GROUP_ENABLE_Imaging=YES
+   -DVTK_MODULE_ENABLE_VTK_IOFFMPEG=NO` and `cmake --build <vtk build> --config Release`.
+*  Pack it with `vtkNative\Package-VtkSdk.ps1 -VtkBuildDir <vtk build> -OutputDir <folder> -SdkName <name>`, upload
+   the zip as the asset of a new GitHub release, and set `VtkNativeSdkName` and `VtkNativeSdkUrl` in
+   `vtkControl/vtkControl.csproj` to the new name and release. A new name makes every machine download the new SDK.
 
 At last change the active solution platform using the main menu: **Build** -> **Configuration Manager** and select **x64** as the **Active solution platform**.
 

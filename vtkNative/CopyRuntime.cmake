@@ -2,6 +2,9 @@
 #
 # Copies vtkNative.dll and the DLLs it loads from SEARCH_DIR - the VTK runtime - into OUTPUT_DIR. The folder is
 # emptied first, so a module that is no longer needed does not stay behind.
+if(POLICY CMP0207)
+    cmake_policy(SET CMP0207 NEW)
+endif()
 file(REMOVE_RECURSE "${OUTPUT_DIR}")
 file(MAKE_DIRECTORY "${OUTPUT_DIR}")
 file(GET_RUNTIME_DEPENDENCIES
