@@ -2984,7 +2984,7 @@ namespace CaeMesh
                 // meshed in one call, a wall whose both cross-sweep sides are composite fails the transfinite
                 // side check with node counts that are not the ones the constraints above set
                 GenerateMesh(1);
-                MatchOppositeSideSpacing(walls, null);
+                MatchOppositeSideSpacing(walls, MatchSourceSpacing(blocks, walls, targetSurfaceIds));
                 CheckRevolvedEdgeCounts();
             }
             // A transfinite surface set a second time would add its corners to the ones gmsh holds, so a
@@ -3036,7 +3036,8 @@ namespace CaeMesh
             LensFace fallbackLensFace;
             foreach (var face in _submapSourceFaces.Values.ToArray())
             {
-                if (GmshSubmapMesher.Mesh(face, sourceQuads, out reason)) continue;
+                bool keepOrthogonal = !_submapLensSourceFaces.ContainsKey(face.FaceId);
+                if (GmshSubmapMesher.Mesh(face, sourceQuads, out reason, keepOrthogonal)) continue;
                 if (!_submapLensSourceFaces.TryGetValue(face.FaceId, out fallbackLensFace))
                     FreeSubmapSource(face.FaceId, reason);
                 else if (GmshLensMesher.Mesh(fallbackLensFace, sourceQuads, out lensReason)) continue;
@@ -3952,6 +3953,125 @@ namespace CaeMesh
                 }
                 return groups;
             }
+        }
+        /// <summary>
+        /// Matches the node spacing across the four-sided and submapped sources of the blocks, whose edges are meshed,
+        /// as GmshShellSideSpacing matches it across shell faces, so that a submapped source whose boundary nodes face
+        /// each other takes a right-angled grid. The walls take part by their source and target sides and carry the
+        /// spacing along the sweep, through the sources of the blocks above; a wall closed along a seam and one whose
+        /// sides are no chains between two vertices keep their edges, as a ring, lens or three-sided source does. The
+        /// targets follow. Returns the edges of the chains that moved, which MatchOppositeSideSpacing leaves, or null.
+        /// </summary>
+        private HashSet<int> MatchSourceSpacing(List<SweepBlock> blocks, List<SweepWall> walls,
+                                                HashSet<int> targetSurfaceIds)
+        {
+            if (!_isOCC) return null;
+            HashSet<int> sourceSurfaceIds = new HashSet<int>(blocks.SelectMany(block => block.SourceSurfaceIds));
+            SubmapFace[] submapSources =
+                _submapSourceFaces.Values.Where(face => !_submapLensSourceFaces.ContainsKey(face.FaceId)).ToArray();
+            TransfiniteFace[] sourceFaces = (_gmshData.TransfiniteFaces ?? new TransfiniteFace[0])
+                .Where(face => face.NumberOfSides == 4 && sourceSurfaceIds.Contains(face.FaceId) &&
+                               _transfiniteSurfaceIds.Contains(face.FaceId)).ToArray();
+            if (submapSources.Length == 0 && sourceFaces.Length == 0) return null;
+            //
+            List<GmshShellSpacingPatch> wallPatches = new List<GmshShellSpacingPatch>();
+            HashSet<int> transfiniteSurfaceIds = new HashSet<int>(sourceFaces.Select(face => face.FaceId));
+            foreach (var wall in walls)
+            {
+                GmshShellSpacingPatch patch = GetWallSpacingPatch(wall);
+                if (patch != null) wallPatches.Add(patch);
+                transfiniteSurfaceIds.Add(wall.SurfaceId);
+            }
+            HashSet<int> followingSurfaceIds =
+                new HashSet<int>(targetSurfaceIds.Where(id => !sourceSurfaceIds.Contains(id)));
+            HashSet<int> fixedSurfaceIds = new HashSet<int>(sourceSurfaceIds.Concat(targetSurfaceIds)
+                .Where(id => !followingSurfaceIds.Contains(id) && !transfiniteSurfaceIds.Contains(id)));
+            Func<int, double> getSurfaceArea = surfaceId =>
+            {
+                double area;
+                Gmsh.Model.OCC.GetMass(2, surfaceId, out area);
+                return area;
+            };
+            HashSet<int> matchedEdgeIds = new HashSet<int>();
+            GmshShellSideSpacing.MatchSweepSources(sourceFaces, submapSources, wallPatches, transfiniteSurfaceIds,
+                                                   fixedSurfaceIds, followingSurfaceIds, getSurfaceArea,
+                                                   matchedEdgeIds);
+            return matchedEdgeIds.Count > 0 ? matchedEdgeIds : null;
+        }
+        /// <summary>
+        /// The source and the target side of a wall for the spacing chains of the sources, the target side running
+        /// back from the vertex the edges along the sweep join to the end of the source side. Null for a wall whose
+        /// edges along the sweep are not two chains, or whose sides are no chains between two vertices.
+        /// </summary>
+        private static GmshShellSpacingPatch GetWallSpacingPatch(SweepWall wall)
+        {
+            List<int[]> directionSides = GetEdgeChains(wall.DirectionEdgeIds);
+            if (directionSides.Count != 2) return null;
+            int[] sourceEdgeIds;
+            int[] sourceVertexIds;
+            int[] targetEdgeIds;
+            int[] targetVertexIds;
+            int[] directionVertexIds;
+            if (!TryOrderEdgeChain(wall.SourceEdgeIds, out sourceEdgeIds, out sourceVertexIds) ||
+                !TryOrderEdgeChain(wall.TargetEdgeIds, out targetEdgeIds, out targetVertexIds)) return null;
+            int facingVertexId = 0;
+            foreach (var directionSide in directionSides)
+            {
+                if (!TryOrderEdgeChain(directionSide, out _, out directionVertexIds)) return null;
+                if (directionVertexIds[0] == sourceVertexIds[1]) facingVertexId = directionVertexIds[1];
+                else if (directionVertexIds[1] == sourceVertexIds[1]) facingVertexId = directionVertexIds[0];
+            }
+            if (facingVertexId == targetVertexIds[1])
+            {
+                Array.Reverse(targetEdgeIds);
+                Array.Reverse(targetVertexIds);
+            }
+            else if (facingVertexId != targetVertexIds[0]) return null;
+            return new GmshShellSpacingPatch(wall.SurfaceId, new int[][] { sourceEdgeIds, targetEdgeIds },
+                                             new int[][] { sourceVertexIds, targetVertexIds });
+        }
+        /// <summary>
+        /// The edges in the order they follow each other from one end vertex of their chain to the other, with the two
+        /// end vertices. False when the edges are no single open chain.
+        /// </summary>
+        private static bool TryOrderEdgeChain(int[] edgeIds, out int[] orderedEdgeIds, out int[] endVertexIds)
+        {
+            orderedEdgeIds = null;
+            endVertexIds = null;
+            int[] vertexIds;
+            Dictionary<int, int[]> edgeIdVertexIds = new Dictionary<int, int[]>();
+            Dictionary<int, List<int>> vertexIdEdgeIds = new Dictionary<int, List<int>>();
+            foreach (var edgeId in edgeIds)
+            {
+                Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
+                if (vertexIds.Length != 2 || vertexIds[0] == vertexIds[1] || edgeIdVertexIds.ContainsKey(edgeId))
+                    return false;
+                edgeIdVertexIds.Add(edgeId, vertexIds);
+                foreach (var vertexId in vertexIds)
+                {
+                    if (!vertexIdEdgeIds.ContainsKey(vertexId)) vertexIdEdgeIds.Add(vertexId, new List<int>());
+                    vertexIdEdgeIds[vertexId].Add(edgeId);
+                }
+            }
+            int[] ends = vertexIdEdgeIds.Where(entry => entry.Value.Count == 1).Select(entry => entry.Key)
+                                        .OrderBy(id => id).ToArray();
+            if (ends.Length != 2 || vertexIdEdgeIds.Values.Any(ids => ids.Count > 2)) return false;
+            //
+            orderedEdgeIds = new int[edgeIds.Length];
+            int currentVertexId = ends[0];
+            int previousEdgeId = 0;
+            for (int i = 0; i < orderedEdgeIds.Length; i++)
+            {
+                List<int> nextEdgeIds = vertexIdEdgeIds[currentVertexId].Where(id => id != previousEdgeId).ToList();
+                if (nextEdgeIds.Count != 1) return false;
+                previousEdgeId = nextEdgeIds[0];
+                orderedEdgeIds[i] = previousEdgeId;
+                vertexIds = edgeIdVertexIds[previousEdgeId];
+                currentVertexId = vertexIds[0] == currentVertexId ? vertexIds[1] : vertexIds[0];
+            }
+            if (currentVertexId != ends[1]) return false;
+            endVertexIds = ends;
+            return true;
         }
         /// <summary>
         /// Places the nodes of the two opposite sides of every wall across from each other. A wall is meshed as a

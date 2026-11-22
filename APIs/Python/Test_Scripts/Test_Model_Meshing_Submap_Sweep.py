@@ -11,8 +11,13 @@
 #  - A number of elements set on a source edge of the L is kept and carried through the sums of its opposite sides, and
 #    a number set on an edge along the sweep gives the number of layers.
 #  - Numbers set on the U that make its notch as deep as its sides: the source is meshed free, the sweep succeeds and
-#    the output says why. An L with legs of 2 mm, whose corner quad folds at the element size 5, falls back in the
-#    mesher and is swept from the free source.
+#    the output says why.
+#  - Element sizes that divide no edge of the L, U and T (6 and 7), and the uneven stack at 7: gmsh spreads the nodes
+#    of an edge evenly, so they do not face those of the edges across from it. The spacing of the source is matched
+#    with the walls in its chains, and the source is a right-angled grid, the target of the stack as well (the worst
+#    scaled Jacobian of the source was 0.990, 0.959, 0.996 and 0.895 before the sources were matched). The L with
+#    legs of 2 mm at the element size 5, whose corner quad folded on the evenly spread nodes and which was swept
+#    from a free source with wedges, is 207 hexahedra from a right-angled grid.
 #  - Second order hexahedra; full-quad recombination, simple and Blossom, and the quasi-structured quad algorithm:
 #    structured, or the source meshed free with a message, the sweep succeeding every time.
 #  - An L profile swept a quarter turn about an axis 30 mm from it, two L cells of 20 mm stacked into a compound,
@@ -125,12 +130,12 @@ def edge_count(geometry_id):
     return pmx.create.selection_by_ids('femodel', 'nodes', 'geometry', [geometry_id]).preview().count - 1
 
 
-def sweep(parts, second_order=False, selection=None, pins=(), **arguments):
+def sweep(parts, second_order=False, selection=None, pins=(), size=MAX_SIZE, **arguments):
     """Sweeps the parts by one item with the given arguments; pins are (part, edge id, number of elements)."""
     items = pmx.model.mesh.setup_items
     ids = [part.id for part in parts]
     items.add_meshing_parameters("PyTest_Submap_Size", pmx.create.selection_by_ids('geometry', 'parts', 'parts', ids),
-                                 relative_size=False, max_size=MAX_SIZE, min_size=MAX_SIZE / 10,
+                                 relative_size=False, max_size=size, min_size=size / 10,
                                  second_order=second_order)
     names = ["PyTest_Submap_Size"]
     for part, edge_id, count in pins:
@@ -347,15 +352,40 @@ def check_fallbacks(parts):
     source = mesh.cap(lambda xyz: abs(xyz[2]) < 1E-6)
     plot_outside("fallback_counts_U", "U pinned as deep as its sides: free source, " + str(mesh.kinds()), mesh)
     #
-    part = parts["thin L"]
-    sweep([part])
-    mesh = SweptMesh([part.name])
-    messages = submapping_messages(part.name)
-    print("L with legs of 2 mm:", mesh.kinds(), messages)
-    check(len(messages) == 1 and "is meshed free" in messages[0] and "scaled Jacobian" in messages[0] or
-          len(messages) == 1 and "fold" in messages[0], "the thin L source must fall back in the mesher: " + str(messages))
-    check(set(mesh.kinds()) <= {"hexahedron", "wedge"}, "the thin L must be swept: " + str(mesh.kinds()))
-    plot_outside("fallback_mesher_thin_L", "L with legs of 2 mm: free source, " + str(mesh.kinds()), mesh)
+    mesh, source, steps, quality, layers, uv = check_profile(parts, "thin L")
+    messages = submapping_messages(parts["thin L"].name)
+    print("L with legs of 2 mm:", len(source), "quads x", layers, "layers, worst scaled Jacobian of the source",
+          round(quality, 6), messages)
+    check(len(messages) == 0 and quality > 0.999999 and len(mesh.elements) == 207,
+          "the thin L must be 207 hexahedra from a right-angled source: " + str(len(mesh.elements)) + " " +
+          str(quality) + " " + str(messages))
+    plot_outside("thin_L", "L with legs of 2 mm: " + str(len(mesh.elements)) + " hexahedra", mesh)
+
+
+def check_spacing(parts):
+    for name, size in (("L", 6.0), ("U", 6.0), ("T", 7.0)):
+        mesh, source, steps, quality, layers, uv = check_profile(parts, name, size=size)
+        messages = submapping_messages(parts[name].name)
+        print(name + " at the element size " + str(size) + ":", len(source), "quads x", layers,
+              "layers, worst scaled Jacobian of the source", round(quality, 6))
+        check(len(messages) == 0 and quality > 0.999999, "the source of the " + name + " at the element size " +
+              str(size) + " must be a right-angled grid: " + str(quality) + " " + str(messages))
+        plot("spacing_" + name, "Source of the " + name + " at the element size " + str(size), source, uv)
+    #
+    name = "uneven stack"
+    sweep([parts[name]], size=7.0)
+    mesh = SweptMesh(CELLS[name])
+    check(list(mesh.kinds().keys()) == ["hexahedron"], "the " + name + " must be hexahedra only: " + str(mesh.kinds()))
+    qualities = []
+    for z in (0.0, 40.0):
+        cap = mesh.cap(lambda xyz: abs(xyz[2] - z) < 1E-6)
+        count, area, steps, irregular, quality, uv = cap_grid(cap, mesh.xyz, lambda p: (p[0], p[1]))
+        check(len(irregular) == 0 and count == area, "the " + name + " has no submapped grid in z = " + str(z))
+        qualities.append(quality)
+    print(name + " at the element size 7.0: worst scaled Jacobian of the source and of the target",
+          [round(quality, 6) for quality in qualities])
+    check(min(qualities) > 0.999999, "the source and the target of the " + name + " at the element size 7 must be " +
+          "right-angled grids: " + str(qualities))
 
 
 def check_variants(parts):
@@ -467,6 +497,7 @@ def main():
     check_profiles(parts)
     check_pins(parts)
     check_fallbacks(parts)
+    check_spacing(parts)
     check_variants(parts)
     check_bent_and_stack(parts)
     check_quadwild(parts)

@@ -48,7 +48,12 @@ namespace CaeMesh
         public static GmshShellSpacingSide Create(TransfiniteFace face, int sideIndex,
                                                   Dictionary<int, GmshShellSpacingEdge> edgeById)
         {
-            int[] edgeIds = face.SideEdgeIds[sideIndex];
+            return Create(face.SideEdgeIds[sideIndex], face.CornerNodeIds[sideIndex],
+                          face.CornerNodeIds[(sideIndex + 1) % 4], edgeById);
+        }
+        public static GmshShellSpacingSide Create(int[] edgeIds, int startVertexId, int endVertexId,
+                                                  Dictionary<int, GmshShellSpacingEdge> edgeById)
+        {
             GmshShellSpacingEdge[] edges = new GmshShellSpacingEdge[edgeIds.Length];
             double length = 0;
             int numOfNodes = 1;
@@ -60,7 +65,7 @@ namespace CaeMesh
             }
             //
             GmshShellSpacingSide side = new GmshShellSpacingSide(edges, numOfNodes, length);
-            int vertexId = face.CornerNodeIds[sideIndex];
+            int vertexId = startVertexId;
             int node = 0;
             double offset = 0;
             for (int e = 0; e < edges.Length; e++)
@@ -81,7 +86,7 @@ namespace CaeMesh
                 }
                 vertexId = reversed ? edge.StartVertexId : edge.EndVertexId;
             }
-            if (vertexId != face.CornerNodeIds[(sideIndex + 1) % 4]) return null;
+            if (vertexId != endVertexId) return null;
             return side;
         }
         public GmshShellSpacingNode GetNode(int node, double length, bool reverse)

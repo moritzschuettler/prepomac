@@ -23,6 +23,7 @@ namespace CaeMesh
     /// A patch refused on both boundaries leaves the chain. If an isolated free mesh gets worse and falls below the
     /// quality threshold, its edges stay fixed and the chain is matched again. The caller selects which free faces
     /// can be trialled. Full-quad and quasi-structured algorithms, periodic surfaces and optimized shells are excluded.
+    /// The structured sources of a sweep are matched the same way, with the walls of the sweep in their chains.
     /// </summary>
     internal static class GmshShellSideSpacing
     {
@@ -45,6 +46,32 @@ namespace CaeMesh
                                  Func<int, double> getSurfaceArea, Action meshEdges, bool recombine,
                                  Action<GmshShellGridQuality> tryFree, Func<int, double?> getFreeQuality)
         {
+            return Match(shellFaces, submapFaces, null, transfiniteSurfaceIds, fixedSurfaceIds, null, getSurfaceArea,
+                         meshEdges, recombine, tryFree, getFreeQuality, null);
+        }
+        /// <summary>
+        /// The four-sided and submapped sources of a sweep, whose edges are meshed, with its walls. A wall carries the
+        /// spacing of its source side to its target side. The following surfaces - the targets, which take the mesh of
+        /// their sources - hold no edge back. No free face is trialled and no grid is tried free. The edges of the
+        /// chains that moved are added to matchedEdgeIds.
+        /// </summary>
+        public static bool MatchSweepSources(IEnumerable<TransfiniteFace> sourceFaces,
+                                             IEnumerable<SubmapFace> submapSources,
+                                             IEnumerable<GmshShellSpacingPatch> wallPatches,
+                                             HashSet<int> transfiniteSurfaceIds, HashSet<int> fixedSurfaceIds,
+                                             HashSet<int> followingSurfaceIds, Func<int, double> getSurfaceArea,
+                                             HashSet<int> matchedEdgeIds)
+        {
+            return Match(sourceFaces, submapSources, wallPatches, transfiniteSurfaceIds, fixedSurfaceIds,
+                         followingSurfaceIds, getSurfaceArea, null, false, null, null, matchedEdgeIds);
+        }
+        private static bool Match(IEnumerable<TransfiniteFace> shellFaces, IEnumerable<SubmapFace> submapFaces,
+                                  IEnumerable<GmshShellSpacingPatch> wallPatches, HashSet<int> transfiniteSurfaceIds,
+                                  HashSet<int> fixedSurfaceIds, HashSet<int> followingSurfaceIds,
+                                  Func<int, double> getSurfaceArea, Action meshEdges, bool recombine,
+                                  Action<GmshShellGridQuality> tryFree, Func<int, double?> getFreeQuality,
+                                  HashSet<int> matchedEdgeIds)
+        {
             List<GmshShellSpacingPatch> patches = new List<GmshShellSpacingPatch>();
             foreach (TransfiniteFace face in shellFaces.OrderBy(face => face.FaceId))
             {
@@ -63,6 +90,8 @@ namespace CaeMesh
                 GmshShellSpacingPatch patch = new GmshShellSpacingPatch(face);
                 if (patch.EdgeIds.Distinct().Count() == patch.EdgeIds.Length) patches.Add(patch);
             }
+            if (wallPatches != null)
+                patches.AddRange(wallPatches.Where(patch => patch.EdgeIds.Distinct().Count() == patch.EdgeIds.Length));
             if (!patches.Any(patch => patch.IsSeed)) return false;
             //
             Dictionary<int, List<GmshShellSpacingPatch>> edgePatches =
@@ -100,13 +129,19 @@ namespace CaeMesh
                 Gmsh.Model.GetAdjacencies(1, edgeId, out int[] adjacent, out _);
                 double room = FreeFaceDepth * edge.Length * edge.Length / (edge.NumOfNodes - 1);
                 edge.SetMovable(!adjacent.Any(id => fixedSurfaceIds.Contains(id) || protectedFaces.Contains(id)) &&
-                               adjacent.Where(id => !matchedSurfaceIds.Contains(id))
+                               adjacent.Where(id => !matchedSurfaceIds.Contains(id) &&
+                                                    (followingSurfaceIds == null || !followingSurfaceIds.Contains(id)))
                                        .All(id => !keepFreeFaces && getSurfaceArea(id) >= room));
             };
             //
             bool moved = false;
             foreach (List<GmshShellSpacingPatch> chain in chains)
-                moved |= MatchChain(chain, edges, configureEdge, matchedSurfaceIds, getFreeQuality);
+            {
+                if (!MatchChain(chain, edges, configureEdge, matchedSurfaceIds, getFreeQuality)) continue;
+                moved = true;
+                matchedEdgeIds?.UnionWith(chain.SelectMany(patch => patch.EdgeIds));
+            }
+            if (tryFree == null) return moved;
             foreach (TransfiniteFace face in matched.Where(patch => patch.Transfinite != null &&
                                                                    patch.HasMismatch(FractionTolerance))
                                                     .Select(patch => patch.Transfinite).Distinct()

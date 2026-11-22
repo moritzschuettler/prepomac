@@ -14,7 +14,8 @@ using System.Linq;
 namespace CaeMesh
 {
     /// <summary>
-    /// One opposite-side pair or one submapped face in the shell spacing graph.
+    /// One opposite-side pair, one submapped face or the source and target sides of one sweep wall in the spacing
+    /// graph. A wall follows the faces it joins and starts no chain.
     /// </summary>
     internal class GmshShellSpacingPatch
     {
@@ -22,6 +23,9 @@ namespace CaeMesh
         private readonly TransfiniteFace _face;
         private readonly SubmapFace _submap;
         private readonly int _side;
+        private readonly int _wallId;
+        private readonly int[][] _wallSideEdgeIds;
+        private readonly int[][] _wallSideVertexIds;
         private readonly int[] _edgeIds;
         private GmshShellSpacingSide _first;
         private GmshShellSpacingSide _second;
@@ -30,11 +34,11 @@ namespace CaeMesh
 
 
         // Properties                                                                                                   
-        public int FaceId { get { return _face != null ? _face.FaceId : _submap.FaceId; } }
+        public int FaceId { get { return _face != null ? _face.FaceId : _submap != null ? _submap.FaceId : _wallId; } }
         public TransfiniteFace Transfinite { get { return _face; } }
         public SubmapFace Submap { get { return _submap; } }
         public int[] EdgeIds { get { return _edgeIds; } }
-        public bool IsSeed { get { return _submap != null || _edgeIds.Length > 2; } }
+        public bool IsSeed { get { return _submap != null || (_face != null && _edgeIds.Length > 2); } }
         public List<(GmshShellSpacingNode First, GmshShellSpacingNode Second)> Pairs { get { return _pairs; } }
 
 
@@ -50,6 +54,17 @@ namespace CaeMesh
             _submap = face;
             _edgeIds = face.Loops.Where(loop => !loop.IsRound).SelectMany(loop => loop.EdgeIds).ToArray();
         }
+        /// <summary>
+        /// The source and the target side of a sweep wall, each an ordered chain of edges between its two vertices,
+        /// the target side running back from the vertex across from the end of the source side.
+        /// </summary>
+        public GmshShellSpacingPatch(int wallId, int[][] sideEdgeIds, int[][] sideVertexIds)
+        {
+            _wallId = wallId;
+            _wallSideEdgeIds = sideEdgeIds;
+            _wallSideVertexIds = sideVertexIds;
+            _edgeIds = sideEdgeIds[0].Concat(sideEdgeIds[1]).ToArray();
+        }
 
 
         // Methods                                                                                                      
@@ -60,8 +75,18 @@ namespace CaeMesh
                 _pairs = GmshShellSubmapSpacing.GetPairs(_submap, edges);
                 return _pairs != null && _pairs.Count > 0;
             }
-            _first = GmshShellSpacingSide.Create(_face, _side, edges);
-            _second = GmshShellSpacingSide.Create(_face, _side + 2, edges);
+            if (_face != null)
+            {
+                _first = GmshShellSpacingSide.Create(_face, _side, edges);
+                _second = GmshShellSpacingSide.Create(_face, _side + 2, edges);
+            }
+            else
+            {
+                _first = GmshShellSpacingSide.Create(_wallSideEdgeIds[0], _wallSideVertexIds[0][0],
+                                                     _wallSideVertexIds[0][1], edges);
+                _second = GmshShellSpacingSide.Create(_wallSideEdgeIds[1], _wallSideVertexIds[1][0],
+                                                      _wallSideVertexIds[1][1], edges);
+            }
             if (_first == null || _second == null || _first.NumOfNodes != _second.NumOfNodes) return false;
             //
             double[][] a = _first.GetShapePoints(samples);

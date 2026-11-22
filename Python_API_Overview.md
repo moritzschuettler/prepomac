@@ -1218,6 +1218,11 @@ For chains at or above 5 degrees, a submap refused on both boundaries leaves the
 A free face beside a moved edge is trialled on that boundary. If its worst scaled Jacobian falls below 0.5 and by
 more than 0.02 from the original boundary, its edges stay fixed for the rematch. Trials cover None, Simple, Blossom
 and QuadDominant, excluding periodic surfaces, the quasi-structured quad algorithm and first-order optimized shells.
+The 4-sided and submapped sources of `sweep_mesh` that gmsh meshes are matched by the same rules once the edges are
+meshed. A wall of the sweep takes part by its source and target sides and carries the spacing along the sweep, through
+the sources of the blocks above, and a target follows its source. No free face is trialled, and a wall closed along a
+seam and a ring, lens, 3-sided or free source keep their edges. A planar submapped source whose boundary nodes then
+face each other places its inner nodes at the crossings of perpendicular lattice lines, as a shell face does.
 A face on which two sides of several edges still disagree, so that its grid has a corner of a scaled Jacobian below
 0.5 that is also worse than the corners of the face itself, is meshed free as well - converted by `QuadDominant` when
 that is the recombination, and by the same conversion under a full-quad recombination, where it must end as quads
