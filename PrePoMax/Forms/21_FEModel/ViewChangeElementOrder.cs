@@ -42,7 +42,9 @@ namespace PrePoMax.Forms
         [OrderedDisplayName(0, 10, "Element order")]
         [DescriptionAttribute("Select the element order of the selected parts. Linear elements are converted to " +
                               "parabolic elements by adding the midside nodes at the middle of the straight element edges. " +
-                              "Parabolic elements are converted to linear elements by removing the midside nodes.")]
+                              "Parabolic elements are converted to linear elements by removing the midside nodes. " +
+                              "Parabolic elements kept parabolic have their midside nodes projected to the geometry " +
+                              "or moved to the middle of the straight element edges.")]
         [Id(1, 2)]
         public string ElementOrder
         {
@@ -56,9 +58,10 @@ namespace PrePoMax.Forms
         //
         [CategoryAttribute("Data")]
         [OrderedDisplayName(1, 10, "Project to geometry")]
-        [DescriptionAttribute("Select yes to move the new midside nodes on the model edges and faces onto the CAD " +
+        [DescriptionAttribute("Select yes to move the midside nodes on the model edges and faces onto the CAD " +
                               "geometry the part was meshed from. A part without CAD geometry keeps its midside nodes " +
-                              "on the straight element edges.")]
+                              "where they are. Select no to place all midside nodes at the middle of the straight " +
+                              "element edges.")]
         [Id(2, 2)]
         public bool ProjectToGeometry { get { return _projectToGeometry; } set { _projectToGeometry = value; } }
         //

@@ -92,7 +92,10 @@ namespace APIs.Python.Model
                    "of beam, triangle, quadrilateral, tetrahedron, pyramid, wedge or hexahedron elements. With " +
                    "project_to_geometry=True the new midside nodes on the model edges and faces of a part meshed " +
                    "from CAD geometry are moved onto that geometry, unless one would move farther than half of the " +
-                   "length of its edge; a part without CAD geometry keeps its midside nodes on the straight edges.",
+                   "length of its edge; a part without CAD geometry keeps its midside nodes on the straight edges. " +
+                   "The midside nodes of the elements that are parabolic already are projected the same way with " +
+                   "project_to_geometry=True and moved back to the middle of the straight edges with " +
+                   "project_to_geometry=False.",
                    Arguments = "part_names: list[str] or str, second_order: bool = True, " +
                                "project_to_geometry: bool = True", Returns = "None")]
         public void change_element_order(object part_names, object second_order = null, object project_to_geometry = null)

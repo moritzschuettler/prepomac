@@ -7,6 +7,7 @@
 #set picked on a face gains and loses the midside nodes of that face, the CalculiX element type follows the order, and
 #a linear mesh comes back node for node after the round trip. The new midside nodes are moved onto the CAD geometry of
 #the box and cylinder with project_to_geometry=True and stay on the straight edges of the parts without CAD geometry.
+#Parabolic parts kept parabolic move their midside nodes to the straight edges and onto the geometry directly.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Model_Element_Order.py -g No -x Yes -w <dir>
 #
@@ -141,6 +142,13 @@ def check_projection(part_names, second_order):
     else:
         check(len(moved) == 0, "a midside node moved although the model has no CAD geometry")
     print("projected midside nodes:", len(moved))
+    # Parabolic parts kept parabolic move their midside nodes between the straight edges and the geometry directly
+    mesh.change_element_order(part_names, second_order=True, project_to_geometry=False)
+    check(get_coordinates(part_names) == straight,
+          "the midside nodes of the parabolic parts did not move back to the straight edges")
+    mesh.change_element_order(part_names, second_order=True, project_to_geometry=True)
+    check(get_coordinates(part_names) == projected,
+          "the midside nodes of the parabolic parts were not projected to the geometry directly")
     if second_order:
         mesh.change_element_order(part_names, second_order=False)
 
