@@ -1390,6 +1390,14 @@ namespace System.Windows.Forms
         protected internal virtual bool OptionClickIsMiddleButton { get { return false; } }
         // The magnify gesture of a trackpad at a client point; the magnification is positive as the fingers move apart
         protected internal virtual void OnTouchPadMagnify(int x, int y, double magnification) { }
+        // A trackpad scrolls continuously while a mouse wheel turns in notches, and both arrive as a wheel event, so a
+        // view that pans with the fingers takes the continuous one and every other control keeps the wheel
+        protected internal virtual bool TouchPadScrollPans { get { return false; } }
+        // The continuous scroll of a trackpad at a client point; the delta is positive as the content is scrolled up
+        // or left. A view that cannot pan with the fingers unless it is asked to takes panForced, which the option key
+        // of the scroll event sets. False is returned when the view does not take it, which leaves the event to the
+        // wheel. The option key alone does not take the notches of a wheel: the caller asks only for continuous scrolls
+        protected internal virtual bool OnTouchPadPan(int x, int y, double deltaX, double deltaY, bool panForced) { return false; }
         internal void HandleMouseWheel(MouseEventArgs e)
         {
             if (FiltersMouseMessages && !FilterMessage(0x20A, new IntPtr(e.Delta << 16), PointParam(e.X, e.Y))) return;

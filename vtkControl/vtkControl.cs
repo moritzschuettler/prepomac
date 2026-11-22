@@ -160,6 +160,7 @@ namespace vtkControl
         private int _trackpadCenterX;
         private int _trackpadCenterY;
         private bool _trackpadShift;
+        private bool _trackpadPanForced;
         private bool _trackpadPending;
         private bool _trackpadGestureActive;
         private Timer _trackpadGestureEndTimer;
@@ -680,13 +681,18 @@ namespace vtkControl
             double dragX = _trackpadDragX;
             double dragY = _trackpadDragY;
             double zoom = _trackpadZoom;
+            // The forced pan belongs to the events that set it: a gesture that follows - a wheel notch of the fallback,
+            // a pinch - must not inherit the option key of a scroll that has already been applied
+            bool panForced = _trackpadPanForced;
             _trackpadDragX = 0;
             _trackpadDragY = 0;
             _trackpadZoom = 1;
+            _trackpadPanForced = false;
             _trackpadPending = false;
             _trackpadGestureActive = true;
             //
-            _trackpadNavigation.Apply(_style, dragX, dragY, zoom, _trackpadCenterX, _trackpadCenterY, _trackpadShift);
+            _trackpadNavigation.Apply(_style, dragX, dragY, zoom, _trackpadCenterX, _trackpadCenterY, _trackpadShift,
+                                     panForced);
         }
         private bool HandleTrackpadWheel(ref Message m)
         {

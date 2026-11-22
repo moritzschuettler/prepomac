@@ -63,7 +63,7 @@ namespace vtkControl
             return Math.Pow(_zoomPerNotch, wheelDelta / WheelDeltaPerNotch);
         }
         internal void Apply(vtkInteractorStyleControl style, double dragPixelsX, double dragPixelsY,
-                          double zoomFactor, int zoomCenterX, int zoomCenterY, bool shiftPressed)
+                          double zoomFactor, int zoomCenterX, int zoomCenterY, bool shiftPressed, bool panForced)
         {
             if (style == null || !style.NavigationAllowed) return;
             //
@@ -74,7 +74,9 @@ namespace vtkControl
             bool drag = dragPixelsX != 0 || dragPixelsY != 0;
             if (!zoom && !drag) return;
             //
-            bool pan = shiftPressed ^ _twoFingerDragPans;
+            // A forced pan is the option key of a macOS trackpad scroll: it pans whatever the setting says, including
+            // when the setting makes shift the modifier that pan
+            bool pan = panForced || (shiftPressed ^ _twoFingerDragPans);
             style.StartMultiTouchGesture(zoomCenterX, zoomCenterY, drag && !pan);
             //
             // The rotation and the zoom carry the sensitivity that is shared with the mouse

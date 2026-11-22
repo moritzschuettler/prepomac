@@ -1,4 +1,4 @@
-﻿# PrePoMax for macOS
+# PrePoMax for macOS
 
 [![Build](https://github.com/moritzschuettler/prepomac/actions/workflows/build.yml/badge.svg)](https://github.com/moritzschuettler/prepomac/actions/workflows/build.yml)
 
@@ -20,6 +20,7 @@ steps, a small model (.pmx or the CAD file), and your macOS version and chip. Pu
 
 - [Install](#install) (and [Linux](#linux-experimental))
 - [Using PrePoMax on a Mac](#using-prepomax-on-a-mac)
+- [The matrix solvers of CalculiX](#the-matrix-solvers-of-calculix)
 - [Code_Aster as a second solver](#code_aster-as-a-second-solver)
 - [Driving PrePoMax from an AI agent](#driving-prepomax-from-an-ai-agent)
 - [Validation](#validation)
@@ -48,30 +49,97 @@ xattr -dr com.apple.quarantine /Applications/PrePoMax.app
 Building takes about 15 minutes, most of it for installing the tools. Tested on Apple Silicon with macOS 15; macOS 13
 or newer should work, Intel Macs are untested.
 
-#### 1. The tools
-
-```sh
-xcode-select --install                          # compilers for the native parts
-# .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0
-brew install cmake opencascade gmsh lp_solve    # Homebrew: https://brew.sh
-brew install costerwi/calculix/calculix-ccx     # CalculiX
-```
-
-Any CalculiX `ccx` works; PrePoMax finds it in /opt/homebrew/bin, /usr/local/bin or the PATH.
-
-#### 2. Build and install the app
+#### One command
 
 ```sh
 git clone https://github.com/moritzschuettler/prepomac.git
 cd prepomac/macOS
-./make-app.sh
+./setup-build.sh
 ```
+
+That is the whole build: `setup-build.sh` checks the tools, builds the Release configuration and installs a
+standalone `PrePoMax.app` that carries gmsh, lp_solve, CalculiX, a Python and the .NET runtime inside and needs
+nothing installed when it runs. It installs in /Applications, or in ~/Applications when /Applications is not
+writable; PrePoMax then opens from the Launchpad, the Dock or Finder.
+
+Before it builds anything, the script checks every tool the build needs — cmake, opencascade, gmsh, lp_solve, a Python
+3.12 or newer, CalculiX and the .NET 10 SDK — and names all the missing ones in one message, together with the
+`brew install` line that brings them. `./setup-build.sh --install-tools` runs that line itself, `./setup-build.sh
+--check` only reports what is missing and changes nothing, and `./setup-build.sh --help` lists the options.
+
+It checks the tools itself because a shell that is not an interactive login shell — ssh, cron, an editor, a CI
+runner, the MSBuild of the .NET build — has no `/opt/homebrew/bin` in its PATH. `cmake` is then not found, and the Mmg
+target of the native build ends with **exit status 127**, minutes into the build and without saying why; a .NET SDK in
+`~/.dotnet` is invisible for the same reason. `setup-build.sh`, `build.sh`, `make-app.sh` and the native build scripts
+put `/opt/homebrew/bin`, `/usr/local/bin` and `~/.dotnet` in front of the PATH themselves, so a build no longer depends
+on the shell it is started from.
+
+Two more arguments: `./setup-build.sh --ccx /path/to/ccx` takes a CalculiX from outside Homebrew, and
+`./setup-build.sh <folder>` installs into that folder instead of /Applications or ~/Applications. To update, run
+`git pull` and `./setup-build.sh` again; the app replaces the older one in **the folder it already sits in**, so that
+the Launchpad and the Dock open the new one.
 
 The clone carries the whole history of PrePoMax (about 260 MB); `git clone --depth 1 ...` is quicker.
 
-`make-app.sh` builds the Release configuration, packs it into `PrePoMax.app` and installs it in /Applications (or
-~/Applications when /Applications is not writable). PrePoMax then opens from the Launchpad, the Dock or Finder. To
-update, run `git pull` and `./make-app.sh` again.
+#### What it needs
+
+Xcode command line tools, the .NET 10 SDK, and from [Homebrew](https://brew.sh):
+
+```sh
+xcode-select --install                                     # compilers for the native parts
+# .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0
+brew install cmake opencascade gmsh lp_solve python        # python 3.12 or newer, see below
+brew install costerwi/calculix/calculix-ccx                # CalculiX
+```
+
+The Python of `/usr/bin` is not enough: macOS ships 3.9 there, and `bundle-deps.py` unpacks the Python that goes into
+the app with `tarfile.extractall(filter=…)`, which needs **3.12 or newer** — with the old one the build ends with
+`TypeError: extractall() got an unexpected keyword argument 'filter'`. The `python` of Homebrew is the one to use.
+
+Any CalculiX `ccx` works; PrePoMax finds it in /opt/homebrew/bin, /usr/local/bin or the PATH, and
+`./setup-build.sh --ccx /path/to/ccx` (or `./make-app.sh --ccx …`) takes one from anywhere else.
+
+#### Why the app is checked before it is installed
+
+An app that misses `Solver/`, `Python/` or `Contents/Frameworks/` does not fail at the build: it fails at the first
+solve, hours later, with a message that names neither the cause nor the file. `verify-bundle.sh` looks for what an app
+has to carry — the program, its launcher, both meshers, the license texts and, for a standalone app, CalculiX in
+`Contents/MacOS/Solver`, the app's own Python in `Contents/MacOS/Python`, and `libgmsh.dylib` and `liblpsolve55.dylib`
+in `Contents/Frameworks` — and names every part that is missing.
+
+`make-app.sh` runs it on the staged bundle and refuses to install an incomplete app, leaving the old one in place. Any
+app can be checked on its own:
+
+```sh
+./verify-bundle.sh /Applications/PrePoMax.app --standalone   # Complete (314 MB).  or the missing parts, exit 1
+./verify-bundle.sh PrePoMax.app                              # a developer build, which uses this Mac's Homebrew
+```
+
+Without `--standalone` the script checks this Mac for the Homebrew libraries and CalculiX instead of checking them
+inside the app, because the developer build loads them from there.
+
+#### The scripts
+
+| Script | What it does |
+|---|---|
+| `setup-build.sh` | checks the tools, then `make-app.sh --standalone` |
+| `build.sh` | builds `PrePoMax/bin/<Configuration>/net10.0` (and the native parts on the first run) |
+| `make-app.sh` | builds, verifies, packs into `PrePoMax.app` and installs it (`--standalone` makes it self-contained) |
+| `verify-bundle.sh` | checks an app for the program, the meshers, `Solver/`, `Python/` and `Frameworks/` |
+
+#### Manually, step by step
+
+When the binaries and the app are wanted apart:
+
+```sh
+cd prepomac/macOS
+./build.sh Release                 # the .NET and native binaries only
+./make-app.sh --standalone         # the app around them, checked before it is installed
+```
+
+`make-app.sh --standalone` makes the app self-contained (about 314 MB); without `--standalone` it is the developer
+build (about 146 MB) that loads `libgmsh.dylib` and `liblpsolve55.dylib` from Homebrew and starts the CalculiX of this
+Mac, so it only runs on a Mac that has them.
 
 The command line program, for scripts and batch runs, is `/Applications/PrePoMax.app/Contents/MacOS/PrePoMax.com`:
 
@@ -122,7 +190,8 @@ differences:
   `~/Library/Application Support/PrePoMax`.
 - **Shortcuts:** the ⌘ command key does what the Ctrl key does on Windows.
 - **Solver:** CalculiX is found automatically (the downloaded app carries its own); Tools > Settings > Solver changes
-  it. The macOS builds of ccx only have the SPOOLES matrix solver, which is the default.
+  it. The Homebrew builds of `ccx` for macOS carry SPOOLES only, see
+  [the matrix solvers](#the-matrix-solvers-of-calculix).
 - **Meshing:** the Netgen mesher of Windows is replaced by gmsh. The Netgen mesh items stay in the menus and are
   meshed by gmsh with its Netgen 3D algorithm, so meshes differ from Windows ones.
 
@@ -130,15 +199,50 @@ differences:
 
 | Action | Mouse | Trackpad |
 |---|---|---|
-| Zoom at the pointer | wheel (with ⌘ in finer steps) | two-finger scroll, or pinch |
-| Rotate | drag with the middle button | ⌥ option + drag |
-| Pan | ⇧ shift + drag with the middle button | ⌥ option + ⇧ shift + drag |
+| Zoom at the pointer | wheel (with ⌘ in finer steps) | pinch |
+| Pan | ⇧ shift + drag with the middle button | two-finger scroll (⌥ option forces it), or ⌥ option + ⇧ shift + drag |
+| Rotate | drag with the middle button | ⌥ option + drag, or a two-finger scroll with "Two finger drag: Rotate" |
 | Zoom by dragging | ⌘ + drag with the middle button | ⌥ option + ⌘ + drag |
 | Zoom to a box | hold Z and drag a box with the left button | |
 | Fit the model | "Zoom to fit" in the toolbar | |
 | Rotate in steps | arrow keys | |
 
-Tools > Settings > Navigation sets the speeds and the directions.
+A wheel notch zooms and a two-finger scroll pans, because macOS reports a trackpad scroll as precise, continuous,
+pixel-based scrolling and the port tells the two apart. Tools > Settings > Navigation sets the speeds and the
+directions, and whether a two-finger drag pans or rotates. On macOS "Two finger drag" defaults to **Pan**, because the
+trackpad of a Mac is always precise; a settings file written by an older version keeps **Rotate**, and holding
+⌥ option while scrolling pans either way. "Two finger gestures: Off" on the same page switches the pinch and the
+two-finger gestures off, and the wheel keeps zooming.
+
+Telling a trackpad from a wheel takes a detour: Avalonia 11.3.1 reports both as the same wheel event and drops
+CoreGraphics' `kCGScrollWheelEventIsContinuous`, the flag that separates them. The port reads that flag from the NSEvent
+of the event it is handling, through CoreGraphics, without a native build step; where the event cannot be read — a
+session without a window server — the wheel keeps working and both devices zoom. A newer Avalonia that passes the flag
+on makes that detour unnecessary.
+
+### The solver output and the output window
+
+The Monitor window (Analysis > Run) shows the lines of `ccx` while the run goes on, not only when it ends: the solver
+is started through a pipe on macOS too, and the console units of its Fortran runtime are unbuffered, so the lines are
+not held back in blocks. A run that ends with an exit code or a signal ends with a message that names the code, the
+signal behind it and the last line of the output — in the Monitor and in the output window of the main form as well,
+so a crashed run is not left without a word when the Monitor is closed. The output window is the panel below the 3D
+view, built on the same editor control as the Python editor and the CalculiX editor.
+
+### The annotation cards of the results
+
+The cards over the 3D view in the results — the maximum and minimum of a field output and the ones the Query tool
+adds — can be dragged with the left button, and a plain click still opens their editor: the mouse press no longer
+reaches the 3D view twice, which used to release the widget that the first press had captured and count as the second
+click of a double click.
+
+### Models written on Windows
+
+A `.pmx` from Windows stores the work directories of that machine, which point nowhere on a Mac. When the stored path
+does not exist, the results file of an analysis is looked for beside the model: first in a folder named as the
+analysis, which is how the work directory of a run is laid out, and then beside the model file itself — so copying the
+`.frd` along with the `.pmx` is enough to open the results. The stored path is returned unchanged when nothing is found
+there, and the `.pmx` keeps its format.
 
 ### Python scripts and recording
 
@@ -149,6 +253,40 @@ Tools > Settings > Navigation sets the speeds and the directions.
 - The Python API is documented in [Python_API_Overview.md](Python_API_Overview.md). Example studies are in
   [assets_composites/](assets_composites/), among them a carbon bike frame with ply optimization
   ([bike_frame_study.py](assets_composites/bike-frame/bike_frame_study.py)).
+
+## The matrix solvers of CalculiX
+
+The `ccx` that Homebrew installs, and the one inside the app, is built with **SPOOLES** only; there is no PARDISO. On
+small and medium models that is no loss. On larger ones SPOOLES is the weak point: its hash table for the equations
+overflows, and the run then ends with
+
+```
+*ERROR in I2Ohash_insert: hashing function overflow
+```
+
+or is killed for memory, however much the machine has. The analysis ends without results, and nothing in the model
+explains it.
+
+**PaStiX** solves those models. It is a part of the CalculiX sources and is compiled in when CalculiX is built with
+PaStiX; such a `ccx` reports it in the banner it prints when it starts. Take or build one, then point PrePoMax at it:
+
+1. **Tools > Settings > Solver**, category **CalculiX**, field **Executable**: set it to that `ccx` — the button at
+   the right of the field opens a file dialog.
+2. Same page and category, **Default matrix solver**: **PaStiX**. The setting is stored in `settings.bin` in
+   `~/Library/Application Support/PrePoMax`, with the other settings.
+3. A step that already exists carries its own solver: the step in the model tree, opened with **Step > Edit**, then
+   the field **Solver** in its property grid.
+
+PrePoMax falls back to SPOOLES by itself when the chosen `ccx` does not carry the solver that was selected, so a wrong
+"Default matrix solver" does not break a run — the analysis then solves with SPOOLES again, which is the behaviour a
+Mac without PARDISO needs anyway.
+
+The number in **Number of processors** reaches both the solver and its equation solver: a run that solves with PaStiX
+or PARDISO factorizes the matrix on all those threads. A run that is left in SPOOLES — a step that names no solver, or
+one whose solver the `ccx` does not carry — keeps a single thread for the equation solver, because the multithreaded
+SPOOLES of the macOS and Linux builds returns wrong results. In a run of several steps one SPOOLES step is enough to
+hold the whole run to one thread, because the solver reads the number once when it starts. An environment variable of
+the analysis of the same name overrides the number that PrePoMax passes on.
 
 ## Code_Aster as a second solver
 
@@ -228,11 +366,20 @@ meant for quick optimization loops, with a final check of the layered model.
 - Netgen meshing is done by gmsh (its 3D algorithm is the Frontal/Netgen one). Structured (transfinite) four-sided
   faces, three-sided faces as three blocks ("Mapped") or polar, and the numbers of elements set on edges are supported.
 - QuadWild is not available: PrePoMax ships modified Windows binaries of QuadWild-BiMDF whose source is not public.
-- The macOS builds of ccx have only the SPOOLES direct solver (no PARDISO). Badly conditioned models, such as a body
-  held only by compression-only supports, can be found singular, and large models are slower.
+- The macOS builds of `ccx` carry SPOOLES only (no PARDISO). SPOOLES can stop a larger model with
+  `I2Ohash_insert: hashing function overflow`, and badly conditioned models, such as a body held only by
+  compression-only supports, can be found singular; [PaStiX](#the-matrix-solvers-of-calculix) is the solver for those
+  cases.
+- The trackpad gestures rest on Avalonia 11.3.1, which reports a trackpad scroll and a wheel notch as one event and
+  drops the flag that separates them. The port reads that flag from CoreGraphics, so a change in that corner of the
+  event handling of Avalonia will be noticed here first.
+- A settings file written by an older version keeps "Two finger drag: Rotate", where a two-finger drag rotates instead
+  of panning and ⌥ option is the key that pans. Tools > Settings > Navigation changes the setting.
+- There is no signing or notarization: the app carries no Apple developer certificate, macOS asks on the first start,
+  and a downloaded app has to be opened through Privacy & Security or cleared with `xattr`. A signed build needs a
+  developer identity and a notarization step of Apple in the release workflow.
 - On the carbon bike frame model, CalculiX and Code_Aster differ by about 50 % in stiffness, although they agree on the
   plates above; the cause is not found yet (shell junctions or supports are suspected).
-- The trackpad navigation is new and needs testing.
 - The help page of the Python editor is not built yet; [Python_API_Overview.md](Python_API_Overview.md) has its content.
 - Files of the composites modeler of Yvan Blanchard (PrePoMax 2.4.5 dev) open; their laminae keep the out-of-plane
   constants of that version (v23 = v12).
@@ -245,10 +392,12 @@ cd macOS
 ./run.sh                # starts macOS/PrePoMax/bin/Debug/net10.0/PrePoMax
 ```
 
-`build.sh` uses a .NET 10 SDK even when the `dotnet` of the PATH is an older one. The build also compiles the native
-parts: `Native/Win32Compat.c`, `Native/NetGenMesher` (the CAD and mesher process on OpenCASCADE and gmsh) and
-`Native/Mmg` (downloaded and built once). How to contribute a change is in [CONTRIBUTING.md](CONTRIBUTING.md); every
-push and pull request is built on a macOS runner of GitHub Actions.
+`build.sh` uses a .NET 10 SDK even when the `dotnet` of the PATH is an older one. It and the other scripts put
+Homebrew's `bin` and `~/.dotnet` in front of the PATH themselves. The build also compiles the native parts:
+`Native/Win32Compat.c`, `Native/NetGenMesher` (the CAD and mesher process on OpenCASCADE and gmsh) and `Native/Mmg`
+(downloaded and built once). For the whole app instead of the binaries, `./setup-build.sh` checks the tools and
+installs it, and `./verify-bundle.sh <PrePoMax.app>` tells whether an app is complete. How to contribute a change is in
+[CONTRIBUTING.md](CONTRIBUTING.md); every push and pull request is built on a macOS runner of GitHub Actions.
 
 ### Structure
 

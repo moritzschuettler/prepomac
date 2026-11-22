@@ -1076,6 +1076,9 @@ namespace PrePoMax
             {
                 _jobs = od;
                 ResetUnfinishedJobStatuses();
+                // A .pmx of another machine keeps the work directories of that machine: the results of an analysis are
+                // then looked for beside the model file, where the user copied them along
+                foreach (var entry in _jobs) entry.Value.ModelFileName = fileName;
             }
             // Settings
             ApplySettings(); // work folder and executable
@@ -22158,6 +22161,26 @@ namespace PrePoMax
             }
             if (changed) File.WriteAllLines(inputFileName, lines);
         }
+        // SPOOLES is the only solver whose multithreading returns wrong results on macOS and Linux, so a run that is
+        // solved with it gets a single thread for the equation solver; PaStiX and PARDISO take all the threads the run
+        // has. The solver reads the number once when it starts, so one step left in SPOOLES keeps the whole run at one
+        private int GetEquationSolverThreads(AnalysisJob job)
+        {
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT) return job.NumCPUs;
+            foreach (var step in _model.StepCollection.StepsList)
+            {
+                if (step.Active && StepSolvesWithSpooles(step, job.Executable)) return 1;
+            }
+            return job.NumCPUs;
+        }
+        // A step without a solver name is solved with SPOOLES, and so is one whose solver the export above has replaced
+        // with SPOOLES because the executable does not have it
+        private static bool StepSolvesWithSpooles(Step step, string executable)
+        {
+            if (step.SolverType == SolverTypeEnum.PaStiX) return !Tools.CalculixHasSolver(executable, "PASTIX");
+            if (step.SolverType == SolverTypeEnum.Pardiso) return !Tools.CalculixHasSolver(executable, "PARDISO");
+            return true;
+        }
         public bool PrepareAndRunJob(string jobName, bool onlyCheckModel, bool asynchronous = true, int timeoutMilliseconds = 0)
         {
             string inputFileName = GetCalculiXInpFileName(jobName);
@@ -22171,6 +22194,7 @@ namespace PrePoMax
             //
             job.LastRunCompleted = LastRunCompleted;
             job.OnlyCheckModel = onlyCheckModel;
+            if (job.FEMSolver == FEMSolverEnum.Calculix) job.EquationSolverThreads = GetEquationSolverThreads(job);
             //
             _watch = Stopwatch.StartNew();
             //
@@ -22689,7 +22713,16 @@ namespace PrePoMax
             _form.UpdateAnalysisProgress(jobName, jobStatus);
             AnalysisJob job;
             if (_jobs.TryGetValue(jobName, out job))
+            {
                 _form.UpdateTreeNode(ViewGeometryModelResults.Model, jobName, job, null, true);
+                // A run that ended badly is reported in the output window of the main form as well: the monitor
+                // holds the output of the run, but it is closed as soon as another analysis is started and the
+                // user may have hidden it. In the batch regeneration the whole output is written there anyway
+                bool endedBadly = jobStatus == JobStatus.Failed || jobStatus == JobStatus.FailedWithResults ||
+                                  jobStatus == JobStatus.Killed || jobStatus == JobStatus.TimedOut;
+                if (endedBadly && !_batchRegenerationMode && job.EndedMessage != null)
+                    _form.WriteDataToOutput(jobName + ":" + job.EndedMessage);
+            }
         }
         //
         public void KillJob(string jobName)

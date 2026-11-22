@@ -88,11 +88,17 @@ namespace CaeJob
         [NonSerialized] private object _tag;
         [NonSerialized] private bool _useBackgroundWorker;
         [NonSerialized] private double _prevWatchMilliseconds;
+        // The file the model was opened from; a work directory stored on another machine cannot be found here
+        [NonSerialized] private string _modelFileName;
         [NonSerialized] private CalculixEnergyOutputParser _energyOutputParser;
 
 
         [NonSerialized] private int _runTimeoutMilliseconds;
         [NonSerialized] private Stopwatch _runTimeoutWatch;
+        [NonSerialized] private string _endedMessage;
+        // The threads the equation solver of the run may use; the application sets it before every run, since it
+        // depends on the solver the steps of the model name
+        [NonSerialized] private int _equationSolverThreads;
         private bool _numCPUsOverridden;
         private bool _environmentVariablesOverridden;
 
@@ -130,13 +136,44 @@ namespace CaeJob
         {
             get
             {
-                if (_femSolver == FEMSolverEnum.Calculix) return Path.Combine(WorkDirectory, _name + ".frd");
-                else if (_femSolver == FEMSolverEnum.Abaqus) return Path.Combine(WorkDirectory, _name + ".odb");
-                else if (_femSolver == FEMSolverEnum.FEMaster) return Path.Combine(WorkDirectory, _name + ".frd");
+                string resultsFileName = Path.Combine(WorkDirectory, _name + ResultsFileExtension);
+                if (File.Exists(resultsFileName)) return resultsFileName;
+                // The work directory was written on another machine, where a Windows path points nowhere here. The
+                // results the user copied along with the model are looked for beside it: first in a folder named as
+                // the analysis, which is how the work directory of a run is laid out, and then beside the model
+                if (_modelFileName == null) return resultsFileName;
+                //
+                string directory = Path.GetDirectoryName(_modelFileName);
+                if (directory == null) return resultsFileName;
+                //
+                string fileName = _name + ResultsFileExtension;
+                string candidate = Path.Combine(Path.Combine(directory, _name), fileName);
+                if (File.Exists(candidate)) return candidate;
+                //
+                candidate = Path.Combine(directory, fileName);
+                if (File.Exists(candidate)) return candidate;
+                //
+                return resultsFileName;
+            }
+        }
+        private string ResultsFileExtension
+        {
+            get
+            {
+                if (_femSolver == FEMSolverEnum.Calculix) return ".frd";
+                else if (_femSolver == FEMSolverEnum.Abaqus) return ".odb";
+                else if (_femSolver == FEMSolverEnum.FEMaster) return ".frd";
                 // The command file of Code_Aster writes its results as a CalculiX results file
-                else if (_femSolver == FEMSolverEnum.CodeAster) return Path.Combine(WorkDirectory, _name + ".frd");
+                else if (_femSolver == FEMSolverEnum.CodeAster) return ".frd";
                 else throw new NotSupportedException();
             }
+        }
+        // The model file the analysis was read with, set by the application when a file is opened. A .pmx written on
+        // another machine keeps the work directories of that machine, so the results beside the model are used then
+        public string ModelFileName
+        {
+            get { return _modelFileName; }
+            set { _modelFileName = value; }
         }
         public bool IsUpToDate
         {
@@ -165,6 +202,16 @@ namespace CaeJob
         {
             get { return _environmentVariables; }
             set { _environmentVariables = value; }
+        }
+        /// <summary>
+        /// The threads the equation solver of the CalculiX run may use. The application sets it before a run from
+        /// the solver the steps of the model name: on macOS and Linux SPOOLES returns wrong results with more than
+        /// one thread, while PaStiX and PARDISO take all of them.
+        /// </summary>
+        public int EquationSolverThreads
+        {
+            get { return _equationSolverThreads; }
+            set { _equationSolverThreads = Math.Max(1, value); }
         }
         public string DatFileData { get { return _datFileContents; } }
         public string StatusFileData { get { return _statusFileContents; } }
@@ -195,6 +242,12 @@ namespace CaeJob
             set { _environmentVariablesOverridden = value; }
         }
         public object Tag { get { return _tag; } set { _tag = value; } }
+        /// <summary>
+        /// How the run ended when the solver did not end on its own: the exit code, the signal behind it
+        /// and the last line the solver wrote. The monitor shows it at the end of the run, and the output
+        /// window of the main form shows it too, so that a run that crashed does not end silently.
+        /// </summary>
+        public string EndedMessage { get { return _endedMessage; } }
 
 
         // Events                                                                                                                   
@@ -217,6 +270,7 @@ namespace CaeJob
             _workDirectory = workDirectory;
             _compatibilityMode = false;
             _numCPUs = 1;
+            _equationSolverThreads = 1;
             _environmentVariables = new List<EnvironmentVariable>();
             _endTime = DateTime.MinValue;
             //
@@ -237,6 +291,8 @@ namespace CaeJob
             _executableOverridden = false;
             _workDirectoryOverridden = false;
             _femSolver = FEMSolverEnum.Calculix;
+            // Not serialized: a run that is not started by the application keeps the single thread of SPOOLES
+            _equationSolverThreads = 1;
             //
             foreach (SerializationEntry entry in info)
             {
@@ -308,6 +364,7 @@ namespace CaeJob
             // Reset job
             _tag = null;
             _jobStatus = JobStatus.None;
+            _endedMessage = null;
             //
             if (_femSolver == FEMSolverEnum.CodeAster)
                 _inputFileName = Path.Combine(_workDirectory, _name + ".export");  // must be first for the timer to work
@@ -411,8 +468,13 @@ namespace CaeJob
             if (File.Exists(_outputFileName)) File.Delete(_outputFileName);
             if (File.Exists(_errorFileName)) File.Delete(_errorFileName);
             //
-            if (Tools.IsWindows10orNewer() && !_compatibilityMode) Run_Win10(_executable, GetArgument());
-            else Run_OldWin(_executable, GetArgument());
+            // The output of the solver reaches the monitor only through a pipe, which Run_Win10 reads. Run_OldWin
+            // starts the process without one, so on macOS and Linux, where the application has no console the
+            // solver could write to, its whole output goes nowhere. Only the compatibility mode of Windows, where
+            // the solver window is shown instead, still needs Run_OldWin
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT && (!Tools.IsWindows10orNewer() || _compatibilityMode))
+                Run_OldWin(_executable, GetArgument());
+            else Run_Win10(_executable, GetArgument());
         }
         private void bwStart_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
@@ -454,10 +516,12 @@ namespace CaeJob
                 if (!resultsExist && !(ContainsNoAnalysis(_sbOutput.ToString()) || ContainsNoAnalysis(_sbAllOutput.ToString())))
                 {
                     AppendDataToOutput(" Job failed - no results exist.");
+                    _endedMessage = " The solver ended without results.";
                     _jobStatus = JobStatus.Failed;
                 }
                 else if (ContainsError(_sbOutput.ToString()) || ContainsError(_sbAllOutput.ToString()))
                 {
+                    _endedMessage = " The solver ended with an error.";
                     _jobStatus = JobStatus.FailedWithResults;
                 }
                 else
@@ -469,10 +533,12 @@ namespace CaeJob
             else if (_jobStatus == JobStatus.Killed)
             {
                 AppendDataToOutput(" Job killed.");
+                if (_endedMessage == null) _endedMessage = " The run was killed.";
             }
             else if (_jobStatus == JobStatus.Failed)
             {
                 AppendDataToOutput(" Job failed.");
+                if (_endedMessage == null) _endedMessage = " The solver ended with an error.";
                 if (resultsExist) _jobStatus = JobStatus.FailedWithResults;
             }
             //
@@ -614,8 +680,69 @@ namespace CaeJob
             if (exitCode == 0) return JobStatus.OK;
             if (ContainsNoAnalysis(_sbOutput.ToString()) || ContainsNoAnalysis(_sbAllOutput.ToString())) return JobStatus.OK;
             //
-            AppendDataToOutput(" The solver ended with the exit code " + exitCode + ".");
+            // A run that ends here ends with the message the user has to see: a solver that crashed has no
+            // message of its own, and an exit code alone does not tell a crash from a stopped run
+            _endedMessage = GetEndedMessage(exitCode);
+            AppendDataToOutput(_endedMessage);
             return JobStatus.Failed;
+        }
+        private string GetEndedMessage(int exitCode)
+        {
+            StringBuilder message = new StringBuilder();
+            message.Append(" The solver ended with the exit code " + exitCode);
+            string signalName = GetSignalName(exitCode);
+            if (signalName != null)
+                message.Append(" - the process was stopped by the signal " + (exitCode - 128) + " (" + signalName + ")");
+            message.Append(".");
+            //
+            string lastLine = GetLastOutputLine();
+            if (lastLine != null) message.Append(" The last line of the output: " + lastLine);
+            return message.ToString();
+        }
+        // A process that a signal ended is reported on macOS and Linux as 128 + the signal number, which
+        // alone reads like an ordinary exit code and hides that the solver crashed
+        private static string GetSignalName(int exitCode)
+        {
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT) return null;
+            switch (exitCode - 128)
+            {
+                case 4: return "SIGILL";
+                case 6: return "SIGABRT";
+                case 7: return "SIGBUS";
+                case 8: return "SIGFPE";
+                case 9: return "SIGKILL";
+                case 11: return "SIGSEGV";
+                case 13: return "SIGPIPE";
+                case 15: return "SIGTERM";
+                default: return null;
+            }
+        }
+        // The last line the solver wrote - searched from the end of the output, so that a run whose output
+        // fills gigabytes copies one line and not the whole output
+        private string GetLastOutputLine()
+        {
+            if (_myLock == null) _myLock = new object();
+            lock (_myLock)
+            {
+                string lastLine = GetLastLine(_sbOutput);
+                if (lastLine == null) lastLine = GetLastLine(_sbAllOutput);
+                if (lastLine != null && lastLine.Length > 300) lastLine = lastLine.Substring(0, 300) + "...";
+                return lastLine;
+            }
+        }
+        private static string GetLastLine(StringBuilder sb)
+        {
+            if (sb == null) return null;
+            int end = sb.Length;
+            while (end > 0)
+            {
+                int start = end - 1;
+                while (start >= 0 && sb[start] != '\n' && sb[start] != '\r') start--;
+                string line = sb.ToString(start + 1, end - start - 1).Trim();
+                if (line.Length > 0) return line;
+                end = start;
+            }
+            return null;
         }
         private void Run_Win10(string executable, string argument)
         {
@@ -997,6 +1124,7 @@ namespace CaeJob
         private void SetEnvironmentVariables(ProcessStartInfo psi)
         {
             SetNumberOfProcessors(psi);
+            SetUnbufferedConsoleOutput(psi);
             if (_environmentVariables != null)
             {
                 foreach (var environmentVariable in _environmentVariables)
@@ -1009,10 +1137,23 @@ namespace CaeJob
         {
             EnvironmentVariable numberOfProcessors = new EnvironmentVariable("OMP_NUM_THREADS", _numCPUs.ToString());
             SetEnvironmentVariable(psi, numberOfProcessors);
-            // The multithreaded SPOOLES solver of the CalculiX builds for macOS and Linux returns wrong results;
-            // an environment variable of the job can still set it
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
-                SetEnvironmentVariable(psi, new EnvironmentVariable("CCX_NPROC_EQUATION_SOLVER", "1"));
+            // The multithreaded SPOOLES solver of the CalculiX builds for macOS and Linux returns wrong results, so a
+            // run that is solved with SPOOLES is held to a single thread for the equation solver. PaStiX and PARDISO
+            // solve correctly with more of them, and such a run gets all the threads it has; the application decides
+            // that from the steps of the model and passes the number in. A variable of the job can still set it
+            if (_femSolver == FEMSolverEnum.Calculix && Environment.OSVersion.Platform != PlatformID.Win32NT)
+                SetEnvironmentVariable(psi, new EnvironmentVariable("CCX_NPROC_EQUATION_SOLVER",
+                                                                    _equationSolverThreads.ToString()));
+        }
+        // The console output of the solver is read from a pipe, and the Fortran runtime of the CalculiX builds
+        // for macOS and Linux buffers a pipe in blocks: the run would show nothing until the block is full or
+        // the solver ends. The setting takes the buffering from the units the runtime connects itself, which are
+        // the console ones only, and leaves the result files the solver opens buffered. A solver built with
+        // another compiler ignores the variable, and a variable of the job of the same name wins
+        private void SetUnbufferedConsoleOutput(ProcessStartInfo psi)
+        {
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT) return;
+            SetEnvironmentVariable(psi, new EnvironmentVariable("GFORTRAN_UNBUFFERED_PRECONNECTED", "1"));
         }
         private void SetEnvironmentVariable(ProcessStartInfo psi, EnvironmentVariable environmentVariable)
         {

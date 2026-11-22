@@ -16,6 +16,13 @@ namespace System.Windows.Forms
             RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Light;
             Styles.Add(new SimpleTheme());
             Styles.Add(WinFormsCompat.Native.WinFormsStyles.Create());
+            // AvaloniaEdit ships the look of its controls as a theme that the application has to include. Without it
+            // the TextEditor of the FastColoredTextBox has no template and draws nothing at all, so the output window
+            // of the main form stayed an empty white area (the editor behind the Python and CalculiX panels too).
+            Styles.Add(new StyleInclude(new System.Uri("avares://AvaloniaEdit/"))
+            {
+                Source = new System.Uri("avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml")
+            });
         }
 
         // The default setup: the platform of the operating system
