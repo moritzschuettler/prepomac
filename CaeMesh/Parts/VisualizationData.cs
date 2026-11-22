@@ -438,36 +438,47 @@ namespace CaeMesh
         //
         public void RenumberNodes(Dictionary<int, int> newIds)
         {
+            // The edge cells and the cell edge node ids share arrays when the edges are extracted, so every array is
+            // renumbered once
+            HashSet<int[]> renumberedArrays = new HashSet<int[]>();
             // Cells
-            int id;
             if (_cells != null)
             {
-                for (int i = 0; i < _cells.Length; i++)
-                {
-                    for (int j = 0; j < _cells[i].Length; j++)
-                    {
-                        if (newIds.TryGetValue(_cells[i][j], out id)) _cells[i][j] = id;
-                    }
-                }
+                for (int i = 0; i < _cells.Length; i++) RenumberNodeIdsOnce(_cells[i], newIds, renumberedArrays);
             }
             // Edge cells
             if (_edgeCells != null)
             {
-                for (int i = 0; i < _edgeCells.Length; i++)
+                for (int i = 0; i < _edgeCells.Length; i++) RenumberNodeIdsOnce(_edgeCells[i], newIds, renumberedArrays);
+            }
+            // Cell edge node ids
+            if (_cellIdCellIdEdgeNodeIds != null)
+            {
+                for (int i = 0; i < _cellIdCellIdEdgeNodeIds.Length; i++)
                 {
-                    for (int j = 0; j < _edgeCells[i].Length; j++)
-                    {
-                        if (newIds.TryGetValue(_edgeCells[i][j], out id)) _edgeCells[i][j] = id;
-                    }
+                    if (_cellIdCellIdEdgeNodeIds[i] == null) continue;
+                    for (int j = 0; j < _cellIdCellIdEdgeNodeIds[i].Length; j++)
+                        RenumberNodeIdsOnce(_cellIdCellIdEdgeNodeIds[i][j], newIds, renumberedArrays);
                 }
             }
             // Vertex ids
+            int id;
             if (_vertexNodeIds != null)
             {
                 for (int i = 0; i < _vertexNodeIds.Length; i++)
                 {
                     if (newIds.TryGetValue(_vertexNodeIds[i], out id)) _vertexNodeIds[i] = id;
                 }
+            }
+        }
+        private static void RenumberNodeIdsOnce(int[] nodeIds, Dictionary<int, int> newIds, HashSet<int[]> renumberedArrays)
+        {
+            if (nodeIds == null || !renumberedArrays.Add(nodeIds)) return;
+            //
+            int id;
+            for (int i = 0; i < nodeIds.Length; i++)
+            {
+                if (newIds.TryGetValue(nodeIds[i], out id)) nodeIds[i] = id;
             }
         }
         public void RenumberElements(Dictionary<int, int> newIds)

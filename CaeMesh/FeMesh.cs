@@ -1525,7 +1525,7 @@ namespace CaeMesh
             {
                 int[][] cells = new int[visualization.Cells.Length][];
                 for (int i = 0; i < cells.Length; i++)
-                    cells[i] = ChangeCellOrder(visualization.Cells[i], cellsAreEdges, edgeMidNodeIds, removedMidNodeIds, false);
+                    cells[i] = ChangeCellOrder(visualization.Cells[i], cellsAreEdges, edgeMidNodeIds, removedMidNodeIds);
                 visualization.SetCellsAndCellIds(cells, visualization.CellIds);
             }
             //
@@ -1533,7 +1533,7 @@ namespace CaeMesh
             {
                 int[][] edgeCells = visualization.EdgeCells;
                 for (int i = 0; i < edgeCells.Length; i++)
-                    edgeCells[i] = ChangeCellOrder(edgeCells[i], true, edgeMidNodeIds, removedMidNodeIds, false);
+                    edgeCells[i] = ChangeCellOrder(edgeCells[i], true, edgeMidNodeIds, removedMidNodeIds);
             }
             //
             int[][][] cellIdCellIdEdgeNodeIds = visualization.CellIdCellIdEdgeNodeIds;
@@ -1545,20 +1545,16 @@ namespace CaeMesh
                     for (int j = 0; j < cellIdCellIdEdgeNodeIds[i].Length; j++)
                     {
                         cellIdCellIdEdgeNodeIds[i][j] = ChangeCellOrder(cellIdCellIdEdgeNodeIds[i][j], true, edgeMidNodeIds,
-                                                                        removedMidNodeIds, true);
+                                                                        removedMidNodeIds);
                     }
                 }
             }
         }
         private static int[] ChangeCellOrder(int[] cell, bool isEdge, Dictionary<(int, int), int> edgeMidNodeIds,
-                                             HashSet<int> removedMidNodeIds, bool keepUnknownEdge)
+                                             HashSet<int> removedMidNodeIds)
         {
-            // The edge arrays of a visualization do not all keep the midside node last, so the linear cell keeps the
-            // nodes that are not removed midside nodes rather than the leading ones
             if (removedMidNodeIds != null)
             {
-                if (keepUnknownEdge && cell.Length != 3) return cell;
-                //
                 List<int> cornerNodeIds = new List<int>(cell.Length);
                 foreach (var nodeId in cell)
                 {
@@ -1572,10 +1568,6 @@ namespace CaeMesh
             if (isEdge && cell.Length == 2) numberOfCornerNodes = 2;
             else if (!isEdge && (cell.Length == 3 || cell.Length == 4)) numberOfCornerNodes = cell.Length;
             else return cell;
-            //
-            // VisualizationData.RenumberNodes leaves CellIdCellIdEdgeNodeIds out, so after a renumbering its edges may
-            // name nodes of no element edge and are kept as they are
-            if (keepUnknownEdge && !edgeMidNodeIds.ContainsKey(GetEdgeKey(cell[0], cell[1]))) return cell;
             //
             int numberOfMidNodes = numberOfCornerNodes == 2 ? 1 : numberOfCornerNodes;
             int[] parabolicCell = new int[numberOfCornerNodes + numberOfMidNodes];
