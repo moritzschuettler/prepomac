@@ -86,8 +86,8 @@ namespace System.Windows.Forms
         public bool IsSplitterFixed { get; set; }
         public bool Panel1Collapsed { get { return _panel1Collapsed; } set { _panel1Collapsed = value; UpdateSplitter(); } }
         public bool Panel2Collapsed { get { return _panel2Collapsed; } set { _panel2Collapsed = value; UpdateSplitter(); } }
-        public int Panel1MinSize { get { return _panel1MinSize; } set { _panel1MinSize = value; } }
-        public int Panel2MinSize { get { return _panel2MinSize; } set { _panel2MinSize = value; } }
+        public int Panel1MinSize { get { return _panel1MinSize; } set { _panel1MinSize = value; UpdateSplitter(); } }
+        public int Panel2MinSize { get { return _panel2MinSize; } set { _panel2MinSize = value; UpdateSplitter(); } }
         public event SplitterEventHandler SplitterMoved;
         public event SplitterCancelEventHandler SplitterMoving;
         protected virtual void OnSplitterMoved(SplitterEventArgs e) { SplitterMoved?.Invoke(this, e); }
@@ -124,13 +124,20 @@ namespace System.Windows.Forms
             if (_panel1Collapsed)
             {
                 SetPanelBounds(_panel2, new Rectangle(0, 0, size.Width, size.Height));
+                Invalidate();
                 return;
             }
             if (_panel2Collapsed)
             {
                 SetPanelBounds(_panel1, new Rectangle(0, 0, size.Width, size.Height));
+                Invalidate();
                 return;
             }
+            // Both panels keep their minimum size here, also on the first layout pass, where no size change is
+            // known yet: a container shorter than the splitter distance - the main form at its minimum height -
+            // left the second panel 0 high and the splitter outside the window, so that the panel could neither
+            // be seen nor grabbed. The designer sets its values unclamped; EndInit clamps them once the size is known.
+            if (!_initializing && Total > 0) _splitterDistance = ClampSplitterDistance(_splitterDistance, Total);
             if (_orientation == Orientation.Vertical)
             {
                 SetPanelBounds(_panel1, new Rectangle(0, 0, _splitterDistance, size.Height));
@@ -141,6 +148,13 @@ namespace System.Windows.Forms
                 SetPanelBounds(_panel1, new Rectangle(0, 0, size.Width, _splitterDistance));
                 SetPanelBounds(_panel2, new Rectangle(0, _splitterDistance + _splitterWidth, size.Width, Math.Max(0, size.Height - _splitterDistance - _splitterWidth)));
             }
+            // The splitter line moves with the panels
+            Invalidate();
+        }
+        private int ClampSplitterDistance(int distance, int total)
+        {
+            int max = Math.Max(_panel1MinSize, total - _splitterWidth - _panel2MinSize);
+            return Math.Max(_panel1MinSize, Math.Min(distance, max));
         }
         private static void SetPanelBounds(SplitterPanel panel, Rectangle r)
         {
@@ -174,6 +188,47 @@ namespace System.Windows.Forms
         {
             base.OnMouseUp(e);
             _dragging = false;
+        }
+        // The splitter between the panels: WinForms draws it as a raised bar, and that bar is the only thing
+        // that separates the two panels. Without it a panel whose content does not paint itself cannot be
+        // told apart from the background, and there is no visible grip to drag.
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            if (_panel1Collapsed || _panel2Collapsed) return;
+            Rectangle bar = SplitterRectangle;
+            if (bar.Width <= 0 || bar.Height <= 0) return;
+            Graphics g = e.Graphics;
+            using (SolidBrush face = new SolidBrush(SystemColors.Control)) g.FillRectangle(face, bar);
+            // Raised: the light edge faces the first panel, the dark one the second
+            bool vertical = _orientation == Orientation.Vertical;
+            using (Pen light = new Pen(SystemColors.ControlLightLight))
+            using (Pen dark = new Pen(SystemColors.ControlDark))
+            {
+                if (vertical)
+                {
+                    g.DrawLine(light, bar.Left, bar.Top, bar.Left, bar.Bottom - 1);
+                    g.DrawLine(dark, bar.Right - 1, bar.Top, bar.Right - 1, bar.Bottom - 1);
+                }
+                else
+                {
+                    g.DrawLine(light, bar.Left, bar.Top, bar.Right - 1, bar.Top);
+                    g.DrawLine(dark, bar.Left, bar.Bottom - 1, bar.Right - 1, bar.Bottom - 1);
+                }
+            }
+            // The grip: three dots in the middle of the bar, so the splitter is seen and grabbed at any size.
+            // Dots rather than strokes because the default bar is only 4 pixels thick.
+            using (SolidBrush grip = new SolidBrush(SystemColors.ControlDarkDark))
+            {
+                const int dot = 3, step = 7;
+                for (int i = -1; i <= 1; i++)
+                {
+                    if (vertical)
+                        g.FillRectangle(grip, bar.Left + (bar.Width - dot) / 2, bar.Top + bar.Height / 2 + i * step - dot / 2, dot, dot);
+                    else
+                        g.FillRectangle(grip, bar.Left + bar.Width / 2 + i * step - dot / 2, bar.Top + (bar.Height - dot) / 2, dot, dot);
+                }
+            }
         }
         internal override bool CanSelectOnClick { get { return false; } }
         internal override bool PaintsItself { get { return true; } }
