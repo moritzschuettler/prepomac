@@ -254,8 +254,13 @@ namespace vtkControl
                         break;
                 }
             }
+            // On macOS the VTK compatible library answers the factory above with a generic interactor, so this cast matches
+            // the object that the block above already served: a second delivery would release the widget the first one
+            // captured and count as the second click of a double click, which ends a drag before it starts. The move
+            // needs no such guard - it delivers the same position twice and ends at the same point - and the release
+            // is only the generic one
             Kitware.VTK.vtkRenderWindowInteractor rwi = this._renderWindowInteractor as Kitware.VTK.vtkRenderWindowInteractor;
-            if (null != rwi)
+            if (null != rwi && null == grwi)
             {
                 rwi.SetEventInformationFlipY(e.X, e.Y, 0, 0, 0, e.Clicks, null);
 
