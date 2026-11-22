@@ -50,6 +50,8 @@ namespace vtkn
         PartActor(const vtkn_part_style& style, vtkPolyData* faces, vtkPolyData* elementEdges,
                   vtkPolyData* modelEdges, const PartActor& part);
 
+        ~PartActor();
+
         void AddTo(vtkRenderer* renderer);
         void RemoveFrom(vtkRenderer* renderer);
         void SetGlobalLighting(double ambient, double diffuse);
@@ -126,6 +128,8 @@ namespace vtkn
         void SetGeometryHiddenBySectionView(bool hidden) { GeometryHiddenBySectionView = hidden; }
         // A surface drawn on the parts leaves its mesh lines to the parts, which draw theirs over every face
         void SetElementEdgesDrawnByParts(bool drawnByParts) { ElementEdgesDrawnByParts = drawnByParts; }
+        // A part of the base layer with element edges draws the nodes of its surface as dots, applied with the edges
+        void SetNodesVisible(bool nodesVisible) { NodesVisible = nodesVisible; }
         // An actor that is cleared and added again as it was is not built again (View::AddActor). The key of what
         // it was built from, with none of zeros
         typedef std::array<std::uint64_t, 2> SourceKey;
@@ -148,7 +152,15 @@ namespace vtkn
         void CreateNodal(const vtkn_mesh& geometry);
         void CreateFromMapper(vtkMapper* mapper);
         void ApplyStyleSizes();
+        void ApplyNodesVisibility(vtkn_layer layer);
+        void CullBackNodes(bool cull);
+        void FlattenNodeDots(bool flatten);
+        // The direction from the model to the camera of the renderer the actor is in
+        std::array<float, 3> TowardCamera() const;
         vtkMTimeType GetDrawnTime();
+
+        static constexpr float NodeDotSize = 3;
+        static constexpr const char* PointNormalsName = "Normals";
 
         vtkn_part_style Style;
         std::string ParentName;
@@ -181,6 +193,10 @@ namespace vtkn
         std::vector<AnimationFrame> AnimationFrames;
         bool GeometryHiddenBySectionView = false;
         bool ElementEdgesDrawnByParts = false;
+        bool NodesVisible = false;
+        bool BackNodesCulled = false;
+        unsigned long CameraObserverTag = 0;
+        vtkRenderer* HostRenderer = nullptr;
         SourceKey Source = { { 0, 0 } };
         vtkn_part_style AddedStyle = {};
         vtkMTimeType AddedTime = 0;

@@ -2,6 +2,8 @@
 #include "vtkNativePartActor.h"
 #include "vtkNativeError.h"
 
+#include <vtkCallbackCommand.h>
+#include <vtkCamera.h>
 #include <vtkCellArray.h>
 #include <vtkCellData.h>
 #include <vtkCellType.h>
@@ -21,6 +23,7 @@
 #include <vtkReverseSense.h>
 #include <vtkTransformFilter.h>
 #include <vtkTransformPolyDataFilter.h>
+#include <vtkUniforms.h>
 #include <vtkUnsignedCharArray.h>
 
 #include <algorithm>
@@ -572,6 +575,7 @@ namespace vtkn
             normalGenerator->ComputeCellNormalsOff();
             normalGenerator->Update();
             frame.PointNormals = normalGenerator->GetOutput()->GetPointData()->GetNormals();
+            if (frame.PointNormals != nullptr) frame.PointNormals->SetName(PointNormalsName);
         }
         AnimationFrames.push_back(frame);
         if (AnimationFrames.size() == 1) SetAnimationFrame(0);
@@ -808,10 +812,13 @@ namespace vtkn
         vtkSmartPointer<vtkPolyData> polyActor;
         vtkSmartPointer<vtkPolyData> polyEdges;
         BuildPolyData(geometry, true, polyActor, polyEdges, &SourceCells);
-        polyActor->GetPointData()->SetNormals(ComputePointNormals(polyActor));
+        vtkSmartPointer<vtkDataArray> pointNormals = ComputePointNormals(polyActor);
+        pointNormals->SetName(PointNormalsName);
+        polyActor->GetPointData()->SetNormals(pointNormals);
         // The mappers are given their data as it is, so they do not ask their pipeline for it whenever the bounds of
-        // the actors are measured, which a view of thousands of actors does for every one of them
-        vtkNew<vtkDataSetMapper> mapper;
+        // the actors are measured, which a view of thousands of actors does for every one of them. The surface is
+        // drawn by a poly data mapper, which can hand its point normals to the shader of the nodes
+        vtkNew<vtkPolyDataMapper> mapper;
         mapper->SetInputData(polyActor);
         mapper->StaticOn();
         // A surface that is not a part, such as the faces of a constraint, covers faces of a part exactly. VTK 5.8
@@ -910,7 +917,8 @@ namespace vtkn
     void PartActor::ApplyStyleSizes()
     {
         Geometry->GetProperty()->SetLineWidth(static_cast<float>(Style.line_width));
-        Geometry->GetProperty()->SetPointSize(static_cast<float>(Style.node_size));
+        bool drawsNodes = Geometry->GetProperty()->GetVertexVisibility() != 0;
+        Geometry->GetProperty()->SetPointSize(drawsNodes ? NodeDotSize : static_cast<float>(Style.node_size));
         if (ModelEdges != nullptr) ModelEdges->GetProperty()->SetPointSize(static_cast<float>(Style.node_size));
         if (ElementEdges != nullptr) ElementEdges->GetProperty()->SetPointSize(static_cast<float>(Style.node_size));
     }
@@ -942,8 +950,14 @@ namespace vtkn
         if (Geometry->GetProperty()->GetOpacity() != 1) Geometry->GetProperty()->SetOpacity(1);
     }
 
+    PartActor::~PartActor()
+    {
+        CullBackNodes(false);
+    }
+
     void PartActor::AddTo(vtkRenderer* renderer)
     {
+        HostRenderer = renderer;
         renderer->AddActor(Geometry);
         if (ElementEdges != nullptr) renderer->AddActor(ElementEdges);
         if (ModelEdges != nullptr) renderer->AddActor(ModelEdges);
@@ -951,6 +965,8 @@ namespace vtkn
 
     void PartActor::RemoveFrom(vtkRenderer* renderer)
     {
+        CullBackNodes(false);
+        HostRenderer = nullptr;
         if (SectionViewHatch != nullptr) renderer->RemoveActor(SectionViewHatch);
         renderer->RemoveActor(Geometry);
         if (ElementEdges != nullptr) renderer->RemoveActor(ElementEdges);
@@ -1157,6 +1173,7 @@ namespace vtkn
                         property->BackfaceCullingOff();
                 }
             }
+            ApplyNodesVisibility(layer);
         }
         // The edges of an actor outside the base layer follow the edges mode only
         bool edgesVisible = layer != VTKN_LAYER_BASE || visible;
@@ -1172,6 +1189,100 @@ namespace vtkn
                                         !ElementEdgesDrawnByParts);
             ElementEdges->GetProperty()->BackfaceCullingOn();
         }
+    }
+
+    // The surface triangles are built on every node of an element, the midside nodes included, so the vertices of
+    // the surface are its nodes. VTK draws them over the faces with the point offset of the coincident topology
+    void PartActor::ApplyNodesVisibility(vtkn_layer layer)
+    {
+        bool drawNodes = NodesVisible && layer == VTKN_LAYER_BASE && Style.is_a_part != 0 &&
+                         Style.can_have_element_edges != 0;
+        vtkProperty* property = Geometry->GetProperty();
+        if (static_cast<bool>(property->GetVertexVisibility()) != drawNodes)
+        {
+            property->SetVertexVisibility(drawNodes);
+            property->SetRenderPointsAsSpheres(drawNodes);
+            property->SetVertexColor(0.15, 0.15, 0.15);
+            property->SetPointSize(drawNodes ? NodeDotSize : static_cast<float>(Style.node_size));
+            FlattenNodeDots(drawNodes);
+        }
+        CullBackNodes(drawNodes && Style.backface_culling != 0);
+    }
+
+    // A sphere imposter writes the depth of its front, a whole dot radius in front of its node, which on a thin wall
+    // is more than the wall is thick. The dots are kept at the depth of their nodes with a quarter of that radius in
+    // front, which the surfaces, pushed back by the polygon offset of the view, still leave uncovered on a slope
+    void PartActor::FlattenNodeDots(bool flatten)
+    {
+        vtkOpenGLShaderProperty* shaderProperty = vtkOpenGLShaderProperty::SafeDownCast(Geometry->GetShaderProperty());
+        if (shaderProperty == nullptr) return;
+        const char* sphereDepth = "gl_FragDepth = gl_FragCoord.z + normalVCVSOutput.z*ZCalcS*ZCalcR;";
+        if (flatten)
+            shaderProperty->AddFragmentShaderReplacement(sphereDepth, false,
+                "gl_FragDepth = gl_FragCoord.z + 0.25*ZCalcS*ZCalcR;", false);
+        else shaderProperty->ClearFragmentShaderReplacement(sphereDepth, false);
+    }
+
+    // A dot is drawn a little in front of the surface so that the surface does not cover it, which on a thin wall
+    // put the nodes of the back wall in front of the front wall. The surface of a solid faces outwards, so the node
+    // whose normal turns away from the camera is on a back face and its dot is left out. The view direction comes
+    // from the camera before every render; the copies of the mapper's coordinates are shifted and scaled, so the
+    // matrices of the shader cannot turn a normal into it
+    void PartActor::CullBackNodes(bool cull)
+    {
+        if (cull == BackNodesCulled) return;
+        vtkPolyDataMapper* mapper = vtkPolyDataMapper::SafeDownCast(Geometry->GetMapper());
+        vtkOpenGLShaderProperty* shaderProperty = vtkOpenGLShaderProperty::SafeDownCast(Geometry->GetShaderProperty());
+        if (cull && (mapper == nullptr || shaderProperty == nullptr || HostRenderer == nullptr)) return;
+        BackNodesCulled = cull;
+        if (cull)
+        {
+            mapper->MapDataArrayToVertexAttribute("nodeNormalMC", PointNormalsName,
+                                                  vtkDataObject::FIELD_ASSOCIATION_POINTS, -1);
+            shaderProperty->GetVertexCustomUniforms()->SetUniform3f("nodeTowardCamera", TowardCamera().data());
+            shaderProperty->AddVertexShaderReplacement("//VTK::Normal::Dec", false,
+                "//VTK::Normal::Dec\nin vec3 nodeNormalMC;\nout float nodeFacing;\n", false);
+            shaderProperty->AddVertexShaderReplacement("//VTK::Normal::Impl", false,
+                "//VTK::Normal::Impl\n  nodeFacing = dot(nodeNormalMC, nodeTowardCamera);\n", false);
+            shaderProperty->AddFragmentShaderReplacement("uniform float ZCalcS;", false,
+                "uniform float ZCalcS;\nin float nodeFacing;\n", false);
+            shaderProperty->AddFragmentShaderReplacement("if (len2 > 1.0) { discard; }", false,
+                "if (len2 > 1.0) { discard; }\n  if (nodeFacing < -0.25) { discard; }\n", false);
+            vtkNew<vtkCallbackCommand> callback;
+            callback->SetClientData(this);
+            callback->SetCallback([](vtkObject*, unsigned long, void* clientData, void*) {
+                PartActor* actor = static_cast<PartActor*>(clientData);
+                vtkOpenGLShaderProperty* property =
+                    vtkOpenGLShaderProperty::SafeDownCast(actor->Geometry->GetShaderProperty());
+                if (property == nullptr) return;
+                property->GetVertexCustomUniforms()->SetUniform3f("nodeTowardCamera", actor->TowardCamera().data());
+            });
+            CameraObserverTag = HostRenderer->AddObserver(vtkCommand::StartEvent, callback);
+        }
+        else
+        {
+            if (mapper != nullptr) mapper->RemoveVertexAttributeMapping("nodeNormalMC");
+            if (shaderProperty != nullptr)
+            {
+                shaderProperty->GetVertexCustomUniforms()->RemoveUniform("nodeTowardCamera");
+                shaderProperty->ClearVertexShaderReplacement("//VTK::Normal::Dec", false);
+                shaderProperty->ClearVertexShaderReplacement("//VTK::Normal::Impl", false);
+                shaderProperty->ClearFragmentShaderReplacement("uniform float ZCalcS;", false);
+                shaderProperty->ClearFragmentShaderReplacement("if (len2 > 1.0) { discard; }", false);
+            }
+            if (HostRenderer != nullptr) HostRenderer->RemoveObserver(CameraObserverTag);
+            CameraObserverTag = 0;
+        }
+    }
+
+    std::array<float, 3> PartActor::TowardCamera() const
+    {
+        std::array<float, 3> toward = { { 0, 0, 1 } };
+        vtkCamera* camera = HostRenderer != nullptr ? HostRenderer->GetActiveCamera() : nullptr;
+        if (camera == nullptr) return toward;
+        const double* direction = camera->GetDirectionOfProjection();
+        for (int i = 0; i < 3; i++) toward[i] = static_cast<float>(-direction[i]);
+        return toward;
     }
 
     // Port of ApplySelectionFormattingToActor: nodes and edges in the full highlight color, surfaces darker and

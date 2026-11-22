@@ -3395,6 +3395,16 @@ namespace PrePoMax
             }
             catch { }
         }
+        private void tsmiShowNodes_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                _vtk.NodesVisibility = !_vtk.NodesVisibility;
+                tsbShowNodes.Checked = _vtk.NodesVisibility;
+                tsmiShowNodes.Checked = _vtk.NodesVisibility;
+            }
+            catch { }
+        }
         // Section view
         private void tsmiSectionView_Click(object sender, EventArgs e)
         {
@@ -11143,6 +11153,10 @@ namespace PrePoMax
         private void tsbShowNoEdges_Click(object sender, EventArgs e)
         {
             tsmiShowNoEdges_Click(null, null);
+        }
+        private void tsbShowNodes_Click(object sender, EventArgs e)
+        {
+            tsmiShowNodes_Click(null, null);
         }
         //
         private void tsbSectionView_MouseUp(object sender, MouseEventArgs e)

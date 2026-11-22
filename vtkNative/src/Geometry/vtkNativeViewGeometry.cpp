@@ -275,6 +275,7 @@ namespace vtkn
     {
         actor.SetElementEdgesDrawnByParts(partsDrawElementEdges && layer != VTKN_LAYER_OVERLAY && !actor.IsAPart() &&
                                           actor.GetStyle().draw_on_geometry != 0);
+        actor.SetNodesVisible(NodesVisible);
         actor.ApplyEdgesVisibility(EdgesVisibility, layer, SectionViewActive);
     }
 

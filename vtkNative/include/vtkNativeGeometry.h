@@ -350,6 +350,8 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_set_highlight_colors(vtkn_view view, co
                                                                const double* secondary_rgb);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_clear_actors(vtkn_view view);
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_edges_visibility(vtkn_view view, int32_t edges_visibility);
+/* Whether the parts of the base layer that have element edges draw their surface nodes as dots */
+VTKN_API vtkn_status VTKN_CALL vtkn_view_set_nodes_visibility(vtkn_view view, int32_t nodes_visible);
 /* The ambient and diffuse light of the parts that use the global lighting */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_set_lighting(vtkn_view view, double ambient, double diffuse);
 /* Screen space ambient occlusion of the base layer: the sampling radius relative to the diagonal of the visible

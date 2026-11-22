@@ -336,6 +336,7 @@ namespace vtkn
         std::unique_ptr<PartActor> part(new PartActor(style, geometry, modelEdges, modelEdgesToDraw));
         RemoveActor(name);
         part->AddTo(Renderer);
+        part->SetNodesVisible(NodesVisible);
         part->ApplyEdgesVisibility(EdgesVisibility);
         Parts[name] = std::move(part);
         AdjustCameraDistanceAndClipping();
@@ -392,6 +393,17 @@ namespace vtkn
                 "The edges visibility is not one of vtkn_edges_visibility.");
         EdgesVisibility = edgesVisibility;
         for (const auto& entry : Parts) entry.second->ApplyEdgesVisibility(EdgesVisibility);
+        ApplyEdgesVisibilityAndBackfaceCulling();
+    }
+
+    void View::SetNodesVisibility(bool nodesVisible)
+    {
+        NodesVisible = nodesVisible;
+        for (const auto& entry : Parts)
+        {
+            entry.second->SetNodesVisible(NodesVisible);
+            entry.second->ApplyEdgesVisibility(EdgesVisibility);
+        }
         ApplyEdgesVisibilityAndBackfaceCulling();
     }
 

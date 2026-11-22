@@ -109,6 +109,7 @@ namespace vtkn
         void ClearActors();
         std::string GetActorNames();
         void SetEdgesVisibility(vtkn_edges_visibility edgesVisibility);
+        void SetNodesVisibility(bool nodesVisible);
         void SetLighting(double ambient, double diffuse);
         // Geometry (Geometry/vtkNativeViewGeometry.cpp)
         void AddActor(const std::string& name, const std::string& parentName, const vtkn_part_style& style,
@@ -292,6 +293,7 @@ namespace vtkn
         bool CameraAdjustmentSuspended = false;
         bool CameraAdjustmentPending = false;
         vtkn_edges_visibility EdgesVisibility = VTKN_EDGES_ELEMENT_EDGES;
+        bool NodesVisible = false;
         vtkSmartPointer<vtkRenderWindow> RenderWindow;
         vtkSmartPointer<vtkRenderer> Renderer;
         vtkSmartPointer<vtkRenderer> OverlayRenderer;

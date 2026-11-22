@@ -138,6 +138,8 @@ namespace vtkControl.Native
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_edges_visibility(IntPtr view, int edgesVisibility);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_view_set_nodes_visibility(IntPtr view, int nodesVisible);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_lighting(IntPtr view, double ambient, double diffuse);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_set_ambient_occlusion(IntPtr view, int enabled,

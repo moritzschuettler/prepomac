@@ -505,6 +505,14 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_view_set_nodes_visibility(vtkn_view view, int32_t nodes_visible)
+    {
+        return GuardVtk([&]() {
+            View::FromHandleOfGeometry(view)->SetNodesVisibility(nodes_visible != 0);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_view_set_lighting(vtkn_view view, double ambient, double diffuse)
     {
         return GuardVtk([&]() {

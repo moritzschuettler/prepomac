@@ -64,6 +64,7 @@ namespace PrePoMax
             this.tsbShowElementEdges = new System.Windows.Forms.ToolStripButton();
             this.tsbShowModelEdges = new System.Windows.Forms.ToolStripButton();
             this.tsbShowNoEdges = new System.Windows.Forms.ToolStripButton();
+            this.tsbShowNodes = new System.Windows.Forms.ToolStripButton();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsbSectionView = new System.Windows.Forms.ToolStripButton();
             this.tsbExplodedView = new System.Windows.Forms.ToolStripButton();
@@ -177,6 +178,7 @@ namespace PrePoMax
             this.tsmiShowElementEdges = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiShowModelEdges = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiShowNoEdges = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiShowNodes = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerView2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiSectionView = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiExplodedView = new System.Windows.Forms.ToolStripMenuItem();
@@ -724,6 +726,7 @@ namespace PrePoMax
             this.tsbShowElementEdges,
             this.tsbShowModelEdges,
             this.tsbShowNoEdges,
+            this.tsbShowNodes,
             this.toolStripSeparator1,
             this.tsbSectionView,
             this.tsbExplodedView,
@@ -903,6 +906,16 @@ namespace PrePoMax
             this.tsbShowNoEdges.Size = new System.Drawing.Size(23, 22);
             this.tsbShowNoEdges.Text = "No edges";
             this.tsbShowNoEdges.Click += new System.EventHandler(this.tsbShowNoEdges_Click);
+            //
+            // tsbShowNodes
+            //
+            this.tsbShowNodes.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.tsbShowNodes.Image = global::PrePoMax.Properties.Resources.Nodes;
+            this.tsbShowNodes.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.tsbShowNodes.Name = "tsbShowNodes";
+            this.tsbShowNodes.Size = new System.Drawing.Size(23, 22);
+            this.tsbShowNodes.Text = "Show nodes";
+            this.tsbShowNodes.Click += new System.EventHandler(this.tsbShowNodes_Click);
             // 
             // toolStripSeparator1
             // 
@@ -1706,6 +1719,7 @@ namespace PrePoMax
             this.tsmiShowElementEdges,
             this.tsmiShowModelEdges,
             this.tsmiShowNoEdges,
+            this.tsmiShowNodes,
             this.tsmiDividerView2,
             this.tsmiSectionView,
             this.tsmiExplodedView,
@@ -1920,6 +1934,14 @@ namespace PrePoMax
             this.tsmiShowNoEdges.Size = new System.Drawing.Size(236, 22);
             this.tsmiShowNoEdges.Text = "No Edges";
             this.tsmiShowNoEdges.Click += new System.EventHandler(this.tsmiShowNoEdges_Click);
+            //
+            // tsmiShowNodes
+            //
+            this.tsmiShowNodes.Image = global::PrePoMax.Properties.Resources.Nodes;
+            this.tsmiShowNodes.Name = "tsmiShowNodes";
+            this.tsmiShowNodes.Size = new System.Drawing.Size(236, 22);
+            this.tsmiShowNodes.Text = "Show Nodes";
+            this.tsmiShowNodes.Click += new System.EventHandler(this.tsmiShowNodes_Click);
             // 
             // tsmiDividerView2
             // 
@@ -5650,8 +5672,10 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiRenumberAllNodes;
         private System.Windows.Forms.ToolStripMenuItem tsmiShowModelEdges;
         private System.Windows.Forms.ToolStripMenuItem tsmiShowNoEdges;
+        private System.Windows.Forms.ToolStripMenuItem tsmiShowNodes;
         private System.Windows.Forms.ToolStripButton tsbShowModelEdges;
         private System.Windows.Forms.ToolStripButton tsbShowNoEdges;
+        private System.Windows.Forms.ToolStripButton tsbShowNodes;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerView1;
         private System.Windows.Forms.SplitContainer splitContainer2;
         private OutputTextBox tbOutput;

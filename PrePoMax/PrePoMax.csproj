@@ -1431,6 +1431,7 @@
     <None Include="Icons\View\ElementEdges.ico" />
     <None Include="Icons\View\ModelEdges.ico" />
     <None Include="Icons\View\NoEdges.ico" />
+    <None Include="Icons\View\Nodes.ico" />
     <None Include="Icons\Mesh\Node_set.ico" />
     <None Include="Icons\Mesh\Element_set.ico" />
     <None Include="Icons\Mesh\Surface.ico" />

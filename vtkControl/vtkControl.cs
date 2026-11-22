@@ -89,6 +89,7 @@ namespace vtkControl
         private bool _drawCoorSys;
         private bool _drawStatusBlock;
         private vtkEdgesVisibility _edgesVisibility;
+        private bool _nodesVisibility;
         //
         private vtkMaxColorSpectrum _colorSpectrum;
         //
@@ -177,6 +178,19 @@ namespace vtkControl
                 {
                     _edgesVisibility = value;
                     RunNative("EdgesVisibility", () => _nativeMirror.SetEdgesVisibility(value));
+                    RenderScene();
+                }
+            }
+        }
+        public bool NodesVisibility
+        {
+            get { return _nodesVisibility; }
+            set
+            {
+                if (_nodesVisibility != value)
+                {
+                    _nodesVisibility = value;
+                    RunNative("NodesVisibility", () => _nativeMirror.SetNodesVisibility(value));
                     RenderScene();
                 }
             }
@@ -4002,6 +4016,7 @@ namespace vtkControl
             _nativeMirror.SetBackground(_gradientBackground, _backgroundTop, _backgroundBottom);
             _nativeMirror.SetSmoothing(_pointSmoothing, _lineSmoothing);
             _nativeMirror.SetEdgesVisibility(_edgesVisibility);
+            _nativeMirror.SetNodesVisibility(_nodesVisibility);
             _nativeMirror.SetAmbientOcclusion(_ambientOcclusion, _ambientOcclusionRelativeRadius,
                                               _ambientOcclusionKernelSize);
             // The colors are set once at start, before a native view exists

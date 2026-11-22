@@ -447,6 +447,11 @@ namespace vtkControl.Native
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_edges_visibility(Handle(), (int)edgesVisibility));
         }
         //
+        public void SetNodesVisibility(bool nodesVisible)
+        {
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_nodes_visibility(Handle(), nodesVisible ? 1 : 0));
+        }
+        //
         public void SetLighting(double ambient, double diffuse)
         {
             VtkNativeLibrary.Check(VtkNativeMethods.vtkn_view_set_lighting(Handle(), ambient, diffuse));
