@@ -149,10 +149,18 @@ class Bundler:
 
 
 def find_ccx():
-    for name in ["ccx"] + sorted(glob.glob(HOMEBREW + "/bin/ccx_*"), reverse=True):
-        path = name if os.path.isabs(name) else os.path.join(HOMEBREW, "bin", name)
-        if os.path.exists(path):
-            return os.path.realpath(path)
+    """The CalculiX executable. PPM_CCX names one that is not in Homebrew (make-app.sh --ccx, setup-build.sh);
+    /usr/local is where the Homebrew of Intel Macs puts it."""
+    given = os.environ.get("PPM_CCX")
+    if given:
+        if not os.path.exists(given):
+            sys.exit("PPM_CCX names %s, which does not exist" % given)
+        return os.path.realpath(given)
+    for prefix in [HOMEBREW, "/usr/local"]:
+        for name in ["ccx"] + sorted(glob.glob(prefix + "/bin/ccx_*"), reverse=True):
+            path = os.path.join(prefix, "bin", name)
+            if os.path.exists(path):
+                return os.path.realpath(path)
     return None
 
 
@@ -184,7 +192,10 @@ def main():
     bundler.program(os.path.join(macos, "Meshers", "Netgen", "NetGenMesher"))
     # The libraries PrePoMax itself loads by name
     for name in ("libgmsh.dylib", "liblpsolve55.dylib"):
-        bundler.library(os.path.realpath(os.path.join(HOMEBREW, "lib", name)), name)
+        path = os.path.join(HOMEBREW, "lib", name)
+        if not os.path.exists(path):
+            sys.exit("%s is not there: brew install %s" % (path, "gmsh" if "gmsh" in name else "lp_solve"))
+        bundler.library(os.path.realpath(path), name)
     # The other programs of the bundle, in case one of them loads a Homebrew library
     for path in glob.glob(os.path.join(macos, "Meshers", "**", "*"), recursive=True):
         if os.path.isfile(path) and os.access(path, os.X_OK) and path not in bundler.changed and \

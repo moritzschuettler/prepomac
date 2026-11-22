@@ -3,6 +3,13 @@
 # sources into build/bin. Needs git and cmake.
 set -e
 cd "$(dirname "$0")"
+# The build runs inside MSBuild, which does not inherit Homebrew's bin from an interactive shell; without it cmake is
+# "not found" and the build ends with exit status 127
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+if ! command -v cmake > /dev/null 2>&1; then
+    echo "cmake not found: brew install cmake" >&2
+    exit 1
+fi
 if [ ! -d src ]; then
     git clone --depth 1 --branch v5.7.0 https://github.com/MmgTools/mmg.git src
 fi
