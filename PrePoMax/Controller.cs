@@ -14117,7 +14117,7 @@ namespace PrePoMax
                 // Update element type icon
                 foreach (var partName in partNames)
                 {
-                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, partName, _model.Mesh.Parts[partName], null);
+                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, partName, _model.Mesh.Parts[partName], null, false);
                 }
                 //
                 UpdateAfterPartsChanged(); // must be here before any drawing
@@ -14167,7 +14167,7 @@ namespace PrePoMax
                 // Update element type icon
                 foreach (var partName in partNames)
                 {
-                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, partName, _model.Mesh.Parts[partName], null);
+                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, partName, _model.Mesh.Parts[partName], null, false);
                 }
                 //
                 UpdateAfterPartsChanged(); // must be here before any drawing
