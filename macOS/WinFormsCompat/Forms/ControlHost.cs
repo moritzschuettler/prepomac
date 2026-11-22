@@ -385,6 +385,24 @@ namespace System.Windows.Forms
             Input.Update(e);
             if (!IsMine(e)) return;
             System.Drawing.Point p = ClientPoint(e);
+            // A trackpad scrolls continuously and a mouse wheel turns in notches, but both arrive as a wheel event.
+            // A view that pans with the fingers takes the continuous one, so that the wheel stays free to zoom.
+            // The option key held while scrolling asks for a pan even of a view whose two finger drag is set to
+            // rotate, which is the case of a Mac that keeps the setting of an older version
+            bool panForced = (e.KeyModifiers & KeyModifiers.Alt) != 0;
+            if ((Owner.TouchPadScrollPans || panForced) && MacScrollEvent.IsContinuous() == true)
+            {
+                bool taken = false;
+                double deltaX = e.Delta.X;
+                double deltaY = e.Delta.Y;
+                Toolkit.Dispatch(() => taken = Owner.OnTouchPadPan(p.X, p.Y, deltaX, deltaY, panForced));
+                // A view that does not take the scroll keeps the wheel below
+                if (taken)
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
             int delta = Input.WheelDelta(e.Delta.Y);
             if (delta == 0) return;
             HandledMouseEventArgs args = new HandledMouseEventArgs(MouseButtons.None, 0, p.X, p.Y, delta);

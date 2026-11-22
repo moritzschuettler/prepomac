@@ -9,6 +9,7 @@
 
 using System;
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using DynamicTypeDescriptor;
 
 namespace PrePoMax
@@ -102,7 +103,9 @@ namespace PrePoMax
         public void Reset()
         {
             _trackpadGestures = TrackpadGesturesEnum.Automatic;
-            _twoFingerDrag = TwoFingerDragEnum.Rotate;
+            // The trackpad of a Mac is always precise, so a two finger drag pans there; elsewhere it rotates until a
+            // precision touchpad is found
+            _twoFingerDrag = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? TwoFingerDragEnum.Pan : TwoFingerDragEnum.Rotate;
             _rotateSensitivity = 1;
             _panSensitivity = 1;
             _zoomSensitivity = 1;
