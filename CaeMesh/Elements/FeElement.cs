@@ -59,6 +59,7 @@ namespace CaeMesh
                    element is ParabolicTriangleElement ||
                    element is ParabolicQuadrilateralElement ||
                    element is ParabolicTetraElement ||
+                   element is ParabolicPyramidElement ||
                    element is ParabolicWedgeElement ||
                    element is ParabolicHexaElement; 
         }
@@ -68,6 +69,7 @@ namespace CaeMesh
                    elementType == typeof(ParabolicTriangleElement) ||
                    elementType == typeof(ParabolicQuadrilateralElement) ||
                    elementType == typeof(ParabolicTetraElement) ||
+                   elementType == typeof(ParabolicPyramidElement) ||
                    elementType == typeof(ParabolicWedgeElement) ||
                    elementType == typeof(ParabolicHexaElement);
         }

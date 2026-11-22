@@ -287,6 +287,7 @@ namespace PrePoMax
             this.tsmiCreateBoundaryLayer = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiRemeshElements = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiThickenShellMesh = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiChangeElementOrder = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiSplitPartMeshUsingSurface = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiUpdateNodalCoordinatesFromFile = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerModel1 = new System.Windows.Forms.ToolStripSeparator();
@@ -2740,6 +2741,7 @@ namespace PrePoMax
             this.tsmiCreateBoundaryLayer,
             this.tsmiRemeshElements,
             this.tsmiThickenShellMesh,
+            this.tsmiChangeElementOrder,
             this.tsmiSplitPartMeshUsingSurface,
             this.tsmiUpdateNodalCoordinatesFromFile});
             this.tsmiToolsParts.Name = "tsmiToolsParts";
@@ -2773,6 +2775,13 @@ namespace PrePoMax
             this.tsmiThickenShellMesh.Size = new System.Drawing.Size(266, 22);
             this.tsmiThickenShellMesh.Text = "Thicken Shell Mesh";
             this.tsmiThickenShellMesh.Click += new System.EventHandler(this.tsmiThickenShellMesh_Click);
+            // 
+            // tsmiChangeElementOrder
+            // 
+            this.tsmiChangeElementOrder.Name = "tsmiChangeElementOrder";
+            this.tsmiChangeElementOrder.Size = new System.Drawing.Size(266, 22);
+            this.tsmiChangeElementOrder.Text = "Change Element Order";
+            this.tsmiChangeElementOrder.Click += new System.EventHandler(this.tsmiChangeElementOrder_Click);
             // 
             // tsmiSplitPartMeshUsingSurface
             // 
@@ -5954,6 +5963,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteMeshSetupItem;
         private System.Windows.Forms.ToolStripMenuItem tsmiThickenShellMesh;
+        private System.Windows.Forms.ToolStripMenuItem tsmiChangeElementOrder;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditHistory;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteStlPartFaces;
         private System.Windows.Forms.ToolStripMenuItem tsmiSplitPartMeshUsingSurface;

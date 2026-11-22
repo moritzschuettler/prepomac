@@ -82,6 +82,21 @@ namespace APIs.Python.Model
             _toolService.ThickenShellMesh(part_names, thickness, numberOfLayers, offset, keepModelEdges);
         }
 
+        [PythonAPI("Changes the element order of the named model parts using command history. With " +
+                   "second_order=True the linear elements become parabolic: a midside node is added at the middle " +
+                   "of every straight element edge, shared by the elements and parts that share the edge, and " +
+                   "an edge that already has a midside node keeps it. With second_order=False the parabolic " +
+                   "elements become linear and the midside nodes no element uses any more are removed. Element " +
+                   "ids, part names, element sets and surfaces are kept, and the CalculiX element type of each " +
+                   "part follows the order, so C3D8R becomes C3D20R and back. Every named part is a mesh part " +
+                   "of beam, triangle, quadrilateral, tetrahedron, pyramid, wedge or hexahedron elements.",
+                   Arguments = "part_names: list[str] or str, second_order: bool = True", Returns = "None")]
+        public void change_element_order(object part_names, object second_order = null)
+        {
+            bool secondOrder = PythonValueConverter.ToBoolOrDefault(second_order, true, "second_order");
+            _toolService.ChangeElementOrder(part_names, secondOrder);
+        }
+
         [PythonAPI("Splits a part mesh with a surface using command history. This is a one time operation " +
                    "rather than a model item. The base part region is a selection or a PartName region and " +
                    "the splitter surface region is a selection or a SurfaceName region, which is what the " +

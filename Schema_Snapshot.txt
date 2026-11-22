@@ -4773,6 +4773,9 @@ T 10546 class PrePoMax.ViewBodyForce
 F 10546.0 #3285 _bForce
 T 10547 class PrePoMax.ViewEdgeLoad
 F 10547.0 #3287 _edgeLoad
+T 10548 class PrePoMax.Commands.CChangeElementOrder
+F 10548.0 System.String[] _partNames
+F 10548.1 System.Boolean _secondOrder
 R T 3039 class FileInOut.Input.NetgenVolFileReader
 R T 3042 class FileInOut.Input.UnvFileReader
 R T 3043 class FileInOut.Output.AbaqusFileWriter

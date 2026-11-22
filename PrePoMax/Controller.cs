@@ -13880,6 +13880,11 @@ namespace PrePoMax
             CThickenShellMesh comm = new CThickenShellMesh(partNames, thickness, numberOfLayers, offset, keepModelEdges);
             _commands.AddAndExecute(comm);
         }
+        public void ChangeElementOrderCommand(string[] partNames, bool secondOrder)
+        {
+            CChangeElementOrder comm = new CChangeElementOrder(partNames, secondOrder);
+            _commands.AddAndExecute(comm);
+        }
         public void SplitPartMeshUsingSurfaceCommand(SplitPartMeshData splitPartMeshData)
         {
             CSplitPartMeshUsingSurface comm = new CSplitPartMeshUsingSurface(splitPartMeshData);
@@ -14134,6 +14139,52 @@ namespace PrePoMax
             finally
             {
                 _form.SetStateReady("Creating...");
+            }
+        }
+        public string GetChangeElementOrderError(string[] partNames)
+        {
+            BasePart part;
+            string error;
+            foreach (var partName in partNames)
+            {
+                if (!_model.Mesh.Parts.TryGetValue(partName, out part)) return "The part " + partName + " does not exist.";
+                error = FeMesh.GetChangeElementOrderError(part, _model.Mesh.Elements);
+                if (error != null) return error;
+            }
+            return null;
+        }
+        public void ChangeElementOrder(string[] partNames, bool secondOrder)
+        {
+            try
+            {
+                _form.SetStateWorking("Converting...");
+                //
+                SuppressExplodedView(partNames);
+                //
+                _model.Mesh.ChangeElementOrder(partNames, secondOrder);
+                //
+                ResumeExplodedViews(false);
+                // Update element type icon
+                foreach (var partName in partNames)
+                {
+                    _form.UpdateTreeNode(ViewGeometryModelResults.Model, partName, _model.Mesh.Parts[partName], null);
+                }
+                //
+                UpdateAfterPartsChanged(); // must be here before any drawing
+                // Redraw the geometry for update of the selection based sets
+                FeModelUpdate(UpdateType.DrawModel);
+                // Update sets - must be called with rendering off - SetStateWorking
+                UpdateGeometryBasedItems(false, true);
+                // Update the sets and symbols
+                FeModelUpdate(UpdateType.Check | UpdateType.RedrawSymbols);
+            }
+            catch (Exception ex)
+            {
+                throw new CaeException(ex.Message);
+            }
+            finally
+            {
+                _form.SetStateReady("Converting...");
             }
         }
         private bool AreSelectedPartsShells(string[] partNames)

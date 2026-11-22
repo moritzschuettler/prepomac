@@ -1305,6 +1305,326 @@ namespace CaeMesh
             coor[2] = 0.5 * (n1.Z + n2.Z);
             return coor;
         }
+        // Element order
+        private static readonly int[][] _beamEdgeMidNodeIndices = new int[][] { new[] { 0, 1, 2 } };
+        private static readonly int[][] _triangleEdgeMidNodeIndices = new int[][]
+        {
+            new[] { 0, 1, 3 }, new[] { 1, 2, 4 }, new[] { 2, 0, 5 }
+        };
+        private static readonly int[][] _quadrilateralEdgeMidNodeIndices = new int[][]
+        {
+            new[] { 0, 1, 4 }, new[] { 1, 2, 5 }, new[] { 2, 3, 6 }, new[] { 3, 0, 7 }
+        };
+        private static readonly int[][] _tetraEdgeMidNodeIndices = new int[][]
+        {
+            new[] { 0, 1, 4 }, new[] { 1, 2, 5 }, new[] { 2, 0, 6 }, new[] { 0, 3, 7 }, new[] { 1, 3, 8 }, new[] { 2, 3, 9 }
+        };
+        private static readonly int[][] _pyramidEdgeMidNodeIndices = new int[][]
+        {
+            new[] { 0, 1, 5 }, new[] { 1, 2, 6 }, new[] { 2, 3, 7 }, new[] { 3, 0, 8 },
+            new[] { 0, 4, 9 }, new[] { 1, 4, 10 }, new[] { 2, 4, 11 }, new[] { 3, 4, 12 }
+        };
+        private static readonly int[][] _wedgeEdgeMidNodeIndices = new int[][]
+        {
+            new[] { 0, 1, 6 }, new[] { 1, 2, 7 }, new[] { 2, 0, 8 }, new[] { 3, 4, 9 }, new[] { 4, 5, 10 },
+            new[] { 5, 3, 11 }, new[] { 0, 3, 12 }, new[] { 1, 4, 13 }, new[] { 2, 5, 14 }
+        };
+        private static readonly int[][] _hexaEdgeMidNodeIndices = new int[][]
+        {
+            new[] { 0, 1, 8 }, new[] { 1, 2, 9 }, new[] { 2, 3, 10 }, new[] { 3, 0, 11 }, new[] { 4, 5, 12 },
+            new[] { 5, 6, 13 }, new[] { 6, 7, 14 }, new[] { 7, 4, 15 }, new[] { 0, 4, 16 }, new[] { 1, 5, 17 },
+            new[] { 2, 6, 18 }, new[] { 3, 7, 19 }
+        };
+        private static int[][] GetEdgeMidNodeIndices(FeElement element)
+        {
+            if (element is LinearBeamElement || element is ParabolicBeamElement) return _beamEdgeMidNodeIndices;
+            else if (element is LinearTriangleElement || element is ParabolicTriangleElement) return _triangleEdgeMidNodeIndices;
+            else if (element is LinearQuadrilateralElement || element is ParabolicQuadrilateralElement)
+                return _quadrilateralEdgeMidNodeIndices;
+            else if (element is LinearTetraElement || element is ParabolicTetraElement) return _tetraEdgeMidNodeIndices;
+            else if (element is LinearPyramidElement || element is ParabolicPyramidElement) return _pyramidEdgeMidNodeIndices;
+            else if (element is LinearWedgeElement || element is ParabolicWedgeElement) return _wedgeEdgeMidNodeIndices;
+            else if (element is LinearHexaElement || element is ParabolicHexaElement) return _hexaEdgeMidNodeIndices;
+            else return null;
+        }
+        private static FeElement CreateElementOfOtherOrder(FeElement element, int[] nodeIds)
+        {
+            int id = element.Id;
+            int partId = element.PartId;
+            if (element is LinearBeamElement) return new ParabolicBeamElement(id, partId, nodeIds);
+            else if (element is ParabolicBeamElement) return new LinearBeamElement(id, partId, nodeIds);
+            else if (element is LinearTriangleElement) return new ParabolicTriangleElement(id, partId, nodeIds);
+            else if (element is ParabolicTriangleElement) return new LinearTriangleElement(id, partId, nodeIds);
+            else if (element is LinearQuadrilateralElement) return new ParabolicQuadrilateralElement(id, partId, nodeIds);
+            else if (element is ParabolicQuadrilateralElement) return new LinearQuadrilateralElement(id, partId, nodeIds);
+            else if (element is LinearTetraElement) return new ParabolicTetraElement(id, partId, nodeIds);
+            else if (element is ParabolicTetraElement) return new LinearTetraElement(id, partId, nodeIds);
+            else if (element is LinearPyramidElement) return new ParabolicPyramidElement(id, partId, nodeIds);
+            else if (element is ParabolicPyramidElement) return new LinearPyramidElement(id, partId, nodeIds);
+            else if (element is LinearWedgeElement) return new ParabolicWedgeElement(id, partId, nodeIds);
+            else if (element is ParabolicWedgeElement) return new LinearWedgeElement(id, partId, nodeIds);
+            else if (element is LinearHexaElement) return new ParabolicHexaElement(id, partId, nodeIds);
+            else if (element is ParabolicHexaElement) return new LinearHexaElement(id, partId, nodeIds);
+            else throw new NotSupportedException();
+        }
+        private static (int, int) GetEdgeKey(int nodeId1, int nodeId2)
+        {
+            if (nodeId1 < nodeId2) return (nodeId1, nodeId2);
+            else return (nodeId2, nodeId1);
+        }
+        public static string GetChangeElementOrderError(BasePart part, Dictionary<int, FeElement> elements)
+        {
+            if (!(part is MeshPart))
+                return "The element order of the part " + part.Name + " cannot be changed since it is not a mesh part.";
+            //
+            foreach (var elementId in part.Labels)
+            {
+                if (GetEdgeMidNodeIndices(elements[elementId]) == null)
+                    return "The element order of the part " + part.Name + " cannot be changed since it contains " +
+                           elements[elementId].GetType().Name + " elements.";
+            }
+            return null;
+        }
+        public bool HasParabolicElements()
+        {
+            foreach (var entry in _elements)
+            {
+                if (FeElement.IsParabolic(entry.Value)) return true;
+            }
+            return false;
+        }
+        public void ChangeElementOrder(string[] partNames, bool secondOrder)
+        {
+            BasePart part;
+            string error;
+            List<MeshPart> meshParts = new List<MeshPart>();
+            foreach (var partName in partNames)
+            {
+                if (!_parts.TryGetValue(partName, out part))
+                    throw new CaeException("The part " + partName + " does not exist.");
+                error = GetChangeElementOrderError(part, _elements);
+                if (error != null) throw new CaeException(error);
+                meshParts.Add((MeshPart)part);
+            }
+            //
+            UpdateMaxNodeAndElementIds();
+            if (secondOrder) ChangeElementOrderToParabolic(meshParts);
+            else ChangeElementOrderToLinear(meshParts);
+            //
+            HashSet<int> partNodeIds = new HashSet<int>();
+            HashSet<Type> partElementTypes = new HashSet<Type>();
+            foreach (var meshPart in meshParts)
+            {
+                partNodeIds.Clear();
+                partElementTypes.Clear();
+                foreach (var elementId in meshPart.Labels)
+                {
+                    partNodeIds.UnionWith(_elements[elementId].NodeIds);
+                    partElementTypes.Add(_elements[elementId].GetType());
+                }
+                int[] nodeLabels = partNodeIds.ToArray();
+                Array.Sort(nodeLabels);
+                meshPart.NodeLabels = nodeLabels;
+                meshPart.ChangeElementTypesOrder(partElementTypes.ToArray(), secondOrder);
+                //
+                ComputeVolumeArea(meshPart);
+            }
+            //
+            UpdateNodeIdElementIds();
+            UpdateMaxNodeAndElementIds();
+        }
+        private void ChangeElementOrderToParabolic(List<MeshPart> meshParts)
+        {
+            int[][] edgeMidNodeIndices;
+            FeElement element;
+            Dictionary<(int, int), int> edgeMidNodeIds = new Dictionary<(int, int), int>();
+            foreach (var entry in _elements)
+            {
+                element = entry.Value;
+                if (FeElement.IsParabolic(element))
+                {
+                    edgeMidNodeIndices = GetEdgeMidNodeIndices(element);
+                    foreach (var indices in edgeMidNodeIndices)
+                    {
+                        edgeMidNodeIds[GetEdgeKey(element.NodeIds[indices[0]], element.NodeIds[indices[1]])] =
+                            element.NodeIds[indices[2]];
+                    }
+                }
+            }
+            //
+            int midNodeId;
+            int maxNodeId = GetMaxNodeIdWithReferencePoints();
+            int[] nodeIds;
+            (int, int) edgeKey;
+            Dictionary<(int, int), int> newEdgeMidNodeIds = new Dictionary<(int, int), int>();
+            foreach (var meshPart in meshParts)
+            {
+                foreach (var elementId in meshPart.Labels)
+                {
+                    element = _elements[elementId];
+                    if (FeElement.IsParabolic(element)) continue;
+                    //
+                    edgeMidNodeIndices = GetEdgeMidNodeIndices(element);
+                    nodeIds = new int[element.NodeIds.Length + edgeMidNodeIndices.Length];
+                    Array.Copy(element.NodeIds, nodeIds, element.NodeIds.Length);
+                    foreach (var indices in edgeMidNodeIndices)
+                    {
+                        edgeKey = GetEdgeKey(element.NodeIds[indices[0]], element.NodeIds[indices[1]]);
+                        if (!edgeMidNodeIds.TryGetValue(edgeKey, out midNodeId))
+                        {
+                            maxNodeId++;
+                            midNodeId = maxNodeId;
+                            _nodes.Add(midNodeId, new FeNode(midNodeId, GetMidNodeCoor(_nodes[edgeKey.Item1],
+                                                                                       _nodes[edgeKey.Item2])));
+                            edgeMidNodeIds.Add(edgeKey, midNodeId);
+                            newEdgeMidNodeIds.Add(edgeKey, midNodeId);
+                        }
+                        nodeIds[indices[2]] = midNodeId;
+                    }
+                    _elements[elementId] = CreateElementOfOtherOrder(element, nodeIds);
+                }
+                //
+                ChangeVisualizationOrder(meshPart, edgeMidNodeIds, null);
+            }
+            //
+            AddMidNodesToNodeSets(newEdgeMidNodeIds);
+        }
+        private void ChangeElementOrderToLinear(List<MeshPart> meshParts)
+        {
+            int numberOfCornerNodes;
+            int[] nodeIds;
+            FeElement element;
+            HashSet<int> possiblyUnrefNodeIds = new HashSet<int>();
+            foreach (var meshPart in meshParts)
+            {
+                foreach (var elementId in meshPart.Labels)
+                {
+                    element = _elements[elementId];
+                    if (!FeElement.IsParabolic(element)) continue;
+                    //
+                    numberOfCornerNodes = element.NodeIds.Length - GetEdgeMidNodeIndices(element).Length;
+                    nodeIds = new int[numberOfCornerNodes];
+                    Array.Copy(element.NodeIds, nodeIds, numberOfCornerNodes);
+                    for (int i = numberOfCornerNodes; i < element.NodeIds.Length; i++)
+                        possiblyUnrefNodeIds.Add(element.NodeIds[i]);
+                    _elements[elementId] = CreateElementOfOtherOrder(element, nodeIds);
+                }
+                //
+                ChangeVisualizationOrder(meshPart, null, possiblyUnrefNodeIds);
+            }
+            //
+            RemoveUnreferencedNodes(possiblyUnrefNodeIds, false, false);
+        }
+        private void ChangeVisualizationOrder(BasePart part, Dictionary<(int, int), int> edgeMidNodeIds,
+                                              HashSet<int> removedMidNodeIds)
+        {
+            VisualizationData visualization = part.Visualization;
+            bool cellsAreEdges = part.PartType == PartType.Wire;
+            //
+            if (visualization.Cells != null)
+            {
+                int[][] cells = new int[visualization.Cells.Length][];
+                for (int i = 0; i < cells.Length; i++)
+                    cells[i] = ChangeCellOrder(visualization.Cells[i], cellsAreEdges, edgeMidNodeIds, removedMidNodeIds, false);
+                visualization.SetCellsAndCellIds(cells, visualization.CellIds);
+            }
+            //
+            if (visualization.EdgeCells != null)
+            {
+                int[][] edgeCells = visualization.EdgeCells;
+                for (int i = 0; i < edgeCells.Length; i++)
+                    edgeCells[i] = ChangeCellOrder(edgeCells[i], true, edgeMidNodeIds, removedMidNodeIds, false);
+            }
+            //
+            int[][][] cellIdCellIdEdgeNodeIds = visualization.CellIdCellIdEdgeNodeIds;
+            if (cellIdCellIdEdgeNodeIds != null)
+            {
+                for (int i = 0; i < cellIdCellIdEdgeNodeIds.Length; i++)
+                {
+                    if (cellIdCellIdEdgeNodeIds[i] == null) continue;
+                    for (int j = 0; j < cellIdCellIdEdgeNodeIds[i].Length; j++)
+                    {
+                        cellIdCellIdEdgeNodeIds[i][j] = ChangeCellOrder(cellIdCellIdEdgeNodeIds[i][j], true, edgeMidNodeIds,
+                                                                        removedMidNodeIds, true);
+                    }
+                }
+            }
+        }
+        private static int[] ChangeCellOrder(int[] cell, bool isEdge, Dictionary<(int, int), int> edgeMidNodeIds,
+                                             HashSet<int> removedMidNodeIds, bool keepUnknownEdge)
+        {
+            // The edge arrays of a visualization do not all keep the midside node last, so the linear cell keeps the
+            // nodes that are not removed midside nodes rather than the leading ones
+            if (removedMidNodeIds != null)
+            {
+                if (keepUnknownEdge && cell.Length != 3) return cell;
+                //
+                List<int> cornerNodeIds = new List<int>(cell.Length);
+                foreach (var nodeId in cell)
+                {
+                    if (!removedMidNodeIds.Contains(nodeId)) cornerNodeIds.Add(nodeId);
+                }
+                if (cornerNodeIds.Count == cell.Length) return cell;
+                return cornerNodeIds.ToArray();
+            }
+            //
+            int numberOfCornerNodes;
+            if (isEdge && cell.Length == 2) numberOfCornerNodes = 2;
+            else if (!isEdge && (cell.Length == 3 || cell.Length == 4)) numberOfCornerNodes = cell.Length;
+            else return cell;
+            //
+            // VisualizationData.RenumberNodes leaves CellIdCellIdEdgeNodeIds out, so after a renumbering its edges may
+            // name nodes of no element edge and are kept as they are
+            if (keepUnknownEdge && !edgeMidNodeIds.ContainsKey(GetEdgeKey(cell[0], cell[1]))) return cell;
+            //
+            int numberOfMidNodes = numberOfCornerNodes == 2 ? 1 : numberOfCornerNodes;
+            int[] parabolicCell = new int[numberOfCornerNodes + numberOfMidNodes];
+            Array.Copy(cell, parabolicCell, numberOfCornerNodes);
+            for (int i = 0; i < numberOfMidNodes; i++)
+            {
+                parabolicCell[numberOfCornerNodes + i] =
+                    edgeMidNodeIds[GetEdgeKey(cell[i], cell[(i + 1) % numberOfCornerNodes])];
+            }
+            return parabolicCell;
+        }
+        private void AddMidNodesToNodeSets(Dictionary<(int, int), int> newEdgeMidNodeIds)
+        {
+            FeNodeSet nodeSet;
+            HashSet<string> surfaceNodeSetNames = new HashSet<string>();
+            foreach (var entry in _surfaces)
+            {
+                FeSurface surface = entry.Value;
+                if (surface.CreatedFrom == FeSurfaceCreatedFrom.NodeSet || surface.NodeSetName == null ||
+                    surface.FaceIds == null || surface.FaceIds.Length == 0) continue;
+                if (!_nodeSets.TryGetValue(surface.NodeSetName, out nodeSet) || !nodeSet.Internal) continue;
+                //
+                GetNodeIdsElementSetsFromFaceIds(surface.FaceIds, out int[] nodeIds, out _, out _, out _);
+                nodeSet.Labels = nodeIds;
+                UpdateNodeSetCenterOfGravity(nodeSet);
+                surfaceNodeSetNames.Add(nodeSet.Name);
+            }
+            //
+            List<int> addedNodeIds = new List<int>();
+            HashSet<int> nodeSetNodeIds;
+            foreach (var entry in _nodeSets)
+            {
+                nodeSet = entry.Value;
+                if (nodeSet.CreationData != null || surfaceNodeSetNames.Contains(nodeSet.Name)) continue;
+                //
+                addedNodeIds.Clear();
+                nodeSetNodeIds = new HashSet<int>(nodeSet.Labels);
+                foreach (var edgeEntry in newEdgeMidNodeIds)
+                {
+                    if (nodeSetNodeIds.Contains(edgeEntry.Key.Item1) && nodeSetNodeIds.Contains(edgeEntry.Key.Item2))
+                        addedNodeIds.Add(edgeEntry.Value);
+                }
+                if (addedNodeIds.Count > 0)
+                {
+                    nodeSet.Labels = nodeSet.Labels.Concat(addedNodeIds).ToArray();
+                    UpdateNodeSetCenterOfGravity(nodeSet);
+                }
+            }
+        }
 
         #region Parts  #############################################################################################################
         private void ExtractParts(List<InpElementSet> inpElementTypeSets, string namePrefix, ImportOptions importOptions)

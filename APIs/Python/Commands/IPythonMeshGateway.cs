@@ -38,6 +38,7 @@ namespace APIs.Python
         void RemeshElements(RemeshingParameters remeshingParameters);
         void ThickenShellMesh(string[] partNames, double thickness, int numberOfLayers, double offset,
                               bool keepModelEdges);
+        void ChangeElementOrder(string[] partNames, bool secondOrder);
         void SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData);
         void UpdateNodalCoordinatesFromFile(string fileName);
         // Nodes and elements

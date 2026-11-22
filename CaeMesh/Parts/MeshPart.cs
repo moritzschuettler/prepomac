@@ -209,6 +209,74 @@ namespace CaeMesh
             if (elementTypes != null) allTypes.UnionWith(elementTypes);
             _elementTypes = allTypes.ToArray();
         }
+        public void ChangeElementTypesOrder(Type[] elementTypes, bool secondOrder)
+        {
+            if (secondOrder)
+            {
+                _parabolicBeamType = GetElementTypeOfOtherOrder(_linearBeamType, _parabolicBeamType);
+                _parabolicTriaType = GetElementTypeOfOtherOrder(_linearTriaType, _parabolicTriaType);
+                _parabolicQuadType = GetElementTypeOfOtherOrder(_linearQuadType, _parabolicQuadType);
+                _parabolicTetraType = GetElementTypeOfOtherOrder(_linearTetraType, _parabolicTetraType);
+                _parabolicPyramidType = GetElementTypeOfOtherOrder(_linearPyramidType, _parabolicPyramidType);
+                _parabolicWedgeType = GetElementTypeOfOtherOrder(_linearWedgeType, _parabolicWedgeType);
+                _parabolicHexaType = GetElementTypeOfOtherOrder(_linearHexaType, _parabolicHexaType);
+                //
+                _linearBeamType = FeElementTypeLinearBeam.None;
+                _linearTriaType = FeElementTypeLinearTria.None;
+                _linearQuadType = FeElementTypeLinearQuad.None;
+                _linearTetraType = FeElementTypeLinearTetra.None;
+                _linearPyramidType = FeElementTypeLinearPyramid.None;
+                _linearWedgeType = FeElementTypeLinearWedge.None;
+                _linearHexaType = FeElementTypeLinearHexa.None;
+            }
+            else
+            {
+                _linearBeamType = GetElementTypeOfOtherOrder(_parabolicBeamType, _linearBeamType);
+                _linearTriaType = GetElementTypeOfOtherOrder(_parabolicTriaType, _linearTriaType);
+                _linearQuadType = GetElementTypeOfOtherOrder(_parabolicQuadType, _linearQuadType);
+                _linearTetraType = GetElementTypeOfOtherOrder(_parabolicTetraType, _linearTetraType);
+                _linearPyramidType = GetElementTypeOfOtherOrder(_parabolicPyramidType, _linearPyramidType);
+                _linearWedgeType = GetElementTypeOfOtherOrder(_parabolicWedgeType, _linearWedgeType);
+                _linearHexaType = GetElementTypeOfOtherOrder(_parabolicHexaType, _linearHexaType);
+                //
+                _parabolicBeamType = FeElementTypeParabolicBeam.None;
+                _parabolicTriaType = FeElementTypeParabolicTria.None;
+                _parabolicQuadType = FeElementTypeParabolicQuad.None;
+                _parabolicTetraType = FeElementTypeParabolicTetra.None;
+                _parabolicPyramidType = FeElementTypeParabolicPyramid.None;
+                _parabolicWedgeType = FeElementTypeParabolicWedge.None;
+                _parabolicHexaType = FeElementTypeParabolicHexa.None;
+            }
+            //
+            HashSet<Type> types = new HashSet<Type>(elementTypes);
+            if (!types.Contains(typeof(LinearBeamElement))) _linearBeamType = FeElementTypeLinearBeam.None;
+            if (!types.Contains(typeof(ParabolicBeamElement))) _parabolicBeamType = FeElementTypeParabolicBeam.None;
+            if (!types.Contains(typeof(LinearTriangleElement))) _linearTriaType = FeElementTypeLinearTria.None;
+            if (!types.Contains(typeof(ParabolicTriangleElement))) _parabolicTriaType = FeElementTypeParabolicTria.None;
+            if (!types.Contains(typeof(LinearQuadrilateralElement))) _linearQuadType = FeElementTypeLinearQuad.None;
+            if (!types.Contains(typeof(ParabolicQuadrilateralElement))) _parabolicQuadType = FeElementTypeParabolicQuad.None;
+            if (!types.Contains(typeof(LinearTetraElement))) _linearTetraType = FeElementTypeLinearTetra.None;
+            if (!types.Contains(typeof(ParabolicTetraElement))) _parabolicTetraType = FeElementTypeParabolicTetra.None;
+            if (!types.Contains(typeof(LinearPyramidElement))) _linearPyramidType = FeElementTypeLinearPyramid.None;
+            if (!types.Contains(typeof(ParabolicPyramidElement))) _parabolicPyramidType = FeElementTypeParabolicPyramid.None;
+            if (!types.Contains(typeof(LinearWedgeElement))) _linearWedgeType = FeElementTypeLinearWedge.None;
+            if (!types.Contains(typeof(ParabolicWedgeElement))) _parabolicWedgeType = FeElementTypeParabolicWedge.None;
+            if (!types.Contains(typeof(LinearHexaElement))) _linearHexaType = FeElementTypeLinearHexa.None;
+            if (!types.Contains(typeof(ParabolicHexaElement))) _parabolicHexaType = FeElementTypeParabolicHexa.None;
+            //
+            SetElementTypes(elementTypes);
+            AddElementTypes(elementTypes);
+        }
+        private static TTarget GetElementTypeOfOtherOrder<TSource, TTarget>(TSource sourceType, TTarget targetType)
+            where TSource : Enum where TTarget : Enum
+        {
+            if (Convert.ToInt32(targetType) != 0) return targetType;
+            //
+            int sourceValue = Convert.ToInt32(sourceType);
+            if (sourceValue != 0 && Enum.IsDefined(typeof(TTarget), sourceValue))
+                return (TTarget)Enum.ToObject(typeof(TTarget), sourceValue);
+            return targetType;
+        }
         //
         public void CopyActiveElementTypesFrom(MeshPart part)
         {

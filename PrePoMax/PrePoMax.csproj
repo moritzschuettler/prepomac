@@ -254,6 +254,7 @@
     <Compile Include="Commands\0050_Model\02_Tools\CFindEdgesByAngleForModelPartsCommand.cs" />
     <Compile Include="Commands\0050_Model\02_Tools\CRemeshElements.cs" />
     <Compile Include="Commands\0050_Model\02_Tools\CSplitPartMeshUsingSurface.cs" />
+    <Compile Include="Commands\0050_Model\02_Tools\CChangeElementOrder.cs" />
     <Compile Include="Commands\0050_Model\02_Tools\CThickenShellMesh.cs" />
     <Compile Include="Commands\0050_Model\02_Tools\CUpdateNodalCoordinatesFromFile.cs" />
     <Compile Include="Commands\0050_Model\03_Mesh\01_Node\CMergeCoincidentNodes.cs" />
@@ -587,6 +588,10 @@
     <Compile Include="Forms\21_FEModel\FrmSplitPartMeshUsingSurface.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\21_FEModel\FrmChangeElementOrder.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\21_FEModel\ViewChangeElementOrder.cs" />
     <Compile Include="Forms\21_FEModel\FrmThickenShellMesh.cs">
       <SubType>Form</SubType>
     </Compile>
