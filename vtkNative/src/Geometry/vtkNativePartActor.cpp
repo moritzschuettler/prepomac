@@ -813,7 +813,7 @@ namespace vtkn
         vtkSmartPointer<vtkPolyData> polyEdges;
         BuildPolyData(geometry, true, polyActor, polyEdges, &SourceCells);
         vtkSmartPointer<vtkDataArray> pointNormals = ComputePointNormals(polyActor);
-        pointNormals->SetName(PointNormalsName);
+        if (pointNormals != nullptr) pointNormals->SetName(PointNormalsName);
         polyActor->GetPointData()->SetNormals(pointNormals);
         // The mappers are given their data as it is, so they do not ask their pipeline for it whenever the bounds of
         // the actors are measured, which a view of thousands of actors does for every one of them. The surface is
