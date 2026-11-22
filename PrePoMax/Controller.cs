@@ -22689,7 +22689,16 @@ namespace PrePoMax
             _form.UpdateAnalysisProgress(jobName, jobStatus);
             AnalysisJob job;
             if (_jobs.TryGetValue(jobName, out job))
+            {
                 _form.UpdateTreeNode(ViewGeometryModelResults.Model, jobName, job, null, true);
+                // A run that ended badly is reported in the output window of the main form as well: the monitor
+                // holds the output of the run, but it is closed as soon as another analysis is started and the
+                // user may have hidden it. In the batch regeneration the whole output is written there anyway
+                bool endedBadly = jobStatus == JobStatus.Failed || jobStatus == JobStatus.FailedWithResults ||
+                                  jobStatus == JobStatus.Killed || jobStatus == JobStatus.TimedOut;
+                if (endedBadly && !_batchRegenerationMode && job.EndedMessage != null)
+                    _form.WriteDataToOutput(jobName + ":" + job.EndedMessage);
+            }
         }
         //
         public void KillJob(string jobName)
