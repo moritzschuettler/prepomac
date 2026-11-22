@@ -13880,9 +13880,9 @@ namespace PrePoMax
             CThickenShellMesh comm = new CThickenShellMesh(partNames, thickness, numberOfLayers, offset, keepModelEdges);
             _commands.AddAndExecute(comm);
         }
-        public void ChangeElementOrderCommand(string[] partNames, bool secondOrder)
+        public void ChangeElementOrderCommand(string[] partNames, bool secondOrder, bool projectToGeometry)
         {
-            CChangeElementOrder comm = new CChangeElementOrder(partNames, secondOrder);
+            CChangeElementOrder comm = new CChangeElementOrder(partNames, secondOrder, projectToGeometry);
             _commands.AddAndExecute(comm);
         }
         public void SplitPartMeshUsingSurfaceCommand(SplitPartMeshData splitPartMeshData)
@@ -14153,7 +14153,21 @@ namespace PrePoMax
             }
             return null;
         }
-        public void ChangeElementOrder(string[] partNames, bool secondOrder)
+        public bool CanProjectMidNodesToGeometry(string partName)
+        {
+            BasePart meshPart;
+            BasePart geometryPart;
+            if (_model.Geometry == null || _model.Mesh == null) return false;
+            if (!_model.Mesh.Parts.TryGetValue(partName, out meshPart)) return false;
+            if (!_model.Geometry.GetAllCADPartNames().Contains(partName)) return false;
+            if (!_model.Geometry.Parts.TryGetValue(partName, out geometryPart)) return false;
+            if (!(geometryPart is GeometryPart gp) || gp.CADFileData == null) return false;
+            // The faces of a mesh part are the faces of its geometry by their order
+            return meshPart.Visualization.FaceCount == geometryPart.Visualization.FaceCount &&
+                   (meshPart.Visualization.EdgeCellIdsByEdge == null ? 0 : meshPart.Visualization.EdgeCount) ==
+                   (geometryPart.Visualization.EdgeCellIdsByEdge == null ? 0 : geometryPart.Visualization.EdgeCount);
+        }
+        public void ChangeElementOrder(string[] partNames, bool secondOrder, bool projectToGeometry)
         {
             try
             {
@@ -14161,9 +14175,34 @@ namespace PrePoMax
                 //
                 SuppressExplodedView(partNames);
                 //
-                _model.Mesh.ChangeElementOrder(partNames, secondOrder);
+                List<string> notProjectedPartNames = new List<string>();
+                Func<string, Dictionary<int, FeNode[]>, Dictionary<int, FeNode[]>, Dictionary<int, double[]>>
+                    projectMidNodesToGeometry = null;
+                if (secondOrder && projectToGeometry)
+                {
+                    projectMidNodesToGeometry = (partName, edgeIdNodes, faceIdNodes) =>
+                    {
+                        if (CanProjectMidNodesToGeometry(partName))
+                            return _gmshRunner.ProjectNodesToGeometry((GeometryPart)_model.Geometry.Parts[partName],
+                                                                      edgeIdNodes, faceIdNodes);
+                        notProjectedPartNames.Add(partName);
+                        return null;
+                    };
+                }
+                int numberOfProjectedNodes = _model.Mesh.ChangeElementOrder(partNames, secondOrder,
+                                                                            projectMidNodesToGeometry);
                 //
                 ResumeExplodedViews(false);
+                //
+                if (projectMidNodesToGeometry != null)
+                {
+                    _form.WriteDataToOutput(numberOfProjectedNodes + " midside node/s projected to the geometry.");
+                    foreach (var partName in notProjectedPartNames)
+                    {
+                        _form.WriteDataToOutput("The midside nodes of the part " + partName + " stay on the straight " +
+                                                "element edges since the part has no CAD geometry.");
+                    }
+                }
                 // Update element type icon
                 foreach (var partName in partNames)
                 {

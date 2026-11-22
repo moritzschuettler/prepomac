@@ -26,6 +26,7 @@ namespace PrePoMax.Forms
         private DynamicCustomTypeDescriptor _dctd;
         private string _regionType;
         private string _elementOrder;
+        private bool _projectToGeometry;
         private int[] _creationIds;
         private Selection _creationData;
 
@@ -43,7 +44,23 @@ namespace PrePoMax.Forms
                               "parabolic elements by adding the midside nodes at the middle of the straight element edges. " +
                               "Parabolic elements are converted to linear elements by removing the midside nodes.")]
         [Id(1, 2)]
-        public string ElementOrder { get { return _elementOrder; } set { _elementOrder = value; } }
+        public string ElementOrder
+        {
+            get { return _elementOrder; }
+            set
+            {
+                _elementOrder = value;
+                _dctd.GetProperty(nameof(ProjectToGeometry)).SetIsBrowsable(SecondOrder);
+            }
+        }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(1, 10, "Project to geometry")]
+        [DescriptionAttribute("Select yes to move the new midside nodes on the model edges and faces onto the CAD " +
+                              "geometry the part was meshed from. A part without CAD geometry keeps its midside nodes " +
+                              "on the straight element edges.")]
+        [Id(2, 2)]
+        public bool ProjectToGeometry { get { return _projectToGeometry; } set { _projectToGeometry = value; } }
         //
         [Browsable(false)]
         public bool SecondOrder { get { return _elementOrder == Parabolic; } }
@@ -58,12 +75,15 @@ namespace PrePoMax.Forms
         {
             _regionType = "Selection";
             _elementOrder = secondOrder ? Parabolic : Linear;
+            _projectToGeometry = true;
             _creationIds = null;
             _creationData = null;
             //
             _dctd = ProviderInstaller.Install(this);
             _dctd.PopulateProperty(nameof(RegionType), new string[] { _regionType });
             _dctd.PopulateProperty(nameof(ElementOrder), new string[] { Linear, Parabolic });
+            _dctd.RenameBooleanPropertyToYesNo(nameof(ProjectToGeometry));
+            _dctd.GetProperty(nameof(ProjectToGeometry)).SetIsBrowsable(secondOrder);
         }
 
 

@@ -1306,6 +1306,7 @@ namespace CaeMesh
             return coor;
         }
         // Element order
+        private const double MaxMidNodeProjectionToEdgeLength = 0.5;
         private static readonly int[][] _beamEdgeMidNodeIndices = new int[][] { new[] { 0, 1, 2 } };
         private static readonly int[][] _triangleEdgeMidNodeIndices = new int[][]
         {
@@ -1393,7 +1394,14 @@ namespace CaeMesh
             }
             return false;
         }
-        public void ChangeElementOrder(string[] partNames, bool secondOrder)
+        /// <summary>
+        /// Changes the element order of the parts and returns the number of the new midside nodes moved onto the
+        /// geometry. The projection function takes the part name and the new midside nodes on each edge and on each face
+        /// of the part, by their visualization ids, and returns the projected coordinates by node id, or null.
+        /// </summary>
+        public int ChangeElementOrder(string[] partNames, bool secondOrder,
+                                      Func<string, Dictionary<int, FeNode[]>, Dictionary<int, FeNode[]>,
+                                           Dictionary<int, double[]>> projectMidNodesToGeometry = null)
         {
             BasePart part;
             string error;
@@ -1408,7 +1416,8 @@ namespace CaeMesh
             }
             //
             UpdateMaxNodeAndElementIds();
-            if (secondOrder) ChangeElementOrderToParabolic(meshParts);
+            int numberOfProjectedNodes = 0;
+            if (secondOrder) numberOfProjectedNodes = ChangeElementOrderToParabolic(meshParts, projectMidNodesToGeometry);
             else ChangeElementOrderToLinear(meshParts);
             //
             HashSet<int> partNodeIds = new HashSet<int>();
@@ -1432,8 +1441,12 @@ namespace CaeMesh
             //
             UpdateNodeIdElementIds();
             UpdateMaxNodeAndElementIds();
+            //
+            return numberOfProjectedNodes;
         }
-        private void ChangeElementOrderToParabolic(List<MeshPart> meshParts)
+        private int ChangeElementOrderToParabolic(List<MeshPart> meshParts,
+                                                  Func<string, Dictionary<int, FeNode[]>, Dictionary<int, FeNode[]>,
+                                                       Dictionary<int, double[]>> projectMidNodesToGeometry)
         {
             int[][] edgeMidNodeIndices;
             FeElement element;
@@ -1454,11 +1467,14 @@ namespace CaeMesh
             //
             int midNodeId;
             int maxNodeId = GetMaxNodeIdWithReferencePoints();
+            int numberOfProjectedNodes = 0;
             int[] nodeIds;
             (int, int) edgeKey;
             Dictionary<(int, int), int> newEdgeMidNodeIds = new Dictionary<(int, int), int>();
+            Dictionary<int, (int, int)> partNewMidNodeIdEdgeKey = new Dictionary<int, (int, int)>();
             foreach (var meshPart in meshParts)
             {
+                partNewMidNodeIdEdgeKey.Clear();
                 foreach (var elementId in meshPart.Labels)
                 {
                     element = _elements[elementId];
@@ -1478,6 +1494,7 @@ namespace CaeMesh
                                                                                        _nodes[edgeKey.Item2])));
                             edgeMidNodeIds.Add(edgeKey, midNodeId);
                             newEdgeMidNodeIds.Add(edgeKey, midNodeId);
+                            partNewMidNodeIdEdgeKey.Add(midNodeId, edgeKey);
                         }
                         nodeIds[indices[2]] = midNodeId;
                     }
@@ -1485,9 +1502,68 @@ namespace CaeMesh
                 }
                 //
                 ChangeVisualizationOrder(meshPart, edgeMidNodeIds, null);
+                //
+                if (projectMidNodesToGeometry != null && partNewMidNodeIdEdgeKey.Count > 0)
+                    numberOfProjectedNodes += ProjectMidNodesToGeometry(meshPart, partNewMidNodeIdEdgeKey,
+                                                                        projectMidNodesToGeometry);
             }
             //
             AddMidNodesToNodeSets(newEdgeMidNodeIds);
+            //
+            return numberOfProjectedNodes;
+        }
+        private int ProjectMidNodesToGeometry(BasePart part, Dictionary<int, (int, int)> midNodeIdEdgeKey,
+                                              Func<string, Dictionary<int, FeNode[]>, Dictionary<int, FeNode[]>,
+                                                   Dictionary<int, double[]>> projectMidNodesToGeometry)
+        {
+            FeNode[] nodes;
+            VisualizationData visualization = part.Visualization;
+            Dictionary<int, FeNode[]> edgeIdNodes = new Dictionary<int, FeNode[]>();
+            Dictionary<int, FeNode[]> faceIdNodes = new Dictionary<int, FeNode[]>();
+            if (visualization.EdgeCellIdsByEdge != null)
+            {
+                for (int i = 0; i < visualization.EdgeCount; i++)
+                {
+                    nodes = visualization.GetNodeIdsForEdgeId(i).Where(midNodeIdEdgeKey.ContainsKey)
+                                                                .Select(nodeId => _nodes[nodeId]).ToArray();
+                    if (nodes.Length > 0) edgeIdNodes.Add(i, nodes);
+                }
+            }
+            for (int i = 0; i < visualization.FaceCount; i++)
+            {
+                nodes = visualization.GetNodeIdsForSurfaceId(i).Where(midNodeIdEdgeKey.ContainsKey)
+                                                               .Select(nodeId => _nodes[nodeId]).ToArray();
+                if (nodes.Length > 0) faceIdNodes.Add(i, nodes);
+            }
+            if (edgeIdNodes.Count == 0 && faceIdNodes.Count == 0) return 0;
+            //
+            Dictionary<int, double[]> nodeIdProjectedCoor = projectMidNodesToGeometry(part.Name, edgeIdNodes, faceIdNodes);
+            if (nodeIdProjectedCoor == null) return 0;
+            // A projection farther from the middle of the straight edge than half of its length is not onto the surface
+            // the edge lies on, and the node stays in the middle
+            int numberOfProjectedNodes = 0;
+            double edgeLength;
+            (int, int) edgeKey;
+            foreach (var entry in nodeIdProjectedCoor)
+            {
+                if (!midNodeIdEdgeKey.TryGetValue(entry.Key, out edgeKey) || entry.Value == null ||
+                    entry.Value.Length != 3) continue;
+                //
+                edgeLength = GetDistance(_nodes[edgeKey.Item1].Coor, _nodes[edgeKey.Item2].Coor);
+                if (GetDistance(_nodes[entry.Key].Coor, entry.Value) > MaxMidNodeProjectionToEdgeLength * edgeLength)
+                    continue;
+                //
+                _nodes[entry.Key] = new FeNode(entry.Key, entry.Value);
+                numberOfProjectedNodes++;
+            }
+            return numberOfProjectedNodes;
+        }
+        private static double GetDistance(double[] coor1, double[] coor2)
+        {
+            double dx = coor1[0] - coor2[0];
+            double dy = coor1[1] - coor2[1];
+            double dz = coor1[2] - coor2[2];
+            return Math.Sqrt(dx * dx + dy * dy + dz * dz);
         }
         private void ChangeElementOrderToLinear(List<MeshPart> meshParts)
         {

@@ -5,7 +5,8 @@
 #linear hexahedron, the composite shells are parabolic quadrilaterals in three parts that share nodes, and the box and
 #cylinder geometry is meshed with parabolic tetrahedra first. Element ids, element sets and surfaces are kept, a node
 #set picked on a face gains and loses the midside nodes of that face, the CalculiX element type follows the order, and
-#a linear mesh comes back node for node after the round trip.
+#a linear mesh comes back node for node after the round trip. The new midside nodes are moved onto the CAD geometry of
+#the box and cylinder with project_to_geometry=True and stay on the straight edges of the parts without CAD geometry.
 #
 #  PrePoMax.com -f cube.inp -u MM_TON_S_C --script Test_Model_Element_Order.py -g No -x Yes -w <dir>
 #
@@ -110,6 +111,40 @@ def check_converted(before, after, part_names, second_order):
               ", not " + str(expected_types))
 
 
+def get_coordinates(part_names):
+    coordinates = {}
+    for part_name in part_names:
+        part = pmx.model.parts[part_name]
+        node_ids = list(part.get_node_ids())
+        node_coordinates = part.get_node_coordinates()
+        for i in range(len(node_ids)):
+            coordinates[node_ids[i]] = tuple(float(value) for value in node_coordinates[i])
+    return coordinates
+
+
+def check_projection(part_names, second_order):
+    """Converts the linear parts to parabolic ones twice, once with the midside nodes on the straight edges and once
+    projected to the geometry, and compares the two meshes node by node. The parts end in the order they started in."""
+    mesh = pmx.model.mesh
+    if not second_order:
+        mesh.change_element_order(part_names, second_order=False)
+    mesh.change_element_order(part_names, second_order=True, project_to_geometry=False)
+    straight = get_coordinates(part_names)
+    mesh.change_element_order(part_names, second_order=False)
+    mesh.change_element_order(part_names, second_order=True, project_to_geometry=True)
+    projected = get_coordinates(part_names)
+    check(set(projected) == set(straight), "the projection changed the node ids")
+    moved = [node_id for node_id in projected if projected[node_id] != straight[node_id]]
+    has_cad_geometry = len(list(pmx.model.geometry.parts.get_names())) > 0
+    if has_cad_geometry:
+        check(len(moved) > 0, "no midside node was projected to the CAD geometry")
+    else:
+        check(len(moved) == 0, "a midside node moved although the model has no CAD geometry")
+    print("projected midside nodes:", len(moved))
+    if second_order:
+        mesh.change_element_order(part_names, second_order=False)
+
+
 def check_refusals(part_names):
     mesh = pmx.model.mesh
     node_count = pmx.model.nodes.count
@@ -164,6 +199,9 @@ def main():
         if second_order:
             check(restored[part_name]["coordinates"] == original[part_name]["coordinates"],
                   "the round trip did not bring the linear part " + part_name + " back node for node")
+    #
+    check_projection(part_names, second_order)
+    check(pmx.model.nodes.count == original["node_count"], "the projection check changed the node count")
     print("TEST PASSED")
 
 

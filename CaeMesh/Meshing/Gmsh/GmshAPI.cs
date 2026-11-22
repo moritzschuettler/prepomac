@@ -160,6 +160,10 @@ namespace CaeMesh
         {
             return RunInBackground(GetOccNormalsBackground);
         }
+        public string ProjectNodesToOccGeometry()
+        {
+            return RunInBackground(ProjectNodesToOccGeometryBackground);
+        }
         public string GetElementQualities()
         {
             return RunInBackground(GetElementQualitiesBackground);
@@ -7768,6 +7772,62 @@ namespace CaeMesh
                 _error = ex.Message;
             }
         }
+        private void ProjectNodesToOccGeometryBackground()
+        {
+            try
+            {
+                Tuple<int, int>[] outDimTags;
+                Gmsh.Model.OCC.ImportShapes(_gmshData.GeometryFileName, out outDimTags, false, "");
+                //
+                Synchronize(); // must be here
+                //
+                RenumberGmshDataByCoor();
+                //
+                double[] closestCoor;
+                double[] concatenatedCoor;
+                FeNode[] nodes;
+                Dictionary<int, double[]> nodeIdProjectedCoor = new Dictionary<int, double[]>();
+                //
+                if (_gmshData.EdgeIdNodes != null)
+                {
+                    foreach (var entry in _gmshData.EdgeIdNodes)
+                    {
+                        foreach (var node in entry.Value)
+                        {
+                            if (nodeIdProjectedCoor.ContainsKey(node.Id)) continue;
+                            closestCoor = GetClosestPointOnEdge(entry.Key, node.Coor);
+                            if (closestCoor != null) nodeIdProjectedCoor.Add(node.Id, closestCoor);
+                        }
+                    }
+                }
+                if (_gmshData.FaceIdNodes != null)
+                {
+                    foreach (var entry in _gmshData.FaceIdNodes)
+                    {
+                        nodes = entry.Value.Where(node => !nodeIdProjectedCoor.ContainsKey(node.Id)).ToArray();
+                        if (nodes.Length == 0) continue;
+                        //
+                        concatenatedCoor = new double[3 * nodes.Length];
+                        for (int i = 0; i < nodes.Length; i++) Array.Copy(nodes[i].Coor, 0, concatenatedCoor, 3 * i, 3);
+                        Gmsh.Model.GetClosestPoint(2, entry.Key, concatenatedCoor, out closestCoor, out _);
+                        if (closestCoor.Length != concatenatedCoor.Length) continue;
+                        //
+                        for (int i = 0; i < nodes.Length; i++)
+                        {
+                            double[] coor = new double[3];
+                            Array.Copy(closestCoor, 3 * i, coor, 0, 3);
+                            nodeIdProjectedCoor.Add(nodes[i].Id, coor);
+                        }
+                    }
+                }
+                _gmshData.NodeIdProjectedCoor = nodeIdProjectedCoor;
+                _error = null;
+            }
+            catch (Exception ex)
+            {
+                _error = ex.Message;
+            }
+        }
         private void GetElementQualitiesBackground()
         {
             try
@@ -8044,6 +8104,17 @@ namespace CaeMesh
                     else if (Debugger.IsAttached) Debugger.Break();
                 }
                 _gmshData.FaceIdNodes = faceIdNodes;
+            }
+            // Projection
+            if (_gmshData.EdgeIdNodes != null)
+            {
+                int edgeId;
+                Dictionary<int, FeNode[]> edgeIdNodes = new Dictionary<int, FeNode[]>();
+                foreach (var entry in _gmshData.EdgeIdNodes)
+                {
+                    if (netgenEdgeIdGmshEdgeId.TryGetValue(entry.Key, out edgeId)) edgeIdNodes[edgeId] = entry.Value;
+                }
+                _gmshData.EdgeIdNodes = edgeIdNodes;
             }
             // Transfinite faces. A structured face of a shell that gmsh does not have as the part shows it - its
             // surface, one of its edges or one of its vertices not found - is meshed free, and says so

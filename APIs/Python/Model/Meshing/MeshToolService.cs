@@ -98,7 +98,7 @@ namespace APIs.Python.Model
             EnsureCommandsAvailable();
             _meshGateway.ThickenShellMesh(names, thicknessValue, layers, offsetValue, keepModelEdges);
         }
-        public void ChangeElementOrder(object partNames, bool secondOrder)
+        public void ChangeElementOrder(object partNames, bool secondOrder, bool projectToGeometry)
         {
             string[] names = PythonStringListConverter.ToStringArrayOrSingle(partNames, "part_names");
             if (names == null || names.Length == 0)
@@ -115,7 +115,7 @@ namespace APIs.Python.Model
             }
             //
             EnsureCommandsAvailable();
-            _meshGateway.ChangeElementOrder(names, secondOrder);
+            _meshGateway.ChangeElementOrder(names, secondOrder, projectToGeometry);
         }
         public void SplitPartMeshUsingSurface(object basePartRegion, object splitterSurfaceRegion,
                                               object offset, object maxSize, object minSize, object hausdorff,

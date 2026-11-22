@@ -791,6 +791,8 @@ F 2098.28 #2149[] RingFaces
 F 2098.29 #2150[] TubeFaces
 F 2098.30 #2151[] CapFaces
 F 2098.31 #2152[] LensFaces
+F 2098.32 System.Collections.Generic.Dictionary`2<System.Int32,#2132[]> EdgeIdNodes
+F 2098.33 System.Collections.Generic.Dictionary`2<System.Int32,System.Double[]> NodeIdProjectedCoor
 T 2099 class CaeMesh.GmshEdge
 F 2099.0 System.Int32 Id
 F 2099.1 System.Int32[] VertexIds
@@ -4776,6 +4778,7 @@ F 10547.0 #3287 _edgeLoad
 T 10548 class PrePoMax.Commands.CChangeElementOrder
 F 10548.0 System.String[] _partNames
 F 10548.1 System.Boolean _secondOrder
+F 10548.2 System.Boolean _projectToGeometry
 R T 3039 class FileInOut.Input.NetgenVolFileReader
 R T 3042 class FileInOut.Input.UnvFileReader
 R T 3043 class FileInOut.Output.AbaqusFileWriter

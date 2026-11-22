@@ -164,9 +164,9 @@ namespace PrePoMax.Python
         {
             _controller.ThickenShellMeshCommand(partNames, thickness, numberOfLayers, offset, keepModelEdges);
         }
-        public void ChangeElementOrder(string[] partNames, bool secondOrder)
+        public void ChangeElementOrder(string[] partNames, bool secondOrder, bool projectToGeometry)
         {
-            _controller.ChangeElementOrderCommand(partNames, secondOrder);
+            _controller.ChangeElementOrderCommand(partNames, secondOrder, projectToGeometry);
         }
         public void SplitPartMeshUsingSurface(SplitPartMeshData splitPartMeshData)
         {

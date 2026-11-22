@@ -27,34 +27,40 @@ namespace PrePoMax.Commands
         // Variables                                                                                                                
         [PmxKey(0)] private string[] _partNames;
         [PmxKey(1)] private bool _secondOrder;
+        [PmxKey(2)] private bool _projectToGeometry;
 
 
         // Constructor                                                                                                              
-        public CChangeElementOrder(string[] partNames, bool secondOrder)
+        public CChangeElementOrder(string[] partNames, bool secondOrder, bool projectToGeometry)
             : base("Change element order")
         {
             _partNames = partNames;
             _secondOrder = secondOrder;
+            _projectToGeometry = projectToGeometry;
         }
 
 
         // Methods                                                                                                                  
         public override bool Execute(Controller receiver)
         {
-            receiver.ChangeElementOrder(_partNames, _secondOrder);
+            receiver.ChangeElementOrder(_partNames, _secondOrder, _projectToGeometry);
             return true;
         }
 
         public override void ToPython(PythonJournalWriter writer)
         {
-            writer.Statement(writer.Call("pmx.model.mesh", "change_element_order", PythonValueFormatter.List(_partNames),
-                                         "second_order=" + PythonValueFormatter.Format(_secondOrder)));
+            List<string> arguments = new List<string>() { PythonValueFormatter.List(_partNames),
+                                                          "second_order=" + PythonValueFormatter.Format(_secondOrder) };
+            if (_secondOrder)
+                arguments.Add("project_to_geometry=" + PythonValueFormatter.Format(_projectToGeometry));
+            writer.Statement(writer.Call("pmx.model.mesh", "change_element_order", arguments.ToArray()));
             writer.CountEmittedCommand();
         }
         public override string GetCommandString()
         {
             return base.GetCommandString() + "Parts: " + string.Join(", ", _partNames) +
-                " Element order: " + (_secondOrder ? "Parabolic" : "Linear");
+                " Element order: " + (_secondOrder ? "Parabolic" : "Linear") +
+                (_secondOrder ? " Project to geometry: " + (_projectToGeometry ? "Yes" : "No") : "");
         }
     }
 }

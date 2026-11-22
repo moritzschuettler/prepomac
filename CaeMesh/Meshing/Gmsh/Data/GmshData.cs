@@ -54,7 +54,7 @@ namespace CaeMesh
         [PmxKey(16)] public string QuadWildDirectory;
         [PmxKey(17)] public string NetgenMesherFileName;
         [PmxKey(18)] public string NetgenMeshParametersFileName;
-        // Normals
+        // Normals and projection: the nodes on each face
         [PmxKey(19)] public Dictionary<int, FeNode[]> FaceIdNodes;
         [PmxKey(20)] public Dictionary<int, List<Vec3D>> NodeIdNormals;
         // Element quality
@@ -78,6 +78,9 @@ namespace CaeMesh
         [PmxKey(30)] public CapFace[] CapFaces;
         // Lens mapping: the faces LensFaceDetector found on the shells, by the same ids
         [PmxKey(31)] public LensFace[] LensFaces;
+        // Projection: the nodes on each edge, projected before the nodes on the faces, and the projected coordinates
+        [PmxKey(32)] public Dictionary<int, FeNode[]> EdgeIdNodes;
+        [PmxKey(33)] public Dictionary<int, double[]> NodeIdProjectedCoor;
 
 
         // Constructors                                                                                                             

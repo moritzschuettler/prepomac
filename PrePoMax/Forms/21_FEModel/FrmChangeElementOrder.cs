@@ -59,6 +59,12 @@ namespace PrePoMax.Forms
             //
             base.OnVisibleChanged(e);
         }
+        protected override void OnPropertyGridPropertyValueChanged()
+        {
+            propertyGrid.Refresh();
+            //
+            base.OnPropertyGridPropertyValueChanged();
+        }
         protected override void OnApply(bool onOkAddNew)
         {
             if (_viewChangeElementOrder.CreationIds == null || _viewChangeElementOrder.CreationIds.Length == 0)
@@ -68,7 +74,8 @@ namespace PrePoMax.Forms
             string error = _controller.GetChangeElementOrderError(partNames);
             if (error != null) throw new CaeException(error);
             //
-            _controller.ChangeElementOrderCommand(partNames, _viewChangeElementOrder.SecondOrder);
+            _controller.ChangeElementOrderCommand(partNames, _viewChangeElementOrder.SecondOrder,
+                                                 _viewChangeElementOrder.ProjectToGeometry);
             //
             _controller.ClearSelectionHistoryAndCallSelectionChanged();
             // If all is successful close the ItemSetSelectionForm - except for OKAddNew

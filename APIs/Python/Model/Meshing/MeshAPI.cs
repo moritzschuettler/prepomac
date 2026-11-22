@@ -89,12 +89,17 @@ namespace APIs.Python.Model
                    "elements become linear and the midside nodes no element uses any more are removed. Element " +
                    "ids, part names, element sets and surfaces are kept, and the CalculiX element type of each " +
                    "part follows the order, so C3D8R becomes C3D20R and back. Every named part is a mesh part " +
-                   "of beam, triangle, quadrilateral, tetrahedron, pyramid, wedge or hexahedron elements.",
-                   Arguments = "part_names: list[str] or str, second_order: bool = True", Returns = "None")]
-        public void change_element_order(object part_names, object second_order = null)
+                   "of beam, triangle, quadrilateral, tetrahedron, pyramid, wedge or hexahedron elements. With " +
+                   "project_to_geometry=True the new midside nodes on the model edges and faces of a part meshed " +
+                   "from CAD geometry are moved onto that geometry, unless one would move farther than half of the " +
+                   "length of its edge; a part without CAD geometry keeps its midside nodes on the straight edges.",
+                   Arguments = "part_names: list[str] or str, second_order: bool = True, " +
+                               "project_to_geometry: bool = True", Returns = "None")]
+        public void change_element_order(object part_names, object second_order = null, object project_to_geometry = null)
         {
             bool secondOrder = PythonValueConverter.ToBoolOrDefault(second_order, true, "second_order");
-            _toolService.ChangeElementOrder(part_names, secondOrder);
+            bool projectToGeometry = PythonValueConverter.ToBoolOrDefault(project_to_geometry, true, "project_to_geometry");
+            _toolService.ChangeElementOrder(part_names, secondOrder, projectToGeometry);
         }
 
         [PythonAPI("Splits a part mesh with a surface using command history. This is a one time operation " +
