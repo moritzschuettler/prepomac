@@ -1076,6 +1076,9 @@ namespace PrePoMax
             {
                 _jobs = od;
                 ResetUnfinishedJobStatuses();
+                // A .pmx of another machine keeps the work directories of that machine: the results of an analysis are
+                // then looked for beside the model file, where the user copied them along
+                foreach (var entry in _jobs) entry.Value.ModelFileName = fileName;
             }
             // Settings
             ApplySettings(); // work folder and executable

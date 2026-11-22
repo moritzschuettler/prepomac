@@ -88,6 +88,8 @@ namespace CaeJob
         [NonSerialized] private object _tag;
         [NonSerialized] private bool _useBackgroundWorker;
         [NonSerialized] private double _prevWatchMilliseconds;
+        // The file the model was opened from; a work directory stored on another machine cannot be found here
+        [NonSerialized] private string _modelFileName;
         [NonSerialized] private CalculixEnergyOutputParser _energyOutputParser;
 
 
@@ -131,13 +133,44 @@ namespace CaeJob
         {
             get
             {
-                if (_femSolver == FEMSolverEnum.Calculix) return Path.Combine(WorkDirectory, _name + ".frd");
-                else if (_femSolver == FEMSolverEnum.Abaqus) return Path.Combine(WorkDirectory, _name + ".odb");
-                else if (_femSolver == FEMSolverEnum.FEMaster) return Path.Combine(WorkDirectory, _name + ".frd");
+                string resultsFileName = Path.Combine(WorkDirectory, _name + ResultsFileExtension);
+                if (File.Exists(resultsFileName)) return resultsFileName;
+                // The work directory was written on another machine, where a Windows path points nowhere here. The
+                // results the user copied along with the model are looked for beside it: first in a folder named as
+                // the analysis, which is how the work directory of a run is laid out, and then beside the model
+                if (_modelFileName == null) return resultsFileName;
+                //
+                string directory = Path.GetDirectoryName(_modelFileName);
+                if (directory == null) return resultsFileName;
+                //
+                string fileName = _name + ResultsFileExtension;
+                string candidate = Path.Combine(Path.Combine(directory, _name), fileName);
+                if (File.Exists(candidate)) return candidate;
+                //
+                candidate = Path.Combine(directory, fileName);
+                if (File.Exists(candidate)) return candidate;
+                //
+                return resultsFileName;
+            }
+        }
+        private string ResultsFileExtension
+        {
+            get
+            {
+                if (_femSolver == FEMSolverEnum.Calculix) return ".frd";
+                else if (_femSolver == FEMSolverEnum.Abaqus) return ".odb";
+                else if (_femSolver == FEMSolverEnum.FEMaster) return ".frd";
                 // The command file of Code_Aster writes its results as a CalculiX results file
-                else if (_femSolver == FEMSolverEnum.CodeAster) return Path.Combine(WorkDirectory, _name + ".frd");
+                else if (_femSolver == FEMSolverEnum.CodeAster) return ".frd";
                 else throw new NotSupportedException();
             }
+        }
+        // The model file the analysis was read with, set by the application when a file is opened. A .pmx written on
+        // another machine keeps the work directories of that machine, so the results beside the model are used then
+        public string ModelFileName
+        {
+            get { return _modelFileName; }
+            set { _modelFileName = value; }
         }
         public bool IsUpToDate
         {
