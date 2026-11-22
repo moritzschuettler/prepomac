@@ -96,6 +96,9 @@ namespace CaeJob
         [NonSerialized] private int _runTimeoutMilliseconds;
         [NonSerialized] private Stopwatch _runTimeoutWatch;
         [NonSerialized] private string _endedMessage;
+        // The threads the equation solver of the run may use; the application sets it before every run, since it
+        // depends on the solver the steps of the model name
+        [NonSerialized] private int _equationSolverThreads;
         private bool _numCPUsOverridden;
         private bool _environmentVariablesOverridden;
 
@@ -200,6 +203,16 @@ namespace CaeJob
             get { return _environmentVariables; }
             set { _environmentVariables = value; }
         }
+        /// <summary>
+        /// The threads the equation solver of the CalculiX run may use. The application sets it before a run from
+        /// the solver the steps of the model name: on macOS and Linux SPOOLES returns wrong results with more than
+        /// one thread, while PaStiX and PARDISO take all of them.
+        /// </summary>
+        public int EquationSolverThreads
+        {
+            get { return _equationSolverThreads; }
+            set { _equationSolverThreads = Math.Max(1, value); }
+        }
         public string DatFileData { get { return _datFileContents; } }
         public string StatusFileData { get { return _statusFileContents; } }
         public string ConvergenceFileData { get { return _convergenceFileContents; } }
@@ -257,6 +270,7 @@ namespace CaeJob
             _workDirectory = workDirectory;
             _compatibilityMode = false;
             _numCPUs = 1;
+            _equationSolverThreads = 1;
             _environmentVariables = new List<EnvironmentVariable>();
             _endTime = DateTime.MinValue;
             //
@@ -277,6 +291,8 @@ namespace CaeJob
             _executableOverridden = false;
             _workDirectoryOverridden = false;
             _femSolver = FEMSolverEnum.Calculix;
+            // Not serialized: a run that is not started by the application keeps the single thread of SPOOLES
+            _equationSolverThreads = 1;
             //
             foreach (SerializationEntry entry in info)
             {
@@ -1121,10 +1137,13 @@ namespace CaeJob
         {
             EnvironmentVariable numberOfProcessors = new EnvironmentVariable("OMP_NUM_THREADS", _numCPUs.ToString());
             SetEnvironmentVariable(psi, numberOfProcessors);
-            // The multithreaded SPOOLES solver of the CalculiX builds for macOS and Linux returns wrong results;
-            // an environment variable of the job can still set it
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
-                SetEnvironmentVariable(psi, new EnvironmentVariable("CCX_NPROC_EQUATION_SOLVER", "1"));
+            // The multithreaded SPOOLES solver of the CalculiX builds for macOS and Linux returns wrong results, so a
+            // run that is solved with SPOOLES is held to a single thread for the equation solver. PaStiX and PARDISO
+            // solve correctly with more of them, and such a run gets all the threads it has; the application decides
+            // that from the steps of the model and passes the number in. A variable of the job can still set it
+            if (_femSolver == FEMSolverEnum.Calculix && Environment.OSVersion.Platform != PlatformID.Win32NT)
+                SetEnvironmentVariable(psi, new EnvironmentVariable("CCX_NPROC_EQUATION_SOLVER",
+                                                                    _equationSolverThreads.ToString()));
         }
         // The console output of the solver is read from a pipe, and the Fortran runtime of the CalculiX builds
         // for macOS and Linux buffers a pipe in blocks: the run would show nothing until the block is full or

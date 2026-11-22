@@ -281,6 +281,13 @@ PrePoMax falls back to SPOOLES by itself when the chosen `ccx` does not carry th
 "Default matrix solver" does not break a run — the analysis then solves with SPOOLES again, which is the behaviour a
 Mac without PARDISO needs anyway.
 
+The number in **Number of processors** reaches both the solver and its equation solver: a run that solves with PaStiX
+or PARDISO factorizes the matrix on all those threads. A run that is left in SPOOLES — a step that names no solver, or
+one whose solver the `ccx` does not carry — keeps a single thread for the equation solver, because the multithreaded
+SPOOLES of the macOS and Linux builds returns wrong results. In a run of several steps one SPOOLES step is enough to
+hold the whole run to one thread, because the solver reads the number once when it starts. An environment variable of
+the analysis of the same name overrides the number that PrePoMax passes on.
+
 ## Code_Aster as a second solver
 
 [Code_Aster](https://code-aster.org) 18.1 can solve the same models in Docker. It keeps composite shells as true
