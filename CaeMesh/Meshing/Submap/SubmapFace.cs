@@ -34,7 +34,9 @@ namespace CaeMesh
     /// A hole may be round, a circle of one closed edge or of edges of equal length: its directions are not used, and
     /// in the lattice it is a square of a quarter of its elements on each side, its logical loop -j, -i, +j, +i from
     /// the corner SubmapHolePlacement finds once the counts are known. Its elements must be a multiple of four and
-    /// evenly spread, so all its edges carry as many.
+    /// evenly spread, so all its edges carry as many. A circle whose edges are of unequal length, as a sweep splits it
+    /// at the vertices of the other end, spreads them evenly by giving every edge its own share, and only the number
+    /// around it is a multiple of four.
     /// </summary>
     [PmxType(2148)]
     public class SubmapFace
@@ -48,7 +50,13 @@ namespace CaeMesh
         [PmxKey(5)] private int[] _edgeTurns;
         [PmxKey(6)] private SubmapFace[] _holes;
         [PmxKey(7)] private bool _isRound;
+        [PmxKey(8)] private bool _hasUnequalRoundEdges;
         private const double SeparationTolerance = 1E-3;
+        /// <summary>
+        /// The fewest elements around a round hole: a square of four elements on each side in the lattice, so that the
+        /// grid does not crowd into a hole of a few elements.
+        /// </summary>
+        public const int MinNumberOfElementsRound = 16;
         /// <summary>
         /// How much longer than the distance of a close hole corner along it an element at an end of the outer loop may
         /// be: the corner of the cell at the hole corner then keeps a scaled Jacobian of about 0.3.
@@ -95,6 +103,10 @@ namespace CaeMesh
         /// Whether the loop is a round hole, whose logical loop SubmapHolePlacement starts.
         /// </summary>
         public bool IsRound { get { return _isRound; } }
+        /// <summary>
+        /// Whether the loop is a round hole whose edges are of unequal length, each carrying its own number of elements.
+        /// </summary>
+        public bool HasUnequalRoundEdges { get { return _hasUnequalRoundEdges; } }
         /// <summary>
         /// The ids of the edges that turn in their middle, in loop order.
         /// </summary>
@@ -247,6 +259,11 @@ namespace CaeMesh
         }
         public SubmapFace(int faceId, int[] vertexNodeIds, int[] edgeIds, int[] edgeDirections, double[] vertexAnglesDeg,
                           int[] edgeTurns, SubmapFace[] holes, bool isRound)
+            : this(faceId, vertexNodeIds, edgeIds, edgeDirections, vertexAnglesDeg, edgeTurns, holes, isRound, false)
+        {
+        }
+        public SubmapFace(int faceId, int[] vertexNodeIds, int[] edgeIds, int[] edgeDirections, double[] vertexAnglesDeg,
+                          int[] edgeTurns, SubmapFace[] holes, bool isRound, bool hasUnequalRoundEdges)
         {
             _faceId = faceId;
             _vertexNodeIds = vertexNodeIds;
@@ -256,6 +273,7 @@ namespace CaeMesh
             _edgeTurns = edgeTurns;
             _holes = holes != null && holes.Length > 0 ? holes : null;
             _isRound = isRound;
+            _hasUnequalRoundEdges = isRound && hasUnequalRoundEdges;
         }
 
 
@@ -277,13 +295,15 @@ namespace CaeMesh
         }
         /// <summary>
         /// The number the elements of edge k must be a multiple of: 2 for an edge that turns once, 4 for one that turns
-        /// twice, and for an edge of a round hole of m edges 4 over the greatest common divisor of 4 and m, so that
-        /// the equal counts of its edges add up to a multiple of four; otherwise 1.
+        /// twice, and for an edge of a round hole of m edges of equal length 4 over the greatest common divisor of 4 and
+        /// m, so that the equal counts of its edges add up to a multiple of four; otherwise 1, the number around a hole
+        /// of unequal edges being made a multiple of four by its own row.
         /// </summary>
         public int GetEdgeMultiple(int k)
         {
             if (_isRound)
             {
+                if (_hasUnequalRoundEdges) return 1;
                 int m = _edgeIds.Length;
                 return m % 4 == 0 ? 1 : m % 2 == 0 ? 2 : 4;
             }
@@ -321,12 +341,14 @@ namespace CaeMesh
         /// in its side as many times as its share of the denominator of the loop (GetDenominator): without turn edges
         /// once, with single turns every edge that does not turn twice and every half once, and with a double turn
         /// every whole edge four times, a half twice and a quarter once. A round hole, which closes whatever its count,
-        /// gives instead a pair for every two edges that follow each other, which carry as many elements.
+        /// gives instead a pair for every two edges that follow each other, which carry as many elements, and none when
+        /// its edges are of unequal length.
         /// </summary>
         public TransfiniteSidePair[] GetSidePairs()
         {
             if (_isRound)
             {
+                if (_hasUnequalRoundEdges) return new TransfiniteSidePair[0];
                 TransfiniteSidePair[] roundPairs = new TransfiniteSidePair[_edgeIds.Length - 1];
                 for (int k = 0; k < roundPairs.Length; k++)
                     roundPairs[k] = new TransfiniteSidePair(_faceId, new int[] { _edgeIds[k] }, new int[] { _edgeIds[k + 1] });
@@ -509,7 +531,8 @@ namespace CaeMesh
         /// <summary>
         /// Why the counts cannot be split into the logical edges of all loops, naming the first edge that cannot: a turn
         /// edge with an odd number of elements, an edge that turns twice with a number that is not a multiple of four,
-        /// a round hole whose edges carry unequal numbers or a number around it that is not a multiple of four. Null when
+        /// a round hole of edges of equal length whose edges carry unequal numbers, or a round hole with a number around
+        /// it that is not a multiple of four. Null when
         /// all can be split.
         /// </summary>
         public string GetIndivisibleCountReason(Dictionary<int, int> edgeIdCount)
@@ -523,7 +546,7 @@ namespace CaeMesh
                     for (int k = 0; k < loop._edgeIds.Length; k++)
                     {
                         int count = edgeIdCount[loop._edgeIds[k]];
-                        if (count != first)
+                        if (count != first && !loop._hasUnequalRoundEdges)
                             return "Edge " + loop._edgeIds[0] + " and Edge " + loop._edgeIds[k] + " of a round hole carry " +
                                    first + " and " + count + " elements, which must be equal";
                         total += count;

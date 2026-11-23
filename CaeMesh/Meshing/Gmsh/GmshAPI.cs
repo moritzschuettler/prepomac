@@ -87,6 +87,9 @@ namespace CaeMesh
         private Dictionary<int, LensFace> _submapLensSourceFaces = new Dictionary<int, LensFace>();
         private HashSet<int> _thinLensSourceFaceIds = new HashSet<int>();
         private bool _submapLensSourcesChosen;
+        // The submapped sources whose round holes are raised to SubmapFace.MinNumberOfElementsRound elements at least,
+        // chosen with the lens sources (AreRoundHolesRaised)
+        private HashSet<int> _raisedRoundHoleSourceIds = new HashSet<int>();
         // How the three-sided faces are structured, and the corner a polar grid collapses on each of them
         private TransfiniteThreeSidedEnum _transfiniteThreeSided;
         private Dictionary<int, int> _surfaceIdPolarCornerIndex = new Dictionary<int, int>();
@@ -5109,8 +5112,9 @@ namespace CaeMesh
                 SubmapFace[] loops = face.Loops;
                 for (int l = 0; l < loops.Length; l++)
                 {
-                    // Every hole closes on its own, as the outer loop does; a round hole has its edges equal and a
-                    // multiple of four around it
+                    // Every hole closes on its own, as the outer loop does; a round hole has its edges equal unless they
+                    // are of unequal length and a multiple of four around it, and when it is raised no fewer than its
+                    // least number
                     string loopName = _submapRowPrefix + face.FaceId + (l == 0 ? "" : " hole of Edge " + loops[l].EdgeIds[0]);
                     TransfiniteSidePair[] pairs = loops[l].GetSidePairs();
                     if (loops[l].IsRound)
@@ -5119,6 +5123,9 @@ namespace CaeMesh
                             problem.AddEqualSums(loopName + " Edge " + pair.SideA[0] + " as Edge " + pair.SideB[0],
                                                  IntervalRowTierEnum.Structured, pair.SideA, pair.SideB, face.FaceId);
                         problem.AddEvenSum(loopName + " around", IntervalRowTierEnum.Structured, loops[l].EdgeIds, 4);
+                        if (_raisedRoundHoleSourceIds.Contains(face.FaceId))
+                            problem.AddAtLeastSum(loopName + " least around", IntervalRowTierEnum.Structured,
+                                                  loops[l].EdgeIds, SubmapFace.MinNumberOfElementsRound, face.FaceId);
                         continue;
                     }
                     problem.AddEqualSums(loopName + " along i", IntervalRowTierEnum.Structured, pairs[0].SideA,
@@ -6046,6 +6053,7 @@ namespace CaeMesh
             _submapLensSourceFaces.Clear();
             _thinLensSourceFaceIds.Clear();
             _submapLensSourcesChosen = false;
+            _raisedRoundHoleSourceIds.Clear();
             Dictionary<int, TransfiniteFace> faces = new Dictionary<int, TransfiniteFace>();
             if (_gmshData.TransfiniteFaces != null)
             {
@@ -6132,6 +6140,7 @@ namespace CaeMesh
         {
             if (_submapLensSourcesChosen) return;
             _submapLensSourcesChosen = true;
+            ChooseRaisedRoundHoleSweepSources();
             if (_lensSourceFaces.Count == 0 && _submapLensSourceFaces.Count == 0) return;
             //
             Dictionary<int, int> naturalCounts = new Dictionary<int, int>();
@@ -6164,6 +6173,39 @@ namespace CaeMesh
                 _submapLensSourceFaces.Remove(surfaceId);
                 _submapSourceFaces.Remove(surfaceId);
                 _lensSourceFaces[surfaceId] = lensFace;
+            }
+            MeshTrialEdges(trialEdgeIds.ToDictionary(edgeId => edgeId, edgeId => naturalCounts[edgeId]),
+                           new HashSet<int>());
+        }
+        /// <summary>
+        /// Settles, once the edges carry their first 1D mesh, the submapped sources whose round holes are raised
+        /// (AreRoundHolesRaised), by the trial of the face on its own edges, which are meshed again with the counts they
+        /// had afterwards.
+        /// </summary>
+        private void ChooseRaisedRoundHoleSweepSources()
+        {
+            SubmapFace[] faces = _submapSourceFaces.Values.Where(face => face.HasHoles &&
+                                                                         face.Holes.Any(hole => hole.IsRound))
+                                                          .OrderBy(face => face.FaceId).ToArray();
+            if (faces.Length == 0) return;
+            //
+            Dictionary<int, int> naturalCounts = new Dictionary<int, int>();
+            foreach (var edgeId in faces.SelectMany(face => face.AllEdgeIds).Distinct())
+                naturalCounts[edgeId] = SweepWallTopology.GetElementCount(edgeId);
+            HashSet<int> pinnedEdgeIds = new HashSet<int>(naturalCounts.Keys.Where(edgeId => IsFixedEdgeCount(edgeId)));
+            Dictionary<int, int> maxSizeCounts = GetMaxSizeCounts(naturalCounts);
+            Func<int, double> getEdgeLength = edgeId =>
+            {
+                double length;
+                Gmsh.Model.OCC.GetMass(1, edgeId, out length);
+                return length;
+            };
+            HashSet<int> trialEdgeIds = new HashSet<int>();
+            foreach (var face in faces)
+            {
+                if (AreRoundHolesRaised(face, naturalCounts, pinnedEdgeIds, maxSizeCounts,
+                                        _fullQuadSourceIds.Contains(face.FaceId), getEdgeLength, trialEdgeIds))
+                    _raisedRoundHoleSourceIds.Add(face.FaceId);
             }
             MeshTrialEdges(trialEdgeIds.ToDictionary(edgeId => edgeId, edgeId => naturalCounts[edgeId]),
                            new HashSet<int>());
@@ -6626,6 +6668,11 @@ namespace CaeMesh
                 lenses.Add(lensFace);
                 if (thinFallbackFaceIds.Contains(face.FaceId)) thinLensFaceIds.Add(face.FaceId);
             }
+            // A face whose round holes carry too few elements for its grid, laid on the face alone, gets more around them
+            HashSet<int> raisedRoundHoleFaceIds = new HashSet<int>(
+                submapped.Where(face => AreRoundHolesRaised(face, naturalCounts, pinnedEdgeIds, maxSizeCounts, fullQuad,
+                                                            getEdgeLength, trialEdgeIds))
+                         .Select(face => face.FaceId));
             bool refusedSubmapLensFacesRebalanced = false;
             // A hole needs room in the lattice for itself and a cell on each side, which its place then keeps; the full
             // counts are what SubmapMapping lays the grid on, under a full-quad recombination as well
@@ -6798,7 +6845,10 @@ namespace CaeMesh
                                                                         .Select(face => face.SideEdgeIds).ToList(),
                                                                   lenses.Where(face => face.NumberOfSides != 2)
                                                                         .Select(face => face.AllEdgeIds).ToList(),
-                                                                  LensFace.MinNumberOfElementsInLoop, mirrorRows);
+                                                                  LensFace.MinNumberOfElementsInLoop, mirrorRows,
+                                                                  GetRoundHoleEdgeIds(submapped),
+                                                                  GetRoundHoleEdgeIds(submapped.Where(face =>
+                                                                      raisedRoundHoleFaceIds.Contains(face.FaceId))));
                 //
                 Dictionary<SubmapFace, string> dropped = new Dictionary<SubmapFace, string>();
                 SubmapFace unbalancedFace;
@@ -7235,14 +7285,17 @@ namespace CaeMesh
             return GmshSubmapMesher.Evaluate(face, out minScaledJacobian, out reason);
         }
         /// <summary>
-        /// The counts the edges of the submapped face are balanced to alone, or null when its rows cannot be kept.
+        /// The counts the edges of the submapped face are balanced to alone, or null when its rows cannot be kept. A face
+        /// with holes is balanced only with withHoles, its holes keeping their room and its round holes a multiple of
+        /// four around them, and with raiseRoundHoles SubmapFace.MinNumberOfElementsRound at least.
         /// </summary>
         private Dictionary<int, int> GetSubmapTrialCounts(SubmapFace face, Dictionary<int, int> naturalCounts,
                                                           HashSet<int> pinnedEdgeIds,
                                                           Dictionary<int, int> maxSizeCounts, bool fullQuad,
-                                                          Func<int, double> getEdgeLength)
+                                                          Func<int, double> getEdgeLength, bool withHoles = false,
+                                                          bool raiseRoundHoles = false)
         {
-            if (face.HasHoles) return null;
+            if (face.HasHoles && !withHoles) return null;
             Dictionary<int, int> edgeIdCount = GetTrialStartCounts(face.AllEdgeIds, naturalCounts, pinnedEdgeIds);
             Dictionary<int, int> edgeIdMultiples = new Dictionary<int, int>();
             if (fullQuad)
@@ -7257,6 +7310,10 @@ namespace CaeMesh
             }
             List<SubmapSeparation> separations = face.GetSeparations(face.EdgeIds.Select(getEdgeLength).ToArray(),
                                                                      fullQuad ? 2 : 1);
+            double[][][] loopVertexPoints = face.HasHoles ? GetLoopVertexPoints(face) : null;
+            if (face.HasHoles) separations.AddRange(face.GetRoomRows(loopVertexPoints, 1, GetMaxElementSize()));
+            List<int[]> roundHoles = face.HasHoles ? face.Holes.Where(hole => hole.IsRound)
+                                                               .Select(hole => hole.EdgeIds).ToList() : null;
             List<TransfiniteSidePair> unbalanced;
             List<TransfiniteSideTriple> unbalancedTriples;
             List<SubmapSeparation> unbalancedSeparations;
@@ -7267,7 +7324,8 @@ namespace CaeMesh
                                                                   new List<TransfiniteSideTriple>(), separations,
                                                                   out unbalancedTriples, out unbalancedSeparations,
                                                                   null, GetSizedTrialCounts(edgeIdCount), maxSizeCounts,
-                                                                  edgeIdMultiples);
+                                                                  edgeIdMultiples, roundHoles: roundHoles,
+                                                                  raisedRoundHoles: raiseRoundHoles ? roundHoles : null);
             }
             catch (CaeException)
             {
@@ -7276,8 +7334,36 @@ namespace CaeMesh
             string reason;
             if (unbalanced.Count > 0 || unbalancedSeparations.Count > 0 ||
                 face.GetIndivisibleCountReason(edgeIdCount) != null || !face.AreCountsValid(edgeIdCount, out reason) ||
-                (fullQuad && edgeIdCount.Values.Any(count => count % 2 != 0))) return null;
+                (fullQuad && edgeIdCount.Values.Any(count => count % 2 != 0)) ||
+                (face.HasHoles && !SubmapHolePlacement.TryPlace(face, edgeIdCount, loopVertexPoints, 1, out reason)))
+                return null;
             return edgeIdCount;
+        }
+        private static List<int[]> GetRoundHoleEdgeIds(IEnumerable<SubmapFace> faces)
+        {
+            return faces.Where(face => face.HasHoles).SelectMany(face => face.Holes).Where(hole => hole.IsRound)
+                        .Select(hole => hole.EdgeIds).ToList();
+        }
+        /// <summary>
+        /// Whether the round holes of the submapped face are raised to SubmapFace.MinNumberOfElementsRound elements at
+        /// least: when the grid of the face alone is refused on the counts it asks for and kept on the raised ones. The
+        /// edges are meshed again for each trial, and gathered in trialEdgeIds.
+        /// </summary>
+        private bool AreRoundHolesRaised(SubmapFace face, Dictionary<int, int> naturalCounts, HashSet<int> pinnedEdgeIds,
+                                         Dictionary<int, int> maxSizeCounts, bool fullQuad,
+                                         Func<int, double> getEdgeLength, HashSet<int> trialEdgeIds)
+        {
+            if (!face.HasHoles || !face.Holes.Any(hole => hole.IsRound)) return false;
+            Dictionary<int, int> counts = GetSubmapTrialCounts(face, naturalCounts, pinnedEdgeIds, maxSizeCounts, fullQuad,
+                                                               getEdgeLength, true);
+            if (counts != null && IsSubmapGridKept(face, counts, trialEdgeIds)) return false;
+            Dictionary<int, int> raisedCounts = GetSubmapTrialCounts(face, naturalCounts, pinnedEdgeIds, maxSizeCounts,
+                                                                     fullQuad, getEdgeLength, true, true);
+            if (raisedCounts == null || (counts != null && face.Holes.Where(hole => hole.IsRound)
+                                                                     .All(hole => hole.EdgeIds.Sum(id => raisedCounts[id]) ==
+                                                                                  hole.EdgeIds.Sum(id => counts[id]))))
+                return false;
+            return IsSubmapGridKept(face, raisedCounts, trialEdgeIds);
         }
         /// <summary>
         /// The counts the edges of the lens face are balanced to alone, or null when its rows cannot be kept.
@@ -8616,10 +8702,11 @@ namespace CaeMesh
                 mapped = netgenEdgeIdGmshEdgeId.TryGetValue(loop.EdgeIds[i], out edgeIds[i]);
             if (!mapped) return null;
             return new SubmapFace(surfaceId, vertexIds, edgeIds, loop.EdgeDirections, loop.VertexAnglesDeg, loop.EdgeTurns,
-                                  holes, loop.IsRound);
+                                  holes, loop.IsRound, loop.HasUnequalRoundEdges);
         }
         // A round hole whose edges a fragmentation split, of the pieces in the order the loop runs: every vertex of it
-        // lies on the circle, at a straight angle. Null when an edge is lost or the pieces do not close the loop
+        // lies on the circle, at a straight angle, and pieces of unequal length each carry their own number of
+        // elements. Null when an edge is lost or the pieces do not close the loop
         private static SubmapFace RenumberSplitRoundHole(SubmapFace hole, int surfaceId,
                                                          Dictionary<int, int> netgenEdgeIdGmshEdgeId,
                                                          Dictionary<int, List<int>> splitEdgeIdPieceIds)
@@ -8638,8 +8725,11 @@ namespace CaeMesh
             if (vertexIds == null) return null;
             //
             double[] anglesDeg = Enumerable.Repeat(180.0, vertexIds.Length).ToArray();
+            double[] lengths = new double[loopEdgeIds.Length];
+            for (int k = 0; k < lengths.Length; k++) Gmsh.Model.OCC.GetMass(1, loopEdgeIds[k], out lengths[k]);
+            bool unequal = lengths.Max() - lengths.Min() > SubmapFaceDetector.MaxRoundLengthDeviation * lengths.Max();
             return new SubmapFace(surfaceId, vertexIds, loopEdgeIds, new int[loopEdgeIds.Length], anglesDeg, null, null,
-                                  true);
+                                  true, unequal);
         }
         // A ring face whose surface, vertices or edges gmsh does not have is not on the meshed part
         private static RingFace[] RenumberRingFaces(RingFace[] ringFaces, Dictionary<int, int> netgenVertexIdGmshVertexId,

@@ -361,7 +361,7 @@ namespace CaeMesh
             for (int k = 0; k < edgeUv.Length; k++)
             {
                 int count = edgeUv[k].Length - 1;
-                if (count != firstCount)
+                if (count != firstCount && !loop.HasUnequalRoundEdges)
                 {
                     reason = "Edge " + loop.EdgeIds[0] + " and Edge " + loop.EdgeIds[k] + " of a round hole carry " +
                              firstCount + " and " + count + " elements, which must be equal";

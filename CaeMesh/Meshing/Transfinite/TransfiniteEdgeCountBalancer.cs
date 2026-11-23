@@ -78,6 +78,9 @@ namespace CaeMesh
         /// The mirror planes of the part ask for the rows of mirrorRows (MirrorCountRows), at the preferred tier, so
         /// a mirrored mesh never costs a structured face or a number the user set; the pieces of the edges that are
         /// split for the planes are counted like edges, each with the number it aims at, and get their numbers back.
+        /// Every one of roundHoles, the edges of a round hole of a submapped face, is asked for a multiple of four, and
+        /// every one of raisedRoundHoles, a round hole whose face makes a poor grid on fewer, for
+        /// SubmapFace.MinNumberOfElementsRound elements at least, both with the tier of the pairs.
         /// </summary>
         public static List<TransfiniteSidePair> Balance(Dictionary<int, int> edgeIdCount,
                                                         Dictionary<int, int> naturalCounts,
@@ -96,7 +99,8 @@ namespace CaeMesh
                                                         List<int[]> minSumSides = null, int minSideSum = 0,
                                                         List<int[][]> equalSumSides = null,
                                                         List<int[]> minSumLoops = null, int minLoopSum = 0,
-                                                        MirrorCountRows mirrorRows = null)
+                                                        MirrorCountRows mirrorRows = null, List<int[]> roundHoles = null,
+                                                        List<int[]> raisedRoundHoles = null)
         {
             if (separations == null) separations = new List<SubmapSeparation>();
             int count;
@@ -117,8 +121,8 @@ namespace CaeMesh
                 if (BalanceBySolve(balancedCounts, naturalCounts, pinnedEdgeIds, edgeIdLowestCount, sizedEdgeIdCounts,
                                    maxSizeCounts, pairs, triples, separations, edgeIdMultiples, evenSides, structuredEvenSides,
                                    minStructuredEvenSum, evenLoops, minSumSides, minSideSum, equalSumSides, minSumLoops,
-                                   minLoopSum, mirrorRows, out unbalanced, out unbalancedTriples,
-                                   out unbalancedSeparations) &&
+                                   minLoopSum, mirrorRows, roundHoles, raisedRoundHoles, out unbalanced,
+                                   out unbalancedTriples, out unbalancedSeparations) &&
                     unbalanced.Count == 0 && unbalancedTriples.Count == 0 && unbalancedSeparations.Count == 0)
                 {
                     foreach (var entry in balancedCounts) edgeIdCount[entry.Key] = entry.Value;
@@ -129,8 +133,8 @@ namespace CaeMesh
             if (!BalanceBySolve(edgeIdCount, naturalCounts, pinnedEdgeIds, new Dictionary<int, int>(), sizedEdgeIdCounts,
                                 maxSizeCounts, pairs, triples, separations, edgeIdMultiples, evenSides, structuredEvenSides,
                                 minStructuredEvenSum, evenLoops, minSumSides, minSideSum, equalSumSides, minSumLoops,
-                                minLoopSum, mirrorRows, out unbalanced, out unbalancedTriples,
-                                out unbalancedSeparations))
+                                minLoopSum, mirrorRows, roundHoles, raisedRoundHoles, out unbalanced,
+                                out unbalancedTriples, out unbalancedSeparations))
                 throw new CaeException("HiGHS found no element counts for the structured faces.");
             return unbalanced;
         }
@@ -146,7 +150,8 @@ namespace CaeMesh
                                            List<int[]> evenSides, List<int[]> structuredEvenSides,
                                            int minStructuredEvenSum, List<int[]> evenLoops, List<int[]> minSumSides,
                                            int minSideSum, List<int[][]> equalSumSides, List<int[]> minSumLoops,
-                                           int minLoopSum, MirrorCountRows mirrorRows,
+                                           int minLoopSum, MirrorCountRows mirrorRows, List<int[]> roundHoles,
+                                           List<int[]> raisedRoundHoles,
                                            out List<TransfiniteSidePair> unbalanced,
                                            out List<TransfiniteSideTriple> unbalancedTriples,
                                            out List<SubmapSeparation> unbalancedSeparations)
@@ -229,6 +234,17 @@ namespace CaeMesh
             {
                 for (int i = 0; i < minSumLoops.Count; i++)
                     problem.AddAtLeastSum("Least loop " + i, IntervalRowTierEnum.Hard, minSumLoops[i], minLoopSum);
+            }
+            if (roundHoles != null)
+            {
+                for (int i = 0; i < roundHoles.Count; i++)
+                    problem.AddEvenSum("Round hole " + i, IntervalRowTierEnum.Hard, roundHoles[i], 4);
+            }
+            if (raisedRoundHoles != null)
+            {
+                for (int i = 0; i < raisedRoundHoles.Count; i++)
+                    problem.AddAtLeastSum("Least round hole " + i, IntervalRowTierEnum.Hard, raisedRoundHoles[i],
+                                          SubmapFace.MinNumberOfElementsRound);
             }
             if (mirrorRows != null)
             {

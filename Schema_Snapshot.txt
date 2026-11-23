@@ -1125,6 +1125,7 @@ F 2148.4 System.Double[] _vertexAnglesDeg
 F 2148.5 System.Int32[] _edgeTurns
 F 2148.6 #2148[] _holes
 F 2148.7 System.Boolean _isRound
+F 2148.8 System.Boolean _hasUnequalRoundEdges
 T 2149 class CaeMesh.RingFace
 F 2149.0 System.Int32 _faceId
 F 2149.1 System.Int32[] _outerVertexNodeIds

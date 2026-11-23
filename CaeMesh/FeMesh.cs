@@ -5068,7 +5068,7 @@ namespace CaeMesh
             for (int k = 0; k < edgeIds.Length; k++) edgeIds[k] = GmshTopologyId(loop.EdgeIds[k], partId);
             return new SubmapFace(faceId, loop.VertexNodeIds.ToArray(), edgeIds, loop.EdgeDirections.ToArray(),
                                   loop.VertexAnglesDeg.ToArray(), loop.EdgeTurns == null ? null : loop.EdgeTurns.ToArray(),
-                                  holes, loop.IsRound);
+                                  holes, loop.IsRound, loop.HasUnequalRoundEdges);
         }
         /// <summary>
         /// The ring faces with gmsh topology ids, other than the structured faces already found: of the shells, or, where
