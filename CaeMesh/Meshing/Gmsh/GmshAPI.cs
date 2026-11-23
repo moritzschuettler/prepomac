@@ -7142,9 +7142,13 @@ namespace CaeMesh
         /// <summary>
         /// Whether what the user set on the edges is mirrored across the plane: an edge and its image carry the same
         /// number of elements set on them, or none - a number set on an edge that is split unlike its image is not
-        /// mirrored -, the mesh size asks a piece of an edge and its image for the same number of elements, to within
-        /// one, and the edges that are not split are meshed with nodes at mirrored places
-        /// (GmshMirrorNodes.AreEdgeNodesMirrored), as they are meshed when this is asked.
+        /// mirrored -, the mesh size asks a piece of an edge and its image for the same number of elements, and the
+        /// edges that are not split are meshed with nodes at mirrored places (GmshMirrorNodes.AreEdgeNodesMirrored),
+        /// as they are meshed when this is asked. The numbers of a piece and its image are the same when they differ
+        /// by no more than one and a half elements or by no more than a quarter: gmsh meshes two edges that are mirror
+        /// images with numbers an eighth apart where they end at the pole of a sphere, and a short edge with more
+        /// elements than the piece of a long one that is its image, while a mesh size set on one side of the plane
+        /// only makes them differ by its ratio.
         /// </summary>
         private bool IsSetupMirrored(GmshMirrorPlane plane, Dictionary<int, int> naturalCounts,
                                      Dictionary<int, int> freeCounts, HashSet<int> pinnedEdgeIds)
@@ -7172,12 +7176,17 @@ namespace CaeMesh
                         (sized && Math.Abs(sizedCount - imageSizedCount) > 1)) return false;
                     double share = splits.GetLengthShare(pieceId);
                     double imageShare = splits.GetLengthShare(imageId);
-                    if (Math.Abs(share * entry.Value - imageShare * imageCount) > 1 ||
-                        Math.Abs(share * freeCounts[entry.Key] - imageShare * freeCounts[imageEdgeId]) > 1)
+                    if (!AreMirroredCounts(share * entry.Value, imageShare * imageCount) ||
+                        !AreMirroredCounts(share * freeCounts[entry.Key], imageShare * freeCounts[imageEdgeId]))
                         return false;
                 }
             }
             return GmshMirrorNodes.AreEdgeNodesMirrored(plane, naturalCounts.Keys);
+        }
+        private static bool AreMirroredCounts(double count, double imageCount)
+        {
+            double difference = Math.Abs(count - imageCount);
+            return difference <= 1.5 || difference <= 0.25 * Math.Max(count, imageCount);
         }
         /// <summary>
         /// What the mirror planes ask of the balance of the counts of the given edges: the pieces of the split edges

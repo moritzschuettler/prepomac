@@ -187,7 +187,7 @@ namespace CaeMesh
         /// eight. A round hole is a square of a quarter of its elements on each side in the lattice of the face, and
         /// where the plane runs along the lattice and through the hole, the corners of the square are mirrored when
         /// the plane meets the middle of its sides at nodes or at the middle of elements as it meets the circle: at a
-        /// vertex with an even quarter of the elements, a multiple of eight in all, and in the middle of a piece with
+        /// vertex or a split with an even quarter of the elements, a multiple of eight in all, and in the middle of a piece with
         /// the sum of its number and of a quarter of all even.
         /// </summary>
         public void AddRoundHoleCounts(SubmapFace face, ICollection<int> edgeIds, MirrorCountRows rows)
@@ -222,7 +222,8 @@ namespace CaeMesh
                 {
                     Gmsh.Model.GetAdjacencies(1, edgeId, out _, out vertexIds);
                     atNode |= vertexIds.Any(vertexId => _vertexIdImageId.TryGetValue(vertexId, out imageId) &&
-                                                        imageId == vertexId);
+                                                        imageId == vertexId) ||
+                              GetSplitPointsInPlane(edgeId).Any();
                 }
                 List<int> side = new List<int>(hole.EdgeIds);
                 if (!atNode)
@@ -237,8 +238,8 @@ namespace CaeMesh
         }
         /// <summary>
         /// Where the plane meets the boundary of a surface that is its own image: the points, each with the piece that
-        /// crosses the plane there or 0 for a vertex in the plane. False for a surface that is not its own image or has
-        /// a piece in the plane.
+        /// crosses the plane there or 0 for a vertex or a split of an edge in the plane. False for a surface that is
+        /// not its own image or has a piece in the plane.
         /// </summary>
         private bool GetCrossings(int surfaceId, out List<double[]> points, out List<int> pointPieceIds)
         {
@@ -282,7 +283,24 @@ namespace CaeMesh
                 points.Add(coor);
                 pointPieceIds.Add(0);
             }
+            foreach (var edgeId in surfaceEdgeIds.Select(Math.Abs).Distinct().OrderBy(id => id))
+            {
+                foreach (var splitPoint in GetSplitPointsInPlane(edgeId))
+                {
+                    points.Add(splitPoint);
+                    pointPieceIds.Add(0);
+                }
+            }
             return true;
+        }
+        /// <summary>
+        /// The splits of the edge that lie in the plane: the edge has a node there, as at a vertex.
+        /// </summary>
+        private IEnumerable<double[]> GetSplitPointsInPlane(int edgeId)
+        {
+            if (!_splits.IsSplit(edgeId)) return new double[0][];
+            return _splits.GetSplitPoints(edgeId).Where(
+                point => Math.Abs(GetDistance(point)) <= CollinearTolerance * _size);
         }
         /// <summary>
         /// Where the edge crosses the plane between two of its parameters, at which it lies on the two sides of it.
