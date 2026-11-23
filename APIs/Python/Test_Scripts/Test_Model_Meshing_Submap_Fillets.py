@@ -65,7 +65,7 @@ FILLET_LENGTH = round(math.pi * 5.0 / 2, 3)
 # at the element size 5
 EXPECTED = {"filleted L": ([-1], 0, 80), "chamfered L": ([], 1, 76), "filleted chamfered L": ([-1], 1, 76),
             "filleted U": ([-1, -1], 0, 98), "rounded rectangle": ([1, 1, 1, 1], 0, 140), "house": ([], 1, 96),
-            "round L": ([1], 0, 72), "cylinder L": ([-1], 0, 45), "slot": ([2, 2], 0, 74)}
+            "round L": ([1], 0, 72), "cylinder L": ([-1], 0, 45), "slot": ([2, 2], 0, 60)}
 # The shapes meshed as lens faces, a lens grid of four inner nodes of three quads, and the worst corner it reaches
 LENS_GRIDS = ["slot"]
 MIN_LENS_SCALED_JACOBIAN = 0.5

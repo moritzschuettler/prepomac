@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CaeMesh
 {
@@ -27,8 +28,7 @@ namespace CaeMesh
     /// A round hole is a square of a quarter of its nodes on each side, placed as any hole; where its corners go is
     /// found before, by the lattice positions of its nodes about its centre (GetRoundLoopOrder), the same way in the
     /// detection and in the meshers, which then pass its nodes in that order. Offset distances within
-    /// OffsetTieTolerance are tied and ordered by i then j. Tied round-loop starts use the smaller signed angle
-    /// from 45 degrees.
+    /// OffsetTieTolerance are tied and ordered by i then j.
     /// </summary>
     public static class SubmapHolePlacement
     {
@@ -216,11 +216,17 @@ namespace CaeMesh
         /// in either sense. The outer loop gives the lattice: its logical edges run in outerDirections with outerCounts
         /// elements, through the nodes outerNodePoints, one per element. Every node of the hole and its centre, the mean
         /// of its nodes, are given their lattice positions by the mean value coordinates interpolation of the lattice
-        /// coordinates of the outer nodes, as the target of a hole is; the logical loop starts at the node whose angle
-        /// about the centre is nearest to 45°, the +i +j corner of the square of the hole, and runs the way that is
-        /// clockwise in the lattice, so that its four logical edges of a quarter of the nodes each run along -j, -i, +j
-        /// and +i. The sense is told by the angles of the nodes, not by their order: the sum of the turns from node to
-        /// node about the centre.
+        /// coordinates of the outer nodes, as the target of a hole is; the logical loop starts at the +i +j corner of
+        /// the square of the hole and runs the way that is clockwise in the lattice, so that its four logical edges of
+        /// a quarter of the nodes each run along -j, -i, +j and +i. The corners are the four nodes, a quarter of the
+        /// nodes apart, whose angles about the centre are nearest to the diagonals of the lattice, by the sum of their
+        /// squares: no corner is told from the others, so the mirror image of a hole gets the mirror image of its
+        /// square. A hole that is its own mirror image with a node in the plane and an odd number of elements on a side
+        /// of its square has two such squares, turned either way by the same angle: the one is taken that is turned
+        /// the way the place of the hole in the lattice box of the outer loop tells, which is the other way in a
+        /// mirror image of the place, and by the smaller signed angle from 45° where the place tells nothing, on a
+        /// middle line or a diagonal of the box. The sense is told by the angles of the nodes, not by their order: the
+        /// sum of the turns from node to node about the centre.
         /// </summary>
         public static int[] GetRoundLoopOrder(int[] outerDirections, int[] outerCounts, double[][] outerNodePoints,
                                               double[][] loopNodePoints)
@@ -247,25 +253,36 @@ namespace CaeMesh
                 angles[p] = Math.Atan2(position[1] - target[1], position[0] - target[0]);
             }
             double sumOfTurns = 0;
-            double[] deviations = new double[n];
-            double nearest = double.PositiveInfinity;
-            for (int p = 0; p < n; p++)
-            {
-                sumOfTurns += GetWrappedAngle(angles[(p + 1) % n] - angles[p]);
-                deviations[p] = GetWrappedAngle(angles[p] - 0.25 * Math.PI);
-                nearest = Math.Min(nearest, Math.Abs(deviations[p]));
-            }
-            int start = 0;
-            double startDeviation = double.PositiveInfinity;
-            for (int p = 0; p < n; p++)
-            {
-                if (Math.Abs(deviations[p]) <= nearest + AngleTieTolerance && deviations[p] < startDeviation)
-                {
-                    start = p;
-                    startDeviation = deviations[p];
-                }
-            }
+            for (int p = 0; p < n; p++) sumOfTurns += GetWrappedAngle(angles[(p + 1) % n] - angles[p]);
             int step = sumOfTurns > 0 ? -1 : 1;
+            // How far the corners of the square that starts at each node lie from the diagonals of the lattice
+            int numOfCorners = n % 4 == 0 ? 4 : 1;
+            double[] deviations = new double[n];
+            double[] sums = new double[n];
+            double least = double.PositiveInfinity;
+            for (int p = 0; p < n; p++)
+            {
+                deviations[p] = GetWrappedAngle(angles[p] - 0.25 * Math.PI);
+                for (int k = 0; k < numOfCorners; k++)
+                {
+                    int corner = ((p + step * k * (n / 4)) % n + n) % n;
+                    double deviation = GetWrappedAngle(angles[corner] - (0.25 - 0.5 * k) * Math.PI);
+                    sums[p] += deviation * deviation;
+                }
+                least = Math.Min(least, sums[p]);
+            }
+            // The way a tied square is turned, by the place of the hole from the middle of the lattice box
+            double placeI = target[0] - 0.5 * (outerI.Min() + outerI.Max());
+            double placeJ = target[1] - 0.5 * (outerJ.Min() + outerJ.Max());
+            double turn = placeI * placeJ * (placeI * placeI - placeJ * placeJ);
+            bool larger = turn < -AngleTieTolerance * Math.Max(1, Math.Pow(Math.Abs(placeI) + Math.Abs(placeJ), 4));
+            int start = -1;
+            for (int p = 0; p < n; p++)
+            {
+                if (sums[p] > least + AngleTieTolerance) continue;
+                if (start < 0 || (larger ? deviations[p] > deviations[start] : deviations[p] < deviations[start]))
+                    start = p;
+            }
             int[] order = new int[n];
             for (int p = 0; p < n; p++) order[p] = ((start + step * p) % n + n) % n;
             return order;

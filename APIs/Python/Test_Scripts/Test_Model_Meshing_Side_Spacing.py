@@ -616,10 +616,10 @@ def check_mixed_holes():
     part = parts[4650]
     _, output = mesh(part, (), "Simple", False, "Automatic")
     grid = FaceMesh(part, planar(4650))
-    check(len(grid.elements) == 269 and grid.node_counts == {4} and not output,
+    check(len(grid.elements) == 264 and grid.node_counts == {4} and not output,
           "the mixed-hole plate lost its grid")
     quality = grid.worst_corner()
-    check(abs(quality - 0.814838) < EPS, "the mixed-hole grid changed quality")
+    check(abs(quality - 0.858053) < EPS, "the mixed-hole grid changed quality")
 
     def column(x):
         return sorted(y for u, y in grid.uv.values() if abs(u - x) < EPS)
@@ -638,10 +638,10 @@ def check_mixed_holes():
         for x in (53, 78):
             hole = intervals(column(x), 23, 57)
             match = intervals(edge, 23, 57)
-            check(len(hole) == 8 and len(match) == 8 and max(abs(a - b) for a, b in zip(match, hole)) < EPS,
+            check(len(hole) == 9 and len(match) == 9 and max(abs(a - b) for a, b in zip(match, hole)) < EPS,
                   "a vertical edge of the cornered hole did not align through the round hole")
     check_round_rim(grid, 25, 40, 10, "33cfbad06ae4eb52eb1ee6409029ac18bfdd539580c83dbab9d126437cff9bc2")
-    print("mixed holes: 269 quads, worst %.6f" % quality)
+    print("mixed holes: 264 quads, worst %.6f" % quality)
 
 
 check_round_strip(12, 26, 296, 0.723421, 0.789909)

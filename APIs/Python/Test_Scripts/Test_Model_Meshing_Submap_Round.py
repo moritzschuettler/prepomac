@@ -78,7 +78,7 @@ SHELLS = ["round hole", "two halves", "turned halves", "four quarters", "off-cen
 FREE = []
 LENSES = ["disc", "disc of halves"]
 # The faces detected as submapped that are lens faces as well and whose lens grid is the better one, by their quads
-SUBMAPPED_LENSES = {"slot plate": 74}
+SUBMAPPED_LENSES = {"slot plate": 60}
 # The faces no lattice can take that are meshed as rings (Test_Model_Meshing_Ring), by their quads
 RINGS = {"annulus": 78, "elliptic hole": 240}
 SOLIDS = ["plate round", "L bracket", "plate slot", "plate four holes", "round and square"]
@@ -92,11 +92,12 @@ ROUND_HOLES = {"round hole": [(30, 20, 10)], "two halves": [(30, 20, 10)], "turn
 # element size 5 (10 for the coarse border)
 EXPECTED = {"round hole": (1, 1, [], 80), "two halves": (1, 1, [], 80), "turned halves": (1, 1, [], 80),
             "four quarters": (1, 1, [], 80), "off-centre round": (1, 1, [], 87), "four bolt holes": (4, 4, [], 156),
-            "L with round hole": (1, 1, [], 72), "slot along": (1, 0, [-2, -2], 110),
+            "L with round hole": (1, 1, [], 72), "slot along": (1, 0, [-2, -2], 118),
             "slot across": (1, 0, [-2, -2], 148),
-            "round and rectangle": (2, 1, [], 148), "sheared round": (1, 1, [], 99), "coarse border": (1, 1, [], 36)}
-# The hexahedra of the swept solids at the element size 5
-EXPECTED_HEXAHEDRA = {"plate round": 480, "L bracket": 480, "plate slot": 588, "plate four holes": 936,
+            "round and rectangle": (2, 1, [], 148), "sheared round": (1, 1, [], 99), "coarse border": (1, 1, [], 32)}
+# The hexahedra of the swept solids at the element size 5; the plate with the slot on the counts of a sweep mirrored
+# across its three planes (588 before)
+EXPECTED_HEXAHEDRA = {"plate round": 480, "L bracket": 480, "plate slot": 644, "plate four holes": 936,
                       "round and square": 888}
 
 
@@ -641,7 +642,7 @@ def main():
     nodes = sorted(tuple(float(c).hex() for c in p) for p in face.xyz.values())
     connectivity = sorted(tuple(sorted(tuple(face.xyz[n]) for n in e)) for e in face.elements)
     fingerprint = hashlib.sha256(repr((nodes, connectivity)).encode("ascii")).hexdigest()
-    check(fingerprint == "70954bcb8499bf795ca5c0d34c4843d5a2e64dc6340f122db22138a2f7ee3706",
+    check(fingerprint == "21806edb526e9b312e4772d85c37a290c92cd960a4bc67d64350d060a4fba858",
           "the submapped plate with a round hole changed from its baseline mesh")
     check_turned(parts, faces)
     check_coarse_border(parts["coarse border"], faces["coarse border"])

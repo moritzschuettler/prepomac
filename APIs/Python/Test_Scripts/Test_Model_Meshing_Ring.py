@@ -77,10 +77,10 @@ EXPECTED = {"annulus": (True, False, "ring", 3, 78),
             "thin tube": (True, True, "lattice", 0, 56),
             "thick tube": (True, True, "lattice", 0, 64),
             "plate large bore": (False, True, "ring", 2, 96),
-            "plate small bore": (None, True, "lattice", 0, 135),
+            "plate small bore": (None, True, "lattice", 0, 128),
             "elliptic ring": (True, False, "ring", 1, 32),
             "L with small hole": (None, True, "lattice", 0, 78),
-            "two holes": (None, True, "lattice", 0, 110),
+            "two holes": (None, True, "lattice", 0, 96),
             "small diamond": (None, False, "free", 0, 0)}
 EXPECTED_HEXAHEDRA = {"pipe": 312, "thin pipe": 156, "tube with radii": 468, "flange": 576}
 PLOTTED = ["annulus", "turned seam", "thin washer", "eccentric", "tube with radii", "thin tube", "plate large bore",

@@ -75,6 +75,9 @@ namespace CaeMesh
         /// face, is asked for equal totals at the preferred tier, which gives way to the rows of the pairs and to the
         /// numbers the user set; such a row left unkept is not returned. Every one of minSumLoops, the loop of a lens
         /// face with one corner or none, is asked for minLoopSum elements at least, with the tier of the pairs.
+        /// The mirror planes of the part ask for the rows of mirrorRows (MirrorCountRows), at the preferred tier, so
+        /// a mirrored mesh never costs a structured face or a number the user set; the pieces of the edges that are
+        /// split for the planes are counted like edges, each with the number it aims at, and get their numbers back.
         /// </summary>
         public static List<TransfiniteSidePair> Balance(Dictionary<int, int> edgeIdCount,
                                                         Dictionary<int, int> naturalCounts,
@@ -92,7 +95,8 @@ namespace CaeMesh
                                                         int minStructuredEvenSum = 0, List<int[]> evenLoops = null,
                                                         List<int[]> minSumSides = null, int minSideSum = 0,
                                                         List<int[][]> equalSumSides = null,
-                                                        List<int[]> minSumLoops = null, int minLoopSum = 0)
+                                                        List<int[]> minSumLoops = null, int minLoopSum = 0,
+                                                        MirrorCountRows mirrorRows = null)
         {
             if (separations == null) separations = new List<SubmapSeparation>();
             int count;
@@ -113,7 +117,8 @@ namespace CaeMesh
                 if (BalanceBySolve(balancedCounts, naturalCounts, pinnedEdgeIds, edgeIdLowestCount, sizedEdgeIdCounts,
                                    maxSizeCounts, pairs, triples, separations, edgeIdMultiples, evenSides, structuredEvenSides,
                                    minStructuredEvenSum, evenLoops, minSumSides, minSideSum, equalSumSides, minSumLoops,
-                                   minLoopSum, out unbalanced, out unbalancedTriples, out unbalancedSeparations) &&
+                                   minLoopSum, mirrorRows, out unbalanced, out unbalancedTriples,
+                                   out unbalancedSeparations) &&
                     unbalanced.Count == 0 && unbalancedTriples.Count == 0 && unbalancedSeparations.Count == 0)
                 {
                     foreach (var entry in balancedCounts) edgeIdCount[entry.Key] = entry.Value;
@@ -124,7 +129,8 @@ namespace CaeMesh
             if (!BalanceBySolve(edgeIdCount, naturalCounts, pinnedEdgeIds, new Dictionary<int, int>(), sizedEdgeIdCounts,
                                 maxSizeCounts, pairs, triples, separations, edgeIdMultiples, evenSides, structuredEvenSides,
                                 minStructuredEvenSum, evenLoops, minSumSides, minSideSum, equalSumSides, minSumLoops,
-                                minLoopSum, out unbalanced, out unbalancedTriples, out unbalancedSeparations))
+                                minLoopSum, mirrorRows, out unbalanced, out unbalancedTriples,
+                                out unbalancedSeparations))
                 throw new CaeException("HiGHS found no element counts for the structured faces.");
             return unbalanced;
         }
@@ -140,7 +146,7 @@ namespace CaeMesh
                                            List<int[]> evenSides, List<int[]> structuredEvenSides,
                                            int minStructuredEvenSum, List<int[]> evenLoops, List<int[]> minSumSides,
                                            int minSideSum, List<int[][]> equalSumSides, List<int[]> minSumLoops,
-                                           int minLoopSum,
+                                           int minLoopSum, MirrorCountRows mirrorRows,
                                            out List<TransfiniteSidePair> unbalanced,
                                            out List<TransfiniteSideTriple> unbalancedTriples,
                                            out List<SubmapSeparation> unbalancedSeparations)
@@ -149,8 +155,10 @@ namespace CaeMesh
             unbalancedTriples = null;
             unbalancedSeparations = null;
             int count;
-            IntervalProblem problem = new IntervalProblem(edgeId => naturalCounts.TryGetValue(edgeId, out count) ? count :
-                                                                    edgeIdCount.TryGetValue(edgeId, out count) ? count : 1);
+            IntervalProblem problem = new IntervalProblem(edgeId =>
+                naturalCounts.TryGetValue(edgeId, out count) ? count :
+                edgeIdCount.TryGetValue(edgeId, out count) ? count :
+                mirrorRows != null && mirrorRows.PieceTargets.TryGetValue(edgeId, out count) ? count : 1);
             int minCount;
             int maxCount;
             foreach (var edgeId in edgeIdCount.Keys)
@@ -222,6 +230,15 @@ namespace CaeMesh
                 for (int i = 0; i < minSumLoops.Count; i++)
                     problem.AddAtLeastSum("Least loop " + i, IntervalRowTierEnum.Hard, minSumLoops[i], minLoopSum);
             }
+            if (mirrorRows != null)
+            {
+                for (int i = 0; i < mirrorRows.EqualSides.Count; i++)
+                    problem.AddEqualSums("Mirrored edges " + i, IntervalRowTierEnum.Preferred,
+                                         mirrorRows.EqualSides[i][0], mirrorRows.EqualSides[i][1]);
+                for (int i = 0; i < mirrorRows.MultipleSides.Count; i++)
+                    problem.AddEvenSum("Mirrored total " + i, IntervalRowTierEnum.Preferred,
+                                       mirrorRows.MultipleSides[i].Item1, mirrorRows.MultipleSides[i].Item2);
+            }
             //
             IntervalSolution solution = problem.Solve(false, _timeoutSeconds);
             if (!solution.HasCounts)
@@ -230,9 +247,12 @@ namespace CaeMesh
                 solution = problem.Solve(true, _timeoutSeconds);
                 if (!solution.HasCounts) return false;
             }
+            if (mirrorRows != null) mirrorRows.PieceCounts.Clear();
             foreach (var entry in solution.EdgeIdNumOfElements)
             {
                 if (edgeIdCount.ContainsKey(entry.Key) && !pinnedEdgeIds.Contains(entry.Key)) edgeIdCount[entry.Key] = entry.Value;
+                else if (mirrorRows != null && mirrorRows.PieceTargets.ContainsKey(entry.Key))
+                    mirrorRows.PieceCounts[entry.Key] = entry.Value;
             }
             // The rows come in the order of the pairs, the triples and the separations, followed by the even edges
             Func<int, int> getCount = edgeId => edgeIdCount.TryGetValue(edgeId, out count) ? count :

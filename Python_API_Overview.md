@@ -1307,23 +1307,30 @@ meshed as the same face with the seam at an edge.
 turns its free sources into quads in the same way by default, with no setting, and asks the sweep counts for an even
 total around each such source at the weakest tier, so that a block whose free source becomes quads only is swept into
 hexahedra only.
-A shell part that is its own mirror image is meshed as one. `shell_gmsh` finds, from the geometry alone, up to three
-planes perpendicular to each other across which every vertex, edge and face of the part has its image; the seam of
-a circle, the vertex of a closed edge that bounds nothing else, may have the point half way round the circle as its
-image, so a plate with a bore is mirrored across both its middle planes wherever the modelling kernel put the seam.
-Across each plane the balance is asked for the same number of elements on an edge and on its image and for the sums
-a mirrored grid needs where the plane cuts a structured face: a node, or the middle of an element, at both ends of
-the cut, a node on every edge of a lens face the plane crosses, and a multiple of eight on a round hole of a
+A part that is its own mirror image is meshed as one, by `shell_gmsh` and by a sweep. Up to three planes
+perpendicular to each other are found from the geometry alone, across which the part as a shape is its own image.
+Its edges need not be split alike on both sides of a plane: where the image of a vertex - the seam of a circle, the
+end of an edge inside a straight side - falls inside an edge, the edge is split there for the mesh and gets a node,
+so a plate with a bore is mirrored across both its middle planes wherever the modelling kernel put the seam. Across
+each plane the balance is asked for the same number of elements on a piece of an edge and on its image and for the
+sums a mirrored grid needs where the plane cuts a structured face: a node, or the middle of an element, at both ends
+of the cut, a node on every edge of a lens face the plane crosses, and a multiple of eight on a round hole of a
 submapped face in the plane. They are asked at the weakest tier, so a mirrored mesh never changes a number the user
-set and never costs a structured face. The inner lines of a lens grid, the places of the holes of a submapped face
-and the squares of its round holes are then chosen as mirror images, and at the end every node behind a plane is put
-at the mirror image of its node in front of it, on every face whose elements are the mirror images of those of its
-image and on the edges between such faces; a face meshed free seldom is and is left as gmsh meshed it. The output
+set and never costs a structured face. The inner lines of a lens grid and the squares of the round holes of a
+submapped face are then chosen as mirror images, and at the end a node and its image are put half way between
+where they lie and the mirror images of each other, wherever the elements are mirror images of elements with no
+node farther from the mirror image of its image than half the shortest element side at it; the elements are matched
+across the whole surface mesh, so the seam of a cylinder and an edge between two faces that has no edge as its image
+are matched with a line of the mesh. A face meshed free seldom is mirrored and is left as gmsh meshed it. The output
 window says how far it went ("Mirror: the part is symmetric across N plane/s - the mesh of M of its K surfaces is
-mirrored."). A plane across which the element sizes or the numbers of elements set on the part are not mirrored - a
-local mesh size on one side only - is not used, which a line of its own says. A face whose grid cannot be mirrored
-by its kind (a face of five sides mapped as one of four keeps one of its two like corners flat) is left as it is. The
-sources of a sweep are not mirrored this way; `symmetry` of `add_sweep_mesh` mirrors the cells of a compound.
+mirrored.", for a sweep "of its K source and side surfaces"). A plane across which the element sizes or the numbers
+of elements set on the part are not mirrored - a local mesh size on one side only, a number set on an edge that is
+split unlike its image, or edges meshed with another spacing - is not used, which a line of its own says. A face
+whose grid cannot be mirrored by its kind (a face of five sides mapped as one of four keeps one of its two like
+corners flat) is left as it is. A sweep takes the planes of its part, adds their rows to its own counts, mirrors
+its sources and side faces before the layers are built on them, and so sweeps a mirrored mesh; the sources QuadWild
+meshes are not mirrored. `symmetry` of `add_sweep_mesh` is another thing: it meshes one of the cells of a compound
+that are mirror images and copies its mesh onto the others.
 `transfinite_three_sided` of a Gmsh item is `Polar`, `Mapped` (the default for a new item) or `No`: a
 3-sided face with `Polar` is the structured grid gmsh collapses at one corner, with triangles there and arcs around
 it as a revolution about that corner would make, and its two sides meeting there carry one number of elements. The

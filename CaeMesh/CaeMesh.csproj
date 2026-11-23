@@ -173,6 +173,10 @@
     <Compile Include="Meshing\Gmsh\GmshCapMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshLensGrid.cs" />
     <Compile Include="Meshing\Gmsh\GmshLensMesher.cs" />
+    <Compile Include="Meshing\Gmsh\GmshMirrorDetector.cs" />
+    <Compile Include="Meshing\Gmsh\GmshMirrorNodes.cs" />
+    <Compile Include="Meshing\Gmsh\GmshMirrorPlane.cs" />
+    <Compile Include="Meshing\Gmsh\GmshMirrorSplits.cs" />
     <Compile Include="Meshing\Gmsh\GmshPoleChart.cs" />
     <Compile Include="Meshing\Gmsh\GmshQuadMesher.cs" />
     <Compile Include="Meshing\Gmsh\GmshRingMesher.cs" />
@@ -200,6 +204,7 @@
     <Compile Include="Meshing\Transfinite\TransfiniteFaceDetector.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteSidePair.cs" />
     <Compile Include="Meshing\Transfinite\FourSidedMapping.cs" />
+    <Compile Include="Meshing\Transfinite\MirrorCountRows.cs" />
     <Compile Include="Meshing\Transfinite\ThreeBlockGrid.cs" />
     <Compile Include="Meshing\Transfinite\ThreeBlockMapping.cs" />
     <Compile Include="Meshing\Transfinite\TransfiniteSideTriple.cs" />

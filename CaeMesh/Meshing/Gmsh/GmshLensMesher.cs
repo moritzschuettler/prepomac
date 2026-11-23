@@ -44,13 +44,14 @@ namespace CaeMesh
         /// <summary>
         /// The face carries gmsh ids: its surface, its vertices and its edges. Without quads, as for a surface that is
         /// not recombined, every quad is split into two triangles. False, with the reason, when the face is left to
-        /// gmsh.
+        /// gmsh. Across the mirror planes of the part the face is its own image across, its grid is laid mirrored
+        /// where its nodes allow it.
         /// </summary>
-        public static bool Mesh(LensFace face, bool quads, out string reason)
+        public static bool Mesh(LensFace face, bool quads, out string reason, List<GmshMirrorPlane> mirrorPlanes = null)
         {
             GmshLensGrid grid;
             double minScaledJacobian;
-            if (!Lay(face, out grid, out minScaledJacobian, out reason)) return false;
+            if (!Lay(face, mirrorPlanes, out grid, out minScaledJacobian, out reason)) return false;
             grid.Write(quads);
             return true;
         }
@@ -64,18 +65,20 @@ namespace CaeMesh
         {
             GmshLensGrid grid;
             longestEdgeLength = double.NaN;
-            if (!Lay(face, out grid, out minScaledJacobian, out reason)) return false;
+            if (!Lay(face, null, out grid, out minScaledJacobian, out reason)) return false;
             longestEdgeLength = grid.GetLongestEdgeLength();
             return true;
         }
         /// <summary>
         /// Lays and judges the grid of the face. False, with the reason, when the face is left to gmsh.
         /// </summary>
-        private static bool Lay(LensFace face, out GmshLensGrid grid, out double minScaledJacobian, out string reason)
+        private static bool Lay(LensFace face, List<GmshMirrorPlane> mirrorPlanes, out GmshLensGrid grid,
+                                out double minScaledJacobian, out string reason)
         {
             reason = null;
             minScaledJacobian = double.NaN;
             grid = new GmshLensGrid(face.FaceId);
+            grid.SetMirrorPlanes(mirrorPlanes);
             int n = face.EdgeIds.Length;
             bool fan = face.ReentrantIndices.Length > 0;
             int[] vertexNodeIds;

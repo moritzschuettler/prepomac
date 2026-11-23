@@ -61,10 +61,13 @@ SOLIDS = SHELLS[:8]
 # Simple at the element size 5: quads and triangles, as before the quad-dominant recombination existed; the half disc is
 # a lens face since the lens faces exist (33 quads and 12 triangles before; 46 quads on the counts of the submapping
 # until a lens face that is submapped as well was balanced as the kind it is meshed as), the disc since the lens faces
-# of no corner exist (58 quads and 16 triangles before)
-EXPECTED_SIMPLE = {"disc": (68, 0), "half disc": (43, 0), "triangle": (56, 23), "house": (61, 10),
+# of no corner exist (58 quads and 16 triangles before), on 28 elements round it since its mesh is mirrored across its
+# two planes (68 quads on 26 before); the half disc on 22 round it with a node where its plane crosses its chord (43
+# quads on 24 before), and the cylinder patch, meshed free, on the counts mirrored across its two planes (152 and 46
+# before)
+EXPECTED_SIMPLE = {"disc": (76, 0), "half disc": (38, 0), "triangle": (56, 23), "house": (61, 10),
                    "eccentric annulus": (58, 14), "plate with diamond": (165, 54), "three holes": (133, 0),
-                   "heptagon": (97, 31), "thin L": (17, 0), "cylinder patch": (152, 46)}
+                   "heptagon": (97, 31), "thin L": (17, 0), "cylinder patch": (150, 50)}
 CYLINDER_RADIUS = 40.0
 
 

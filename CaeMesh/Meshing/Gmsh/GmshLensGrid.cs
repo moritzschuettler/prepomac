@@ -26,6 +26,9 @@ namespace CaeMesh
     /// between its two nodes, an end at a pole taking the angular parameter of the other end (both ends at poles: the
     /// middle of the face), its nodes at equal lengths along it. Once all pieces are laid, the nodes inside the face
     /// are smoothed together (Smooth), so that the grid lines run on across the inner lines.
+    /// Across a mirror plane of the part the surface is its own image across (SetMirrorPlanes), an inner line between
+    /// two boundary nodes is chosen that is its own image, where the nodes allow one: the grid is then mirrored as
+    /// the face is.
     /// </summary>
     internal class GmshLensGrid
     {
@@ -50,6 +53,9 @@ namespace CaeMesh
         private static readonly double[] CornerCutShares = new double[] { 0.25, 0.3, 0.35 };
         private const double FanLineAngleDeg = 90;
         private const int MinNumOfFanPieces = 3;
+        private List<GmshMirrorPlane> _mirrorPlanes = new List<GmshMirrorPlane>();
+        private const double MirrorMissScore = 1000;
+        private const double MirrorTolerance = 1E-4;
 
 
         // Properties                                                                                                               
@@ -74,6 +80,40 @@ namespace CaeMesh
 
 
         // Methods                                                                                                                  
+        /// <summary>
+        /// The mirror planes of the part; those the surface is its own image across are kept.
+        /// </summary>
+        public void SetMirrorPlanes(IEnumerable<GmshMirrorPlane> planes)
+        {
+            int imageId;
+            _mirrorPlanes = new List<GmshMirrorPlane>();
+            if (planes == null) return;
+            foreach (var plane in planes)
+            {
+                if (plane.SurfaceIdImageId.TryGetValue(_surfaceId, out imageId) && imageId == _surfaceId)
+                    _mirrorPlanes.Add(plane);
+            }
+        }
+        /// <summary>
+        /// The number of mirror planes the line between two nodes is not its own image across: its ends neither lie
+        /// in the plane nor are the images of each other.
+        /// </summary>
+        private int GetMirrorMisses(int nodeId1, int nodeId2)
+        {
+            int misses = 0;
+            double tolerance = MirrorTolerance * _size;
+            foreach (var plane in _mirrorPlanes)
+            {
+                double[] image1 = plane.Mirror(_xyz[nodeId1]);
+                double[] image2 = plane.Mirror(_xyz[nodeId2]);
+                bool own = GmshPoleChart.GetDistance(image1, _xyz[nodeId1]) <= tolerance &&
+                           GmshPoleChart.GetDistance(image2, _xyz[nodeId2]) <= tolerance;
+                bool swapped = GmshPoleChart.GetDistance(image1, _xyz[nodeId2]) <= tolerance &&
+                               GmshPoleChart.GetDistance(image2, _xyz[nodeId1]) <= tolerance;
+                if (!own && !swapped) misses++;
+            }
+            return misses;
+        }
         /// <summary>
         /// Adds a boundary node; the boundary nodes are added in loop order before any other node.
         /// </summary>
@@ -159,8 +199,9 @@ namespace CaeMesh
         /// Lays the grid of a face with no corner, whose loop runs through the given node ids from its first node back
         /// to it, by a first line between two nodes of the loop (LayZeroSided). The line runs between two poles of the
         /// surface among the vertices, the given node ids; with one pole from it to the node opposite it by length;
-        /// otherwise from each of the first MaxNumOfLineStarts vertices and from the node farthest from the centroid of
-        /// the loop to the node opposite each, and the grid that is best in space once smoothed is laid (LayBest).
+        /// otherwise from each of the first MaxNumOfLineStarts vertices, from the node farthest from the centroid of
+        /// the loop and from every node in a mirror plane of the face to the node opposite each, and the grid that is
+        /// best in space once smoothed is laid (LayBest), one whose first line is its own mirror image first.
         /// </summary>
         public bool LayNoCorner(int[] loop, int[] vertexNodeIds, out string reason)
         {
@@ -176,6 +217,12 @@ namespace CaeMesh
                     starts.AddRange(vertexNodeIds.Take(MaxNumOfLineStarts)
                                                  .Select(nodeId => Array.IndexOf(loop, nodeId)));
                     starts.Add(GetFarthestNode(loop));
+                    double tolerance = MirrorTolerance * _size;
+                    for (int i = 0; i < loop.Length - 1; i++)
+                    {
+                        if (_mirrorPlanes.Any(plane => Math.Abs(plane.GetDistance(_xyz[loop[i]])) <= tolerance))
+                            starts.Add(i);
+                    }
                 }
                 foreach (var start in starts)
                 {
@@ -190,7 +237,8 @@ namespace CaeMesh
                          "on either side, with " + (loop.Length - 1) + " on its loop";
                 return false;
             }
-            return LayBest(lines, line => LayLoopSplit(loop, line[0], line[1]), out reason);
+            return LayBest(lines, line => LayLoopSplit(loop, line[0], line[1]), out reason,
+                           line => GetMirrorMisses(loop[line[0]], loop[line[1]]));
         }
         /// <summary>
         /// Lays the grid of a face with one corner, whose loop runs through the given node ids from the corner back to
@@ -215,7 +263,8 @@ namespace CaeMesh
                          "the rest can take, with " + (loop.Length - 1) + " on its loop";
                 return false;
             }
-            return LayBest(cuts, cut => LayCornerCut(loop, cut), out reason);
+            return LayBest(cuts, cut => LayCornerCut(loop, cut), out reason,
+                           cut => GetMirrorMisses(loop[cut[0]], loop[cut[1]]));
         }
         /// <summary>
         /// Lays the grid of a face with a reentrant vertex at a pole of its surface, whose loop runs through the given
@@ -405,10 +454,11 @@ namespace CaeMesh
         /// <summary>
         /// Lays each candidate by lay, which returns null when it laid it and the reason otherwise, smooths it (Smooth)
         /// and judges it in space (Judge), and takes the grid back off; then lays again the one with the fewest folded
-        /// quads and, of as few, the best worst scaled Jacobian. The reason is that of the first candidate refused when
-        /// none is laid.
+        /// quads and, of as few, the one that misses the fewest mirror planes of the face and then the best worst
+        /// scaled Jacobian. The reason is that of the first candidate refused when none is laid.
         /// </summary>
-        private bool LayBest(List<int[]> candidates, Func<int[], string> lay, out string reason)
+        private bool LayBest(List<int[]> candidates, Func<int[], string> lay, out string reason,
+                             Func<int[], int> getMirrorMisses)
         {
             if (candidates.Count == 1)
             {
@@ -419,6 +469,7 @@ namespace CaeMesh
             int[] state = GetState();
             int best = -1;
             int bestNumOfFoldedQuads = 0;
+            int bestMisses = 0;
             double bestMinScaledJacobian = 0;
             for (int c = 0; c < candidates.Count; c++)
             {
@@ -429,11 +480,14 @@ namespace CaeMesh
                     int numOfFoldedQuads;
                     double minScaledJacobian = Judge(out numOfFoldedQuads);
                     numOfFoldedQuads = Math.Max(numOfFoldedQuads, _numOfFoldedQuads);
+                    int misses = getMirrorMisses(candidates[c]);
                     if (best < 0 || numOfFoldedQuads < bestNumOfFoldedQuads ||
-                        (numOfFoldedQuads == bestNumOfFoldedQuads && minScaledJacobian > bestMinScaledJacobian))
+                        (numOfFoldedQuads == bestNumOfFoldedQuads &&
+                         (misses < bestMisses || (misses == bestMisses && minScaledJacobian > bestMinScaledJacobian))))
                     {
                         best = c;
                         bestNumOfFoldedQuads = numOfFoldedQuads;
+                        bestMisses = misses;
                         bestMinScaledJacobian = minScaledJacobian;
                     }
                 }
@@ -474,7 +528,8 @@ namespace CaeMesh
         /// corner valid for three blocks of quads (TransfiniteSideTriple.AreCountsValid, its sides at the corner of
         /// MinPieceSideCount elements at least) and LensFace.MinNumberOfElementsPerSide elements at least on the line
         /// and on the loop from p to q; n the valid number nearest the length of the line over the mean of the four
-        /// boundary edges at its ends, as ChooseSplit chooses it. Null when there is none.
+        /// boundary edges at its ends, as ChooseSplit chooses it; a line that is its own image across the mirror planes
+        /// of the face before any other. Null when there is none.
         /// </summary>
         private int[] ChooseCornerCut(int[] loop, double[] fractions, double share)
         {
@@ -487,6 +542,7 @@ namespace CaeMesh
                 if (Math.Abs(fractions[i] - (1 - share)) < Math.Abs(fractions[q0] - (1 - share))) q0 = i;
             }
             int[] best = null;
+            int bestMisses = 0;
             int bestChange = 0;
             double bestScore = 0;
             for (int p = p0 - SplitSearchWidth; p <= p0 + SplitSearchWidth; p++)
@@ -496,7 +552,9 @@ namespace CaeMesh
                     if (p < MinPieceSideCount || m - q < MinPieceSideCount ||
                         q - p < LensFace.MinNumberOfElementsPerSide) continue;
                     int change = Math.Abs(p - p0) + Math.Abs(q - q0);
-                    if (best != null && change > bestChange) continue;
+                    int misses = GetMirrorMisses(loop[p], loop[q]);
+                    if (best != null && (misses > bestMisses || (misses == bestMisses && change > bestChange)))
+                        continue;
                     double meanLength = (GetDistance(loop[p - 1], loop[p]) + GetDistance(loop[p], loop[p + 1]) +
                                          GetDistance(loop[q - 1], loop[q]) + GetDistance(loop[q], loop[q + 1])) / 4;
                     double target = Math.Max(1, GetLineLength(loop[p], loop[q]) / meanLength);
@@ -508,9 +566,10 @@ namespace CaeMesh
                     }
                     if (n < 0) continue;
                     double score = Math.Abs(n - target) / target;
-                    if (best == null || change < bestChange || score < bestScore)
+                    if (best == null || misses < bestMisses || change < bestChange || score < bestScore)
                     {
                         best = new int[] { p, q, n };
+                        bestMisses = misses;
                         bestChange = change;
                         bestScore = score;
                     }
@@ -1016,7 +1075,8 @@ namespace CaeMesh
         /// number of elements its length asks for, at the nodes nearest the middle of each side by length, or at the
         /// forced ones. The score adds how far the number is off its length, how far each split is off the middle and
         /// how far the two are off facing each other, at the same share of the length of either side from the corner
-        /// they share.
+        /// they share, and MirrorMissScore for every mirror plane of the face the line is not its own image across.
+        /// Of equal scores the split nearest the corner side A starts from is taken, on both sides.
         /// </summary>
         private bool ChooseSplit(int[] sideA, int[] sideB, int forcedA, int forcedB, out int splitA, out int splitB,
                                  out int numOfLineElements, out double score)
@@ -1032,7 +1092,7 @@ namespace CaeMesh
             double[] fractionsB = GetLengthFractions(sideB);
             foreach (var iA in GetCandidates(sideA, forcedA))
             {
-                foreach (var iB in GetCandidates(sideB, forcedB))
+                foreach (var iB in GetCandidates(sideB, forcedB).Reverse())
                 {
                     int a1 = iA;
                     int a2 = a - iA;
@@ -1055,7 +1115,8 @@ namespace CaeMesh
                     if (n < 0) continue;
                     double candidateScore = Math.Abs(n - target) / target + Math.Abs(fractionsA[iA] - 0.5) +
                                             Math.Abs(fractionsB[iB] - 0.5) +
-                                            Math.Abs(fractionsA[iA] + fractionsB[iB] - 1);
+                                            Math.Abs(fractionsA[iA] + fractionsB[iB] - 1) +
+                                            MirrorMissScore * GetMirrorMisses(sideA[iA], sideB[iB]);
                     if (candidateScore < score)
                     {
                         score = candidateScore;

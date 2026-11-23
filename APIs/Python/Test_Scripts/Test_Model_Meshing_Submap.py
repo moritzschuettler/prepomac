@@ -646,7 +646,7 @@ def check_mesher_fallback(parts):
     u, flange, messages = mesh_pinned_u(part, 50)
     _, quality = check_submapped(u, "the matched U with 50 elements on its bottom and 2 on its notch bottom")
     _, flange_quality = check_submapped(flange, "the flange beside the matched U pinned 50 / 2")
-    check(len(u.elements) == 532 and abs(quality - 0.548525) < tolerance and not messages,
+    check(len(u.elements) == 532 and abs(quality - 0.560821) < tolerance and not messages,
           "the matched U pinned 50 / 2 did not retain its 532-quad grid: " + str((u.kinds(), quality, messages)))
     check(len(flange.elements) == 450 and abs(flange_quality - 1.0) < tolerance,
           "the flange beside the matched U pinned 50 / 2 did not retain its 450 right-angled quads")
