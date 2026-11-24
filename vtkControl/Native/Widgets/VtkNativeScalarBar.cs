@@ -269,6 +269,16 @@ namespace vtkControl.Native
             maximum = _editMaxValue;
             return found != 0 && valueText != null && !double.IsNaN(minimum) && !double.IsNaN(maximum);
         }
+        public bool GetValueLabelTextOrigin(bool minimum, out Point origin)
+        {
+            int found;
+            int[] values = new int[2];
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_scalar_bar_get_value_label_text_origin(Handle(),
+                                                                                                 minimum ? 1 : 0,
+                                                                                                 values, out found));
+            origin = new Point(values[0], values[1]);
+            return found != 0;
+        }
         //
         public void Dispose()
         {

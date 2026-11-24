@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int WidgetsApiVersion = 4;
+        public const int WidgetsApiVersion = 5;
 
 
         // Callbacks
@@ -55,6 +55,10 @@ namespace vtkControl.Native
                                                                                        [Out] int[] rectangle4,
                                                                                        out int found);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_scalar_bar_get_value_label_text_origin(IntPtr bar, int minimum,
+                                                                                         [Out] int[] point2,
+                                                                                         out int found);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_scalar_bar_hit_value_label(IntPtr bar, int x, int y, out int label,
                                                                              [Out] int[] rectangle4);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
@@ -67,6 +71,10 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_widget_destroy(IntPtr widget);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_widget_set_text_style(IntPtr widget, ref VtkNativeTextStyle style);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_text_style_get_line_pitch(ref VtkNativeTextStyle style, out double linePitch);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_widget_get_text_origin(IntPtr widget, [Out] int[] point2, out int found);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_widget_set_padding(IntPtr widget, int padding);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]

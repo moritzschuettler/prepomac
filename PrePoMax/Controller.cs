@@ -19998,6 +19998,7 @@ namespace PrePoMax
             _form.SetCoorSysVisibility(gs.CoorSysVisibility);
             _form.SetScaleWidgetVisibility(gs.ScaleWidgetVisibility);
             _form.SetWidgetHighlightEnabled(gs.WidgetHighlightEnabled);
+            _form.SetTextFont(gs.TextFontFamily, gs.TextFontSize);
             _form.SetSelectionDistance(_selectionDistanceInPixels);
             _form.SetLighting(gs.AmbientComponent, gs.DiffuseComponent, false);
             _form.SetSmoothing(gs.PointSmoothing, gs.LineSmoothing, false);

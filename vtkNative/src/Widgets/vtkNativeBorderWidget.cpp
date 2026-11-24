@@ -449,7 +449,11 @@ namespace vtkn
         double* position = PositionCoordinate->GetComputedDoubleDisplayValue(Renderer);
         double x = position[0];
         double y = position[1];
-        coordinate->SetValue(std::floor(x + offset[0]) - x + (text ? TextShiftX : 0),
-                             std::floor(y + offset[1]) - y + (text ? TextShiftY : 0));
+        // From the pixel the border is drawn on, so that a widget at a fractional position keeps its parts where they
+        // are drawn at a whole one
+        double borderX = std::floor(x + 0.5);
+        double borderY = std::floor(y + 0.5);
+        coordinate->SetValue(std::floor(borderX + offset[0]) - x + (text ? TextShiftX : 0),
+                             std::floor(borderY + offset[1]) - y + (text ? TextShiftY : 0));
     }
 }

@@ -173,6 +173,19 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_scalar_bar_get_value_label_text_origin(vtkn_scalar_bar bar, int32_t minimum,
+                                                                      int32_t* point2, int32_t* found)
+    {
+        return GuardVtk([&]() {
+            Require(point2 != nullptr && found != nullptr, "The out arguments must not be null.");
+            int origin[2] = { 0, 0 };
+            *found = ScalarBar::FromHandle(bar)->Widget.GetValueLabelTextOrigin(minimum != 0, origin) ? 1 : 0;
+            point2[0] = origin[0];
+            point2[1] = origin[1];
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_scalar_bar_hit_value_label(vtkn_scalar_bar bar, int32_t x, int32_t y, int32_t* label,
                                                           int32_t* rectangle4)
     {
@@ -232,6 +245,30 @@ extern "C"
                 case VTKN_WIDGET_TRIAD: areaWidget->As<CoorSysWidget>(VTKN_WIDGET_TRIAD).SetTextStyle(*style); break;
                 default: static_cast<TextWidget&>(*areaWidget->Content).SetTextStyle(*style); break;
             }
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_text_style_get_line_pitch(const vtkn_text_style* style, double* line_pitch)
+    {
+        return GuardVtk([&]() {
+            Require(style != nullptr, "The argument 'style' must not be null.");
+            Require(line_pitch != nullptr, "The argument 'line_pitch' must not be null.");
+            *line_pitch = TextWidget::GetLinePitch(*style);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_widget_get_text_origin(vtkn_widget widget, int32_t* point2, int32_t* found)
+    {
+        return GuardVtk([&]() {
+            Require(point2 != nullptr && found != nullptr, "The out arguments must not be null.");
+            Widget* areaWidget = Widget::FromHandle(widget);
+            int origin[2] = { 0, 0 };
+            bool textWidget = areaWidget->Kind != VTKN_WIDGET_SCALE_BAR && areaWidget->Kind != VTKN_WIDGET_TRIAD;
+            *found = textWidget && static_cast<TextWidget&>(*areaWidget->Content).GetTextOrigin(origin) ? 1 : 0;
+            point2[0] = origin[0];
+            point2[1] = origin[1];
             return VTKN_OK;
         });
     }

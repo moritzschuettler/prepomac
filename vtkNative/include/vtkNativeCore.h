@@ -41,7 +41,7 @@ extern "C" {
 #endif
 
 /* Raised whenever the C API changes incompatibly; the managed side refuses a library with another value */
-#define VTKN_API_VERSION 6
+#define VTKN_API_VERSION 7
 
 typedef enum vtkn_status
 {
@@ -111,6 +111,11 @@ VTKN_API vtkn_status VTKN_CALL vtkn_get_vtk_version(char* buffer, int32_t capaci
 VTKN_API vtkn_status VTKN_CALL vtkn_get_last_error(char* buffer, int32_t capacity, int32_t* required);
 /* Routes the VTK output window (warnings and errors that would open a console or a message box) */
 VTKN_API vtkn_status VTKN_CALL vtkn_set_log_callback(vtkn_log_callback callback, void* user_data);
+/* The font files of the text of every view, regular, bold, italic and bold italic, as UTF-8 paths. A null or empty
+   path draws its style with the regular file, and without a regular file the text is drawn with the Arial VTK
+   embeds. Text drawn before the call keeps its font until it is styled again */
+VTKN_API vtkn_status VTKN_CALL vtkn_set_font_files(const char* regular, const char* bold, const char* italic,
+                                                    const char* bold_italic);
 
 /* View: one render window with one renderer, either embedded in a parent window or off screen */
 VTKN_API vtkn_status VTKN_CALL vtkn_view_create(int32_t off_screen, vtkn_view* view);

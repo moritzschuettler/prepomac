@@ -14,6 +14,7 @@ namespace vtkControl.Native
     {
         Arial = 0,
         Courier = 1,
-        Times = 2
+        Times = 2,
+        View = 3
     }
 }

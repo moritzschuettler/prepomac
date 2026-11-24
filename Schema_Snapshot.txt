@@ -4693,6 +4693,8 @@ F 10531.13 System.Boolean _activizView
 F 10531.14 System.Boolean _ambientOcclusion
 F 10531.15 System.Double _ambientOcclusionRadius
 F 10531.16 System.Int32 _ambientOcclusionKernelSize
+F 10531.17 System.Int32 _textFontSize
+F 10531.18 System.String _textFontFamily
 T 10532 enum PrePoMax.AnnotationBackgroundType
 E 10532.0 member None
 E 10532.1 member White

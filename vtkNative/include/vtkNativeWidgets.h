@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_WIDGETS_API_VERSION 4
+#define VTKN_WIDGETS_API_VERSION 5
 
 typedef struct vtkn_scalar_bar_s* vtkn_scalar_bar;
 typedef struct vtkn_widget_s* vtkn_widget;
@@ -130,7 +130,8 @@ typedef enum vtkn_font_family
 {
     VTKN_FONT_ARIAL = 0,
     VTKN_FONT_COURIER = 1,
-    VTKN_FONT_TIMES = 2
+    VTKN_FONT_TIMES = 2,
+    VTKN_FONT_VIEW = 3 /* the font files of vtkn_set_font_files */
 } vtkn_font_family;
 
 typedef enum vtkn_value_label
@@ -197,6 +198,10 @@ VTKN_API vtkn_status VTKN_CALL vtkn_scalar_bar_get_rectangle(vtkn_scalar_bar bar
    is hidden or has no such label */
 VTKN_API vtkn_status VTKN_CALL vtkn_scalar_bar_get_value_label_rectangle(vtkn_scalar_bar bar, int32_t minimum,
                                                                           int32_t* rectangle4, int32_t* found);
+/* Where the minimum or maximum label is drawn, in display coordinates: the column its text starts at and the row
+   the bottom of its capitals is on; found is 0 when the bar is hidden or has no such label */
+VTKN_API vtkn_status VTKN_CALL vtkn_scalar_bar_get_value_label_text_origin(vtkn_scalar_bar bar, int32_t minimum,
+                                                                            int32_t* point2, int32_t* found);
 /* The value label at a display position: a vtkn_value_label, with its highlight box */
 VTKN_API vtkn_status VTKN_CALL vtkn_scalar_bar_hit_value_label(vtkn_scalar_bar bar, int32_t x, int32_t y,
                                                                 int32_t* label, int32_t* rectangle4);
@@ -211,6 +216,11 @@ VTKN_API vtkn_status VTKN_CALL vtkn_widget_create(vtkn_view view, int32_t kind, 
                                                   int32_t* widget_id);
 VTKN_API vtkn_status VTKN_CALL vtkn_widget_destroy(vtkn_widget widget);
 VTKN_API vtkn_status VTKN_CALL vtkn_widget_set_text_style(vtkn_widget widget, const vtkn_text_style* style);
+/* The distance in pixels between the baselines of two lines of text drawn in the style */
+VTKN_API vtkn_status VTKN_CALL vtkn_text_style_get_line_pitch(const vtkn_text_style* style, double* line_pitch);
+/* Where the text of a text widget is drawn, in display coordinates: the column its first line starts at and the
+   row the bottom of its capitals is on; found is 0 when the widget is hidden, has no text or is no text widget */
+VTKN_API vtkn_status VTKN_CALL vtkn_widget_get_text_origin(vtkn_widget widget, int32_t* point2, int32_t* found);
 VTKN_API vtkn_status VTKN_CALL vtkn_widget_set_padding(vtkn_widget widget, int32_t padding);
 VTKN_API vtkn_status VTKN_CALL vtkn_widget_set_visibility(vtkn_widget widget, int32_t visible);
 VTKN_API vtkn_status VTKN_CALL vtkn_widget_set_frame(vtkn_widget widget, int32_t background_visible,

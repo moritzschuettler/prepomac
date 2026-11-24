@@ -134,9 +134,11 @@ namespace vtkn
         OnMovedOrSizeChanged();
     }
 
+    // Before its colors are set the bar has no labels to lay out
     void ScalarBarWidget::SetTextStyle(const vtkn_text_style& style)
     {
-        TextWidget::SetTextStyle(style);
+        ApplyTextStyle(TextMapper->GetTextProperty(), style);
+        if (!Labels.empty()) OnSizeChanged();
     }
 
     void ScalarBarWidget::SetTitle(const std::string& title)
@@ -433,6 +435,13 @@ namespace vtkn
         rectangle = GetValueLabelHighlightRectangle(GetValueLabelRectangle(minimum ? MinimumLabelIndex
                                                                                    : MaximumLabelIndex));
         return Visibility && !rectangle.IsEmpty();
+    }
+
+    bool ScalarBarWidget::GetValueLabelTextOrigin(bool minimum, int origin[2])
+    {
+        int labelIndex = minimum ? MinimumLabelIndex : MaximumLabelIndex;
+        if (!Visibility || labelIndex < 0 || labelIndex >= static_cast<int>(Labels.size())) return false;
+        return GetTextOrigin(TextMapperLabel, TextActorLabel, labelIndex, origin);
     }
 
     int ScalarBarWidget::HitValueLabel(int x, int y, Rect& rectangle)

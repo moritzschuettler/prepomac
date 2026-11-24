@@ -58,7 +58,7 @@ namespace UserControls
             this.vertbData.Beep = false;
             this.vertbData.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.vertbData.DetectUrls = false;
-            this.vertbData.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(238)));
+            this.vertbData.Font = new System.Drawing.Font("Segoe UI Semilight", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel, ((byte)(238)));
             this.vertbData.Location = new System.Drawing.Point(2, 2);
             this.vertbData.MaxSize = new System.Drawing.Size(0, 0);
             this.vertbData.MinSize = new System.Drawing.Size(0, 0);

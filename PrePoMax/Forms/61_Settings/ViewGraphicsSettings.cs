@@ -123,6 +123,26 @@ namespace PrePoMax.Settings
             get { return _graphicsSettings.WidgetHighlightEnabled; }
             set { _graphicsSettings.WidgetHighlightEnabled = value; }
         }
+        //
+        [CategoryAttribute("Widgets")]
+        [OrderedDisplayName(3, 10, "Font family")]
+        [DescriptionAttribute("Select the font family of the viewport text: widgets, annotations, legends and " +
+                              "captions.")]
+        public string TextFontFamily
+        {
+            get { return _graphicsSettings.TextFontFamily; }
+            set { _graphicsSettings.TextFontFamily = value; }
+        }
+        //
+        [CategoryAttribute("Widgets")]
+        [OrderedDisplayName(4, 10, "Font size")]
+        [DescriptionAttribute("Select the font size of the viewport text in pixels (8 ... 48): widgets, annotations, " +
+                              "legends and captions.")]
+        public int TextFontSize
+        {
+            get { return _graphicsSettings.TextFontSize; }
+            set { _graphicsSettings.TextFontSize = value; }
+        }
         // Lighting                                                                                 
         [CategoryAttribute("Lighting")]
         [OrderedDisplayName(0, 10, "Ambient component")]
@@ -246,6 +266,10 @@ namespace PrePoMax.Settings
             _dctd.RenameBooleanPropertyToOnOff(nameof(PointSmoothing));
             _dctd.RenameBooleanPropertyToOnOff(nameof(LineSmoothing));
             _dctd.RenameBooleanProperty(nameof(LinearDeflectionRelative), "Relative", "Absolute");
+            //
+            List<string> familyNames = new List<string>(vtkControl.Native.VtkNativeViewFont.GetFamilyNames());
+            if (!familyNames.Contains(TextFontFamily)) familyNames.Insert(0, TextFontFamily);
+            _dctd.PopulateProperty(nameof(TextFontFamily), familyNames.ToArray());
             //
             UpdateVisibilities();
         }

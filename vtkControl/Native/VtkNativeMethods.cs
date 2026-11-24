@@ -19,7 +19,7 @@ namespace vtkControl.Native
     {
         // Variables
         public const string LibraryName = "vtkNative.dll";
-        public const int ApiVersion = 6;
+        public const int ApiVersion = 7;
         public const uint LOAD_WITH_ALTERED_SEARCH_PATH = 0x00000008;
 
 
@@ -44,6 +44,9 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_get_last_error(byte[] buffer, int capacity, out int required);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_set_log_callback(LogCallback callback, IntPtr userData);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_set_font_files(byte[] regular, byte[] bold, byte[] italic,
+                                                                 byte[] boldItalic);
         //
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_view_create(int offScreen, out IntPtr view);

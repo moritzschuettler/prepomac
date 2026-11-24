@@ -62,6 +62,7 @@ namespace vtkn
         std::map<std::string, std::array<int, 2>> LabelSizes;
         vtkSmartPointer<vtkTextProperty> LabelTextProperty;
         int LabelFontSize = 0;
+        unsigned int LabelFontGeneration = 0;
         bool HasOverrideColor = false;
         double OverrideColor[3] = { 0, 0, 0 };
         vtkSmartPointer<vtkCoordinate> OriginCoordinate;

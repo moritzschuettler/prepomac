@@ -38,6 +38,8 @@ namespace vtkn
         void SetColors(const vtkn_scalar_bar_colors& colors);
         // TryGetValueEditData: the highlight box of the minimum or maximum label
         bool GetValueLabelHighlightRectangle(bool minimum, Rect& rectangle);
+        // Where the text of the minimum or maximum label is drawn: GetTextOrigin
+        bool GetValueLabelTextOrigin(bool minimum, int origin[2]);
         // TryGetValueEditData at a point: VTKN_VALUE_LABEL_NONE, _MINIMUM or _MAXIMUM
         int HitValueLabel(int x, int y, Rect& rectangle);
 

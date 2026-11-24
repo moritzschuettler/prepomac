@@ -2,6 +2,7 @@
 //
 // Port of vtkMaxCoorSysSymbols and vtkMaxCoorSysSymbol.
 #include "vtkNativeCoorSysSymbols.h"
+#include "vtkNativeFonts.h"
 
 #include <vtkCamera.h>
 #include <vtkCellArray.h>
@@ -114,13 +115,15 @@ namespace vtkn
     void CoorSysSymbolSet::UpdateLabelTextProperty(double shaftLength)
     {
         int labelFontSize = CoorSysGeometry::GetLabelFontSize(shaftLength);
-        if (LabelTextProperty != nullptr && LabelFontSize == labelFontSize) return;
+        if (LabelTextProperty != nullptr && LabelFontSize == labelFontSize &&
+            LabelFontGeneration == Fonts::GetGeneration()) return;
         LabelFontSize = labelFontSize;
+        LabelFontGeneration = Fonts::GetGeneration();
         LabelSizes.clear();
         // CreateNewTextProperty of vtkControl at the label size
         LabelTextProperty = vtkSmartPointer<vtkTextProperty>::New();
         LabelTextProperty->SetColor(0, 0, 0);
-        LabelTextProperty->SetFontFamilyToArial();
+        Fonts::Apply(LabelTextProperty, false, false);
         LabelTextProperty->SetLineSpacing(1.5);
         LabelTextProperty->SetFontSize(LabelFontSize);
         LabelTextProperty->SetLineOffset(-std::round(LabelFontSize / 7.0));

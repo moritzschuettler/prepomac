@@ -32,11 +32,15 @@ namespace vtkControl.Native
         // The text of every vtkControl widget: CreateNewTextProperty
         public static VtkNativeTextStyle CreateWidgetStyle()
         {
+            return CreateWidgetStyle(VtkNativeViewFont.DefaultSize);
+        }
+        public static VtkNativeTextStyle CreateWidgetStyle(int fontSize)
+        {
             VtkNativeTextStyle style = new VtkNativeTextStyle();
-            style.FontFamily = (int)VtkNativeFontFamily.Arial;
-            style.FontSize = 16;
+            style.FontFamily = (int)VtkNativeFontFamily.View;
+            style.FontSize = VtkNativeViewFont.ClampSize(fontSize);
             style.LineOffset = -Math.Round(style.FontSize / 7.0);
-            style.LineSpacing = 1.5;
+            style.LineSpacing = VtkNativeViewFont.LineSpacing;
             return style;
         }
     }

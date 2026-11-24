@@ -2,6 +2,7 @@
 //
 // The exported C functions of the core area. Each one only checks its arguments, finds its object and forwards,
 // inside the guard of vtkNativeGuard.h.
+#include "vtkNativeFonts.h"
 #include "vtkNativeGuard.h"
 #include "vtkNativeOutputWindow.h"
 #include "vtkNativeView.h"
@@ -52,6 +53,17 @@ extern "C"
     {
         return Guard([&]() {
             vtkNativeOutputWindow::Install()->SetCallback(callback, user_data);
+            return VTKN_OK;
+        });
+    }
+
+    vtkn_status VTKN_CALL vtkn_set_font_files(const char* regular, const char* bold, const char* italic,
+                                              const char* bold_italic)
+    {
+        return Guard([&]() {
+            const std::string files[4] = { regular != nullptr ? regular : "", bold != nullptr ? bold : "",
+                                           italic != nullptr ? italic : "", bold_italic != nullptr ? bold_italic : "" };
+            Fonts::SetFiles(files);
             return VTKN_OK;
         });
     }

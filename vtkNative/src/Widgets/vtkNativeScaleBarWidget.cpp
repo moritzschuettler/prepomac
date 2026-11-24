@@ -275,6 +275,7 @@ namespace vtkn
     void ScaleBarWidget::SetTextStyle(const vtkn_text_style& style)
     {
         TextWidget::ApplyTextStyle(ScaleTextMappers[0]->GetTextProperty(), style);
+        OnSizeChanged();
     }
 
     void ScaleBarWidget::SetUnit(const std::string& unit)

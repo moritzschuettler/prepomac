@@ -31,6 +31,13 @@ namespace vtkn
         std::string GetText() const;
 
         static void ApplyTextStyle(vtkTextProperty* property, const vtkn_text_style& style);
+        static double GetLinePitch(const vtkn_text_style& style);
+        static void GetTextLayout(vtkTextProperty* textProperty, double& linePitch, double& baselineHeight);
+        // The display pixel a line of the text of an actor starts at, on the row the bottom of its capitals is on;
+        // the line is counted from the top
+        bool GetTextOrigin(vtkTextMapper* mapper, vtkActor2D* actor, int line, int origin[2]) const;
+        // GetTextOrigin of the first line of the text of the widget
+        bool GetTextOrigin(int origin[2]) const;
         // vtkMaxWidgetTools.GetTextSize
         static void GetTextSize(vtkTextMapper* mapper, vtkRenderer* renderer, int size[2]);
         // The C# widgets end their lines with Environment.NewLine, and VTK 5.8 measured the carriage return as the

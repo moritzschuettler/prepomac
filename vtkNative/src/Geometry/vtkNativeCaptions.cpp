@@ -4,6 +4,7 @@
 // overloads), AddActorCaption, SetAllCaptionPositions, ApplySelectionFormattingToCaptionActor,
 // UpdateOverlayCaptionActorPosition and the point updates of UpdateMeasurementAnnotation and UpdateOverlayPointsActor.
 #include "vtkNativeError.h"
+#include "vtkNativeFonts.h"
 #include "vtkNativeView.h"
 
 #include <vtkCommand.h>
@@ -34,7 +35,7 @@ namespace vtkn
         {
             Require(fontSize > 0, "The font size must be positive.");
             property->SetColor(0, 0, 0);
-            property->SetFontFamilyToArial();
+            Fonts::Apply(property, false, false);
             property->SetFontSize(fontSize);
             property->SetLineOffset(-std::round(16 / 7.0));
             property->SetLineSpacing(1.5);

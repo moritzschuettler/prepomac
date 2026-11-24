@@ -66,6 +66,12 @@ namespace vtkControl
         {
             return _text;
         }
+        // Where the first line of the text is drawn, in display coordinates: VtkNativeWidget.GetTextOrigin
+        public bool TryGetTextOrigin(out System.Drawing.Point origin)
+        {
+            origin = System.Drawing.Point.Empty;
+            return _nativeMirror != null && _nativeMirror.GetTextOrigin(out origin);
+        }
         public string GetNumberFormat()
         {
             return _numberFormat;

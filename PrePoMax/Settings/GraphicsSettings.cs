@@ -62,6 +62,11 @@ namespace PrePoMax
         private double _ambientOcclusionRadius;
         [PmxKey(16)] [OptionalField]
         private int _ambientOcclusionKernelSize;
+        // Older settings files have no text font size, which reads as the default
+        [PmxKey(17)] [OptionalField]
+        private int _textFontSize;
+        [PmxKey(18)] [OptionalField]
+        private string _textFontFamily;
 
 
         // Properties                                                                                                               
@@ -94,6 +99,21 @@ namespace PrePoMax
         {
             get { return _widgetHighlightEnabled; }
             set { _widgetHighlightEnabled = value; }
+        }
+        public string TextFontFamily
+        {
+            get { return _textFontFamily; }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                    _textFontFamily = vtkControl.Native.VtkNativeViewFont.PreferredFamilyName;
+                else _textFontFamily = value.Trim();
+            }
+        }
+        public int TextFontSize
+        {
+            get { return _textFontSize; }
+            set { _textFontSize = vtkControl.Native.VtkNativeViewFont.ClampSize(value); }
         }
         public double AmbientComponent
         {
@@ -177,6 +197,8 @@ namespace PrePoMax
             _ambientOcclusion = false;
             _ambientOcclusionRadius = 0.05;
             _ambientOcclusionKernelSize = 64;
+            _textFontSize = vtkControl.Native.VtkNativeViewFont.DefaultSize;
+            _textFontFamily = vtkControl.Native.VtkNativeViewFont.PreferredFamilyName;
         }
         public void CheckValues()
         {
@@ -200,6 +222,8 @@ namespace PrePoMax
             _ambientOcclusion = false;
             _ambientOcclusionRadius = 0.05;
             _ambientOcclusionKernelSize = 64;
+            _textFontSize = vtkControl.Native.VtkNativeViewFont.DefaultSize;
+            _textFontFamily = vtkControl.Native.VtkNativeViewFont.PreferredFamilyName;
         }
     }
 }

@@ -164,7 +164,7 @@ namespace vtkControl
             if (!IsNativeLayerDrawn(layer)) return;
             RunNative("AddCaption " + actor.Name, () =>
             {
-                _nativeMirror.AddCaption(actor.Name, caption, position, offset, (int)(16 * fontScaleFactor),
+                _nativeMirror.AddCaption(actor.Name, caption, position, offset, (int)(_textFontSize * fontScaleFactor),
                                          VtkNativePartStyle.ToNativeLayer(layer), actor.UseSecondaryHighlightColor);
                 _nativeActors.Add(actor);
             });
@@ -175,7 +175,7 @@ namespace vtkControl
             if (!IsNativeLayerDrawn(layer)) return;
             RunNative("AddLabels " + actor.Name, () =>
             {
-                _nativeMirror.AddLabels(actor.Name, positions, labels, color, (int)(16 * fontScaleFactor),
+                _nativeMirror.AddLabels(actor.Name, positions, labels, color, (int)(_textFontSize * fontScaleFactor),
                                         VtkNativePartStyle.ToNativeLayer(layer));
                 _nativeActors.Add(actor);
             });

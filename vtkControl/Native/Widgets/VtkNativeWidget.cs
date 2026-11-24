@@ -203,6 +203,14 @@ namespace vtkControl.Native
             rectangle = new Rectangle(values[0], values[1], values[2], values[3]);
             return found != 0;
         }
+        public bool GetTextOrigin(out Point origin)
+        {
+            int found;
+            int[] values = new int[2];
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_widget_get_text_origin(Handle(), values, out found));
+            origin = new Point(values[0], values[1]);
+            return found != 0;
+        }
         // Text with arrow
         public void SetAnchorPoint(double x, double y, double z)
         {

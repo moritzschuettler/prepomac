@@ -61,6 +61,7 @@ namespace vtkControl
         private bool _ambientOcclusion;
         private double _ambientOcclusionRelativeRadius = 0.05;
         private int _ambientOcclusionKernelSize = 64;
+        private int _textFontSize = VtkNativeViewFont.DefaultSize;
         private bool _userPick;     // used to determine if the selection distance should be limited
         private VtkNativeView _nativeMirror;
         private HashSet<string> _nativeMirrorNames;
@@ -72,6 +73,7 @@ namespace vtkControl
         private int _arrowShaftResolution = 15;
         // Widgets
         private const int CoorSysWidgetMargin = 24;
+        private const int ArrowWidgetPadding = 5;
         private vtkMaxCoorSysWidget _coorSysWidget;
         private vtkMaxScaleWidget _scaleWidget;
         private bool _scalarBarVisible;
@@ -85,6 +87,7 @@ namespace vtkControl
         private bool _widgetInteractionEnabled;
         private bool _widgetHighlightEnabled;
         private bool _widgetHighlightLocked;
+        private bool _widgetHighlightSuspended;
         private bool _keepScalarBarVisible;
         private bool _drawCoorSys;
         private bool _drawStatusBlock;
@@ -911,7 +914,7 @@ namespace vtkControl
             _scaleWidget.SetWidth(400);
             _scaleWidget.SetHorizontallyRelativePosition(320, 0);
             _scaleWidget.SetBorderColor(0, 0, 0);
-            _scaleWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
+            _scaleWidget.SetTextStyle(CreateTextStyle());
             _scaleWidget.SetPadding(5);
             _scaleWidget.SetBackgroundColor(1, 1, 1);
             _scaleWidget.VisibilityOn();
@@ -921,7 +924,7 @@ namespace vtkControl
             InitializeScalarBar();
             // Color bar
             _colorBarWidget = new vtkMaxColorBarWidget();
-            _colorBarWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
+            _colorBarWidget.SetTextStyle(CreateTextStyle());
             _colorBarWidget.SetPadding(15);
             _colorBarWidget.VisibilityOn();
             _colorBarWidget.BackgroundVisibilityOn();
@@ -929,7 +932,7 @@ namespace vtkControl
             _colorBarWidget.SetBackgroundColor(1, 1, 1);
             // Status block
             _statusBlockWidget = new vtkMaxStatusBlockWidget();
-            _statusBlockWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
+            _statusBlockWidget.SetTextStyle(CreateTextStyle());
             _statusBlockWidget.SetPadding(5);
             _statusBlockWidget.SetBackgroundColor(1, 1, 1);
             _statusBlockWidget.BackgroundVisibilityOff();
@@ -937,7 +940,7 @@ namespace vtkControl
             // Probe widget
             _probeWidget = new vtkMaxTextWidget();
             _probeWidget.SetBorderColor(0, 0, 0);
-            _probeWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
+            _probeWidget.SetTextStyle(CreateTextStyle());
             _probeWidget.SetPadding(5);
             _probeWidget.SetBackgroundColor(1, 1, 1);
             _probeWidget.VisibilityOff();
@@ -945,7 +948,7 @@ namespace vtkControl
             _arrowWidgets = new Dictionary<string, vtkMaxTextWithArrowWidget>();
             // Coordinate system
             _coorSysWidget = new vtkMaxCoorSysWidget();
-            _coorSysWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
+            _coorSysWidget.SetTextStyle(CreateTextStyle());
             _coorSysWidget.BackgroundVisibilityOff();
             _coorSysWidget.BorderVisibilityOff();
             SetCoorSysVisibility(_drawCoorSys);
@@ -2038,6 +2041,16 @@ namespace vtkControl
             maximum = double.NaN;
             return false;
         }
+        public bool TryGetScalarBarValueTextOrigin(bool editMinimum, Rectangle rectangle,
+                                                   out System.Drawing.Point textOrigin)
+        {
+            textOrigin = System.Drawing.Point.Empty;
+            if (_nativeMirrorScalarBar == null ||
+                !_nativeMirrorScalarBar.GetValueLabelTextOrigin(editMinimum, out System.Drawing.Point origin))
+                return false;
+            textOrigin = ToBoxTextOrigin(rectangle, origin);
+            return true;
+        }
         private bool TryGetScalarBarValueEditData(int x, int y, out bool editMinimum, out Rectangle rectangle,
                                                   out string valueText, out double minimum, out double maximum)
         {
@@ -2094,6 +2107,19 @@ namespace vtkControl
         {
             title = _colorBarWidget.GetText();
             return _colorBarWidget.TryGetTitleRectangle(out rectangle);
+        }
+        public bool TryGetColorBarTitleTextOrigin(Rectangle rectangle, out System.Drawing.Point textOrigin)
+        {
+            textOrigin = System.Drawing.Point.Empty;
+            if (!_colorBarWidget.TryGetTextOrigin(out System.Drawing.Point origin)) return false;
+            textOrigin = ToBoxTextOrigin(rectangle, origin);
+            return true;
+        }
+        // From the top left corner of an edit box: the column its text starts at and the row the bottom of the
+        // capitals of its first line is drawn on, of a text origin in display coordinates
+        private static System.Drawing.Point ToBoxTextOrigin(Rectangle rectangle, System.Drawing.Point origin)
+        {
+            return new System.Drawing.Point(origin.X - rectangle.X, rectangle.Y + rectangle.Height - 1 - origin.Y);
         }
         public void SetColorBarTitle(string title)
         {
@@ -3466,6 +3492,51 @@ namespace vtkControl
             _widgetHighlightEnabled = enabled;
             MirrorWidgetHighlight();
         }
+        // While a widget is edited over the view its highlight would show around the editor
+        public void SetWidgetHighlightSuspended(bool suspended)
+        {
+            if (suspended == _widgetHighlightSuspended) return;
+            _widgetHighlightSuspended = suspended;
+            MirrorWidgetHighlight();
+            RenderScene();
+        }
+        public int GetTextFontSize()
+        {
+            return _textFontSize;
+        }
+        // The font of every text of the view: a family the view finds no files of falls back to VtkNativeViewFont
+        public void SetTextFont(string familyName, int fontSize)
+        {
+            string previousFamilyName = VtkNativeViewFont.FamilyName;
+            string currentFamilyName = VtkNativeViewFont.SetFamily(familyName);
+            fontSize = VtkNativeViewFont.ClampSize(fontSize);
+            if (fontSize == _textFontSize && currentFamilyName == previousFamilyName) return;
+            _textFontSize = fontSize;
+            //
+            _scaleWidget.SetTextStyle(CreateTextStyle());
+            _colorBarWidget.SetTextStyle(CreateTextStyle());
+            _statusBlockWidget.SetTextStyle(CreateTextStyle());
+            _probeWidget.SetTextStyle(CreateTextStyle());
+            _coorSysWidget.SetTextStyle(CreateTextStyle());
+            foreach (vtkMaxTextWithArrowWidget arrowWidget in _arrowWidgets.Values)
+                arrowWidget.SetTextStyle(CreateTextStyle());
+            if (_nativeMirrorScalarBar != null) _nativeMirrorScalarBar.SetTextStyle(CreateTextStyle());
+            //
+            RenderScene();
+        }
+        private VtkNativeTextStyle CreateTextStyle()
+        {
+            return VtkNativeTextStyle.CreateWidgetStyle(_textFontSize);
+        }
+        public bool TryGetArrowWidgetTextOrigin(string name, Rectangle rectangle, out System.Drawing.Point textOrigin)
+        {
+            textOrigin = System.Drawing.Point.Empty;
+            vtkMaxTextWithArrowWidget arrowWidget;
+            if (!_arrowWidgets.TryGetValue(name, out arrowWidget) ||
+                !arrowWidget.TryGetTextOrigin(out System.Drawing.Point origin)) return false;
+            textOrigin = ToBoxTextOrigin(rectangle, origin);
+            return true;
+        }
         // The scale bar is centered with the width its native twin measures; before the twin exists it is centered
         // when the twin is made
         public void ResetScaleBarPosition()
@@ -3490,8 +3561,8 @@ namespace vtkControl
                 newWidget = true;
                 arrowWidget = new vtkMaxTextWithArrowWidget(name);
                 arrowWidget.SetBorderColor(0, 0, 0);
-                arrowWidget.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
-                arrowWidget.SetPadding(5);
+                arrowWidget.SetTextStyle(CreateTextStyle());
+                arrowWidget.SetPadding(ArrowWidgetPadding);
                 arrowWidget.SetBackgroundColor(1, 1, 1);
                 // Set number format before the widget contents are updated
                 arrowWidget.SetNumberFormat(numberFormat);
@@ -4070,7 +4141,7 @@ namespace vtkControl
         private void CreateNativeMirrorScalarBar()
         {
             _nativeMirrorScalarBar = new VtkNativeScalarBar(_nativeMirror);
-            _nativeMirrorScalarBar.SetTextStyle(VtkNativeTextStyle.CreateWidgetStyle());
+            _nativeMirrorScalarBar.SetTextStyle(CreateTextStyle());
             MirrorScalarBarColorSpectrum(_colorSpectrum);
             _nativeMirrorScalarBar.CreateLookupTable(VtkNativeColorSpectrum.FromColorSpectrum(_colorSpectrum).GetColor,
                                                      _scalarBarRange[0], _scalarBarRange[1], _scalarBarRange[2],

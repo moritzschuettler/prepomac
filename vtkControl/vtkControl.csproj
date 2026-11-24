@@ -95,6 +95,7 @@
     <Compile Include="Native\Widgets\VtkNativeScalarBarColors.cs" />
     <Compile Include="Native\VtkNativeStatus.cs" />
     <Compile Include="Native\Widgets\VtkNativeTextStyle.cs" />
+    <Compile Include="Native\Widgets\VtkNativeViewFont.cs" />
     <Compile Include="Native\Widgets\VtkNativeValueLabel.cs" />
     <Compile Include="Native\VtkNativeView.cs" />
     <Compile Include="Native\vtkControl.NativeView.cs">

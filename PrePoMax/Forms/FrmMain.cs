@@ -9114,9 +9114,15 @@ namespace PrePoMax
             //
             AnnotationBase annotation = _controller.Annotations.GetCurrentAnnotation(name);
             string text = annotation.GetAnnotationText();
-            rectangle.Offset(-4, 4);
             //
-            StartViewportEdit(rectangle, text, ViewportEditModeEnum.Annotation, annotation);
+            Point textOrigin;
+            if (_vtk.TryGetArrowWidgetTextOrigin(name, rectangle, out textOrigin))
+                StartViewportEdit(rectangle, text, ViewportEditModeEnum.Annotation, annotation, textOrigin);
+            else
+            {
+                rectangle.Offset(-4, 4);
+                StartViewportEdit(rectangle, text, ViewportEditModeEnum.Annotation, annotation, null);
+            }
         }
         private void StartEditLegendValue(bool editMinimum, Rectangle rectangle, string valueText,
                                           double minimum, double maximum)
@@ -9126,22 +9132,44 @@ namespace PrePoMax
             ViewportEditModeEnum editMode = editMinimum
                 ? ViewportEditModeEnum.LegendMinimum
                 : ViewportEditModeEnum.LegendMaximum;
-            rectangle.Offset(-1, 0);
             ViewportLegendValueEditData editData =
                 new ViewportLegendValueEditData(minimum, maximum, valueText);
-            StartViewportEdit(rectangle, valueText, editMode, editData);
+            Point textOrigin;
+            if (_vtk.TryGetScalarBarValueTextOrigin(editMinimum, rectangle, out textOrigin))
+                StartViewportEdit(rectangle, valueText, editMode, editData, textOrigin);
+            else
+            {
+                rectangle.Offset(-1, 0);
+                StartViewportEdit(rectangle, valueText, editMode, editData, null);
+            }
         }
         private void StartEditColorBarTitle(Rectangle rectangle, string title)
         {
             if (_frmQuery.Visible) return;
             //
-            rectangle.Offset(-1, 0);
-            StartViewportEdit(rectangle, title, ViewportEditModeEnum.ColorBarTitle, null);
+            Point textOrigin;
+            if (_vtk.TryGetColorBarTitleTextOrigin(rectangle, out textOrigin))
+                StartViewportEdit(rectangle, title, ViewportEditModeEnum.ColorBarTitle, null, textOrigin);
+            else
+            {
+                rectangle.Offset(-1, 0);
+                StartViewportEdit(rectangle, title, ViewportEditModeEnum.ColorBarTitle, null, null);
+            }
         }
-        private void StartViewportEdit(Rectangle rectangle, string text, ViewportEditModeEnum editMode, object tag)
+        // With a text origin the editor lies over the box of the rectangle and its text over the text of the box; a
+        // box whose text starts closer to its left edge than the frame of the editor allows is widened to the left
+        private void StartViewportEdit(Rectangle rectangle, string text, ViewportEditModeEnum editMode, object tag,
+                                       Point? textOrigin)
         {
             if (viewportTextEditor.Visible && !CommitViewportEdit()) return;
             //
+            if (textOrigin.HasValue)
+            {
+                int widening = Math.Max(0, viewportTextEditor.GetMinimumTextLeft() - textOrigin.Value.X);
+                rectangle = new Rectangle(rectangle.X - widening, rectangle.Y, rectangle.Width + widening,
+                                          rectangle.Height);
+                textOrigin = new Point(textOrigin.Value.X + widening, textOrigin.Value.Y);
+            }
             Point vtkLocation = this.PointToClient(_vtk.PointToScreen(Point.Empty));
             Point location = new Point(vtkLocation.X + rectangle.X,
                                        vtkLocation.Y + (_vtk.Height - rectangle.Y - rectangle.Height));
@@ -9149,15 +9177,21 @@ namespace PrePoMax
             //
             viewportTextEditor.Location = location;
             viewportTextEditor.Size = rectangle.Size;
-            viewportTextEditor.MinSize = rectangle.Size;
+            if (textOrigin.HasValue) viewportTextEditor.SetTextBox(rectangle.Size, textOrigin.Value);
+            else
+            {
+                viewportTextEditor.ResetTextBox();
+                viewportTextEditor.MinSize = rectangle.Size;
+            }
             viewportTextEditor.ParentArea = vtkArea;
             viewportTextEditor.ViewportEditMode = editMode;
             viewportTextEditor.Text = text;
             viewportTextEditor.Tag = tag;
             //
-            bool centerOnHighlight = editMode == ViewportEditModeEnum.LegendMinimum ||
-                                     editMode == ViewportEditModeEnum.LegendMaximum ||
-                                     editMode == ViewportEditModeEnum.ColorBarTitle;
+            bool centerOnHighlight = !textOrigin.HasValue &&
+                                     (editMode == ViewportEditModeEnum.LegendMinimum ||
+                                      editMode == ViewportEditModeEnum.LegendMaximum ||
+                                      editMode == ViewportEditModeEnum.ColorBarTitle);
             if (centerOnHighlight)
             {
                 double highlightCenterY = vtkLocation.Y + _vtk.Height - rectangle.Y - rectangle.Height / 2.0;
@@ -9170,6 +9204,7 @@ namespace PrePoMax
             viewportTextEditor.SetCaretAtEnd();
             //
             _vtk.SelectBy = vtkSelectBy.Widget;
+            _vtk.SetWidgetHighlightSuspended(true);
         }
         private void ViewportTextEditor_CommitRequested()
         {
@@ -9279,6 +9314,7 @@ namespace PrePoMax
             viewportTextEditor.ViewportEditMode = ViewportEditModeEnum.None;
             viewportTextEditor.Tag = null;
             _vtk.SelectBy = vtkSelectBy.Default;
+            _vtk.SetWidgetHighlightSuspended(false);
         }
         private void CancelViewportEdit()
         {
@@ -12618,6 +12654,17 @@ namespace PrePoMax
         public void SetWidgetHighlightEnabled(bool enabled)
         {
             InvokeIfRequired(_vtk.SetWidgetHighlightEnabled, enabled);
+        }
+        public void SetTextFont(string familyName, int fontSize)
+        {
+            InvokeIfRequired(_vtk.SetTextFont, familyName, fontSize);
+            InvokeIfRequired(SetViewportTextEditorFont);
+        }
+        private void SetViewportTextEditorFont()
+        {
+            int fontSize = _vtk.GetTextFontSize();
+            viewportTextEditor.SetTextFont(vtkControl.Native.VtkNativeViewFont.FamilyName, fontSize,
+                                           vtkControl.Native.VtkNativeViewFont.GetLinePitch(fontSize));
         }
         public void SetSelectionDistance(int distanceInPixels)
         {

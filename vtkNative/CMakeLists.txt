@@ -43,6 +43,8 @@ add_library(vtkNative SHARED
     src/vtkNativeApi.cpp
     src/vtkNativeError.cpp
     src/vtkNativeError.h
+    src/vtkNativeFonts.cpp
+    src/vtkNativeFonts.h
     src/vtkNativeGuard.h
     src/vtkNativeOutputWindow.cpp
     src/vtkNativeOutputWindow.h
