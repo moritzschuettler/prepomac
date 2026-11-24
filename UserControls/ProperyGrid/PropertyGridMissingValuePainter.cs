@@ -73,19 +73,17 @@ namespace UserControls
             if (_getGridEntryFromRow == null || _getRectangle == null || _visibleRows == null) return;
             //
             _gridView.HandleCreated += GridView_HandleCreated;
-            _gridView.HandleDestroyed += GridView_HandleDestroyed;
             if (_gridView.IsHandleCreated) AssignHandle(_gridView.Handle);
         }
 
 
         // Event handlers
+        // The handle is released by NativeWindow itself on WM_NCDESTROY. Releasing it earlier, while a tooltip of the
+        // grid view has subclassed the window after this one, makes NativeWindow cut the window procedure chain, so
+        // the grid view never learns its handle was destroyed and disposing the form fails on the stale handle
         private void GridView_HandleCreated(object sender, EventArgs e)
         {
-            AssignHandle(_gridView.Handle);
-        }
-        private void GridView_HandleDestroyed(object sender, EventArgs e)
-        {
-            ReleaseHandle();
+            if (Handle == IntPtr.Zero) AssignHandle(_gridView.Handle);
         }
 
 
