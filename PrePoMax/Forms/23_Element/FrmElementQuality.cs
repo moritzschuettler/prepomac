@@ -27,6 +27,7 @@ namespace PrePoMax.Forms
         private Dictionary<int, double> _elementQualities;
         private int[] _highlightedElementIds;
         private ElementQualityMetricEnum? _computedMetric;
+        private bool _computingElementQuality;
         private AnnotateWithColorEnum? _annotateWithColorBeforeForm;
         private ElementQualityMetricEnum _elementQualityMetricBeforeForm;
         private bool _keepAnnotation;
@@ -46,6 +47,7 @@ namespace PrePoMax.Forms
             _elementQualities = null;
             _highlightedElementIds = null;
             _computedMetric = null;
+            _computingElementQuality = false;
             _annotateWithColorBeforeForm = null;
             _keepAnnotation = false;
             _controller = controller;
@@ -124,13 +126,26 @@ namespace PrePoMax.Forms
         }
         protected override void OnListViewTypeSelectedIndexChanged()
         {
-            if (lvTypes.SelectedItems == null || lvTypes.SelectedItems.Count != 1) return;
+            // The gmsh metrics pump the messages while they are computed, so a selection made meanwhile arrives here
+            // again; the metric selected last is computed once the current one is done
+            if (_computingElementQuality) return;
             //
-            ElementQualityMetricEnum metric = (ElementQualityMetricEnum)lvTypes.SelectedItems[0].Tag;
-            if (metric == _computedMetric) return;
-            //
-            _viewElementQuality.ElementQualityMetric = metric;
-            GetElementQuality();
+            _computingElementQuality = true;
+            try
+            {
+                while (!_closing && lvTypes.SelectedItems != null && lvTypes.SelectedItems.Count == 1)
+                {
+                    ElementQualityMetricEnum metric = (ElementQualityMetricEnum)lvTypes.SelectedItems[0].Tag;
+                    if (metric == _computedMetric) break;
+                    //
+                    _viewElementQuality.ElementQualityMetric = metric;
+                    GetElementQuality();
+                }
+            }
+            finally
+            {
+                _computingElementQuality = false;
+            }
         }
         protected override void OnApply(bool onOkAddNew)
         {
