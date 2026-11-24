@@ -51,10 +51,16 @@ namespace PrePoMax.Forms
                                                            "It is 1 for an ideal element and zero or negative for an " +
                                                            "inverted one. All element types; parabolic elements are " +
                                                            "measured on their corner nodes." },
-                { ElementQualityMetricEnum.AspectRatio, "Verdict aspect ratio. It is 1 for an equilateral element. " +
-                                                        "Triangles, quadrilaterals and tetrahedra." },
+                { ElementQualityMetricEnum.AspectRatio, "Verdict aspect ratio: the longest edge of the element compared " +
+                                                        "with its size, the area of a face or the radius of the sphere " +
+                                                        "inscribed in a tetrahedron. It is 1 for an equilateral element " +
+                                                        "and grows for long or flat elements, so it also finds a flat " +
+                                                        "tetrahedron whose edges are all about equal. Triangles, " +
+                                                        "quadrilaterals and tetrahedra." },
                 { ElementQualityMetricEnum.EdgeRatio, "The longest edge of the element divided by its shortest edge. " +
-                                                      "All element types." },
+                                                      "It is 1 when all edges are equal and grows for long elements, " +
+                                                      "but it misses a flat element whose edges are about equal; the " +
+                                                      "aspect ratio finds those. All element types." },
                 { ElementQualityMetricEnum.MinimumAngle, "The smallest corner angle in degrees of the element, or of " +
                                                          "the faces of a solid element. All element types." },
                 { ElementQualityMetricEnum.MaximumAngle, "The largest corner angle in degrees of the element, or of " +
