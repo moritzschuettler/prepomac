@@ -163,6 +163,7 @@ namespace vtkControl
                 if (value != _renderingOn)
                 {
                     _renderingOn = value;
+                    _nativeHost.PaintSuspended = !_renderingOn;
                     if (_renderingOn) RenderScene();
                 }
             }

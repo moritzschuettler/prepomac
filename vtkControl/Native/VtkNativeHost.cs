@@ -20,6 +20,7 @@ namespace vtkControl.Native
     {
         // Variables
         private VtkNativeView _view;
+        private bool _paintSuspended;
 
 
         // Events
@@ -30,6 +31,9 @@ namespace vtkControl.Native
         public VtkNativeView View { get { return _view; } }
         // The OpenGL window VTK created in this one, which takes the keyboard
         public IntPtr ViewWindow { get { return IsHandleCreated ? GetWindow(Handle, GW_CHILD) : IntPtr.Zero; } }
+        // While the scene is rebuilt a paint would show it half built: a wait of the UI thread, such as the end of a
+        // parallel loop, dispatches the paint messages. The owner invalidates the host when the scene is complete
+        public bool PaintSuspended { get { return _paintSuspended; } set { _paintSuspended = value; } }
 
 
         // Constructors
@@ -77,7 +81,7 @@ namespace vtkControl.Native
         }
         protected override void OnPaint(PaintEventArgs e)
         {
-            if (_view != null) _view.Render();
+            if (_view != null && !_paintSuspended) _view.Render();
         }
         // A click on the ActiViz view was a click on vtkControl, which took the focus of the form; a click on the
         // OpenGL window passes the form by, which kept the control focused before, a tool strip or the search box of the
