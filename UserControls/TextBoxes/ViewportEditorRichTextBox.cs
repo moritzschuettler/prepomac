@@ -106,6 +106,10 @@ namespace UserControls
         private static extern IntPtr SelectObject(IntPtr hdc, IntPtr hgdiobj);
         [DllImport("gdi32.dll")]
         private static extern bool DeleteObject(IntPtr hObject);
+        [DllImport("user32.dll")]
+        private static extern bool HideCaret(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        private static extern bool ShowCaret(IntPtr hWnd);
         // Scroll
         private const UInt32 SB_TOP = 0x6;
         private const UInt32 WM_VSCROLL = 0x115;
@@ -284,6 +288,7 @@ namespace UserControls
             //
             _applyingLineFormats = true;
             HandleRef handle = new HandleRef(this, Handle);
+            bool caretHidden = HideCaret(Handle);
             SendMessage(handle, WM_SETREDRAW, 0, IntPtr.Zero);
             try
             {
@@ -301,6 +306,7 @@ namespace UserControls
             {
                 SendMessage(handle, WM_SETREDRAW, 1, IntPtr.Zero);
                 Invalidate();
+                if (caretHidden) ShowCaret(Handle);
                 _applyingLineFormats = false;
             }
         }
@@ -325,7 +331,29 @@ namespace UserControls
             int height = _firstLineHeight + (int)Math.Round((lineCount - 1) * _linePitchInPixels);
             return new Size(_textOrigin.X + width + 2, height);
         }
+        // A typed character that would end its line past the right edge scrolls the text to the caret before the
+        // control grows, so the control grows for it first
+        private void ReserveWidth(char character)
+        {
+            string text = base.Text;
+            int lineEnd = text.IndexOf('\n', Math.Min(SelectionStart, text.Length));
+            if (lineEnd < 0) lineEnd = text.Length;
+            int characterWidth = TextRenderer.MeasureText(character.ToString(), Font, Size.Empty,
+                                                          TextFormatFlags.NoPadding).Width;
+            int width = GetPositionFromCharIndex(lineEnd).X + characterWidth + 2;
+            if (width <= ClientSize.Width || _maxSize.Width <= 0) return;
+            width = Math.Min(width + Width - ClientSize.Width, _maxSize.Width);
+            if (width <= Width) return;
+            bool caretHidden = HideCaret(Handle);
+            Size = new Size(width, Height);
+            if (caretHidden) ShowCaret(Handle);
+        }
         //
+        protected override void OnKeyPress(KeyPressEventArgs e)
+        {
+            if (!char.IsControl(e.KeyChar)) ReserveWidth(e.KeyChar);
+            base.OnKeyPress(e);
+        }
         protected override void OnKeyDown(KeyEventArgs e)
         {
             if (e.Control && e.KeyCode == Keys.V)
@@ -375,7 +403,13 @@ namespace UserControls
             if (newSize.Width > _maxSize.Width) newSize.Width = _maxSize.Width;
             if (newSize.Height > _maxSize.Height) newSize.Height = _maxSize.Height;
             //
-            Size = newSize;
+            if (newSize != Size)
+            {
+                bool caretHidden = HideCaret(Handle);
+                Size = newSize;
+                Invalidate();
+                if (caretHidden) ShowCaret(Handle);
+            }
             //
             base.OnTextChanged(e);
         }
