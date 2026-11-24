@@ -296,7 +296,7 @@ namespace APIs.Python
             types.Add("symmetry", typeof(SweepSymmetryEnum));
             types.Add("transfinite_three_sided", typeof(TransfiniteThreeSidedEnum));
             types.Add("nodes_to_keep", typeof(NodesToKeepEnum));
-            types.Add("metric", typeof(GmshElementQualityMetricEnum));
+            types.Add("metric", typeof(ElementQualityMetricEnum));
             // Analyses and results
             types.Add("fem_solver", typeof(FEMSolverEnum));
             types.Add("interpolator_type", typeof(InterpolatorEnum));

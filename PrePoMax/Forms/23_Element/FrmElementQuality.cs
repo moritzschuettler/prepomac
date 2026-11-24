@@ -14,22 +14,26 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using CaeGlobals;
+using CaeMesh;
 using CaeModel;
 using UserControls;
 
 namespace PrePoMax.Forms
 {
-    class FrmElementQuality : FrmProperties, IFormBase, IFormHighlight
+    class FrmElementQuality : FrmPropertyListView, IFormBase, IFormHighlight
     {
         // Variables                                                                                                                
-        private string[] _partNames;
         private ViewElementQuality _viewElementQuality;
         private Dictionary<int, double> _elementQualities;
+        private int[] _highlightedElementIds;
+        private ElementQualityMetricEnum? _computedMetric;
+        private AnnotateWithColorEnum? _annotateWithColorBeforeForm;
+        private ElementQualityMetricEnum _elementQualityMetricBeforeForm;
+        private bool _keepAnnotation;
         private Controller _controller;
 
 
         // Properties                                                                                                               
-        public string[] PartNames { get { return _partNames; } set { _partNames = value; } }
         public ViewElementQuality ElementQuality { get { return _viewElementQuality; } set { _viewElementQuality = value; } }
 
 
@@ -38,46 +42,66 @@ namespace PrePoMax.Forms
         {
             InitializeComponent();
             //
-            _partNames = null;
             _viewElementQuality = new ViewElementQuality();
             _elementQualities = null;
+            _highlightedElementIds = null;
+            _computedMetric = null;
+            _annotateWithColorBeforeForm = null;
+            _keepAnnotation = false;
             _controller = controller;
             //
             propertyGrid.SelectedObject = _viewElementQuality;
             //
             _addNew = false;
-            btnOK.Visible = false;
             //
             btnOkAddNew.Text = "Create Set";
-            btnOkAddNew.Location = btnOK.Location;
             btnCancel.Text = "Close";
             //
             propertyGrid.SetLabelColumnWidth(1.9);
         }
         private void InitializeComponent()
         {
+            this.gbType.SuspendLayout();
             this.gbProperties.SuspendLayout();
             this.SuspendLayout();
             // 
+            // gbType
+            // 
+            this.gbType.Size = new System.Drawing.Size(310, 108);
+            this.gbType.Text = "Quality metric";
+            // 
+            // lvTypes
+            // 
+            this.lvTypes.ShowItemToolTips = true;
+            this.lvTypes.Size = new System.Drawing.Size(298, 80);
+            // 
+            // gbProperties
+            // 
+            this.gbProperties.Location = new System.Drawing.Point(12, 126);
+            this.gbProperties.Size = new System.Drawing.Size(310, 342);
+            // 
+            // propertyGrid
+            // 
+            this.propertyGrid.Size = new System.Drawing.Size(298, 314);
+            // 
             // btnOK
             // 
-            this.btnOK.Location = new System.Drawing.Point(160, 376);
+            this.btnOK.Location = new System.Drawing.Point(160, 474);
             // 
             // btnCancel
             // 
-            this.btnCancel.Location = new System.Drawing.Point(241, 376);
+            this.btnCancel.Location = new System.Drawing.Point(241, 474);
             // 
             // btnOkAddNew
             // 
-            this.btnOkAddNew.Location = new System.Drawing.Point(79, 376);
-            this.btnOkAddNew.Size = new System.Drawing.Size(75, 23);
-            this.btnOkAddNew.Text = "Apply";
+            this.btnOkAddNew.Location = new System.Drawing.Point(79, 474);
             // 
-            // FrmPartProperties
+            // FrmElementQuality
             // 
-            this.ClientSize = new System.Drawing.Size(334, 411);
+            this.ClientSize = new System.Drawing.Size(334, 509);
             this.Name = "FrmElementQuality";
             this.Text = "Element Quality";
+            this.gbType.ResumeLayout(false);
             this.gbProperties.ResumeLayout(false);
             this.ResumeLayout(false);
 
@@ -89,27 +113,42 @@ namespace PrePoMax.Forms
         {
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
-            if (property == nameof(_viewElementQuality.ElementQualityMetric))
+            if (property == nameof(_viewElementQuality.HighlightCriteria) ||
+                property == nameof(_viewElementQuality.HighlightLimit) ||
+                property == nameof(_viewElementQuality.HighlightElements))
             {
-                GetElementQuality();
-            }
-            else if (property == nameof(_viewElementQuality.HighlightCriteria) ||
-                     property == nameof(_viewElementQuality.HighlightLimit))
-            {
-                HighlightElements();
+                ShowElementQuality();
             }
             //
             base.OnPropertyGridPropertyValueChanged();
         }
+        protected override void OnListViewTypeSelectedIndexChanged()
+        {
+            if (lvTypes.SelectedItems == null || lvTypes.SelectedItems.Count != 1) return;
+            //
+            ElementQualityMetricEnum metric = (ElementQualityMetricEnum)lvTypes.SelectedItems[0].Tag;
+            if (metric == _computedMetric) return;
+            //
+            _viewElementQuality.ElementQualityMetric = metric;
+            GetElementQuality();
+        }
         protected override void OnApply(bool onOkAddNew)
         {
+            // OK closes the dialog and keeps the color annotation
+            if (!onOkAddNew)
+            {
+                _keepAnnotation = true;
+                base.OnApply(onOkAddNew);
+                return;
+            }
             // An element set shares its name space with the parts and the other mesh entities, since a part is
             // written to the solver input as an element set of its name
             string name = _controller.GetAllMeshEntityNames().GetNextNumberedKey("Element_qualities");
-            bool largerThan = _viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.Larger;
             //
             _controller.CreateElementSetFromElementQualityCommand(name, _viewElementQuality.ElementQualityMetric.ToString(),
-                                                                  _partNames, largerThan, _viewElementQuality.HighlightLimit);
+                                                                  _controller.GetElementQualityPartNames(),
+                                                                  _viewElementQuality.LargerIsWorse,
+                                                                  _viewElementQuality.HighlightLimit);
             //
             base.OnApply(onOkAddNew);
         }
@@ -118,42 +157,98 @@ namespace PrePoMax.Forms
             // Disable selection
             _controller.SetSelectByToOff();
             //
-            GetElementQuality();
+            _annotateWithColorBeforeForm = _controller.AnnotateWithColor;
+            _elementQualityMetricBeforeForm = _controller.ElementQualityMetric;
+            _keepAnnotation = false;
+            //
+            _computedMetric = null;
+            PopulateListOfMetrics();
             //
             propertyGrid.BuildAutocompleteMenu(_controller.GetAllParameterNames());
             //
             return true;
         }
+        protected override void OnHideOrClose()
+        {
+            AnnotateWithColorEnum? annotateWithColorBeforeForm = _annotateWithColorBeforeForm;
+            _annotateWithColorBeforeForm = null;
+            //
+            base.OnHideOrClose();
+            // Close returns the color annotation to its state before the dialog opened
+            if (annotateWithColorBeforeForm.HasValue && !_keepAnnotation)
+            {
+                if (_controller.AnnotateWithColor != annotateWithColorBeforeForm.Value)
+                    _controller.SetAnnotateWithColor(annotateWithColorBeforeForm.Value);
+                _controller.ElementQualityMetric = _elementQualityMetricBeforeForm;
+            }
+        }
 
 
-        // Methods                                                                                                                  
+        // Methods
+        private void PopulateListOfMetrics()
+        {
+            lvTypes.Items.Clear();
+            ListViewItem selectedItem = null;
+            foreach (ElementQualityMetricEnum metric in Enum.GetValues(typeof(ElementQualityMetricEnum)))
+            {
+                ListViewItem item = new ListViewItem(ViewElementQuality.GetMetricName(metric));
+                item.ToolTipText = ViewElementQuality.GetMetricDescription(metric);
+                item.Tag = metric;
+                lvTypes.Items.Add(item);
+                if (metric == _controller.ElementQualityMetric) selectedItem = item;
+            }
+            selectedItem.Selected = true;
+        }
         private void GetElementQuality()
         {
-            _elementQualities = _controller.GetElementQuality(_viewElementQuality.ElementQualityMetric.ToString(), _partNames);
+            ElementQualityMetricEnum metric = _viewElementQuality.ElementQualityMetric;
+            _computedMetric = metric;
+            _controller.ShowElementQualityAnnotation(metric);
+            _elementQualities = _controller.GetElementQualityValues();
             double[] sorted = _elementQualities.Values.ToArray();
             Array.Sort(sorted);
             //
-            double min;
-            double max;
+            double min = 0;
+            double max = 0;
             double average = 0;
             double standardDeviation = 0;
+            if (sorted.Length > 0)
+            {
+                min = sorted[0];
+                max = sorted[sorted.Length - 1];
+                foreach (double value in sorted) average += value;
+                average /= sorted.Length;
+                foreach (double value in sorted) standardDeviation += Math.Pow(value - average, 2);
+                standardDeviation = Math.Sqrt(standardDeviation / sorted.Length);
+            }
+            _viewElementQuality.SetValues(min, max, average, standardDeviation, sorted.Length);
+            //
+            bool largerIsWorse;
             double limit;
+            if (!ViewElementQuality.GetDefaultLimit(metric, out largerIsWorse, out limit) && sorted.Length > 0)
+            {
+                // The worst 1 % of the elements are past the limit
+                limit = sorted[(int)((sorted.Length - 1) * (largerIsWorse ? 0.99 : 0.01))];
+            }
+            _viewElementQuality.SetLimit(largerIsWorse, limit);
             //
-            min = sorted[0];
-            max = sorted[sorted.Length - 1];
-            foreach (var entry in _elementQualities) average += entry.Value;
-            average /= _elementQualities.Count;
-            foreach (var entry in _elementQualities) standardDeviation += Math.Pow(entry.Value - average, 2);
-            standardDeviation /= _elementQualities.Count;
-            standardDeviation = Math.Sqrt(standardDeviation);
-            //
-            double ratio;
-            if (_viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.Smaller) ratio = 0.05;
-            else ratio = 1 - 0.05;
-            //
-            limit = sorted[(int)(sorted.Length * ratio)];
-            //
-            _viewElementQuality.SetValues(min, max, average, standardDeviation, limit);
+            ShowElementQuality();
+        }
+        // An element is past the limit as in CreateElementSetFromElementQuality: a larger value when it is larger than
+        // the limit and a smaller value when it is not larger
+        private bool IsPastLimit(double value)
+        {
+            return _viewElementQuality.LargerIsWorse == value > _viewElementQuality.HighlightLimit;
+        }
+        private void ShowElementQuality()
+        {
+            List<int> highlightedElementIds = new List<int>();
+            foreach (var entry in _elementQualities)
+            {
+                if (IsPastLimit(entry.Value)) highlightedElementIds.Add(entry.Key);
+            }
+            _highlightedElementIds = highlightedElementIds.ToArray();
+            _viewElementQuality.NumberOfHighlightedElements = _highlightedElementIds.Length;
             propertyGrid.Refresh();
             //
             HighlightElements();
@@ -162,25 +257,9 @@ namespace PrePoMax.Forms
         {
             _controller.ClearAllSelection();
             //
-            if (_elementQualities == null) return;
+            if (_highlightedElementIds == null || !_viewElementQuality.HighlightElements) return;
             //
-            List<int> elementIds = new List<int>();
-            if (_viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.Smaller)
-            {
-                foreach (var entry in _elementQualities)
-                {
-                    if (entry.Value < _viewElementQuality.HighlightLimit) elementIds.Add(entry.Key);
-                }
-            }
-            else if (_viewElementQuality.HighlightCriteria == GmshElementQualityHighlightCriteriaEnum.Larger)
-            {
-                foreach (var entry in _elementQualities)
-                {
-                    if (entry.Value > _viewElementQuality.HighlightLimit) elementIds.Add(entry.Key);
-                }
-            }
-            //
-            if (elementIds.Count > 0) _controller.HighlightElements(elementIds.ToArray());
+            if (_highlightedElementIds.Length > 0) _controller.HighlightElements(_highlightedElementIds);
         }
         // IFormHighlight
         public void Highlight()

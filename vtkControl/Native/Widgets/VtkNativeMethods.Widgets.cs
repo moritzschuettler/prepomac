@@ -105,6 +105,9 @@ namespace vtkControl.Native
         public static extern VtkNativeStatus vtkn_color_bar_set_colors_and_labels(IntPtr widget, double[] colorsRgb,
                                                                                   byte[] labels, int count);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_color_bar_get_title_rectangle(IntPtr widget, [Out] int[] rectangle4,
+                                                                                out int found);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_arrow_set_anchor_point(IntPtr widget, double x, double y, double z);
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern VtkNativeStatus vtkn_arrow_reset_position_from_anchor(IntPtr widget);

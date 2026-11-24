@@ -199,6 +199,7 @@ namespace PrePoMax
             this.tsmiColorAnnotations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateFaceOrientations = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateMeshTypes = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiAnnotateElementQuality = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiDividerColorAnnotations1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiAnnotateParts = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiAnnotateMaterials = new System.Windows.Forms.ToolStripMenuItem();
@@ -598,6 +599,8 @@ namespace PrePoMax
             this.tsmiDeleteAnnotation = new System.Windows.Forms.ToolStripMenuItem();
             this.cmsResultWidget = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiEditLegendValue = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEditColorBarTitle = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiColorBarElementQuality = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultWidgetSettings = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultWidgetSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiSetMaxColor = new System.Windows.Forms.ToolStripMenuItem();
@@ -607,6 +610,7 @@ namespace PrePoMax
             this.tsmiMinColorVisible = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiResultWidgetSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiResetLegend = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiResetColorBarTitle = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStripMain = new System.Windows.Forms.StatusStrip();
             this.tspbProgress = new System.Windows.Forms.ToolStripProgressBar();
             this.tsslState = new System.Windows.Forms.ToolStripStatusLabel();
@@ -1070,6 +1074,7 @@ namespace PrePoMax
             "None",
             "Face Orientations",
             "Mesh Types",
+            "Element Quality",
             "Parts",
             "Materials",
             "Sections",
@@ -2069,6 +2074,7 @@ namespace PrePoMax
             this.tsmiColorAnnotations.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiAnnotateFaceOrientations,
             this.tsmiAnnotateMeshTypes,
+            this.tsmiAnnotateElementQuality,
             this.tsmiDividerColorAnnotations1,
             this.tsmiAnnotateParts,
             this.tsmiAnnotateMaterials,
@@ -2100,6 +2106,13 @@ namespace PrePoMax
             this.tsmiAnnotateMeshTypes.Size = new System.Drawing.Size(179, 22);
             this.tsmiAnnotateMeshTypes.Text = "Mesh Types";
             this.tsmiAnnotateMeshTypes.Click += new System.EventHandler(this.tsmiAnnotateMeshTypes_Click);
+            //
+            // tsmiAnnotateElementQuality
+            //
+            this.tsmiAnnotateElementQuality.Name = "tsmiAnnotateElementQuality";
+            this.tsmiAnnotateElementQuality.Size = new System.Drawing.Size(179, 22);
+            this.tsmiAnnotateElementQuality.Text = "Element Quality";
+            this.tsmiAnnotateElementQuality.Click += new System.EventHandler(this.tsmiAnnotateElementQuality_Click);
             // 
             // tsmiDividerColorAnnotations1
             // 
@@ -5218,7 +5231,9 @@ namespace PrePoMax
             // cmsResultWidget
             // 
             this.cmsResultWidget.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiColorBarElementQuality,
             this.tsmiEditLegendValue,
+            this.tsmiEditColorBarTitle,
             this.tsmiResultWidgetSettings,
             this.tsmiResultWidgetSeparator1,
             this.tsmiSetMaxColor,
@@ -5227,7 +5242,8 @@ namespace PrePoMax
             this.tsmiSetMinColor,
             this.tsmiMinColorVisible,
             this.tsmiResultWidgetSeparator3,
-            this.tsmiResetLegend});
+            this.tsmiResetLegend,
+            this.tsmiResetColorBarTitle});
             this.cmsResultWidget.Name = "cmsResultWidget";
             this.cmsResultWidget.Size = new System.Drawing.Size(163, 176);
             this.cmsResultWidget.Closed += new System.Windows.Forms.ToolStripDropDownClosedEventHandler(this.cmsViewportWidget_Closed);
@@ -5238,6 +5254,20 @@ namespace PrePoMax
             this.tsmiEditLegendValue.Size = new System.Drawing.Size(162, 22);
             this.tsmiEditLegendValue.Text = "Edit";
             this.tsmiEditLegendValue.Click += new System.EventHandler(this.tsmiEditLegendValue_Click);
+            //
+            // tsmiEditColorBarTitle
+            //
+            this.tsmiEditColorBarTitle.Name = "tsmiEditColorBarTitle";
+            this.tsmiEditColorBarTitle.Size = new System.Drawing.Size(162, 22);
+            this.tsmiEditColorBarTitle.Text = "Edit Title";
+            this.tsmiEditColorBarTitle.Click += new System.EventHandler(this.tsmiEditColorBarTitle_Click);
+            //
+            // tsmiColorBarElementQuality
+            //
+            this.tsmiColorBarElementQuality.Name = "tsmiColorBarElementQuality";
+            this.tsmiColorBarElementQuality.Size = new System.Drawing.Size(162, 22);
+            this.tsmiColorBarElementQuality.Text = "Element Quality";
+            this.tsmiColorBarElementQuality.Click += new System.EventHandler(this.tsmiElementQuality_Click);
             // 
             // tsmiResultWidgetSettings
             // 
@@ -5299,6 +5329,13 @@ namespace PrePoMax
             this.tsmiResetLegend.Size = new System.Drawing.Size(162, 22);
             this.tsmiResetLegend.Text = "Reset";
             this.tsmiResetLegend.Click += new System.EventHandler(this.tsmiResetLegend_Click);
+            //
+            // tsmiResetColorBarTitle
+            //
+            this.tsmiResetColorBarTitle.Name = "tsmiResetColorBarTitle";
+            this.tsmiResetColorBarTitle.Size = new System.Drawing.Size(162, 22);
+            this.tsmiResetColorBarTitle.Text = "Reset Title";
+            this.tsmiResetColorBarTitle.Click += new System.EventHandler(this.tsmiResetColorBarTitle_Click);
             // 
             // statusStripMain
             // 
@@ -5844,6 +5881,7 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateContactPairs;
         private System.Windows.Forms.ToolStripMenuItem tsmiColorAnnotations;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateMeshTypes;
+        private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateElementQuality;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerColorAnnotations1;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerColorAnnotations2;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotateSections;
@@ -5923,6 +5961,9 @@ namespace PrePoMax
         private System.Windows.Forms.ToolStripMenuItem tsmiMinColorVisible;
         private System.Windows.Forms.ToolStripMenuItem tsmiResultWidgetSettings;
         private System.Windows.Forms.ToolStripMenuItem tsmiResetLegend;
+        private System.Windows.Forms.ToolStripMenuItem tsmiEditColorBarTitle;
+        private System.Windows.Forms.ToolStripMenuItem tsmiColorBarElementQuality;
+        private System.Windows.Forms.ToolStripMenuItem tsmiResetColorBarTitle;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteAnnotation;
         private System.Windows.Forms.ToolStripMenuItem tsmiAnnotationSettings;
         private System.Windows.Forms.ToolStripSeparator tsmiDividerAnnotation1;

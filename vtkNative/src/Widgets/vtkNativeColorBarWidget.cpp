@@ -9,6 +9,7 @@
 #include <vtkProperty2D.h>
 
 #include <algorithm>
+#include <cmath>
 
 namespace vtkn
 {
@@ -105,6 +106,30 @@ namespace vtkn
         //
         Size[0] = std::max({ size1[0], size2[0], size3[0] }) + Padding;
         Size[1] = size3[1] + Padding;
+        TitleSize[0] = sizeText[0];
+        TitleSize[1] = sizeText[1];
+    }
+
+    bool ColorBarWidget::GetTitleRectangle(Rect& rectangle) const
+    {
+        rectangle = Rect();
+        if (!Visibility || Renderer == nullptr || TitleSize[1] <= 0) return false;
+        //
+        // The box reaches a few pixels past the text as the boxes of the legend values do
+        const int margin = 4;
+        double* position = PositionCoordinate->GetComputedDoubleDisplayValue(Renderer);
+        rectangle = Rect(static_cast<int>(std::floor(position[0] + TextOffset[0])) - margin,
+                         static_cast<int>(std::floor(position[1] + TextOffset[1])) - margin,
+                         static_cast<int>(std::ceil(TitleSize[0])) + 2 * margin,
+                         static_cast<int>(std::ceil(TitleSize[1])) + 2 * margin);
+        return true;
+    }
+
+    Rect ColorBarWidget::GetHighlightRectangle(int x, int y)
+    {
+        Rect titleRectangle;
+        if (GetTitleRectangle(titleRectangle) && titleRectangle.Contains(x, y)) return titleRectangle;
+        return TextWidget::GetHighlightRectangle(x, y);
     }
 
     void ColorBarWidget::GenerateBarBorders(double boxWidth, double boxHeight)

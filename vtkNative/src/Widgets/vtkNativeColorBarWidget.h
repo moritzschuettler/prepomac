@@ -29,6 +29,10 @@ namespace vtkn
 
         // colors: count * 3 values from 0 to 1
         void SetColorsAndLabels(const double* colors, const std::vector<std::string>& labels);
+        // The box of the title in display coordinates; false when the bar or its title is not shown
+        bool GetTitleRectangle(Rect& rectangle) const;
+        // The title is highlighted on its own, as it is edited on its own
+        Rect GetHighlightRectangle(int x, int y) override;
 
     private:
         void GenerateGeometry();
@@ -52,6 +56,7 @@ namespace vtkn
         double FooterOffset[2] = { 0, 0 };
         double LabelOffset[2] = { 0, 0 };
         double TextOffset[2] = { 0, 0 };
+        double TitleSize[2] = { 0, 0 };
         double BarOffset[2] = { 0, 0 };
     };
 }

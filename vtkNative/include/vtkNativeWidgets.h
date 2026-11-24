@@ -248,6 +248,9 @@ VTKN_API vtkn_status VTKN_CALL vtkn_scale_bar_get_labels(vtkn_widget widget, cha
    byte */
 VTKN_API vtkn_status VTKN_CALL vtkn_color_bar_set_colors_and_labels(vtkn_widget widget, const double* colors_rgb,
                                                                     const char* labels, int32_t count);
+/* The box of the color bar title in display coordinates; found is 0 when the bar or its title is not shown */
+VTKN_API vtkn_status VTKN_CALL vtkn_color_bar_get_title_rectangle(vtkn_widget widget, int32_t* rectangle4,
+                                                                  int32_t* found);
 /* The arrow widget: the anchor point in world coordinates, the position reset from it, a move of the box, and the
    leader line x0, y0 (at the box), x1, y1 (at the head) */
 VTKN_API vtkn_status VTKN_CALL vtkn_arrow_set_anchor_point(vtkn_widget widget, double x, double y, double z);

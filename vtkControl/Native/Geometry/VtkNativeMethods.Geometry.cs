@@ -16,7 +16,7 @@ namespace vtkControl.Native
     internal static partial class VtkNativeMethods
     {
         // Variables
-        public const int GeometryApiVersion = 10;
+        public const int GeometryApiVersion = 11;
 
 
         // Methods
@@ -179,5 +179,8 @@ namespace vtkControl.Native
                                                                        int[] pointIndices, double[] weights,
                                                                        int capacity, out int count, double[] closest,
                                                                        out int found);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern VtkNativeStatus vtkn_compute_element_quality(int metric, int cellType, double[] points,
+                                                                          int elementCount, double[] values);
     }
 }

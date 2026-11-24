@@ -17,6 +17,7 @@ namespace vtkControl
     {
         Legend,
         LegendValue,
-        StatusBlock
+        StatusBlock,
+        ColorBar
     }
 }

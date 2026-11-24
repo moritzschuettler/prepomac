@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 /* Raised whenever this area changes incompatibly */
-#define VTKN_GEOMETRY_API_VERSION 10
+#define VTKN_GEOMETRY_API_VERSION 11
 
 /* Mirrors vtkRendererLayer of vtkControl: the base layer, the selection layer drawn over it, the overlay layer */
 typedef enum vtkn_layer
@@ -416,6 +416,29 @@ VTKN_API vtkn_status VTKN_CALL vtkn_view_get_export_actor(vtkn_view view, int32_
 VTKN_API vtkn_status VTKN_CALL vtkn_locate_point_in_mesh(const vtkn_mesh* mesh, const double* point3,
                                                           int32_t* point_indices, double* weights, int32_t capacity,
                                                           int32_t* count, double* closest3, int32_t* found);
+
+/* The element quality metrics of vtkn_compute_element_quality. The scaled Jacobian, the aspect ratio, the skew and
+   the taper are those of Verdict (Sandia). The edge ratio is the longest edge over the shortest one. The angles are
+   the corner angles in degrees of the element, or of the faces of a solid element. The warpage is the largest angle
+   in degrees between the normals of the two triangles a quadrilateral face splits into, over both diagonals */
+typedef enum vtkn_quality_metric
+{
+    VTKN_QUALITY_SCALED_JACOBIAN = 0,
+    VTKN_QUALITY_ASPECT_RATIO = 1,
+    VTKN_QUALITY_EDGE_RATIO = 2,
+    VTKN_QUALITY_MINIMUM_ANGLE = 3,
+    VTKN_QUALITY_MAXIMUM_ANGLE = 4,
+    VTKN_QUALITY_SKEW = 5,
+    VTKN_QUALITY_WARPAGE = 6,
+    VTKN_QUALITY_TAPER = 7
+} vtkn_quality_metric;
+
+/* The quality metric of element_count elements of one linear VTK cell type (triangle, quad, tetra, hexahedron, wedge
+   or pyramid): points holds the corner coordinates of the elements one after another in the VTK node order,
+   element_count * corners * 3 values. values receives one value per element, NaN where the metric is not defined
+   for the cell type. Needs no view */
+VTKN_API vtkn_status VTKN_CALL vtkn_compute_element_quality(int32_t metric, int32_t cell_type, const double* points,
+                                                             int32_t element_count, double* values);
 
 /* Actors are named; adding a name that exists replaces that actor.
    points: point_count * 3 coordinates. cells: for each cell its node count followed by its point indices

@@ -24,7 +24,8 @@ namespace UserControls
         None,
         Annotation,
         LegendMinimum,
-        LegendMaximum
+        LegendMaximum,
+        ColorBarTitle
     }
 
     public partial class ViewportTextEditor : UserControl
@@ -138,6 +139,11 @@ namespace UserControls
                                _viewportEditMode == ViewportEditModeEnum.LegendMaximum;
             if (_viewportEditMode == ViewportEditModeEnum.Annotation &&
                 keyData == (Keys.Control | Keys.Enter))
+            {
+                CommitRequested?.Invoke();
+                return true;
+            }
+            else if (_viewportEditMode == ViewportEditModeEnum.ColorBarTitle && keyData == Keys.Enter)
             {
                 CommitRequested?.Invoke();
                 return true;

@@ -146,7 +146,7 @@
     <Compile Include="Meshing\Base\SplitPartMeshData.cs" />
     <Compile Include="Meshing\Base\ThickenShellMesh.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshCommandEnum.cs" />
-    <Compile Include="Meshing\Gmsh\Enums\GmshElementQualityMetricEnum.cs" />
+    <Compile Include="Enums\ElementQualityMetricEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderShellEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeHighOrderEnum.cs" />
     <Compile Include="Meshing\Gmsh\Enums\GmshOptimizeFirstOrderSolidEnum.cs" />

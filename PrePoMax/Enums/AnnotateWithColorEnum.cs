@@ -29,6 +29,7 @@ namespace PrePoMax
         BoundaryConditions = 1024,
         Loads = 2048,
         DefinedFields = 4096,
-        MeshTypes = 8192
+        MeshTypes = 8192,
+        ElementQuality = 16384
     }
 }

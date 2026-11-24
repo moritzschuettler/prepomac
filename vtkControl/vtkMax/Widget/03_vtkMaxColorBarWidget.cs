@@ -69,6 +69,11 @@ namespace vtkControl
                 SetColorsAndLabels(allColors.ToArray(), allLabels.ToArray());
             }
         }
+        public bool TryGetTitleRectangle(out Rectangle rectangle)
+        {
+            rectangle = Rectangle.Empty;
+            return _nativeMirror != null && _nativeMirror.GetColorBarTitleRectangle(out rectangle);
+        }
         protected override void CopyStateToNativeMirror(VtkNativeWidget nativeMirror)
         {
             nativeMirror.SetColorsAndLabels(_colors, _labels);

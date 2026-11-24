@@ -27,6 +27,7 @@ using System.IO;
 using System.IO.Compression;
 using System.IO.Ports;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -81,6 +82,12 @@ namespace PrePoMax
         [NonSerialized] protected ExplodedViewsCollection _explodedViews;
         [NonSerialized] protected FollowerViewsCollection _followerViews;
         [NonSerialized] protected AnnotateWithColorEnum _annotateWithColor;
+        [NonSerialized] protected ElementQualityMetricEnum _elementQualityMetric;
+        [NonSerialized] protected Dictionary<int, double> _elementQualityValues;
+        [NonSerialized] protected string _elementQualityValuesKey;
+        [NonSerialized] protected Color[] _elementQualityColors;
+        [NonSerialized] protected string[] _elementQualityLabels;
+        [NonSerialized] protected Dictionary<string, string> _colorBarTitles;
         [NonSerialized] protected ShowItemIdsEnum _showItemIds;
         [NonSerialized] protected bool _itemIdsSuppressed;
         [NonSerialized] protected string _drawSymbolName;
@@ -327,9 +334,6 @@ namespace PrePoMax
             get { return _annotateWithColor; }
             set
             {
-                // Why a part is meshed by tetrahedra is worth reading once, when the colors are asked for
-                bool reportMeshTypes = value == AnnotateWithColorEnum.MeshTypes && _annotateWithColor != value;
-                //
                 _annotateWithColor = value;
                 //
                 if (_annotateWithColor == AnnotateWithColorEnum.None) _form.HideColorBar();
@@ -337,8 +341,19 @@ namespace PrePoMax
                 _form.InitializeColorBarWidgetPosition();
                 //
                 Redraw();
+            }
+        }
+        // The metric the element quality color annotation shows
+        public ElementQualityMetricEnum ElementQualityMetric
+        {
+            get { return _elementQualityMetric; }
+            set
+            {
+                if (_elementQualityMetric == value) return;
                 //
-                if (reportMeshTypes) WriteMeshTypesToOutput();
+                _elementQualityMetric = value;
+                //
+                if (_annotateWithColor == AnnotateWithColorEnum.ElementQuality) Redraw();
             }
         }
         // Show item ids
@@ -13766,51 +13781,6 @@ namespace PrePoMax
             else if (meshSetupItem is NetgenMesh && part.PartType != PartType.Shell) return MeshTypeEnum.Tetrahedral;
             else return MeshTypeEnum.Other;
         }
-        /// <summary>
-        /// Writes why each solid part is meshed by tetrahedra rather than swept. The reason names the surface,
-        /// the wall or the sub-part that stands in the way, which is what has to be split or selected by hand.
-        /// </summary>
-        private void WriteMeshTypesToOutput()
-        {
-            if (_model == null || _model.Geometry == null ||
-                _currentView != ViewGeometryModelResults.Geometry) return;
-            //
-            string reason;
-            GeometryPart part;
-            List<string> reasons = new List<string>();
-            foreach (var entry in _model.Geometry.Parts)
-            {
-                part = entry.Value as GeometryPart;
-                if (part == null || part is CompoundGeometryPart) continue;
-                if (part.MeshType != MeshTypeEnum.Tetrahedral) continue;
-                // Why the geometry cannot be swept says nothing about a part the user gave a setup item
-                if (GetUserMesherSetupItems(part.Name).Length > 0) continue;
-                //
-                reason = _model.GetMeshTypeReason(part);
-                if (reason == null) continue;
-                //
-                reasons.Add("The part " + part.Name + " is meshed by tetrahedra: " + reason);
-            }
-            // A cell of a compound that can be swept on its own but is kept from the sweep by the other cells
-            foreach (var entry in _model.Geometry.Parts)
-            {
-                if (!(entry.Value is CompoundGeometryPart) || GetUserMesherSetupItems(entry.Key).Length > 0) continue;
-                //
-                SweepMesh defaultSweepMesh = GetDefaultSweepMesh(entry.Key);
-                if (defaultSweepMesh == null || defaultSweepMesh.UnsweptCellReasons == null) continue;
-                for (int i = 0; i < defaultSweepMesh.UnsweptCellReasons.Length; i++)
-                {
-                    part = _model.Geometry.GetPartFromId(defaultSweepMesh.UnsweptCellPartIds[i]) as GeometryPart;
-                    if (part == null || part.MeshType == MeshTypeEnum.Tetrahedral) continue;
-                    //
-                    string line = defaultSweepMesh.UnsweptCellReasons[i];
-                    reasons.Add(char.ToUpperInvariant(line[0]) + line.Substring(1));
-                }
-            }
-            if (reasons.Count == 0) return;
-            //
-            foreach (var reasonLine in reasons) _form.WriteDataToOutput(reasonLine);
-        }
 
         #endregion #################################################################################################################
 
@@ -14647,6 +14617,15 @@ namespace PrePoMax
         //
         public Dictionary<int, double> GetElementQuality(string elementQualityMetric, string[] partNames)
         {
+            ElementQualityMetricEnum metric =
+                (ElementQualityMetricEnum)Enum.Parse(typeof(ElementQualityMetricEnum), elementQualityMetric);
+            if (vtkControl.Native.VtkNativeElementQuality.IsComputed(metric))
+            {
+                List<int> elementIds = new List<int>();
+                foreach (string partName in partNames) elementIds.AddRange(_model.Mesh.Parts[partName].Labels);
+                return vtkControl.Native.VtkNativeElementQuality.Compute(_model.Mesh, elementIds, metric);
+            }
+            //
             string workDirectory = _settings.GetWorkDirectory();
             //
             if (workDirectory == null || !Directory.Exists(workDirectory))
@@ -14669,12 +14648,57 @@ namespace PrePoMax
             string error = gmshAPI.GetElementQualities();
             return gmshAPI.GmshData.ElementQuality;
         }
+        public string[] GetElementQualityPartNames()
+        {
+            if (_model == null || _model.Mesh == null) return new string[0];
+            //
+            return _model.Mesh.Parts.Where(entry => !(entry.Value is CompoundGeometryPart) &&
+                                                    entry.Value.Labels.Length > 0)
+                                    .Select(entry => entry.Key).ToArray();
+        }
+        // The values of the element quality metric over all mesh parts, kept until the mesh or the metric changes
+        public Dictionary<int, double> GetElementQualityValues()
+        {
+            if (_model == null || _model.Mesh == null) return new Dictionary<int, double>();
+            //
+            string[] partNames = GetElementQualityPartNames();
+            string key = GetElementQualityValuesKey(partNames);
+            if (_elementQualityValues == null || key != _elementQualityValuesKey)
+            {
+                _elementQualityValues = GetElementQuality(_elementQualityMetric.ToString(), partNames);
+                if (_elementQualityValues == null) _elementQualityValues = new Dictionary<int, double>();
+                _elementQualityValuesKey = key;
+            }
+            return _elementQualityValues;
+        }
+        private string GetElementQualityValuesKey(string[] partNames)
+        {
+            FeMesh mesh = _model.Mesh;
+            double coordinateSum = 0;
+            foreach (FeNode node in mesh.Nodes.Values) coordinateSum += node.X + 2 * node.Y + 3 * node.Z;
+            long elementSum = 0;
+            foreach (string partName in partNames) elementSum += mesh.Parts[partName].Labels.LongLength;
+            return _elementQualityMetric + "|" + RuntimeHelpers.GetHashCode(mesh) + "|" + mesh.Nodes.Count + "|" +
+                   mesh.Elements.Count + "|" + elementSum + "|" + string.Join("/", partNames) + "|" +
+                   coordinateSum.ToString("R");
+        }
+        // Shows the element quality color annotation with the metric
+        public void ShowElementQualityAnnotation(ElementQualityMetricEnum metric)
+        {
+            if (_annotateWithColor == AnnotateWithColorEnum.ElementQuality)
+            {
+                ElementQualityMetric = metric;
+            }
+            else
+            {
+                _elementQualityMetric = metric;
+                _form.SetAnnotateWithColor(AnnotateWithColorEnum.ElementQuality);
+            }
+        }
         public void CreateElementSetFromElementQuality(string name, string elementQualityMetric, string[] partNames,
                                                        bool largerThan, double limit)
         {
             Dictionary<int, double> elementQualities = GetElementQuality(elementQualityMetric, partNames);
-            double[] sorted = elementQualities.Values.ToArray();
-            Array.Sort(sorted);
             //
             List<int> elementIds = new List<int>();
             foreach (var entry in elementQualities)
@@ -25495,6 +25519,9 @@ namespace PrePoMax
                 _model.GetMaterialAssignments(out elementIdColorId);
             else if (_annotateWithColor == AnnotateWithColorEnum.SectionThicknesses)
                 _model.GetSectionThicknessAssignments(out elementIdColorId);
+            Color[] elementColorTable = null;
+            if (_annotateWithColor == AnnotateWithColorEnum.ElementQuality)
+                elementIdColorId = GetElementQualityColorIds(out elementColorTable);
             //
             ConcurrentBag<string> hiddenActors = new ConcurrentBag<string>();
             ConcurrentBag<vtkMaxActorData> allData = new ConcurrentBag<vtkMaxActorData>();
@@ -25502,7 +25529,8 @@ namespace PrePoMax
             Parallel.ForEach(parts, entry =>
             //foreach (var entry in parts)
             {
-                vtkMaxActorData data = GetModelPartActorData(_model.Mesh, entry.Value, layer, elementIdColorId);
+                vtkMaxActorData data = GetModelPartActorData(_model.Mesh, entry.Value, layer, elementIdColorId,
+                                                             elementColorTable);
                 if (data != null)
                 {
                     ApplyLighting(data);
@@ -25529,7 +25557,8 @@ namespace PrePoMax
             }
         }
         public vtkMaxActorData GetModelPartActorData(FeMesh mesh, BasePart part, vtkRendererLayer layer,
-                                                     Dictionary<int, int> elementIdColorId = null)
+                                                     Dictionary<int, int> elementIdColorId = null,
+                                                     Color[] elementColorTable = null)
         {
             if (part is CompoundGeometryPart) return null;
             if (part.Labels.Length == 0) return null;
@@ -25560,14 +25589,14 @@ namespace PrePoMax
                 double sumG = 0;
                 double sumB = 0;
                 float[] values = new float[data.Geometry.Cells.Ids.Length];
-                ColorSettings colorSettings = _settings.Color;
+                Color[] colorTable = elementColorTable != null ? elementColorTable : _settings.Color.ColorTable;
                 for (int i = 0; i < values.Length; i++)
                 {
-                    value = elementIdColorId[data.Geometry.Cells.Ids[i]] % colorSettings.ColorTable.Length;
+                    value = elementIdColorId[data.Geometry.Cells.Ids[i]] % colorTable.Length;
                     values[i] = value;
                     if (value > maxColor) maxColor = (int)value;
                     //
-                    cellColor = value < 0 ? Color.White : colorSettings.ColorTable[(int)value];
+                    cellColor = value < 0 ? Color.White : colorTable[(int)value];
                     sumR += cellColor.R;
                     sumG += cellColor.G;
                     sumB += cellColor.B;
@@ -25580,7 +25609,7 @@ namespace PrePoMax
                 //
                 maxColor++; // first color is 0 so add +1
                 data.ColorTable = new Color[maxColor];
-                Array.Copy(colorSettings.ColorTable, data.ColorTable, maxColor);
+                Array.Copy(colorTable, data.ColorTable, maxColor);
                 //
                 //data.ColorTable = colorSettings.ColorTable;
             }
@@ -25706,6 +25735,52 @@ namespace PrePoMax
                 default: return "Other";
             }
         }
+        // The title of the color bar is kept for each color annotation, and for each metric of the element quality
+        private string GetColorBarTitleKey()
+        {
+            if (_annotateWithColor == AnnotateWithColorEnum.ElementQuality)
+                return _annotateWithColor + "." + _elementQualityMetric;
+            else if (GetDefaultColorBarTitle() == "Symbols") return "Symbols";
+            else return _annotateWithColor.ToString();
+        }
+        private string GetDefaultColorBarTitle()
+        {
+            switch (_annotateWithColor)
+            {
+                case AnnotateWithColorEnum.FaceOrientation: return "Face orientations";
+                case AnnotateWithColorEnum.MeshTypes: return "Mesh types";
+                case AnnotateWithColorEnum.ElementQuality:
+                    return Forms.ViewElementQuality.GetMetricName(_elementQualityMetric);
+                case AnnotateWithColorEnum.Parts: return "Parts";
+                case AnnotateWithColorEnum.Materials: return "Materials";
+                case AnnotateWithColorEnum.Sections: return "Sections";
+                case AnnotateWithColorEnum.SectionThicknesses: return "Section thicknesses";
+                case AnnotateWithColorEnum.None: return null;
+                default: return "Symbols";
+            }
+        }
+        public string GetColorBarTitle()
+        {
+            string title;
+            if (_colorBarTitles != null && _colorBarTitles.TryGetValue(GetColorBarTitleKey(), out title)) return title;
+            return GetDefaultColorBarTitle();
+        }
+        public bool IsColorBarTitleEdited
+        {
+            get { return _colorBarTitles != null && _colorBarTitles.ContainsKey(GetColorBarTitleKey()); }
+        }
+        // An empty title returns the color bar to its default title
+        public void SetColorBarTitle(string title)
+        {
+            if (_annotateWithColor == AnnotateWithColorEnum.None) return;
+            //
+            if (_colorBarTitles == null) _colorBarTitles = new Dictionary<string, string>();
+            string key = GetColorBarTitleKey();
+            if (string.IsNullOrWhiteSpace(title) || title == GetDefaultColorBarTitle()) _colorBarTitles.Remove(key);
+            else _colorBarTitles[key] = title;
+            //
+            _form.SetColorBarTitle(GetColorBarTitle());
+        }
         private void AnnotateWithColorLegend()
         {
             if (_annotateWithColor == AnnotateWithColorEnum.None) return;
@@ -25719,6 +25794,12 @@ namespace PrePoMax
                 return;
             // Face orientation legend
             ColorSettings colorSettings = _settings.Color;
+            if (_annotateWithColor == AnnotateWithColorEnum.ElementQuality)
+            {
+                if (_currentView != ViewGeometryModelResults.Model) return;
+                if (_elementQualityColors == null) GetElementQualityColorIds(out _);
+                _form.SetColorBarColorsAndLabels(_elementQualityColors, _elementQualityLabels);
+            }
             if (_annotateWithColor == AnnotateWithColorEnum.FaceOrientation)
             {
                 _form.SetColorBarColorsAndLabels(new Color[] { colorSettings.FrontFaceColor, colorSettings.BackFaceColor },
@@ -26033,6 +26114,7 @@ namespace PrePoMax
                     _form.AddColorBarColorsAndLabels(itemColors.ToArray(), itemNames.ToArray());
                 }
             }
+            _form.SetColorBarTitle(GetColorBarTitle());
             // Pre-processing settings
             PreSettings ps = _settings.Pre;
             _form.DrawColorBarBackground(ps.ColorBarBackgroundType == AnnotationBackgroundType.White);
@@ -30955,6 +31037,81 @@ namespace PrePoMax
         public void HighlightElement(int elementId)
         {
             DrawElements("Highlight", new int[] { elementId }, Color.Red, vtkRendererLayer.Selection);
+        }
+        // The element quality color annotation colors every element of the mesh parts by its value with the rainbow
+        // color table from the best value in blue to the worst in red; an element without a value is gray
+        private Dictionary<int, int> GetElementQualityColorIds(out Color[] elementColorTable)
+        {
+            Dictionary<int, double> elementIdValue = GetElementQualityValues();
+            double min = elementIdValue.Count > 0 ? elementIdValue.Values.Min() : 0;
+            double max = elementIdValue.Count > 0 ? elementIdValue.Values.Max() : 0;
+            int numberOfColors = max > min ? Math.Max(2, _settings.Legend.ColorSpectrum.NumberOfColors) : 1;
+            double colorWidth = (max - min) / numberOfColors;
+            //
+            bool notMeasured = false;
+            Dictionary<int, int> elementIdColorId = new Dictionary<int, int>();
+            foreach (string partName in GetElementQualityPartNames())
+            {
+                foreach (int elementId in _model.Mesh.Parts[partName].Labels)
+                {
+                    double value;
+                    int colorId;
+                    if (!elementIdValue.TryGetValue(elementId, out value))
+                    {
+                        colorId = numberOfColors;
+                        notMeasured = true;
+                    }
+                    else if (colorWidth > 0)
+                    {
+                        colorId = numberOfColors - 1 - Math.Min((int)((value - min) / colorWidth), numberOfColors - 1);
+                    }
+                    else colorId = 0;
+                    elementIdColorId[elementId] = colorId;
+                }
+            }
+            // The worse values of the metric are red
+            bool largerIsWorse;
+            Forms.ViewElementQuality.GetDefaultLimit(_elementQualityMetric, out largerIsWorse, out _);
+            // The color bar lists the colors from the top, so the largest values come first
+            List<Color> colors = new List<Color>();
+            List<string> labels = new List<string>();
+            for (int i = numberOfColors - 1; i >= 0; i--)
+            {
+                double position = (double)i / Math.Max(1, numberOfColors - 1);
+                if (!largerIsWorse && numberOfColors > 1) position = 1 - position;
+                colors.Add(GetRainbowColor(position));
+                if (numberOfColors == 1) labels.Add(FormatQualityValue(min));
+                else labels.Add(FormatQualityValue(min + i * colorWidth) + " - " +
+                                FormatQualityValue(min + (i + 1) * colorWidth));
+            }
+            if (notMeasured)
+            {
+                colors.Add(Color.FromArgb(170, 170, 170));
+                labels.Add("Not measured");
+            }
+            _elementQualityColors = colors.ToArray();
+            _elementQualityLabels = labels.ToArray();
+            elementColorTable = _elementQualityColors;
+            return elementIdColorId;
+        }
+        // The rainbow color table of the legend: the hue runs from blue at 0 to red at 1
+        private static Color GetRainbowColor(double position)
+        {
+            double hue = 4 * (1 - Math.Max(0, Math.Min(1, position)));
+            int sector = Math.Min((int)hue, 3);
+            int rising = (int)Math.Round(255 * (hue - sector));
+            int falling = 255 - rising;
+            switch (sector)
+            {
+                case 0: return Color.FromArgb(255, rising, 0);
+                case 1: return Color.FromArgb(falling, 255, 0);
+                case 2: return Color.FromArgb(0, 255, rising);
+                default: return Color.FromArgb(0, falling, 255);
+            }
+        }
+        private static string FormatQualityValue(double value)
+        {
+            return Tools.RoundToSignificantDigits(value, 4).ToString();
         }
         public void HighlightElements(int[] elementIds)
         {

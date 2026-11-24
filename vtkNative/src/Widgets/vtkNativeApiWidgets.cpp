@@ -433,6 +433,18 @@ extern "C"
         });
     }
 
+    vtkn_status VTKN_CALL vtkn_color_bar_get_title_rectangle(vtkn_widget widget, int32_t* rectangle4, int32_t* found)
+    {
+        return GuardVtk([&]() {
+            Require(rectangle4 != nullptr && found != nullptr, "The out arguments must not be null.");
+            Rect rectangle;
+            *found = Widget::FromHandle(widget)->As<ColorBarWidget>(VTKN_WIDGET_COLOR_BAR)
+                         .GetTitleRectangle(rectangle) ? 1 : 0;
+            CopyRectangle(rectangle, rectangle4);
+            return VTKN_OK;
+        });
+    }
+
     vtkn_status VTKN_CALL vtkn_arrow_set_anchor_point(vtkn_widget widget, double x, double y, double z)
     {
         return GuardVtk([&]() {

@@ -52,9 +52,10 @@ namespace APIs.Python.Model
         }
 
         [PythonAPI("Adds an element set of the elements of the named model parts whose quality metric is " +
-                   "larger, or not larger, than the limit using command history. The metric is a gmsh quality " +
-                   "measure such as minSICN or gamma, in any case, and the name must not be used by another mesh " +
-                   "entity.",
+                   "larger, or not larger, than the limit using command history. The metric is a standard metric " +
+                   "(ScaledJacobian, AspectRatio, EdgeRatio, MinimumAngle, MaximumAngle, Skew, Warpage or Taper) " +
+                   "or a gmsh quality measure such as minSICN or gamma, in any case, and the name must not be used " +
+                   "by another mesh entity.",
                    Arguments = "name: str, metric: str, part_names: list[str] or str, larger_than: bool, " +
                                "limit: float", Returns = "ElementSet")]
         public ElementSetAPI add_from_quality(object name, object metric, object part_names, object larger_than,

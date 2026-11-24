@@ -31,7 +31,8 @@ find_package(VTK 9.7 REQUIRED COMPONENTS
     RenderingFreeType
     RenderingLabel
     RenderingOpenGL2
-    RenderingUI)
+    RenderingUI
+    verdict)
 
 add_library(vtkNative SHARED
     include/vtkNative.h
@@ -59,6 +60,7 @@ add_library(vtkNative SHARED
     src/Geometry/vtkNativeColorSpectrum.h
     src/Geometry/vtkNativeCoorSysSymbols.cpp
     src/Geometry/vtkNativeCoorSysSymbols.h
+    src/Geometry/vtkNativeElementQuality.cpp
     src/Geometry/vtkNativePartActor.cpp
     src/Geometry/vtkNativePartActor.h
     src/Geometry/vtkNativeSectionView.cpp

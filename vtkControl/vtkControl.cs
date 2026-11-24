@@ -334,6 +334,7 @@ namespace vtkControl
         public Action<vtkResultWidgetContextMenuTypeEnum, bool, System.Drawing.Point> Form_ShowResultWidgetContextMenu;
         public Action<System.Drawing.Point> Form_ShowViewportContextMenu;
         public Action Form_ShowColorBarSettings;
+        public Action<Rectangle, string> Form_EditColorBarTitle;
         public Action Form_ShowLegendSettings;
         public Action Form_ShowStatusBlockSettings;
         public Func<bool> Form_CommitViewportEdit;
@@ -436,7 +437,10 @@ namespace vtkControl
         {
             if (!_widgetInteractionEnabled) return;
             //
-            Form_ShowColorBarSettings?.Invoke();
+            if (Form_EditColorBarTitle != null && _colorBarWidget.TryGetTitleRectangle(out Rectangle rectangle) &&
+                rectangle.Contains(e.X, e.Y))
+                Form_EditColorBarTitle(rectangle, _colorBarWidget.GetText());
+            else Form_ShowColorBarSettings?.Invoke();
         }
         private void scalarBarWidget_DoubleClicked(object sender, MouseEventArgs e)
         {
@@ -693,6 +697,11 @@ namespace vtkControl
             else if (sender is vtkMaxStatusBlockWidget)
             {
                 Form_ShowResultWidgetContextMenu?.Invoke(vtkResultWidgetContextMenuTypeEnum.StatusBlock,
+                                                         false, e.Location);
+            }
+            else if (sender is vtkMaxColorBarWidget)
+            {
+                Form_ShowResultWidgetContextMenu?.Invoke(vtkResultWidgetContextMenuTypeEnum.ColorBar,
                                                          false, e.Location);
             }
             else
@@ -2080,6 +2089,17 @@ namespace vtkControl
             _colorBarWidget.SetColorsAndLabels(colors, labels);
             _colorBarWidget.VisibilityOn();
         }
+        public bool TryGetColorBarTitleEditData(out Rectangle rectangle, out string title)
+        {
+            title = _colorBarWidget.GetText();
+            return _colorBarWidget.TryGetTitleRectangle(out rectangle);
+        }
+        public void SetColorBarTitle(string title)
+        {
+            _colorBarWidget.SetText(title);
+            //
+            RenderScene();
+        }
         public void AddColorBarColorsAndLabels(Color[] colors, string[] labels)
         {
             _colorBarWidget.AddColorsAndLabels(colors, labels);
@@ -2105,6 +2125,7 @@ namespace vtkControl
         public void HideColorBar()
         {
             _colorBarWidget.VisibilityOff();
+            _colorBarWidget.SetText(null);
             _colorBarWidget.ClearColorsAndLabels();
             //
             RenderScene();

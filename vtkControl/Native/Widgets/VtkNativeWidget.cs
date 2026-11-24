@@ -195,6 +195,14 @@ namespace vtkControl.Native
                                                                                           VtkNativeLibrary.ToUtf8List(names),
                                                                                           count));
         }
+        public bool GetColorBarTitleRectangle(out Rectangle rectangle)
+        {
+            int found;
+            int[] values = new int[4];
+            VtkNativeLibrary.Check(VtkNativeMethods.vtkn_color_bar_get_title_rectangle(Handle(), values, out found));
+            rectangle = new Rectangle(values[0], values[1], values[2], values[3]);
+            return found != 0;
+        }
         // Text with arrow
         public void SetAnchorPoint(double x, double y, double z)
         {

@@ -502,6 +502,7 @@ namespace PrePoMax
                 _vtk.Form_ShowResultWidgetContextMenu = ShowResultWidgetContextMenu;
                 _vtk.Form_ShowViewportContextMenu = ShowViewportContextMenu;
                 _vtk.Form_ShowColorBarSettings = ShowColorBarSettings;
+                _vtk.Form_EditColorBarTitle = StartEditColorBarTitle;
                 _vtk.Form_ShowLegendSettings = ShowLegendSettings;
                 _vtk.Form_ShowStatusBlockSettings = ShowStatusBlockSettings;
                 _vtk.Form_CommitViewportEdit = CommitViewportEdit;
@@ -3591,6 +3592,10 @@ namespace PrePoMax
         {
             _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
         }
+        private void tsmiAnnotateElementQuality_Click(object sender, EventArgs e)
+        {
+            _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
+        }
         private void tsmiAnnotateParts_Click(object sender, EventArgs e)
         {
             _controller.AnnotateWithColor = ChangeAnnotationStatus(sender);
@@ -3677,7 +3682,7 @@ namespace PrePoMax
                 {
                     // Only one possibility - Face orientations or parts
                     if (tsmi == tsmiAnnotateFaceOrientations || tsmi == tsmiAnnotateMeshTypes ||
-                        tsmi == tsmiAnnotateParts ||
+                        tsmi == tsmiAnnotateElementQuality || tsmi == tsmiAnnotateParts ||
                         tsmi == tsmiAnnotateMaterials || tsmi == tsmiAnnotateSections ||
                         tsmi == tsmiAnnotateSectionThicknesses)
                     {
@@ -3689,6 +3694,7 @@ namespace PrePoMax
                     {
                         tsmiAnnotateFaceOrientations.Checked = false;
                         tsmiAnnotateMeshTypes.Checked = false;
+                        tsmiAnnotateElementQuality.Checked = false;
                         tsmiAnnotateParts.Checked = false;
                         tsmiAnnotateMaterials.Checked = false;
                         tsmiAnnotateSections.Checked = false;
@@ -3702,33 +3708,35 @@ namespace PrePoMax
                 //
                 if (tsmiAnnotateFaceOrientations.Checked) return AnnotateWithColorEnum.FaceOrientation;
                 else if (tsmiAnnotateMeshTypes.Checked) return AnnotateWithColorEnum.MeshTypes;
+                else if (tsmiAnnotateElementQuality.Checked) return AnnotateWithColorEnum.ElementQuality;
                 else if (tsmiAnnotateParts.Checked) return AnnotateWithColorEnum.Parts;
                 else if (tsmiAnnotateMaterials.Checked) return AnnotateWithColorEnum.Materials;
                 else if (tsmiAnnotateSections.Checked) return AnnotateWithColorEnum.Sections;
                 else if (tsmiAnnotateSectionThicknesses.Checked) return AnnotateWithColorEnum.SectionThicknesses;
-                else
-                {
-                    AnnotateWithColorEnum status = AnnotateWithColorEnum.None;
-                    if (tsmiAnnotateReferencePoints.Checked) status |= AnnotateWithColorEnum.ReferencePoints;
-                    if (tsmiAnnotateConstraints.Checked) status |= AnnotateWithColorEnum.Constraints;
-                    if (tsmiAnnotateContactPairs.Checked) status |= AnnotateWithColorEnum.ContactPairs;
-                    if (tsmiAnnotateInitialConditions.Checked) status |= AnnotateWithColorEnum.InitialConditions;
-                    if (tsmiAnnotateBCs.Checked) status |= AnnotateWithColorEnum.BoundaryConditions;
-                    if (tsmiAnnotateLoads.Checked) status |= AnnotateWithColorEnum.Loads;
-                    if (tsmiAnnotateDefinedFields.Checked) status |= AnnotateWithColorEnum.DefinedFields;
-                    //
-                    tsmiAnnotateAllSymbols.Checked = status.HasFlag(AnnotateWithColorEnum.ReferencePoints |
-                                                                    AnnotateWithColorEnum.Constraints |
-                                                                    AnnotateWithColorEnum.ContactPairs |
-                                                                    AnnotateWithColorEnum.InitialConditions |
-                                                                    AnnotateWithColorEnum.BoundaryConditions |
-                                                                    AnnotateWithColorEnum.Loads |
-                                                                    AnnotateWithColorEnum.DefinedFields);
-                    //
-                    return status;
-                }
+                else return GetSymbolAnnotationStatus();
             }
             return AnnotateWithColorEnum.None;
+        }
+        private AnnotateWithColorEnum GetSymbolAnnotationStatus()
+        {
+            AnnotateWithColorEnum status = AnnotateWithColorEnum.None;
+            if (tsmiAnnotateReferencePoints.Checked) status |= AnnotateWithColorEnum.ReferencePoints;
+            if (tsmiAnnotateConstraints.Checked) status |= AnnotateWithColorEnum.Constraints;
+            if (tsmiAnnotateContactPairs.Checked) status |= AnnotateWithColorEnum.ContactPairs;
+            if (tsmiAnnotateInitialConditions.Checked) status |= AnnotateWithColorEnum.InitialConditions;
+            if (tsmiAnnotateBCs.Checked) status |= AnnotateWithColorEnum.BoundaryConditions;
+            if (tsmiAnnotateLoads.Checked) status |= AnnotateWithColorEnum.Loads;
+            if (tsmiAnnotateDefinedFields.Checked) status |= AnnotateWithColorEnum.DefinedFields;
+            //
+            tsmiAnnotateAllSymbols.Checked = status.HasFlag(AnnotateWithColorEnum.ReferencePoints |
+                                                            AnnotateWithColorEnum.Constraints |
+                                                            AnnotateWithColorEnum.ContactPairs |
+                                                            AnnotateWithColorEnum.InitialConditions |
+                                                            AnnotateWithColorEnum.BoundaryConditions |
+                                                            AnnotateWithColorEnum.Loads |
+                                                            AnnotateWithColorEnum.DefinedFields);
+            //
+            return status;
         }
         public void SetAnnotateWithColor(AnnotateWithColorEnum annotateWithColor)
         {
@@ -3737,8 +3745,17 @@ namespace PrePoMax
                 ToolStripMenuItem tsmi = GetAnnotateWithColorMenuItem(annotateWithColor);
                 if (tsmi == null)
                 {
+                    // No coloring annotation: the symbols of the status are turned on
                     ClearAnnotationStatus();
-                    _controller.AnnotateWithColor = AnnotateWithColorEnum.None;
+                    tsmiAnnotateReferencePoints.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.ReferencePoints);
+                    tsmiAnnotateConstraints.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.Constraints);
+                    tsmiAnnotateContactPairs.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.ContactPairs);
+                    tsmiAnnotateInitialConditions.Checked =
+                        annotateWithColor.HasFlag(AnnotateWithColorEnum.InitialConditions);
+                    tsmiAnnotateBCs.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.BoundaryConditions);
+                    tsmiAnnotateLoads.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.Loads);
+                    tsmiAnnotateDefinedFields.Checked = annotateWithColor.HasFlag(AnnotateWithColorEnum.DefinedFields);
+                    _controller.AnnotateWithColor = GetSymbolAnnotationStatus();
                 }
                 else if (!tsmi.Checked) _controller.AnnotateWithColor = ChangeAnnotationStatus(tsmi);
             });
@@ -3749,6 +3766,7 @@ namespace PrePoMax
             {
                 case AnnotateWithColorEnum.FaceOrientation: return tsmiAnnotateFaceOrientations;
                 case AnnotateWithColorEnum.MeshTypes: return tsmiAnnotateMeshTypes;
+                case AnnotateWithColorEnum.ElementQuality: return tsmiAnnotateElementQuality;
                 case AnnotateWithColorEnum.Parts: return tsmiAnnotateParts;
                 case AnnotateWithColorEnum.Materials: return tsmiAnnotateMaterials;
                 case AnnotateWithColorEnum.Sections: return tsmiAnnotateSections;
@@ -5394,20 +5412,12 @@ namespace PrePoMax
         {
             try
             {
-                SelectMultipleEntities("Parts", _controller.GetModelParts(), ElementQuality);
+                ShowForm(_frmElementQuality, "Element Quality", null);
             }
             catch (Exception ex)
             {
                 ExceptionTools.Show(this, ex);
             }
-        }
-        //
-        private void ElementQuality(string[] partNames)
-        {
-            // Set all part names for quality analysis
-            _frmElementQuality.PartNames = partNames;
-            //
-            ShowForm(_frmElementQuality, "Element Quality", null);
         }
         #endregion  ################################################################################################################
 
@@ -8789,6 +8799,7 @@ namespace PrePoMax
             bool legendValue = contextMenuType == vtkResultWidgetContextMenuTypeEnum.LegendValue;
             bool legend = contextMenuType == vtkResultWidgetContextMenuTypeEnum.Legend;
             bool statusBlock = contextMenuType == vtkResultWidgetContextMenuTypeEnum.StatusBlock;
+            bool colorBar = contextMenuType == vtkResultWidgetContextMenuTypeEnum.ColorBar;
             // Min/max limit colors: only when the manual limit clips the data (a color band exists)
             vtkMaxColorSpectrum colorSpectrum = _controller.Settings.Legend.ColorSpectrum;
             bool maxColor = legend && _vtk.ScalarBarAddMaxColor;
@@ -8801,8 +8812,13 @@ namespace PrePoMax
             tsmiSetMinColor.Visible = minColor;
             tsmiMinColorVisible.Visible = minColor;
             tsmiMinColorVisible.Checked = colorSpectrum.MinColorVisible;
-            tsmiResultWidgetSettings.Visible = legend || statusBlock;
+            tsmiColorBarElementQuality.Visible = colorBar &&
+                                                 _controller.AnnotateWithColor == AnnotateWithColorEnum.ElementQuality;
+            tsmiEditColorBarTitle.Visible = colorBar;
+            tsmiResultWidgetSettings.Visible = legend || statusBlock || colorBar;
             tsmiResetLegend.Visible = legend;
+            tsmiResetColorBarTitle.Visible = colorBar;
+            tsmiResetColorBarTitle.Enabled = colorBar && _controller.IsColorBarTitleEdited;
             // Collapse separators so only a single one shows between visible groups
             UpdateSeparatorVisibility(cmsResultWidget.Items);
             //
@@ -9043,6 +9059,17 @@ namespace PrePoMax
                 ShowStatusBlockSettings();
             else if (_resultWidgetContextMenuType == vtkResultWidgetContextMenuTypeEnum.Legend)
                 ShowLegendSettings();
+            else if (_resultWidgetContextMenuType == vtkResultWidgetContextMenuTypeEnum.ColorBar)
+                ShowColorBarSettings();
+        }
+        private void tsmiEditColorBarTitle_Click(object sender, EventArgs e)
+        {
+            if (_vtk.TryGetColorBarTitleEditData(out Rectangle rectangle, out string title))
+                StartEditColorBarTitle(rectangle, title);
+        }
+        private void tsmiResetColorBarTitle_Click(object sender, EventArgs e)
+        {
+            _controller.SetColorBarTitle(null);
         }
         private void tsmiResetLegend_Click(object sender, EventArgs e)
         {
@@ -9104,6 +9131,13 @@ namespace PrePoMax
                 new ViewportLegendValueEditData(minimum, maximum, valueText);
             StartViewportEdit(rectangle, valueText, editMode, editData);
         }
+        private void StartEditColorBarTitle(Rectangle rectangle, string title)
+        {
+            if (_frmQuery.Visible) return;
+            //
+            rectangle.Offset(-1, 0);
+            StartViewportEdit(rectangle, title, ViewportEditModeEnum.ColorBarTitle, null);
+        }
         private void StartViewportEdit(Rectangle rectangle, string text, ViewportEditModeEnum editMode, object tag)
         {
             if (viewportTextEditor.Visible && !CommitViewportEdit()) return;
@@ -9121,16 +9155,16 @@ namespace PrePoMax
             viewportTextEditor.Text = text;
             viewportTextEditor.Tag = tag;
             //
-            bool legendValue = editMode == ViewportEditModeEnum.LegendMinimum ||
-                               editMode == ViewportEditModeEnum.LegendMaximum;
-            if (legendValue)
+            bool centerOnHighlight = editMode == ViewportEditModeEnum.LegendMinimum ||
+                                     editMode == ViewportEditModeEnum.LegendMaximum ||
+                                     editMode == ViewportEditModeEnum.ColorBarTitle;
+            if (centerOnHighlight)
             {
                 double highlightCenterY = vtkLocation.Y + _vtk.Height - rectangle.Y - rectangle.Height / 2.0;
                 int editorY = (int)Math.Round(highlightCenterY - viewportTextEditor.Height / 2.0,
                                               MidpointRounding.AwayFromZero);
                 viewportTextEditor.Location = new Point(location.X, editorY);
-            }
-            //
+            }            //
             viewportTextEditor.BringToFront();
             viewportTextEditor.Visible = true;
             viewportTextEditor.SetCaretAtEnd();
@@ -9178,6 +9212,14 @@ namespace PrePoMax
                 //
                 EndViewportEdit();
                 _controller.Annotations.DrawAnnotations();  // redraw in both cases
+                return true;
+            }
+            else if (editMode == ViewportEditModeEnum.ColorBarTitle)
+            {
+                string title = viewportTextEditor.Text.Replace("\r\n", " ").Trim();
+                //
+                EndViewportEdit();
+                _controller.SetColorBarTitle(title);
                 return true;
             }
             else if (editMode == ViewportEditModeEnum.LegendMinimum ||
@@ -11245,6 +11287,7 @@ namespace PrePoMax
         {
             if (name == tsmiAnnotateFaceOrientations.Text) return tsmiAnnotateFaceOrientations;
             else if (name == tsmiAnnotateMeshTypes.Text) return tsmiAnnotateMeshTypes;
+            else if (name == tsmiAnnotateElementQuality.Text) return tsmiAnnotateElementQuality;
             else if (name == tsmiAnnotateParts.Text) return tsmiAnnotateParts;
             else if (name == tsmiAnnotateMaterials.Text) return tsmiAnnotateMaterials;
             else if (name == tsmiAnnotateSections.Text) return tsmiAnnotateSections;
@@ -11258,6 +11301,7 @@ namespace PrePoMax
             string name;
             if (tsmiAnnotateFaceOrientations.Checked) name = tsmiAnnotateFaceOrientations.Text;
             else if (tsmiAnnotateMeshTypes.Checked) name = tsmiAnnotateMeshTypes.Text;
+            else if (tsmiAnnotateElementQuality.Checked) name = tsmiAnnotateElementQuality.Text;
             else if (tsmiAnnotateParts.Checked) name = tsmiAnnotateParts.Text;
             else if (tsmiAnnotateMaterials.Checked) name = tsmiAnnotateMaterials.Text;
             else if (tsmiAnnotateSections.Checked) name = tsmiAnnotateSections.Text;
@@ -12167,6 +12211,7 @@ namespace PrePoMax
         {
             tsmiAnnotateFaceOrientations.Checked = false;
             tsmiAnnotateMeshTypes.Checked = false;
+            tsmiAnnotateElementQuality.Checked = false;
             tsmiAnnotateParts.Checked = false;
             tsmiAnnotateMaterials.Checked = false;
             tsmiAnnotateSections.Checked = false;
@@ -12623,6 +12668,10 @@ namespace PrePoMax
         public void SetColorBarColorsAndLabels(Color[] colors, string[] labels)
         {
             InvokeIfRequired(_vtk.SetColorBarColorsAndLabels, colors, labels);
+        }
+        public void SetColorBarTitle(string title)
+        {
+            InvokeIfRequired(_vtk.SetColorBarTitle, title);
         }
         public void AddColorBarColorsAndLabels(Color[] colors, string[] labels)
         {
@@ -13087,6 +13136,10 @@ namespace PrePoMax
             InvokeIfRequired(_modelTree.SetStableTreesExpandCollapseState, states);
         }
         public void UpdateHighlight()
+        {
+            InvokeIfRequired(UpdateHighlightOnUiThread);
+        }
+        private void UpdateHighlightOnUiThread()
         {
             if (_allForms == null) return;
             //
