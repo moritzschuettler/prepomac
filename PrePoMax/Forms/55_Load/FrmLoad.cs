@@ -17,6 +17,7 @@ using CaeModel;
 using CaeGlobals;
 using CaeMesh;
 using CaeResults;
+using DynamicTypeDescriptor;
 
 namespace PrePoMax.Forms
 {
@@ -26,6 +27,7 @@ namespace PrePoMax.Forms
         private string[] _loadNames;
         private string _loadToEditName;
         private ViewLoad _viewLoad;
+        private Dictionary<PressureLoadTypeEnum, ViewLoad> _pressureViews;
         private Controller _controller;
         private Selection _selectionCopy;
 
@@ -261,6 +263,8 @@ namespace PrePoMax.Forms
             string property = propertyGrid.SelectedGridItem.PropertyDescriptor.Name;
             //
             if (property == nameof(_viewLoad.RegionType)) ShowHideSelectionForm();
+            else if (property == nameof(IViewPressureLoad.PressureType) && _viewLoad is IViewPressureLoad vpl)
+                ChangePressureType(vpl.PressureType);
             // Every value can change the symbols
             HighlightLoad();
             //
@@ -443,6 +447,7 @@ namespace PrePoMax.Forms
             _loadNames = null;
             _loadToEditName = null;
             _viewLoad = null;
+            _pressureViews = null;
             lvTypes.Items.Clear();
             propertyGrid.SelectedObject = null;
             //
@@ -580,7 +585,7 @@ namespace PrePoMax.Forms
                     if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
                     else surfaceNames = elementBasedSurfaceNames.ToArray();
                     //
-                    selectedId = lvTypes.FindItemWithText("Hydrostatic Pressure").Index;
+                    selectedId = lvTypes.FindItemWithText("Pressure").Index;
                     // Check for deleted regions
                     if (vhpl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
                     else if (vhpl.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
@@ -595,7 +600,7 @@ namespace PrePoMax.Forms
                     if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
                     else surfaceNames = elementBasedSurfaceNames.ToArray();
                     //
-                    selectedId = lvTypes.FindItemWithText("Imported Pressure").Index;
+                    selectedId = lvTypes.FindItemWithText("Pressure").Index;
                     // Check for deleted regions
                     if (vipl.RegionType == RegionTypeEnum.Selection.ToFriendlyString()) { }
                     else if (vipl.RegionType == RegionTypeEnum.SurfaceName.ToFriendlyString())
@@ -796,6 +801,7 @@ namespace PrePoMax.Forms
                 else throw new NotSupportedException();
                 //
                 lvTypes.Items[selectedId].Tag = _viewLoad;
+                if (_viewLoad is IViewPressureLoad vpl) _pressureViews[vpl.PressureType] = _viewLoad;
                 _preselectIndex = selectedId;
             }
             ShowHideSelectionForm();
@@ -849,55 +855,46 @@ namespace PrePoMax.Forms
                 item.Tag = vml;
                 lvTypes.Items.Add(item);
             }
-            // Pressure
+            // Pressure - the hydrostatic and the imported pressure are selected by its pressure type
             name = "Pressure";
             loadName = GetLoadName(name);
             item = new ListViewItem(name);
             DLoad dLoad = new DLoad(loadName, "", RegionTypeEnum.Selection, 0, twoD, complex, 0);
-            if (step.IsLoadSupported(dLoad))
+            HydrostaticPressure hpLoad = new HydrostaticPressure(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
+            ImportedPressure ipLoad = new ImportedPressure(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
+            if (step.IsLoadSupported(dLoad) && step.IsLoadSupported(hpLoad) && step.IsLoadSupported(ipLoad))
             {
-                string[] surfaceNames;
-                if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
-                else surfaceNames = noEdgeSurfaceNames.ToArray();
+                string[] noEdgePressureSurfaceNames;
+                string[] allPressureSurfaceNames;
+                if (twoD)
+                {
+                    noEdgePressureSurfaceNames = shellEdgeSurfaceNames.ToArray();
+                    allPressureSurfaceNames = shellEdgeSurfaceNames.ToArray();
+                }
+                else
+                {
+                    noEdgePressureSurfaceNames = noEdgeSurfaceNames.ToArray();
+                    allPressureSurfaceNames = elementBasedSurfaceNames.ToArray();
+                }
                 //
                 ViewDLoad vdl = new ViewDLoad(dLoad);
-                vdl.PopulateDropDownLists(surfaceNames, distributionNames, amplitudeNames);
+                vdl.PopulateDropDownLists(noEdgePressureSurfaceNames, distributionNames, amplitudeNames);
                 vdl.Color = color;
-                item.Tag = vdl;
-                lvTypes.Items.Add(item);
-            }
-            // Hydrostatic pressure
-            name = "Hydrostatic Pressure";
-            loadName = GetLoadName(name);
-            item = new ListViewItem(name);
-            HydrostaticPressure hpLoad = new HydrostaticPressure(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
-            if (step.IsLoadSupported(hpLoad))
-            {
-                string[] surfaceNames;
-                if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
-                else surfaceNames = elementBasedSurfaceNames.ToArray();
                 //
                 ViewHydrostaticPressureLoad vhpl = new ViewHydrostaticPressureLoad(hpLoad);
-                vhpl.PopulateDropDownLists(surfaceNames, amplitudeNames);
+                vhpl.PopulateDropDownLists(allPressureSurfaceNames, amplitudeNames);
                 vhpl.Color = color;
-                item.Tag = vhpl;
-                lvTypes.Items.Add(item);
-            }
-            // Pressure
-            name = "Imported Pressure";
-            loadName = GetLoadName(name);
-            item = new ListViewItem(name);
-            ImportedPressure ipLoad = new ImportedPressure(loadName, "", RegionTypeEnum.Selection, twoD, complex, 0);
-            if (step.IsLoadSupported(ipLoad))
-            {
-                string[] surfaceNames;
-                if (twoD) surfaceNames = shellEdgeSurfaceNames.ToArray();
-                else surfaceNames = noEdgeSurfaceNames.ToArray();
                 //
                 ViewImportedPressureLoad vipl = new ViewImportedPressureLoad(ipLoad);
-                vipl.PopulateDropDownLists(surfaceNames, amplitudeNames);
+                vipl.PopulateDropDownLists(noEdgePressureSurfaceNames, amplitudeNames);
                 vipl.Color = color;
-                item.Tag = vipl;
+                //
+                _pressureViews = new Dictionary<PressureLoadTypeEnum, ViewLoad>();
+                _pressureViews.Add(PressureLoadTypeEnum.Standard, vdl);
+                _pressureViews.Add(PressureLoadTypeEnum.Hydrostatic, vhpl);
+                _pressureViews.Add(PressureLoadTypeEnum.Imported, vipl);
+                //
+                item.Tag = vdl;
                 lvTypes.Items.Add(item);
             }
             // Surface traction
@@ -1087,6 +1084,61 @@ namespace PrePoMax.Forms
             name = _loadNames.GetNextNumberedKey(name);
             //
             return name;
+        }
+        private void ChangePressureType(PressureLoadTypeEnum pressureType)
+        {
+            ViewLoad sourceView = _viewLoad;
+            ViewLoad targetView = _pressureViews[pressureType];
+            if (targetView == sourceView) return;
+            //
+            ((IViewPressureLoad)sourceView).PressureType = _pressureViews.First(entry => entry.Value == sourceView).Key;
+            CopyPressureLoadData(sourceView.GetBase(), targetView);
+            //
+            foreach (ListViewItem listViewItem in lvTypes.Items)
+            {
+                if (listViewItem.Tag == sourceView) listViewItem.Tag = targetView;
+            }
+            //
+            _viewLoad = targetView;
+            if (_viewLoad is ViewImportedPressureLoad vipl) vipl.UpdateFileBrowserDialog();
+            propertyGrid.SelectedObject = _viewLoad;
+            //
+            ShowHideSelectionForm();
+        }
+        private void CopyPressureLoadData(Load sourceLoad, ViewLoad targetView)
+        {
+            Load targetLoad = targetView.GetBase();
+            //
+            targetLoad.Name = sourceLoad.Name;
+            targetLoad.AmplitudeName = sourceLoad.AmplitudeName;
+            targetLoad.PhaseDeg.Equation = sourceLoad.PhaseDeg.Equation;
+            targetLoad.Color = sourceLoad.Color;
+            //
+            if (sourceLoad.RegionType == RegionTypeEnum.SurfaceName &&
+                !IsStandardValue(targetView, nameof(ViewDLoad.SurfaceName), sourceLoad.RegionName))
+            {
+                targetLoad.RegionType = RegionTypeEnum.Selection;
+                targetLoad.RegionName = "";
+                targetLoad.CreationIds = null;
+                targetLoad.CreationData = null;
+            }
+            else
+            {
+                targetLoad.RegionType = sourceLoad.RegionType;
+                targetLoad.RegionName = sourceLoad.RegionName;
+                targetLoad.CreationIds = sourceLoad.CreationIds?.ToArray();
+                targetLoad.CreationData = sourceLoad.CreationData?.DeepCopy(true, false);
+            }
+            targetView.UpdateRegionVisibility();
+        }
+        private static bool IsStandardValue(ViewLoad view, string propertyName, string value)
+        {
+            CustomPropertyDescriptor propertyDescriptor = view.DynamicCustomTypeDescriptor.GetProperty(propertyName);
+            foreach (StandardValueAttribute standardValue in propertyDescriptor.StatandardValues)
+            {
+                if (standardValue.Value != null && standardValue.Value.ToString() == value) return true;
+            }
+            return false;
         }
         private void HighlightLoad()
         {

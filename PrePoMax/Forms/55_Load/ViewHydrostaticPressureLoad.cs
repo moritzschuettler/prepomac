@@ -21,16 +21,27 @@ using CaeModel;
 namespace PrePoMax
 {
     [PmxType(10468)]
-    public class ViewHydrostaticPressureLoad : ViewLoad
+    public class ViewHydrostaticPressureLoad : ViewLoad, IViewPressureLoad
     {
-        // Variables                                                                                                                
+        // Variables
         [PmxKey(0)] private HydrostaticPressure _hpLoad;
         [PmxKey(1)] private ItemSetData _singlePointItemSetData;
         [PmxKey(2)] private ItemSetData _twoPointPointItemSetData;
+        [NonSerialized] private PressureLoadTypeEnum? _pressureType;
 
 
-        // Properties                                                                                                               
+        // Properties
         public override string Name { get { return _hpLoad.Name; } set { _hpLoad.Name = value; } }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(1, 10, "Pressure type")]
+        [DescriptionAttribute("Select the pressure type.")]
+        [Id(2, 1)]
+        public PressureLoadTypeEnum PressureType
+        {
+            get { return _pressureType ?? PressureLoadTypeEnum.Hydrostatic; }
+            set { _pressureType = value; }
+        }
         //
         [CategoryAttribute("Region")]
         [OrderedDisplayName(2, 10, "Surface")]

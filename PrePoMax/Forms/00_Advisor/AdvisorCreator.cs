@@ -255,7 +255,7 @@ namespace PrePoMax
             //
             PanelItemLinkLabel panelLinkLabel1 = new PanelItemLinkLabel();
             panelLinkLabel1.Text = "1 Surface traction";
-            panelLinkLabel1.AddAction(frmMain.tsmiCreateLoad_Click, null, new EventArgs<int>(5));
+            panelLinkLabel1.AddAction(frmMain.tsmiCreateLoad_Click, null, new EventArgs<int>(3));
             panelLinkLabel1.IndentLevel = 0;
             panelPage.Items.Add(panelLinkLabel1);
             //
@@ -267,7 +267,7 @@ namespace PrePoMax
             //
             PanelItemLinkLabel panelLinkLabel3 = new PanelItemLinkLabel();
             panelLinkLabel3.Text = "3 Gravity load";
-            panelLinkLabel3.AddAction(frmMain.tsmiCreateLoad_Click, null, new EventArgs<int>(7));
+            panelLinkLabel3.AddAction(frmMain.tsmiCreateLoad_Click, null, new EventArgs<int>(5));
             panelLinkLabel3.IndentLevel = 0;
             panelPage.Items.Add(panelLinkLabel3);
             //

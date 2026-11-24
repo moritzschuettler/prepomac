@@ -22,14 +22,25 @@ using System.Drawing.Design;
 namespace PrePoMax
 {
     [PmxType(10458)]
-    public class ViewImportedPressureLoad : ViewLoad
+    public class ViewImportedPressureLoad : ViewLoad, IViewPressureLoad
     {
-        // Variables                                                                                                                
+        // Variables
         [PmxKey(0)] private ImportedPressure _importedPressure;
+        [NonSerialized] private PressureLoadTypeEnum? _pressureType;
 
 
-        // Properties                                                                                                               
+        // Properties
         public override string Name { get { return _importedPressure.Name; } set { _importedPressure.Name = value; } }
+        //
+        [CategoryAttribute("Data")]
+        [OrderedDisplayName(1, 10, "Pressure type")]
+        [DescriptionAttribute("Select the pressure type.")]
+        [Id(2, 1)]
+        public PressureLoadTypeEnum PressureType
+        {
+            get { return _pressureType ?? PressureLoadTypeEnum.Imported; }
+            set { _pressureType = value; }
+        }
         //
         [CategoryAttribute("Region")]
         [OrderedDisplayName(2, 10, "Surface")]
