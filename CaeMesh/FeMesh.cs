@@ -4984,7 +4984,8 @@ namespace CaeMesh
             if (sweepMesh != null && sweepMesh.BlockSourceSurfaceIds != null)
             {
                 HashSet<int> sourceSurfaceIds = new HashSet<int>(sweepMesh.BlockSourceSurfaceIds.SelectMany(ids => ids));
-                gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, sweepMesh, sourceSurfaceIds);
+                HashSet<int> structuredFaceIds = GetSweepStructuredFaceIds(partNames, sourceSurfaceIds);
+                gmshData.TransfiniteFaces = GetTransfiniteFacesForGmsh(partNames, sweepMesh, structuredFaceIds);
                 if (sweepMesh.TransfiniteSubmapped)
                 {
                     gmshData.SubmapFaces = GetSubmapFacesForGmsh(partNames, sweepMesh, gmshData.TransfiniteFaces,
@@ -4993,6 +4994,21 @@ namespace CaeMesh
                     gmshData.LensFaces = GetLensFacesForGmsh(partNames, sweepMesh, sourceSurfaceIds);
                 }
             }
+        }
+        /// <summary>
+        /// The faces of a sweep that may be structured: every face of the parts. Which cells the sweep leaves to
+        /// tetrahedra shows only once its blocks are built, so the sweep takes of the faces that are not sources the
+        /// ones that bound no block, and leaves the others to its walls and targets.
+        /// </summary>
+        private HashSet<int> GetSweepStructuredFaceIds(string[] partNames, HashSet<int> sourceSurfaceIds)
+        {
+            HashSet<int> faceIds = new HashSet<int>(sourceSurfaceIds);
+            foreach (var partName in partNames)
+            {
+                BasePart part = _parts[partName];
+                for (int i = 0; i < part.Visualization.FaceCount; i++) faceIds.Add(GmshTopologyId(i, part.PartId));
+            }
+            return faceIds;
         }
         /// <summary>
         /// The structured faces of the parts by the one definition all meshers follow, with gmsh topology ids: of the

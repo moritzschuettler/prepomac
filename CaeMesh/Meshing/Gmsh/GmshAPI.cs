@@ -104,6 +104,8 @@ namespace CaeMesh
         private HashSet<int> _quadWildSourceIds = new HashSet<int>();
         private HashSet<int> _fullQuadSourceIds = new HashSet<int>();
         private HashSet<int> _tetrahedralSurfaceIds = new HashSet<int>();
+        private List<TransfiniteFace> _tetrahedralStructuredFaces = new List<TransfiniteFace>();
+        private HashSet<int> _tetrahedralTransfiniteSurfaceIds = new HashSet<int>();
         private List<SweepQuadWildGroup> _quadWildGroups;
         private List<SweepRevolvedBlock> _revolvedBlocks = new List<SweepRevolvedBlock>();
         private Dictionary<SweepRevolvedBlock, int[]> _revolvedLayerCounts = new Dictionary<SweepRevolvedBlock, int[]>();
@@ -1329,6 +1331,90 @@ namespace CaeMesh
             return surfaceIds;
         }
         /// <summary>
+        /// Structures the four-sided faces that bound only the cells left to tetrahedra, as triangles, since Netgen would
+        /// stand a pyramid on every quadrilateral. The counts the sweep settled are kept: an edge of a surface of a block,
+        /// an edge whose number of elements the user set and, on a part meshed as its own mirror image, every edge is
+        /// pinned, and only the edges no block uses are changed to balance the opposite sides. A face whose sides stay
+        /// unbalanced keeps the free mesh, and so does every face under the quasi-structured quad algorithm, which meshes
+        /// the edges again with counts of its own. A later attempt takes back the faces the earlier one structured first.
+        /// </summary>
+        private void SetTetrahedralStructuredFaces()
+        {
+            if (_tetrahedralTransfiniteSurfaceIds.Count > 0)
+                Gmsh.Model.Mesh.RemoveConstraints(_tetrahedralTransfiniteSurfaceIds.Select(surfaceId =>
+                                                      new Tuple<int, int>(2, surfaceId)).ToArray());
+            _tetrahedralTransfiniteSurfaceIds.Clear();
+            if (!_isOCC || _tetrahedralStructuredFaces.Count == 0) return;
+            if ((int)Gmsh.Option.GetNumber("Mesh.Algorithm") == (int)GmshAlgorithmMesh2DEnum.QuasiStructuredQuad) return;
+            //
+            Dictionary<int, int[]> surfaceIdEdgeIds;
+            Dictionary<int, int[]> surfaceIdVertexIds;
+            GetSurfaceItems(out surfaceIdEdgeIds, out surfaceIdVertexIds);
+            List<TransfiniteFace> faces = new List<TransfiniteFace>();
+            foreach (var face in _tetrahedralStructuredFaces.OrderBy(face => face.FaceId))
+            {
+                int[] edgeIds;
+                if (!surfaceIdEdgeIds.TryGetValue(face.FaceId, out edgeIds)) continue;
+                HashSet<int> sideEdgeIds = new HashSet<int>(face.SideEdgeIds.SelectMany(side => side));
+                if (!sideEdgeIds.SetEquals(edgeIds.Select(Math.Abs))) continue;
+                if (!face.CornerNodeIds.All(surfaceIdVertexIds[face.FaceId].Contains)) continue;
+                faces.Add(face);
+            }
+            if (faces.Count == 0) return;
+            IntPtr[] nodeTags;
+            foreach (var edgeId in faces.SelectMany(face => face.SideEdgeIds.SelectMany(side => side)).Distinct())
+            {
+                Gmsh.Model.Mesh.GetNodes(out nodeTags, out _, 1, edgeId, true, false);
+                if (nodeTags.Length < 2) return;
+            }
+            //
+            HashSet<int> blockEdgeIds = new HashSet<int>(surfaceIdEdgeIds.Where(entry =>
+                                                             !_tetrahedralSurfaceIds.Contains(entry.Key))
+                                                         .SelectMany(entry => entry.Value.Select(Math.Abs)));
+            HashSet<int> faceIds = new HashSet<int>(faces.Select(face => face.FaceId));
+            HashSet<int> freeFaceEdgeIds = new HashSet<int>(_tetrahedralSurfaceIds.Where(surfaceId =>
+                                                                !faceIds.Contains(surfaceId) &&
+                                                                surfaceIdEdgeIds.ContainsKey(surfaceId))
+                                                            .SelectMany(surfaceId =>
+                                                                surfaceIdEdgeIds[surfaceId].Select(Math.Abs)));
+            Dictionary<int, int> edgeIdCount = faces.SelectMany(face => face.SideEdgeIds.SelectMany(side => side))
+                                                    .Distinct()
+                                                    .ToDictionary(edgeId => edgeId, SweepWallTopology.GetElementCount);
+            HashSet<int> pinnedEdgeIds = new HashSet<int>(edgeIdCount.Keys.Where(edgeId =>
+                _mirrorPlanes.Count > 0 || blockEdgeIds.Contains(edgeId) || IsFixedEdgeCount(edgeId)));
+            List<TransfiniteSidePair> pairs = new List<TransfiniteSidePair>();
+            foreach (var face in faces)
+            {
+                pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[0], face.SideEdgeIds[2]));
+                pairs.Add(new TransfiniteSidePair(face.FaceId, face.SideEdgeIds[1], face.SideEdgeIds[3]));
+            }
+            Dictionary<int, int> naturalCounts = new Dictionary<int, int>(edgeIdCount);
+            List<TransfiniteSideTriple> unbalancedTriples;
+            TransfiniteEdgeCountBalancer.Balance(edgeIdCount, naturalCounts, pinnedEdgeIds, pairs,
+                                                 new List<TransfiniteSideTriple>(), out unbalancedTriples, freeFaceEdgeIds,
+                                                 GetSizedTrialCounts(edgeIdCount), GetMaxSizeCounts(naturalCounts));
+            MeshTrialEdges(edgeIdCount, new HashSet<int>());
+            //
+            Func<int[], int> getSideCount = side => side.Sum(SweepWallTopology.GetElementCount);
+            int numOfFreeFaces = 0;
+            foreach (var face in faces)
+            {
+                if (getSideCount(face.SideEdgeIds[0]) != getSideCount(face.SideEdgeIds[2]) ||
+                    getSideCount(face.SideEdgeIds[1]) != getSideCount(face.SideEdgeIds[3]))
+                {
+                    numOfFreeFaces++;
+                    continue;
+                }
+                Gmsh.Model.Mesh.SetTransfiniteSurface(face.FaceId, "AlternateLeft", face.CornerNodeIds);
+                _tetrahedralTransfiniteSurfaceIds.Add(face.FaceId);
+            }
+            _writeOutput?.Invoke("Sweep: " + _tetrahedralTransfiniteSurfaceIds.Count + " of the " + faces.Count +
+                                 " four-sided surface/s that bound only the cells left to tetrahedra are meshed with a " +
+                                 "structured grid" + (numOfFreeFaces == 0 ? "." : "; the others are meshed free, since " +
+                                 "the numbers of elements the sweep set on their edges leave their opposite sides " +
+                                 "unequal."));
+        }
+        /// <summary>
         /// The quasi-structured quad algorithm meshes every surface it reaches by quadrilaterals, and Netgen would stand
         /// a pyramid on each of them, so the surfaces that bound only tetrahedral cells are meshed by triangles.
         /// </summary>
@@ -1445,6 +1531,10 @@ namespace CaeMesh
             // made one, it would be held to the counts the sweep set on its edges, which its opposite sides need not
             // share, and it would tie the counts of the walls to its own
             _tetrahedralSurfaceIds = GetTetrahedralSurfaceIds(_sweepBlocks);
+            // It is structured on its own terms instead, as triangles, where the counts the sweep settles leave its
+            // opposite sides balanced (SetTetrahedralStructuredFaces)
+            _tetrahedralStructuredFaces = (_gmshData.TransfiniteFaces ?? new TransfiniteFace[0])
+                .Where(face => face.NumberOfSides == 4 && _tetrahedralSurfaceIds.Contains(face.FaceId)).ToList();
             // A source QuadWild meshes is triangulated free for it, once the fragmentation has given the faces their
             // final tags. A source that is the target of another block is the cap that block's sweep leaves, and is
             // read back from there; one that is a wall of another block is meshed as the structured grid of that wall
@@ -3051,6 +3141,7 @@ namespace CaeMesh
             // A transfinite surface set a second time would add its corners to the ones gmsh holds, so a
             // later attempt keeps the constraints of the first
             if (setTransfiniteWalls) SetTransfiniteWalls(walls);
+            SetTetrahedralStructuredFaces();
             // gmsh reports a wall it could not mesh with a structured grid, meshes it free and carries on, so
             // its log is read for the report. A surface whose corners were nominated it refuses with an exception
             // instead, which is caught for the same report
