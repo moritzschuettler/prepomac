@@ -80,6 +80,7 @@ namespace UserControls
                                                        (int)(SystemColors.Highlight.B + (255 - SystemColors.Highlight.B) * 0.8));
         private ListViewItem _prevMouseOverItem;
         private Color[] _prevMouseOverNodeColors;
+        private int _selectionChangeCount;
         public new ListViewItemCollectionWithEvents Items;
 
 
@@ -233,7 +234,10 @@ namespace UserControls
             // One item should always be selected
             if (SelectedItems.Count > 0)
             {
+                int selectionChange = ++_selectionChangeCount;
                 base.OnSelectedIndexChanged(e);
+                // A handler that pumps the messages lets a newer selection be shown before it returns
+                if (selectionChange != _selectionChangeCount) return;
                 //
                 ClearMouseOverSelection();
                 ClearPrevSelection();
@@ -334,7 +338,7 @@ namespace UserControls
         }
         private void ClearMouseOverSelection()
         {
-            if (_prevMouseOverItem != null && _prevMouseOverItem != _prevSelectedItem && !_prevMouseOverItem.Selected)
+            if (_prevMouseOverItem != null && _prevMouseOverItem != _prevSelectedItem)
             {
                 _prevMouseOverItem.BackColor = _prevMouseOverNodeColors[0];
                 _prevMouseOverItem.ForeColor = _prevMouseOverNodeColors[1];

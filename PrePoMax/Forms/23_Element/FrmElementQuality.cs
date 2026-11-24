@@ -40,6 +40,7 @@ namespace PrePoMax.Forms
 
         // Constructors                                                                                                             
         public FrmElementQuality(Controller controller)
+            :base(1.8)
         {
             InitializeComponent();
             //
@@ -58,8 +59,6 @@ namespace PrePoMax.Forms
             //
             btnOkAddNew.Text = "Create Set";
             btnCancel.Text = "Close";
-            //
-            propertyGrid.SetLabelColumnWidth(1.9);
         }
         private void InitializeComponent()
         {
@@ -74,33 +73,32 @@ namespace PrePoMax.Forms
             // 
             // lvTypes
             // 
-            this.lvTypes.ShowItemToolTips = true;
             this.lvTypes.Size = new System.Drawing.Size(298, 80);
             // 
             // gbProperties
             // 
             this.gbProperties.Location = new System.Drawing.Point(12, 126);
-            this.gbProperties.Size = new System.Drawing.Size(310, 342);
+            this.gbProperties.Size = new System.Drawing.Size(310, 322);
             // 
             // propertyGrid
             // 
-            this.propertyGrid.Size = new System.Drawing.Size(298, 314);
+            this.propertyGrid.Size = new System.Drawing.Size(298, 294);
             // 
             // btnOK
             // 
-            this.btnOK.Location = new System.Drawing.Point(160, 474);
+            this.btnOK.Location = new System.Drawing.Point(160, 454);
             // 
             // btnCancel
             // 
-            this.btnCancel.Location = new System.Drawing.Point(241, 474);
+            this.btnCancel.Location = new System.Drawing.Point(241, 454);
             // 
             // btnOkAddNew
             // 
-            this.btnOkAddNew.Location = new System.Drawing.Point(79, 474);
+            this.btnOkAddNew.Location = new System.Drawing.Point(79, 454);
             // 
             // FrmElementQuality
             // 
-            this.ClientSize = new System.Drawing.Size(334, 509);
+            this.ClientSize = new System.Drawing.Size(334, 489);
             this.Name = "FrmElementQuality";
             this.Text = "Element Quality";
             this.gbType.ResumeLayout(false);
@@ -133,9 +131,9 @@ namespace PrePoMax.Forms
             _computingElementQuality = true;
             try
             {
-                while (!_closing && lvTypes.SelectedItems != null && lvTypes.SelectedItems.Count == 1)
+                while (!_closing && lvTypes.SelectedItem != null)
                 {
-                    ElementQualityMetricEnum metric = (ElementQualityMetricEnum)lvTypes.SelectedItems[0].Tag;
+                    ElementQualityMetricEnum metric = (ElementQualityMetricEnum)lvTypes.SelectedItem.Tag;
                     if (metric == _computedMetric) break;
                     //
                     _viewElementQuality.ElementQualityMetric = metric;

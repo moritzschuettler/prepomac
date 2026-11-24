@@ -23,9 +23,9 @@ namespace CaeMesh
         AspectRatio,
         [StandardValue("EdgeRatio", DisplayName = "Edge ratio")]
         EdgeRatio,
-        [StandardValue("MinimumAngle", DisplayName = "Minimum angle")]
+        [StandardValue("MinimumAngle", DisplayName = "Min angle")]
         MinimumAngle,
-        [StandardValue("MaximumAngle", DisplayName = "Maximum angle")]
+        [StandardValue("MaximumAngle", DisplayName = "Max angle")]
         MaximumAngle,
         [StandardValue("Skew", DisplayName = "Skew")]
         Skew,
@@ -33,15 +33,15 @@ namespace CaeMesh
         Warpage,
         [StandardValue("Taper", DisplayName = "Taper")]
         Taper,
-        [StandardValue("minDetJac", DisplayName = "Minimum Jacobian determinant")]
+        [StandardValue("minDetJac", DisplayName = "Min Jacobian determinant")]
         minDetJac,
-        [StandardValue("maxDetJac", DisplayName = "Maximum Jacobian determinant")]
+        [StandardValue("maxDetJac", DisplayName = "Max Jacobian determinant")]
         maxDetJac,
-        [StandardValue("minSJ", DisplayName = "Minimum scaled Jacobian")]
+        [StandardValue("minSJ", DisplayName = "Min scaled Jacobian")]
         minSJ,
-        [StandardValue("minSICN", DisplayName = "Minimum signed inverse condition number")]
+        [StandardValue("minSICN", DisplayName = "Min signed inverse condition number")]
         minSICN,
-        [StandardValue("minSIGE", DisplayName = "Minimum signed inverse gradient error")]
+        [StandardValue("minSIGE", DisplayName = "Min signed inverse gradient error")]
         minSIGE,
         [StandardValue("gamma", DisplayName = "Gamma")]
         gamma,
@@ -49,13 +49,13 @@ namespace CaeMesh
         innerRadius,
         [StandardValue("outerRadius", DisplayName = "Outer radius")]
         outerRadius,
-        [StandardValue("minIsotropy", DisplayName = "Minimum isotropy")]
+        [StandardValue("minIsotropy", DisplayName = "Min isotropy")]
         minIsotropy,
         [StandardValue("angleShape", DisplayName = "Angle shape")]
         angleShape,
-        [StandardValue("minEdge", DisplayName = "Minimum edge length")]
+        [StandardValue("minEdge", DisplayName = "Min edge length")]
         minEdge,
-        [StandardValue("maxEdge", DisplayName = "Maximum edge length")]
+        [StandardValue("maxEdge", DisplayName = "Max edge length")]
         maxEdge,
         [StandardValue("volume", DisplayName = "Volume")]
         volume
